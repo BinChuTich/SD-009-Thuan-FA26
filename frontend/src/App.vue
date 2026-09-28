@@ -21,24 +21,40 @@
       </div>
 
       <nav class="menu">
-        <router-link to="/" class="menu-item active">
-          <span class="menu-icon">▦</span> Tổng quan
+        <router-link to="/" class="menu-item" active-class="active">
+          <span class="menu-icon">▦</span> Thống kê
         </router-link>
-        <div class="menu-item"><span class="menu-icon">▣</span> Bán hàng tại quầy</div>
-        <div class="menu-item"><span class="menu-icon">▤</span> Quản lý đơn hàng</div>
-        <router-link to="/hoa-don" class="menu-item">
-          <span class="menu-icon">▧</span> Hóa đơn
+
+        <router-link to="/ban-hang" class="menu-item" active-class="active">
+          <span class="menu-icon">▣</span> Bán hàng tại quầy
         </router-link>
-        <div class="menu-item"><span class="menu-icon">↩</span> Trả hàng</div>
-        <div class="menu-item"><span class="menu-icon">▧</span> Quản lý sản phẩm</div>
-        <div class="menu-item"><span class="menu-icon">♙</span> Quản lý tài khoản</div>
-        <div class="menu-item"><span class="menu-icon">%</span> Giảm giá</div>
+
+        <!-- Nhấn vào Quản lý đơn hàng sẽ nhảy sang trang Hóa đơn -->
+        <router-link to="/hoa-don" class="menu-item" active-class="active">
+          <span class="menu-icon">▤</span> Quản lý đơn hàng
+        </router-link>
+
+        <div class="menu-item">
+          <span class="menu-icon">↩</span> Trả hàng
+        </div>
+
+        <router-link to="/san-pham" class="menu-item" active-class="active">
+          <span class="menu-icon">▧</span> Quản lý sản phẩm
+        </router-link>
+
+        <router-link to="/khach-hang" class="menu-item" active-class="active">
+          <span class="menu-icon">♙</span> Quản lý tài khoản
+        </router-link>
+
+        <router-link to="/khuyen-mai" class="menu-item" active-class="active">
+          <span class="menu-icon">%</span> Giảm giá
+        </router-link>
       </nav>
     </aside>
 
     <main class="main-content">
       <header class="top-header">
-        <div class="header-title">Tổng quan</div>
+        <div class="header-title">Hệ thống quản lý FF T-shirt</div>
         <div class="header-right">
           <span>Quản trị viên</span>
           <span class="divider">|</span>
@@ -57,113 +73,122 @@
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Fredoka:wght@600;700&display=swap');
+
+:root {
+  --blue: #496883;
+  --gold: #d2a764;
+  --line: #e9e5db;
+}
 
 /* Layout tổng thể */
 .app-shell {
   display: flex;
   min-height: 100vh;
-  background-color: #f7f9fa;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f7f5ef;
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Sidebar */
+/* Sidebar toàn bộ là nền trắng cố định 155px */
 .sidebar {
   position: fixed;
   left: 0;
   top: 0;
   bottom: 0;
   width: 155px;
-  background-color: #ffffff; /* Nền trắng toàn bộ cột */
-  border-right: 1px solid var(--line);
+  background-color: #ffffff;
+  border-right: 1px solid #e9e5db;
   z-index: 5;
   display: flex;
   flex-direction: column;
 }
+
 /* Khu vực Logo */
 .logo-box {
-  background-color: #ffffff; /* Nền trắng phía sau logo */
-  padding: 24px 16px 20px;
+  background-color: #ffffff;
+  height: 76px;
+  padding: 10px 8px;
   display: flex;
   justify-content: center;
   align-items: center;
-  border-bottom: 2px solid #ecd8af; /* Đường kẻ viền vàng be bên dưới như trong ảnh */
+  border-bottom: 2px solid #ecd8af;
   user-select: none;
+  flex-shrink: 0;
 }
 
 .logo-wrapper {
   position: relative;
   display: inline-block;
-  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-family: 'Fredoka', sans-serif;
 }
 
 /* 3 tia sáng */
 .sparkles {
   position: absolute;
-  top: -6px;
-  left: -8px;
-  width: 28px;
-  height: 28px;
+  top: -4px;
+  left: -6px;
+  width: 22px;
+  height: 22px;
   pointer-events: none;
 }
 
 .sparkles .ray {
   position: absolute;
   background-color: #d1a868;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 .sparkles .ray-1 {
-  width: 4px;
-  height: 10px;
-  top: 0px;
-  right: 5px;
+  width: 3px;
+  height: 8px;
+  top: 0;
+  right: 4px;
   transform: rotate(10deg);
 }
 
 .sparkles .ray-2 {
-  width: 4px;
-  height: 10px;
-  top: 5px;
-  left: 5px;
+  width: 3px;
+  height: 8px;
+  top: 4px;
+  left: 3px;
   transform: rotate(-45deg);
 }
 
 .sparkles .ray-3 {
-  width: 4px;
-  height: 10px;
-  bottom: 0px;
-  left: -3px;
+  width: 3px;
+  height: 8px;
+  bottom: 1px;
+  left: -2px;
   transform: rotate(-80deg);
 }
 
-/* Cụm FF và T-shirt */
+/* Cụm FF và T-shirt vừa vặn cột 155px */
 .logo-content {
   display: flex;
   align-items: flex-end;
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.07));
+  filter: drop-shadow(0 3px 5px rgba(73, 104, 131, 0.12));
 }
 
 .logo-name {
   display: flex;
-  font-size: 56px;
+  font-size: 38px;
   font-weight: 700;
-  line-height: 0.82;
-  letter-spacing: -2px;
+  line-height: 0.85;
+  letter-spacing: -1.5px;
 }
 
 .f-blue {
-  color: #496883; /* Màu xanh đá đặc trưng */
+  color: #496883;
 }
 
 .f-gold {
-  color: #d2a764; /* Màu vàng cát đặc trưng */
+  color: #d2a764;
   margin-left: 2px;
 }
 
 .logo-sub {
   color: #496883;
-  font-size: 15px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1;
   margin-left: 3px;
@@ -171,9 +196,9 @@
   letter-spacing: -0.2px;
 }
 
-/* Menu điều hướng */
-/* Phần menu trên nền trắng */
+/* Menu điều hướng nền trắng */
 .menu {
+  flex: 1;
   padding: 14px 8px;
   background: #ffffff;
 }
@@ -189,68 +214,76 @@
   font-size: 9px;
   margin-bottom: 3px;
   cursor: pointer;
+  text-decoration: none;
+  background: transparent;
   transition: background 0.2s ease, color 0.2s ease;
 }
 
 .menu-item:hover {
   background: #f7f5ef;
-  color: var(--blue);
+  color: #496883;
 }
 
 .menu-item.active {
   background: #eaf1f4;
-  color: var(--blue);
+  color: #496883;
   font-weight: 700;
 }
 
 .menu-icon {
   width: 15px;
   text-align: center;
-  color: var(--blue);
+  color: #496883;
   font-size: 11px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
 }
 
-/* Nội dung chính */
+/* Nội dung chính thụt vào 155px tránh bị đè */
 .main-content {
-  flex: 1;
+  margin-left: 155px;
+  width: calc(100% - 155px);
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
 .top-header {
+  height: 48px;
   background-color: #ffffff;
-  padding: 16px 24px;
+  padding: 0 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid #e9e5db;
 }
 
 .header-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
+  font-size: 11px;
+  font-weight: 700;
+  color: #4b5b62;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 14px;
-  color: #6c757d;
+  gap: 9px;
+  font-size: 8px;
+  color: #6c7477;
 }
 
 .header-right a {
-  color: #0d6efd;
+  color: #496883;
+  font-weight: 700;
   text-decoration: none;
 }
 
-.header-right a:hover {
-  text-decoration: underline;
+.divider {
+  color: #d6d0c3;
 }
 
 .page-body {
-  padding: 24px;
+  flex: 1;
 }
-
 </style>

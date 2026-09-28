@@ -1,124 +1,229 @@
 <template>
-  <div class="invoice-page">
-    <!-- Tiêu đề trang & các nút thao tác -->
-    <div class="page-head">
-      <div>
-        <div class="tiny-label">BÁN HÀNG / HÓA ĐƠN</div>
-        <h1>Danh sách hóa đơn</h1>
-        <p>Tra cứu, lọc trạng thái và in hóa đơn thanh toán của cửa hàng.</p>
+  <div class="pos-container">
+    <!-- Tiêu đề trang -->
+    <div class="pos-header">
+      <div class="pos-title">
+        <span class="bar-accent"></span>
+        <div>
+          <h2>Bán hàng tại quầy</h2>
+          <p>Tạo hóa đơn trực tiếp tại cửa hàng · Nhân viên: Admin</p>
+        </div>
       </div>
-      <div class="head-actions">
-        <button class="btn btn-secondary">↓ Xuất Excel</button>
-        <button class="btn btn-primary">+ Tạo hóa đơn</button>
+
+      <!-- Danh sách Tabs hóa đơn chờ -->
+      <div class="invoice-tabs">
+        <button
+            v-for="(tab, index) in tabs"
+            :key="tab.id"
+            class="invoice-tab"
+            :class="{ active: currentTab === index }"
+            @click="currentTab = index"
+        >
+          {{ tab.name }}
+          <span class="badge">{{ tab.count }}</span>
+        </button>
+        <button class="add-tab-btn" @click="addNewTab" title="Tạo thêm hóa đơn mới">+</button>
       </div>
     </div>
 
-    <!-- Thanh thống kê trạng thái hóa đơn dạng Tab/Cards -->
-    <div class="invoice-summary-grid">
-      <div class="summary-card active">
-        <span>Tất cả</span>
-        <strong>142</strong>
-        <small>Toàn bộ hóa đơn</small>
-      </div>
-      <div class="summary-card">
-        <span>Chờ thanh toán</span>
-        <strong>14</strong>
-        <small class="pill-wait">Cần xử lý</small>
-      </div>
-      <div class="summary-card">
-        <span>Đã thanh toán</span>
-        <strong>118</strong>
-        <small class="pill-done">Thành công</small>
-      </div>
-      <div class="summary-card">
-        <span>Đã hủy / Hoàn tiền</span>
-        <strong>10</strong>
-        <small class="pill-cancel">Đã hoàn tất</small>
-      </div>
-    </div>
+    <!-- Bố cục chính 2 cột -->
+    <div class="pos-layout">
+      <!-- Cột trái: Giỏ hàng + Thông tin khách & Thanh toán -->
+      <div class="pos-left">
+        <!-- Khối Giỏ hàng -->
+        <div class="pos-card cart-card">
+          <div class="card-head">
+            <div>
+              <h3>🛒 Giỏ hàng</h3>
+              <p>Danh sách sản phẩm trong hóa đơn</p>
+            </div>
+            <div class="card-actions">
+              <button class="icon-btn" title="Chọn sản phẩm">📋</button>
+              <button class="icon-btn" title="Quét mã">📷</button>
+            </div>
+          </div>
 
-    <!-- Khối tìm kiếm & bộ lọc -->
-    <div class="card filter-box">
-      <div class="search-input-wrap">
-        <span class="search-icon">🔍</span>
-        <input type="text" placeholder="Tìm theo mã HĐ, tên khách, số điện thoại..." />
+          <!-- Bảng giỏ hàng -->
+          <div class="cart-table-wrap">
+            <table class="cart-table">
+              <thead>
+              <tr>
+                <th style="width: 40px">#</th>
+                <th>SẢN PHẨM</th>
+                <th>SỐ LƯỢNG</th>
+                <th>ĐƠN GIÁ</th>
+                <th>THÀNH TIỀN</th>
+                <th style="width: 70px; text-align: center">THAO TÁC</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr v-if="cartItems.length === 0">
+                <td colspan="6" class="empty-cart">
+                  <div class="empty-state">
+                    <span class="empty-icon">🛒</span>
+                    <p>Chưa có sản phẩm</p>
+                    <small>Nhấn "Chọn sản phẩm" để thêm vào giỏ hàng</small>
+                  </div>
+                </td>
+              </tr>
+              <tr v-for="(item, idx) in cartItems" :key="item.id">
+                <td>{{ idx + 1 }}</td>
+                <td><b>{{ item.name }}</b></td>
+                <td>{{ item.qty }}</td>
+                <td>{{ item.price }}</td>
+                <td><b>{{ item.total }}</b></td>
+                <td style="text-align: center">
+                  <button class="del-btn" @click="removeItem(idx)">🗑</button>
+                </td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="card-footer">
+            <span>Hiển thị {{ cartItems.length ? '1-' + cartItems.length : '0' }} / {{ cartItems.length }} dữ liệu</span>
+            <div class="mini-pagination">
+              <button disabled>‹</button>
+              <button class="active">1</button>
+              <button disabled>›</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Khối Thông tin thanh toán & Khách hàng -->
+        <div class="pos-card customer-card">
+          <div class="card-head">
+            <div class="title-with-bar">
+              <span class="bar-accent-sm"></span>
+              <div>
+                <h3>Thông tin thanh toán</h3>
+                <p>Thông tin khách hàng và phương thức nhận hàng</p>
+              </div>
+            </div>
+            <button class="btn-select-user">👤 Chọn tài khoản</button>
+          </div>
+
+          <div class="form-split">
+            <!-- Cột trái: Form thông tin nhận hàng -->
+            <div class="form-fields">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>TÊN TÀI KHOẢN</label>
+                  <input type="text" value="Khách lẻ" />
+                </div>
+                <div class="form-group">
+                  <label>EMAIL</label>
+                  <input type="text" placeholder="Nhập email" />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label>HỌ VÀ TÊN *</label>
+                  <input type="text" placeholder="Nhập họ tên" />
+                </div>
+                <div class="form-group">
+                  <label>SỐ ĐIỆN THOẠI *</label>
+                  <input type="text" placeholder="Nhập số điện thoại" />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label>TỈNH/THÀNH PHỐ *</label>
+                  <select>
+                    <option value="">Chọn tỉnh/thành phố</option>
+                    <option value="HN">Hà Nội</option>
+                    <option value="HCM">TP. Hồ Chí Minh</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>QUẬN/HUYỆN *</label>
+                  <select>
+                    <option value="">Chọn quận/huyện</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label>PHƯỜNG/XÃ *</label>
+                  <select>
+                    <option value="">Chọn phường/xã</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>ĐỊA CHỈ CỤ THỂ</label>
+                <input type="text" placeholder="Nhập địa chỉ cụ thể" />
+              </div>
+            </div>
+
+            <!-- Cột phải: Tính tiền & Nút xác nhận -->
+            <div class="checkout-summary">
+              <div class="summary-line">
+                <span>Thành tiền</span>
+                <b>0 ₫</b>
+              </div>
+              <div class="summary-line">
+                <span>Giảm giá</span>
+                <b>0 ₫</b>
+              </div>
+
+              <div class="total-line">
+                <span>Tổng cộng</span>
+                <strong class="total-amount">0 ₫</strong>
+              </div>
+
+              <div class="switch-row">
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="isShipping" />
+                  <span class="slider"></span>
+                </label>
+                <span class="switch-label">Giao hàng</span>
+              </div>
+
+              <div class="voucher-box">
+                <input type="text" placeholder="Mã voucher" />
+                <button class="btn-voucher">Chọn mã giảm giá</button>
+              </div>
+
+              <textarea class="note-area" placeholder="Ghi chú..."></textarea>
+
+              <div class="pay-methods">
+                <button class="pay-opt active">💵 Tiền mặt</button>
+                <button class="pay-opt">⇄ Chuyển khoản</button>
+                <button class="pay-opt">💳 Cả 2</button>
+              </div>
+
+              <button class="btn-confirm-checkout">Xác nhận thanh toán</button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="filter-group">
-        <select>
-          <option>Tất cả trạng thái</option>
-          <option>Đã thanh toán</option>
-          <option>Chờ xác nhận</option>
-          <option>Đang giao</option>
-          <option>Đã hủy</option>
-        </select>
+      <!-- Cột phải: Danh sách 10 đơn hàng gần nhất -->
+      <div class="pos-right">
+        <div class="pos-card recent-orders-card">
+          <div class="recent-head">
+            <h3>Đơn hàng hôm nay</h3>
+            <p>10 hóa đơn gần nhất</p>
+          </div>
 
-        <select>
-          <option>Hình thức: Tất cả</option>
-          <option>Tiền mặt</option>
-          <option>Chuyển khoản</option>
-          <option>Quẹt thẻ</option>
-        </select>
-
-        <button class="btn btn-filter">Lọc</button>
-      </div>
-    </div>
-
-    <!-- Bảng danh sách hóa đơn -->
-    <div class="card table-card invoice-table-card">
-      <table>
-        <thead>
-        <tr>
-          <th>MÃ HÓA ĐƠN</th>
-          <th>NGÀY TẠO</th>
-          <th>KHÁCH HÀNG</th>
-          <th>THU NGÂN</th>
-          <th>PHƯƠNG THỨC</th>
-          <th>TỔNG TIỀN</th>
-          <th>TRẠNG THÁI</th>
-          <th style="text-align: right">THAO TÁC</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr v-for="item in invoices" :key="item.id">
-          <td>
-            <b class="blue-text">{{ item.id }}</b>
-          </td>
-          <td>
-            <span>{{ item.date }}</span>
-            <small class="muted-text">{{ item.time }}</small>
-          </td>
-          <td>
-            <b>{{ item.customer }}</b>
-            <small class="muted-text">{{ item.phone }}</small>
-          </td>
-          <td>{{ item.cashier }}</td>
-          <td>
-            <span class="pay-tag">{{ item.method }}</span>
-          </td>
-          <td>
-            <b class="price-val">{{ item.total }}</b>
-          </td>
-          <td>
-            <span class="pill" :class="item.statusClass">{{ item.statusText }}</span>
-          </td>
-          <td style="text-align: right">
-            <button class="action-btn" title="In hóa đơn">🖶</button>
-            <button class="action-btn" title="Xem chi tiết">👁</button>
-          </td>
-        </tr>
-        </tbody>
-      </table>
-
-      <!-- Phân trang -->
-      <div class="table-pagination">
-        <span>Hiển thị 1 - 10 trên 142 hóa đơn</span>
-        <div class="page-btns">
-          <button class="pg-btn" disabled>‹</button>
-          <button class="pg-btn active">1</button>
-          <button class="pg-btn">2</button>
-          <button class="pg-btn">3</button>
-          <button class="pg-btn">›</button>
+          <div class="recent-list">
+            <div
+                v-for="order in recentOrders"
+                :key="order.code"
+                class="recent-item"
+            >
+              <div class="recent-info">
+                <b class="order-code">{{ order.code }}</b>
+                <span class="customer-name">{{ order.customer }}</span>
+              </div>
+              <strong class="order-total">{{ order.total }}</strong>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -126,13 +231,37 @@
 </template>
 
 <script setup>
-const invoices = [
-  { id: 'HD0010', date: '28/09/2026', time: '14:20', customer: 'Nguyễn Minh Anh', phone: '0981 234 567', cashier: 'Thu Ngân 01', method: 'Chuyển khoản', total: '1.875.000 ₫', statusClass: 'done', statusText: 'Đã thanh toán' },
-  { id: 'HD0009', date: '28/09/2026', time: '13:45', customer: 'Trần Hữu Đức', phone: '0912 345 678', cashier: 'Thu Ngân 02', method: 'Tiền mặt', total: '825.000 ₫', statusClass: 'ship', statusText: 'Đang giao' },
-  { id: 'HD0008', date: '28/09/2026', time: '12:10', customer: 'Lê Thị Bích', phone: '0903 888 999', cashier: 'Thu Ngân 01', method: 'Chuyển khoản', total: '1.240.000 ₫', statusClass: 'wait', statusText: 'Chờ xác nhận' },
-  { id: 'HD0007', date: '28/09/2026', time: '11:05', customer: 'Phạm Gia Hân', phone: '0977 112 233', cashier: 'Thu Ngân 01', method: 'Quẹt thẻ', total: '580.000 ₫', statusClass: 'done', statusText: 'Đã thanh toán' },
-  { id: 'HD0006', date: '28/09/2026', time: '10:30', customer: 'Đỗ Trí Khang', phone: '0966 445 566', cashier: 'Thu Ngân 02', method: 'Tiền mặt', total: '2.480.000 ₫', statusClass: 'done', statusText: 'Đã thanh toán' },
-  { id: 'HD0005', date: '27/09/2026', time: '19:15', customer: 'Khách lẻ tại quầy', phone: '-', cashier: 'Thu Ngân 01', method: 'Tiền mặt', total: '275.000 ₫', statusClass: 'done', statusText: 'Đã thanh toán' },
-  { id: 'HD0004', date: '27/09/2026', time: '18:50', customer: 'Nguyễn Quỳnh Anh', phone: '0934 556 778', cashier: 'Thu Ngân 02', method: 'Chuyển khoản', total: '990.000 ₫', statusClass: 'cancel', statusText: 'Đã hủy' }
-]
+import { ref } from 'vue'
+
+const currentTab = ref(0)
+const isShipping = ref(false)
+
+const tabs = ref([
+  { id: 1, name: 'Hóa đơn: HD_633AA2', count: 0 },
+  { id: 2, name: 'Hóa đơn: HD_633AA3', count: 0 }
+])
+
+const addNewTab = () => {
+  const newId = tabs.value.length + 1
+  tabs.value.push({
+    id: newId,
+    name: `Hóa đơn: HD_633AA${newId + 1}`,
+    count: 0
+  })
+}
+
+const cartItems = ref([])
+
+const recentOrders = ref([
+  { code: 'HD_633AA2', customer: 'Nguyễn Minh Anh', total: '1.875.000 ₫' },
+  { code: 'HD_633AA1', customer: 'Trần Quốc Bảo', total: '825.000 ₫' },
+  { code: 'HD_633AA0', customer: 'Lê Hoàng Nam', total: '1.240.000 ₫' },
+  { code: 'HD_632ZZ9', customer: 'Phạm Gia Hân', total: '560.000 ₫' },
+  { code: 'HD_632ZZ8', customer: 'Đặng Tuấn Kiệt', total: '2.480.000 ₫' },
+  { code: 'HD_632ZZ7', customer: 'Vũ Ngọc Linh', total: '375.000 ₫' },
+  { code: 'HD_632ZZ6', customer: 'Nguyễn Đức Anh', total: '990.000 ₫' },
+  { code: 'HD_632ZZ5', customer: 'Trần Minh Khoa', total: '1.350.000 ₫' },
+  { code: 'HD_632ZZ4', customer: 'Bùi Thanh Hà', total: '450.000 ₫' },
+  { code: 'HD_632ZZ3', customer: 'Mai Khánh Vy', total: '740.000 ₫' }
+])
 </script>
