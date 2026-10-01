@@ -1,3 +1,20 @@
+<script setup>
+import { ref } from 'vue'
+import { reactive } from 'vue'
+const openMenus = ref({
+  sanPham: true,
+  thuocTinh: false,
+  giamGia: false,
+  hoaDon: true
+})
+
+const toggleMenu = (menu) => {
+  openMenus.value[menu] = !openMenus.value[menu]
+}
+
+
+</script>
+
 <template>
   <div class="app-shell">
     <aside class="sidebar">
@@ -21,40 +38,135 @@
       </div>
 
       <nav class="menu">
-        <router-link to="/" class="menu-item" active-class="active">
-          <span class="menu-icon">▦</span> Thống kê
+        <!-- Thống kê -->
+        <router-link to="/thong-ke" class="menu-item" active-class="active">
+          <span class="menu-icon">▦</span>
+          <span class="menu-text">Thống kê</span>
         </router-link>
 
+        <!-- Bán hàng tại quầy -->
         <router-link to="/ban-hang" class="menu-item" active-class="active">
-          <span class="menu-icon">▣</span> Bán hàng tại quầy
+          <span class="menu-icon">▣</span>
+          <span class="menu-text">Bán hàng tại quầy</span>
         </router-link>
 
-        <!-- Nhấn vào Quản lý đơn hàng sẽ nhảy sang trang Hóa đơn -->
-        <router-link to="/hoa-don" class="menu-item" active-class="active">
-          <span class="menu-icon">▤</span> Quản lý đơn hàng
-        </router-link>
-
-        <div class="menu-item">
-          <span class="menu-icon">↩</span> Trả hàng
+        <!-- Quản lý hóa đơn (Có nhánh con: Danh sách & Chi tiết hóa đơn) -->
+        <div class="menu-group">
+          <div class="menu-item has-sub" @click="toggleMenu('hoaDon')">
+            <span class="menu-icon">▤</span>
+            <span class="menu-text">Quản lý hóa đơn</span>
+            <span class="arrow-icon" :class="{ open: openMenus.hoaDon }">⌄</span>
+          </div>
+          <div class="submenu-tree" v-show="openMenus.hoaDon">
+            <router-link to="/hoa-don" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Danh sách hóa đơn</span>
+            </router-link>
+            <router-link to="/hoa-don/chi-tiet" class="tree-item" active-class="active">
+              <span class="tree-branch">└─</span>
+              <span>Chi tiết hóa đơn</span>
+            </router-link>
+          </div>
         </div>
 
-        <router-link to="/san-pham" class="menu-item" active-class="active">
-          <span class="menu-icon">▧</span> Quản lý sản phẩm
-        </router-link>
+        <!-- Quản lý sản phẩm (Nhánh cây con) -->
+        <div class="menu-group">
+          <div class="menu-item has-sub" @click="toggleMenu('sanPham')">
+            <span class="menu-icon">◈</span>
+            <span class="menu-text">Quản lý sản phẩm</span>
+            <span class="arrow-icon" :class="{ open: openMenus.sanPham }">⌄</span>
+          </div>
+          <div class="submenu-tree" v-show="openMenus.sanPham">
+            <router-link to="/san-pham" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Sản phẩm</span>
+            </router-link>
+            <router-link to="/bien-the-san-pham" class="tree-item" active-class="active">
+              <span class="tree-branch">└─</span>
+              <span>Biến thể sản phẩm</span>
+            </router-link>
+          </div>
+        </div>
 
+        <!-- Thuộc tính sản phẩm (Nhánh cây con) -->
+        <div class="menu-group">
+          <div class="menu-item has-sub" @click="toggleMenu('thuocTinh')">
+            <span class="menu-icon">◇</span>
+            <span class="menu-text">Thuộc tính sản phẩm</span>
+            <span class="arrow-icon" :class="{ open: openMenus.thuocTinh }">⌄</span>
+          </div>
+          <div class="submenu-tree" v-show="openMenus.thuocTinh">
+            <router-link to="/danh-muc" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Danh mục</span>
+            </router-link>
+            <router-link to="/thuong-hieu" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Thương hiệu</span>
+            </router-link>
+            <router-link to="/chat-lieu" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Chất liệu</span>
+            </router-link>
+            <router-link to="/xuat-xu" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Xuất xứ</span>
+            </router-link>
+            <router-link to="/co-ao" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Cổ áo</span>
+            </router-link>
+            <router-link to="/tay-ao" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Tay áo</span>
+            </router-link>
+            <router-link to="/mau-sac" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Màu sắc</span>
+            </router-link>
+            <router-link to="/kich-co" class="tree-item" active-class="active">
+              <span class="tree-branch">└─</span>
+              <span>Kích cỡ</span>
+            </router-link>
+          </div>
+        </div>
+
+        <!-- Quản lý giảm giá (Nhánh cây con) -->
+        <div class="menu-group">
+          <div class="menu-item has-sub" @click="toggleMenu('giamGia')">
+            <span class="menu-icon">%</span>
+            <span class="menu-text">Quản lý giảm giá</span>
+            <span class="arrow-icon" :class="{ open: openMenus.giamGia }">⌄</span>
+          </div>
+          <div class="submenu-tree" v-show="openMenus.giamGia">
+            <router-link to="/dot-giam-gia" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Đợt giảm giá</span>
+            </router-link>
+            <router-link to="/phieu-giam-gia" class="tree-item" active-class="active">
+              <span class="tree-branch">└─</span>
+              <span>Phiếu giảm giá</span>
+            </router-link>
+          </div>
+        </div>
+
+        <!-- Quản lý khách hàng -->
         <router-link to="/khach-hang" class="menu-item" active-class="active">
-          <span class="menu-icon">♙</span> Quản lý tài khoản
+          <span class="menu-icon">♟</span>
+          <span class="menu-text">Quản lý khách hàng</span>
         </router-link>
 
-        <router-link to="/khuyen-mai" class="menu-item" active-class="active">
-          <span class="menu-icon">%</span> Giảm giá
+        <!-- Quản lý nhân viên -->
+        <router-link to="/nhan-vien" class="menu-item" active-class="active">
+          <span class="menu-icon">♟</span>
+          <span class="menu-text">Quản lý nhân viên</span>
         </router-link>
       </nav>
     </aside>
 
     <main class="main-content">
       <header class="top-header">
-        <div class="header-title">Hệ thống quản lý FF T-shirt</div>
+
         <div class="header-right">
           <span>Quản trị viên</span>
           <span class="divider">|</span>
@@ -95,10 +207,10 @@
   left: 0;
   top: 0;
   bottom: 0;
-  width: 155px;
+  width: 200px; /* Chiều rộng thanh menu */
   background-color: #ffffff;
   border-right: 1px solid #e9e5db;
-  z-index: 5;
+  z-index: 100;
   display: flex;
   flex-direction: column;
 }
@@ -242,9 +354,10 @@
 
 /* Nội dung chính thụt vào 155px tránh bị đè */
 .main-content {
-  margin-left: 155px;
-  width: calc(100% - 155px);
+  margin-left: 200px; /* Phải bằng width của .sidebar */
+  width: calc(100% - 200px);
   min-height: 100vh;
+  background-color: #f7f5ef;
   display: flex;
   flex-direction: column;
 }
@@ -254,7 +367,7 @@
   background-color: #ffffff;
   padding: 0 24px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end; /* Đẩy cụm Quản trị viên sang góc phải */
   align-items: center;
   border-bottom: 1px solid #e9e5db;
 }
@@ -285,5 +398,6 @@
 
 .page-body {
   flex: 1;
+  width: 100%;
 }
 </style>
