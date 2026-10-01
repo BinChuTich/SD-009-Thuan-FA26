@@ -217,12 +217,11 @@ const invoiceList = ref([
 </template>
 
 <style scoped>
-/* Toàn bộ vùng hiển thị trang - Nền màu kem ấm */
+/* Toàn bộ vùng hiển thị trang Hóa đơn */
 .invoice-container {
-  padding: 16px 20px 24px;
+  padding: 1.25rem 1.5rem 2.5rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
-  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--text, #3d4a50);
   box-sizing: border-box;
 }
@@ -232,15 +231,15 @@ const invoiceList = ref([
   background: #ffffff;
   border: 1px solid var(--line, #e9e5db);
   border-radius: 8px;
-  padding: 11px 18px;
-  margin-bottom: 12px;
+  padding: 0.9rem 1.2rem;
+  margin-bottom: 1rem;
   box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
 }
 
 .page-title {
   color: var(--blue, #496883);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 1.15rem; /* ~18px, to rõ */
   letter-spacing: 0.3px;
 }
 
@@ -248,28 +247,28 @@ const invoiceList = ref([
 .custom-card {
   background: #ffffff;
   border: 1px solid var(--line, #e9e5db);
-  border-radius: 8px;
-  padding: 16px 18px;
-  margin-bottom: 14px;
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.2rem;
   box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
 }
 
 .card-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: 10px;
+  margin-bottom: 1.2rem;
 }
 
 .card-title h3 {
-  font-size: 12px;
+  font-size: 1.05rem; /* ~16.5px */
   font-weight: 700;
   margin: 0;
   color: #4b5b62;
 }
 
 .filter-icon {
-  font-size: 14px;
+  font-size: 1.2rem;
   color: var(--blue, #496883);
 }
 
@@ -277,29 +276,29 @@ const invoiceList = ref([
 .filter-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: 16px;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.45rem;
 }
 
 .form-group label {
-  font-size: 8.5px;
+  font-size: 0.88rem; /* Cũ: 8.5px -> Tăng lên ~14px */
   font-weight: 700;
   color: #556268;
 }
 
 .form-group input,
 .form-group select {
-  height: 34px;
+  height: 2.5rem; /* Cao 40px thoải mái */
   border: 1px solid var(--line, #e9e5db);
-  border-radius: 6px;
-  padding: 0 11px;
-  font-size: 9px;
+  border-radius: 7px;
+  padding: 0 0.85rem;
+  font-size: 0.92rem; /* Cũ: 9px -> Tăng lên ~14.7px */
   color: var(--text, #3d4a50);
   background-color: #fcfbf8;
   outline: none;
@@ -321,13 +320,13 @@ const invoiceList = ref([
 
 .input-with-icon input {
   width: 100%;
-  padding-right: 30px;
+  padding-right: 2.2rem;
 }
 
 .field-icon {
   position: absolute;
-  right: 9px;
-  font-size: 11px;
+  right: 0.75rem;
+  font-size: 1rem;
   color: var(--muted, #8a9292);
   pointer-events: none;
 }
@@ -336,15 +335,15 @@ const invoiceList = ref([
 .filter-buttons {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 0.65rem;
 }
 
 .btn {
-  height: 32px;
-  padding: 0 16px;
+  height: 2.4rem;
+  padding: 0 1.25rem;
   border: none;
-  border-radius: 6px;
-  font-size: 8.5px;
+  border-radius: 7px;
+  font-size: 0.88rem; /* Chữ nút bấm to rõ */
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
@@ -381,20 +380,20 @@ const invoiceList = ref([
 
 /* 3. Danh sách hóa đơn */
 .list-header-title {
-  margin-bottom: 12px;
+  margin-bottom: 1rem;
 }
 
 .doc-icon-wrap {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   background-color: #f7eee1;
-  border-radius: 6px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
 }
 
 .doc-icon {
-  font-size: 13px;
+  font-size: 1.1rem;
   color: #b18b52;
 }
 
@@ -404,13 +403,14 @@ const invoiceList = ref([
   align-items: center;
   border-bottom: 1px solid #efede7;
   overflow-x: auto;
+  margin-bottom: 0.85rem;
 }
 
 .tab-item {
   border: none;
   background: transparent;
-  padding: 9px 15px;
-  font-size: 8.5px;
+  padding: 0.65rem 1.15rem;
+  font-size: 0.9rem; /* Cũ: 8.5px -> Tăng lên 14.4px */
   font-weight: 600;
   color: #647074;
   cursor: pointer;
@@ -428,11 +428,13 @@ const invoiceList = ref([
   color: var(--blue, #496883);
   font-weight: 700;
   border-bottom: 2px solid var(--blue, #496883);
-  border-top-left-radius: 6px;
-  border-top-right-radius: 6px;
+  border-top-left-radius: 7px;
+  border-top-right-radius: 7px;
 }
 
-/* Bảng dữ liệu */
+/* =====================================================
+   BẢNG DỮ LIỆU ĐÃ PHÓNG TO FONT CHỮ VÀ DÃN DÒNG
+===================================================== */
 .table-responsive {
   overflow-x: auto;
 }
@@ -440,41 +442,59 @@ const invoiceList = ref([
 .invoice-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 8px;
+  font-size: 0.92rem; /* Cũ: 8px -> Nâng lên ~14.7px chuẩn đọc */
 }
 
 .invoice-table th {
   background-color: #faf9f6;
-  color: #8f9695;
+  color: #727b7d;
   font-weight: 700;
-  padding: 10px 12px;
+  padding: 0.85rem 1rem; /* Dãn khoảng đệm bảng */
   text-align: left;
   border-bottom: 1px solid #efede7;
+  font-size: 0.92rem;
+  white-space: nowrap;
 }
 
 .invoice-table td {
-  padding: 10px 12px;
+  padding: 0.95rem 1rem; /* Dãn dòng cách đều, không bị bí */
   border-bottom: 1px solid #f2f0eb;
-  color: #556268;
+  color: #4b585e;
+  vertical-align: middle;
 }
 
 .invoice-table tr:hover td {
   background-color: #fcfbf8;
 }
 
+/* Link mã hóa đơn */
 .code-link {
-  color: #496883;
+  color: var(--blue, #496883);
   font-weight: 700;
+  font-size: 0.95rem;
+  font-family: monospace, sans-serif;
   cursor: pointer;
+  text-decoration: none;
 }
 .code-link:hover {
   text-decoration: underline;
 }
 
+/* Cột ngày giờ */
+.invoice-table td small {
+  display: block;
+  font-size: 0.78rem;
+  color: #9aa0a0;
+  margin-top: 3px;
+}
+
+/* Badge Tại cửa hàng / Online */
 .badge {
-  font-size: 7.5px;
-  padding: 3px 8px;
-  border-radius: 10px;
+  font-size: 0.82rem; /* Cũ: 7.5px -> Tăng lên ~13px */
+  padding: 0.35rem 0.75rem;
+  border-radius: 14px;
+  font-weight: 600;
+  display: inline-block;
 }
 .badge.instore {
   background: #f5eddf;
@@ -482,12 +502,13 @@ const invoiceList = ref([
 }
 .badge.online {
   background: #eaf2f6;
-  color: #6a95ad;
+  color: #5587a3;
 }
 
+/* Nút con mắt xem chi tiết */
 .btn-action-view {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   background-color: #ffffff;
   border: 1px solid #e9e5db;
   border-radius: 6px;
@@ -495,31 +516,33 @@ const invoiceList = ref([
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 1rem; /* Biểu tượng con mắt to rõ */
   color: #496883;
+  text-decoration: none;
   transition: all 0.2s;
 }
 .btn-action-view:hover {
   background-color: #eaf1f4;
   border-color: #496883;
+  transform: scale(1.08);
 }
 
-/* Phân trang */
+/* Phân trang dưới cùng */
 .pagination-wrapper {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 4px;
-  padding-top: 14px;
+  gap: 6px;
+  padding-top: 1.2rem;
 }
 
 .pg-btn {
-  width: 22px;
-  height: 22px;
+  width: 30px;
+  height: 30px;
   border: 1px solid var(--line, #e9e5db);
   background: #ffffff;
-  border-radius: 4px;
-  font-size: 8px;
+  border-radius: 5px;
+  font-size: 0.85rem;
   cursor: pointer;
   display: grid;
   place-items: center;

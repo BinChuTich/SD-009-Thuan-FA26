@@ -11,46 +11,51 @@
     --muted: #8a9292;
     --line: #e9e5db;
     --white: #fff;
+    --system-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-* {
-    box-sizing: border-box
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 100%;
 }
 
 body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: 'Be Vietnam Pro', sans-serif;
-    font-size: 11px
+    font-family: var(--system-font);
+    font-size: 11px;
 }
 
 button, input, select {
-    font: inherit
+    font: inherit;
 }
 
 a {
     text-decoration: none;
-    color: inherit
+    color: inherit;
 }
 
 .app-shell {
     min-height: 100vh;
-    display: flex
+    display: flex;
 }
 
+/* ================= SIDEBAR & LOGO (GIỮ NGUYÊN) ================= */
 .sidebar {
     position: fixed;
     left: 0;
     top: 0;
     bottom: 0;
-    width: 155px;
-    background: #fff;
-    border-right: 1px solid var(--line);
-    z-index: 5
+    width: 205px;
+    background: #ffffff;
+    border-right: 1px solid #e8e4dc;
+    z-index: 5;
 }
 
-/* ================= BẮT ĐẦU PHẦN LOGO MỚI ================= */
 .logo-box {
     height: 76px;
     padding: 12px 10px;
@@ -65,11 +70,10 @@ a {
 .logo-wrapper {
     position: relative;
     display: inline-flex;
-    font-family: 'Fredoka', 'Be Vietnam Pro', sans-serif;
+    font-family: 'Fredoka', var(--system-font);
     padding-top: 4px;
 }
 
-/* 3 tia sáng màu vàng bên trên F xanh */
 .sparkles {
     position: absolute;
     top: -4px;
@@ -109,7 +113,6 @@ a {
     transform: rotate(-80deg);
 }
 
-/* Cụm chữ FF và T-shirt */
 .logo-content {
     display: flex;
     align-items: flex-end;
@@ -142,39 +145,28 @@ a {
     margin-bottom: 1px;
     letter-spacing: -0.2px;
 }
+
+/* ================= MENU CHÍNH (GIỮ NGUYÊN) ================= */
 .menu {
     padding: 14px 10px;
     width: 100%;
     box-sizing: border-box;
 }
 
-/* MENU CHÍNH */
-
 .menu-item {
     width: 100%;
     min-height: 38px;
-
     display: flex;
     align-items: center;
-
     gap: 9px;
-
     padding: 0 10px;
     margin-bottom: 3px;
-
-    box-sizing: border-box;
-
     border-radius: 8px;
-
     color: #5d6a70;
-
     text-decoration: none;
-
     font-size: 10px;
     font-weight: 500;
-
     cursor: pointer;
-
     transition: all 0.2s ease;
 }
 
@@ -183,18 +175,13 @@ a {
     color: #496883;
 }
 
-/* ICON */
-
 .menu-icon {
     width: 19px;
     min-width: 19px;
-
     display: flex;
     justify-content: center;
     align-items: center;
-
     font-size: 14px;
-
     color: #7b878b;
 }
 
@@ -202,38 +189,22 @@ a {
     color: #496883;
 }
 
-/* TEXT */
-
 .menu-text {
     flex: 1;
-
     white-space: nowrap;
-
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-
-/* =====================================================
-   MENU ĐANG CHỌN
-===================================================== */
-
 .menu-item.active {
     background: #e7f0f4;
-
     color: #355d74;
-
     font-weight: 700;
 }
 
 .menu-item.active .menu-icon {
     color: #496883;
 }
-
-
-/* =====================================================
-   MENU CÓ MENU CON
-===================================================== */
 
 .menu-item.has-sub {
     user-select: none;
@@ -245,16 +216,11 @@ a {
 
 .arrow-icon {
     width: 16px;
-
     margin-left: auto;
-
     display: flex;
     justify-content: center;
-
     font-size: 12px;
-
     color: #8a9699;
-
     transition: transform 0.2s ease;
 }
 
@@ -262,61 +228,40 @@ a {
     transform: rotate(180deg);
 }
 
-
-/* =====================================================
-   MENU CON
-===================================================== */
-
 .submenu-tree {
     margin: 1px 0 5px 22px;
-
     padding-left: 12px;
-
     border-left: 1px solid #e5e5df;
 }
 
 .tree-item {
     min-height: 34px;
-
     display: flex;
     align-items: center;
-
     gap: 5px;
-
     padding: 0 8px;
-
     margin: 2px 0;
-
     border-radius: 7px;
-
     color: #7a8589;
-
     text-decoration: none;
-
     font-size: 9px;
-
     transition: all 0.2s ease;
 }
 
 .tree-item:hover {
     background: #f5f7f6;
-
     color: #496883;
 }
 
 .tree-item.active {
     background: #f0e1c1;
-
     color: #8a6d35;
-
     font-weight: 700;
 }
 
 .tree-branch {
     width: 18px;
-
     color: #b0b7b8;
-
     font-size: 8px;
 }
 
@@ -324,81 +269,14 @@ a {
     color: #cfb477;
 }
 
-
-/* =====================================================
-   NHÓM MENU
-===================================================== */
-
 .menu-group {
     margin-bottom: 3px;
 }
 
-
-/* =====================================================
-   SIDEBAR
-===================================================== */
-
-.sidebar {
-    width: 205px;
-
-    min-width: 205px;
-
-    min-height: 100vh;
-
-    background: #ffffff;
-
-    border-right: 1px solid #e8e4dc;
-}
-
-
-/* =====================================================
-   LOGO
-===================================================== */
-
-.logo {
-    height: 76px;
-
-    display: flex;
-    flex-direction: column;
-
-    justify-content: center;
-    align-items: center;
-
-    border-bottom: 1px solid #eeeae2;
-}
-
-.logo-ff {
-    font-size: 32px;
-    font-weight: 900;
-
-    line-height: 28px;
-
-    letter-spacing: -6px;
-}
-
-.logo-ff span:first-child {
-    color: #496883;
-}
-
-.logo-ff span:last-child {
-    color: #cfb477;
-}
-
-.logo-text {
-    margin-top: 7px;
-
-    color: #7c8c93;
-
-    font-size: 7px;
-    font-weight: 700;
-
-    letter-spacing: 2px;
-}
-
 .main-content {
-    margin-left: 155px;
-    width: calc(100% - 155px);
-    min-height: 100vh
+    margin-left: 205px;
+    width: calc(100% - 205px);
+    min-height: 100vh;
 }
 
 .top-header {
@@ -410,65 +288,71 @@ a {
     align-items: center;
     padding: 0 24px;
     color: #6c7477;
-    font-size: 9px
+    font-size: 9px;
 }
 
 .header-title {
     font-weight: 700;
-    color: #4b5b62
+    color: #4b5b62;
 }
 
 .header-right {
     display: flex;
     gap: 9px;
     align-items: center;
-    font-size: 8px
+    font-size: 8px;
 }
 
 .header-right a {
     color: var(--blue);
-    font-weight: 700
+    font-weight: 700;
 }
 
 .divider {
-    color: #d6d0c3
+    color: #d6d0c3;
 }
 
+/* =========================================================================
+   RIÊNG TRANG CHỦ / DASHBOARD (NÂNG CỠ FONT TO RÕ THEO HỆ THỐNG VÀ DÙNG REM)
+========================================================================= */
 .dashboard {
-    padding: 18px 22px 28px;
+    padding: 1.25rem 1.5rem 2rem;
     max-width: 1450px;
-    margin: auto
+    margin: auto;
+    font-family: var(--system-font) !important;
 }
 
+/* Header tổng quan */
 .dashboard-head {
     background: linear-gradient(100deg, #f8f2e5, #fff);
     border: 1px solid #efe7d5;
     border-radius: 8px;
-    padding: 16px 18px;
+    padding: 1.1rem 1.35rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 8px
+    margin-bottom: 1rem;
 }
 
 .tiny-label, .section-label {
-    font-size: 6.5px;
-    letter-spacing: 1px;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.8px;
     font-weight: 800;
-    color: #b19762
+    color: #b19762;
 }
 
 .dashboard-head h1 {
-    font-size: 20px;
-    line-height: 1.2;
-    margin: 4px 0 3px;
-    color: var(--blue)
+    font-size: 1.45rem !important;
+    line-height: 1.3;
+    margin: 4px 0;
+    color: var(--blue);
+    font-weight: 800;
 }
 
 .dashboard-head p {
     margin: 0;
-    font-size: 8px;
-    color: #9b9d99
+    font-size: 0.85rem !important;
+    color: #8c9597;
 }
 
 .today-btn {
@@ -476,101 +360,74 @@ a {
     background: #fff8eb;
     color: #957b48;
     border-radius: 6px;
-    padding: 7px 10px;
-    font-size: 8px;
-    font-weight: 700
+    padding: 0.45rem 0.95rem;
+    font-size: 0.82rem !important;
+    font-weight: 700;
+    cursor: pointer;
 }
 
+/* 4 thẻ thống kê chính */
 .stat-grid {
     display: grid;
-    grid-template-columns:repeat(4, 1fr);
-    gap: 7px
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
 }
 
 .stat-card {
-    height: 75px;
+    min-height: 85px;
+    height: auto;
     background: #fff;
     border: 1px solid var(--line);
-    border-radius: 7px;
-    padding: 11px 12px;
+    border-radius: 8px;
+    padding: 0.9rem 1.1rem;
     display: flex;
-    gap: 9px;
+    gap: 0.85rem;
     align-items: center;
     position: relative;
-    overflow: hidden
+    overflow: hidden;
 }
 
-.stat-card:nth-child(1) {
-    border-top: 2px solid #80a9c0
-}
-
-.stat-card:nth-child(2) {
-    border-top: 2px solid #8eb7a6
-}
-
-.stat-card:nth-child(3) {
-    border-top: 2px solid #d1b67d
-}
-
-.stat-card:nth-child(4) {
-    border-top: 2px solid #d7c29b
-}
+.stat-card:nth-child(1) { border-top: 2px solid #80a9c0; }
+.stat-card:nth-child(2) { border-top: 2px solid #8eb7a6; }
+.stat-card:nth-child(3) { border-top: 2px solid #d1b67d; }
+.stat-card:nth-child(4) { border-top: 2px solid #d7c29b; }
 
 .stat-icon {
-    width: 29px;
-    height: 29px;
-    border-radius: 6px;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
     display: grid;
     place-items: center;
     font-weight: 800;
-    font-size: 11px;
-    flex: none
+    font-size: 1rem !important;
+    flex: none;
 }
 
-.stat-icon.blue {
-    background: #eaf2f6;
-    color: #6a95ad
-}
-
-.stat-icon.green {
-    background: #edf5ef;
-    color: #76a486
-}
-
-.stat-icon.gold {
-    background: #f5eddf;
-    color: #b08d4f
-}
-
-.stat-icon.beige {
-    background: #f4efe3;
-    color: #ad9362
-}
+.stat-icon.blue { background: #eaf2f6; color: #6a95ad; }
+.stat-icon.green { background: #edf5ef; color: #76a486; }
+.stat-icon.gold { background: #f5eddf; color: #b08d4f; }
+.stat-icon.beige { background: #f4efe3; color: #ad9362; }
 
 .stat-info span {
     display: block;
-    font-size: 7px;
-    color: #8f9695
+    font-size: 0.8rem !important;
+    color: #8c9597;
 }
 
 .stat-info strong {
     display: block;
-    font-size: 13px;
-    color: #42555e;
-    margin: 2px 0
+    font-size: 1.25rem !important;
+    color: #3e4f56;
+    margin: 2px 0;
+    font-weight: 800;
 }
 
 .stat-info small {
-    font-size: 6.5px
+    font-size: 0.75rem !important;
 }
 
-.green {
-    color: #719777
-}
-
-.orange {
-    color: #aa8951
-}
+.green { color: #558764; }
+.orange { color: #b18b52; }
 
 .corner {
     position: absolute;
@@ -579,148 +436,143 @@ a {
     width: 45px;
     height: 45px;
     border-radius: 50%;
-    background: #f6eddb
+    background: #f6eddb;
 }
 
+/* 4 thẻ mini phụ */
 .mini-grid {
     display: grid;
-    grid-template-columns:repeat(4, 1fr);
-    gap: 7px;
-    margin: 7px 0 10px
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin: 0.75rem 0 1.1rem;
 }
 
 .mini-card {
-    height: 29px;
+    min-height: 38px;
+    height: auto;
     background: #fff;
     border: 1px solid var(--line);
     border-radius: 6px;
     display: flex;
     align-items: center;
-    padding: 0 10px;
-    gap: 7px;
-    font-size: 7px
+    padding: 0.4rem 0.85rem;
+    gap: 0.65rem;
+    font-size: 0.82rem !important;
 }
 
 .mini-card b {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     border-radius: 5px;
     background: #eaf2f6;
     color: #76a0b6;
     display: grid;
-    place-items: center
+    place-items: center;
+    font-size: 0.75rem;
 }
 
-.mini-card b.ok {
-    background: #edf5ef;
-    color: #719477
-}
-
-.mini-card b.warn {
-    background: #f7eee1;
-    color: #b18b52
-}
-
-.mini-card b.purple {
-    background: #f0edf6;
-    color: #8274a1
-}
+.mini-card b.ok { background: #edf5ef; color: #719477; }
+.mini-card b.warn { background: #f7eee1; color: #b18b52; }
+.mini-card b.purple { background: #f0edf6; color: #8274a1; }
 
 .mini-card span {
-    color: #7e8788
+    color: #647074;
 }
 
 .mini-card strong {
     margin-left: auto;
-    color: #4d5c62
+    color: #3b4b53;
+    font-size: 0.85rem !important;
 }
 
+/* Bố cục biểu đồ & Trạng thái đơn hàng */
 .main-grid {
     display: grid;
-    grid-template-columns:2fr .9fr;
-    gap: 8px;
-    margin-bottom: 9px
+    grid-template-columns: 2fr 0.95fr;
+    gap: 0.85rem;
+    margin-bottom: 1rem;
 }
 
 .card {
     background: #fff;
     border: 1px solid var(--line);
-    border-radius: 7px;
-    padding: 12px;
-    box-shadow: 0 1px 3px rgba(65, 60, 50, .025)
+    border-radius: 8px;
+    padding: 1.1rem;
+    box-shadow: 0 1px 3px rgba(65, 60, 50, .025);
 }
 
 .card-head {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 10px
+    margin-bottom: 0.9rem;
 }
 
 .card-head h2 {
-    font-size: 11px;
-    margin: 3px 0;
-    color: #50636c
+    font-size: 0.95rem !important;
+    margin: 0 0 3px;
+    color: #43545c;
+    font-weight: 700;
 }
 
 .card-head p {
-    font-size: 6.5px;
-    color: #a0a3a0;
-    margin: 0
+    font-size: 0.78rem !important;
+    color: #8c9597;
+    margin: 0;
 }
 
 .card-head a {
-    font-size: 6.5px;
-    color: #6c8ea2;
-    font-weight: 700
+    font-size: 0.78rem !important;
+    color: var(--blue);
+    font-weight: 700;
 }
 
 .revenue-total {
     display: flex;
-    gap: 17px;
-    text-align: right
+    gap: 1.25rem;
+    text-align: right;
 }
 
 .revenue-total strong {
     display: block;
-    font-size: 9px;
-    color: #53656d
+    font-size: 0.95rem !important;
+    color: #3e4f56;
 }
 
 .revenue-total small {
     display: block;
-    font-size: 5.5px;
-    color: #9ea3a2;
-    margin-top: 2px
+    font-size: 0.72rem !important;
+    color: #8c9597;
+    margin-top: 2px;
 }
 
 .chart {
-    height: 177px;
-    display: flex
+    height: 185px;
+    display: flex;
 }
 
 .y-labels {
-    width: 25px;
+    width: 32px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     padding: 3px 0 24px;
-    font-size: 5px;
-    color: #b0b1ad;
+    font-size: 0.7rem !important;
+    color: #9aa0a0;
     text-align: right;
-    padding-right: 5px
+    padding-right: 6px;
 }
 
 .chart-area {
     position: relative;
-    flex: 1
+    flex: 1;
 }
 
 .grid-line {
     position: absolute;
     left: 0;
     right: 0;
-    border-top: 1px dashed #eeeae2
+    border-top: 1px dashed #eeeae2;
 }
 
 .bars {
@@ -728,10 +580,10 @@ a {
     position: absolute;
     left: 4px;
     right: 4px;
-    bottom: 18px;
+    bottom: 20px;
     display: flex;
     align-items: end;
-    justify-content: space-around
+    justify-content: space-around;
 }
 
 .bar-col {
@@ -741,288 +593,159 @@ a {
     flex-direction: column;
     justify-content: end;
     align-items: center;
-    position: relative
+    position: relative;
 }
 
 .bar-col i {
-    width: 20px;
-    max-width: 65%;
+    width: 22px;
+    max-width: 70%;
     background: #68a0bf;
     border-radius: 4px 4px 1px 1px;
-    display: block
+    display: block;
 }
 
 .bar-col i.highlight {
-    background: #c8a65f
+    background: #c8a65f;
 }
 
 .bar-col small {
     position: absolute;
-    bottom: calc(var(0, 0) + 2px);
-    font-size: 5px;
-    color: #6e7473;
-    transform: translateY(-100%)
+    font-size: 0.7rem !important;
+    color: #556268;
+    transform: translateY(-120%);
 }
 
 .bar-col span {
     position: absolute;
-    bottom: -15px;
-    font-size: 5.5px;
-    color: #969c9b
+    bottom: -18px;
+    font-size: 0.75rem !important;
+    color: #7b8587;
+    font-weight: 600;
 }
 
 .chart-note {
     border-top: 1px solid #f0eee8;
-    padding-top: 7px;
-    font-size: 6px;
-    color: #a0a2a0
+    padding-top: 8px;
+    font-size: 0.78rem !important;
+    color: #8c9597;
 }
 
 .status-numbers {
     display: grid;
-    grid-template-columns:repeat(3, 1fr);
-    gap: 5px;
-    margin: 18px 0 17px
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin: 1.1rem 0;
 }
 
 .status-numbers div {
     background: #faf9f6;
     border: 1px solid #efede6;
     border-radius: 6px;
-    padding: 7px;
-    text-align: center
+    padding: 0.55rem;
+    text-align: center;
 }
 
 .status-numbers b {
-    font-size: 11px;
-    color: #59717d;
-    display: block
+    font-size: 1.15rem !important;
+    color: #496883;
+    display: block;
 }
 
 .status-numbers span {
-    font-size: 5.5px;
-    color: #999f9f
+    font-size: 0.72rem !important;
+    color: #7b8587;
 }
 
 .progress-list > div {
     position: relative;
-    margin: 9px 0
+    margin: 0.65rem 0;
 }
 
 .progress-list span, .progress-list b {
-    font-size: 6px;
-    color: #858b8b
+    font-size: 0.78rem !important;
+    color: #647074;
 }
 
 .progress-list b {
     float: right;
-    font-weight: 500
+    font-weight: 600;
 }
 
 .progress-list i {
     display: block;
-    height: 4px;
+    height: 5px;
     background: #f0eee8;
     border-radius: 4px;
     margin-top: 4px;
-    overflow: hidden
+    overflow: hidden;
 }
 
 .progress-list em {
     display: block;
     height: 100%;
     background: #67a083;
-    border-radius: 4px
+    border-radius: 4px;
 }
 
+/* 2 bảng dưới: Đơn hàng gần nhất & Top sản phẩm */
 .lower-grid {
     display: grid;
-    grid-template-columns:1.2fr 1fr;
-    gap: 8px;
-    margin-bottom: 9px
+    grid-template-columns: 1.25fr 1fr;
+    gap: 0.85rem;
+    margin-bottom: 1rem;
 }
 
 .table-card {
-    padding-bottom: 4px
+    padding-bottom: 0.5rem;
 }
 
 .table-card table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 6.5px
+    font-size: 0.84rem !important;
 }
 
 .table-card th {
     text-align: left;
-    color: #a0a4a2;
-    font-weight: 600;
+    color: #8f9797;
+    font-weight: 700;
     background: #faf9f6;
     border-top: 1px solid #efede7;
     border-bottom: 1px solid #efede7;
-    padding: 6px
+    padding: 0.65rem 0.75rem;
 }
 
 .table-card td {
-    padding: 5px 6px;
+    padding: 0.65rem 0.75rem;
     border-bottom: 1px solid #f2f0eb;
-    color: #646e72
-}
-
-.table-card td:first-child {
-    width: 19%
+    color: #4a5960;
 }
 
 .table-card td small {
     display: block;
-    color: #a5a7a5;
-    font-size: 5px;
-    margin-top: 2px
+    color: #9aa0a0;
+    font-size: 0.7rem !important;
+    margin-top: 2px;
 }
 
 .blue-text {
-    color: #648ba3
+    color: var(--blue);
+    font-weight: 700;
 }
 
 .pill {
-    padding: 3px 6px;
-    border-radius: 10px;
-    font-size: 5.5px
+    padding: 0.2rem 0.55rem;
+    border-radius: 12px;
+    font-size: 0.72rem !important;
+    font-weight: 600;
+    display: inline-block;
 }
 
-.pill.done {
-    background: #e8f2e9;
-    color: #69906d
-}
+.pill.done { background: #e8f2e9; color: #558764; }
+.pill.ship { background: #f5eadb; color: #a17e45; }
+.pill.wait { background: #e9eff3; color: #496883; }
 
-.pill.ship {
-    background: #f5eadb;
-    color: #a17e45
-}
-
-.pill.wait {
-    background: #e9eff3;
-    color: #6c8da1
-}
-
-.alert-card {
-    padding-bottom: 12px
-}
-
-.alert-grid {
-    display: grid;
-    grid-template-columns:repeat(4, 1fr);
-    gap: 7px
-}
-
-.alert-grid > div {
-    height: 39px;
-    border: 1px solid #efede7;
-    border-radius: 6px;
-    background: #fcfbf8;
-    display: flex;
-    align-items: center;
-    padding: 6px 8px;
-    gap: 7px
-}
-
-.alert-icon {
-    width: 20px;
-    height: 20px;
-    border-radius: 5px;
-    display: grid;
-    place-items: center;
-    font-size: 8px;
-    font-weight: 700
-}
-
-.blue-bg {
-    background: #eaf2f6;
-    color: #7195aa
-}
-
-.purple-bg {
-    background: #f0edf6;
-    color: #8374a0
-}
-
-.green-bg {
-    background: #edf5ef;
-    color: #6f9876
-}
-
-.gold-bg {
-    background: #f5eddf;
-    color: #a98950
-}
-
-.alert-grid strong {
-    font-size: 7px
-}
-
-.alert-grid small {
-    display: block;
-    color: #999;
-    font-size: 5.5px;
-    margin-top: 2px
-}
-
-.alert-grid b {
-    margin-left: auto;
-    color: #9ca19e;
-    font-size: 9px
-}
-
-@media (max-width: 1000px) {
-    .sidebar {
-        width: 130px
-    }
-
-    .main-content {
-        margin-left: 130px;
-        width: calc(100% - 130px)
-    }
-
-    .stat-grid {
-        grid-template-columns:1fr 1fr
-    }
-
-    .main-grid, .lower-grid {
-        grid-template-columns:1fr
-    }
-
-    .alert-grid {
-        grid-template-columns:1fr 1fr
-    }
-}
-
-@media (max-width: 650px) {
-    .sidebar {
-        display: none
-    }
-
-    .main-content {
-        margin-left: 0;
-        width: 100%
-    }
-
-    .dashboard {
-        padding: 10px
-    }
-
-    .stat-grid, .mini-grid {
-        grid-template-columns:1fr 1fr
-    }
-
-    .dashboard-head {
-        align-items: flex-start;
-        gap: 8px
-    }
-
-    .header-right {
-        display: none
-    }
-}
-
+/* ================= TRANG BÁN HÀNG TẠI QUẦY (GIỮ NGUYÊN) ================= */
 .pos-container {
     padding: 16px 20px 24px;
     background-color: #f7f5ef;
@@ -1031,7 +754,6 @@ a {
     color: #3d4a50;
 }
 
-/* Header & Tabs */
 .pos-header {
     margin-bottom: 12px;
 }
@@ -1070,7 +792,6 @@ a {
     margin: 2px 0 0;
 }
 
-/* Tab hóa đơn */
 .invoice-tabs {
     display: flex;
     align-items: center;
@@ -1119,7 +840,6 @@ a {
     place-items: center;
 }
 
-/* Grid Layout 2 Cột */
 .pos-layout {
     display: grid;
     grid-template-columns: 1fr 280px;
@@ -1135,44 +855,6 @@ a {
     margin-bottom: 12px;
 }
 
-.card-head {
-    padding: 12px 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid #f2eee6;
-}
-
-.card-head h3 {
-    font-size: 11px;
-    font-weight: 700;
-    margin: 0;
-    color: #3b4c54;
-}
-
-.card-head p {
-    font-size: 8px;
-    color: #979d9d;
-    margin: 2px 0 0;
-}
-
-.card-actions {
-    display: flex;
-    gap: 6px;
-}
-
-.icon-btn {
-    width: 28px;
-    height: 26px;
-    background: #ffffff;
-    border: 1px solid #dfd8cb;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 11px;
-    color: #5d6a70;
-}
-
-/* Bảng giỏ hàng */
 .cart-table-wrap {
     overflow-x: auto;
 }
@@ -1258,13 +940,6 @@ a {
     border-color: #3b607c;
 }
 
-/* Form thanh toán */
-.title-with-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
 .btn-select-user {
     background: #2f5675;
     color: #ffffff;
@@ -1324,7 +999,6 @@ a {
     border-color: #3b607c;
 }
 
-/* Cột tính tiền Checkout */
 .checkout-summary {
     display: flex;
     flex-direction: column;
@@ -1361,7 +1035,6 @@ a {
     color: #2b5573;
 }
 
-/* Switch giao hàng */
 .switch-row {
     display: flex;
     align-items: center;
@@ -1493,7 +1166,6 @@ a {
     background: #21435c;
 }
 
-/* Cột phải: 10 đơn hàng gần nhất */
 .recent-orders-card {
     padding: 12px;
 }
@@ -1559,70 +1231,33 @@ a {
     .pos-layout {
         grid-template-columns: 1fr;
     }
-}
-/* Thiết lập theo cỡ chữ mặc định của hệ thống */
-html {
-    font-size: 100%; /* Nhận diện trực tiếp cài đặt font-size của hệ điều hành và trình duyệt */
-    box-sizing: border-box;
-}
-
-*, *::before, *::after {
-    box-sizing: inherit;
+    .stat-grid, .mini-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .main-grid, .lower-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
-body {
-    font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 0.95rem; /* Tự co giãn theo hệ thống (~15px ở cỡ mặc định) */
-    line-height: 1.5;
-    color: #3d4a50;
-    -webkit-font-smoothing: antialiased;
-}
-
-/* Các trường nhập liệu & nút bấm tự co giãn */
-input, select, textarea, button {
-    font-family: inherit;
-    font-size: 0.9rem !important; /* ~14.4px */
-}
-
-input, select {
-    min-height: 2.5rem !important; /* Chiều cao tự dãn khi chữ to ra */
-    padding: 0.4rem 0.75rem !important;
-}
-
-/* Bảng dữ liệu co giãn linh hoạt */
-table th {
-    font-size: 0.9rem !important;
-    font-weight: 700 !important;
-    padding: 0.75rem 0.9rem !important;
-}
-
-table td {
-    font-size: 0.9rem !important;
-    padding: 0.75rem 0.9rem !important;
-}
-
-/* Nút bấm */
-.btn, button.btn {
-    font-size: 0.88rem !important;
-    min-height: 2.3rem !important;
-    padding: 0.4rem 1rem !important;
-}
-
-/* Nhãn biểu mẫu */
-label {
-    font-size: 0.88rem !important;
-    font-weight: 600 !important;
-}
-
-/* Tiêu đề các mục */
-.page-title {
-    font-size: 1.15rem !important; /* ~18.4px */
-    font-weight: 700 !important;
-}
-
-.card-title h3,
-.card-head-title h3,
-.card-section-title {
-    font-size: 1.05rem !important; /* ~16.8px */
-    font-weight: 700 !important;
+@media (max-width: 650px) {
+    .sidebar {
+        display: none;
+    }
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+    .dashboard {
+        padding: 10px;
+    }
+    .stat-grid, .mini-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .dashboard-head {
+        align-items: flex-start;
+        gap: 8px;
+    }
+    .header-right {
+        display: none;
+    }
 }

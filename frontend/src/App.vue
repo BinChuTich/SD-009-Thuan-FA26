@@ -35,96 +35,90 @@ const toggleMenu = (menu) => {
       </div>
 
       <nav class="menu">
-        <!-- Thống kê -->
+        <!-- 1. Tổng quan -->
         <router-link to="/thong-ke" class="menu-item" active-class="active">
-          <span class="menu-icon">▦</span>
-          <span class="menu-text">Thống kê</span>
+    <span class="menu-icon">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/>
+      </svg>
+    </span>
+          <span class="menu-text">Tổng quan</span>
         </router-link>
 
-        <!-- Bán hàng tại quầy -->
+        <!-- 2. Bán Hàng Tại Quầy -->
         <router-link to="/ban-hang" class="menu-item" active-class="active">
-          <span class="menu-icon">▣</span>
-          <span class="menu-text">Bán hàng tại quầy</span>
+    <span class="menu-icon">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+      </svg>
+    </span>
+          <span class="menu-text">Bán Hàng Tại Quầy</span>
         </router-link>
 
-        <!-- Quản lý hóa đơn dạng link đơn trực tiếp -->
+        <!-- 3. Quản Lý Hóa Đơn (Link trực tiếp dạng túi xách) -->
         <router-link to="/hoa-don" class="menu-item" active-class="active">
-          <span class="menu-icon">▤</span>
-          <span class="menu-text">Quản lý hóa đơn</span>
+    <span class="menu-icon">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M19 6h-2c0-2.76-2.24-5-5-5S7 3.24 7 6H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7-3c1.66 0 3 1.34 3 3H9c0-1.66 1.34-3 3-3zm7 17H5V8h2v2c0 .55.45 1 1 1s1-.45 1-1V8h6v2c0 .55.45 1 1 1s1-.45 1-1V8h2v12z"/>
+      </svg>
+    </span>
+          <span class="menu-text">Quản Lý Hóa Đơn</span>
         </router-link>
 
-        <!-- Quản lý sản phẩm (Đã gộp Thuộc tính sản phẩm vào bên trong) -->
+        <!-- 4. Quản Lý Sản Phẩm (Hộp đóng hàng có nắp) -->
         <div class="menu-group">
           <div class="menu-item has-sub" @click="toggleMenu('sanPham')">
-            <span class="menu-icon">◈</span>
-            <span class="menu-text">Quản lý sản phẩm</span>
+      <span class="menu-icon">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 2H4c-1.1 0-2 .9-2 2v3c0 .55.45 1 1 1h1v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8h1c.55 0 1-.45 1-1V4c0-1.1-.9-2-2-2zm-1 6v12H5V8h14zM4 4h16v2H4V4zm5 6h6v2H9v-2z"/>
+        </svg>
+      </span>
+            <span class="menu-text">Quản Lý Sản phẩm</span>
             <span class="arrow-icon" :class="{ open: openMenus.sanPham }">⌄</span>
           </div>
 
-          <!-- Cấp 2: Các mục con của Quản lý sản phẩm -->
+          <!-- Menu con của Sản phẩm -->
           <div class="submenu-tree" v-show="openMenus.sanPham">
             <router-link to="/san-pham" class="tree-item" active-class="active">
               <span class="tree-branch">├─</span>
               <span>Sản phẩm</span>
             </router-link>
-
             <router-link to="/bien-the-san-pham" class="tree-item" active-class="active">
-              <span class="tree-branch">├─</span>
+              <span class="tree-branch">└─</span>
               <span>Biến thể sản phẩm</span>
             </router-link>
-
-            <!-- Nhánh con: Thuộc tính sản phẩm -->
-            <div class="nested-tree-group">
-              <div class="tree-item has-sub-nested" @click="toggleMenu('thuocTinh')">
-                <span class="tree-branch">└─</span>
-                <span class="nested-title">Thuộc tính sản phẩm</span>
-                <span class="arrow-icon-sub" :class="{ open: openMenus.thuocTinh }">⌄</span>
-              </div>
-
-              <!-- Cấp 3: Danh sách các thuộc tính -->
-              <div class="submenu-sub-tree" v-show="openMenus.thuocTinh">
-                <router-link to="/danh-muc" class="tree-sub-item" active-class="active">
-                  <span class="tree-branch">├─</span>
-                  <span>Danh mục</span>
-                </router-link>
-                <router-link to="/thuong-hieu" class="tree-sub-item" active-class="active">
-                  <span class="tree-branch">├─</span>
-                  <span>Thương hiệu</span>
-                </router-link>
-                <router-link to="/chat-lieu" class="tree-sub-item" active-class="active">
-                  <span class="tree-branch">├─</span>
-                  <span>Chất liệu</span>
-                </router-link>
-                <router-link to="/xuat-xu" class="tree-sub-item" active-class="active">
-                  <span class="tree-branch">├─</span>
-                  <span>Xuất xứ</span>
-                </router-link>
-                <router-link to="/co-ao" class="tree-sub-item" active-class="active">
-                  <span class="tree-branch">├─</span>
-                  <span>Cổ áo</span>
-                </router-link>
-                <router-link to="/tay-ao" class="tree-sub-item" active-class="active">
-                  <span class="tree-branch">├─</span>
-                  <span>Tay áo</span>
-                </router-link>
-                <router-link to="/mau-sac" class="tree-sub-item" active-class="active">
-                  <span class="tree-branch">├─</span>
-                  <span>Màu sắc</span>
-                </router-link>
-                <router-link to="/kich-co" class="tree-sub-item" active-class="active">
-                  <span class="tree-branch">└─</span>
-                  <span>Kích cỡ</span>
-                </router-link>
-              </div>
-            </div>
           </div>
         </div>
 
-        <!-- Quản lý giảm giá (Nhánh cây con) -->
+        <!-- 5. Quản lý khách hàng (2 người) -->
+        <router-link to="/khach-hang" class="menu-item" active-class="active">
+    <span class="menu-icon">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+      </svg>
+    </span>
+          <span class="menu-text">Quản lý khách hàng</span>
+        </router-link>
+
+        <!-- 6. Quản lý nhân viên (2 người) -->
+        <router-link to="/nhan-vien" class="menu-item" active-class="active">
+    <span class="menu-icon">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+      </svg>
+    </span>
+          <span class="menu-text">Quản lý nhân viên</span>
+        </router-link>
+
+        <!-- 7. Quản Lý Giảm Giá (Tag giảm giá) -->
         <div class="menu-group">
           <div class="menu-item has-sub" @click="toggleMenu('giamGia')">
-            <span class="menu-icon">%</span>
-            <span class="menu-text">Quản lý giảm giá</span>
+      <span class="menu-icon">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+        </svg>
+      </span>
+            <span class="menu-text">Quản Lý Giảm Giá</span>
             <span class="arrow-icon" :class="{ open: openMenus.giamGia }">⌄</span>
           </div>
           <div class="submenu-tree" v-show="openMenus.giamGia">
@@ -138,18 +132,6 @@ const toggleMenu = (menu) => {
             </router-link>
           </div>
         </div>
-
-        <!-- Quản lý khách hàng -->
-        <router-link to="/khach-hang" class="menu-item" active-class="active">
-          <span class="menu-icon">♟</span>
-          <span class="menu-text">Quản lý khách hàng</span>
-        </router-link>
-
-        <!-- Quản lý nhân viên -->
-        <router-link to="/nhan-vien" class="menu-item" active-class="active">
-          <span class="menu-icon">♟</span>
-          <span class="menu-text">Quản lý nhân viên</span>
-        </router-link>
       </nav>
     </aside>
 
@@ -201,11 +183,11 @@ const toggleMenu = (menu) => {
   overflow-y: auto;
 }
 
-/* Khu vực Logo */
+/* Khu vực khung chứa Logo */
 .logo-box {
   background-color: #ffffff;
-  height: 76px;
-  padding: 10px 8px;
+  height: 96px; /* Tăng chiều cao từ 76px lên 96px để logo to không bị kích */
+  padding: 14px 10px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -220,12 +202,13 @@ const toggleMenu = (menu) => {
   font-family: 'Fredoka', sans-serif;
 }
 
+/* 3 tia sáng phát ra góc trên bên trái - Phóng to và chỉnh vị trí theo chữ lớn */
 .sparkles {
   position: absolute;
-  top: -4px;
-  left: -6px;
-  width: 22px;
-  height: 22px;
+  top: -8px;
+  left: -10px;
+  width: 28px;
+  height: 28px;
   pointer-events: none;
 }
 
@@ -236,41 +219,43 @@ const toggleMenu = (menu) => {
 }
 
 .sparkles .ray-1 {
-  width: 3px;
-  height: 8px;
+  width: 4px;
+  height: 11px;
   top: 0;
-  right: 4px;
+  right: 5px;
   transform: rotate(10deg);
 }
 
 .sparkles .ray-2 {
-  width: 3px;
-  height: 8px;
-  top: 4px;
-  left: 3px;
+  width: 4px;
+  height: 11px;
+  top: 5px;
+  left: 4px;
   transform: rotate(-45deg);
 }
 
 .sparkles .ray-3 {
-  width: 3px;
-  height: 8px;
-  bottom: 1px;
-  left: -2px;
+  width: 4px;
+  height: 11px;
+  bottom: 0px;
+  left: -3px;
   transform: rotate(-80deg);
 }
 
+/* Cụm chữ FF và chữ T-shirt */
 .logo-content {
   display: flex;
   align-items: flex-end;
-  filter: drop-shadow(0 3px 5px rgba(73, 104, 131, 0.12));
+  filter: drop-shadow(0 3px 6px rgba(73, 104, 131, 0.16));
 }
 
+/* 2 chữ FF to nổi bật */
 .logo-name {
   display: flex;
-  font-size: 38px;
-  font-weight: 700;
+  font-size: 52px; /* Tăng từ 38px lên 52px */
+  font-weight: 800;
   line-height: 0.85;
-  letter-spacing: -1.5px;
+  letter-spacing: -2px;
 }
 
 .f-blue {
@@ -282,14 +267,15 @@ const toggleMenu = (menu) => {
   margin-left: 2px;
 }
 
+/* Chữ T-shirt nhỏ bên cạnh */
 .logo-sub {
   color: #496883;
-  font-size: 11px;
+  font-size: 14px; /* Tăng từ 11px lên 14px */
   font-weight: 700;
   line-height: 1;
-  margin-left: 3px;
-  margin-bottom: 2px;
-  letter-spacing: -0.2px;
+  margin-left: 5px;
+  margin-bottom: 3px;
+  letter-spacing: -0.3px;
 }
 
 /* Menu điều hướng */
