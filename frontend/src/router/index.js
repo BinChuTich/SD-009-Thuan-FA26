@@ -37,8 +37,15 @@ const routes = [
     { path: '/ban-hang', name: 'BanHang', component: BanHang },
 
     // --- Quản lý hóa đơn ---
-    { path: '/hoa-don', name: 'DanhSachHoaDon', component: DanhSachHoaDon },
-    { path: '/hoa-don/chi-tiet', name: 'ChiTietHoaDon', component: ChiTietHoaDon },
+    // Cập nhật route hóa đơn
+    {
+        path: '/hoa-don',
+        component: DanhSachHoaDon
+    },
+    {
+        path: '/hoa-don/:ma', // Dùng dynamic param :ma để chuyển trang kèm mã hóa đơn
+        component: ChiTietHoaDon
+    },
 
     // --- Quản lý sản phẩm ---
     { path: '/san-pham', name: 'SanPham', component: SanPham },

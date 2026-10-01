@@ -73,4 +73,8 @@ public class SanPham {
     @JoinColumn(name = "id_danh_muc")
     private DanhMuc idDanhMuc;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_hoa_tiet")
+    private HoaTiet idHoaTiet;
+
 }

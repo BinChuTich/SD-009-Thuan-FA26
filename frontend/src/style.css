@@ -1560,3 +1560,69 @@ a {
         grid-template-columns: 1fr;
     }
 }
+/* Thiết lập theo cỡ chữ mặc định của hệ thống */
+html {
+    font-size: 100%; /* Nhận diện trực tiếp cài đặt font-size của hệ điều hành và trình duyệt */
+    box-sizing: border-box;
+}
+
+*, *::before, *::after {
+    box-sizing: inherit;
+}
+
+body {
+    font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 0.95rem; /* Tự co giãn theo hệ thống (~15px ở cỡ mặc định) */
+    line-height: 1.5;
+    color: #3d4a50;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Các trường nhập liệu & nút bấm tự co giãn */
+input, select, textarea, button {
+    font-family: inherit;
+    font-size: 0.9rem !important; /* ~14.4px */
+}
+
+input, select {
+    min-height: 2.5rem !important; /* Chiều cao tự dãn khi chữ to ra */
+    padding: 0.4rem 0.75rem !important;
+}
+
+/* Bảng dữ liệu co giãn linh hoạt */
+table th {
+    font-size: 0.9rem !important;
+    font-weight: 700 !important;
+    padding: 0.75rem 0.9rem !important;
+}
+
+table td {
+    font-size: 0.9rem !important;
+    padding: 0.75rem 0.9rem !important;
+}
+
+/* Nút bấm */
+.btn, button.btn {
+    font-size: 0.88rem !important;
+    min-height: 2.3rem !important;
+    padding: 0.4rem 1rem !important;
+}
+
+/* Nhãn biểu mẫu */
+label {
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+}
+
+/* Tiêu đề các mục */
+.page-title {
+    font-size: 1.15rem !important; /* ~18.4px */
+    font-weight: 700 !important;
+}
+
+.card-title h3,
+.card-head-title h3,
+.card-section-title {
+    font-size: 1.05rem !important; /* ~16.8px */
+    font-weight: 700 !important;
+}

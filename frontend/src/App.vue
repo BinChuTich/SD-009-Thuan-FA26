@@ -1,18 +1,15 @@
 <script setup>
 import { ref } from 'vue'
-import { reactive } from 'vue'
+
 const openMenus = ref({
   sanPham: true,
-  thuocTinh: false,
-  giamGia: false,
-  hoaDon: true
+  thuocTinh: true,
+  giamGia: false
 })
 
 const toggleMenu = (menu) => {
   openMenus.value[menu] = !openMenus.value[menu]
 }
-
-
 </script>
 
 <template>
@@ -50,84 +47,76 @@ const toggleMenu = (menu) => {
           <span class="menu-text">Bán hàng tại quầy</span>
         </router-link>
 
-        <!-- Quản lý hóa đơn (Có nhánh con: Danh sách & Chi tiết hóa đơn) -->
-        <div class="menu-group">
-          <div class="menu-item has-sub" @click="toggleMenu('hoaDon')">
-            <span class="menu-icon">▤</span>
-            <span class="menu-text">Quản lý hóa đơn</span>
-            <span class="arrow-icon" :class="{ open: openMenus.hoaDon }">⌄</span>
-          </div>
-          <div class="submenu-tree" v-show="openMenus.hoaDon">
-            <router-link to="/hoa-don" class="tree-item" active-class="active">
-              <span class="tree-branch">├─</span>
-              <span>Danh sách hóa đơn</span>
-            </router-link>
-            <router-link to="/hoa-don/chi-tiet" class="tree-item" active-class="active">
-              <span class="tree-branch">└─</span>
-              <span>Chi tiết hóa đơn</span>
-            </router-link>
-          </div>
-        </div>
+        <!-- Quản lý hóa đơn dạng link đơn trực tiếp -->
+        <router-link to="/hoa-don" class="menu-item" active-class="active">
+          <span class="menu-icon">▤</span>
+          <span class="menu-text">Quản lý hóa đơn</span>
+        </router-link>
 
-        <!-- Quản lý sản phẩm (Nhánh cây con) -->
+        <!-- Quản lý sản phẩm (Đã gộp Thuộc tính sản phẩm vào bên trong) -->
         <div class="menu-group">
           <div class="menu-item has-sub" @click="toggleMenu('sanPham')">
             <span class="menu-icon">◈</span>
             <span class="menu-text">Quản lý sản phẩm</span>
             <span class="arrow-icon" :class="{ open: openMenus.sanPham }">⌄</span>
           </div>
+
+          <!-- Cấp 2: Các mục con của Quản lý sản phẩm -->
           <div class="submenu-tree" v-show="openMenus.sanPham">
             <router-link to="/san-pham" class="tree-item" active-class="active">
               <span class="tree-branch">├─</span>
               <span>Sản phẩm</span>
             </router-link>
+
             <router-link to="/bien-the-san-pham" class="tree-item" active-class="active">
-              <span class="tree-branch">└─</span>
+              <span class="tree-branch">├─</span>
               <span>Biến thể sản phẩm</span>
             </router-link>
-          </div>
-        </div>
 
-        <!-- Thuộc tính sản phẩm (Nhánh cây con) -->
-        <div class="menu-group">
-          <div class="menu-item has-sub" @click="toggleMenu('thuocTinh')">
-            <span class="menu-icon">◇</span>
-            <span class="menu-text">Thuộc tính sản phẩm</span>
-            <span class="arrow-icon" :class="{ open: openMenus.thuocTinh }">⌄</span>
-          </div>
-          <div class="submenu-tree" v-show="openMenus.thuocTinh">
-            <router-link to="/danh-muc" class="tree-item" active-class="active">
-              <span class="tree-branch">├─</span>
-              <span>Danh mục</span>
-            </router-link>
-            <router-link to="/thuong-hieu" class="tree-item" active-class="active">
-              <span class="tree-branch">├─</span>
-              <span>Thương hiệu</span>
-            </router-link>
-            <router-link to="/chat-lieu" class="tree-item" active-class="active">
-              <span class="tree-branch">├─</span>
-              <span>Chất liệu</span>
-            </router-link>
-            <router-link to="/xuat-xu" class="tree-item" active-class="active">
-              <span class="tree-branch">├─</span>
-              <span>Xuất xứ</span>
-            </router-link>
-            <router-link to="/co-ao" class="tree-item" active-class="active">
-              <span class="tree-branch">├─</span>
-              <span>Cổ áo</span>
-            </router-link>
-            <router-link to="/tay-ao" class="tree-item" active-class="active">
-              <span class="tree-branch">├─</span>
-              <span>Tay áo</span>
-            </router-link>
-            <router-link to="/mau-sac" class="tree-item" active-class="active">
-              <span class="tree-branch">├─</span>
-              <span>Màu sắc</span>
-            </router-link>
-            <router-link to="/kich-co" class="tree-item" active-class="active">
-              <span class="tree-branch">└─</span>
-              <span>Kích cỡ</span>
-            </router-link>
+            <!-- Nhánh con: Thuộc tính sản phẩm -->
+            <div class="nested-tree-group">
+              <div class="tree-item has-sub-nested" @click="toggleMenu('thuocTinh')">
+                <span class="tree-branch">└─</span>
+                <span class="nested-title">Thuộc tính sản phẩm</span>
+                <span class="arrow-icon-sub" :class="{ open: openMenus.thuocTinh }">⌄</span>
+              </div>
+
+              <!-- Cấp 3: Danh sách các thuộc tính -->
+              <div class="submenu-sub-tree" v-show="openMenus.thuocTinh">
+                <router-link to="/danh-muc" class="tree-sub-item" active-class="active">
+                  <span class="tree-branch">├─</span>
+                  <span>Danh mục</span>
+                </router-link>
+                <router-link to="/thuong-hieu" class="tree-sub-item" active-class="active">
+                  <span class="tree-branch">├─</span>
+                  <span>Thương hiệu</span>
+                </router-link>
+                <router-link to="/chat-lieu" class="tree-sub-item" active-class="active">
+                  <span class="tree-branch">├─</span>
+                  <span>Chất liệu</span>
+                </router-link>
+                <router-link to="/xuat-xu" class="tree-sub-item" active-class="active">
+                  <span class="tree-branch">├─</span>
+                  <span>Xuất xứ</span>
+                </router-link>
+                <router-link to="/co-ao" class="tree-sub-item" active-class="active">
+                  <span class="tree-branch">├─</span>
+                  <span>Cổ áo</span>
+                </router-link>
+                <router-link to="/tay-ao" class="tree-sub-item" active-class="active">
+                  <span class="tree-branch">├─</span>
+                  <span>Tay áo</span>
+                </router-link>
+                <router-link to="/mau-sac" class="tree-sub-item" active-class="active">
+                  <span class="tree-branch">├─</span>
+                  <span>Màu sắc</span>
+                </router-link>
+                <router-link to="/kich-co" class="tree-sub-item" active-class="active">
+                  <span class="tree-branch">└─</span>
+                  <span>Kích cỡ</span>
+                </router-link>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -166,7 +155,6 @@ const toggleMenu = (menu) => {
 
     <main class="main-content">
       <header class="top-header">
-
         <div class="header-right">
           <span>Quản trị viên</span>
           <span class="divider">|</span>
@@ -180,9 +168,6 @@ const toggleMenu = (menu) => {
     </main>
   </div>
 </template>
-
-<script setup lang="ts">
-</script>
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Fredoka:wght@600;700&display=swap');
@@ -201,18 +186,19 @@ const toggleMenu = (menu) => {
   font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Sidebar toàn bộ là nền trắng cố định 155px */
+/* Sidebar nền trắng cố định 200px */
 .sidebar {
   position: fixed;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 200px; /* Chiều rộng thanh menu */
+  width: 14rem !important;
   background-color: #ffffff;
   border-right: 1px solid #e9e5db;
   z-index: 100;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 /* Khu vực Logo */
@@ -234,7 +220,6 @@ const toggleMenu = (menu) => {
   font-family: 'Fredoka', sans-serif;
 }
 
-/* 3 tia sáng */
 .sparkles {
   position: absolute;
   top: -4px;
@@ -274,7 +259,6 @@ const toggleMenu = (menu) => {
   transform: rotate(-80deg);
 }
 
-/* Cụm FF và T-shirt vừa vặn cột 155px */
 .logo-content {
   display: flex;
   align-items: flex-end;
@@ -308,7 +292,7 @@ const toggleMenu = (menu) => {
   letter-spacing: -0.2px;
 }
 
-/* Menu điều hướng nền trắng */
+/* Menu điều hướng */
 .menu {
   flex: 1;
   padding: 14px 8px;
@@ -320,15 +304,17 @@ const toggleMenu = (menu) => {
   padding: 0 11px;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 0.65rem !important;
   border-radius: 7px;
   color: #647074;
-  font-size: 9px;
+  font-size: 0.9rem !important;
   margin-bottom: 3px;
   cursor: pointer;
   text-decoration: none;
   background: transparent;
   transition: background 0.2s ease, color 0.2s ease;
+  user-select: none;
+  min-height: 2.4rem !important;
 }
 
 .menu-item:hover {
@@ -352,9 +338,131 @@ const toggleMenu = (menu) => {
   align-items: center;
 }
 
-/* Nội dung chính thụt vào 155px tránh bị đè */
+.menu-text {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.arrow-icon {
+  font-size: 9px;
+  color: #8a9292;
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+.arrow-icon.open {
+  transform: rotate(180deg);
+}
+
+/* Menu con cấp 2 */
+.submenu-tree {
+  display: flex;
+  flex-direction: column;
+  padding-left: 14px;
+  margin: 2px 0 4px;
+}
+
+.tree-item {
+  height: 28px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+  color: #647074;
+  font-size: 0.85rem !important;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  min-height: 2rem !important;
+}
+
+.tree-branch {
+  font-family: monospace, sans-serif;
+  color: #9aa0a0;
+  margin-right: 6px;
+  font-size: 9px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.tree-item:hover {
+  background-color: #f7f5ef;
+  color: #496883;
+}
+
+.tree-item.active {
+  background-color: #eaf1f4;
+  color: #496883;
+  font-weight: 700;
+}
+
+.tree-item.active .tree-branch {
+  color: #496883;
+}
+
+/* Nhánh lồng cấp 3 (Thuộc tính sản phẩm) */
+.has-sub-nested {
+  cursor: pointer;
+  user-select: none;
+}
+
+.nested-title {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.arrow-icon-sub {
+  font-size: 8.5px;
+  color: #8a9292;
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+.arrow-icon-sub.open {
+  transform: rotate(180deg);
+}
+
+.submenu-sub-tree {
+  display: flex !important;
+  flex-direction: column !important;
+  padding-left: 14px;
+  margin: 2px 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tree-sub-item {
+  display: flex !important;
+  align-items: center;
+  height: 26px;
+  padding: 0 6px;
+  font-size: 8.5px;
+  color: #647074;
+  text-decoration: none;
+  border-radius: 4px;
+  white-space: nowrap !important;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+}
+
+.tree-sub-item:hover {
+  background-color: #f7f5ef;
+  color: #496883;
+}
+
+.tree-sub-item.active {
+  background-color: #eaf1f4;
+  color: #496883;
+  font-weight: 700;
+}
+
+.tree-sub-item.active .tree-branch {
+  color: #496883;
+}
+
+/* Nội dung chính */
 .main-content {
-  margin-left: 200px; /* Phải bằng width của .sidebar */
+  margin-left: 200px;
   width: calc(100% - 200px);
   min-height: 100vh;
   background-color: #f7f5ef;
@@ -363,26 +471,20 @@ const toggleMenu = (menu) => {
 }
 
 .top-header {
-  height: 48px;
+  height: 3.2rem !important;
   background-color: #ffffff;
   padding: 0 24px;
   display: flex;
-  justify-content: flex-end; /* Đẩy cụm Quản trị viên sang góc phải */
+  justify-content: flex-end;
   align-items: center;
   border-bottom: 1px solid #e9e5db;
-}
-
-.header-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: #4b5b62;
 }
 
 .header-right {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 8px;
+  font-size: 0.85rem !important;
   color: #6c7477;
 }
 

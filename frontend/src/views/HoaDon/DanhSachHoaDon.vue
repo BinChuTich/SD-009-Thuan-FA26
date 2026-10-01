@@ -1,3 +1,77 @@
+<script setup>
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+// Hàm nhận mã hóa đơn và chuyển trang
+const xemChiTiet = (ma) => {
+  router.push(`/hoa-don/${ma}`)
+}
+
+const currentTab = ref('Tất Cả')
+
+const statusTabs = [
+  'Tất Cả',
+  'Chờ Xác Nhận',
+  'Đã Xác Nhận',
+  'Chờ Vận Chuyển',
+  'Vận Chuyển',
+  'Đã Hoàn Thành',
+  'Hủy'
+]
+
+const filters = ref({
+  code: '',
+  startDate: '28/05/2026',
+  endDate: '',
+  type: ''
+})
+
+const resetFilters = () => {
+  filters.value = {
+    code: '',
+    startDate: '',
+    endDate: '',
+    type: ''
+  }
+}
+
+// Dữ liệu danh sách hóa đơn chuẩn
+const invoiceList = ref([
+  {
+    id: 1,
+    code: 'HDMKT1',
+    customerName: 'No name',
+    employeeName: 'Admin 1',
+    totalPrice: '3.500.000đ',
+    createTime: '00:00:00',
+    createDate: '28/05/2026',
+    type: 'Tại cửa hàng'
+  },
+  {
+    id: 2,
+    code: 'HDSLA1',
+    customerName: 'No name',
+    employeeName: 'Admin 2',
+    totalPrice: '2.500.000đ',
+    createTime: '00:00:00',
+    createDate: '28/05/2026',
+    type: 'Online'
+  },
+  {
+    id: 3,
+    code: 'HDSBOG1',
+    customerName: 'No name',
+    employeeName: 'Admin 3',
+    totalPrice: '2.700.000đ',
+    createTime: '00:00:00',
+    createDate: '28/05/2026',
+    type: 'Online'
+  }
+])
+</script>
+
 <template>
   <div class="invoice-container">
     <!-- 1. Thanh tiêu đề phía trên -->
@@ -52,7 +126,7 @@
         </div>
       </div>
 
-      <!-- 3 nút thao tác bên phải theo đúng tone màu của dự án -->
+      <!-- 3 nút thao tác bên phải -->
       <div class="filter-buttons">
         <button class="btn btn-search">Tìm Kiếm</button>
         <button class="btn btn-reset" @click="resetFilters">Làm Mới</button>
@@ -98,25 +172,32 @@
           </tr>
           </thead>
           <tbody>
-          <tr v-for="(item, index) in invoiceList" :key="item.code">
-            <td>{{ index + 1 }}</td>
-            <td><b class="text-blue">{{ item.code }}</b></td>
-            <td>{{ item.customer }}</td>
-            <td>{{ item.staff }}</td>
-            <td class="total-text">{{ item.total }}</td>
+          <tr v-for="(item, index) in invoiceList" :key="item.id">
+            <td style="text-align: center">{{ index + 1 }}</td>
+
+            <!-- Click vào mã hóa đơn để chuyển sang trang chi tiết -->
             <td>
-              <div class="datetime-cell">
-                <span>{{ item.time }}</span>
-                <span class="text-muted">{{ item.date }}</span>
-              </div>
+                <span class="code-link" @click="xemChiTiet(item.code)">
+                  {{ item.code }}
+                </span>
+            </td>
+
+            <td>{{ item.customerName }}</td>
+            <td>{{ item.employeeName }}</td>
+            <td><b>{{ item.totalPrice }}</b></td>
+            <td>
+              <div>{{ item.createTime }}</div>
+              <small style="color: #9aa0a0">{{ item.createDate }}</small>
             </td>
             <td>
-                <span class="pill-type" :class="item.type === 'Online' ? 'online' : 'instore'">
+                <span class="badge" :class="item.type === 'Tại cửa hàng' ? 'instore' : 'online'">
                   {{ item.type }}
                 </span>
             </td>
+
+            <!-- Click vào nút con mắt để xem chi tiết -->
             <td style="text-align: center">
-              <button class="btn-action-view" title="Xem chi tiết">
+              <button class="btn-action-view" @click="xemChiTiet(item.code)" title="Xem chi tiết">
                 👁
               </button>
             </td>
@@ -135,79 +216,18 @@
   </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
-
-const currentTab = ref('Tất Cả')
-
-const statusTabs = [
-  'Tất Cả',
-  'Chờ Xác Nhận',
-  'Đã Xác Nhận',
-  'Chờ Vận Chuyển',
-  'Vận Chuyển',
-  'Đã Hoàn Thành',
-  'Hủy'
-]
-
-const filters = ref({
-  code: '',
-  startDate: '28/05/2026',
-  endDate: '',
-  type: ''
-})
-
-const resetFilters = () => {
-  filters.value = {
-    code: '',
-    startDate: '',
-    endDate: '',
-    type: ''
-  }
-}
-
-const invoiceList = ref([
-  {
-    code: 'HDMKT1',
-    customer: 'No name',
-    staff: 'Admin 1',
-    total: '3.500.000đ',
-    time: '00:00:00',
-    date: '28/05/2026',
-    type: 'Tại cửa hàng'
-  },
-  {
-    code: 'HDSLA1',
-    customer: 'No name',
-    staff: 'Admin 2',
-    total: '2.500.000đ',
-    time: '00:00:00',
-    date: '28/05/2026',
-    type: 'Online'
-  },
-  {
-    code: 'HDSBOG1',
-    customer: 'No name',
-    staff: 'Admin 3',
-    total: '2.700.000đ',
-    time: '00:00:00',
-    date: '28/05/2026',
-    type: 'Online'
-  }
-])
-</script>
-
 <style scoped>
-/* Toàn bộ vùng hiển thị trang - Nền màu kem ấm của dự án */
+/* Toàn bộ vùng hiển thị trang - Nền màu kem ấm */
 .invoice-container {
   padding: 16px 20px 24px;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--text, #3d4a50);
+  box-sizing: border-box;
 }
 
-/* 1. Header trên cùng có viền be/vàng */
+/* 1. Header trên cùng */
 .top-title-card {
   background: #ffffff;
   border: 1px solid var(--line, #e9e5db);
@@ -224,7 +244,7 @@ const invoiceList = ref([
   letter-spacing: 0.3px;
 }
 
-/* 2. Thẻ Card dùng chung chuẩn bảng màu */
+/* 2. Thẻ Card dùng chung */
 .custom-card {
   background: #ffffff;
   border: 1px solid var(--line, #e9e5db);
@@ -284,6 +304,7 @@ const invoiceList = ref([
   background-color: #fcfbf8;
   outline: none;
   transition: all 0.2s ease;
+  box-sizing: border-box;
 }
 
 .form-group input:focus,
@@ -311,7 +332,7 @@ const invoiceList = ref([
   pointer-events: none;
 }
 
-/* 3 Nút bấm chuẩn hệ màu giao diện */
+/* 3 Nút lọc */
 .filter-buttons {
   display: flex;
   justify-content: flex-end;
@@ -332,7 +353,6 @@ const invoiceList = ref([
   transition: all 0.2s ease;
 }
 
-/* Tìm Kiếm: Nền xanh đá theo tone logo FF */
 .btn-search {
   background-color: var(--blue, #496883);
   color: #ffffff;
@@ -341,7 +361,6 @@ const invoiceList = ref([
   background-color: #38536b;
 }
 
-/* Làm Mới: Nền kem viền vàng be */
 .btn-reset {
   border: 1px solid #dfd5c2;
   background-color: #fff8eb;
@@ -351,7 +370,6 @@ const invoiceList = ref([
   background-color: #faeed7;
 }
 
-/* Xuất File: Nền xanh dịu đồng bộ */
 .btn-export {
   background-color: #edf5ef;
   color: #558764;
@@ -385,7 +403,6 @@ const invoiceList = ref([
   display: flex;
   align-items: center;
   border-bottom: 1px solid #efede7;
-  margin-bottom: 0px;
   overflow-x: auto;
 }
 
@@ -445,59 +462,49 @@ const invoiceList = ref([
   background-color: #fcfbf8;
 }
 
-.text-blue {
-  color: var(--blue, #496883);
-}
-
-.text-muted {
-  color: #9aa0a0;
-  font-size: 7px;
-}
-
-.total-text {
+.code-link {
+  color: #496883;
   font-weight: 700;
-  color: #42555e;
+  cursor: pointer;
+}
+.code-link:hover {
+  text-decoration: underline;
 }
 
-.datetime-cell {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
-}
-
-.pill-type {
-  font-size: 7px;
-  padding: 2px 7px;
+.badge {
+  font-size: 7.5px;
+  padding: 3px 8px;
   border-radius: 10px;
 }
-.pill-type.instore {
+.badge.instore {
   background: #f5eddf;
   color: #a17e45;
 }
-.pill-type.online {
+.badge.online {
   background: #eaf2f6;
   color: #6a95ad;
 }
 
 .btn-action-view {
-  border: 1px solid var(--line, #e9e5db);
-  background: #ffffff;
-  border-radius: 4px;
-  width: 24px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
+  background-color: #ffffff;
+  border: 1px solid #e9e5db;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 11px;
-  color: var(--blue, #496883);
-  display: inline-grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #496883;
   transition: all 0.2s;
 }
-
 .btn-action-view:hover {
   background-color: #eaf1f4;
+  border-color: #496883;
 }
 
-/* Phân trang góc dưới bên phải */
+/* Phân trang */
 .pagination-wrapper {
   display: flex;
   justify-content: flex-end;
