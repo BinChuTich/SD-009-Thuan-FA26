@@ -44,13 +44,14 @@ a {
     display: flex;
 }
 
-/* ================= SIDEBAR & LOGO (GIỮ NGUYÊN) ================= */
+/* ================= SIDEBAR & LOGO (ĐÃ NỚI RỘNG ĐỂ KHÔNG BỊ CẮT CHỮ) ================= */
 .sidebar {
     position: fixed;
     left: 0;
     top: 0;
     bottom: 0;
-    width: 205px;
+    width: 225px;
+    min-width: 225px;
     background: #ffffff;
     border-right: 1px solid #e8e4dc;
     z-index: 5;
@@ -146,7 +147,7 @@ a {
     letter-spacing: -0.2px;
 }
 
-/* ================= MENU CHÍNH (GIỮ NGUYÊN) ================= */
+/* ================= MENU CHÍNH ================= */
 .menu {
     padding: 14px 10px;
     width: 100%;
@@ -164,7 +165,7 @@ a {
     border-radius: 8px;
     color: #5d6a70;
     text-decoration: none;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -192,8 +193,7 @@ a {
 .menu-text {
     flex: 1;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
 }
 
 .menu-item.active {
@@ -244,7 +244,7 @@ a {
     border-radius: 7px;
     color: #7a8589;
     text-decoration: none;
-    font-size: 9px;
+    font-size: 10px;
     transition: all 0.2s ease;
 }
 
@@ -273,10 +273,12 @@ a {
     margin-bottom: 3px;
 }
 
+/* ================= MAIN CONTENT (TRÀN FULL MÀN HÌNH) ================= */
 .main-content {
-    margin-left: 205px;
-    width: calc(100% - 205px);
+    margin-left: 225px;
+    width: calc(100% - 225px);
     min-height: 100vh;
+    background-color: var(--bg);
 }
 
 .top-header {
@@ -288,7 +290,7 @@ a {
     align-items: center;
     padding: 0 24px;
     color: #6c7477;
-    font-size: 9px;
+    font-size: 11px;
 }
 
 .header-title {
@@ -300,7 +302,7 @@ a {
     display: flex;
     gap: 9px;
     align-items: center;
-    font-size: 8px;
+    font-size: 10px;
 }
 
 .header-right a {
@@ -313,25 +315,28 @@ a {
 }
 
 /* =========================================================================
-   RIÊNG TRANG CHỦ / DASHBOARD (NÂNG CỠ FONT TO RÕ THEO HỆ THỐNG VÀ DÙNG REM)
+   DASHBOARD TỔNG QUAN (FULL 100% CHIỀU RỘNG, BỐ CỤC DÃN ĐỀU THOÁNG MẮT)
 ========================================================================= */
 .dashboard {
-    padding: 1.25rem 1.5rem 2rem;
-    max-width: 1450px;
-    margin: auto;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 1.25rem 2rem 2.5rem !important;
+    margin: 0 !important;
+    box-sizing: border-box;
     font-family: var(--system-font) !important;
 }
 
 /* Header tổng quan */
 .dashboard-head {
+    width: 100%;
     background: linear-gradient(100deg, #f8f2e5, #fff);
     border: 1px solid #efe7d5;
-    border-radius: 8px;
-    padding: 1.1rem 1.35rem;
+    border-radius: 10px;
+    padding: 1.2rem 1.6rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
 }
 
 .tiny-label, .section-label {
@@ -366,40 +371,42 @@ a {
     cursor: pointer;
 }
 
-/* 4 thẻ thống kê chính */
+/* 4 thẻ thống kê chính (Full chiều ngang) */
 .stat-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 0.75rem;
+    gap: 1.2rem;
+    margin-bottom: 1rem;
 }
 
 .stat-card {
-    min-height: 85px;
+    min-height: 92px;
     height: auto;
     background: #fff;
     border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 0.9rem 1.1rem;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
     display: flex;
-    gap: 0.85rem;
+    gap: 1rem;
     align-items: center;
     position: relative;
     overflow: hidden;
+    box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
 }
 
-.stat-card:nth-child(1) { border-top: 2px solid #80a9c0; }
-.stat-card:nth-child(2) { border-top: 2px solid #8eb7a6; }
-.stat-card:nth-child(3) { border-top: 2px solid #d1b67d; }
-.stat-card:nth-child(4) { border-top: 2px solid #d7c29b; }
+.stat-card:nth-child(1) { border-top: 3px solid #80a9c0; }
+.stat-card:nth-child(2) { border-top: 3px solid #8eb7a6; }
+.stat-card:nth-child(3) { border-top: 3px solid #d1b67d; }
+.stat-card:nth-child(4) { border-top: 3px solid #d7c29b; }
 
 .stat-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
     display: grid;
     place-items: center;
     font-weight: 800;
-    font-size: 1rem !important;
+    font-size: 1.2rem !important;
     flex: none;
 }
 
@@ -416,9 +423,9 @@ a {
 
 .stat-info strong {
     display: block;
-    font-size: 1.25rem !important;
+    font-size: 1.35rem !important;
     color: #3e4f56;
-    margin: 2px 0;
+    margin: 3px 0;
     font-weight: 800;
 }
 
@@ -443,32 +450,32 @@ a {
 .mini-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 0.75rem;
-    margin: 0.75rem 0 1.1rem;
+    gap: 1.2rem;
+    margin-bottom: 1.35rem;
 }
 
 .mini-card {
-    min-height: 38px;
+    min-height: 40px;
     height: auto;
     background: #fff;
     border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
-    padding: 0.4rem 0.85rem;
-    gap: 0.65rem;
-    font-size: 0.82rem !important;
+    padding: 0.5rem 1rem;
+    gap: 0.75rem;
+    font-size: 0.88rem !important;
 }
 
 .mini-card b {
-    width: 20px;
-    height: 20px;
-    border-radius: 5px;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
     background: #eaf2f6;
     color: #76a0b6;
     display: grid;
     place-items: center;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
 }
 
 .mini-card b.ok { background: #edf5ef; color: #719477; }
@@ -482,22 +489,22 @@ a {
 .mini-card strong {
     margin-left: auto;
     color: #3b4b53;
-    font-size: 0.85rem !important;
+    font-size: 0.9rem !important;
 }
 
-/* Bố cục biểu đồ & Trạng thái đơn hàng */
+/* Bố cục biểu đồ & Trạng thái đơn hàng (Tỷ lệ 2.2 : 1) */
 .main-grid {
     display: grid;
-    grid-template-columns: 2fr 0.95fr;
-    gap: 0.85rem;
-    margin-bottom: 1rem;
+    grid-template-columns: 2.2fr 1fr;
+    gap: 1.2rem;
+    margin-bottom: 1.35rem;
 }
 
 .card {
     background: #fff;
     border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 1.1rem;
+    border-radius: 10px;
+    padding: 1.3rem 1.5rem;
     box-shadow: 0 1px 3px rgba(65, 60, 50, .025);
 }
 
@@ -505,62 +512,62 @@ a {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 0.9rem;
+    margin-bottom: 1rem;
 }
 
 .card-head h2 {
-    font-size: 0.95rem !important;
+    font-size: 1.05rem !important;
     margin: 0 0 3px;
     color: #43545c;
     font-weight: 700;
 }
 
 .card-head p {
-    font-size: 0.78rem !important;
+    font-size: 0.82rem !important;
     color: #8c9597;
     margin: 0;
 }
 
 .card-head a {
-    font-size: 0.78rem !important;
+    font-size: 0.82rem !important;
     color: var(--blue);
     font-weight: 700;
 }
 
 .revenue-total {
     display: flex;
-    gap: 1.25rem;
+    gap: 1.5rem;
     text-align: right;
 }
 
 .revenue-total strong {
     display: block;
-    font-size: 0.95rem !important;
+    font-size: 1rem !important;
     color: #3e4f56;
 }
 
 .revenue-total small {
     display: block;
-    font-size: 0.72rem !important;
+    font-size: 0.75rem !important;
     color: #8c9597;
     margin-top: 2px;
 }
 
 .chart {
-    height: 185px;
+    height: 220px;
     display: flex;
 }
 
 .y-labels {
-    width: 32px;
+    width: 36px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     padding: 3px 0 24px;
-    font-size: 0.7rem !important;
+    font-size: 0.72rem !important;
     color: #9aa0a0;
     text-align: right;
-    padding-right: 6px;
+    padding-right: 8px;
 }
 
 .chart-area {
@@ -576,11 +583,11 @@ a {
 }
 
 .bars {
-    height: 145px;
+    height: 175px;
     position: absolute;
-    left: 4px;
-    right: 4px;
-    bottom: 20px;
+    left: 8px;
+    right: 8px;
+    bottom: 24px;
     display: flex;
     align-items: end;
     justify-content: space-around;
@@ -588,7 +595,7 @@ a {
 
 .bar-col {
     height: 100%;
-    width: 9%;
+    width: 10%;
     display: flex;
     flex-direction: column;
     justify-content: end;
@@ -597,8 +604,8 @@ a {
 }
 
 .bar-col i {
-    width: 22px;
-    max-width: 70%;
+    width: 26px;
+    max-width: 80%;
     background: #68a0bf;
     border-radius: 4px 4px 1px 1px;
     display: block;
@@ -610,59 +617,59 @@ a {
 
 .bar-col small {
     position: absolute;
-    font-size: 0.7rem !important;
+    font-size: 0.72rem !important;
     color: #556268;
-    transform: translateY(-120%);
+    transform: translateY(-130%);
 }
 
 .bar-col span {
     position: absolute;
-    bottom: -18px;
-    font-size: 0.75rem !important;
+    bottom: -20px;
+    font-size: 0.78rem !important;
     color: #7b8587;
     font-weight: 600;
 }
 
 .chart-note {
     border-top: 1px solid #f0eee8;
-    padding-top: 8px;
-    font-size: 0.78rem !important;
+    padding-top: 10px;
+    font-size: 0.8rem !important;
     color: #8c9597;
 }
 
 .status-numbers {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 0.5rem;
-    margin: 1.1rem 0;
+    gap: 0.65rem;
+    margin: 1.2rem 0;
 }
 
 .status-numbers div {
     background: #faf9f6;
     border: 1px solid #efede6;
-    border-radius: 6px;
-    padding: 0.55rem;
+    border-radius: 8px;
+    padding: 0.75rem 0.5rem;
     text-align: center;
 }
 
 .status-numbers b {
-    font-size: 1.15rem !important;
+    font-size: 1.25rem !important;
     color: #496883;
     display: block;
 }
 
 .status-numbers span {
-    font-size: 0.72rem !important;
+    font-size: 0.75rem !important;
     color: #7b8587;
 }
 
 .progress-list > div {
     position: relative;
-    margin: 0.65rem 0;
+    margin: 0.85rem 0;
 }
 
 .progress-list span, .progress-list b {
-    font-size: 0.78rem !important;
+    font-size: 0.82rem !important;
     color: #647074;
 }
 
@@ -673,10 +680,10 @@ a {
 
 .progress-list i {
     display: block;
-    height: 5px;
+    height: 6px;
     background: #f0eee8;
     border-radius: 4px;
-    margin-top: 4px;
+    margin-top: 5px;
     overflow: hidden;
 }
 
@@ -690,19 +697,19 @@ a {
 /* 2 bảng dưới: Đơn hàng gần nhất & Top sản phẩm */
 .lower-grid {
     display: grid;
-    grid-template-columns: 1.25fr 1fr;
-    gap: 0.85rem;
-    margin-bottom: 1rem;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 1.2rem;
+    margin-bottom: 1.5rem;
 }
 
 .table-card {
-    padding-bottom: 0.5rem;
+    padding-bottom: 0.75rem;
 }
 
 .table-card table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.84rem !important;
+    font-size: 0.88rem !important;
 }
 
 .table-card th {
@@ -712,11 +719,11 @@ a {
     background: #faf9f6;
     border-top: 1px solid #efede7;
     border-bottom: 1px solid #efede7;
-    padding: 0.65rem 0.75rem;
+    padding: 0.85rem 1rem;
 }
 
 .table-card td {
-    padding: 0.65rem 0.75rem;
+    padding: 0.9rem 1rem;
     border-bottom: 1px solid #f2f0eb;
     color: #4a5960;
 }
@@ -724,8 +731,8 @@ a {
 .table-card td small {
     display: block;
     color: #9aa0a0;
-    font-size: 0.7rem !important;
-    margin-top: 2px;
+    font-size: 0.74rem !important;
+    margin-top: 3px;
 }
 
 .blue-text {
@@ -734,9 +741,9 @@ a {
 }
 
 .pill {
-    padding: 0.2rem 0.55rem;
+    padding: 0.25rem 0.65rem;
     border-radius: 12px;
-    font-size: 0.72rem !important;
+    font-size: 0.75rem !important;
     font-weight: 600;
     display: inline-block;
 }
@@ -1227,19 +1234,17 @@ a {
     color: #404f56;
 }
 
-@media (max-width: 1100px) {
-    .pos-layout {
+/* ================= RESPONSIVE ================= */
+@media (max-width: 1200px) {
+    .main-grid, .lower-grid {
         grid-template-columns: 1fr;
     }
     .stat-grid, .mini-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    .main-grid, .lower-grid {
-        grid-template-columns: 1fr;
-    }
 }
 
-@media (max-width: 650px) {
+@media (max-width: 768px) {
     .sidebar {
         display: none;
     }
@@ -1248,16 +1253,9 @@ a {
         width: 100%;
     }
     .dashboard {
-        padding: 10px;
+        padding: 1rem !important;
     }
     .stat-grid, .mini-grid {
-        grid-template-columns: 1fr 1fr;
-    }
-    .dashboard-head {
-        align-items: flex-start;
-        gap: 8px;
-    }
-    .header-right {
-        display: none;
+        grid-template-columns: 1fr;
     }
 }

@@ -3,7 +3,6 @@
     <!-- 1. Thanh tiêu đề trên cùng -->
     <div class="breadcrumb-header">
       <div class="breadcrumb-left">
-        <span class="menu-toggle-icon">☰</span>
         <span class="breadcrumb-text">Quản lý giảm giá <span class="slash">/</span> <b>Phiếu giảm giá</b></span>
       </div>
     </div>

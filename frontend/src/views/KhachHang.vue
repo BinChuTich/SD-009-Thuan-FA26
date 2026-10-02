@@ -3,9 +3,6 @@
     <!-- 1. Thanh Breadcrumb & Nút quay lại -->
     <div class="breadcrumb-header">
       <div class="breadcrumb-left">
-        <button class="btn-back" @click="goBack" title="Quay lại">
-          ←
-        </button>
         <span class="breadcrumb-text">
           Khách hàng <span class="slash">/</span> <b>Thêm khách hàng</b>
         </span>

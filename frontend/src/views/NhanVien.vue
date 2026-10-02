@@ -3,7 +3,6 @@
     <!-- 1. Thanh tiêu đề -->
     <div class="breadcrumb-header">
       <div class="breadcrumb-left">
-        <span class="menu-toggle-icon">☰</span>
         <h2 class="page-title">Nhân viên</h2>
       </div>
     </div>

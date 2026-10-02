@@ -3,7 +3,7 @@
     <!-- 1. Thanh Breadcrumb trên cùng -->
     <div class="breadcrumb-header">
       <div class="breadcrumb-left">
-        <span class="menu-toggle-icon">☰</span>
+
         <span class="breadcrumb-text">
           Quản lý giảm giá <span class="slash">/</span> <b>Đợt giảm giá</b>
         </span>
@@ -267,34 +267,25 @@ const viewDetail = (item) => {
 </script>
 
 <style scoped>
+  /* Khung bao ngoài chuẩn độ đệm padding, không bị tràn hay dính sát mép */
 .dot-giam-gia-wrapper {
-  padding: 16px 20px 32px;
+  padding: 1.25rem 1.75rem 2.5rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
-  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--system-font, sans-serif);
   color: var(--text, #3d4a50);
   box-sizing: border-box;
 }
 
-/* 1. Header breadcrumb */
+/* 1. Header breadcrumb cách lề chuẩn */
 .breadcrumb-header {
-  margin-bottom: 12px;
-}
-
-.breadcrumb-left {
+  margin-bottom: 1.2rem;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-}
-
-.menu-toggle-icon {
-  font-size: 14px;
-  color: #8c9597;
-  cursor: pointer;
 }
 
 .breadcrumb-text {
+  font-size: 0.95rem; /* ~15.2px */
   color: #8c9597;
 }
 
@@ -304,38 +295,39 @@ const viewDetail = (item) => {
 }
 
 .slash {
-  margin: 0 4px;
+  margin: 0 6px;
   color: #d8d4c9;
 }
 
-/* 2. Thẻ Khung nội dung */
+/* 2. Thẻ Card trắng chuẩn bo góc và bóng đổ */
 .content-card {
   background: #ffffff;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid var(--line, #e9e5db);
   box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
-  padding: 16px 20px;
-  margin-bottom: 14px;
+  padding: 1.4rem 1.6rem;
+  margin-bottom: 1.25rem;
 }
 
+/* Tiêu đề Bộ lọc */
 .card-header-filter {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 0.75rem;
+  margin-bottom: 1.2rem;
 }
 
 .filter-icon-box {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
   background-color: #f7eee1;
   display: grid;
   place-items: center;
 }
 
 .filter-icon {
-  font-size: 14px;
+  font-size: 1.2rem;
   color: #b18b52;
 }
 
@@ -345,36 +337,36 @@ const viewDetail = (item) => {
 }
 
 .filter-title {
-  font-size: 13.5px;
+  font-size: 1.1rem; /* ~17.6px */
   font-weight: 700;
   margin: 0;
   color: #43545c;
 }
 
 .filter-subtitle {
-  font-size: 11.5px;
+  font-size: 0.85rem;
   color: #8c9597;
   margin: 2px 0 0 0;
 }
 
-/* Grid 4 ô lọc ngang */
+/* Lưới 4 ô lọc ngang đều đặn */
 .filter-inputs-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: 16px;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
 }
 
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 0.45rem;
 }
 
 .form-field label {
-  font-size: 11.5px;
+  font-size: 0.88rem; /* ~14px */
   font-weight: 700;
-  color: #556268;
+  color: #4f5d63;
 }
 
 .input-inner {
@@ -385,20 +377,21 @@ const viewDetail = (item) => {
 
 .prefix-icon {
   position: absolute;
-  left: 9px;
-  font-size: 11px;
+  left: 0.8rem;
+  font-size: 0.95rem;
   color: #9aa0a0;
   pointer-events: none;
 }
 
+/* Ô input & dropdown cao 42px gõ thoáng */
 .form-field input,
 .form-field select {
   width: 100%;
-  height: 35px;
+  height: 2.6rem; /* ~41.6px */
   border: 1px solid var(--line, #e9e5db);
-  border-radius: 6px;
-  padding: 0 10px;
-  font-size: 12.5px;
+  border-radius: 8px;
+  padding: 0 0.85rem;
+  font-size: 0.92rem; /* ~14.7px */
   color: var(--text, #3d4a50);
   background-color: #fcfbf8;
   outline: none;
@@ -407,36 +400,37 @@ const viewDetail = (item) => {
 }
 
 .form-field .input-inner input[type="text"] {
-  padding-left: 28px;
+  padding-left: 2.4rem;
 }
 
 .form-field input:focus,
 .form-field select:focus {
   border-color: var(--blue, #496883);
   background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.08);
 }
 
-/* Cụm 3 nút thao tác */
+/* Cụm 3 nút thao tác bên dưới bên phải */
 .filter-actions {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 8px;
+  gap: 0.75rem;
   border-top: 1px dashed #efeae0;
-  padding-top: 12px;
+  padding-top: 1.1rem;
 }
 
 .btn {
-  height: 33px;
-  padding: 0 15px;
-  border-radius: 6px;
-  font-size: 12px;
+  height: 2.5rem;
+  padding: 0 1.35rem;
+  border-radius: 8px;
+  font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 0.5rem;
   transition: all 0.2s;
 }
 
@@ -467,23 +461,23 @@ const viewDetail = (item) => {
   background-color: #38536b;
 }
 
-/* 3. Bảng dữ liệu */
+/* 3. Bảng danh sách */
 .table-header-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 1.1rem;
 }
 
 .table-title {
-  font-size: 14px;
+  font-size: 1.1rem; /* ~17.6px */
   font-weight: 700;
   margin: 0;
   color: #3c4d55;
 }
 
 .record-count {
-  font-size: 12px;
+  font-size: 0.88rem;
   color: #8c9597;
 }
 
@@ -494,22 +488,24 @@ const viewDetail = (item) => {
 .custom-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: 0.95rem; /* ~15.2px to rõ */
 }
 
 .custom-table th {
   background-color: #faf9f6;
-  color: #8f9695;
+  color: #6f7c82;
   font-weight: 700;
-  padding: 11px 12px;
+  padding: 0.95rem 1rem;
   text-align: left;
   border-bottom: 1px solid #efede7;
+  font-size: 0.95rem;
+  white-space: nowrap;
 }
 
 .custom-table td {
-  padding: 12px;
+  padding: 1.1rem 1rem;
   border-bottom: 1px solid #f2f0eb;
-  color: #556268;
+  color: #4b585e;
   vertical-align: middle;
 }
 
@@ -532,28 +528,29 @@ const viewDetail = (item) => {
 }
 
 .text-title {
-  color: #394a52;
+  color: #2b383e;
 }
 
 .text-dark {
-  color: #3d4a50;
+  color: #1f272b;
 }
 
 .text-muted {
   color: #9aa0a0;
 }
 
-.text-date {
-  color: #647074;
+.text-muted-dark {
+  color: #556268;
 }
 
 /* Badge Trạng thái */
 .badge-status {
   display: inline-block;
-  font-size: 11px;
+  font-size: 0.82rem;
   font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 12px;
+  padding: 0.35rem 0.85rem;
+  border-radius: 14px;
+  white-space: nowrap;
 }
 
 .status-active {
@@ -566,97 +563,41 @@ const viewDetail = (item) => {
   color: #e04f4f;
 }
 
-/* Cột nút hành động */
+/* Nút hành động tròn */
 .action-buttons {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 0.5rem;
 }
 
 .btn-circle-action {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 6px;
   border: 1px solid var(--line, #e9e5db);
   background-color: #ffffff;
-  color: #647074;
+  color: #496883;
   display: grid;
   place-items: center;
   cursor: pointer;
   transition: all 0.2s;
-  font-size: 12px;
+  font-size: 0.95rem;
 }
 
 .btn-circle-action:hover {
   border-color: var(--blue, #496883);
-  color: var(--blue, #496883);
   background-color: #eaf1f4;
+  transform: scale(1.08);
 }
 
-.icon-power {
-  font-size: 11px;
-}
-
-.icon-eye {
-  font-size: 12px;
-}
-
-/* Phân trang */
-.pagination-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 14px;
-}
-
-.page-size-selector select {
-  height: 28px;
-  border: 1px solid var(--line, #e9e5db);
-  border-radius: 5px;
-  background-color: #ffffff;
-  padding: 0 8px;
-  font-size: 12px;
-  color: #556268;
-}
-
-.pagination-controls {
-  display: flex;
-  gap: 4px;
-}
-
-.pg-btn {
-  width: 26px;
-  height: 26px;
-  border: 1px solid var(--line, #e9e5db);
-  background: #ffffff;
-  border-radius: 4px;
-  font-size: 11px;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  color: #647074;
-}
-
-.pg-btn.active {
-  background-color: var(--blue, #496883);
-  color: #ffffff;
-  border-color: var(--blue, #496883);
-  font-weight: 700;
-}
-
-.pg-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .filter-inputs-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 650px) {
   .filter-inputs-grid {
     grid-template-columns: 1fr;
   }
