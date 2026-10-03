@@ -1,232 +1,281 @@
 <template>
   <div class="employee-page-wrapper">
-    <!-- 1. Thanh tiêu đề -->
     <div class="breadcrumb-header">
-      <div class="breadcrumb-left">
-        <h2 class="page-title">Nhân viên</h2>
-      </div>
+      <div class="breadcrumb-left"><h2 class="page-title">Nhân viên</h2></div>
     </div>
 
-    <!-- 2. Khung Bộ lọc (Theme FF T-shirt) -->
     <div class="content-card filter-card">
       <div class="card-header-filter">
-        <div class="filter-icon-box">
-          <span class="filter-icon">🍸</span>
-        </div>
-        <div class="filter-title-wrap">
-          <h3 class="filter-title">Bộ lọc</h3>
-        </div>
+        <div class="filter-icon-box"><span class="filter-icon">🍸</span></div>
+        <div class="filter-title-wrap"><h3 class="filter-title">Bộ lọc</h3></div>
       </div>
-
-      <!-- 3 trường lọc dữ liệu ngang hàng -->
       <div class="filter-inputs-grid">
-        <!-- Tìm kiếm từ khóa -->
         <div class="form-field search-field">
           <div class="input-inner">
             <span class="prefix-icon">🔍</span>
-            <input
-                type="text"
-                v-model="filters.keyword"
-                placeholder="Tìm theo mã, họ tên, tài khoản, SĐT..."
-            />
+            <input v-model="filters.keyword" type="text" placeholder="Tìm theo mã, họ tên, tài khoản, SĐT..." @input="applyFilters" />
           </div>
         </div>
-
-        <!-- Lọc theo Vai trò -->
         <div class="form-field">
-          <select v-model="filters.role">
+          <select v-model="filters.role" @change="applyFilters">
             <option value="">Tất cả vai trò</option>
-            <option value="Quản trị viên">Quản trị viên</option>
-            <option value="Nhân viên">Nhân viên</option>
+            <option v-for="role in roles" :key="role.id" :value="String(role.id)">{{ role.tenVaiTro }}</option>
           </select>
         </div>
-
-        <!-- Lọc theo Trạng thái -->
         <div class="form-field">
-          <select v-model="filters.status">
+          <select v-model="filters.status" @change="applyFilters">
             <option value="">Tất cả trạng thái</option>
-            <option value="active">Hoạt động</option>
-            <option value="inactive">Ngừng hoạt động</option>
+            <option value="1">Hoạt động</option>
+            <option value="0">Ngừng hoạt động</option>
           </select>
         </div>
       </div>
-
-      <!-- Cụm 3 nút thao tác bên dưới bên phải -->
       <div class="filter-actions">
-        <button class="btn btn-reset" @click="resetFilters">
-          <span class="btn-icon">↺</span> Đặt lại bộ lọc
-        </button>
-        <button class="btn btn-export">
-          <span class="btn-icon">📥</span> Xuất Excel
-        </button>
-        <button class="btn btn-primary" @click="openCreateModal">
-          <span>+</span> Thêm nhân viên
-        </button>
+        <button class="btn btn-reset" @click="resetFilters"><span class="btn-icon">↺</span> Đặt lại bộ lọc</button>
+        <button class="btn btn-export" @click="exportExcel" :disabled="loading"><span class="btn-icon">📥</span> Xuất Excel</button>
+        <button class="btn btn-primary" @click="openCreateModal"><span>+</span> Thêm nhân viên</button>
       </div>
     </div>
 
-    <!-- 3. Khung Danh sách nhân viên -->
     <div class="content-card table-card">
       <div class="table-header-row">
-        <div class="table-title-wrap">
-          <span class="header-icon">👥</span>
-          <h3 class="table-title">Danh sách nhân viên</h3>
-        </div>
+        <div class="table-title-wrap"><span class="header-icon">👥</span><h3 class="table-title">Danh sách nhân viên</h3></div>
       </div>
-
       <div class="table-responsive">
         <table class="custom-table">
-          <thead>
-          <tr>
-            <th style="width: 45px; text-align: center;">STT</th>
-            <th style="width: 60px; text-align: center;">Ảnh</th>
-            <th style="width: 105px;">Mã NV</th>
-            <th style="width: 150px;">Họ tên</th>
-            <th style="width: 170px;">Email</th>
-            <th style="width: 80px;">Giới tính</th>
-            <th style="width: 115px;">SĐT</th>
-            <th>Địa chỉ</th>
-            <th style="width: 110px;">Vai trò</th>
-            <th style="width: 110px; text-align: center;">Trạng thái</th>
-            <th style="width: 95px; text-align: center;">Hành động</th>
-          </tr>
-          </thead>
+          <thead><tr>
+            <th style="width:45px;text-align:center">STT</th><th style="width:60px;text-align:center">Ảnh</th><th style="width:105px">Mã NV</th><th style="width:150px">Họ tên</th><th style="width:170px">Email</th><th style="width:80px">Giới tính</th><th style="width:115px">SĐT</th><th>Địa chỉ</th><th style="width:110px">Vai trò</th><th style="width:110px;text-align:center">Trạng thái</th><th style="width:95px;text-align:center">Hành động</th>
+          </tr></thead>
           <tbody>
-          <tr v-for="(item, index) in filteredList" :key="item.id">
-            <td style="text-align: center;" class="text-muted">{{ index + 1 }}</td>
-
-            <!-- Ảnh đại diện / Avatar viết tắt -->
-            <td style="text-align: center;">
-              <div class="avatar-cell">
-                <img v-if="item.avatar" :src="item.avatar" class="avatar-img" alt="avatar" />
-                <div v-else class="avatar-placeholder">
-                  {{ item.initials }}
-                </div>
-              </div>
-            </td>
-
-            <!-- Mã NV -->
+          <tr v-if="loading"><td colspan="11" style="text-align:center;padding:2rem">Đang tải dữ liệu...</td></tr>
+          <tr v-else-if="employees.length === 0"><td colspan="11" style="text-align:center;padding:2rem">Không có dữ liệu phù hợp.</td></tr>
+          <tr v-for="(item,index) in employees" v-else :key="item.id">
+            <td style="text-align:center" class="text-muted">{{ (pagination.page * pagination.size) + index + 1 }}</td>
+            <td style="text-align:center"><div class="avatar-cell">
+              <img v-if="item.avatar" :src="item.avatar" class="avatar-img" alt="avatar" @error="item.avatar = ''" />
+              <div v-else class="avatar-placeholder">{{ item.initials }}</div>
+            </div></td>
             <td class="font-bold text-blue">{{ item.code }}</td>
-
-            <!-- Họ tên -->
             <td class="font-medium text-dark">{{ item.fullName }}</td>
-
-            <!-- Email -->
-            <td class="text-email" :title="item.email">{{ item.email }}</td>
-
-            <!-- Giới tính -->
-            <td>{{ item.gender }}</td>
-
-            <!-- SĐT -->
-            <td class="text-dark">{{ item.phone }}</td>
-
-            <!-- Địa chỉ -->
-            <td class="text-address">{{ item.address }}</td>
-
-            <!-- Vai trò -->
-            <td>
-                <span class="role-text" :class="{ 'role-admin': item.role === 'Quản trị viên' }">
-                  {{ item.role }}
-                </span>
-            </td>
-
-            <!-- Trạng thái -->
-            <td style="text-align: center;">
-                <span class="badge-status status-active">
-                  {{ item.statusText }}
-                </span>
-            </td>
-
-            <!-- Hành động: Nguồn & Con mắt -->
-            <td style="text-align: center;">
-              <div class="action-buttons">
-                <button
-                    v-if="item.role !== 'Quản trị viên'"
-                    class="btn-circle-action"
-                    title="Khóa/Mở tài khoản"
-                >
-                  <span class="icon-power">⏻</span>
-                </button>
-                <button class="btn-circle-action" title="Xem chi tiết" @click="viewDetail(item)">
-                  <span class="icon-eye">👁</span>
-                </button>
-              </div>
-            </td>
+            <td class="text-email" :title="item.email">{{ item.email || '-' }}</td>
+            <td>{{ item.gender }}</td><td class="text-dark">{{ item.phone || '-' }}</td><td class="text-address">{{ item.address || '-' }}</td>
+            <td><span class="role-text" :class="{'role-admin': item.role === 'Quản trị viên'}">{{ item.role || '-' }}</span></td>
+            <td style="text-align:center"><span class="badge-status" :class="item.status === 'active' ? 'status-active' : 'status-inactive'">{{ item.statusText }}</span></td>
+            <td style="text-align:center"><div class="action-buttons">
+              <button v-if="item.role !== 'Quản trị viên'" class="btn-circle-action" title="Khóa/Mở tài khoản" @click="toggleStatus(item)"><span class="icon-power">⏻</span></button>
+              <button class="btn-circle-action" title="Xem / sửa chi tiết" @click="viewDetail(item)"><span class="icon-eye">👁</span></button>
+            </div></td>
           </tr>
           </tbody>
         </table>
+      </div>
+      <div class="pagination-row">
+        <div class="pagination-info">Hiển thị {{ employees.length ? (pagination.page * pagination.size + 1) : 0 }} - {{ pagination.page * pagination.size + employees.length }} / {{ pagination.totalElements }} nhân viên</div>
+        <div class="pagination-buttons">
+          <button class="page-btn" :disabled="pagination.page === 0" @click="goPage(pagination.page - 1)">‹</button>
+          <button v-for="p in pageNumbers" :key="p" class="page-btn" :class="{active:p===pagination.page}" @click="goPage(p)">{{ p + 1 }}</button>
+          <button class="page-btn" :disabled="pagination.page >= pagination.totalPages - 1" @click="goPage(pagination.page + 1)">›</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="modal.open" class="modal-backdrop" @click.self="closeModal">
+      <div class="employee-modal">
+        <div class="modal-header"><h3 class="modal-title">{{ modal.editing ? 'Thông tin nhân viên' : 'Thêm nhân viên' }}</h3><button class="modal-close" @click="closeModal">✕</button></div>
+        <div class="modal-body">
+          <div class="modal-layout">
+            <div class="content-card modal-avatar-card">
+              <div v-if="modal.avatarPreview" class="modal-avatar-preview-wrap"><img :src="modal.avatarPreview" class="modal-avatar-preview" alt="avatar" /></div>
+              <div v-else class="modal-avatar-placeholder">{{ modalInitials }}</div>
+              <input ref="imageInput" type="file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" @change="onImageChange" />
+              <p class="avatar-hint">Chọn ảnh JPG/PNG, tối đa 5MB.</p>
+            </div>
+            <div>
+              <div class="modal-section">
+                <h4 class="modal-section-title">👤 Thông tin cơ bản</h4>
+                <div class="modal-grid">
+                  <div class="form-field"><label>Mã nhân viên</label><input v-model="modal.form.maNhanVien" placeholder="Tự sinh nếu bỏ trống" /></div>
+                  <div class="form-field"><label>Họ và tên <span class="required">*</span></label><input v-model="modal.form.tenNhanVien" placeholder="Nhập họ và tên" /></div>
+                  <div class="form-field"><label>Tài khoản</label><input v-model="modal.form.tenTaiKhoan" placeholder="Tên đăng nhập" /></div>
+                  <div class="form-field"><label>Email</label><input v-model="modal.form.email" type="email" placeholder="email@example.com" /></div>
+                  <div class="form-field"><label>Mật khẩu</label><input v-model="modal.form.matKhau" type="password" placeholder="Mặc định 123456" /></div>
+                  <div class="form-field"><label>Số điện thoại</label><input v-model="modal.form.soDienThoai" placeholder="VD: 0901234567" /></div>
+                  <div class="form-field"><label>Giới tính</label><select v-model="modal.form.gioiTinh"><option :value="null">-- Chọn giới tính --</option><option :value="true">Nam</option><option :value="false">Nữ</option></select></div>
+                  <div class="form-field"><label>Ngày sinh</label><input v-model="modal.form.ngaySinh" type="date" /></div>
+                  <div class="form-field"><label>Vai trò <span class="required">*</span></label><select v-model="modal.form.idVaiTro"><option :value="null">-- Chọn vai trò --</option><option v-for="role in roles" :key="role.id" :value="role.id">{{ role.tenVaiTro }}</option></select></div>
+                  <div class="form-field"><label>Trạng thái</label><select v-model="modal.form.trangThai"><option :value="1">Hoạt động</option><option :value="0">Ngừng hoạt động</option></select></div>
+                </div>
+              </div>
+              <div class="modal-section">
+                <h4 class="modal-section-title">📍 Thông tin địa chỉ</h4>
+                <div class="modal-grid">
+                  <div class="form-field"><label>Quê quán</label><input v-model="modal.form.queQuan" placeholder="Tỉnh/Thành phố" /></div>
+                  <div class="form-field"><label>Phường/Xã</label><input v-model="modal.form.phuong" placeholder="Phường/Xã" /></div>
+                  <div class="form-field full-width"><label>Địa chỉ cụ thể</label><input v-model="modal.form.diaChiCuThe" placeholder="Số nhà, tên đường..." /></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button v-if="modal.editing" class="btn-danger" @click="deleteEmployee">Xóa</button>
+          <button class="btn-secondary" @click="closeModal">Hủy</button>
+          <button class="btn btn-primary" @click="saveEmployee" :disabled="saving">{{ saving ? 'Đang lưu...' : (modal.editing ? 'Lưu thay đổi' : '💾 Tạo nhân viên') }}</button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import api from '../api'
 
-const filters = ref({
-  keyword: '',
-  role: '',
-  status: ''
+const employees = ref([])
+const roles = ref([])
+const loading = ref(false)
+const saving = ref(false)
+const imageInput = ref(null)
+const filters = reactive({ keyword: '', role: '', status: '' })
+const pagination = reactive({ page: 0, size: 10, totalPages: 0, totalElements: 0 })
+const modal = reactive({ open: false, editing: false, id: null, avatarPreview: '', file: null, form: emptyForm() })
+
+function emptyForm() {
+  return { maNhanVien: '', tenTaiKhoan: '', tenNhanVien: '', matKhau: '', email: '', soDienThoai: '', anhNhanVien: '', gioiTinh: null, ngaySinh: '', queQuan: '', phuong: '', diaChiCuThe: '', idVaiTro: null, trangThai: 1 }
+}
+
+const modalInitials = computed(() => {
+  const name = modal.form.tenNhanVien?.trim() || 'FF'
+  const parts = name.split(/\s+/)
+  return parts.length === 1 ? parts[0].slice(0,2).toUpperCase() : (parts[0][0] + parts[parts.length-1][0]).toUpperCase()
 })
 
-const employees = ref([
-  {
-    id: 1,
-    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=NV92602',
-    code: 'NV92602',
-    fullName: 'Nguyễn Văn A',
-    email: 'tunganhtranvu5@gmail.com',
-    gender: 'Nam',
-    phone: '0383854485',
-    address: 'KĐT Dương Nội, Phường Dương Nội, Thành phố Hà Nội',
-    role: 'Quản trị viên',
-    status: 'active',
-    statusText: 'Hoạt động'
-  },
-  {
-    id: 2,
-    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=NV69085',
-    code: 'NV69085',
-    fullName: 'Trần Vũ ',
-    email: 'tunganhabc@gmail.com',
-    gender: 'Nam',
-    phone: '0383854485',
-    address: 'Chung cư Tỉnh Đội, đường Lam Sơn, Phường Vĩnh Yên, Tỉnh Phú Thọ',
-    role: 'Quản trị viên',
-    status: 'active',
-    statusText: 'Hoạt động'
-  }
-])
-
-const filteredList = computed(() => {
-  return employees.value.filter(emp => {
-    const kw = filters.value.keyword.toLowerCase()
-    const matchKw = !filters.value.keyword ||
-        emp.code.toLowerCase().includes(kw) ||
-        emp.fullName.toLowerCase().includes(kw) ||
-        emp.email.toLowerCase().includes(kw) ||
-        emp.phone.includes(kw)
-    const matchRole = !filters.value.role || emp.role === filters.value.role
-    const matchStatus = !filters.value.status || emp.status === filters.value.status
-    return matchKw && matchRole && matchStatus
-  })
+const pageNumbers = computed(() => {
+  const total = pagination.totalPages
+  if (!total) return []
+  const start = Math.max(0, pagination.page - 2)
+  const end = Math.min(total, start + 5)
+  return Array.from({ length: end - start }, (_, i) => start + i)
 })
 
-const resetFilters = () => {
-  filters.value = {
-    keyword: '',
-    role: '',
-    status: ''
-  }
+function mapEmployee(x) {
+  const gender = x.gioiTinh === true ? 'Nam' : x.gioiTinh === false ? 'Nữ' : '-'
+  const address = [x.queQuan, x.phuong, x.diaChiCuThe].filter(Boolean).join(', ')
+  const avatar = x.anhNhanVien ? (x.anhNhanVien.startsWith('http') ? x.anhNhanVien : `http://localhost:8080${x.anhNhanVien}`) : ''
+  return { ...x, avatar, code: x.maNhanVien, fullName: x.tenNhanVien, phone: x.soDienThoai, gender, address, role: x.tenVaiTro, status: x.trangThai === 1 ? 'active' : 'inactive', statusText: x.trangThai === 1 ? 'Hoạt động' : 'Ngừng hoạt động', initials: getInitials(x.tenNhanVien) }
 }
 
-const openCreateModal = () => {
-  alert('Mở form tạo nhân viên mới!')
+function getInitials(name) {
+  if (!name) return 'FF'
+  const p = name.trim().split(/\s+/)
+  return p.length === 1 ? p[0].slice(0,2).toUpperCase() : (p[0][0] + p[p.length-1][0]).toUpperCase()
 }
 
-const viewDetail = (item) => {
-  alert(`Xem chi tiết nhân viên: ${item.code} - ${item.fullName}`)
+async function loadRoles() {
+  try { roles.value = (await api.get('/api/nhan-vien/vai-tro')).data }
+  catch (e) { notifyError(e) }
 }
+
+async function loadEmployees() {
+  loading.value = true
+  try {
+    const params = { page: pagination.page, size: pagination.size, keyword: filters.keyword || undefined, idVaiTro: filters.role || undefined, trangThai: filters.status === '' ? undefined : filters.status }
+    const res = await api.get('/api/nhan-vien', { params })
+    employees.value = (res.data.content || []).map(mapEmployee)
+    pagination.totalPages = res.data.totalPages || 0
+    pagination.totalElements = res.data.totalElements || 0
+  } catch (e) { notifyError(e) }
+  finally { loading.value = false }
+}
+
+let filterTimer
+function applyFilters() {
+  clearTimeout(filterTimer)
+  filterTimer = setTimeout(() => { pagination.page = 0; loadEmployees() }, 250)
+}
+
+function resetFilters() { filters.keyword = ''; filters.role = ''; filters.status = ''; pagination.page = 0; loadEmployees() }
+function goPage(page) { if (page < 0 || page >= pagination.totalPages) return; pagination.page = page; loadEmployees() }
+
+function openCreateModal() {
+  modal.open = true; modal.editing = false; modal.id = null; modal.file = null; modal.avatarPreview = ''; modal.form = emptyForm()
+  if (roles.value.length) modal.form.idVaiTro = roles.value.find(r => r.maVaiTro === 'NV')?.id ?? roles.value[0].id
+}
+
+function viewDetail(item) {
+  modal.open = true; modal.editing = true; modal.id = item.id; modal.file = null; modal.avatarPreview = item.avatar || ''
+  modal.form = { maNhanVien: item.maNhanVien || '', tenTaiKhoan: item.tenTaiKhoan || '', tenNhanVien: item.tenNhanVien || '', matKhau: '', email: item.email || '', soDienThoai: item.soDienThoai || '', anhNhanVien: item.anhNhanVien || '', gioiTinh: item.gioiTinh ?? null, ngaySinh: item.ngaySinh || '', queQuan: item.queQuan || '', phuong: item.phuong || '', diaChiCuThe: item.diaChiCuThe || '', idVaiTro: item.idVaiTro ?? null, trangThai: item.trangThai ?? 1 }
+}
+
+function closeModal() { if (!saving.value) modal.open = false }
+
+function onImageChange(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  if (!file.type.startsWith('image/')) { alert('Vui lòng chọn file ảnh.'); e.target.value = ''; return }
+  if (file.size > 5 * 1024 * 1024) { alert('Ảnh không được vượt quá 5MB.'); e.target.value = ''; return }
+  modal.file = file
+  if (modal.avatarPreview) URL.revokeObjectURL(modal.avatarPreview)
+  modal.avatarPreview = URL.createObjectURL(file)
+}
+
+async function saveEmployee() {
+  if (!modal.form.tenNhanVien?.trim()) return alert('Vui lòng nhập họ tên nhân viên.')
+  if (!modal.form.idVaiTro) return alert('Vui lòng chọn vai trò.')
+  if (!confirm(modal.editing ? 'Bạn có chắc muốn lưu thay đổi nhân viên này?' : 'Bạn có chắc muốn tạo nhân viên mới?')) return
+  saving.value = true
+  try {
+    const fd = new FormData()
+    const data = { ...modal.form }
+    if (!data.matKhau) data.matKhau = undefined
+    fd.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }))
+    if (modal.file) fd.append('file', modal.file)
+    if (modal.editing) await api.put(`/api/nhan-vien/${modal.id}`, fd)
+    else await api.post('/api/nhan-vien', fd)
+    alert(modal.editing ? 'Cập nhật nhân viên thành công!' : 'Tạo nhân viên thành công!')
+    modal.open = false
+    await loadEmployees()
+  } catch (e) { notifyError(e) }
+  finally { saving.value = false }
+}
+
+async function toggleStatus(item) {
+  const action = item.status === 'active' ? 'khóa' : 'mở khóa'
+  if (!confirm(`Bạn có chắc muốn ${action} nhân viên ${item.fullName}?`)) return
+  try {
+    await api.patch(`/api/nhan-vien/${item.id}/toggle-status`)
+    alert(`${action.charAt(0).toUpperCase() + action.slice(1)} nhân viên thành công!`)
+    await loadEmployees()
+  } catch (e) { notifyError(e) }
+}
+
+async function deleteEmployee() {
+  if (!modal.id) return
+  if (!confirm('Bạn có chắc muốn xóa nhân viên này? Tài khoản sẽ chuyển sang trạng thái ngừng hoạt động.')) return
+  try {
+    await api.delete(`/api/nhan-vien/${modal.id}`)
+    alert('Xóa nhân viên thành công!')
+    modal.open = false
+    await loadEmployees()
+  } catch (e) { notifyError(e) }
+}
+
+async function exportExcel() {
+  try {
+    const params = { keyword: filters.keyword || undefined, idVaiTro: filters.role || undefined, trangThai: filters.status === '' ? undefined : filters.status }
+    const res = await api.get('/api/nhan-vien/export-excel', { params, responseType: 'blob' })
+    const url = URL.createObjectURL(res.data)
+    const a = document.createElement('a'); a.href = url; a.download = 'danh-sach-nhan-vien.xlsx'; a.click(); URL.revokeObjectURL(url)
+    alert('Xuất Excel thành công!')
+  } catch (e) { notifyError(e) }
+}
+
+function notifyError(error) {
+  const message = error?.response?.data?.message || 'Không thể kết nối máy chủ hoặc thao tác thất bại.'
+  alert(message)
+}
+
+onMounted(async () => { await loadRoles(); await loadEmployees() })
 </script>
 
 <style scoped>
@@ -574,4 +623,73 @@ const viewDetail = (item) => {
   background-color: #eaf1f4;
   transform: scale(1.08);
 }
+
+
+/* Modal thêm/sửa nhân viên - dùng cùng ngôn ngữ giao diện FF T-shirt */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(35, 43, 48, 0.48);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1000;
+}
+.employee-modal {
+  width: min(1050px, 96vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  background: #f7f5ef;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.35rem;
+  background: #fff;
+  border-bottom: 1px solid var(--line, #e9e5db);
+}
+.modal-title { margin: 0; color: var(--blue, #496883); font-size: 1.15rem; }
+.modal-close {
+  width: 34px; height: 34px; border-radius: 8px; border: 1px solid #e9e5db;
+  background: #fff; color: #6f7c82; cursor: pointer; font-size: 1.1rem;
+}
+.modal-body { padding: 1.1rem 1.35rem; }
+.modal-layout { display: grid; grid-template-columns: 220px 1fr; gap: 1.1rem; align-items: start; }
+.modal-avatar-card { text-align: center; }
+.modal-avatar-preview {
+  width: 120px; height: 120px; border-radius: 50%; margin: 0 auto 12px;
+  object-fit: cover; background: #eaf1f5; border: 2px dashed #b9cddc;
+}
+.modal-avatar-placeholder {
+  width: 120px; height: 120px; border-radius: 50%; margin: 0 auto 12px;
+  display: grid; place-items: center; background: #eaf1f5; color: var(--blue, #496883);
+  border: 2px dashed #b9cddc; font-size: 2rem; font-weight: 800;
+}
+.modal-avatar-card input[type=file] { width: 100%; font-size: .78rem; }
+.modal-section { background: #fff; border: 1px solid var(--line, #e9e5db); border-radius: 12px; padding: 1.25rem 1.4rem; }
+.modal-section + .modal-section { margin-top: 1rem; }
+.modal-section-title { display:flex; align-items:center; gap:.65rem; margin:0 0 1rem; color:#3e4e56; font-size:1rem; }
+.modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem 1.15rem; }
+.modal-grid .form-field.full-width { grid-column: span 2; }
+.modal-footer { display:flex; justify-content:flex-end; gap:.7rem; padding: 0 1.35rem 1.25rem; }
+.btn-secondary { height:2.6rem; padding:0 1.4rem; border-radius:8px; border:1px solid #dfd5c2; background:#fff8eb; color:#957b48; font-weight:700; cursor:pointer; }
+.btn-danger { height:2.6rem; padding:0 1.4rem; border-radius:8px; border:1px solid #efcaca; background:#fff1f1; color:#b64d4d; font-weight:700; cursor:pointer; }
+.pagination-row { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding-top:1rem; }
+.pagination-info { color:#7c878b; font-size:.88rem; }
+.pagination-buttons { display:flex; gap:.35rem; }
+.page-btn { min-width:34px; height:34px; border:1px solid var(--line,#e9e5db); background:#fff; color:#496883; border-radius:7px; cursor:pointer; }
+.page-btn.active { background:#496883; color:#fff; border-color:#496883; }
+.page-btn:disabled { opacity:.45; cursor:not-allowed; }
+.status-inactive { background:#f7eeee; color:#a65d5d; }
+
+@media (max-width: 850px) {
+  .modal-layout { grid-template-columns: 1fr; }
+  .modal-grid { grid-template-columns: 1fr; }
+  .modal-grid .form-field.full-width { grid-column: span 1; }
+}
+
 </style>

@@ -35,8 +35,4 @@ public class XuatXu {
     @ColumnDefault("1")
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
-
-    @OneToMany(mappedBy = "idXuatXu")
-    private Set<SanPham> sanPhams = new LinkedHashSet<>();
-
 }

@@ -1,5 +1,4 @@
 package com.example.sd009thuan.entity;
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -18,6 +17,7 @@ import java.util.Set;
 @Setter
 @Entity
 @Table(name = "hoa_don")
+
 public class HoaDon {
     @Id
     @Column(name = "id", nullable = false)
