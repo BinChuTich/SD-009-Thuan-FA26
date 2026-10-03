@@ -46,22 +46,22 @@ public class HoaDonController {
                 hoaDonService.create(hoaDon)
         );
     }
-    // PUT - Cập nhật hóa đơn
-    @PutMapping("/{id}")
-    public ResponseEntity<HoaDon> update(
-            @PathVariable Long id,
-            @RequestBody HoaDon hoaDon
-    ) {
-
-        try {
-            return ResponseEntity.ok(
-                    hoaDonService.update(id, hoaDon)
-            );
-
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
-    }
+//    // PUT - Cập nhật hóa đơn
+//    @PutMapping("/{id}")
+//    public ResponseEntity<HoaDon> update(
+//            @PathVariable Long id,
+//            @RequestBody HoaDon hoaDon
+//    ) {
+//
+//        try {
+//            return ResponseEntity.ok(
+//                    hoaDonService.update(id, hoaDon)
+//            );
+//
+//        } catch (RuntimeException e) {
+//            return ResponseEntity.notFound().build();
+//        }
+//    }
     // DELETE - Xóa hóa đơn
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(

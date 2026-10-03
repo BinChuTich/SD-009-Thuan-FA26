@@ -33,29 +33,29 @@ public class HoaDonService {
         return hoaDonRepository.save(hoaDon);
     }
 
-    // Sửa hóa đơn
-    public HoaDon update(Long id, HoaDon hoaDonMoi) {
-
-        HoaDon hoaDonCu = hoaDonRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn"));
-
-        hoaDonCu.setMaHoaDon(hoaDonMoi.getMaHoaDon());
-        hoaDonCu.setLoaiDon(hoaDonMoi.getLoaiDon());
-        hoaDonCu.setPhiShip(hoaDonMoi.getPhiShip());
-        hoaDonCu.setTongTien(hoaDonMoi.getTongTien());
-        hoaDonCu.setTongTienGiamGia(hoaDonMoi.getTongTienGiamGia());
-        hoaDonCu.setTenKhachHang(hoaDonMoi.getTenKhachHang());
-        hoaDonCu.setSoDienThoaiKhachHang(hoaDonMoi.getSoDienThoaiKhachHang());
-        hoaDonCu.setDiaChiNhanHang(hoaDonMoi.getDiaChiNhanHang());
-        hoaDonCu.setNgayTao(hoaDonMoi.getNgayTao());
-        hoaDonCu.setNguoiTao(hoaDonMoi.getNguoiTao());
-        hoaDonCu.setNgayCapNhat(hoaDonMoi.getNgayCapNhat());
-        hoaDonCu.setNguoiCapNhat(hoaDonMoi.getNguoiCapNhat());
-        hoaDonCu.setTrangThai(hoaDonMoi.getTrangThai());
-        hoaDonCu.setGhiChu(hoaDonMoi.getGhiChu());
-
-        return hoaDonRepository.save(hoaDonCu);
-    }
+//    // Sửa hóa đơn
+//    public HoaDon update(Long id, HoaDon hoaDonMoi) {
+//
+//        HoaDon hoaDonCu = hoaDonRepository.findById(id)
+//                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn"));
+//
+////        hoaDonCu.setMaHoaDon(hoaDonMoi.getMaHoaDon());
+////        hoaDonCu.setLoaiDon(hoaDonMoi.getLoaiDon());
+//        hoaDonCu.setPhiShip(hoaDonMoi.getPhiShip());
+//        hoaDonCu.setTongTien(hoaDonMoi.getTongTien());
+//        hoaDonCu.setTongTienGiamGia(hoaDonMoi.getTongTienGiamGia());
+//        hoaDonCu.setTenKhachHang(hoaDonMoi.getTenKhachHang());
+//        hoaDonCu.setSoDienThoaiKhachHang(hoaDonMoi.getSoDienThoaiKhachHang());
+//        hoaDonCu.setDiaChiNhanHang(hoaDonMoi.getDiaChiNhanHang());
+//        hoaDonCu.setNgayTao(hoaDonMoi.getNgayTao());
+//        hoaDonCu.setNguoiTao(hoaDonMoi.getNguoiTao());
+//        hoaDonCu.setNgayCapNhat(hoaDonMoi.getNgayCapNhat());
+//        hoaDonCu.setNguoiCapNhat(hoaDonMoi.getNguoiCapNhat());
+//        hoaDonCu.setTrangThai(hoaDonMoi.getTrangThai());
+//        hoaDonCu.setGhiChu(hoaDonMoi.getGhiChu());
+//
+//        return hoaDonRepository.save(hoaDonCu);
+//    }
 
     // Xóa hóa đơn
     public void delete(Long id) {
