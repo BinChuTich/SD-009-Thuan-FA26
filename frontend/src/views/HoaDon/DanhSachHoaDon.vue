@@ -186,11 +186,6 @@ const loadHoaDon = async () => {
       // Người tạo hóa đơn
       employeeName: item.nguoiTao || 'Không xác định',
 
-      // Phí ship
-      shippingFee: Number(item.phiShip || 0),
-
-      // Tổng tiền giảm giá
-      discount: Number(item.tongTienGiamGia || 0),
 
       // Tổng tiền
       totalPrice: Number(item.tongTien || 0),
