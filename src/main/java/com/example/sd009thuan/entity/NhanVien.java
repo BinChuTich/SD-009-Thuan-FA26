@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Nationalized;
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashSet;
@@ -24,6 +24,7 @@ public class NhanVien {
     private Long id;
 
     @NotNull
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_vai_tro", nullable = false)
     private VaiTro idVaiTro;

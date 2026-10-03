@@ -1,24 +1,30 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-// 1. Các trang chính nằm ở thư mục gốc /views
+// Thống kê
 import ThongKe from '../views/ThongKe.vue'
+
+// Bán hàng
 import BanHang from '../views/BanHang.vue'
+
+// Khách hàng
 import KhachHang from '../views/KhachHang.vue'
+
+// Nhân viên
 import NhanVien from '../views/NhanVien.vue'
 
-// 2. Thư mục Hóa đơn (views/HoaDon)
+// Hóa đơn
 import DanhSachHoaDon from '../views/HoaDon/DanhSachHoaDon.vue'
 import ChiTietHoaDon from '../views/HoaDon/ChiTietHoaDon.vue'
 
-// 3. Thư mục Sản phẩm (views/SanPham)
+// Sản phẩm
 import SanPham from '../views/SanPham/SanPham.vue'
 import BienTheSanPham from '../views/SanPham/BienTheSanPham.vue'
 
-// 4. Thư mục Giảm giá (views/GiamGia)
+// Giảm giá
 import DotGiamGia from '../views/GiamGia/DotGiamGia.vue'
 import PhieuGiamGia from '../views/GiamGia/PhieuGiamGia.vue'
 
-// 5. Thư mục Thuộc tính sản phẩm (views/ThuocTinh)
+// Thuộc tính
 import DanhMuc from '../views/ThuocTinh/DanhMuc.vue'
 import ThuongHieu from '../views/ThuocTinh/ThuongHieu.vue'
 import ChatLieu from '../views/ThuocTinh/ChatLieu.vue'
@@ -29,45 +35,118 @@ import MauSac from '../views/ThuocTinh/MauSac.vue'
 import KichCo from '../views/ThuocTinh/KichCo.vue'
 
 const routes = [
-    // --- Thống kê (Mặc định trang chủ) ---
-    { path: '/', name: 'ThongKeDefault', component: ThongKe },
-    { path: '/thong-ke', name: 'ThongKe', component: ThongKe },
+    // Thống kê
+    {
+        path: '/',
+        name: 'ThongKeDefault',
+        component: ThongKe
+    },
+    {
+        path: '/thong-ke',
+        name: 'ThongKe',
+        component: ThongKe
+    },
 
-    // --- Bán hàng tại quầy ---
-    { path: '/ban-hang', name: 'BanHang', component: BanHang },
+    // Bán hàng
+    {
+        path: '/ban-hang',
+        name: 'BanHang',
+        component: BanHang
+    },
 
-    // --- Quản lý hóa đơn ---
-    // Cập nhật route hóa đơn
+    // =========================
+    // HÓA ĐƠN
+    // =========================
     {
         path: '/hoa-don',
+        name: 'DanhSachHoaDon',
         component: DanhSachHoaDon
     },
     {
-        path: '/hoa-don/:ma', // Dùng dynamic param :ma để chuyển trang kèm mã hóa đơn
+        path: '/hoa-don/:maHoaDon',
+        name: 'HoaDonChiTiet',
         component: ChiTietHoaDon
     },
 
-    // --- Quản lý sản phẩm ---
-    { path: '/san-pham', name: 'SanPham', component: SanPham },
-    { path: '/bien-the-san-pham', name: 'BienTheSanPham', component: BienTheSanPham },
+    // Sản phẩm
+    {
+        path: '/san-pham',
+        name: 'SanPham',
+        component: SanPham
+    },
+    {
+        path: '/bien-the-san-pham',
+        name: 'BienTheSanPham',
+        component: BienTheSanPham
+    },
 
-    // --- Thuộc tính sản phẩm ---
-    { path: '/danh-muc', name: 'DanhMuc', component: DanhMuc },
-    { path: '/thuong-hieu', name: 'ThuongHieu', component: ThuongHieu },
-    { path: '/chat-lieu', name: 'ChatLieu', component: ChatLieu },
-    { path: '/xuat-xu', name: 'XuatXu', component: XuatXu },
-    { path: '/co-ao', name: 'CoAo', component: CoAo },
-    { path: '/tay-ao', name: 'TayAo', component: TayAo },
-    { path: '/mau-sac', name: 'MauSac', component: MauSac },
-    { path: '/kich-co', name: 'KichCo', component: KichCo },
+    // Thuộc tính
+    {
+        path: '/danh-muc',
+        name: 'DanhMuc',
+        component: DanhMuc
+    },
+    {
+        path: '/thuong-hieu',
+        name: 'ThuongHieu',
+        component: ThuongHieu
+    },
+    {
+        path: '/chat-lieu',
+        name: 'ChatLieu',
+        component: ChatLieu
+    },
+    {
+        path: '/xuat-xu',
+        name: 'XuatXu',
+        component: XuatXu
+    },
+    {
+        path: '/co-ao',
+        name: 'CoAo',
+        component: CoAo
+    },
+    {
+        path: '/tay-ao',
+        name: 'TayAo',
+        component: TayAo
+    },
+    {
+        path: '/mau-sac',
+        name: 'MauSac',
+        component: MauSac
+    },
+    {
+        path: '/kich-co',
+        name: 'KichCo',
+        component: KichCo
+    },
 
-    // --- Quản lý giảm giá ---
-    { path: '/dot-giam-gia', name: 'DotGiamGia', component: DotGiamGia },
-    { path: '/phieu-giam-gia', name: 'PhieuGiamGia', component: PhieuGiamGia },
+    // Giảm giá
+    {
+        path: '/dot-giam-gia',
+        name: 'DotGiamGia',
+        component: DotGiamGia
+    },
+    {
+        path: '/phieu-giam-gia',
+        name: 'PhieuGiamGia',
+        component: PhieuGiamGia
+    },
 
-    // --- Tài khoản & Nhân sự ---
-    { path: '/khach-hang', name: 'KhachHang', component: KhachHang },
-    { path: '/nhan-vien', name: 'NhanVien', component: NhanVien }
+    // Khách hàng
+    {
+        path: '/khach-hang',
+        name: 'KhachHang',
+        component: KhachHang
+    },
+
+    // Nhân viên
+    {
+        path: '/nhan-vien',
+        name: 'NhanVien',
+        component: NhanVien
+    }
 ]
 
 const router = createRouter({

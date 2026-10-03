@@ -1,10 +1,5 @@
 <script setup>
 import { ref } from 'vue'
-import api from '@/api.js'
-
-const response = await api.get('/api/san-pham')
-console.log(response.data)
-
 const openMenus = ref({
   sanPham: true,
   thuocTinh: true,
