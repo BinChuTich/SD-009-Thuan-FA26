@@ -82,6 +82,7 @@
           <select v-model="filters.trangThai">
             <option value="">Tất cả trạng thái</option>
             <option value="active">Đang hoạt động</option>
+            <option value="expired">Đã hết hạn</option>
             <option value="inactive">Ngừng hoạt động</option>
           </select>
         </div>
@@ -105,7 +106,13 @@
     <div class="content-card table-card">
       <div class="table-header-row">
         <h3 class="table-title">Danh sách phiếu giảm giá</h3>
-        <span class="record-count">{{ filteredList.length }} bản ghi hiển thị.</span>
+        <div class="header-right-tools">
+          <!-- Nút làm mới dữ liệu từ Database -->
+          <button class="btn-refresh" @click="fetchVouchers" title="Tải lại từ Database">
+            <span :class="['refresh-icon', { 'spin': loading }]">🔄</span> Làm mới
+          </button>
+          <span class="record-count">{{ filteredList.length }} bản ghi hiển thị.</span>
+        </div>
       </div>
 
       <div class="table-responsive">
@@ -116,7 +123,7 @@
             <th style="width: 140px;">Mã</th>
             <th>Tên phiếu</th>
             <th style="width: 130px;">Hình thức</th>
-            <th style="width: 110px;">Giá trị giảm</th>
+            <th style="width: 130px;">Giá trị giảm</th>
             <th style="width: 120px;">Ngày bắt đầu</th>
             <th style="width: 120px;">Ngày kết thúc</th>
             <th style="width: 140px; text-align: center;">Trạng thái</th>
@@ -124,7 +131,22 @@
           </tr>
           </thead>
           <tbody>
-          <tr v-for="(item, index) in filteredList" :key="item.id">
+          <!-- Hiển thị khi đang nạp dữ liệu từ backend -->
+          <tr v-if="loading">
+            <td colspan="9" class="table-empty-cell">
+              <span class="loading-spinner">⏳</span> Đang nạp dữ liệu phiếu giảm giá từ SQL Server...
+            </td>
+          </tr>
+
+          <!-- Hiển thị khi không có dữ liệu nào khớp bộ lọc -->
+          <tr v-else-if="filteredList.length === 0">
+            <td colspan="9" class="table-empty-cell text-muted">
+              Không có phiếu giảm giá nào phù hợp.
+            </td>
+          </tr>
+
+          <!-- Danh sách phiếu giảm giá load từ Database -->
+          <tr v-else v-for="(item, index) in filteredList" :key="item.id">
             <td style="text-align: center;" class="text-muted">{{ index + 1 }}</td>
             <td class="font-bold text-blue">{{ item.code }}</td>
             <td class="font-medium text-title">{{ item.name }}</td>
@@ -136,26 +158,34 @@
                 </span>
             </td>
 
-            <!-- Giá trị giảm -->
+            <!-- Giá trị giảm: format % hoặc VNĐ -->
             <td class="font-bold text-dark">{{ item.discountValue }}</td>
 
-            <!-- Ngày tháng -->
+            <!-- Ngày tháng bắt đầu & kết thúc -->
             <td class="text-muted-dark">{{ item.startDate }}</td>
             <td class="text-muted-dark">{{ item.endDate }}</td>
 
-            <!-- Badge Trạng thái: Đang hoạt động -->
+            <!-- Badge Trạng thái: Đang hoạt động / Đã hết hạn / Ngừng hoạt động / Sắp diễn ra -->
             <td style="text-align: center;">
-                <span class="badge-status status-active">
+                <span :class="['badge-status', 'status-' + item.statusCode]">
                   {{ item.status }}
                 </span>
             </td>
 
-            <!-- Cột Hành động: Icon nút nguồn & Icon con mắt -->
+            <!-- Cột Hành động: Icon nút nguồn (đổi trạng thái) & Icon xem chi tiết -->
             <td style="text-align: center;">
               <div class="action-buttons">
-                <button class="btn-circle-action" title="Bật/Tắt hoạt động">
-                  <span class="icon-power">⏻</span>
+                <!-- Nút bật/tắt trạng thái hoạt động trực tiếp xuống Database -->
+                <button
+                    class="btn-circle-action"
+                    :title="item.isExpired ? 'Phiếu đã hết hạn' : (item.rawTrangThai === 1 ? 'Bấm để ngừng hoạt động' : 'Bấm để kích hoạt')"
+                    :style="{ opacity: item.isExpired ? 0.45 : 1, cursor: item.isExpired ? 'not-allowed' : 'pointer' }"
+                    @click="toggleStatus(item)"
+                >
+                  <span class="icon-power" :style="{ color: item.isExpired ? '#999999' : (item.rawTrangThai === 1 ? '#4c8a5a' : '#c0392b') }">⏻</span>
                 </button>
+
+                <!-- Nút xem chi tiết đầy đủ thông tin của phiếu -->
                 <button class="btn-circle-action" title="Xem chi tiết" @click="viewDetail(item)">
                   <span class="icon-eye">👁</span>
                 </button>
@@ -166,12 +196,79 @@
         </table>
       </div>
     </div>
+
+    <!-- Modal Xem chi tiết Phiếu giảm giá từ Database -->
+    <div v-if="selectedVoucher" class="modal-overlay" @click.self="closeDetail">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3 class="modal-title">Chi tiết Phiếu Giảm Giá</h3>
+          <button class="modal-close-btn" @click="closeDetail">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="detail-row">
+            <span class="detail-label">Mã phiếu:</span>
+            <span class="detail-val font-bold text-blue">{{ selectedVoucher.code }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Tên phiếu:</span>
+            <span class="detail-val font-medium">{{ selectedVoucher.name }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Loại phiếu:</span>
+            <span class="detail-val">{{ selectedVoucher.loaiGiamText }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Giá trị giảm:</span>
+            <span class="detail-val font-bold text-dark">{{ selectedVoucher.discountValue }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Giảm tối đa:</span>
+            <span class="detail-val">{{ selectedVoucher.giamToiDaFormatted }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Đơn tối thiểu:</span>
+            <span class="detail-val">{{ selectedVoucher.hoaDonToiThieuFormatted }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Số lượng sử dụng:</span>
+            <span class="detail-val">{{ selectedVoucher.soLuongSuDung }} lượt</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Thời gian áp dụng:</span>
+            <span class="detail-val">{{ selectedVoucher.startDate }} ➔ {{ selectedVoucher.endDate }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Hình thức:</span>
+            <span :class="['badge-form', selectedVoucher.form === 'Công khai' ? 'badge-public' : 'badge-personal']">
+              <span class="dot-icon">●</span> {{ selectedVoucher.form }}
+            </span>
+          </div>
+          <!-- Nếu là Cá nhân thì hiển thị danh sách khách hàng được nhận phiếu -->
+          <div v-if="selectedVoucher.form === 'Cá nhân'" class="detail-row">
+            <span class="detail-label">Khách áp dụng ({{ selectedVoucher.soKhachHang }} khách):</span>
+            <span class="detail-val font-medium text-blue" style="max-width: 260px; word-break: break-word;">{{ selectedVoucher.danhSachKhachHangText }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Trạng thái:</span>
+            <span :class="['badge-status', 'status-' + selectedVoucher.statusCode]">
+              {{ selectedVoucher.status }}
+            </span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" @click="closeDetail">Đóng</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+// [BƯỚC 1]: Import các hàm tiện ích của Vue và axios client (api.js đã có sẵn trong dự án)
+import { ref, computed, onMounted } from 'vue'
+import api from '../../api' // Gọi đến file api.js có sẵn baseURL http://localhost:8080
 
+// Biến lưu trữ dữ liệu bộ lọc tìm kiếm
 const filters = ref({
   keyword: '',
   hinhThuc: '',
@@ -181,69 +278,151 @@ const filters = ref({
   trangThai: ''
 })
 
-const vouchers = ref([
-  {
-    id: 1,
-    code: 'VCH65FFTO',
-    name: 'Giảm sốc cho bộ sưu tập Cotton Compact',
-    form: 'Công khai',
-    discountValue: '60%',
-    startDate: '16/8/2026',
-    endDate: '1/9/2026',
-    status: 'Đang hoạt động'
-  },
-  {
-    id: 2,
-    code: 'VCH9OSEQJ',
-    name: 'FF T-shirt Polo giảm 25%',
-    form: 'Công khai',
-    discountValue: '25%',
-    startDate: '16/8/2026',
-    endDate: '1/9/2026',
-    status: 'Đang hoạt động'
-  },
-  {
-    id: 3,
-    code: 'VCH4FNGLO',
-    name: 'Oversize Streetwear giảm 20%',
-    form: 'Công khai',
-    discountValue: '50%',
-    startDate: '13/8/2026',
-    endDate: '3/9/2026',
-    status: 'Đang hoạt động'
-  },
-  {
-    id: 4,
-    code: 'VCHWS9DFI',
-    name: 'Tri ân khách hàng thân thiết hè 2026',
-    form: 'Công khai',
-    discountValue: '50%',
-    startDate: '12/8/2026',
-    endDate: '1/9/2026',
-    status: 'Đang hoạt động'
-  },
-  {
-    id: 5,
-    code: 'VOUCHER5',
-    name: 'Voucher tặng sinh nhật VIP',
-    form: 'Cá nhân',
-    discountValue: '500.000đ',
-    startDate: '1/1/2026',
-    endDate: '31/12/2026',
-    status: 'Đang hoạt động'
-  }
-])
+// [BƯỚC 2]: Biến quản lý dữ liệu lấy từ SQL Server
+const vouchers = ref([]) // Mảng chứa danh sách phiếu giảm giá lấy từ Database
+const loading = ref(false) // Trạng thái đang tải dữ liệu (true = đang tải, false = xong)
+const selectedVoucher = ref(null) // Phiếu được chọn để xem chi tiết trong modal
 
+/**
+ * [BƯỚC 3]: Hàm format ngày tháng từ chuỗi ISO (VD: 2026-01-01T00:00:00Z) sang dạng DD/MM/YYYY
+ */
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-'
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return dateStr
+    const day = String(d.getDate()).padStart(2, '0')
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const year = d.getFullYear()
+    return `${day}/${month}/${year}`
+  } catch (e) {
+    return dateStr
+  }
+}
+
+/**
+ * [BƯỚC 4]: Hàm gọi API Backend Spring Boot để load toàn bộ dữ liệu phiếu giảm giá từ SQL Server
+ * Endpoint: GET http://localhost:8080/api/phieu-giam-gia
+ */
+const fetchVouchers = async () => {
+  loading.value = true
+  try {
+    // Gửi request GET sang backend
+    const response = await api.get('/api/phieu-giam-gia')
+    const data = response.data || []
+
+    // Ánh xạ (map) dữ liệu từ Entity trong SQL Server sang định dạng hiển thị của bảng
+    const now = new Date()
+
+    vouchers.value = data.map(item => {
+      // Xác định loại giảm: 1 = % giảm giá, 2 = Số tiền cố định
+      const isPercent = item.loaiPhieuGiamGia === 1
+      const discountDisplay = isPercent
+          ? `${item.giaTriGiamGia}%`
+          : `${Number(item.giaTriGiamGia || 0).toLocaleString('vi-VN')} đ`
+
+      // [KIỂM TRA TỰ ĐỘNG HẾT HẠN DỰA TRÊN NGÀY HIỆN TẠI]:
+      // So sánh ngày kết thúc với thời điểm hiện tại
+      const endDateObj = item.ngayKetThuc ? new Date(item.ngayKetThuc) : null
+      const startDateObj = item.ngayBatDau ? new Date(item.ngayBatDau) : null
+      const isExpired = endDateObj ? endDateObj < now : false
+      const isUpcoming = startDateObj ? startDateObj > now : false
+
+      let statusText = 'Đang hoạt động'
+      let statusCode = 'active'
+
+      if (isExpired) {
+        statusText = 'Đã hết hạn'
+        statusCode = 'expired'
+      } else if (item.trangThai === 0) {
+        statusText = 'Ngừng hoạt động'
+        statusCode = 'inactive'
+      } else if (isUpcoming) {
+        statusText = 'Sắp diễn ra'
+        statusCode = 'upcoming'
+      } else {
+        statusText = 'Đang hoạt động'
+        statusCode = 'active'
+      }
+
+      return {
+        id: item.id,
+        code: item.maPhieuGiamGia || ('PGG' + item.id),
+        name: item.tenPhieuGiamGia || '',
+        // [HÌNH THỨC CÔNG KHAI / CÁ NHÂN]: Lấy từ API backend trả về dựa theo bảng khach_hang_phieu_giam_gia
+        form: item.hinhThuc || (item.soKhachHang > 0 ? 'Cá nhân' : 'Công khai'),
+        soKhachHang: item.soKhachHang || 0,
+        danhSachKhachHang: item.danhSachKhachHang || [],
+        danhSachKhachHangText: (item.danhSachKhachHang && item.danhSachKhachHang.length > 0)
+            ? item.danhSachKhachHang.join(', ')
+            : 'Chưa có khách hàng cụ thể',
+        loaiPhieuGiamGia: item.loaiPhieuGiamGia,
+        loaiGiamText: isPercent ? 'Giảm theo phần trăm (%)' : 'Giảm tiền mặt trực tiếp',
+        discountValue: discountDisplay,
+        giamToiDaFormatted: item.giamToiDa ? `${Number(item.giamToiDa).toLocaleString('vi-VN')} đ` : 'Không giới hạn',
+        hoaDonToiThieuFormatted: item.hoaDonToiThieu ? `${Number(item.hoaDonToiThieu).toLocaleString('vi-VN')} đ` : '0 đ',
+        soLuongSuDung: item.soLuongSuDung ?? 0,
+        startDate: formatDate(item.ngayBatDau),
+        endDate: formatDate(item.ngayKetThuc),
+        rawStartDate: item.ngayBatDau,
+        rawEndDate: item.ngayKetThuc,
+        rawTrangThai: item.trangThai,
+        isExpired: isExpired,
+        statusCode: statusCode,
+        status: statusText
+      }
+    })
+  } catch (error) {
+    console.error('Lỗi khi nạp dữ liệu phiếu giảm giá từ SQL Server:', error)
+    alert('Không thể kết nối tới Backend Spring Boot! Hãy đảm bảo bạn đã chạy Sd009ThuanApplication trên IntelliJ.')
+  } finally {
+    loading.value = false
+  }
+}
+
+/**
+ * [BƯỚC 5]: Tự động gọi API lấy dữ liệu ngay khi màn hình Phiếu giảm giá được mở lên
+ */
+onMounted(() => {
+  fetchVouchers()
+})
+
+/**
+ * [BƯỚC 6]: Bộ lọc dữ liệu phía Frontend (Tìm kiếm theo mã, tên, loại giảm, trạng thái, ngày)
+ */
 const filteredList = computed(() => {
   return vouchers.value.filter(v => {
+    // 1. Lọc theo từ khóa (Mã hoặc Tên phiếu)
     const matchKw = !filters.value.keyword ||
         v.code.toLowerCase().includes(filters.value.keyword.toLowerCase()) ||
         v.name.toLowerCase().includes(filters.value.keyword.toLowerCase())
+
+    // 2. Lọc theo hình thức
     const matchForm = !filters.value.hinhThuc || v.form === filters.value.hinhThuc
-    return matchKw && matchForm
+
+    // 3. Lọc theo loại giảm: percent (loại 1) hoặc amount (loại 2)
+    const matchType = !filters.value.loaiGiam ||
+        (filters.value.loaiGiam === 'percent' && v.loaiPhieuGiamGia === 1) ||
+        (filters.value.loaiGiam === 'amount' && v.loaiPhieuGiamGia === 2)
+
+    // 4. Lọc theo trạng thái chính xác (Đang hoạt động, Đã hết hạn, Ngừng hoạt động)
+    const matchStatus = !filters.value.trangThai || v.statusCode === filters.value.trangThai
+
+    // 5. Lọc theo ngày bắt đầu (nếu có chọn)
+    const matchStart = !filters.value.startDate ||
+        (v.rawStartDate && new Date(v.rawStartDate) >= new Date(filters.value.startDate))
+
+    // 6. Lọc theo ngày kết thúc (nếu có chọn)
+    const matchEnd = !filters.value.endDate ||
+        (v.rawEndDate && new Date(v.rawEndDate) <= new Date(filters.value.endDate + 'T23:59:59'))
+
+    return matchKw && matchForm && matchType && matchStatus && matchStart && matchEnd
   })
 })
 
+/**
+ * [BƯỚC 7]: Hàm đặt lại bộ lọc về mặc định
+ */
 const resetFilters = () => {
   filters.value = {
     keyword: '',
@@ -255,12 +434,46 @@ const resetFilters = () => {
   }
 }
 
-const openCreateModal = () => {
-  alert('Mở form tạo phiếu giảm giá mới!')
+/**
+ * [BƯỚC 8]: Bật/tắt trạng thái hoạt động của phiếu giảm giá qua API Backend
+ */
+const toggleStatus = async (item) => {
+  // Nếu phiếu đã hết hạn thì cảnh báo không cho kích hoạt
+  if (item.isExpired) {
+    alert(`Phiếu [${item.code}] đã hết hạn vào ngày ${item.endDate}, không thể kích hoạt lại!`)
+    return
+  }
+
+  const confirmMsg = item.rawTrangThai === 1
+      ? `Bạn có chắc muốn NGỪNG hoạt động phiếu [${item.code}]?`
+      : `Bạn có chắc muốn KÍCH HOẠT lại phiếu [${item.code}]?`
+
+  if (!confirm(confirmMsg)) return
+
+  try {
+    // Gọi PUT tới API Backend để lưu trạng thái mới vào SQL Server
+    await api.put(`/api/phieu-giam-gia/${item.id}/toggle-status`)
+    // Tải lại danh sách mới nhất từ Database
+    await fetchVouchers()
+  } catch (error) {
+    console.error('Lỗi khi cập nhật trạng thái:', error)
+    alert('Cập nhật trạng thái thất bại! Vui lòng kiểm tra kết nối.')
+  }
 }
 
+/**
+ * [BƯỚC 9]: Xem chi tiết phiếu giảm giá
+ */
 const viewDetail = (item) => {
-  alert(`Chi tiết phiếu: ${item.code} - ${item.name}`)
+  selectedVoucher.value = item
+}
+
+const closeDetail = () => {
+  selectedVoucher.value = null
+}
+
+const openCreateModal = () => {
+  alert('Tính năng Tạo phiếu mới có thể bổ sung form popup thêm vào database!')
 }
 </script>
 
@@ -587,6 +800,158 @@ const viewDetail = (item) => {
 .status-active {
   background-color: #edf6ef;
   color: #4c8a5a;
+}
+
+.status-inactive {
+  background-color: #f6f6f6;
+  color: #7f8c8d;
+}
+
+.status-expired {
+  background-color: #fdeeee;
+  color: #c0392b;
+  border: 1px solid #fadad7;
+}
+
+.status-upcoming {
+  background-color: #eaf1f8;
+  color: #2980b9;
+  border: 1px solid #d4e6f1;
+}
+
+/* Nút làm mới bảng */
+.header-right-tools {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.btn-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background-color: #f7eee1;
+  border: 1px solid #dfd5c2;
+  color: #957b48;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-refresh:hover {
+  background-color: #faeed7;
+}
+
+.refresh-icon.spin {
+  display: inline-block;
+  animation: spin 1s infinite linear;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.table-empty-cell {
+  text-align: center;
+  padding: 2.5rem 1rem !important;
+  font-size: 0.95rem;
+}
+
+/* Modal Xem chi tiết */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(30, 40, 45, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  backdrop-filter: blur(2px);
+}
+
+.modal-box {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 520px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  overflow: hidden;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.1rem 1.4rem;
+  border-bottom: 1px solid #eeebe3;
+  background-color: #faf9f6;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #33444d;
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  color: #8c9597;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-close-btn:hover {
+  color: #c0392b;
+}
+
+.modal-body {
+  padding: 1.25rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.93rem;
+  border-bottom: 1px dashed #f2eee6;
+  padding-bottom: 0.45rem;
+}
+
+.detail-label {
+  color: #7b888e;
+  font-weight: 600;
+}
+
+.detail-val {
+  color: #2b383e;
+  text-align: right;
+}
+
+.modal-footer {
+  padding: 0.9rem 1.4rem;
+  border-top: 1px solid #eeebe3;
+  display: flex;
+  justify-content: flex-end;
+  background-color: #faf9f6;
 }
 
 /* Cột hành động */

@@ -36,20 +36,20 @@ public class HoaDon {
     @Column(name = "loai_don", nullable = false)
     private Integer loaiDon;
 
-    @NotNull
-    @ColumnDefault("0")
-    @Column(name = "phi_ship", nullable = false, precision = 18, scale = 2)
-    private BigDecimal phiShip;
+//    @NotNull
+//    @ColumnDefault("0")
+//    @Column(name = "phi_ship", nullable = false, precision = 18, scale = 2)
+//    private BigDecimal phiShip;
 
     @NotNull
     @ColumnDefault("0")
     @Column(name = "tong_tien", nullable = false, precision = 18, scale = 2)
     private BigDecimal tongTien;
 
-    @NotNull
-    @ColumnDefault("0")
-    @Column(name = "tong_tien_giam_gia", nullable = false, precision = 18, scale = 2)
-    private BigDecimal tongTienGiamGia;
+//    @NotNull
+//    @ColumnDefault("0")
+//    @Column(name = "tong_tien_giam_gia", nullable = false, precision = 18, scale = 2)
+//    private BigDecimal tongTienGiamGia;
 
     @Size(max = 255)
     @Nationalized
