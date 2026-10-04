@@ -6,10 +6,7 @@ const backendOrigin = (hostname === '127.0.0.1' || hostname === 'localhost')
   : `http://${hostname}:8080`
 
 const api = axios.create({
-  baseURL: backendOrigin,
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  baseURL: backendOrigin
 })
 
 export default api

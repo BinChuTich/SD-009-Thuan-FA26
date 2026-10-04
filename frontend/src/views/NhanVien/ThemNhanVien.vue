@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="employee-page-wrapper">
     <!-- Header -->
     <div class="breadcrumb-header">
@@ -396,15 +396,15 @@ async function handleSubmit() {
       tenNhanVien: form.tenNhanVien.trim(),
       tenTaiKhoan: form.tenTaiKhoan?.trim() || undefined,
       matKhau: form.matKhau?.trim() || undefined,
-      email: form.email?.trim() || undefined,
+      email: email,
       soDienThoai: phone,
-      gioiTinh: form.gioiTinh,
+      gioiTinh: form.gioiTinh ?? true,
       ngaySinh: form.ngaySinh || undefined,
       queQuan: form.queQuan?.trim() || undefined,
       phuong: form.phuong?.trim() || undefined,
       diaChiCuThe: form.diaChiCuThe?.trim() || undefined,
       idVaiTro: form.idVaiTro,
-      trangThai: form.trangThai
+      trangThai: form.trangThai ?? 1
     }
 
     if (selectedFile.value) {

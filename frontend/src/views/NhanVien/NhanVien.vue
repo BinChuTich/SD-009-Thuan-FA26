@@ -188,7 +188,7 @@ const employees = ref([])
 const roles = ref([])
 const loading = ref(false)
 const filters = reactive({ keyword: '', role: '', status: '' })
-const pagination = reactive({ page: 0, size: 10, totalPages: 0, totalElements: 0 })
+const pagination = reactive({ page: 0, size: 5, totalPages: 0, totalElements: 0 })
 
 const pageNumbers = computed(() => {
   const total = pagination.totalPages

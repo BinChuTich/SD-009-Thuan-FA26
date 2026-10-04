@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="employee-page-wrapper">
     <!-- Header -->
     <div class="breadcrumb-header">

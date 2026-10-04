@@ -81,7 +81,7 @@ public class NhanVienService {
         x.setSoDienThoai(blank(req.soDienThoai()));
         String imageUrl = fileStorageService.storeEmployeeImage(file);
         x.setAnhNhanVien(imageUrl != null ? imageUrl : blank(req.anhNhanVien()));
-        x.setGioiTinh(req.gioiTinh());
+        x.setGioiTinh(req.gioiTinh() == null ? true : req.gioiTinh());
         x.setNgaySinh(req.ngaySinh());
         x.setQueQuan(blank(req.queQuan()));
         x.setPhuong(blank(req.phuong()));
@@ -119,7 +119,7 @@ public class NhanVienService {
         } else if (blank(req.anhNhanVien()) != null) {
             x.setAnhNhanVien(blank(req.anhNhanVien()));
         }
-        if (req.gioiTinh() != null) x.setGioiTinh(req.gioiTinh());
+        if (req.gioiTinh() != null) x.setGioiTinh(req.gioiTinh() == null ? true : req.gioiTinh());
         if (req.ngaySinh() != null) x.setNgaySinh(req.ngaySinh());
         if (blank(req.queQuan()) != null) x.setQueQuan(blank(req.queQuan()));
         if (blank(req.phuong()) != null) x.setPhuong(blank(req.phuong()));
