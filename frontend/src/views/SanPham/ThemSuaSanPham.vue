@@ -142,38 +142,6 @@
             </select>
           </div>
         </div>
-
-        <!-- Ảnh đại diện chính của sản phẩm -->
-        <div class="main-avatar-upload-row mt-3">
-          <label class="item-label">Ảnh đại diện sản phẩm (Ảnh hiển thị danh sách)</label>
-          <div class="main-avatar-container">
-            <input
-                type="file"
-                ref="mainImageInput"
-                accept="image/*"
-                style="display: none;"
-                @change="onMainImageChange"
-            />
-            <div v-if="form.anhDaiDien" class="avatar-preview-box">
-              <img :src="form.anhDaiDien" alt="Ảnh đại diện" class="avatar-img-view" />
-              <div class="avatar-overlay-tools">
-                <button type="button" class="btn-avatar-tool" @click="triggerMainImageUpload" title="Chọn ảnh khác">
-                  ✏️ Đổi ảnh đại diện
-                </button>
-                <button type="button" class="btn-avatar-tool btn-avatar-danger" @click="removeMainImage" title="Xóa ảnh đại diện">
-                  🗑️ Xóa ảnh
-                </button>
-              </div>
-            </div>
-            <div v-else class="avatar-dropzone-box" @click="triggerMainImageUpload">
-              <span class="avatar-drop-icon">📷</span>
-              <div class="avatar-drop-info">
-                <span class="avatar-drop-title">Nhấn vào đây để tải lên ảnh đại diện sản phẩm</span>
-                <span class="avatar-drop-hint">Hỗ trợ JPG, PNG, WEBP. Nếu không tải riêng, hệ thống sẽ tự động dùng ảnh của biến thể màu sắc đầu tiên.</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- 3. Khối 2: Chọn Màu sắc & Kích cỡ để sinh biến thể tự động -->
@@ -326,192 +294,146 @@
       </div>
 
       <!-- 4. Khối 3: Bảng danh sách biến thể theo màu sắc -->
-      <div class="form-card mt-3">
-        <div class="section-title-bar">
-          <div>
-            <h4 class="card-section-title">Danh sách biến thể sản phẩm</h4>
-            <p class="card-section-subtitle">
-              Quản lý số lượng tồn và giá bán cho từng biến thể kích cỡ theo màu sắc.
-            </p>
-          </div>
-          <button
-              type="button"
-              class="btn btn-add-variant-sm"
-              @click="addManualVariant"
-              title="Thêm nhanh 1 biến thể"
-          >
-            + Thêm 1 biến thể thủ công
-          </button>
-        </div>
+      <div v-if="groupedVariants.length > 0" class="form-card mt-3">
+        <!-- Thanh áp dụng nhanh hàng loạt -->
+        <div class="bulk-apply-bar">
+          <label class="bulk-select-all">
+            <input
+                type="checkbox"
+                v-model="selectAllVariants"
+                @change="toggleSelectAllVariants"
+            />
+            <span>Chọn tất cả biến thể</span>
+          </label>
 
-        <!-- Khi chưa có biến thể -->
-        <div v-if="groupedVariants.length === 0" class="empty-state-block">
-          <div class="empty-state-icon">👟</div>
-          <div class="empty-state-title">Chưa có biến thể nào được tạo</div>
-          <p class="empty-state-desc">
-            Vui lòng chọn <b>Màu sắc</b> và <b>Kích cỡ</b> ở khối trên rồi nhấn nút <b>"Tạo biến thể tự động"</b> để hệ thống sinh toàn bộ biến thể, hoặc nhấn <b>"+ Thêm 1 biến thể thủ công"</b>.
-          </p>
-        </div>
-
-        <!-- Khi đã có biến thể -->
-        <div v-else>
-          <!-- Thanh áp dụng nhanh hàng loạt -->
-          <div class="bulk-apply-bar">
-            <label class="bulk-select-all">
+          <div class="bulk-inputs-group">
+            <div class="bulk-field">
+              <label>Số lượng mặc định</label>
               <input
-                  type="checkbox"
-                  v-model="selectAllVariants"
-                  @change="toggleSelectAllVariants"
+                  type="number"
+                  min="0"
+                  v-model.number="bulkQty"
+                  class="form-input bulk-input"
+                  placeholder="0"
               />
-              <span>Chọn tất cả biến thể</span>
-            </label>
+            </div>
 
-            <div class="bulk-inputs-group">
-              <div class="bulk-field">
-                <label>Số lượng mặc định</label>
-                <input
-                    type="number"
-                    min="0"
-                    v-model.number="bulkQty"
-                    class="form-input bulk-input"
-                    placeholder="0"
-                />
-              </div>
+            <div class="bulk-field">
+              <label>Giá bán mặc định <span class="text-danger">*</span></label>
+              <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  v-model.number="bulkPrice"
+                  class="form-input bulk-input"
+                  placeholder="0"
+              />
+            </div>
 
-              <div class="bulk-field">
-                <label>Giá bán mặc định <span class="text-danger">*</span></label>
-                <input
-                    type="number"
-                    min="0"
-                    step="1000"
-                    v-model.number="bulkPrice"
-                    class="form-input bulk-input"
-                    placeholder="0"
-                />
-              </div>
+            <button type="button" class="btn btn-bulk-apply" @click="applyBulkValues">
+              Áp dụng
+            </button>
+          </div>
+        </div>
 
-              <button type="button" class="btn btn-bulk-apply" @click="applyBulkValues">
-                Áp dụng
-              </button>
+        <!-- Nhóm các biến thể theo từng màu sắc -->
+        <div
+            v-for="group in groupedVariants"
+            :key="group.color.id"
+            class="color-variant-group-card"
+        >
+          <div class="group-header">
+            <div class="group-header-left">
+              <span class="color-dot-md" :style="{ backgroundColor: group.color.maHex || '#888' }"></span>
+              <strong class="color-group-title">{{ group.color.tenMauSac }}</strong>
+            </div>
+            <div class="group-header-right">
+              <span class="size-summary">{{ group.sizesSummary }}</span>
             </div>
           </div>
 
-          <!-- Nhóm các biến thể theo từng màu sắc -->
-          <div
-              v-for="group in groupedVariants"
-              :key="group.color.id"
-              class="color-variant-group-card"
-          >
-            <div class="group-header">
-              <div class="group-header-left">
-                <span class="color-dot-md" :style="{ backgroundColor: group.color.maHex || '#888' }"></span>
-                <strong class="color-group-title">{{ group.color.tenMauSac }}</strong>
-              </div>
-              <div class="group-header-right">
-                <span class="size-summary">{{ group.sizesSummary }}</span>
-              </div>
-            </div>
-
-            <div class="table-responsive">
-              <table class="variant-data-table">
-                <thead>
-                <tr>
-                  <th style="width: 40px; text-align: center;">
-                    <input
-                        type="checkbox"
-                        :checked="isGroupAllSelected(group)"
-                        @change="toggleGroupSelection(group)"
-                    />
-                  </th>
-                  <th style="width: 50px; text-align: center;">STT</th>
-                  <th style="width: 130px;">Kích cỡ</th>
-                  <th style="width: 180px;">Số lượng</th>
-                  <th>Giá bán (VNĐ)</th>
-                  <th style="width: 70px; text-align: center;">Xóa</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr v-for="(vItem, vIndex) in group.items" :key="vItem.key">
-                  <td style="text-align: center;">
-                    <input type="checkbox" v-model="vItem.selected" />
-                  </td>
-                  <td style="text-align: center;" class="cell-stt">{{ vIndex + 1 }}</td>
-                  <td class="cell-size">
-                    <strong>{{ vItem.tenKichCo }}</strong>
-                  </td>
-                  <td>
-                    <input
-                        type="number"
-                        min="0"
-                        v-model.number="vItem.soLuong"
-                        class="form-input cell-input"
-                        placeholder="0"
-                        required
-                    />
-                  </td>
-                  <td>
-                    <input
-                        type="number"
-                        min="0"
-                        step="1000"
-                        v-model.number="vItem.giaBan"
-                        class="form-input cell-input"
-                        placeholder="0"
-                        required
-                    />
-                  </td>
-                  <td style="text-align: center;">
-                    <button
-                        type="button"
-                        class="btn-delete-row"
-                        @click="openDeleteVariantConfirm(vItem)"
-                        title="Xóa biến thể này"
-                    >
-                      🗑
-                    </button>
-                  </td>
-                </tr>
-                </tbody>
-              </table>
-            </div>
+          <div class="table-responsive">
+            <table class="variant-data-table">
+              <thead>
+              <tr>
+                <th style="width: 40px; text-align: center;">
+                  <input
+                      type="checkbox"
+                      :checked="isGroupAllSelected(group)"
+                      @change="toggleGroupSelection(group)"
+                  />
+                </th>
+                <th style="width: 50px; text-align: center;">STT</th>
+                <th style="width: 130px;">Kích cỡ</th>
+                <th style="width: 180px;">Số lượng</th>
+                <th>Giá bán (VNĐ)</th>
+                <th style="width: 70px; text-align: center;">Xóa</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr v-for="(vItem, vIndex) in group.items" :key="vItem.key">
+                <td style="text-align: center;">
+                  <input type="checkbox" v-model="vItem.selected" />
+                </td>
+                <td style="text-align: center;" class="cell-stt">{{ vIndex + 1 }}</td>
+                <td class="cell-size">
+                  <strong>{{ vItem.tenKichCo }}</strong>
+                </td>
+                <td>
+                  <input
+                      type="number"
+                      min="0"
+                      v-model.number="vItem.soLuong"
+                      class="form-input cell-input"
+                      placeholder="0"
+                      required
+                  />
+                </td>
+                <td>
+                  <input
+                      type="number"
+                      min="0"
+                      step="1000"
+                      v-model.number="vItem.giaBan"
+                      class="form-input cell-input"
+                      placeholder="0"
+                      required
+                  />
+                </td>
+                <td style="text-align: center;">
+                  <button
+                      type="button"
+                      class="btn-delete-row"
+                      @click="openDeleteVariantConfirm(vItem)"
+                      title="Xóa biến thể này"
+                  >
+                    🗑
+                  </button>
+                </td>
+              </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
       <!-- 5. Khối 4: Ảnh sản phẩm chi tiết theo màu sắc -->
-      <div class="form-card mt-3 color-images-container">
+      <div v-if="selectedColors.length > 0" class="form-card mt-3 color-images-container">
         <div class="images-header-wrap">
-          <div>
-            <h4 class="card-section-title">Ảnh sản phẩm chi tiết</h4>
-            <p class="card-section-subtitle">
-              Thêm ảnh cho từng màu sắc (biến thể đại diện) để tự động đồng bộ cho toàn bộ kích cỡ.
-            </p>
-          </div>
-        </div>
-
-        <!-- Khi chưa chọn màu sắc nào -->
-        <div v-if="selectedColors.length === 0" class="empty-state-block">
-          <div class="empty-state-icon">🎨</div>
-          <div class="empty-state-title">Chưa có nhóm màu sắc nào được chọn</div>
-          <p class="empty-state-desc">
-            Vui lòng chọn <b>Màu sắc</b> ở khối phía trên để hệ thống hiển thị ô tải ảnh chi tiết cho từng nhóm màu.
+          <h4 class="card-section-title">Ảnh sản phẩm chi tiết</h4>
+          <p class="card-section-subtitle">
+            Thêm ảnh cho từng màu sắc (biến thể đại diện) để tự động đồng bộ cho toàn bộ kích cỡ.
           </p>
         </div>
 
-        <!-- Khi đã có màu sắc được chọn -->
-        <div v-else class="color-images-grid">
+        <div class="color-images-grid">
           <div
               v-for="color in selectedColors"
               :key="color.id"
               class="color-image-card"
           >
             <div class="image-card-header">
-              <div>
-                <span class="color-img-title">Ảnh sản phẩm màu {{ color.tenMauSac.toLowerCase() }}</span>
-                <div class="color-img-sub">
-                  Áp dụng cho {{ getSizesForColor(color.id).length }} kích cỡ cùng màu • {{ getSizesForColor(color.id).map(s => s.tenKichCo).join(', ') || 'Chưa chọn size' }}
-                </div>
-              </div>
+              <span class="color-img-title">Ảnh sản phẩm màu {{ color.tenMauSac.toLowerCase() }}</span>
               <div class="image-card-actions">
                 <button
                     type="button"
@@ -532,7 +454,7 @@
             </div>
 
             <!-- Vùng hiển thị ảnh -->
-            <div class="image-dropzone-wrap">
+            <div class="image-dropzone" @click="triggerUpload(color.id)">
               <input
                   type="file"
                   :ref="el => fileInputs[color.id] = el"
@@ -541,40 +463,21 @@
                   @change="onFileChange($event, color.id)"
               />
 
-              <!-- Khi đã có ảnh -> Card chuẩn như Screenshot 2 -->
-              <div v-if="colorImages[color.id]" class="uploaded-image-preview-card">
-                <div class="main-badge-tag">⭐ Ảnh chính</div>
-                <div class="image-preview-box" @click="triggerUpload(color.id)">
-                  <img :src="colorImages[color.id]" :alt="color.tenMauSac" class="preview-img-full" />
-                </div>
-                <div class="image-card-bottom-bar">
-                  <span class="img-caption-text">Không có mô tả</span>
-                  <div class="img-card-actions-mini">
-                    <button
-                        type="button"
-                        class="btn-icon-mini btn-edit-mini"
-                        @click.stop="triggerUpload(color.id)"
-                        title="Thay đổi ảnh"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                        type="button"
-                        class="btn-icon-mini btn-delete-mini"
-                        @click.stop="removeColorImage(color.id)"
-                        title="Xóa ảnh này"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </div>
+              <div v-if="colorImages[color.id]" class="image-preview-wrap">
+                <img :src="colorImages[color.id]" :alt="color.tenMauSac" class="preview-img" />
+                <button
+                    type="button"
+                    class="btn-remove-preview"
+                    @click.stop="removeColorImage(color.id)"
+                >
+                  ✕
+                </button>
               </div>
 
-              <!-- Khi chưa có ảnh -> Ô trống nét đứt chuẩn như Screenshot 1 -->
-              <div v-else class="image-dropzone-empty" @click="triggerUpload(color.id)">
-                <div class="placeholder-icon">🔲</div>
+              <div v-else class="image-placeholder">
+                <div class="placeholder-icon">🖼️</div>
                 <div class="placeholder-text">Nhóm màu này chưa có ảnh</div>
-                <div class="placeholder-sub">Thêm một bộ ảnh để áp dụng cho toàn bộ kích cỡ cùng màu.</div>
+                <div class="placeholder-sub">Nhấn để tải ảnh áp dụng cho toàn bộ kích cỡ màu này.</div>
               </div>
             </div>
           </div>
@@ -595,14 +498,14 @@
       <!-- 7. Chân trang Action buttons -->
       <div class="form-footer-actions mt-4">
         <button type="button" class="btn btn-cancel-lg" @click="handleBack">
-          Hủy bỏ
+          Hủy
         </button>
         <button
             type="submit"
             class="btn btn-save-lg"
             :disabled="submitting"
         >
-          <span class="save-btn-icon">💾</span> {{ submitting ? 'Đang lưu...' : 'Lưu sản phẩm và CTSP' }}
+          {{ submitting ? 'Đang lưu...' : (isEdit ? 'Cập nhật sản phẩm' : 'Lưu sản phẩm') }}
         </button>
       </div>
     </form>
@@ -762,73 +665,6 @@ const selectedColorNames = computed(() => {
 const selectedSizeNames = computed(() => {
   return selectedSizes.value.map(s => s.tenKichCo).join(', ')
 })
-
-// Quản lý ảnh đại diện chính của sản phẩm
-const mainImageInput = ref(null)
-const triggerMainImageUpload = () => {
-  if (mainImageInput.value) mainImageInput.value.click()
-}
-const onMainImageChange = (e) => {
-  const file = e.target.files?.[0]
-  if (!file) return
-  const reader = new FileReader()
-  reader.onload = (event) => {
-    form.value.anhDaiDien = event.target.result
-    showToast('Tải ảnh đại diện thành công!')
-  }
-  reader.readAsDataURL(file)
-}
-const removeMainImage = () => {
-  form.value.anhDaiDien = ''
-  if (mainImageInput.value) mainImageInput.value.value = ''
-}
-
-// Lấy danh sách kích cỡ theo màu sắc cho card ảnh
-const getSizesForColor = (colorId) => {
-  const vars = variantsList.value.filter(v => v.idMauSac === colorId)
-  if (vars.length > 0) {
-    return vars.map(v => ({ id: v.idKichCo, tenKichCo: v.tenKichCo }))
-  }
-  return selectedSizes.value
-}
-
-// Thêm 1 biến thể thủ công nhanh
-const addManualVariant = () => {
-  if (!attributes.value.mauSac?.length || !attributes.value.kichCo?.length) {
-    showToast('Chưa tải được danh mục màu sắc hoặc kích cỡ!', 'error')
-    return
-  }
-  const defaultColor = attributes.value.mauSac[0]
-  const defaultSize = attributes.value.kichCo[0]
-  const key = `${defaultColor.id}_${defaultSize.id}`
-
-  if (variantsList.value.some(v => v.key === key)) {
-    showToast('Biến thể này đã có trong danh sách!', 'info')
-    return
-  }
-
-  variantsList.value.push({
-    key,
-    idMauSac: defaultColor.id,
-    tenMauSac: defaultColor.tenMauSac,
-    maHex: defaultColor.maHex,
-    idKichCo: defaultSize.id,
-    tenKichCo: defaultSize.tenKichCo,
-    soLuong: bulkQty.value || 100,
-    giaBan: bulkPrice.value || 250000,
-    trangThai: 1,
-    selected: true
-  })
-
-  if (!selectedColors.value.some(c => c.id === defaultColor.id)) {
-    selectedColors.value.push(defaultColor)
-  }
-  if (!selectedSizes.value.some(s => s.id === defaultSize.id)) {
-    selectedSizes.value.push(defaultSize)
-  }
-
-  showToast('Đã thêm 1 biến thể vào danh sách!')
-}
 
 // Kiểm tra màu / size đã chọn chưa
 const isColorSelected = (id) => selectedColors.value.some(c => c.id === id)
@@ -1048,11 +884,8 @@ const openSaveConfirm = () => {
 const submitForm = async () => {
   submitting.value = true
   try {
-    // Thu thập danh sách ảnh từ các màu và ảnh đại diện
+    // Thu thập danh sách ảnh từ các màu
     const imageList = Object.values(colorImages.value).filter(img => !!img)
-    if (form.value.anhDaiDien && !imageList.includes(form.value.anhDaiDien)) {
-      imageList.unshift(form.value.anhDaiDien)
-    }
 
     const payload = {
       maSanPham: form.value.maSanPham?.trim() || undefined,
@@ -1150,8 +983,7 @@ const loadProductDetails = async (id) => {
         idTayAo: p.idTayAo || '',
         idHoaTiet: p.idHoaTiet || '',
         trangThai: p.trangThai ?? 1,
-        moTa: p.moTa || '',
-        anhDaiDien: p.anhDaiDien || ''
+        moTa: p.moTa || ''
       }
 
       // Tải biến thể của sản phẩm
@@ -1184,15 +1016,6 @@ const loadProductDetails = async (id) => {
         })
         selectedColors.value = Array.from(colorMap.values())
         selectedSizes.value = Array.from(sizeMap.values())
-
-        // Đổ ảnh chi tiết theo màu từ p.hinhAnhs
-        if (p.hinhAnhs && p.hinhAnhs.length > 0) {
-          selectedColors.value.forEach((c, idx) => {
-            if (p.hinhAnhs[idx]) {
-              colorImages.value[c.id] = p.hinhAnhs[idx]
-            }
-          })
-        }
       }
     }
   } catch (err) {
@@ -2096,279 +1919,5 @@ onMounted(async () => {
   .btn-save-lg {
     width: 100%;
   }
-}
-
-/* Ảnh đại diện chính của sản phẩm */
-.main-avatar-upload-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 0.5rem;
-}
-
-.main-avatar-container {
-  width: 100%;
-}
-
-.avatar-dropzone-box {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-  border: 2px dashed #cbd5e1;
-  border-radius: 10px;
-  background-color: #fafbfc;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.avatar-dropzone-box:hover {
-  border-color: var(--blue, #496883);
-  background-color: #f1f5f9;
-}
-
-.avatar-drop-icon {
-  font-size: 2rem;
-}
-
-.avatar-drop-info {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.avatar-drop-title {
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: #1e293b;
-}
-
-.avatar-drop-hint {
-  font-size: 0.8rem;
-  color: #64748b;
-}
-
-.avatar-preview-box {
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  background: #ffffff;
-}
-
-.avatar-img-view {
-  width: 90px;
-  height: 90px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-}
-
-.avatar-overlay-tools {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.btn-avatar-tool {
-  background: #f1f5f9;
-  color: #334155;
-  border: 1px solid #cbd5e1;
-  padding: 0.45rem 0.9rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-avatar-tool:hover {
-  background: #e2e8f0;
-}
-
-.btn-avatar-danger {
-  color: #dc2626;
-  border-color: #fecdd3;
-  background: #fff1f2;
-}
-
-.btn-avatar-danger:hover {
-  background: #fee2e2;
-}
-
-/* Header khối biến thể */
-.section-title-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.2rem;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.btn-add-variant-sm {
-  background: #ffffff;
-  color: var(--blue, #496883);
-  border: 1px dashed var(--blue, #496883);
-  padding: 0.45rem 0.9rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-add-variant-sm:hover {
-  background: #eaf2f6;
-}
-
-/* Khối trạng thái rỗng */
-.empty-state-block {
-  text-align: center;
-  padding: 2.5rem 1.5rem;
-  border: 2px dashed #e2e8f0;
-  border-radius: 10px;
-  background: #fafbfc;
-}
-
-.empty-state-icon {
-  font-size: 2.25rem;
-  margin-bottom: 0.5rem;
-}
-
-.empty-state-title {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin-bottom: 0.35rem;
-}
-
-.empty-state-desc {
-  font-size: 0.85rem;
-  color: #64748b;
-  max-width: 520px;
-  margin: 0 auto;
-  line-height: 1.5;
-}
-
-/* Subtitle card ảnh */
-.color-img-sub {
-  font-size: 0.75rem;
-  color: #64748b;
-  margin-top: 2px;
-}
-
-/* Dropzone và Card hiển thị ảnh chuẩn Screenshot 2 */
-.image-dropzone-wrap {
-  margin-top: 0.75rem;
-}
-
-.image-dropzone-empty {
-  border: 2px dashed #cbd5e1;
-  border-radius: 8px;
-  background: #ffffff;
-  min-height: 140px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: border-color 0.2s;
-  padding: 1.5rem 1rem;
-  text-align: center;
-}
-
-.image-dropzone-empty:hover {
-  border-color: var(--blue, #496883);
-  background: #f8fafc;
-}
-
-.uploaded-image-preview-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #ffffff;
-  overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-  position: relative;
-}
-
-.main-badge-tag {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecdd3;
-  padding: 0.2rem 0.55rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  z-index: 2;
-}
-
-.image-preview-box {
-  width: 100%;
-  height: 170px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #fafafa;
-  cursor: pointer;
-  padding: 10px;
-}
-
-.preview-img-full {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.image-card-bottom-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0.75rem;
-  background: #f8fafc;
-  border-top: 1px solid #f1f5f9;
-}
-
-.img-caption-text {
-  font-size: 0.8rem;
-  color: #64748b;
-}
-
-.img-card-actions-mini {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.btn-icon-mini {
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  border-radius: 4px;
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 0.8rem;
-  transition: all 0.2s;
-}
-
-.btn-edit-mini:hover {
-  background: #e2e8f0;
-}
-
-.btn-delete-mini {
-  color: #dc2626;
-  border-color: #fee2e2;
-  background: #fff1f2;
-}
-
-.btn-delete-mini:hover {
-  background: #fee2e2;
 }
 </style>
