@@ -9,7 +9,7 @@ import java.time.LocalDate;
 
 public record NhanVienRequest(
         String maNhanVien,
-        @NotBlank(message = "Tên tài khoản không được để trống") String tenTaiKhoan,
+        String tenTaiKhoan,
         @NotBlank(message = "Họ tên nhân viên không được để trống") String tenNhanVien,
         String matKhau,
         @Email(message = "Email nhân viên không hợp lệ") String email,

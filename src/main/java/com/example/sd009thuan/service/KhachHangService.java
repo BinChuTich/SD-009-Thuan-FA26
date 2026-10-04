@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -44,11 +45,13 @@ public class KhachHangService {
         validateRequired(req);
         validateUnique(req, null);
         KhachHang x = new KhachHang();
-        x.setMaKhachHang(blankToNull(req.maKhachHang()) != null ? req.maKhachHang().trim() : nextCode());
-        x.setTaiKhoan(blankToNull(req.taiKhoan()));
+        String code = blankToNull(req.maKhachHang()) != null ? req.maKhachHang().trim() : nextCode();
+        x.setMaKhachHang(code);
+        String account = blankToNull(req.taiKhoan());
+        x.setTaiKhoan(account != null ? account : code.toLowerCase());
         x.setTenKhachHang(req.tenKhachHang().trim());
         x.setEmail(blankToNull(req.email()));
-        x.setMatKhau(blankToNull(req.matKhau()));
+        x.setMatKhau(blankToNull(req.matKhau()) != null ? req.matKhau() : "123456");
         x.setSoDienThoai(blankToNull(req.soDienThoai()));
         x.setNgaySinh(req.ngaySinh());
         x.setGioiTinh(req.gioiTinh());
@@ -66,13 +69,13 @@ public class KhachHangService {
         KhachHang x = find(id);
         validateUnique(req, id);
         if (blankToNull(req.maKhachHang()) != null) x.setMaKhachHang(req.maKhachHang().trim());
-        x.setTaiKhoan(blankToNull(req.taiKhoan()));
+        if (blankToNull(req.taiKhoan()) != null) x.setTaiKhoan(blankToNull(req.taiKhoan()));
         x.setTenKhachHang(req.tenKhachHang().trim());
-        x.setEmail(blankToNull(req.email()));
+        if (blankToNull(req.email()) != null) x.setEmail(blankToNull(req.email()));
         if (blankToNull(req.matKhau()) != null) x.setMatKhau(req.matKhau());
         x.setSoDienThoai(blankToNull(req.soDienThoai()));
-        x.setNgaySinh(req.ngaySinh());
-        x.setGioiTinh(req.gioiTinh());
+        if (req.ngaySinh() != null) x.setNgaySinh(req.ngaySinh());
+        if (req.gioiTinh() != null) x.setGioiTinh(req.gioiTinh());
         if (req.trangThai() != null) x.setTrangThai(req.trangThai());
         x.setNgayCapNhat(Instant.now());
         x.setNguoiCapNhat("admin");
@@ -98,7 +101,7 @@ public class KhachHangService {
     }
 
     @Transactional(readOnly = true)
-    public java.util.List<KhachHangResponse> findAllForExport(String keyword, Integer trangThai) {
+    public List<KhachHangResponse> findAllForExport(String keyword, Integer trangThai) {
         Specification<KhachHang> spec = Specification.where(KhachHangSpecification.keyword(keyword))
                 .and(KhachHangSpecification.status(trangThai));
         return repo.findAll(spec, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "id"))
@@ -141,7 +144,7 @@ public class KhachHangService {
         }
     }
 
-    private String nextCode() {
+    public String nextCode() {
         long next = repo.findTopByOrderByIdDesc().map(x -> x.getId() + 1).orElse(1L);
         return String.format("KH%03d", next);
     }

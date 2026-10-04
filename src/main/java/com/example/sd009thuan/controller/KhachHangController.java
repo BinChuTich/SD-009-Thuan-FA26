@@ -16,6 +16,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/khach-hang")
 public class KhachHangController {
@@ -49,6 +51,11 @@ public class KhachHangController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename("danh-sach-khach-hang.xlsx").build().toString())
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(bytes);
+    }
+
+    @GetMapping("/next-code")
+    public ResponseEntity<Map<String, String>> nextCode() {
+        return ResponseEntity.ok(Map.of("code", service.nextCode()));
     }
 
     @GetMapping("/{id}")

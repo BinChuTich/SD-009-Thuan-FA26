@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/nhan-vien")
@@ -48,6 +49,11 @@ public class NhanVienController {
     @GetMapping("/vai-tro")
     public List<VaiTro> roles() { return service.roles(); }
 
+    @GetMapping("/next-code")
+    public ResponseEntity<Map<String, String>> nextCode() {
+        return ResponseEntity.ok(Map.of("code", service.nextCode()));
+    }
+
     @GetMapping({"/export-excel", "/export"})
     public ResponseEntity<byte[]> exportExcel(
             @RequestParam(required = false) String keyword,
@@ -64,18 +70,28 @@ public class NhanVienController {
     public NhanVienResponse get(@PathVariable Long id) { return service.get(id); }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<NhanVienResponse> create(
+    public ResponseEntity<NhanVienResponse> createMultipart(
             @Valid @RequestPart("data") NhanVienRequest req,
             @RequestPart(value = "file", required = false) MultipartFile file) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, file));
     }
 
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<NhanVienResponse> createJson(@Valid @RequestBody NhanVienRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, null));
+    }
+
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public NhanVienResponse update(
+    public NhanVienResponse updateMultipart(
             @PathVariable Long id,
             @Valid @RequestPart("data") NhanVienRequest req,
             @RequestPart(value = "file", required = false) MultipartFile file) {
         return service.update(id, req, file);
+    }
+
+    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public NhanVienResponse updateJson(@PathVariable Long id, @Valid @RequestBody NhanVienRequest req) {
+        return service.update(id, req, null);
     }
 
     @PatchMapping("/{id}/toggle-status")
