@@ -26,6 +26,9 @@
           <button class="btn btn-refresh" @click="resetFilters">
             <span class="btn-icon">🔄</span> Làm mới
           </button>
+          <button class="btn btn-export" @click="handleExportExcel" :disabled="exporting">
+            <span class="btn-icon">📥</span> {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
+          </button>
         </div>
 
         <button class="btn btn-add" @click="openCreateModal">
@@ -558,6 +561,43 @@ const resetFilters = () => {
   fetchProducts()
 }
 
+const exporting = ref(false)
+
+const handleExportExcel = async () => {
+  exporting.value = true
+  try {
+    const params = {}
+    if (filters.value.keyword?.trim()) params.keyword = filters.value.keyword.trim()
+    if (filters.value.idThuongHieu) params.idThuongHieu = filters.value.idThuongHieu
+    if (filters.value.idDanhMuc) params.idDanhMuc = filters.value.idDanhMuc
+    if (filters.value.idXuatXu) params.idXuatXu = filters.value.idXuatXu
+    if (filters.value.idChatLieu) params.idChatLieu = filters.value.idChatLieu
+    if (filters.value.idCoAo) params.idCoAo = filters.value.idCoAo
+    if (filters.value.idTayAo) params.idTayAo = filters.value.idTayAo
+    if (filters.value.idHoaTiet) params.idHoaTiet = filters.value.idHoaTiet
+    if (filters.value.trangThai !== '') params.trangThai = filters.value.trangThai
+
+    const res = await api.get('/api/san-pham/export-excel', {
+      params,
+      responseType: 'blob'
+    })
+    const url = window.URL.createObjectURL(new Blob([res.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `danh_sach_san_pham_${Date.now()}.xlsx`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+    showToast('Xuất file Excel thành công!')
+  } catch (err) {
+    console.error(err)
+    showToast('Lỗi khi xuất file Excel!', 'error')
+  } finally {
+    exporting.value = false
+  }
+}
+
 const changePage = (p) => {
   if (p < 0 || p >= pageData.value.totalPages) return
   filters.value.page = p
@@ -837,6 +877,18 @@ onMounted(() => {
 }
 .btn-refresh:hover {
   background-color: #be9453;
+}
+
+.btn-export {
+  background-color: #2e7d32;
+  color: #ffffff;
+}
+.btn-export:hover:not(:disabled) {
+  background-color: #256628;
+}
+.btn-export:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Nút + Thêm sản phẩm */

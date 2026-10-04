@@ -7,6 +7,8 @@ import com.example.sd009thuan.dto.SanPhamResponse;
 import com.example.sd009thuan.entity.*;
 import com.example.sd009thuan.repository.*;
 import jakarta.persistence.criteria.Predicate;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -15,10 +17,13 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 public class SanPhamService {
@@ -58,14 +63,8 @@ public class SanPhamService {
         this.hoaTietRepository = hoaTietRepository;
     }
 
-    public PageResponse<SanPhamResponse> getAll(SanPhamFilterRequest req) {
-        Sort sort = Sort.by(
-                req.getSortDir().equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC,
-                req.getSortBy()
-        );
-        Pageable pageable = PageRequest.of(req.getPage(), req.getSize(), sort);
-
-        Specification<SanPham> spec = (root, query, cb) -> {
+    private Specification<SanPham> buildSpecification(SanPhamFilterRequest req) {
+        return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             if (req.getKeyword() != null && !req.getKeyword().trim().isEmpty()) {
@@ -102,6 +101,16 @@ public class SanPhamService {
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    public PageResponse<SanPhamResponse> getAll(SanPhamFilterRequest req) {
+        Sort sort = Sort.by(
+                req.getSortDir().equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC,
+                req.getSortBy()
+        );
+        Pageable pageable = PageRequest.of(req.getPage(), req.getSize(), sort);
+
+        Specification<SanPham> spec = buildSpecification(req);
 
         Page<SanPham> pageResult = sanPhamRepository.findAll(spec, pageable);
         List<SanPhamResponse> dtoList = pageResult.getContent().stream()
@@ -128,18 +137,36 @@ public class SanPhamService {
     public SanPhamResponse create(SanPhamRequest req) {
         if (req.getMaSanPham() == null || req.getMaSanPham().trim().isEmpty()) {
             req.setMaSanPham("SP" + System.currentTimeMillis());
-        } else if (sanPhamRepository.existsByMaSanPham(req.getMaSanPham().trim())) {
-            throw new RuntimeException("Mã sản phẩm đã tồn tại: " + req.getMaSanPham());
         }
 
         SanPham sp = new SanPham();
-        sp.setMaSanPham(req.getMaSanPham().trim());
-        sp.setTenSanPham(req.getTenSanPham().trim());
+        sp.setMaSanPham(req.getMaSanPham());
+        sp.setTenSanPham(req.getTenSanPham());
         sp.setMoTa(req.getMoTa());
         sp.setTrangThai(req.getTrangThai() != null ? req.getTrangThai() : 1);
         sp.setNguoiTao(req.getNguoiThaoTac() != null ? req.getNguoiThaoTac() : "Admin");
 
-        setAttributes(sp, req);
+        if (req.getIdXuatXu() != null) {
+            xuatXuRepository.findById(req.getIdXuatXu()).ifPresent(sp::setIdXuatXu);
+        }
+        if (req.getIdChatLieu() != null) {
+            chatLieuRepository.findById(req.getIdChatLieu()).ifPresent(sp::setIdChatLieu);
+        }
+        if (req.getIdThuongHieu() != null) {
+            thuongHieuRepository.findById(req.getIdThuongHieu()).ifPresent(sp::setIdThuongHieu);
+        }
+        if (req.getIdDanhMuc() != null) {
+            danhMucRepository.findById(req.getIdDanhMuc()).ifPresent(sp::setIdDanhMuc);
+        }
+        if (req.getIdCoAo() != null) {
+            coAoRepository.findById(req.getIdCoAo()).ifPresent(sp::setIdCoAo);
+        }
+        if (req.getIdTayAo() != null) {
+            tayAoRepository.findById(req.getIdTayAo()).ifPresent(sp::setIdTayAo);
+        }
+        if (req.getIdHoaTiet() != null) {
+            hoaTietRepository.findById(req.getIdHoaTiet()).ifPresent(sp::setIdHoaTiet);
+        }
 
         SanPham saved = sanPhamRepository.save(sp);
         return convertToResponse(saved);
@@ -150,21 +177,54 @@ public class SanPhamService {
         SanPham sp = sanPhamRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm có ID: " + id));
 
-        if (req.getMaSanPham() != null && !req.getMaSanPham().trim().isEmpty()) {
-            if (sanPhamRepository.existsByMaSanPhamAndIdNot(req.getMaSanPham().trim(), id)) {
-                throw new RuntimeException("Mã sản phẩm đã được sử dụng: " + req.getMaSanPham());
-            }
-            sp.setMaSanPham(req.getMaSanPham().trim());
-        }
-
-        sp.setTenSanPham(req.getTenSanPham().trim());
+        sp.setTenSanPham(req.getTenSanPham());
         sp.setMoTa(req.getMoTa());
         if (req.getTrangThai() != null) {
             sp.setTrangThai(req.getTrangThai());
         }
         sp.setNguoiCapNhat(req.getNguoiThaoTac() != null ? req.getNguoiThaoTac() : "Admin");
 
-        setAttributes(sp, req);
+        if (req.getIdXuatXu() != null) {
+            xuatXuRepository.findById(req.getIdXuatXu()).ifPresent(sp::setIdXuatXu);
+        } else {
+            sp.setIdXuatXu(null);
+        }
+
+        if (req.getIdChatLieu() != null) {
+            chatLieuRepository.findById(req.getIdChatLieu()).ifPresent(sp::setIdChatLieu);
+        } else {
+            sp.setIdChatLieu(null);
+        }
+
+        if (req.getIdThuongHieu() != null) {
+            thuongHieuRepository.findById(req.getIdThuongHieu()).ifPresent(sp::setIdThuongHieu);
+        } else {
+            sp.setIdThuongHieu(null);
+        }
+
+        if (req.getIdDanhMuc() != null) {
+            danhMucRepository.findById(req.getIdDanhMuc()).ifPresent(sp::setIdDanhMuc);
+        } else {
+            sp.setIdDanhMuc(null);
+        }
+
+        if (req.getIdCoAo() != null) {
+            coAoRepository.findById(req.getIdCoAo()).ifPresent(sp::setIdCoAo);
+        } else {
+            sp.setIdCoAo(null);
+        }
+
+        if (req.getIdTayAo() != null) {
+            tayAoRepository.findById(req.getIdTayAo()).ifPresent(sp::setIdTayAo);
+        } else {
+            sp.setIdTayAo(null);
+        }
+
+        if (req.getIdHoaTiet() != null) {
+            hoaTietRepository.findById(req.getIdHoaTiet()).ifPresent(sp::setIdHoaTiet);
+        } else {
+            sp.setIdHoaTiet(null);
+        }
 
         SanPham updated = sanPhamRepository.save(sp);
         return convertToResponse(updated);
@@ -180,33 +240,141 @@ public class SanPhamService {
 
     @Transactional
     public void delete(Long id) {
-        if (!sanPhamRepository.existsById(id)) {
-            throw new RuntimeException("Không tìm thấy sản phẩm có ID: " + id);
+        SanPham sp = sanPhamRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm có ID: " + id));
+
+        List<ChiTietSanPham> variants = chiTietSanPhamRepository.findByIdSanPham_Id(id);
+        if (variants != null && !variants.isEmpty()) {
+            chiTietSanPhamRepository.deleteAll(variants);
         }
-        sanPhamRepository.deleteById(id);
+
+        sanPhamRepository.delete(sp);
     }
 
-    private void setAttributes(SanPham sp, SanPhamRequest req) {
-        if (req.getIdXuatXu() != null) {
-            sp.setIdXuatXu(xuatXuRepository.findById(req.getIdXuatXu()).orElse(null));
-        }
-        if (req.getIdChatLieu() != null) {
-            sp.setIdChatLieu(chatLieuRepository.findById(req.getIdChatLieu()).orElse(null));
-        }
-        if (req.getIdThuongHieu() != null) {
-            sp.setIdThuongHieu(thuongHieuRepository.findById(req.getIdThuongHieu()).orElse(null));
-        }
-        if (req.getIdDanhMuc() != null) {
-            sp.setIdDanhMuc(danhMucRepository.findById(req.getIdDanhMuc()).orElse(null));
-        }
-        if (req.getIdCoAo() != null) {
-            sp.setIdCoAo(coAoRepository.findById(req.getIdCoAo()).orElse(null));
-        }
-        if (req.getIdTayAo() != null) {
-            sp.setIdTayAo(tayAoRepository.findById(req.getIdTayAo()).orElse(null));
-        }
-        if (req.getIdHoaTiet() != null) {
-            sp.setIdHoaTiet(hoaTietRepository.findById(req.getIdHoaTiet()).orElse(null));
+    public byte[] exportExcel(SanPhamFilterRequest req) {
+        Specification<SanPham> spec = buildSpecification(req);
+        Sort sort = Sort.by(Sort.Direction.DESC, "id");
+        List<SanPham> list = sanPhamRepository.findAll(spec, sort);
+        List<SanPhamResponse> dtoList = list.stream().map(this::convertToResponse).toList();
+
+        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Danh Sách Sản Phẩm");
+
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.WHITE.getIndex());
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+            CellStyle dataStyle = workbook.createCellStyle();
+            dataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+            CellStyle numberStyle = workbook.createCellStyle();
+            numberStyle.setAlignment(HorizontalAlignment.RIGHT);
+            numberStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+            CellStyle centerStyle = workbook.createCellStyle();
+            centerStyle.setAlignment(HorizontalAlignment.CENTER);
+            centerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+            String[] headers = {
+                    "STT", "Mã sản phẩm", "Tên sản phẩm", "Danh mục", "Thương hiệu",
+                    "Xuất xứ", "Chất liệu", "Cổ áo", "Tay áo", "Họa tiết",
+                    "Giá thấp nhất (VNĐ)", "Giá cao nhất (VNĐ)", "Số lượng tồn", "Số biến thể",
+                    "Trạng thái", "Ngày tạo"
+            };
+
+            Row headerRow = sheet.createRow(0);
+            headerRow.setHeightInPoints(24);
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.systemDefault());
+
+            int rowIdx = 1;
+            for (SanPhamResponse sp : dtoList) {
+                Row row = sheet.createRow(rowIdx++);
+
+                Cell c0 = row.createCell(0);
+                c0.setCellValue(rowIdx - 1);
+                c0.setCellStyle(centerStyle);
+
+                Cell c1 = row.createCell(1);
+                c1.setCellValue(sp.getMaSanPham() != null ? sp.getMaSanPham() : "");
+                c1.setCellStyle(dataStyle);
+
+                Cell c2 = row.createCell(2);
+                c2.setCellValue(sp.getTenSanPham() != null ? sp.getTenSanPham() : "");
+                c2.setCellStyle(dataStyle);
+
+                Cell c3 = row.createCell(3);
+                c3.setCellValue(sp.getTenDanhMuc() != null ? sp.getTenDanhMuc() : "");
+                c3.setCellStyle(dataStyle);
+
+                Cell c4 = row.createCell(4);
+                c4.setCellValue(sp.getTenThuongHieu() != null ? sp.getTenThuongHieu() : "");
+                c4.setCellStyle(dataStyle);
+
+                Cell c5 = row.createCell(5);
+                c5.setCellValue(sp.getTenXuatXu() != null ? sp.getTenXuatXu() : "");
+                c5.setCellStyle(dataStyle);
+
+                Cell c6 = row.createCell(6);
+                c6.setCellValue(sp.getTenChatLieu() != null ? sp.getTenChatLieu() : "");
+                c6.setCellStyle(dataStyle);
+
+                Cell c7 = row.createCell(7);
+                c7.setCellValue(sp.getTenCoAo() != null ? sp.getTenCoAo() : "");
+                c7.setCellStyle(dataStyle);
+
+                Cell c8 = row.createCell(8);
+                c8.setCellValue(sp.getTenTayAo() != null ? sp.getTenTayAo() : "");
+                c8.setCellStyle(dataStyle);
+
+                Cell c9 = row.createCell(9);
+                c9.setCellValue(sp.getTenHoaTiet() != null ? sp.getTenHoaTiet() : "");
+                c9.setCellStyle(dataStyle);
+
+                Cell c10 = row.createCell(10);
+                c10.setCellValue(sp.getMinGia() != null ? sp.getMinGia().doubleValue() : 0);
+                c10.setCellStyle(numberStyle);
+
+                Cell c11 = row.createCell(11);
+                c11.setCellValue(sp.getMaxGia() != null ? sp.getMaxGia().doubleValue() : 0);
+                c11.setCellStyle(numberStyle);
+
+                Cell c12 = row.createCell(12);
+                c12.setCellValue(sp.getTongSoLuong() != null ? sp.getTongSoLuong() : 0);
+                c12.setCellStyle(centerStyle);
+
+                Cell c13 = row.createCell(13);
+                c13.setCellValue(sp.getSoLuongBienThe() != null ? sp.getSoLuongBienThe() : 0);
+                c13.setCellStyle(centerStyle);
+
+                Cell c14 = row.createCell(14);
+                c14.setCellValue(sp.getTrangThai() != null && sp.getTrangThai() == 1 ? "Đang kinh doanh" : "Ngừng kinh doanh");
+                c14.setCellStyle(centerStyle);
+
+                Cell c15 = row.createCell(15);
+                c15.setCellValue(sp.getNgayTao() != null ? formatter.format(sp.getNgayTao()) : "");
+                c15.setCellStyle(centerStyle);
+            }
+
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException("Lỗi khi xuất file Excel: " + e.getMessage());
         }
     }
 
