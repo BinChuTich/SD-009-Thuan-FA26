@@ -711,25 +711,30 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem 1rem;
   margin-bottom: 1.2rem;
+  flex-wrap: wrap;
 }
 
 .search-group {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex: 1;
+  gap: 0.5rem 0.65rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .input-search {
-  width: 320px;
+  flex: 1 1 200px;
+  min-width: 170px;
+  max-width: 320px;
   height: 2.5rem;
   background-color: #f1f4f8;
   border: 1px solid transparent;
   border-radius: 8px;
-  padding: 0 1rem;
-  font-size: 0.92rem;
+  padding: 0 0.85rem;
+  font-size: 0.9rem;
   color: #3d4a50;
   outline: none;
   transition: all 0.2s ease;
@@ -743,9 +748,9 @@ onMounted(() => {
 /* Các loại nút bấm */
 .btn {
   height: 2.5rem;
-  padding: 0 1.25rem;
+  padding: 0 1rem;
   border-radius: 8px;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
@@ -755,6 +760,7 @@ onMounted(() => {
   border: none;
   transition: all 0.2s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-icon {
@@ -795,6 +801,8 @@ onMounted(() => {
 .btn-add {
   background-color: #edd9b8;
   color: #4a3e2e;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 .btn-add:hover {
   background-color: #e4cda7;
@@ -1301,13 +1309,19 @@ textarea.form-control {
   to { opacity: 1; }
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
+  .top-action-bar {
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 1050px) {
   .attribute-dropdowns-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .top-action-bar {
     flex-direction: column;
     align-items: stretch;
@@ -1318,12 +1332,13 @@ textarea.form-control {
     width: 100%;
   }
   .input-search {
-    flex: 1;
-    min-width: 220px;
-    width: 100%;
+    flex: 1 1 100%;
+    min-width: 100%;
+    max-width: 100%;
   }
   .btn-add {
     width: 100%;
+    margin-left: 0;
   }
   .form-grid {
     grid-template-columns: 1fr;
