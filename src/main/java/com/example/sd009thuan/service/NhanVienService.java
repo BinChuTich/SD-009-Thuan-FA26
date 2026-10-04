@@ -168,3 +168,4 @@ public class NhanVienService {
 
     private String blank(String value) { return value == null || value.isBlank() ? null : value.trim(); }
 }
+
