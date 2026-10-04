@@ -41,6 +41,7 @@ public class KhachHangService {
 
     @Transactional
     public KhachHangResponse create(KhachHangRequest req) {
+        validateRequired(req);
         validateUnique(req, null);
         KhachHang x = new KhachHang();
         x.setMaKhachHang(blankToNull(req.maKhachHang()) != null ? req.maKhachHang().trim() : nextCode());
@@ -61,6 +62,7 @@ public class KhachHangService {
 
     @Transactional
     public KhachHangResponse update(Long id, KhachHangRequest req) {
+        validateRequired(req);
         KhachHang x = find(id);
         validateUnique(req, id);
         if (blankToNull(req.maKhachHang()) != null) x.setMaKhachHang(req.maKhachHang().trim());
@@ -103,21 +105,39 @@ public class KhachHangService {
                 .stream().map(this::toResponse).toList();
     }
 
+    private void validateRequired(KhachHangRequest req) {
+        if (blankToNull(req.tenKhachHang()) == null) throw new IllegalArgumentException("Họ tên khách hàng không được để trống");
+        if (blankToNull(req.soDienThoai()) == null) throw new IllegalArgumentException("Số điện thoại khách hàng không được để trống");
+        if (!req.soDienThoai().trim().matches("0\\d{9,10}")) throw new IllegalArgumentException("Số điện thoại phải gồm 10-11 số và bắt đầu bằng 0");
+    }
+
     private void validateUnique(KhachHangRequest req, Long currentId) {
         String code = blankToNull(req.maKhachHang());
         if (code != null) {
-            repo.findAll().stream().filter(x -> code.equalsIgnoreCase(x.getMaKhachHang()) && !x.getId().equals(currentId)).findAny()
-                    .ifPresent(x -> { throw new IllegalArgumentException("Mã khách hàng đã tồn tại"); });
+            boolean exists = currentId == null
+                    ? repo.existsByMaKhachHangIgnoreCase(code)
+                    : repo.existsByMaKhachHangIgnoreCaseAndIdNot(code, currentId);
+            if (exists) throw new IllegalArgumentException("Mã khách hàng đã tồn tại");
         }
+
         String account = blankToNull(req.taiKhoan());
         if (account != null) {
-            repo.findAll().stream().filter(x -> account.equalsIgnoreCase(x.getTaiKhoan()) && !x.getId().equals(currentId)).findAny()
-                    .ifPresent(x -> { throw new IllegalArgumentException("Tài khoản đã tồn tại"); });
+            boolean exists = currentId == null
+                    ? repo.existsByTaiKhoanIgnoreCase(account)
+                    : repo.existsByTaiKhoanIgnoreCaseAndIdNot(account, currentId);
+            if (exists) throw new IllegalArgumentException("Tài khoản khách hàng đã tồn tại");
         }
+
         String email = blankToNull(req.email());
         if (email != null) {
-            repo.findAll().stream().filter(x -> email.equalsIgnoreCase(x.getEmail()) && !x.getId().equals(currentId)).findAny()
-                    .ifPresent(x -> { throw new IllegalArgumentException("Email đã tồn tại"); });
+            boolean exists = currentId == null
+                    ? repo.existsByEmailIgnoreCase(email)
+                    : repo.existsByEmailIgnoreCaseAndIdNot(email, currentId);
+            if (exists) throw new IllegalArgumentException("Email khách hàng đã tồn tại");
+        }
+
+        if (req.ngaySinh() != null && req.ngaySinh().isAfter(java.time.LocalDate.now())) {
+            throw new IllegalArgumentException("Ngày sinh không được lớn hơn ngày hiện tại");
         }
     }
 

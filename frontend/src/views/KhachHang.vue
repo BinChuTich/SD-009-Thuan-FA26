@@ -122,7 +122,7 @@
                 >
                   <span class="icon-power">⏻</span>
                 </button>
-                <button class="btn-circle-action" title="Xem chi tiết" @click="viewDetail(item)">
+                <button class="btn-circle-action" title="Xem chi tiết" @click="openView(item)">
                   <span class="icon-eye">👁</span>
                 </button>
               </div>
@@ -144,17 +144,100 @@
         </div>
       </div>
     </div>
+
+
+    <!-- Modal thêm / xem / sửa khách hàng -->
+    <div v-if="modal.open" class="modal-backdrop" @click.self="closeModal">
+      <div class="customer-modal">
+        <div class="modal-header">
+          <h3 class="modal-title">{{ modalTitle }}</h3>
+          <button class="modal-close" @click="closeModal">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="modal-avatar-card">
+            <div class="modal-avatar-placeholder">{{ modalInitials }}</div>
+            <div class="modal-code">{{ modal.form.maKhachHang || 'Mã sẽ tự sinh' }}</div>
+            <span class="badge-status" :class="modal.form.trangThai === 1 ? 'status-active' : 'status-inactive'">
+              {{ modal.form.trangThai === 1 ? 'Hoạt động' : 'Ngừng hoạt động' }}
+            </span>
+          </div>
+
+          <div class="modal-section">
+            <h4 class="modal-section-title">👤 Thông tin khách hàng</h4>
+            <div class="modal-grid">
+              <div class="form-field">
+                <label>Mã khách hàng</label>
+                <input v-model="modal.form.maKhachHang" :disabled="isReadOnly" placeholder="Tự sinh nếu bỏ trống" />
+              </div>
+              <div class="form-field">
+                <label>Họ và tên <span class="required">*</span></label>
+                <input v-model="modal.form.tenKhachHang" :disabled="isReadOnly" placeholder="Nhập họ và tên" />
+              </div>
+              <div class="form-field">
+                <label>Tài khoản</label>
+                <input v-model="modal.form.taiKhoan" :disabled="isReadOnly" placeholder="Tên đăng nhập" />
+              </div>
+              <div class="form-field">
+                <label>Mật khẩu</label>
+                <input v-model="modal.form.matKhau" :disabled="isReadOnly" type="password" placeholder="Không bắt buộc" />
+              </div>
+              <div class="form-field">
+                <label>Email</label>
+                <input v-model="modal.form.email" :disabled="isReadOnly" type="email" placeholder="email@example.com" />
+              </div>
+              <div class="form-field">
+                <label>Số điện thoại <span class="required">*</span></label>
+                <input v-model="modal.form.soDienThoai" :disabled="isReadOnly" inputmode="numeric" maxlength="11" placeholder="VD: 0901234567" />
+              </div>
+              <div class="form-field">
+                <label>Giới tính</label>
+                <select v-model="modal.form.gioiTinh" :disabled="isReadOnly">
+                  <option :value="true">Nam</option>
+                  <option :value="false">Nữ</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Ngày sinh</label>
+                <input v-model="modal.form.ngaySinh" :disabled="isReadOnly" type="date" />
+              </div>
+              <div class="form-field">
+                <label>Trạng thái</label>
+                <select v-model="modal.form.trangThai" :disabled="isReadOnly">
+                  <option :value="1">Hoạt động</option>
+                  <option :value="0">Ngừng hoạt động</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-section">
+            <h4 class="modal-section-title">📍 Địa chỉ</h4>
+            <div class="modal-grid">
+              <div class="form-field"><label>Tỉnh/Thành phố</label><input v-model="modal.form.thanhPho" :disabled="isReadOnly" /></div>
+              <div class="form-field"><label>Huyện</label><input v-model="modal.form.huyen" :disabled="isReadOnly" /></div>
+              <div class="form-field"><label>Phường/Xã</label><input v-model="modal.form.phuong" :disabled="isReadOnly" /></div>
+              <div class="form-field"><label>Địa chỉ cụ thể</label><input v-model="modal.form.diaChiCuThe" :disabled="isReadOnly" /></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button v-if="modal.mode === 'view'" class="btn-secondary" @click="enableEdit">✏ Sửa</button>
+          <button class="btn-secondary" @click="closeModal">Đóng</button>
+          <button v-if="modal.mode !== 'view'" class="btn btn-primary" @click="saveCustomer" :disabled="saving">
+            {{ saving ? 'Đang lưu...' : (modal.mode === 'edit' ? '💾 Lưu thay đổi' : '💾 Thêm khách hàng') }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { initialsOf, genderText, joinAddress, errorMessage, timestamp, downloadBlob } from '@/utils/format'
-
-const route = useRoute()
-const router = useRouter()
 
 const filters = ref({ keyword: '', status: '' })
 const items = ref([])
@@ -164,17 +247,51 @@ const totalElements = ref(0)
 const totalPages = ref(0)
 const loading = ref(false)
 const exporting = ref(false)
+const saving = ref(false)
 const message = ref('')
 const error = ref('')
 
+const modal = ref({
+  open: false,
+  mode: 'create',
+  id: null,
+  form: emptyForm()
+})
+
+function emptyForm() {
+  return {
+    maKhachHang: '',
+    taiKhoan: '',
+    tenKhachHang: '',
+    email: '',
+    matKhau: '',
+    soDienThoai: '',
+    ngaySinh: '',
+    gioiTinh: true,
+    trangThai: 1,
+    thanhPho: '',
+    huyen: '',
+    phuong: '',
+    diaChiCuThe: ''
+  }
+}
+
+const isReadOnly = computed(() => modal.value.mode === 'view')
+const modalTitle = computed(() => {
+  if (modal.value.mode === 'create') return 'Thêm khách hàng'
+  if (modal.value.mode === 'edit') return 'Cập nhật khách hàng'
+  return 'Chi tiết khách hàng'
+})
+const modalInitials = computed(() => initialsOf(modal.value.form.tenKhachHang || 'FF'))
+
 const from = computed(() => (totalElements.value === 0 ? 0 : page.value * size + 1))
-// Dãy số trang, có dấu ... khi nhiều trang: 1 ... 4 5 6 ... 20
+const to = computed(() => Math.min((page.value + 1) * size, totalElements.value))
 const pageNumbers = computed(() => {
   const total = totalPages.value
   const cur = page.value + 1
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
   const set = new Set([1, total, cur - 1, cur, cur + 1])
-  const list = [...set].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b)
+  const list = [...set].filter(n => n >= 1 && n <= total).sort((a, b) => a - b)
   const out = []
   list.forEach((n, i) => {
     if (i > 0 && n - list[i - 1] > 1) out.push('...')
@@ -182,9 +299,7 @@ const pageNumbers = computed(() => {
   })
   return out
 })
-const to = computed(() => Math.min((page.value + 1) * size, totalElements.value))
 
-// Bộ lọc dùng chung cho cả danh sách và xuất Excel
 const buildParams = () => {
   const p = {}
   if (filters.value.keyword.trim()) p.keyword = filters.value.keyword.trim()
@@ -192,15 +307,16 @@ const buildParams = () => {
   return p
 }
 
-const fetchList = async () => {
+async function fetchList() {
   loading.value = true
+  error.value = ''
   try {
     const { data } = await api.get('/api/khach-hang', {
       params: { ...buildParams(), page: page.value, size, sortBy: 'id', direction: 'desc' }
     })
-    items.value = data.content
-    totalElements.value = data.totalElements
-    totalPages.value = data.totalPages
+    items.value = data.content || []
+    totalElements.value = data.totalElements || 0
+    totalPages.value = data.totalPages || 0
   } catch (e) {
     error.value = errorMessage(e, 'Không tải được danh sách khách hàng')
   } finally {
@@ -208,12 +324,12 @@ const fetchList = async () => {
   }
 }
 
-const goPage = (p) => {
+function goPage(p) {
+  if (p < 0 || p >= totalPages.value) return
   page.value = p
   fetchList()
 }
 
-// Đổi bộ lọc -> về trang 1 (tìm kiếm chờ 300ms sau khi ngừng gõ)
 let timer = null
 watch(filters, () => {
   clearTimeout(timer)
@@ -224,21 +340,23 @@ watch(filters, () => {
 }, { deep: true })
 onBeforeUnmount(() => clearTimeout(timer))
 
-const resetFilters = () => {
+function resetFilters() {
   filters.value = { keyword: '', status: '' }
 }
 
-const exportExcel = async () => {
+async function exportExcel() {
   exporting.value = true
   error.value = ''
   try {
-    const res = await api.get('/api/khach-hang/export', { params: buildParams(), responseType: 'blob' })
+    const res = await api.get('/api/khach-hang/export-excel', {
+      params: buildParams(),
+      responseType: 'blob'
+    })
     downloadBlob(res.data, `DanhSachKhachHang_${timestamp()}.xlsx`)
   } catch (e) {
-    // responseType blob nên lỗi trả về cũng là blob -> đọc ra JSON để lấy message
     let msg = errorMessage(e, 'Xuất Excel thất bại')
     if (e?.response?.data instanceof Blob) {
-      try { msg = JSON.parse(await e.response.data.text()).message || msg } catch { /* giữ msg mặc định */ }
+      try { msg = JSON.parse(await e.response.data.text()).message || msg } catch {}
     }
     error.value = msg
   } finally {
@@ -246,7 +364,67 @@ const exportExcel = async () => {
   }
 }
 
-const toggleStatus = async (item) => {
+function openCreate() {
+  modal.value = { open: true, mode: 'create', id: null, form: emptyForm() }
+}
+
+function openView(item) {
+  modal.value = {
+    open: true,
+    mode: 'view',
+    id: item.id,
+    form: { ...emptyForm(), ...item }
+  }
+}
+
+function enableEdit() {
+  modal.value.mode = 'edit'
+}
+
+function closeModal() {
+  if (!saving.value) modal.value.open = false
+}
+
+function validateCustomer() {
+  const f = modal.value.form
+  if (!f.tenKhachHang?.trim()) return 'Họ tên khách hàng là bắt buộc.'
+  if (!f.soDienThoai?.trim()) return 'Số điện thoại là bắt buộc.'
+  if (!/^0\d{9,10}$/.test(f.soDienThoai.trim())) return 'Số điện thoại phải gồm 10-11 số và bắt đầu bằng 0.'
+  if (f.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) return 'Email không hợp lệ.'
+  if (f.ngaySinh && new Date(f.ngaySinh) > new Date()) return 'Ngày sinh không được lớn hơn ngày hiện tại.'
+  return ''
+}
+
+async function saveCustomer() {
+  const validation = validateCustomer()
+  if (validation) return alert(validation)
+  if (!confirm(modal.value.mode === 'edit' ? 'Bạn có chắc muốn lưu thay đổi khách hàng này?' : 'Bạn có chắc muốn thêm khách hàng này?')) return
+
+  saving.value = true
+  error.value = ''
+  try {
+    const data = { ...modal.value.form }
+    if (!data.matKhau) delete data.matKhau
+    if (!data.taiKhoan) delete data.taiKhoan
+    if (!data.email) delete data.email
+
+    if (modal.value.mode === 'edit') {
+      await api.put(`/api/khach-hang/${modal.value.id}`, data)
+      message.value = 'Cập nhật khách hàng thành công.'
+    } else {
+      await api.post('/api/khach-hang', data)
+      message.value = 'Thêm khách hàng thành công.'
+    }
+    modal.value.open = false
+    await fetchList()
+  } catch (e) {
+    error.value = errorMessage(e, 'Không thể lưu khách hàng')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function toggleStatus(item) {
   const action = item.trangThai === 1 ? 'khóa' : 'mở khóa'
   if (!confirm(`Bạn có chắc muốn ${action} khách hàng ${item.maKhachHang} - ${item.tenKhachHang}?`)) return
   try {
@@ -257,19 +435,7 @@ const toggleStatus = async (item) => {
   }
 }
 
-const openCreate = () => router.push('/khach-hang/them')
-
-const viewDetail = (item) => {
-  alert(`Xem chi tiết khách hàng: ${item.maKhachHang} - ${item.tenKhachHang}`)
-}
-
-onMounted(async () => {
-  if (route.query.created) {
-    message.value = 'Đã thêm khách hàng mới thành công'
-    router.replace({ path: route.path })
-  }
-  fetchList()
-})
+onMounted(fetchList)
 </script>
 
 <style scoped>
@@ -671,4 +837,45 @@ onMounted(async () => {
 .page-btn.active { background: var(--blue, #496883); border-color: var(--blue, #496883); color: #fff; }
 .page-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .page-dots { color: #9aa0a0; padding: 0 0.2rem; }
+
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(35, 43, 48, .48);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1000;
+}
+.customer-modal {
+  width: min(900px, 96vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  background: #f7f5ef;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+}
+.modal-header { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.35rem; background:#fff; border-bottom:1px solid var(--line,#e9e5db); }
+.modal-title { margin:0; color:var(--blue,#496883); font-size:1.15rem; }
+.modal-close { width:34px; height:34px; border-radius:8px; border:1px solid #e9e5db; background:#fff; color:#6f7c82; cursor:pointer; }
+.modal-body { padding:1.1rem 1.35rem; }
+.modal-avatar-card { text-align:center; margin-bottom:1rem; }
+.modal-avatar-placeholder { width:92px; height:92px; border-radius:50%; margin:0 auto 8px; display:grid; place-items:center; background:#eaf1f5; color:var(--blue,#496883); border:2px dashed #b9cddc; font-size:1.8rem; font-weight:800; }
+.modal-code { color:#496883; font-weight:700; margin-bottom:7px; }
+.modal-section { background:#fff; border:1px solid var(--line,#e9e5db); border-radius:12px; padding:1.25rem 1.4rem; }
+.modal-section + .modal-section { margin-top:1rem; }
+.modal-section-title { display:flex; align-items:center; gap:.65rem; margin:0 0 1rem; color:#3e4e56; font-size:1rem; }
+.modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem 1.15rem; }
+.form-field { display:flex; flex-direction:column; }
+.form-field label { margin-bottom:.4rem; font-weight:700; font-size:.88rem; color:#526168; }
+.form-field input, .form-field select { width:100%; height:2.55rem; box-sizing:border-box; border:1px solid #e4dfd4; border-radius:8px; padding:0 .8rem; background:#fcfbf8; color:#3d4a50; outline:none; }
+.form-field input:focus, .form-field select:focus { border-color:#496883; background:#fff; }
+.form-field input:disabled, .form-field select:disabled { background:#f4f2ed; color:#68757a; cursor:not-allowed; }
+.required { color:#c43e3e; }
+.modal-footer { display:flex; justify-content:flex-end; gap:.7rem; padding:0 1.35rem 1.25rem; }
+.btn-secondary { height:2.6rem; padding:0 1.4rem; border-radius:8px; border:1px solid #dfd5c2; background:#fff8eb; color:#957b48; font-weight:700; cursor:pointer; }
+@media (max-width: 750px) { .modal-grid { grid-template-columns:1fr; } }
+
 </style>

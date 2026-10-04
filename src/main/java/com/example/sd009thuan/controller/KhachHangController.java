@@ -40,7 +40,7 @@ public class KhachHangController {
         return service.search(keyword, trangThai, pageable);
     }
 
-    @GetMapping("/export-excel")
+    @GetMapping({"/export-excel", "/export"})
     public ResponseEntity<byte[]> exportExcel(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer trangThai) {

@@ -7,8 +7,11 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import java.util.Optional;
 
 public interface KhachHangRepository extends JpaRepository<KhachHang, Long>, JpaSpecificationExecutor<KhachHang> {
-    boolean existsByMaKhachHang(String maKhachHang);
-    boolean existsByTaiKhoan(String taiKhoan);
-    boolean existsByEmail(String email);
+    boolean existsByMaKhachHangIgnoreCase(String maKhachHang);
+    boolean existsByTaiKhoanIgnoreCase(String taiKhoan);
+    boolean existsByEmailIgnoreCase(String email);
+    boolean existsByMaKhachHangIgnoreCaseAndIdNot(String maKhachHang, Long id);
+    boolean existsByTaiKhoanIgnoreCaseAndIdNot(String taiKhoan, Long id);
+    boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
     Optional<KhachHang> findTopByOrderByIdDesc();
 }

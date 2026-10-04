@@ -48,7 +48,7 @@ public class NhanVienController {
     @GetMapping("/vai-tro")
     public List<VaiTro> roles() { return service.roles(); }
 
-    @GetMapping("/export-excel")
+    @GetMapping({"/export-excel", "/export"})
     public ResponseEntity<byte[]> exportExcel(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long idVaiTro,

@@ -96,10 +96,10 @@
                 <div class="modal-grid">
                   <div class="form-field"><label>Mã nhân viên</label><input v-model="modal.form.maNhanVien" placeholder="Tự sinh nếu bỏ trống" /></div>
                   <div class="form-field"><label>Họ và tên <span class="required">*</span></label><input v-model="modal.form.tenNhanVien" placeholder="Nhập họ và tên" /></div>
-                  <div class="form-field"><label>Tài khoản</label><input v-model="modal.form.tenTaiKhoan" placeholder="Tên đăng nhập" /></div>
-                  <div class="form-field"><label>Email</label><input v-model="modal.form.email" type="email" placeholder="email@example.com" /></div>
-                  <div class="form-field"><label>Mật khẩu</label><input v-model="modal.form.matKhau" type="password" placeholder="Mặc định 123456" /></div>
-                  <div class="form-field"><label>Số điện thoại</label><input v-model="modal.form.soDienThoai" placeholder="VD: 0901234567" /></div>
+                  <div class="form-field"><label>Tài khoản <span class="required">*</span></label><input v-model="modal.form.tenTaiKhoan" placeholder="Tên đăng nhập" /></div>
+                  <div class="form-field"><label>Email <span class="required">*</span></label><input v-model="modal.form.email" type="email" placeholder="email@example.com" /></div>
+                  <div class="form-field"><label>Mật khẩu <span class="required">*</span></label><input v-model="modal.form.matKhau" type="password" placeholder="Nhập mật khẩu" /></div>
+                  <div class="form-field"><label>Số điện thoại <span class="required">*</span></label><input v-model="modal.form.soDienThoai" placeholder="VD: 0901234567" /></div>
                   <div class="form-field"><label>Giới tính</label><select v-model="modal.form.gioiTinh"><option :value="null">-- Chọn giới tính --</option><option :value="true">Nam</option><option :value="false">Nữ</option></select></div>
                   <div class="form-field"><label>Ngày sinh</label><input v-model="modal.form.ngaySinh" type="date" /></div>
                   <div class="form-field"><label>Vai trò <span class="required">*</span></label><select v-model="modal.form.idVaiTro"><option :value="null">-- Chọn vai trò --</option><option v-for="role in roles" :key="role.id" :value="role.id">{{ role.tenVaiTro }}</option></select></div>
@@ -220,14 +220,22 @@ function onImageChange(e) {
 }
 
 async function saveEmployee() {
-  if (!modal.form.tenNhanVien?.trim()) return alert('Vui lòng nhập họ tên nhân viên.')
-  if (!modal.form.idVaiTro) return alert('Vui lòng chọn vai trò.')
+  const f = modal.form
+  if (!f.tenNhanVien?.trim()) return alert('Vui lòng nhập họ tên nhân viên.')
+  if (!f.tenTaiKhoan?.trim()) return alert('Vui lòng nhập tên tài khoản.')
+  if (!modal.editing && !f.matKhau?.trim()) return alert('Vui lòng nhập mật khẩu khi tạo nhân viên.')
+  if (!f.idVaiTro) return alert('Vui lòng chọn vai trò.')
+  if (!f.email?.trim()) return alert('Vui lòng nhập email.')
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) return alert('Email không hợp lệ.')
+  if (!f.soDienThoai?.trim()) return alert('Vui lòng nhập số điện thoại.')
+  if (!/^0\d{9,10}$/.test(f.soDienThoai.trim())) return alert('Số điện thoại phải gồm 10-11 số và bắt đầu bằng 0.')
+  if (f.ngaySinh && new Date(f.ngaySinh) > new Date()) return alert('Ngày sinh không được lớn hơn ngày hiện tại.')
   if (!confirm(modal.editing ? 'Bạn có chắc muốn lưu thay đổi nhân viên này?' : 'Bạn có chắc muốn tạo nhân viên mới?')) return
   saving.value = true
   try {
     const fd = new FormData()
     const data = { ...modal.form }
-    if (!data.matKhau) data.matKhau = undefined
+    if (!data.matKhau) delete data.matKhau
     fd.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }))
     if (modal.file) fd.append('file', modal.file)
     if (modal.editing) await api.put(`/api/nhan-vien/${modal.id}`, fd)
@@ -685,6 +693,7 @@ onMounted(async () => { await loadRoles(); await loadEmployees() })
 .page-btn.active { background:#496883; color:#fff; border-color:#496883; }
 .page-btn:disabled { opacity:.45; cursor:not-allowed; }
 .status-inactive { background:#f7eeee; color:#a65d5d; }
+.required { color:#c43e3e; }
 
 @media (max-width: 850px) {
   .modal-layout { grid-template-columns: 1fr; }
