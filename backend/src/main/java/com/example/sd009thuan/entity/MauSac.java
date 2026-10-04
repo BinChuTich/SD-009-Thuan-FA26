@@ -29,8 +29,8 @@ public class MauSac {
     private String tenMauSac;
 
     @Size(max = 50)
-    @Column(name = "ma_hoa", length = 50)
-    private String maHoa;
+    @Column(name = "ma_hex", length = 50)
+    private String maHex;
 
     @NotNull
     @ColumnDefault("1")

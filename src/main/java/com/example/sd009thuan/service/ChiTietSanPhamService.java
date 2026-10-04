@@ -175,7 +175,7 @@ public class ChiTietSanPhamService {
                 .tenKichCo(ct.getIdKichCo() != null ? ct.getIdKichCo().getTenKichCo() : null)
                 .idMauSac(ct.getIdMauSac() != null ? ct.getIdMauSac().getId() : null)
                 .tenMauSac(ct.getIdMauSac() != null ? ct.getIdMauSac().getTenMauSac() : null)
-                .maHex(ct.getIdMauSac() != null ? ct.getIdMauSac().getMaHoa() : null)
+                .maHex(ct.getIdMauSac() != null ? ct.getIdMauSac().getMaHex() : null)
                 .maChiTietSanPham(ct.getMaChiTietSanPham())
                 .soLuong(ct.getSoLuong())
                 .giaBan(ct.getGiaBan())
