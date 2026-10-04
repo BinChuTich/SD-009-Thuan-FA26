@@ -128,12 +128,19 @@
           <tbody>
           <tr v-if="loading">
             <td colspan="10" class="empty-state">
-              <div class="loading-spinner"></div> Đang tải dữ liệu sản phẩm...
+              <div class="empty-box">
+                <div class="loading-spinner"></div>
+                <span class="empty-text">Đang tải dữ liệu sản phẩm...</span>
+              </div>
             </td>
           </tr>
           <tr v-else-if="products.length === 0">
             <td colspan="10" class="empty-state">
-              Không tìm thấy sản phẩm nào phù hợp với bộ lọc!
+              <div class="empty-box">
+                <span class="empty-icon">📦</span>
+                <span class="empty-text">Không tìm thấy sản phẩm nào phù hợp với bộ lọc!</span>
+                <button type="button" class="btn btn-refresh-sm" @click="handleReset">Làm mới bộ lọc</button>
+              </div>
             </td>
           </tr>
           <tr v-for="(item, index) in products" :key="item.id">
@@ -982,9 +989,48 @@ onMounted(() => {
 
 .empty-state {
   text-align: center;
-  padding: 2.5rem !important;
+  padding: 3rem 1rem !important;
   color: #8c9ba5;
   font-size: 0.95rem;
+}
+
+.empty-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1rem 0;
+  width: 100%;
+}
+
+.empty-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.empty-text {
+  font-size: 0.95rem;
+  color: #71828d;
+  font-weight: 600;
+}
+
+.btn-refresh-sm {
+  margin-top: 0.25rem;
+  padding: 0.4rem 0.9rem;
+  background-color: #eef3f6;
+  color: #496883;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid #d5e1e8;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-refresh-sm:hover {
+  background-color: #496883;
+  color: #ffffff;
 }
 
 .loading-spinner {
