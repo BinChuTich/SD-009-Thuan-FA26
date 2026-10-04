@@ -464,7 +464,7 @@
               />
 
               <div v-if="colorImages[color.id]" class="image-preview-wrap">
-                <img :src="colorImages[color.id]" :alt="color.tenMauSac" class="preview-img" />
+                <img :src="formatImageUrl(colorImages[color.id])" :alt="color.tenMauSac" class="preview-img" />
                 <button
                     type="button"
                     class="btn-remove-preview"
@@ -852,6 +852,12 @@ const removeColorImage = (colorId) => {
   resetColorImage(colorId)
 }
 
+const formatImageUrl = (url) => {
+  if (!url) return ''
+  if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) return url
+  return `http://localhost:8080${url.startsWith('/') ? '' : '/'}${url}`
+}
+
 // Thêm nhanh thuộc tính
 const handleQuickAdd = (type) => {
   if (type === 'mauSac') {
@@ -913,9 +919,10 @@ const submitForm = async () => {
       showToast('Thêm mới sản phẩm thành công!')
     }
 
-    // Nếu có biến thể, lưu danh sách biến thể
-    if (savedProduct && savedProduct.id && variantsList.value.length > 0) {
-      const variantPayloads = variantsList.value.map(v => ({
+    // Nếu có biến thể, lưu danh sách biến thể được chọn
+    const activeVariants = variantsList.value.filter(v => v.selected !== false)
+    if (savedProduct && savedProduct.id && activeVariants.length > 0) {
+      const variantPayloads = activeVariants.map(v => ({
         id: v.id || undefined,
         idSanPham: savedProduct.id,
         idMauSac: v.idMauSac,
@@ -1016,6 +1023,14 @@ const loadProductDetails = async (id) => {
         })
         selectedColors.value = Array.from(colorMap.values())
         selectedSizes.value = Array.from(sizeMap.values())
+
+        if (p.hinhAnhs && p.hinhAnhs.length > 0) {
+          selectedColors.value.forEach((color, idx) => {
+            if (p.hinhAnhs[idx]) {
+              colorImages.value[color.id] = p.hinhAnhs[idx]
+            }
+          })
+        }
       }
     }
   } catch (err) {

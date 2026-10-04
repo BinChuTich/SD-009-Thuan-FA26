@@ -137,6 +137,12 @@ public class SanPhamService {
     public SanPhamResponse create(SanPhamRequest req) {
         if (req.getMaSanPham() == null || req.getMaSanPham().trim().isEmpty()) {
             req.setMaSanPham("SP" + System.currentTimeMillis());
+        } else {
+            String trimmedCode = req.getMaSanPham().trim();
+            if (sanPhamRepository.existsByMaSanPham(trimmedCode)) {
+                throw new RuntimeException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại!");
+            }
+            req.setMaSanPham(trimmedCode);
         }
 
         SanPham sp = new SanPham();
@@ -172,10 +178,12 @@ public class SanPhamService {
 
         if (req.getHinhAnhs() != null && !req.getHinhAnhs().isEmpty()) {
             for (String url : req.getHinhAnhs()) {
-                if (url != null && !url.trim().isEmpty()) {
+                String processedUrl = processImage(url);
+                if (processedUrl != null && !processedUrl.trim().isEmpty()) {
                     HinhAnh ha = new HinhAnh();
                     ha.setIdSanPham(saved);
-                    ha.setDuongDan(url.trim());
+                    ha.setTenAnh(saved.getTenSanPham());
+                    ha.setDuongDan(processedUrl.trim());
                     ha.setTrangThai(1);
                     hinhAnhRepository.save(ha);
                 }
@@ -189,6 +197,14 @@ public class SanPhamService {
     public SanPhamResponse update(Long id, SanPhamRequest req) {
         SanPham sp = sanPhamRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm có ID: " + id));
+
+        if (req.getMaSanPham() != null && !req.getMaSanPham().trim().isEmpty()) {
+            String trimmedCode = req.getMaSanPham().trim();
+            if (sanPhamRepository.existsByMaSanPhamAndIdNot(trimmedCode, id)) {
+                throw new RuntimeException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại ở sản phẩm khác!");
+            }
+            sp.setMaSanPham(trimmedCode);
+        }
 
         sp.setTenSanPham(req.getTenSanPham());
         sp.setMoTa(req.getMoTa());
@@ -245,10 +261,12 @@ public class SanPhamService {
             List<HinhAnh> oldImages = hinhAnhRepository.findByIdSanPham_Id(id);
             hinhAnhRepository.deleteAll(oldImages);
             for (String url : req.getHinhAnhs()) {
-                if (url != null && !url.trim().isEmpty()) {
+                String processedUrl = processImage(url);
+                if (processedUrl != null && !processedUrl.trim().isEmpty()) {
                     HinhAnh ha = new HinhAnh();
                     ha.setIdSanPham(updated);
-                    ha.setDuongDan(url.trim());
+                    ha.setTenAnh(updated.getTenSanPham());
+                    ha.setDuongDan(processedUrl.trim());
                     ha.setTrangThai(1);
                     hinhAnhRepository.save(ha);
                 }
@@ -256,6 +274,51 @@ public class SanPhamService {
         }
 
         return convertToResponse(updated);
+    }
+
+    private String processImage(String imageInput) {
+        if (imageInput == null || imageInput.trim().isEmpty()) {
+            return null;
+        }
+        String trimmed = imageInput.trim();
+        if (trimmed.startsWith("data:image/")) {
+            try {
+                int commaIdx = trimmed.indexOf(",");
+                if (commaIdx != -1) {
+                    String metadata = trimmed.substring(0, commaIdx);
+                    String base64Data = trimmed.substring(commaIdx + 1);
+
+                    String extension = ".png";
+                    if (metadata.contains("image/jpeg") || metadata.contains("image/jpg")) {
+                        extension = ".jpg";
+                    } else if (metadata.contains("image/webp")) {
+                        extension = ".webp";
+                    } else if (metadata.contains("image/gif")) {
+                        extension = ".gif";
+                    }
+
+                    byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data);
+
+                    java.nio.file.Path uploadDir = java.nio.file.Paths.get("uploads");
+                    if (!java.nio.file.Files.exists(uploadDir)) {
+                        java.nio.file.Files.createDirectories(uploadDir);
+                    }
+
+                    String filename = "sp_" + System.currentTimeMillis() + "_" + java.util.UUID.randomUUID().toString().substring(0, 8) + extension;
+                    java.nio.file.Path filePath = uploadDir.resolve(filename);
+                    java.nio.file.Files.write(filePath, imageBytes);
+
+                    return "/uploads/" + filename;
+                }
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        if (trimmed.length() > 500) {
+            return trimmed.substring(0, 500);
+        }
+        return trimmed;
     }
 
     @Transactional
@@ -274,6 +337,11 @@ public class SanPhamService {
         List<ChiTietSanPham> variants = chiTietSanPhamRepository.findByIdSanPham_Id(id);
         if (variants != null && !variants.isEmpty()) {
             chiTietSanPhamRepository.deleteAll(variants);
+        }
+
+        List<HinhAnh> images = hinhAnhRepository.findByIdSanPham_Id(id);
+        if (images != null && !images.isEmpty()) {
+            hinhAnhRepository.deleteAll(images);
         }
 
         sanPhamRepository.delete(sp);

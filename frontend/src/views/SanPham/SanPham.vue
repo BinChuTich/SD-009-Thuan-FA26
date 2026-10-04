@@ -153,7 +153,7 @@
             <td style="text-align: center;">
               <div class="product-img-box">
                 <img
-                    :src="item.anhDaiDien || defaultImage"
+                    :src="formatImageUrl(item.anhDaiDien) || defaultImage"
                     :alt="item.tenSanPham"
                     @error="onImgError"
                 />
@@ -551,6 +551,12 @@ const formatDate = (val) => {
   if (!val) return '—'
   const d = new Date(val)
   return d.toLocaleDateString('vi-VN')
+}
+
+const formatImageUrl = (url) => {
+  if (!url) return ''
+  if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) return url
+  return `http://localhost:8080${url.startsWith('/') ? '' : '/'}${url}`
 }
 
 const onImgError = (e) => {
