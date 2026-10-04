@@ -16,12 +16,21 @@ import java.time.Instant;
 @Table(name = "san_pham")
 public class SanPham {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_chat_lieu")
     private ChatLieu idChatLieu;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_co_ao")
+    private CoAo idCoAo;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_tay_ao")
+    private TayAo idTayAo;
 
     @Size(max = 50)
     @Column(name = "ma_san_pham", length = 50)
@@ -76,5 +85,20 @@ public class SanPham {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_hoa_tiet")
     private HoaTiet idHoaTiet;
+
+    @PrePersist
+    public void prePersist() {
+        if (this.ngayTao == null) {
+            this.ngayTao = Instant.now();
+        }
+        if (this.trangThai == null) {
+            this.trangThai = 1;
+        }
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.ngayCapNhat = Instant.now();
+    }
 
 }
