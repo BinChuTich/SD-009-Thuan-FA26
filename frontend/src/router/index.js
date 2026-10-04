@@ -15,6 +15,7 @@ import NhanVien from '../views/NhanVien.vue'
 // Hóa đơn
 import DanhSachHoaDon from '../views/HoaDon/DanhSachHoaDon.vue'
 import ChiTietHoaDon from '../views/HoaDon/ChiTietHoaDon.vue'
+import ThemHoaDon from "@/views/HoaDon/ThemHoaDon.vue";
 
 // Sản phẩm
 import SanPham from '../views/SanPham/SanPham.vue'
@@ -61,6 +62,16 @@ const routes = [
         path: '/hoa-don',
         name: 'DanhSachHoaDon',
         component: DanhSachHoaDon
+    },
+    {
+        path: '/hoa-don/them',
+        name: 'ThemHoaDon',
+        component: () => import('@/views/hoaDon/ThemHoaDon.vue')
+    },
+    {
+        path: '/hoa-don/:maHoaDon/xac-nhan',
+        name: 'XacNhanDonHang',
+        component: () => import('@/views/hoaDon/XacNhanDonHang.vue')
     },
     {
         path: '/hoa-don/:maHoaDon',
