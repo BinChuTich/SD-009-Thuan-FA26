@@ -66,6 +66,9 @@ public class DotGiamGiaService {
     }
 
     public DotGiamGia create(DotGiamGia dotGiamGia) {
+        if (dotGiamGia.getMaDotGiamGia() == null || dotGiamGia.getMaDotGiamGia().trim().isEmpty()) {
+            dotGiamGia.setMaDotGiamGia("DGG" + (System.currentTimeMillis() % 100000));
+        }
         if (dotGiamGia.getTrangThai() == null) {
             dotGiamGia.setTrangThai(1);
         }

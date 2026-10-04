@@ -80,8 +80,8 @@
             <label>Trạng thái</label>
             <select v-model="filters.trangThai" @change="handleFilterChange">
               <option value="">Tất cả trạng thái</option>
-              <option value="1">Đang hoạt động</option>
-              <option value="0">Ngừng hoạt động</option>
+              <option value="1">Hoạt Động</option>
+              <option value="0">Ngưng Hoạt Động</option>
             </select>
           </div>
         </div>
@@ -91,7 +91,16 @@
           <button class="btn btn-reset" @click="resetFilters">
             <span class="btn-icon">↺</span> Đặt lại bộ lọc
           </button>
-          <button class="btn btn-primary" @click="openCreateView">
+          <button class="btn btn-excel" @click="exportToExcel" :disabled="exporting">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="8" y1="13" x2="16" y2="13"></line>
+              <line x1="8" y1="17" x2="16" y2="17"></line>
+            </svg>
+            <span>{{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}</span>
+          </button>
+          <button class="btn btn-theme" @click="openCreateView">
             <span>+</span> Tạo đợt giảm giá
           </button>
         </div>
@@ -112,13 +121,13 @@
             <thead>
             <tr>
               <th style="width: 50px; text-align: center;">STT</th>
-              <th style="width: 140px;">Mã</th>
+              <th style="width: 130px;">Mã</th>
               <th>Tên đợt giảm giá</th>
-              <th style="width: 120px;">Giá trị giảm</th>
-              <th style="width: 160px;">Ngày bắt đầu</th>
-              <th style="width: 160px;">Ngày kết thúc</th>
-              <th style="width: 150px; text-align: center;">Trạng thái</th>
-              <th style="width: 120px; text-align: center;">Hành động</th>
+              <th style="width: 110px;">Giá trị giảm</th>
+              <th style="width: 150px;">Ngày bắt đầu</th>
+              <th style="width: 150px;">Ngày kết thúc</th>
+              <th style="width: 155px; text-align: center; white-space: nowrap;">Trạng thái</th>
+              <th style="width: 130px; text-align: center; white-space: nowrap;">Hành động</th>
             </tr>
             </thead>
             <tbody>
@@ -159,28 +168,42 @@
               <td class="text-date">{{ formatDate(item.ngayBatDau) }}</td>
               <td class="text-date">{{ formatDate(item.ngayKetThuc) }}</td>
 
-              <!-- Trạng thái: Đang hoạt động / Ngừng hoạt động -->
+              <!-- Trạng thái: Hoạt Động / Ngưng Hoạt Động -->
               <td style="text-align: center;">
                 <span
                     class="badge-status"
                     :class="item.trangThai === 1 ? 'status-active' : 'status-inactive'"
                 >
-                  {{ item.trangThai === 1 ? 'Đang hoạt động' : 'Ngừng hoạt động' }}
+                  {{ item.trangThai === 1 ? 'Hoạt Động' : 'Ngưng Hoạt Động' }}
                 </span>
               </td>
 
-              <!-- Cột Hành động: Bật/tắt trạng thái và Xem chi tiết -->
+              <!-- Cột Hành động: 2 nút vuông bo góc mềm (Nguồn + Sửa) y hệt ảnh thiết kế -->
               <td style="text-align: center;">
                 <div class="action-buttons">
+                  <!-- Nút 1: Đổi trạng thái (Power Icon dạng thẻ vuông) -->
                   <button
-                      class="btn-circle-action"
-                      :title="item.trangThai === 1 ? 'Chuyển sang Ngừng hoạt động' : 'Kích hoạt lại'"
+                      class="btn-action-square btn-action-power"
+                      :class="item.trangThai === 1 ? 'power-active' : 'power-inactive'"
+                      :title="item.trangThai === 1 ? 'Chuyển sang Ngưng Hoạt Động' : 'Chuyển sang Hoạt Động'"
                       @click="toggleStatus(item)"
                   >
-                    <span class="icon-power">⏻</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                      <line x1="12" y1="2" x2="12" y2="12"></line>
+                    </svg>
                   </button>
-                  <button class="btn-circle-action" title="Xem chi tiết" @click="viewDetail(item)">
-                    <span class="icon-eye">👁</span>
+
+                  <!-- Nút 2: Sửa đợt giảm giá (Edit Icon dạng thẻ vuông) -->
+                  <button
+                      class="btn-action-square btn-action-edit"
+                      title="Chỉnh sửa đợt giảm giá"
+                      @click="openEditView(item)"
+                  >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
                   </button>
                 </div>
               </td>
@@ -244,9 +267,9 @@
     </div>
 
     <!-- ========================================================
-         VIEW 2: MÀN HÌNH TẠO MỚI ĐỢT GIẢM GIÁ (FULL-PAGE)
+         VIEW 2: MÀN HÌNH TẠO MỚI / CHỈNH SỬA TOÀN TRANG (FULL-PAGE)
     ======================================================== -->
-    <div v-else class="view-create">
+    <div v-else class="view-form">
       <!-- Header điều hướng phía trên -->
       <div class="form-header-bar">
         <div class="form-breadcrumb">
@@ -254,7 +277,7 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
           </button>
           <span class="breadcrumb-text">
-            Quản lý giảm giá / <b>Đợt giảm giá</b> / <b>Tạo mới đợt giảm giá</b>
+            Quản lý giảm giá / <b>Đợt giảm giá</b> / <b>{{ isEditing ? 'Chi tiết đợt giảm giá' : 'Tạo mới đợt giảm giá' }}</b>
           </span>
         </div>
         <div class="form-header-actions">
@@ -262,9 +285,9 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             Hủy bỏ
           </button>
-          <button class="btn btn-theme" @click="onCreateClick">
+          <button class="btn btn-theme" @click="onSaveClick">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            Tạo đợt giảm giá
+            {{ isEditing ? 'Lưu thay đổi' : 'Tạo đợt giảm giá' }}
           </button>
         </div>
       </div>
@@ -289,7 +312,7 @@
             <div class="preview-info-row">
               <span class="preview-label">Trạng thái:</span>
               <span :class="['badge-status', formData.trangThai === 1 ? 'status-active' : 'status-inactive']">
-                {{ formData.trangThai === 1 ? 'Đang hoạt động' : 'Ngừng hoạt động' }}
+                {{ formData.trangThai === 1 ? 'Hoạt Động' : 'Ngưng Hoạt Động' }}
               </span>
             </div>
 
@@ -330,11 +353,17 @@
 
             <div class="form-grid-2">
               <div class="form-field">
-                <label>Mã đợt giảm giá <span class="text-hint">(tự sinh nếu để trống)</span></label>
+                <label>
+                  Mã đợt giảm giá
+                  <span v-if="isEditing" class="tag-lock">🔒 Cố định</span>
+                  <span v-else class="text-hint">(tự sinh nếu để trống)</span>
+                </label>
                 <input
                     type="text"
                     v-model="formData.maDotGiamGia"
+                    :disabled="isEditing"
                     placeholder="VD: DGG01"
+                    :class="{ 'input-disabled': isEditing }"
                 />
               </div>
 
@@ -350,8 +379,8 @@
               <div class="form-field">
                 <label>Trạng thái hoạt động <span class="text-danger">*</span></label>
                 <select v-model.number="formData.trangThai">
-                  <option :value="1">Đang hoạt động (Bật)</option>
-                  <option :value="0">Ngừng hoạt động (Tắt)</option>
+                  <option :value="1">Hoạt Động</option>
+                  <option :value="0">Ngưng Hoạt Động</option>
                 </select>
               </div>
 
@@ -478,9 +507,9 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
               Quay lại danh sách
             </button>
-            <button class="btn btn-theme" @click="onCreateClick">
+            <button class="btn btn-theme" @click="onSaveClick">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-              Tạo đợt giảm giá
+              {{ isEditing ? 'Cập nhật đợt giảm giá' : 'Tạo đợt giảm giá' }}
             </button>
           </div>
         </div>
@@ -488,22 +517,22 @@
     </div>
 
     <!-- ========================================================
-         MODAL: XÁC NHẬN TẠO MỚI (Y NHƯ ẢNH MẪU 1)
+         MODAL: XÁC NHẬN CẬP NHẬT / TẠO MỚI (Y NHƯ ẢNH MẪU 1)
     ======================================================== -->
     <div v-if="showConfirmModal" class="modal-mask" @click.self="showConfirmModal = false">
       <div class="confirm-modal-box">
         <div class="confirm-header">
           <div class="confirm-title-left">
             <span class="warning-triangle">⚠️</span>
-            <h4>Xác nhận tạo mới</h4>
+            <h4>{{ isEditing ? 'Xác nhận cập nhật' : 'Xác nhận tạo mới' }}</h4>
           </div>
           <button class="btn-close" @click="showConfirmModal = false">✕</button>
         </div>
 
         <div class="confirm-body">
           <p class="confirm-lead-text">
-            Bạn có chắc chắn muốn tạo mới đợt giảm giá
-            <b>[{{ formData.maDotGiamGia || 'TỰ SINH' }}]</b> không?
+            Bạn có chắc chắn muốn lưu các thay đổi cho đợt giảm giá
+            <b>[{{ formData.maDotGiamGia || 'MỚI' }}]</b> không?
           </p>
 
           <div class="confirm-info-card">
@@ -526,7 +555,7 @@
             <div class="confirm-row">
               <span class="confirm-label">Trạng thái:</span>
               <span class="confirm-val font-bold" :class="formData.trangThai === 1 ? 'text-green' : 'text-danger'">
-                {{ formData.trangThai === 1 ? 'Đang hoạt động' : 'Ngừng hoạt động' }}
+                {{ formData.trangThai === 1 ? 'Hoạt Động' : 'Ngưng Hoạt Động' }}
               </span>
             </div>
           </div>
@@ -536,54 +565,10 @@
           <button class="btn btn-cancel-confirm" @click="showConfirmModal = false">
             Hủy bỏ
           </button>
-          <button class="btn btn-accept-confirm" :disabled="submitting" @click="doSubmitCreateAPI">
+          <button class="btn btn-accept-confirm" :disabled="submitting" @click="doSubmitAPI">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><polyline points="20 6 9 17 4 12"/></svg>
-            {{ submitting ? 'Đang tạo...' : 'Xác nhận' }}
+            {{ submitting ? 'Đang lưu...' : 'Xác nhận' }}
           </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Modal Xem Chi Tiết -->
-    <div v-if="showDetailModal" class="modal-mask" @click.self="showDetailModal = false">
-      <div class="detail-modal-box">
-        <div class="detail-modal-header">
-          <h4 class="detail-modal-title">Chi tiết đợt giảm giá</h4>
-          <button class="modal-close-btn" @click="showDetailModal = false">✕</button>
-        </div>
-        <div class="detail-modal-body" v-if="selectedItem">
-          <div class="detail-row">
-            <span class="detail-label">Mã đợt giảm giá:</span>
-            <span class="detail-value font-bold text-blue">{{ selectedItem.maDotGiamGia }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Tên đợt:</span>
-            <span class="detail-value font-medium">{{ selectedItem.tenDotGiamGia }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Phần trăm giảm:</span>
-            <span class="detail-value font-bold">{{ selectedItem.phanTramGiam }}%</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Ngày bắt đầu:</span>
-            <span class="detail-value">{{ formatDate(selectedItem.ngayBatDau) }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Ngày kết thúc:</span>
-            <span class="detail-value">{{ formatDate(selectedItem.ngayKetThuc) }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Trạng thái:</span>
-            <span
-                class="badge-status"
-                :class="selectedItem.trangThai === 1 ? 'status-active' : 'status-inactive'"
-            >
-              {{ selectedItem.trangThai === 1 ? 'Đang hoạt động' : 'Ngừng hoạt động' }}
-            </span>
-          </div>
-        </div>
-        <div class="detail-modal-footer">
-          <button class="btn btn-reset" @click="showDetailModal = false">Đóng</button>
         </div>
       </div>
     </div>
@@ -594,7 +579,7 @@
 import { ref, computed, onMounted } from 'vue'
 import api from '@/api.js'
 
-// Điều hướng view: 'list' (danh sách) hoặc 'create' (màn hình tạo mới)
+// Điều hướng view: 'list' (danh sách) hoặc 'form' (màn hình tạo/sửa)
 const currentView = ref('list')
 
 // Thông báo Toast
@@ -615,14 +600,15 @@ const pageSize = ref(5)
 const totalPages = ref(0)
 const totalElements = ref(0)
 
-// Modal chi tiết & Modal xác nhận tạo mới
-const showDetailModal = ref(false)
+// Modal xác nhận
 const showConfirmModal = ref(false)
-const selectedItem = ref(null)
+const isEditing = ref(false)
 const submitting = ref(false)
+const exporting = ref(false)
 
-// Form dữ liệu tạo mới đợt giảm giá
+// Form dữ liệu đợt giảm giá
 const formData = ref({
+  id: null,
   maDotGiamGia: '',
   tenDotGiamGia: '',
   phanTramGiam: 15,
@@ -797,31 +783,158 @@ const visiblePages = computed(() => {
   return pages
 })
 
-// Đổi trạng thái
+// Đổi trạng thái Hoạt Động / Ngưng Hoạt Động
 const toggleStatus = async (item) => {
-  const nextStatus = item.trangThai === 1 ? 'Ngừng hoạt động' : 'Đang hoạt động'
-  const confirmMsg = `Bạn có chắc muốn đổi trạng thái đợt giảm giá "${item.tenDotGiamGia || item.maDotGiamGia}" sang [${nextStatus}]?`
+  const isActivating = item.trangThai !== 1
+  const targetStatus = isActivating ? 'Hoạt Động' : 'Ngưng Hoạt Động'
+  const confirmMsg = `Bạn có chắc chắn muốn chuyển trạng thái đợt giảm giá "${item.tenDotGiamGia || item.maDotGiamGia}" sang [${targetStatus}]?`
   if (!confirm(confirmMsg)) return
 
   try {
     const res = await api.put(`/api/dot-giam-gia/${item.id}/toggle-status`)
     item.trangThai = res.data.trangThai
-    showToast(`Đổi trạng thái sang [${nextStatus}] thành công!`, 'success')
+    showToast(`Đã chuyển sang ${targetStatus} thành công!`, 'success')
   } catch (error) {
     console.error('Lỗi khi đổi trạng thái:', error)
-    showToast('Không thể đổi trạng thái đợt giảm giá!', 'error')
+    showToast(`Không thể cập nhật trạng thái đợt giảm giá!`, 'error')
   }
 }
 
-// Xem chi tiết modal
-const viewDetail = (item) => {
-  selectedItem.value = item
-  showDetailModal.value = true
+// Xuất danh sách đợt giảm giá ra file Excel (.xls UTF-8 mở được bằng Excel & Sheets)
+const exportToExcel = async () => {
+  try {
+    exporting.value = true
+    showToast('Đang chuẩn bị dữ liệu xuất Excel...', 'info')
+
+    // Lấy toàn bộ bản ghi theo bộ lọc hiện tại (tối đa 5000 dòng)
+    const params = {
+      page: 0,
+      size: 5000,
+      sortBy: 'id',
+      sortDir: 'desc'
+    }
+
+    if (filters.value.keyword && filters.value.keyword.trim() !== '') {
+      params.keyword = filters.value.keyword.trim()
+    }
+    if (filters.value.startDate) {
+      params.startDate = filters.value.startDate
+    }
+    if (filters.value.endDate) {
+      params.endDate = filters.value.endDate
+    }
+    if (filters.value.trangThai !== '' && filters.value.trangThai !== null) {
+      params.trangThai = Number(filters.value.trangThai)
+    }
+
+    const res = await api.get('/api/dot-giam-gia', { params })
+    const dataList = res.data?.content || campaigns.value || []
+
+    if (!dataList || dataList.length === 0) {
+      showToast('Không có dữ liệu đợt giảm giá để xuất Excel!', 'error')
+      return
+    }
+
+    const now = new Date()
+    const nowStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+
+    let rowsHtml = ''
+    dataList.forEach((item, idx) => {
+      const statusText = item.trangThai === 1 ? 'Hoạt Động' : 'Ngưng Hoạt Động'
+      const statusColor = item.trangThai === 1 ? '#2e7d32' : '#c62828'
+      rowsHtml += `
+        <tr>
+          <td style="text-align: center; border: 1px solid #bfbfbf; padding: 6px;">${idx + 1}</td>
+          <td style="text-align: center; font-weight: bold; color: #304b60; border: 1px solid #bfbfbf; padding: 6px;">${item.maDotGiamGia || ''}</td>
+          <td style="border: 1px solid #bfbfbf; padding: 6px;">${item.tenDotGiamGia || ''}</td>
+          <td style="text-align: center; font-weight: bold; border: 1px solid #bfbfbf; padding: 6px;">${item.phanTramGiam != null ? item.phanTramGiam + '%' : '0%'}</td>
+          <td style="text-align: center; border: 1px solid #bfbfbf; padding: 6px;">${formatDate(item.ngayBatDau)}</td>
+          <td style="text-align: center; border: 1px solid #bfbfbf; padding: 6px;">${formatDate(item.ngayKetThuc)}</td>
+          <td style="text-align: center; font-weight: bold; color: ${statusColor}; border: 1px solid #bfbfbf; padding: 6px;">${statusText}</td>
+        </tr>
+      `
+    })
+
+    const excelHtml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" 
+            xmlns:x="urn:schemas-microsoft-com:office:excel" 
+            xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+          <!--[if gte mso 9]>
+          <xml>
+            <x:ExcelWorkbook>
+              <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                  <x:Name>DanhSachDotGiamGia</x:Name>
+                  <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+                </x:ExcelWorksheet>
+              </x:ExcelWorksheets>
+            </x:ExcelWorkbook>
+          </xml>
+          <![endif]-->
+          <style>
+            table { border-collapse: collapse; font-family: Arial, sans-serif; font-size: 13px; }
+            th { background-color: #304b60; color: #ffffff; font-weight: bold; border: 1px solid #bfbfbf; padding: 10px 8px; text-align: center; }
+            td { border: 1px solid #bfbfbf; padding: 6px 8px; }
+            .title { font-size: 16px; font-weight: bold; color: #304b60; text-align: center; }
+          </style>
+        </head>
+        <body>
+          <table>
+            <tr>
+              <td colspan="7" class="title" style="height: 38px; vertical-align: middle; border: none;">
+                DANH SÁCH ĐỢT GIẢM GIÁ - CỬA HÀNG FF T-SHIRT
+              </td>
+            </tr>
+            <tr>
+              <td colspan="7" style="color: #666; font-style: italic; border: none; padding-bottom: 10px;">
+                Thời gian xuất: ${nowStr} | Tổng số bản ghi: ${dataList.length} đợt giảm giá
+              </td>
+            </tr>
+            <thead>
+              <tr>
+                <th style="width: 50px;">STT</th>
+                <th style="width: 140px;">Mã đợt</th>
+                <th style="width: 280px;">Tên đợt giảm giá</th>
+                <th style="width: 120px;">Mức giảm</th>
+                <th style="width: 170px;">Ngày bắt đầu</th>
+                <th style="width: 170px;">Ngày kết thúc</th>
+                <th style="width: 150px;">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `
+
+    const blob = new Blob(['\uFEFF' + excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+    const link = document.createElement('a')
+    const fileDateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`
+    link.href = URL.createObjectURL(blob)
+    link.download = `Danh_Sach_Dot_Giam_Gia_${fileDateStr}.xls`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
+
+    showToast(`Xuất file Excel thành công (${dataList.length} đợt)!`, 'success')
+  } catch (error) {
+    console.error('Lỗi khi xuất Excel:', error)
+    showToast('Lỗi khi xuất file Excel!', 'error')
+  } finally {
+    exporting.value = false
+  }
 }
 
 // Chuyển sang màn hình tạo mới
 const openCreateView = () => {
+  isEditing.value = false
   formData.value = {
+    id: null,
     maDotGiamGia: '',
     tenDotGiamGia: '',
     phanTramGiam: 15,
@@ -831,16 +944,34 @@ const openCreateView = () => {
   }
   products.value.forEach(p => (p.selected = false))
   productSearchKeyword.value = ''
-  currentView.value = 'create'
+  currentView.value = 'form'
   showToast('Chuyển sang màn hình tạo đợt giảm giá!', 'info')
+}
+
+// Chuyển sang màn hình chỉnh sửa
+const openEditView = (item) => {
+  isEditing.value = true
+  formData.value = {
+    id: item.id,
+    maDotGiamGia: item.maDotGiamGia || '',
+    tenDotGiamGia: item.tenDotGiamGia || '',
+    phanTramGiam: item.phanTramGiam,
+    ngayBatDau: toInputDateTime(item.ngayBatDau),
+    ngayKetThuc: toInputDateTime(item.ngayKetThuc),
+    trangThai: item.trangThai != null ? item.trangThai : 1
+  }
+  products.value.forEach((p, i) => (p.selected = i < 3))
+  productSearchKeyword.value = ''
+  currentView.value = 'form'
+  showToast(`Mở chỉnh sửa đợt "${item.tenDotGiamGia}"!`, 'info')
 }
 
 const backToList = () => {
   currentView.value = 'list'
 }
 
-// Bấm nút Tạo đợt giảm giá -> kiểm tra và mở popup xác nhận
-const onCreateClick = () => {
+// Bấm nút Lưu / Tạo -> kiểm tra và mở popup xác nhận
+const onSaveClick = () => {
   if (!formData.value.tenDotGiamGia || formData.value.tenDotGiamGia.trim() === '') {
     showToast('Vui lòng nhập tên đợt giảm giá!', 'error')
     return
@@ -861,8 +992,8 @@ const onCreateClick = () => {
   showConfirmModal.value = true
 }
 
-// Xác nhận gọi API tạo mới
-const doSubmitCreateAPI = async () => {
+// Xác nhận gọi API tạo mới hoặc cập nhật
+const doSubmitAPI = async () => {
   try {
     submitting.value = true
     const payload = {
@@ -874,13 +1005,19 @@ const doSubmitCreateAPI = async () => {
       trangThai: formData.value.trangThai
     }
 
-    await api.post('/api/dot-giam-gia', payload)
-    showToast('Tạo mới đợt giảm giá thành công!', 'success')
+    if (isEditing.value) {
+      await api.put(`/api/dot-giam-gia/${formData.value.id}`, payload)
+      showToast('Cập nhật đợt giảm giá thành công!', 'success')
+    } else {
+      await api.post('/api/dot-giam-gia', payload)
+      showToast('Tạo mới đợt giảm giá thành công!', 'success')
+    }
+
     showConfirmModal.value = false
     currentView.value = 'list'
     fetchData()
   } catch (e) {
-    console.error('Lỗi khi tạo mới đợt giảm giá:', e)
+    console.error('Lỗi khi lưu đợt giảm giá:', e)
     showToast('Lỗi khi lưu dữ liệu vào cơ sở dữ liệu!', 'error')
   } finally {
     submitting.value = false
@@ -984,6 +1121,7 @@ onMounted(() => {
   background-color: #ffffff;
   box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.08);
 }
+.input-disabled { background: #f5f3ed !important; cursor: not-allowed; color: #8c9597; }
 
 .filter-actions {
   display: flex;
@@ -1011,8 +1149,9 @@ onMounted(() => {
 .btn-sm { height: 2.2rem; padding: 0 0.9rem; font-size: 0.84rem; }
 .btn-reset { border: 1px solid #dfd5c2; background-color: #fff8eb; color: #957b48; }
 .btn-reset:hover { background-color: #faeed7; }
-.btn-primary { background-color: var(--blue, #496883); color: #ffffff; }
-.btn-primary:hover { background-color: #38536b; }
+.btn-excel { background-color: #1d6f42; color: #ffffff; }
+.btn-excel:hover:not(:disabled) { background-color: #145531; }
+.btn-excel:disabled { opacity: 0.65; cursor: not-allowed; }
 .btn-theme { background-color: #304b60; color: #ffffff; }
 .btn-theme:hover { background-color: #223747; }
 .btn-outline { background: #ffffff; border-color: #dfd5c2; color: #556268; }
@@ -1025,7 +1164,7 @@ onMounted(() => {
 .table-responsive { overflow-x: auto; }
 .custom-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
 .custom-table th { background-color: #faf9f6; color: #6f7c82; font-weight: 700; padding: 0.95rem 1rem; text-align: left; border-bottom: 1px solid #efede7; white-space: nowrap; }
-.custom-table td { padding: 1.1rem 1rem; border-bottom: 1px solid #f2f0eb; color: #4b585e; vertical-align: middle; }
+.custom-table td { padding: 0.95rem 1rem; border-bottom: 1px solid #f2f0eb; color: #4b585e; vertical-align: middle; }
 .custom-table tr:hover td { background-color: #fcfbf8; }
 
 .empty-cell { text-align: center; padding: 2.5rem !important; color: #8c9597; font-style: italic; }
@@ -1040,27 +1179,87 @@ onMounted(() => {
 .text-danger { color: #e04f4f; }
 .text-green { color: #2e7d32; }
 .text-hint { font-size: 0.8rem; font-weight: normal; color: #8c9597; }
+.tag-lock { font-size: 0.75rem; background: #efeae0; padding: 0.15rem 0.4rem; border-radius: 4px; color: #556268; margin-left: 0.4rem; }
 
 /* Badge Status */
-.badge-status { display: inline-block; font-size: 0.82rem; font-weight: 700; padding: 0.35rem 0.85rem; border-radius: 14px; white-space: nowrap; }
-.status-active { background-color: #edf6ef; color: #4c8a5a; }
-.status-inactive { background-color: #fdf0f0; color: #e04f4f; }
-
-.action-buttons { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; }
-.btn-circle-action {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid var(--line, #e9e5db);
-  background-color: #ffffff;
-  color: #496883;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 0.95rem;
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 122px;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.35rem 0.75rem;
+  border-radius: 12px;
+  box-sizing: border-box;
 }
-.btn-circle-action:hover { border-color: var(--blue, #496883); background-color: #eaf1f4; transform: scale(1.08); }
+.status-active { background-color: #edf6ef; color: #2e7d32; }
+.status-inactive { background-color: #fdf0f0; color: #d32f2f; }
+
+/* ========================================================
+   CỘT HÀNH ĐỘNG: 2 NÚT VUÔNG BO GÓC MỀM (Y HỆT HÌNH ẢNH)
+======================================================== */
+.action-buttons {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.btn-action-square {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+/* Nút 1: Power button xanh lá khi đang hoạt động */
+.btn-action-power.power-active {
+  background-color: #eaf5ea;
+  border-color: #d1ebd1;
+  color: #2e7d32;
+}
+.btn-action-power.power-active:hover {
+  background-color: #d7edd7;
+  color: #1e5a22;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(46, 125, 50, 0.18);
+}
+
+/* Nút 1: Power button đỏ khi đang ngưng hoạt động */
+.btn-action-power.power-inactive {
+  background-color: #fdeeed;
+  border-color: #fad2d0;
+  color: #c62828;
+}
+.btn-action-power.power-inactive:hover {
+  background-color: #fbd6d4;
+  color: #a71d1d;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(198, 40, 40, 0.18);
+}
+
+/* Nút 2: Edit button xanh pastel / navy dịu mắt chuẩn ảnh */
+.btn-action-edit {
+  background-color: #eef4f8;
+  border-color: #d8e5ee;
+  color: #304b60;
+}
+.btn-action-edit:hover {
+  background-color: #dceaf2;
+  color: #1e3342;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(48, 75, 96, 0.18);
+}
 
 /* Pagination */
 .pagination-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-top: 1.25rem; padding-top: 1.1rem; border-top: 1px dashed var(--line, #e9e5db); }
@@ -1074,7 +1273,7 @@ onMounted(() => {
 .pg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ========================================================
-   STYLES CHO VIEW 2: TẠO MỚI FULL-PAGE
+   STYLES CHO VIEW 2: TẠO MỚI / CHỈNH SỬA FULL-PAGE
 ======================================================== */
 .form-header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.8rem; }
 .form-breadcrumb { display: flex; align-items: center; gap: 0.6rem; }
@@ -1121,7 +1320,7 @@ onMounted(() => {
 .product-count-summary { font-size: 0.85rem; color: #8c9597; margin-top: 0.6rem; text-align: right; }
 .form-footer-bar { display: flex; justify-content: flex-end; gap: 0.75rem; padding: 1rem 1.4rem; }
 
-/* Modal Xác nhận tạo mới */
+/* Modal Xác nhận */
 .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 10000; animation: fadeIn 0.15s ease-out; }
 .confirm-modal-box { background: #ffffff; border-radius: 12px; width: 92%; max-width: 520px; box-shadow: 0 12px 36px rgba(0,0,0,0.18); overflow: hidden; }
 .confirm-header { padding: 1rem 1.4rem; background: #fffcf5; border-bottom: 1px solid #f2edd9; display: flex; justify-content: space-between; align-items: center; }
@@ -1144,17 +1343,6 @@ onMounted(() => {
 .btn-cancel-confirm:hover { background: #fbf5e8; }
 .btn-accept-confirm { background: #3a7d44; color: #ffffff; font-weight: 700; height: 2.5rem; padding: 0 1.4rem; border-radius: 6px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; box-shadow: 0 2px 6px rgba(58, 125, 68, 0.25); }
 .btn-accept-confirm:hover { background: #2f6937; }
-
-/* Modal Xem Chi Tiết */
-.detail-modal-box { background: #ffffff; border-radius: 12px; width: 90%; max-width: 520px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15); overflow: hidden; animation: fadeIn 0.2s ease-out; }
-.detail-modal-header { padding: 1.1rem 1.4rem; border-bottom: 1px solid var(--line, #e9e5db); display: flex; justify-content: space-between; align-items: center; }
-.detail-modal-title { margin: 0; font-size: 1.15rem; color: #3c4d55; font-weight: 700; }
-.modal-close-btn { background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: #8c9597; }
-.detail-modal-body { padding: 1.4rem; display: flex; flex-direction: column; gap: 1rem; }
-.detail-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #f0ece3; padding-bottom: 0.6rem; }
-.detail-label { font-size: 0.92rem; color: #6f7c82; }
-.detail-value { font-size: 0.95rem; color: #2b383e; }
-.detail-modal-footer { padding: 1rem 1.4rem; border-top: 1px solid var(--line, #e9e5db); display: flex; justify-content: flex-end; }
 
 .flex-1 { flex: 1; }
 
