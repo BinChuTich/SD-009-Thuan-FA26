@@ -1048,9 +1048,9 @@ onMounted(async () => {
 <style scoped>
 .product-form-container {
   padding: 1.25rem 2rem 3rem;
-  background-color: #f7f9fa;
+  background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
-  color: #2b3b42;
+  color: var(--text, #3d4a50);
   box-sizing: border-box;
 }
 
@@ -1082,7 +1082,7 @@ onMounted(async () => {
 }
 
 .breadcrumb-root:hover {
-  color: #c8102e;
+  color: var(--blue, #496883);
 }
 
 .breadcrumb-sep {
@@ -1096,8 +1096,8 @@ onMounted(async () => {
 
 .btn-back-top {
   background-color: #ffffff;
-  color: #c8102e;
-  border: 1px solid #fecdd3;
+  color: var(--blue, #496883);
+  border: 1px solid #cbd5e1;
   padding: 0.5rem 1rem;
   border-radius: 8px;
   font-size: 0.88rem;
@@ -1107,7 +1107,8 @@ onMounted(async () => {
 }
 
 .btn-back-top:hover {
-  background-color: #fff1f2;
+  background-color: #eaf2f6;
+  border-color: #6e96ad;
 }
 
 /* Card container */
@@ -1115,8 +1116,8 @@ onMounted(async () => {
   background: #ffffff;
   border-radius: 12px;
   padding: 1.5rem;
-  border: 1px solid #edf1f4;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
 }
 
 .mt-3 {
@@ -1168,8 +1169,8 @@ onMounted(async () => {
 .form-input:focus,
 .form-select:focus,
 .form-textarea:focus {
-  border-color: #c8102e;
-  box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.08);
+  border-color: var(--blue, #496883);
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.15);
 }
 
 .form-textarea {
@@ -1273,7 +1274,7 @@ onMounted(async () => {
 }
 
 .btn-clear-all:hover {
-  color: #e11d48;
+  color: #dc2626;
 }
 
 .popover-list {
@@ -1296,8 +1297,8 @@ onMounted(async () => {
 }
 
 .popover-item.selected {
-  background-color: #fff1f2;
-  color: #c8102e;
+  background-color: #eaf2f6;
+  color: var(--blue, #496883);
   font-weight: 600;
 }
 
@@ -1310,7 +1311,7 @@ onMounted(async () => {
 
 .check-icon {
   margin-left: auto;
-  color: #c8102e;
+  color: var(--blue, #496883);
   font-weight: 700;
 }
 
@@ -1346,23 +1347,25 @@ onMounted(async () => {
 }
 
 .chip-remove:hover {
-  color: #e11d48;
+  color: #dc2626;
 }
 
 .btn-quick-add {
   background: #ffffff;
-  color: #c8102e;
-  border: 1px solid #fecdd3;
+  color: var(--blue, #496883);
+  border: 1px solid #cbd5e1;
   padding: 0.6rem 0.8rem;
   border-radius: 8px;
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  transition: all 0.2s;
 }
 
 .btn-quick-add:hover {
-  background: #fff1f2;
+  background: #eaf2f6;
+  border-color: #6e96ad;
 }
 
 .generate-btn-row {
@@ -1372,7 +1375,7 @@ onMounted(async () => {
 }
 
 .btn-generate {
-  background: linear-gradient(135deg, #c8102e, #a00c24);
+  background: linear-gradient(135deg, #496883, #385269);
   color: #ffffff;
   border: none;
   padding: 0.7rem 1.6rem;
@@ -1380,12 +1383,12 @@ onMounted(async () => {
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(200, 16, 46, 0.25);
+  box-shadow: 0 4px 12px rgba(73, 104, 131, 0.25);
   transition: all 0.2s;
 }
 
 .btn-generate:hover {
-  opacity: 0.95;
+  background: linear-gradient(135deg, #3d5870, #2c4154);
   transform: translateY(-1px);
 }
 
@@ -1437,8 +1440,8 @@ onMounted(async () => {
 
 .btn-bulk-apply {
   background-color: #ffffff;
-  color: #c8102e;
-  border: 1px solid #c8102e;
+  color: var(--blue, #496883);
+  border: 1px solid var(--blue, #496883);
   padding: 0.55rem 1.1rem;
   border-radius: 8px;
   font-weight: 600;
@@ -1448,7 +1451,7 @@ onMounted(async () => {
 }
 
 .btn-bulk-apply:hover {
-  background-color: #c8102e;
+  background-color: var(--blue, #496883);
   color: #ffffff;
 }
 
@@ -1528,8 +1531,8 @@ onMounted(async () => {
 
 .btn-delete-row {
   border: none;
-  background: #fff1f2;
-  color: #e11d48;
+  background: #fee2e2;
+  color: #dc2626;
   width: 32px;
   height: 32px;
   border-radius: 6px;
@@ -1541,7 +1544,7 @@ onMounted(async () => {
 }
 
 .btn-delete-row:hover {
-  background: #e11d48;
+  background: #dc2626;
   color: #ffffff;
 }
 
@@ -1606,13 +1609,18 @@ onMounted(async () => {
 
 .btn-add-img {
   border: none;
-  background: #c8102e;
+  background: var(--blue, #496883);
   color: #ffffff;
   border-radius: 6px;
   padding: 0.4rem 0.8rem;
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-add-img:hover {
+  background: #385269;
 }
 
 .image-dropzone {
@@ -1630,7 +1638,7 @@ onMounted(async () => {
 }
 
 .image-dropzone:hover {
-  border-color: #c8102e;
+  border-color: var(--blue, #496883);
 }
 
 .image-placeholder {
@@ -1705,7 +1713,7 @@ onMounted(async () => {
 }
 
 .btn-save-lg {
-  background: linear-gradient(135deg, #c8102e, #a00c24);
+  background: linear-gradient(135deg, #496883, #385269);
   color: #ffffff;
   border: none;
   padding: 0.75rem 2.2rem;
@@ -1713,12 +1721,12 @@ onMounted(async () => {
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(200, 16, 46, 0.25);
+  box-shadow: 0 4px 12px rgba(73, 104, 131, 0.25);
   transition: all 0.2s;
 }
 
 .btn-save-lg:hover:not(:disabled) {
-  opacity: 0.95;
+  background: linear-gradient(135deg, #3d5870, #2c4154);
 }
 
 .btn-save-lg:disabled {
@@ -1846,7 +1854,7 @@ onMounted(async () => {
 }
 
 .btn-confirm-primary {
-  background: #c8102e;
+  background: var(--blue, #496883);
   color: #ffffff;
   border: none;
   padding: 0.6rem 1.4rem;
@@ -1858,7 +1866,7 @@ onMounted(async () => {
 }
 
 .btn-confirm-primary:hover {
-  background: #a00c24;
+  background: #385269;
 }
 
 .btn-confirm-danger {

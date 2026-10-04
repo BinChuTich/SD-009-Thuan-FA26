@@ -1437,7 +1437,7 @@ textarea.form-control {
 }
 
 .btn-confirm-primary {
-  background: #c8102e;
+  background: var(--blue, #496883);
   color: #ffffff;
   border: none;
   padding: 0.6rem 1.4rem;
@@ -1449,7 +1449,7 @@ textarea.form-control {
 }
 
 .btn-confirm-primary:hover {
-  background: #a00c24;
+  background: #385269;
 }
 
 .btn-confirm-danger {
