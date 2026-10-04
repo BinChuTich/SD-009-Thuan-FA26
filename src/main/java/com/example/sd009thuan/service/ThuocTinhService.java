@@ -45,25 +45,25 @@ public class ThuocTinhService {
 
     public Map<String, Object> getAllThuocTinh() {
         Map<String, Object> map = new HashMap<>();
-        map.put("chatLieu", chatLieuRepository.findByTrangThai(1));
-        map.put("thuongHieu", thuongHieuRepository.findByTrangThai(1));
-        map.put("xuatXu", xuatXuRepository.findByTrangThai(1));
-        map.put("danhMuc", danhMucRepository.findByTrangThai(1));
-        map.put("coAo", coAoRepository.findByTrangThai(1));
-        map.put("tayAo", tayAoRepository.findByTrangThai(1));
-        map.put("hoaTiet", hoaTietRepository.findByTrangThai(1));
-        map.put("mauSac", mauSacRepository.findByTrangThai(1));
-        map.put("kichCo", kichCoRepository.findByTrangThai(1));
+        map.put("chatLieu", chatLieuRepository.findAll());
+        map.put("thuongHieu", thuongHieuRepository.findAll());
+        map.put("xuatXu", xuatXuRepository.findAll());
+        map.put("danhMuc", danhMucRepository.findAll());
+        map.put("coAo", coAoRepository.findAll());
+        map.put("tayAo", tayAoRepository.findAll());
+        map.put("hoaTiet", hoaTietRepository.findAll());
+        map.put("mauSac", mauSacRepository.findAll());
+        map.put("kichCo", kichCoRepository.findAll());
         return map;
     }
 
-    public List<ChatLieu> getChatLieu() { return chatLieuRepository.findByTrangThai(1); }
-    public List<ThuongHieu> getThuongHieu() { return thuongHieuRepository.findByTrangThai(1); }
-    public List<XuatXu> getXuatXu() { return xuatXuRepository.findByTrangThai(1); }
-    public List<DanhMuc> getDanhMuc() { return danhMucRepository.findByTrangThai(1); }
-    public List<CoAo> getCoAo() { return coAoRepository.findByTrangThai(1); }
-    public List<TayAo> getTayAo() { return tayAoRepository.findByTrangThai(1); }
-    public List<HoaTiet> getHoaTiet() { return hoaTietRepository.findByTrangThai(1); }
-    public List<MauSac> getMauSac() { return mauSacRepository.findByTrangThai(1); }
-    public List<KichCo> getKichCo() { return kichCoRepository.findByTrangThai(1); }
+    public List<ChatLieu> getChatLieu() { return chatLieuRepository.findAll(); }
+    public List<ThuongHieu> getThuongHieu() { return thuongHieuRepository.findAll(); }
+    public List<XuatXu> getXuatXu() { return xuatXuRepository.findAll(); }
+    public List<DanhMuc> getDanhMuc() { return danhMucRepository.findAll(); }
+    public List<CoAo> getCoAo() { return coAoRepository.findAll(); }
+    public List<TayAo> getTayAo() { return tayAoRepository.findAll(); }
+    public List<HoaTiet> getHoaTiet() { return hoaTietRepository.findAll(); }
+    public List<MauSac> getMauSac() { return mauSacRepository.findAll(); }
+    public List<KichCo> getKichCo() { return kichCoRepository.findAll(); }
 }

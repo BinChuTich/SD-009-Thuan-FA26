@@ -36,6 +36,7 @@ public class HoaTiet {
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @OneToMany(mappedBy = "idHoaTiet")
     private Set<SanPham> sanPhams = new LinkedHashSet<>();
 
