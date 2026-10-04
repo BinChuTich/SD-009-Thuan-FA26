@@ -261,79 +261,16 @@
         </div>
       </div>
     </div>
-
-    <!-- Modal Xem chi tiết Phiếu giảm giá từ Database -->
-    <div v-if="selectedVoucher" class="modal-overlay" @click.self="closeDetail">
-      <div class="modal-box">
-        <div class="modal-header">
-          <h3 class="modal-title">Chi tiết Phiếu Giảm Giá</h3>
-          <button class="modal-close-btn" @click="closeDetail">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="detail-row">
-            <span class="detail-label">Mã phiếu:</span>
-            <span class="detail-val font-bold text-blue">{{ selectedVoucher.code }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Tên phiếu:</span>
-            <span class="detail-val font-medium">{{ selectedVoucher.name }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Loại phiếu:</span>
-            <span class="detail-val">{{ selectedVoucher.loaiGiamText }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Giá trị giảm:</span>
-            <span class="detail-val font-bold text-dark">{{ selectedVoucher.discountValue }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Giảm tối đa:</span>
-            <span class="detail-val">{{ selectedVoucher.giamToiDaFormatted }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Đơn tối thiểu:</span>
-            <span class="detail-val">{{ selectedVoucher.hoaDonToiThieuFormatted }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Số lượng sử dụng:</span>
-            <span class="detail-val">{{ selectedVoucher.soLuongSuDung }} lượt</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Thời gian áp dụng:</span>
-            <span class="detail-val">{{ selectedVoucher.startDate }} ➔ {{ selectedVoucher.endDate }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Hình thức:</span>
-            <span :class="['badge-form', selectedVoucher.form === 'Công khai' ? 'badge-public' : 'badge-personal']">
-              <span class="dot-icon">●</span> {{ selectedVoucher.form }}
-            </span>
-          </div>
-          <!-- Nếu là Cá nhân thì hiển thị danh sách khách hàng được nhận phiếu -->
-          <div v-if="selectedVoucher.form === 'Cá nhân'" class="detail-row">
-            <span class="detail-label">Khách áp dụng ({{ selectedVoucher.soKhachHang }} khách):</span>
-            <span class="detail-val font-medium text-blue" style="max-width: 260px; word-break: break-word;">{{ selectedVoucher.danhSachKhachHangText }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Trạng thái:</span>
-            <span :class="['badge-status', 'status-' + selectedVoucher.statusCode]">
-              {{ selectedVoucher.status }}
-            </span>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-primary" @click="closeDetail">Đóng</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
-// [BƯỚC 1]: Import các hàm tiện ích của Vue và axios client (api.js đã có sẵn trong dự án)
 import { ref, computed, watch, onMounted } from 'vue'
-import api from '../../api' // Gọi đến file api.js có sẵn baseURL http://localhost:8080
+import { useRouter } from 'vue-router'
+import api from '../../api'
 
-// Biến lưu trữ dữ liệu bộ lọc tìm kiếm
+const router = useRouter()
+
 const filters = ref({
   keyword: '',
   hinhThuc: '',
@@ -343,17 +280,12 @@ const filters = ref({
   trangThai: ''
 })
 
-// [BƯỚC 2]: Biến quản lý dữ liệu lấy từ SQL Server
-const vouchers = ref([]) // Mảng chứa danh sách phiếu giảm giá lấy từ Database
-const loading = ref(false) // Trạng thái đang tải dữ liệu (true = đang tải, false = xong)
-const selectedVoucher = ref(null) // Phiếu được chọn để xem chi tiết trong modal
+const vouchers = ref([])
+const loading = ref(false)
+const selectedVoucher = ref(null)
 
-// [QUẢN LÝ PHÂN TRANG]
-const currentPage = ref(1) // Trang hiện tại (bắt đầu từ 1)
-const pageSize = ref(5) // Số bản ghi hiển thị trên 1 trang (5, 10, 20, 50)
-
-
-// Hàm format ngày tháng từ chuỗi ISO (VD: 2026-01-01T00:00:00Z) sang dạng DD/MM/YYYY
+const currentPage = ref(1)
+const pageSize = ref(5)
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
@@ -369,28 +301,19 @@ const formatDate = (dateStr) => {
   }
 }
 
-
-//Hàm gọi API Backend Spring Boot để load toàn bộ dữ liệu phiếu giảm giá từ SQL Server
-
 const fetchVouchers = async () => {
   loading.value = true
   try {
-    // Gửi request GET sang backend
     const response = await api.get('/api/phieu-giam-gia')
     const data = response.data || []
 
-    // Ánh xạ (map) dữ liệu từ Entity trong SQL Server sang định dạng hiển thị của bảng
     const now = new Date()
 
     vouchers.value = data.map(item => {
-      // Xác định loại giảm: 1 = % giảm giá, 2 = Số tiền cố định
       const isPercent = item.loaiPhieuGiamGia === 1
       const discountDisplay = isPercent
           ? `${item.giaTriGiamGia}%`
           : `${Number(item.giaTriGiamGia || 0).toLocaleString('vi-VN')} đ`
-
-      // [KIỂM TRA TỰ ĐỘNG HẾT HẠN DỰA TRÊN NGÀY HIỆN TẠI]:
-      // So sánh ngày kết thúc với thời điểm hiện tại
       const endDateObj = item.ngayKetThuc ? new Date(item.ngayKetThuc) : null
       const startDateObj = item.ngayBatDau ? new Date(item.ngayBatDau) : null
       const isExpired = endDateObj ? endDateObj < now : false
@@ -417,7 +340,6 @@ const fetchVouchers = async () => {
         id: item.id,
         code: item.maPhieuGiamGia || ('PGG' + item.id),
         name: item.tenPhieuGiamGia || '',
-        // [HÌNH THỨC CÔNG KHAI / CÁ NHÂN]: Lấy từ API backend trả về dựa theo bảng khach_hang_phieu_giam_gia
         form: item.hinhThuc || (item.soKhachHang > 0 ? 'Cá nhân' : 'Công khai'),
         soKhachHang: item.soKhachHang || 0,
         danhSachKhachHang: item.danhSachKhachHang || [],
@@ -442,45 +364,28 @@ const fetchVouchers = async () => {
     })
   } catch (error) {
     console.error('Lỗi khi nạp dữ liệu phiếu giảm giá từ SQL Server:', error)
-    alert('Không thể kết nối tới Backend Spring Boot! Hãy đảm bảo bạn đã chạy Sd009ThuanApplication trên IntelliJ.')
+    alert('Không thể kết nối tới Backend Spring Boot!')
   } finally {
     loading.value = false
   }
 }
 
-
- //Tự động gọi API lấy dữ liệu ngay khi màn hình Phiếu giảm giá được mở lên
-
 onMounted(() => {
   fetchVouchers()
 })
 
-
- // Bộ lọc dữ liệu phía Frontend (Tìm kiếm theo mã, tên, loại giảm, trạng thái, ngày)
-
 const filteredList = computed(() => {
   return vouchers.value.filter(v => {
-    // 1. Lọc theo từ khóa (Mã hoặc Tên phiếu)
     const matchKw = !filters.value.keyword ||
         v.code.toLowerCase().includes(filters.value.keyword.toLowerCase()) ||
         v.name.toLowerCase().includes(filters.value.keyword.toLowerCase())
-
-    // 2. Lọc theo hình thức
     const matchForm = !filters.value.hinhThuc || v.form === filters.value.hinhThuc
-
-    // 3. Lọc theo loại giảm: percent (loại 1) hoặc amount (loại 2)
     const matchType = !filters.value.loaiGiam ||
         (filters.value.loaiGiam === 'percent' && v.loaiPhieuGiamGia === 1) ||
         (filters.value.loaiGiam === 'amount' && v.loaiPhieuGiamGia === 2)
-
-    // 4. Lọc theo trạng thái chính xác (Đang hoạt động, Đã hết hạn, Ngừng hoạt động)
     const matchStatus = !filters.value.trangThai || v.statusCode === filters.value.trangThai
-
-    // 5. Lọc theo ngày bắt đầu (nếu có chọn)
     const matchStart = !filters.value.startDate ||
         (v.rawStartDate && new Date(v.rawStartDate) >= new Date(filters.value.startDate))
-
-    // 6. Lọc theo ngày kết thúc (nếu có chọn)
     const matchEnd = !filters.value.endDate ||
         (v.rawEndDate && new Date(v.rawEndDate) <= new Date(filters.value.endDate + 'T23:59:59'))
 
@@ -488,21 +393,16 @@ const filteredList = computed(() => {
   })
 })
 
-//Logic tính toán phân trang
-
-// 1. Tính tổng số trang (tối thiểu là 1)
 const totalPages = computed(() => {
   return Math.ceil(filteredList.value.length / pageSize.value) || 1
 })
 
-// 2. Dữ liệu phiếu giảm giá hiển thị trên trang hiện tại
 const paginatedList = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
   const end = start + pageSize.value
   return filteredList.value.slice(start, end)
 })
 
-// 3. Vị trí bản ghi bắt đầu và kết thúc trên trang hiện tại
 const startIndex = computed(() => {
   if (filteredList.value.length === 0) return 0
   return (currentPage.value - 1) * pageSize.value + 1
@@ -512,7 +412,6 @@ const endIndex = computed(() => {
   return Math.min(currentPage.value * pageSize.value, filteredList.value.length)
 })
 
-// 4. Tự động quay về trang 1 khi người dùng lọc hoặc đổi số bản ghi/trang
 watch(filters, () => {
   currentPage.value = 1
 }, { deep: true })
@@ -521,7 +420,6 @@ watch(pageSize, () => {
   currentPage.value = 1
 })
 
-// 5. Danh sách các nút số trang hiển thị thông minh (có dấu "..." nếu nhiều trang)
 const visiblePages = computed(() => {
   const total = totalPages.value
   const current = currentPage.value
@@ -545,7 +443,6 @@ const visiblePages = computed(() => {
   return pages
 })
 
-// 6. Các thao tác chuyển trang
 const goToPage = (page) => {
   if (typeof page === 'number' && page >= 1 && page <= totalPages.value) {
     currentPage.value = page
@@ -564,8 +461,6 @@ const nextPage = () => {
   }
 }
 
-//Hàm đặt lại bộ lọc về mặc định
-
 const resetFilters = () => {
   filters.value = {
     keyword: '',
@@ -578,10 +473,7 @@ const resetFilters = () => {
   currentPage.value = 1
 }
 
- //Bật/tắt trạng thái hoạt động của phiếu giảm giá qua API Backend
-
 const toggleStatus = async (item) => {
-  // Nếu phiếu đã hết hạn thì cảnh báo không cho kích hoạt
   if (item.isExpired) {
     alert(`Phiếu [${item.code}] đã hết hạn vào ngày ${item.endDate}, không thể kích hoạt lại!`)
     return
@@ -594,7 +486,6 @@ const toggleStatus = async (item) => {
   if (!confirm(confirmMsg)) return
 
   try {
-    // Gọi PUT tới API Backend để lưu trạng thái mới vào SQL Server
     await api.put(`/api/phieu-giam-gia/${item.id}/toggle-status`)
     // Tải lại danh sách mới nhất từ Database
     await fetchVouchers()
@@ -604,14 +495,8 @@ const toggleStatus = async (item) => {
   }
 }
 
- //Xem chi tiết phiếu giảm giá
-
 const viewDetail = (item) => {
-  selectedVoucher.value = item
-}
-
-const closeDetail = () => {
-  selectedVoucher.value = null
+  router.push(`/phieu-giam-gia/chi-tiet/${item.id}`)
 }
 
 const openCreateModal = () => {
@@ -629,7 +514,6 @@ const openCreateModal = () => {
   box-sizing: border-box;
 }
 
-/* Header breadcrumb */
 .breadcrumb-header {
   margin-bottom: 1.2rem;
 }

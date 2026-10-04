@@ -19,13 +19,11 @@ public class PhieuGiamGiaController {
     @Autowired
     private PhieuGiamGiaService phieuGiamGiaService;
 
-
     @GetMapping
     public ResponseEntity<List<PhieuGiamGiaDTO>> getAll() {
         List<PhieuGiamGiaDTO> list = phieuGiamGiaService.getAllPhieuGiamGia();
         return ResponseEntity.ok(list);
     }
-
 
     @GetMapping("/phan-trang")
     public ResponseEntity<Page<PhieuGiamGiaDTO>> getPhanTrang(
@@ -37,7 +35,6 @@ public class PhieuGiamGiaController {
         return ResponseEntity.ok(result);
     }
 
-
     @GetMapping("/{id}")
     public ResponseEntity<?> getById(@PathVariable Long id) {
         return phieuGiamGiaService.getById(id)
@@ -45,10 +42,18 @@ public class PhieuGiamGiaController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-
     @PutMapping("/{id}/toggle-status")
     public ResponseEntity<?> toggleStatus(@PathVariable Long id) {
         PhieuGiamGiaDTO updated = phieuGiamGiaService.toggleTrangThai(id);
+        if (updated != null) {
+            return ResponseEntity.ok(updated);
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody PhieuGiamGiaDTO dto) {
+        PhieuGiamGiaDTO updated = phieuGiamGiaService.updatePhieuGiamGia(id, dto);
         if (updated != null) {
             return ResponseEntity.ok(updated);
         }
