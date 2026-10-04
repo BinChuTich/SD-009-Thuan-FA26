@@ -28,4 +28,5 @@ public class SanPhamRequest {
 
     private Integer trangThai;
     private String nguoiThaoTac;
+    private java.util.List<String> hinhAnhs;
 }

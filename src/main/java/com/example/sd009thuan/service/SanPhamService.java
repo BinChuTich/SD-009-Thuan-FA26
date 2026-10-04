@@ -169,6 +169,19 @@ public class SanPhamService {
         }
 
         SanPham saved = sanPhamRepository.save(sp);
+
+        if (req.getHinhAnhs() != null && !req.getHinhAnhs().isEmpty()) {
+            for (String url : req.getHinhAnhs()) {
+                if (url != null && !url.trim().isEmpty()) {
+                    HinhAnh ha = new HinhAnh();
+                    ha.setIdSanPham(saved);
+                    ha.setDuongDan(url.trim());
+                    ha.setTrangThai(1);
+                    hinhAnhRepository.save(ha);
+                }
+            }
+        }
+
         return convertToResponse(saved);
     }
 
@@ -227,6 +240,21 @@ public class SanPhamService {
         }
 
         SanPham updated = sanPhamRepository.save(sp);
+
+        if (req.getHinhAnhs() != null) {
+            List<HinhAnh> oldImages = hinhAnhRepository.findByIdSanPham_Id(id);
+            hinhAnhRepository.deleteAll(oldImages);
+            for (String url : req.getHinhAnhs()) {
+                if (url != null && !url.trim().isEmpty()) {
+                    HinhAnh ha = new HinhAnh();
+                    ha.setIdSanPham(updated);
+                    ha.setDuongDan(url.trim());
+                    ha.setTrangThai(1);
+                    hinhAnhRepository.save(ha);
+                }
+            }
+        }
+
         return convertToResponse(updated);
     }
 
@@ -386,6 +414,7 @@ public class SanPhamService {
 
         List<HinhAnh> images = hinhAnhRepository.findByIdSanPham_Id(sp.getId());
         String anhDaiDien = !images.isEmpty() ? images.get(0).getDuongDan() : null;
+        List<String> hinhAnhs = images.stream().map(HinhAnh::getDuongDan).toList();
 
         return SanPhamResponse.builder()
                 .id(sp.getId())
@@ -415,6 +444,7 @@ public class SanPhamService {
                 .tongSoLuong(tongSoLuong)
                 .soLuongBienThe(variants != null ? variants.size() : 0)
                 .anhDaiDien(anhDaiDien)
+                .hinhAnhs(hinhAnhs)
                 .build();
     }
 }

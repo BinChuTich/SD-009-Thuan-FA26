@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -163,6 +164,23 @@ public class ChiTietSanPhamService {
             throw new RuntimeException("Không tìm thấy biến thể có ID: " + id);
         }
         chiTietSanPhamRepository.deleteById(id);
+    }
+
+    @Transactional
+    public List<ChiTietSanPhamResponse> saveBatch(List<ChiTietSanPhamRequest> requests) {
+        List<ChiTietSanPhamResponse> list = new ArrayList<>();
+        int counter = 0;
+        for (ChiTietSanPhamRequest req : requests) {
+            if (req.getId() != null) {
+                list.add(update(req.getId(), req));
+            } else {
+                if (req.getMaChiTietSanPham() == null || req.getMaChiTietSanPham().trim().isEmpty()) {
+                    req.setMaChiTietSanPham("CTSP" + System.currentTimeMillis() + (counter++));
+                }
+                list.add(create(req));
+            }
+        }
+        return list;
     }
 
     private ChiTietSanPhamResponse convertToResponse(ChiTietSanPham ct) {

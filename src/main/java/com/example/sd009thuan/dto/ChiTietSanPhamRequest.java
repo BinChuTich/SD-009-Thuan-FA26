@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChiTietSanPhamRequest {
+    private Long id;
     @NotNull(message = "Sản phẩm không được để trống")
     private Long idSanPham;
 

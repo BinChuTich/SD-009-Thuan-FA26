@@ -57,6 +57,12 @@ public class ChiTietSanPhamController {
         return ResponseEntity.ok(chiTietSanPhamService.create(request));
     }
 
+    // POST /api/chi-tiet-san-pham/batch
+    @PostMapping("/batch")
+    public ResponseEntity<List<ChiTietSanPhamResponse>> saveBatch(@Valid @RequestBody List<ChiTietSanPhamRequest> requests) {
+        return ResponseEntity.ok(chiTietSanPhamService.saveBatch(requests));
+    }
+
     // PUT /api/chi-tiet-san-pham/{id}
     @PutMapping("/{id}")
     public ResponseEntity<ChiTietSanPhamResponse> update(

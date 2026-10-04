@@ -50,4 +50,5 @@ public class SanPhamResponse {
     private Integer tongSoLuong;
     private Integer soLuongBienThe;
     private String anhDaiDien;
+    private java.util.List<String> hinhAnhs;
 }

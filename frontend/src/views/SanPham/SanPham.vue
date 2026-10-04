@@ -31,7 +31,7 @@
           </button>
         </div>
 
-        <button class="btn btn-add" @click="openCreateModal">
+        <button class="btn btn-add" @click="goToAddPage">
           + Thêm sản phẩm
         </button>
       </div>
@@ -211,7 +211,7 @@
               <div class="action-buttons-group">
                 <button
                     class="btn-action btn-edit"
-                    @click="openEditModal(item)"
+                    @click="goToEditPage(item)"
                     title="Chỉnh sửa thông tin sản phẩm"
                 >
                   ✏️ Sửa
@@ -274,146 +274,34 @@
       </div>
     </div>
 
-    <!-- MODAL THÊM / CẬP NHẬT SẢN PHẨM -->
-    <div class="modal-backdrop" v-if="showModal" @click.self="closeModal">
-      <div class="modal-dialog">
-        <div class="modal-header">
-          <h3 class="modal-title">{{ isEdit ? 'CẬP NHẬT SẢN PHẨM' : 'THÊM MỚI SẢN PHẨM' }}</h3>
-          <button class="btn-close-modal" @click="closeModal">✕</button>
-        </div>
-
-        <form @submit.prevent="handleSubmitProduct" class="modal-form">
-          <div class="form-grid">
-            <!-- Mã sản phẩm -->
-            <div class="form-group">
-              <label class="form-label">Mã sản phẩm</label>
-              <input
-                  type="text"
-                  v-model="productForm.maSanPham"
-                  placeholder="Để trống để tự động sinh mã"
-                  class="form-control"
-              />
-            </div>
-
-            <!-- Tên sản phẩm -->
-            <div class="form-group">
-              <label class="form-label">Tên sản phẩm <span class="required">*</span></label>
-              <input
-                  type="text"
-                  v-model="productForm.tenSanPham"
-                  required
-                  placeholder="Nhập tên sản phẩm..."
-                  class="form-control"
-              />
-            </div>
-
-            <!-- Danh mục -->
-            <div class="form-group">
-              <label class="form-label">Danh mục</label>
-              <select v-model="productForm.idDanhMuc" class="form-control">
-                <option :value="null">-- Chọn danh mục --</option>
-                <option v-for="item in attributes.danhMuc" :key="item.id" :value="item.id">
-                  {{ item.tenDanhMuc }}
-                </option>
-              </select>
-            </div>
-
-            <!-- Thương hiệu -->
-            <div class="form-group">
-              <label class="form-label">Thương hiệu</label>
-              <select v-model="productForm.idThuongHieu" class="form-control">
-                <option :value="null">-- Chọn thương hiệu --</option>
-                <option v-for="item in attributes.thuongHieu" :key="item.id" :value="item.id">
-                  {{ item.tenThuongHieu }}
-                </option>
-              </select>
-            </div>
-
-            <!-- Xuất xứ -->
-            <div class="form-group">
-              <label class="form-label">Xuất xứ</label>
-              <select v-model="productForm.idXuatXu" class="form-control">
-                <option :value="null">-- Chọn xuất xứ --</option>
-                <option v-for="item in attributes.xuatXu" :key="item.id" :value="item.id">
-                  {{ item.tenXuatXu }}
-                </option>
-              </select>
-            </div>
-
-            <!-- Chất liệu -->
-            <div class="form-group">
-              <label class="form-label">Chất liệu</label>
-              <select v-model="productForm.idChatLieu" class="form-control">
-                <option :value="null">-- Chọn chất liệu --</option>
-                <option v-for="item in attributes.chatLieu" :key="item.id" :value="item.id">
-                  {{ item.tenChatLieu }}
-                </option>
-              </select>
-            </div>
-
-            <!-- Cổ áo -->
-            <div class="form-group">
-              <label class="form-label">Cổ áo</label>
-              <select v-model="productForm.idCoAo" class="form-control">
-                <option :value="null">-- Chọn loại cổ áo --</option>
-                <option v-for="item in attributes.coAo" :key="item.id" :value="item.id">
-                  {{ item.tenCoAo }}
-                </option>
-              </select>
-            </div>
-
-            <!-- Tay áo -->
-            <div class="form-group">
-              <label class="form-label">Tay áo</label>
-              <select v-model="productForm.idTayAo" class="form-control">
-                <option :value="null">-- Chọn loại tay áo --</option>
-                <option v-for="item in attributes.tayAo" :key="item.id" :value="item.id">
-                  {{ item.tenTayAo }}
-                </option>
-              </select>
-            </div>
-
-            <!-- Họa tiết -->
-            <div class="form-group">
-              <label class="form-label">Họa tiết</label>
-              <select v-model="productForm.idHoaTiet" class="form-control">
-                <option :value="null">-- Chọn họa tiết --</option>
-                <option v-for="item in attributes.hoaTiet" :key="item.id" :value="item.id">
-                  {{ item.tenHoaTiet }}
-                </option>
-              </select>
-            </div>
-
-            <!-- Trạng thái -->
-            <div class="form-group">
-              <label class="form-label">Trạng thái</label>
-              <select v-model="productForm.trangThai" class="form-control">
-                <option :value="1">Đang kinh doanh</option>
-                <option :value="0">Ngừng kinh doanh</option>
-              </select>
-            </div>
-
-            <!-- Mô tả sản phẩm -->
-            <div class="form-group full-width">
-              <label class="form-label">Mô tả sản phẩm</label>
-              <textarea
-                  v-model="productForm.moTa"
-                  rows="3"
-                  placeholder="Mô tả thông tin chi tiết về sản phẩm..."
-                  class="form-control"
-              ></textarea>
-            </div>
+    <!-- MODAL XÁC NHẬN HÀNH ĐỘNG (XÓA / ĐỔI TRẠNG THÁI) -->
+    <transition name="fade">
+      <div v-if="confirmDialog.show" class="confirm-modal-overlay" @click="closeConfirmDialog">
+        <div class="confirm-modal-box" @click.stop>
+          <div class="confirm-icon-wrap" :class="confirmDialog.type">
+            <span v-if="confirmDialog.type === 'danger'">⚠️</span>
+            <span v-else-if="confirmDialog.type === 'info'">ℹ️</span>
+            <span v-else>❓</span>
           </div>
 
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="closeModal">Hủy bỏ</button>
-            <button type="submit" class="btn btn-primary" :disabled="submitting">
-              {{ submitting ? 'Đang lưu...' : (isEdit ? 'Cập nhật' : 'Thêm mới') }}
+          <h3 class="confirm-title">{{ confirmDialog.title }}</h3>
+          <p class="confirm-message">{{ confirmDialog.message }}</p>
+
+          <div class="confirm-actions">
+            <button type="button" class="btn btn-confirm-cancel" @click="closeConfirmDialog">
+              Hủy bỏ
+            </button>
+            <button
+                type="button"
+                :class="['btn', confirmDialog.type === 'danger' ? 'btn-confirm-danger' : 'btn-confirm-primary']"
+                @click="executeConfirmedAction"
+            >
+              {{ confirmDialog.confirmText || 'Đồng ý' }}
             </button>
           </div>
-        </form>
+        </div>
       </div>
-    </div>
+    </transition>
   </div>
 </template>
 
@@ -464,25 +352,49 @@ const pageData = ref({
   totalPages: 0
 })
 
-// Modal & Form
-const showModal = ref(false)
-const isEdit = ref(false)
-const editId = ref(null)
-const submitting = ref(false)
-
-const productForm = ref({
-  maSanPham: '',
-  tenSanPham: '',
-  moTa: '',
-  idDanhMuc: null,
-  idThuongHieu: null,
-  idXuatXu: null,
-  idChatLieu: null,
-  idCoAo: null,
-  idTayAo: null,
-  idHoaTiet: null,
-  trangThai: 1
+// Hộp thoại xác nhận tương tác
+const confirmDialog = ref({
+  show: false,
+  title: '',
+  message: '',
+  type: 'primary',
+  confirmText: 'Đồng ý',
+  onConfirm: null
 })
+
+const openConfirm = ({ title, message, type = 'primary', confirmText = 'Đồng ý', onConfirm }) => {
+  confirmDialog.value = {
+    show: true,
+    title,
+    message,
+    type,
+    confirmText,
+    onConfirm
+  }
+}
+
+const closeConfirmDialog = () => {
+  confirmDialog.value.show = false
+  confirmDialog.value.onConfirm = null
+}
+
+const executeConfirmedAction = async () => {
+  const action = confirmDialog.value.onConfirm
+  closeConfirmDialog()
+  if (typeof action === 'function') {
+    await action()
+  }
+}
+
+// Chuyển trang Thêm sản phẩm
+const goToAddPage = () => {
+  router.push('/san-pham/them')
+}
+
+// Chuyển trang Sửa sản phẩm
+const goToEditPage = (item) => {
+  router.push(`/san-pham/chinh-sua/${item.id}`)
+}
 
 // Toast
 const toast = ref({
@@ -645,106 +557,49 @@ const onImgError = (e) => {
   e.target.src = defaultImage
 }
 
-// Thay đổi trạng thái sản phẩm
-const toggleStatus = async (item) => {
+// Thay đổi trạng thái sản phẩm có xác nhận
+const toggleStatus = (item) => {
   const newStatus = item.trangThai === 1 ? 0 : 1
-  try {
-    await api.patch(`/api/san-pham/${item.id}/status`, null, {
-      params: { trangThai: newStatus }
-    })
-    item.trangThai = newStatus
-    showToast(`Đã chuyển trạng thái sang "${newStatus === 1 ? 'Kinh doanh' : 'Ngừng KD'}"`)
-  } catch (err) {
-    console.error('Lỗi cập nhật trạng thái:', err)
-    showToast('Lỗi cập nhật trạng thái!', 'error')
-  }
-}
-
-
-
-// Mở modal thêm
-const openCreateModal = () => {
-  isEdit.value = false
-  editId.value = null
-  productForm.value = {
-    maSanPham: '',
-    tenSanPham: '',
-    moTa: '',
-    idDanhMuc: null,
-    idThuongHieu: null,
-    idXuatXu: null,
-    idChatLieu: null,
-    idCoAo: null,
-    idTayAo: null,
-    idHoaTiet: null,
-    trangThai: 1
-  }
-  showModal.value = true
-}
-
-// Mở modal sửa
-const openEditModal = (item) => {
-  isEdit.value = true
-  editId.value = item.id
-  productForm.value = {
-    maSanPham: item.maSanPham || '',
-    tenSanPham: item.tenSanPham || '',
-    moTa: item.moTa || '',
-    idDanhMuc: item.idDanhMuc || null,
-    idThuongHieu: item.idThuongHieu || null,
-    idXuatXu: item.idXuatXu || null,
-    idChatLieu: item.idChatLieu || null,
-    idCoAo: item.idCoAo || null,
-    idTayAo: item.idTayAo || null,
-    idHoaTiet: item.idHoaTiet || null,
-    trangThai: item.trangThai != null ? item.trangThai : 1
-  }
-  showModal.value = true
-}
-
-const closeModal = () => {
-  showModal.value = false
-}
-
-// Lưu sản phẩm
-const handleSubmitProduct = async () => {
-  if (!productForm.value.tenSanPham?.trim()) {
-    showToast('Vui lòng nhập tên sản phẩm!', 'error')
-    return
-  }
-  submitting.value = true
-  try {
-    if (isEdit.value) {
-      await api.put(`/api/san-pham/${editId.value}`, productForm.value)
-      showToast('Cập nhật sản phẩm thành công!')
-    } else {
-      await api.post('/api/san-pham', productForm.value)
-      showToast('Thêm mới sản phẩm thành công!')
+  const actionText = newStatus === 1 ? 'mở kinh doanh lại' : 'ngừng kinh doanh'
+  openConfirm({
+    title: 'Xác nhận thay đổi trạng thái',
+    message: `Bạn có chắc chắn muốn ${actionText} sản phẩm "${item.tenSanPham}" không?`,
+    type: 'info',
+    confirmText: 'Xác nhận',
+    onConfirm: async () => {
+      try {
+        await api.patch(`/api/san-pham/${item.id}/status`, null, {
+          params: { trangThai: newStatus }
+        })
+        item.trangThai = newStatus
+        showToast(`Đã chuyển trạng thái sang "${newStatus === 1 ? 'Kinh doanh' : 'Ngừng KD'}"`)
+      } catch (err) {
+        console.error('Lỗi cập nhật trạng thái:', err)
+        showToast('Lỗi cập nhật trạng thái!', 'error')
+      }
     }
-    closeModal()
-    fetchProducts()
-  } catch (err) {
-    console.error('Lỗi lưu sản phẩm:', err)
-    const msg = err.response?.data?.message || 'Có lỗi xảy ra khi lưu sản phẩm!'
-    showToast(msg, 'error')
-  } finally {
-    submitting.value = false
-  }
+  })
 }
 
-// Xóa sản phẩm
-const confirmDelete = async (item) => {
-  if (confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${item.tenSanPham}"?`)) {
-    try {
-      await api.delete(`/api/san-pham/${item.id}`)
-      showToast('Xóa sản phẩm thành công!')
-      fetchProducts()
-    } catch (err) {
-      console.error('Lỗi xóa sản phẩm:', err)
-      const msg = err.response?.data?.message || 'Lỗi khi xóa sản phẩm!'
-      showToast(msg, 'error')
+// Xóa sản phẩm có xác nhận
+const confirmDelete = (item) => {
+  openConfirm({
+    title: 'Xác nhận xóa sản phẩm',
+    message: `Bạn có chắc chắn muốn xóa sản phẩm "${item.tenSanPham}" không? Hành động này sẽ không thể hoàn tác!`,
+    type: 'danger',
+    confirmText: 'Xóa ngay',
+    onConfirm: async () => {
+      try {
+        await api.delete(`/api/san-pham/${item.id}`)
+        showToast('Xóa sản phẩm thành công!')
+        fetchProducts()
+      } catch (err) {
+        console.error('Lỗi xóa sản phẩm:', err)
+        const msg = err.response?.data?.message || 'Lỗi khi xóa sản phẩm!'
+        showToast(msg, 'error')
+      }
     }
-  }
+  })
 }
 
 onMounted(() => {
@@ -1483,5 +1338,133 @@ textarea.form-control {
     max-width: 95%;
     margin: 10px;
   }
+}
+
+/* Modal xác nhận chuyên nghiệp */
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+}
+
+.confirm-modal-box {
+  background: #ffffff;
+  border-radius: 14px;
+  width: 90%;
+  max-width: 440px;
+  padding: 1.75rem 1.5rem 1.5rem;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  animation: modalScale 0.2s ease-out;
+}
+
+@keyframes modalScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.confirm-icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  margin: 0 auto 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.confirm-icon-wrap.primary {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.confirm-icon-wrap.danger {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.confirm-icon-wrap.info {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.confirm-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.confirm-message {
+  margin: 0 0 1.5rem;
+  font-size: 0.92rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.btn-confirm-cancel {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 0.6rem 1.4rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-confirm-cancel:hover {
+  background: #e2e8f0;
+}
+
+.btn-confirm-primary {
+  background: #c8102e;
+  color: #ffffff;
+  border: none;
+  padding: 0.6rem 1.4rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-confirm-primary:hover {
+  background: #a00c24;
+}
+
+.btn-confirm-danger {
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  padding: 0.6rem 1.4rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-confirm-danger:hover {
+  background: #b91c1c;
 }
 </style>

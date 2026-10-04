@@ -19,6 +19,7 @@ import ChiTietHoaDon from '../views/HoaDon/ChiTietHoaDon.vue'
 // Sản phẩm
 import SanPham from '../views/SanPham/SanPham.vue'
 import BienTheSanPham from '../views/SanPham/BienTheSanPham.vue'
+import ThemSuaSanPham from '../views/SanPham/ThemSuaSanPham.vue'
 
 // Giảm giá
 import DotGiamGia from '../views/GiamGia/DotGiamGia.vue'
@@ -73,6 +74,16 @@ const routes = [
         path: '/san-pham',
         name: 'SanPham',
         component: SanPham
+    },
+    {
+        path: '/san-pham/them',
+        name: 'ThemSanPham',
+        component: ThemSuaSanPham
+    },
+    {
+        path: '/san-pham/chinh-sua/:id',
+        name: 'SuaSanPham',
+        component: ThemSuaSanPham
     },
     {
         path: '/bien-the-san-pham',
