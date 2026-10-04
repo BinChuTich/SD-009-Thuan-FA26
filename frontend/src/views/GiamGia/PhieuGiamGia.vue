@@ -111,7 +111,7 @@
           <button class="btn-refresh" @click="fetchVouchers" title="Tải lại từ Database">
             <span :class="['refresh-icon', { 'spin': loading }]">🔄</span> Làm mới
           </button>
-          <span class="record-count">{{ filteredList.length }} bản ghi hiển thị.</span>
+          <span class="record-count">Tìm thấy {{ filteredList.length }} bản ghi (Trang {{ currentPage }}/{{ totalPages }}).</span>
         </div>
       </div>
 
@@ -145,9 +145,9 @@
             </td>
           </tr>
 
-          <!-- Danh sách phiếu giảm giá load từ Database -->
-          <tr v-else v-for="(item, index) in filteredList" :key="item.id">
-            <td style="text-align: center;" class="text-muted">{{ index + 1 }}</td>
+          <!-- Danh sách phiếu giảm giá load từ Database (Đã phân trang) -->
+          <tr v-else v-for="(item, index) in paginatedList" :key="item.id">
+            <td style="text-align: center;" class="text-muted">{{ (currentPage - 1) * pageSize + index + 1 }}</td>
             <td class="font-bold text-blue">{{ item.code }}</td>
             <td class="font-medium text-title">{{ item.name }}</td>
 
@@ -194,6 +194,71 @@
           </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- 4. Thanh phân trang dưới cùng bảng -->
+      <div class="pagination-footer" v-if="filteredList.length > 0">
+        <div class="pagination-left">
+          <span class="pagination-label">Hiển thị</span>
+          <select v-model.number="pageSize" class="page-size-select">
+            <option :value="5">5</option>
+            <option :value="10">10</option>
+            <option :value="20">20</option>
+            <option :value="50">50</option>
+          </select>
+          <span class="pagination-label">phiếu / trang</span>
+          <span class="pagination-separator">|</span>
+          <span class="pagination-info">
+            Hiển thị <b>{{ startIndex }}</b> - <b>{{ endIndex }}</b> trên tổng số <b>{{ filteredList.length }}</b> phiếu
+          </span>
+        </div>
+
+        <div class="pagination-controls">
+          <button
+              class="pg-btn"
+              :disabled="currentPage === 1"
+              @click="goToPage(1)"
+              title="Về trang đầu tiên"
+          >
+            ⇤
+          </button>
+          <button
+              class="pg-btn"
+              :disabled="currentPage === 1"
+              @click="prevPage"
+              title="Trang trước"
+          >
+            ‹
+          </button>
+
+          <template v-for="(p, idx) in visiblePages" :key="idx">
+            <span v-if="p === '...'" class="pg-dots">...</span>
+            <button
+                v-else
+                :class="['pg-btn', { active: currentPage === p }]"
+                @click="goToPage(p)"
+            >
+              {{ p }}
+            </button>
+          </template>
+
+          <button
+              class="pg-btn"
+              :disabled="currentPage === totalPages"
+              @click="nextPage"
+              title="Trang tiếp theo"
+          >
+            ›
+          </button>
+          <button
+              class="pg-btn"
+              :disabled="currentPage === totalPages"
+              @click="goToPage(totalPages)"
+              title="Đến trang cuối cùng"
+          >
+            ⇥
+          </button>
+        </div>
       </div>
     </div>
 
@@ -265,7 +330,7 @@
 
 <script setup>
 // [BƯỚC 1]: Import các hàm tiện ích của Vue và axios client (api.js đã có sẵn trong dự án)
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import api from '../../api' // Gọi đến file api.js có sẵn baseURL http://localhost:8080
 
 // Biến lưu trữ dữ liệu bộ lọc tìm kiếm
@@ -283,9 +348,13 @@ const vouchers = ref([]) // Mảng chứa danh sách phiếu giảm giá lấy t
 const loading = ref(false) // Trạng thái đang tải dữ liệu (true = đang tải, false = xong)
 const selectedVoucher = ref(null) // Phiếu được chọn để xem chi tiết trong modal
 
-/**
- * [BƯỚC 3]: Hàm format ngày tháng từ chuỗi ISO (VD: 2026-01-01T00:00:00Z) sang dạng DD/MM/YYYY
- */
+// [QUẢN LÝ PHÂN TRANG]
+const currentPage = ref(1) // Trang hiện tại (bắt đầu từ 1)
+const pageSize = ref(5) // Số bản ghi hiển thị trên 1 trang (5, 10, 20, 50)
+
+
+// Hàm format ngày tháng từ chuỗi ISO (VD: 2026-01-01T00:00:00Z) sang dạng DD/MM/YYYY
+
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
   try {
@@ -300,10 +369,9 @@ const formatDate = (dateStr) => {
   }
 }
 
-/**
- * [BƯỚC 4]: Hàm gọi API Backend Spring Boot để load toàn bộ dữ liệu phiếu giảm giá từ SQL Server
- * Endpoint: GET http://localhost:8080/api/phieu-giam-gia
- */
+
+//Hàm gọi API Backend Spring Boot để load toàn bộ dữ liệu phiếu giảm giá từ SQL Server
+
 const fetchVouchers = async () => {
   loading.value = true
   try {
@@ -380,16 +448,16 @@ const fetchVouchers = async () => {
   }
 }
 
-/**
- * [BƯỚC 5]: Tự động gọi API lấy dữ liệu ngay khi màn hình Phiếu giảm giá được mở lên
- */
+
+ //Tự động gọi API lấy dữ liệu ngay khi màn hình Phiếu giảm giá được mở lên
+
 onMounted(() => {
   fetchVouchers()
 })
 
-/**
- * [BƯỚC 6]: Bộ lọc dữ liệu phía Frontend (Tìm kiếm theo mã, tên, loại giảm, trạng thái, ngày)
- */
+
+ // Bộ lọc dữ liệu phía Frontend (Tìm kiếm theo mã, tên, loại giảm, trạng thái, ngày)
+
 const filteredList = computed(() => {
   return vouchers.value.filter(v => {
     // 1. Lọc theo từ khóa (Mã hoặc Tên phiếu)
@@ -420,9 +488,84 @@ const filteredList = computed(() => {
   })
 })
 
-/**
- * [BƯỚC 7]: Hàm đặt lại bộ lọc về mặc định
- */
+//Logic tính toán phân trang
+
+// 1. Tính tổng số trang (tối thiểu là 1)
+const totalPages = computed(() => {
+  return Math.ceil(filteredList.value.length / pageSize.value) || 1
+})
+
+// 2. Dữ liệu phiếu giảm giá hiển thị trên trang hiện tại
+const paginatedList = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return filteredList.value.slice(start, end)
+})
+
+// 3. Vị trí bản ghi bắt đầu và kết thúc trên trang hiện tại
+const startIndex = computed(() => {
+  if (filteredList.value.length === 0) return 0
+  return (currentPage.value - 1) * pageSize.value + 1
+})
+
+const endIndex = computed(() => {
+  return Math.min(currentPage.value * pageSize.value, filteredList.value.length)
+})
+
+// 4. Tự động quay về trang 1 khi người dùng lọc hoặc đổi số bản ghi/trang
+watch(filters, () => {
+  currentPage.value = 1
+}, { deep: true })
+
+watch(pageSize, () => {
+  currentPage.value = 1
+})
+
+// 5. Danh sách các nút số trang hiển thị thông minh (có dấu "..." nếu nhiều trang)
+const visiblePages = computed(() => {
+  const total = totalPages.value
+  const current = currentPage.value
+
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+
+  const pages = []
+  const left = Math.max(2, current - 1)
+  const right = Math.min(total - 1, current + 1)
+
+  pages.push(1)
+  if (left > 2) pages.push('...')
+  for (let i = left; i <= right; i++) {
+    pages.push(i)
+  }
+  if (right < total - 1) pages.push('...')
+  pages.push(total)
+
+  return pages
+})
+
+// 6. Các thao tác chuyển trang
+const goToPage = (page) => {
+  if (typeof page === 'number' && page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+  }
+}
+
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+  }
+}
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+  }
+}
+
+//Hàm đặt lại bộ lọc về mặc định
+
 const resetFilters = () => {
   filters.value = {
     keyword: '',
@@ -432,11 +575,11 @@ const resetFilters = () => {
     loaiGiam: '',
     trangThai: ''
   }
+  currentPage.value = 1
 }
 
-/**
- * [BƯỚC 8]: Bật/tắt trạng thái hoạt động của phiếu giảm giá qua API Backend
- */
+ //Bật/tắt trạng thái hoạt động của phiếu giảm giá qua API Backend
+
 const toggleStatus = async (item) => {
   // Nếu phiếu đã hết hạn thì cảnh báo không cho kích hoạt
   if (item.isExpired) {
@@ -461,9 +604,8 @@ const toggleStatus = async (item) => {
   }
 }
 
-/**
- * [BƯỚC 9]: Xem chi tiết phiếu giảm giá
- */
+ //Xem chi tiết phiếu giảm giá
+
 const viewDetail = (item) => {
   selectedVoucher.value = item
 }
@@ -982,6 +1124,106 @@ const openCreateModal = () => {
   transform: scale(1.08);
 }
 
+/* Phân trang dưới cùng bảng */
+.pagination-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.1rem 1.25rem 0.5rem;
+  margin-top: 0.5rem;
+  border-top: 1px dashed #eeebe3;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.pagination-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #616e75;
+}
+
+.page-size-select {
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid var(--line, #e9e5db);
+  background-color: #ffffff;
+  color: #33444d;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.page-size-select:focus {
+  border-color: var(--blue, #496883);
+}
+
+.pagination-separator {
+  color: #d1cbbe;
+  margin: 0 0.25rem;
+}
+
+.pagination-info {
+  color: #616e75;
+}
+
+.pagination-info b {
+  color: #2b383e;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pg-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--line, #e9e5db);
+  background-color: #ffffff;
+  color: #496883;
+  font-size: 0.88rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pg-btn:hover:not(:disabled) {
+  border-color: var(--blue, #496883);
+  background-color: #eaf1f4;
+  color: var(--blue, #496883);
+}
+
+.pg-btn.active {
+  background-color: var(--blue, #496883);
+  border-color: var(--blue, #496883);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.pg-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background-color: #f7f6f2;
+  border-color: #eeebe3;
+  color: #a8b0b4;
+}
+
+.pg-dots {
+  padding: 0 0.35rem;
+  color: #8c9597;
+  font-weight: bold;
+}
+
 @media (max-width: 1200px) {
   .filter-inputs-grid {
     grid-template-columns: repeat(3, 1fr);
@@ -991,6 +1233,12 @@ const openCreateModal = () => {
 @media (max-width: 768px) {
   .filter-inputs-grid {
     grid-template-columns: 1fr;
+  }
+
+  .pagination-footer {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
   }
 }
 </style>

@@ -4,6 +4,8 @@ import com.example.sd009thuan.dto.PhieuGiamGiaDTO;
 import com.example.sd009thuan.entity.PhieuGiamGia;
 import com.example.sd009thuan.repository.PhieuGiamGiaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -80,6 +82,12 @@ public class PhieuGiamGiaService {
     }
 
 
+    public Page<PhieuGiamGiaDTO> getPhanTrangPhieuGiamGia(Pageable pageable) {
+        Page<PhieuGiamGia> pageEntity = phieuGiamGiaRepository.findAllByOrderByIdDesc(pageable);
+        return pageEntity.map(this::convertToDTO);
+    }
+
+
     @Scheduled(cron = "0 * * * * ?")
     public void tuDongKiemTraVaCapNhatHetHan() {
         List<PhieuGiamGia> list = phieuGiamGiaRepository.findAll();
@@ -106,6 +114,8 @@ public class PhieuGiamGiaService {
         return phieuGiamGiaRepository.findById(id).map(this::convertToDTO);
     }
 
+
+     //Thay đổi trạng thái hoạt động (bật/tắt 1 <-> 0) của phiếu giảm giá
 
     public PhieuGiamGiaDTO toggleTrangThai(Long id) {
         Optional<PhieuGiamGia> optional = phieuGiamGiaRepository.findById(id);
