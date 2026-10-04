@@ -45,8 +45,30 @@ public class NhanVienService {
 
     @Transactional
     public NhanVienResponse create(NhanVienRequest req, MultipartFile file) {
+        if (blank(req.tenNhanVien()) == null) {
+            throw new IllegalArgumentException("Họ tên nhân viên không được để trống");
+        }
+        if (blank(req.email()) == null) {
+            throw new IllegalArgumentException("Email nhân viên không được để trống");
+        }
+        if (!req.email().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+            throw new IllegalArgumentException("Email nhân viên không đúng định dạng");
+        }
         validateUnique(req, null);
-        VaiTro role = roleRepo.findById(req.idVaiTro()).orElseThrow(() -> new EntityNotFoundException("Không tìm thấy vai trò"));
+
+        Long roleId = req.idVaiTro();
+        if (roleId == null) {
+            roleId = roleRepo.findByMaVaiTroIgnoreCaseAndTrangThai("NV", 1)
+                    .map(VaiTro::getId)
+                    .orElseGet(() -> roleRepo.findByTrangThaiOrderByIdAsc(1).stream()
+                            .filter(r -> "ADMIN".equalsIgnoreCase(r.getMaVaiTro()) || "NV".equalsIgnoreCase(r.getMaVaiTro()))
+                            .map(VaiTro::getId).findFirst().orElse(null));
+        }
+        if (roleId == null) {
+            throw new IllegalArgumentException("Vui lòng chọn vai trò cho nhân viên");
+        }
+        VaiTro role = roleRepo.findById(roleId).orElseThrow(() -> new EntityNotFoundException("Không tìm thấy vai trò"));
+
         NhanVien x = new NhanVien();
         x.setIdVaiTro(role);
         String code = blank(req.maNhanVien()) == null ? nextCode() : req.maNhanVien().trim();
@@ -82,7 +104,12 @@ public class NhanVienService {
         if (blank(req.tenTaiKhoan()) != null) x.setTenTaiKhoan(req.tenTaiKhoan().trim());
         if (blank(req.tenNhanVien()) != null) x.setTenNhanVien(req.tenNhanVien().trim());
         if (blank(req.matKhau()) != null) x.setMatKhau(req.matKhau());
-        if (blank(req.email()) != null) x.setEmail(blank(req.email()));
+        if (blank(req.email()) != null) {
+            if (!req.email().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+                throw new IllegalArgumentException("Email nhân viên không đúng định dạng");
+            }
+            x.setEmail(blank(req.email()));
+        }
         if (blank(req.soDienThoai()) != null) x.setSoDienThoai(blank(req.soDienThoai()));
         String oldImage = x.getAnhNhanVien();
         String imageUrl = fileStorageService.storeEmployeeImage(file);
@@ -168,4 +195,3 @@ public class NhanVienService {
 
     private String blank(String value) { return value == null || value.isBlank() ? null : value.trim(); }
 }
-

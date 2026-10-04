@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="employee-page-wrapper">
     <!-- Header -->
     <div class="breadcrumb-header">
@@ -82,7 +82,7 @@
 
               <!-- Email -->
               <div class="form-field">
-                <label>Email</label>
+                <label>Email <span class="required">*</span></label>
                 <input
                   v-model="form.email"
                   type="email"
@@ -338,15 +338,21 @@ async function handleSubmit() {
     })
   }
 
-  // 3. Validate email (nếu có nhập)
-  if (form.email && form.email.trim()) {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      return showAlert({
-        title: 'Thông tin chưa hợp lệ',
-        message: 'Định dạng email không hợp lệ (VD: example@gmail.com)!',
-        type: 'warning'
-      })
-    }
+  // 3. Validate email (bắt buộc)
+  const email = form.email ? form.email.trim() : ''
+  if (!email) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Vui lòng nhập địa chỉ email của nhân viên!',
+      type: 'warning'
+    })
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Định dạng email không hợp lệ (VD: example@gmail.com)!',
+      type: 'warning'
+    })
   }
 
   // 4. Validate ngày sinh

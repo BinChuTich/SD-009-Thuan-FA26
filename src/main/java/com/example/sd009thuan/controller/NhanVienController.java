@@ -5,7 +5,6 @@ import com.example.sd009thuan.dto.NhanVienResponse;
 import com.example.sd009thuan.entity.VaiTro;
 import com.example.sd009thuan.service.ExcelExportService;
 import com.example.sd009thuan.service.NhanVienService;
-import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -71,26 +70,26 @@ public class NhanVienController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<NhanVienResponse> createMultipart(
-            @Valid @RequestPart("data") NhanVienRequest req,
+            @RequestPart("data") NhanVienRequest req,
             @RequestPart(value = "file", required = false) MultipartFile file) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, file));
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<NhanVienResponse> createJson(@Valid @RequestBody NhanVienRequest req) {
+    public ResponseEntity<NhanVienResponse> createJson(@RequestBody NhanVienRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, null));
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public NhanVienResponse updateMultipart(
             @PathVariable Long id,
-            @Valid @RequestPart("data") NhanVienRequest req,
+            @RequestPart("data") NhanVienRequest req,
             @RequestPart(value = "file", required = false) MultipartFile file) {
         return service.update(id, req, file);
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public NhanVienResponse updateJson(@PathVariable Long id, @Valid @RequestBody NhanVienRequest req) {
+    public NhanVienResponse updateJson(@PathVariable Long id, @RequestBody NhanVienRequest req) {
         return service.update(id, req, null);
     }
 

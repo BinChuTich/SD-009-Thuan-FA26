@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="customer-page-wrapper">
     <!-- Header -->
     <div class="breadcrumb-header">
@@ -289,15 +289,20 @@ onMounted(() => {
 
 <style scoped>
 .customer-page-wrapper {
-  padding: 1.25rem 1.75rem 2.5rem;
+  padding: 1.5rem 1.75rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .breadcrumb-header {
-  margin-bottom: 1.2rem;
+  width: 100%;
+  max-width: 920px;
+  margin-bottom: 1.25rem;
 }
 
 .breadcrumb-left {
@@ -334,12 +339,14 @@ onMounted(() => {
 }
 
 .form-container-card {
+  width: 100%;
+  max-width: 920px;
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 14px;
   border: 1px solid var(--line, #e9e5db);
-  padding: 1.8rem 2rem;
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
-  max-width: 900px;
+  padding: 2rem 2.2rem;
+  box-shadow: 0 4px 18px rgba(65, 60, 50, 0.04);
+  margin: 0 auto;
 }
 
 .form-layout-single {

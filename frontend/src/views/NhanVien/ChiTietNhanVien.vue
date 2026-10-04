@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="employee-page-wrapper">
     <!-- Header -->
     <div class="breadcrumb-header">
@@ -85,7 +85,7 @@
 
               <!-- Email -->
               <div class="form-field">
-                <label>Email</label>
+                <label>Email <span class="required">*</span></label>
                 <input
                   v-model="form.email"
                   type="email"
@@ -275,6 +275,10 @@ async function loadEmployee() {
     form.phuong = data.phuong || ''
     form.diaChiCuThe = data.diaChiCuThe || ''
     form.idVaiTro = data.idVaiTro ?? null
+    if (!form.idVaiTro && roles.value.length > 0) {
+      const nv = roles.value.find(r => r.maVaiTro === 'NV')
+      form.idVaiTro = nv ? nv.id : roles.value[0].id
+    }
     form.trangThai = data.trangThai ?? 1
     form.anhNhanVien = data.anhNhanVien || ''
 
@@ -357,14 +361,20 @@ async function handleUpdate() {
     })
   }
 
-  if (form.email && form.email.trim()) {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      return showAlert({
-        title: 'Thông tin chưa hợp lệ',
-        message: 'Định dạng email không hợp lệ (VD: example@gmail.com)!',
-        type: 'warning'
-      })
-    }
+  const email = form.email ? form.email.trim() : ''
+  if (!email) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Email của nhân viên không được để trống!',
+      type: 'warning'
+    })
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Định dạng email không hợp lệ (VD: example@gmail.com)!',
+      type: 'warning'
+    })
   }
 
   if (form.ngaySinh) {
