@@ -18,9 +18,10 @@ public class PhieuGiamGiaDTO {
     private Integer trangThai;
 
 
-    private String hinhThuc; // "Cá nhân" hoặc "Công khai"
-    private Integer soKhachHang; // Số khách hàng được gán phiếu
-    private List<String> danhSachKhachHang; // Danh sách tên khách hàng được nhận
+    private String hinhThuc; 
+    private Integer soKhachHang; 
+    private List<String> danhSachKhachHang; 
+    private List<Long> idKhachHangList;
 
     public PhieuGiamGiaDTO() {
     }
@@ -135,5 +136,13 @@ public class PhieuGiamGiaDTO {
 
     public void setDanhSachKhachHang(List<String> danhSachKhachHang) {
         this.danhSachKhachHang = danhSachKhachHang;
+    }
+
+    public List<Long> getIdKhachHangList() {
+        return idKhachHangList;
+    }
+
+    public void setIdKhachHangList(List<Long> idKhachHangList) {
+        this.idKhachHangList = idKhachHangList;
     }
 }

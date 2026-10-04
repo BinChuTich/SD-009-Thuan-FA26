@@ -127,7 +127,7 @@
             <th style="width: 120px;">Ngày bắt đầu</th>
             <th style="width: 120px;">Ngày kết thúc</th>
             <th style="width: 140px; text-align: center;">Trạng thái</th>
-            <th style="width: 110px; text-align: center;">Hành động</th>
+            <th style="width: 130px; text-align: center;">Hành động</th>
           </tr>
           </thead>
           <tbody>
@@ -172,22 +172,39 @@
                 </span>
             </td>
 
-            <!-- Cột Hành động: Icon nút nguồn (đổi trạng thái) & Icon xem chi tiết -->
+            <!-- Cột Hành động: 1. Đổi trạng thái (Bật/Tắt) | 2. Vừa xem vừa sửa -->
             <td style="text-align: center;">
               <div class="action-buttons">
-                <!-- Nút bật/tắt trạng thái hoạt động trực tiếp xuống Database -->
+                <!-- Nút 1: Đổi trạng thái hoạt động (Bật/Tắt) có popup xác nhận -->
                 <button
-                    class="btn-circle-action"
-                    :title="item.isExpired ? 'Phiếu đã hết hạn' : (item.rawTrangThai === 1 ? 'Bấm để ngừng hoạt động' : 'Bấm để kích hoạt')"
-                    :style="{ opacity: item.isExpired ? 0.45 : 1, cursor: item.isExpired ? 'not-allowed' : 'pointer' }"
-                    @click="toggleStatus(item)"
+                    class="btn-action-status"
+                    :class="{
+                      'status-on': item.rawTrangThai === 1 && !item.isExpired,
+                      'status-off': item.rawTrangThai === 0 && !item.isExpired,
+                      'status-disabled': item.isExpired
+                    }"
+                    :title="item.isExpired ? 'Phiếu đã hết hạn - Không thể đổi trạng thái' : (item.rawTrangThai === 1 ? 'Đổi trạng thái: Đang hoạt động (Bấm để ngừng hoạt động)' : 'Đổi trạng thái: Ngừng hoạt động (Bấm để kích hoạt lại)')"
+                    :disabled="item.isExpired"
+                    @click="openToggleStatusModal(item)"
                 >
-                  <span class="icon-power" :style="{ color: item.isExpired ? '#999999' : (item.rawTrangThai === 1 ? '#4c8a5a' : '#c0392b') }">⏻</span>
+                  <!-- SVG biểu tượng Nút nguồn / Bật tắt trạng thái chuẩn, không lỗi font -->
+                  <svg class="action-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                    <line x1="12" y1="2" x2="12" y2="12"></line>
+                  </svg>
                 </button>
 
-                <!-- Nút xem chi tiết đầy đủ thông tin của phiếu -->
-                <button class="btn-circle-action" title="Xem chi tiết" @click="viewDetail(item)">
-                  <span class="icon-eye">👁</span>
+                <!-- Nút 2: Vừa xem chi tiết vừa chỉnh sửa phiếu giảm giá -->
+                <button
+                    class="btn-action-edit"
+                    title="Xem chi tiết & Chỉnh sửa phiếu giảm giá"
+                    @click="viewDetail(item)"
+                >
+                  <!-- SVG biểu tượng Bút & Tài liệu chuẩn (Xem & Sửa) -->
+                  <svg class="action-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
                 </button>
               </div>
             </td>
@@ -261,6 +278,107 @@
         </div>
       </div>
     </div>
+
+    <!-- 4. POPUP MODAL XÁC NHẬN ĐỔI TRẠNG THÁI HOẠT ĐỘNG (CHUẨN ĐẸP NHƯ BÊN CẬP NHẬT) -->
+    <div v-if="showToggleConfirmModal" class="modal-overlay" @click.self="closeToggleConfirmModal">
+      <div class="modal-box confirm-modal-box">
+        <div class="confirm-modal-header" :class="{ 'header-danger': voucherToToggle?.rawTrangThai === 1 }">
+          <div class="confirm-warning-icon">
+            <span v-if="voucherToToggle?.rawTrangThai === 1">⚠️</span>
+            <span v-else>⚡</span>
+          </div>
+          <div class="confirm-title-wrap">
+            <h3 class="confirm-title">
+              {{ voucherToToggle?.rawTrangThai === 1 ? 'Xác nhận ngừng hoạt động' : 'Xác nhận kích hoạt phiếu' }}
+            </h3>
+            <p class="confirm-subtitle">
+              {{ voucherToToggle?.rawTrangThai === 1 ? 'Tạm ngưng hiệu lực của phiếu giảm giá' : 'Kích hoạt phiếu giảm giá vào hoạt động' }}
+            </p>
+          </div>
+          <button class="modal-close-btn" @click="closeToggleConfirmModal">✕</button>
+        </div>
+
+        <div class="confirm-modal-body">
+          <p class="confirm-message-text" v-if="voucherToToggle?.rawTrangThai === 1">
+            Bạn có chắc chắn muốn chuyển phiếu giảm giá
+            <b class="text-blue">[{{ voucherToToggle?.code }}]</b> sang trạng thái
+            <b class="text-danger">Ngừng hoạt động</b> không?
+          </p>
+          <p class="confirm-message-text" v-else>
+            Bạn có chắc chắn muốn
+            <b class="text-success">Kích hoạt lại</b> phiếu giảm giá
+            <b class="text-blue">[{{ voucherToToggle?.code }}]</b> để áp dụng cho khách hàng không?
+          </p>
+
+          <!-- Bảng tóm tắt thông số phiếu chuẩn bị đổi trạng thái -->
+          <div class="confirm-summary-panel">
+            <div class="summary-line">
+              <span class="s-label">Mã phiếu:</span>
+              <span class="s-val font-bold text-blue">{{ voucherToToggle?.code }}</span>
+            </div>
+            <div class="summary-line">
+              <span class="s-label">Tên phiếu:</span>
+              <span class="s-val font-medium">{{ voucherToToggle?.name }}</span>
+            </div>
+            <div class="summary-line">
+              <span class="s-label">Mức giảm:</span>
+              <span class="s-val font-bold text-highlight">{{ voucherToToggle?.discountValue }}</span>
+            </div>
+            <div class="summary-line">
+              <span class="s-label">Thời hạn:</span>
+              <span class="s-val">{{ voucherToToggle?.startDate }} ➔ {{ voucherToToggle?.endDate }}</span>
+            </div>
+            <div class="summary-line">
+              <span class="s-label">Trạng thái hiện tại:</span>
+              <span :class="['badge-status-sm', 'status-' + voucherToToggle?.statusCode]">
+                {{ voucherToToggle?.status }}
+              </span>
+            </div>
+            <div class="summary-line">
+              <span class="s-label">Trạng thái mới:</span>
+              <span :class="['badge-status-sm', voucherToToggle?.rawTrangThai === 1 ? 'status-inactive' : 'status-active']">
+                {{ voucherToToggle?.rawTrangThai === 1 ? 'Ngừng hoạt động' : 'Đang hoạt động' }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Lời nhắc lưu ý -->
+          <div class="confirm-note-box" :class="{ 'note-warning': voucherToToggle?.rawTrangThai === 1, 'note-info': voucherToToggle?.rawTrangThai === 0 }">
+            <span v-if="voucherToToggle?.rawTrangThai === 1">
+              ⚠️ <b>Lưu ý:</b> Khi ngừng hoạt động, khách hàng sẽ tạm thời không thể áp dụng mã giảm giá này khi thanh toán.
+            </span>
+            <span v-else>
+              💡 <b>Lưu ý:</b> Phiếu giảm giá sẽ có hiệu lực sử dụng ngay lập tức cho các đơn hàng thỏa mãn điều kiện.
+            </span>
+          </div>
+        </div>
+
+        <div class="confirm-modal-footer">
+          <button class="btn btn-secondary" @click="closeToggleConfirmModal" :disabled="togglingStatus">
+            Hủy bỏ
+          </button>
+          <button
+              :class="['btn', voucherToToggle?.rawTrangThai === 1 ? 'btn-confirm-deactivate' : 'btn-save-confirm']"
+              @click="confirmToggleStatus"
+              :disabled="togglingStatus"
+          >
+            <span v-if="togglingStatus" class="spin">🔄</span>
+            <span v-else>✔</span>
+            {{ togglingStatus ? 'Đang cập nhật...' : (voucherToToggle?.rawTrangThai === 1 ? 'Ngừng hoạt động' : 'Kích hoạt phiếu') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. TOAST THÔNG BÁO THÀNH CÔNG -->
+    <div v-if="showSuccessToast" class="toast-success">
+      <div class="toast-icon">✅</div>
+      <div class="toast-text">
+        <b>Thành công!</b>
+        <p>{{ toastMessage }}</p>
+      </div>
+      <button class="toast-close" @click="showSuccessToast = false">✕</button>
+    </div>
   </div>
 </template>
 
@@ -283,6 +401,13 @@ const filters = ref({
 const vouchers = ref([])
 const loading = ref(false)
 const selectedVoucher = ref(null)
+
+// State quản lý popup xác nhận đổi trạng thái & toast thông báo
+const showToggleConfirmModal = ref(false)
+const voucherToToggle = ref(null)
+const togglingStatus = ref(false)
+const showSuccessToast = ref(false)
+const toastMessage = ref('')
 
 const currentPage = ref(1)
 const pageSize = ref(5)
@@ -473,34 +598,57 @@ const resetFilters = () => {
   currentPage.value = 1
 }
 
-const toggleStatus = async (item) => {
+// Mở modal xác nhận đổi trạng thái
+const openToggleStatusModal = (item) => {
   if (item.isExpired) {
     alert(`Phiếu [${item.code}] đã hết hạn vào ngày ${item.endDate}, không thể kích hoạt lại!`)
     return
   }
+  voucherToToggle.value = item
+  showToggleConfirmModal.value = true
+}
 
-  const confirmMsg = item.rawTrangThai === 1
-      ? `Bạn có chắc muốn NGỪNG hoạt động phiếu [${item.code}]?`
-      : `Bạn có chắc muốn KÍCH HOẠT lại phiếu [${item.code}]?`
+// Đóng modal xác nhận
+const closeToggleConfirmModal = () => {
+  if (togglingStatus.value) return
+  showToggleConfirmModal.value = false
+  voucherToToggle.value = null
+}
 
-  if (!confirm(confirmMsg)) return
+// Xác nhận đổi trạng thái qua API Backend
+const confirmToggleStatus = async () => {
+  if (!voucherToToggle.value) return
+  togglingStatus.value = true
+  const item = voucherToToggle.value
+  const newStatusText = item.rawTrangThai === 1 ? 'Ngừng hoạt động' : 'Đang hoạt động'
 
   try {
     await api.put(`/api/phieu-giam-gia/${item.id}/toggle-status`)
     // Tải lại danh sách mới nhất từ Database
     await fetchVouchers()
+    showToggleConfirmModal.value = false
+    toastMessage.value = `Đã chuyển phiếu [${item.code}] sang trạng thái "${newStatusText}".`
+    showSuccessToast.value = true
+    setTimeout(() => {
+      showSuccessToast.value = false
+    }, 3500)
   } catch (error) {
     console.error('Lỗi khi cập nhật trạng thái:', error)
-    alert('Cập nhật trạng thái thất bại! Vui lòng kiểm tra kết nối.')
+    alert('Cập nhật trạng thái thất bại! Vui lòng kiểm tra kết nối cơ sở dữ liệu.')
+  } finally {
+    togglingStatus.value = false
+    voucherToToggle.value = null
   }
 }
 
+// Điều hướng vừa xem vừa sửa phiếu giảm giá
 const viewDetail = (item) => {
   router.push(`/phieu-giam-gia/chi-tiet/${item.id}`)
 }
 
+// Chuyển sang trang tạo phiếu mới
 const openCreateModal = () => {
-  alert('Tính năng Tạo phiếu mới có thể bổ sung form popup thêm vào database!')
+  router.push('/phieu-giam-gia/tao-moi')
 }
 </script>
 
@@ -887,7 +1035,102 @@ const openCreateModal = () => {
   font-size: 0.95rem;
 }
 
-/* Modal Xem chi tiết */
+/* Cột hành động: Các nút thao tác */
+.action-buttons {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+/* Nút Đổi trạng thái (Bật / Tắt hoạt động) */
+.btn-action-status {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  background-color: #ffffff;
+}
+
+/* Khi đang BẬT (Đang hoạt động) - Tone xanh lá rõ nét */
+.btn-action-status.status-on {
+  background-color: #edf7ee;
+  border-color: #bce3c5;
+  color: #2e7d32;
+}
+
+.btn-action-status.status-on:hover {
+  background-color: #d8edd9;
+  border-color: #96d4a2;
+  color: #1b5e20;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(46, 125, 50, 0.2);
+}
+
+/* Khi đang TẮT (Ngừng hoạt động) - Tone đỏ/hồng cảnh báo */
+.btn-action-status.status-off {
+  background-color: #fdeded;
+  border-color: #f8c2c2;
+  color: #c0392b;
+}
+
+.btn-action-status.status-off:hover {
+  background-color: #fcd4d4;
+  border-color: #f19999;
+  color: #962d22;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(192, 57, 43, 0.2);
+}
+
+/* Khi đã HẾT HẠN - Mờ & vô hiệu hóa */
+.btn-action-status.status-disabled {
+  background-color: #f5f5f5;
+  border-color: #e2e2e2;
+  color: #a0a0a0;
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Nút Vừa xem chi tiết vừa chỉnh sửa phiếu */
+.btn-action-edit {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #d0dfe8;
+  background-color: #eef5f9;
+  color: #496883;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+.btn-action-edit:hover {
+  background-color: #dce9f3;
+  border-color: #496883;
+  color: #2c465d;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(73, 104, 131, 0.22);
+}
+
+/* Icon SVG bên trong 2 nút hành động */
+.action-svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
+
+/* POPUP MODAL XÁC NHẬN ĐỔI TRẠNG THÁI (GIAO DIỆN CHUẨN ĐẸP) */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -898,114 +1141,243 @@ const openCreateModal = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999;
+  z-index: 1000;
   backdrop-filter: blur(2px);
 }
 
-.modal-box {
+.confirm-modal-box {
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 14px;
   width: 90%;
   max-width: 520px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
   overflow: hidden;
-  animation: fadeIn 0.2s ease-out;
+  animation: popIn 0.2s ease-out;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.95); }
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.92); }
   to { opacity: 1; transform: scale(1); }
 }
 
-.modal-header {
+.confirm-modal-header {
+  padding: 1.25rem 1.4rem;
+  background-color: #fff9f0;
+  border-bottom: 1px solid #faedd9;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 1.1rem 1.4rem;
-  border-bottom: 1px solid #eeebe3;
-  background-color: #faf9f6;
+  gap: 0.85rem;
+  position: relative;
 }
 
-.modal-title {
+.confirm-modal-header.header-danger {
+  background-color: #fff5f5;
+  border-bottom: 1px solid #fed7d7;
+}
+
+.confirm-warning-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.confirm-title-wrap {
+  flex: 1;
+}
+
+.confirm-title {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 700;
-  color: #33444d;
+  color: #8c6328;
+}
+
+.confirm-modal-header.header-danger .confirm-title {
+  color: #c0392b;
+}
+
+.confirm-subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.83rem;
+  color: #aa8651;
+}
+
+.confirm-modal-header.header-danger .confirm-subtitle {
+  color: #b85d56;
 }
 
 .modal-close-btn {
   background: transparent;
   border: none;
-  font-size: 1.1rem;
-  color: #8c9597;
+  font-size: 1.2rem;
+  color: #9aa0a0;
   cursor: pointer;
-  line-height: 1;
+  transition: color 0.15s;
 }
 
 .modal-close-btn:hover {
   color: #c0392b;
 }
 
-.modal-body {
-  padding: 1.25rem 1.4rem;
+.confirm-modal-body {
+  padding: 1.4rem;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 1rem;
 }
 
-.detail-row {
+.confirm-message-text {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #435158;
+  line-height: 1.5;
+}
+
+.text-danger {
+  color: #c0392b;
+  font-weight: 700;
+}
+
+.text-success {
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+.text-highlight {
+  color: #c0392b;
+  font-weight: 700;
+}
+
+/* Bảng tóm tắt thông số phiếu trong Modal */
+.confirm-summary-panel {
+  background-color: #faf9f6;
+  border: 1px solid #efeae0;
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.summary-line {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.93rem;
-  border-bottom: 1px dashed #f2eee6;
-  padding-bottom: 0.45rem;
+  font-size: 0.9rem;
 }
 
-.detail-label {
+.s-label {
   color: #7b888e;
   font-weight: 600;
 }
 
-.detail-val {
+.s-val {
   color: #2b383e;
-  text-align: right;
 }
 
-.modal-footer {
-  padding: 0.9rem 1.4rem;
+.badge-status-sm {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.2rem 0.65rem;
+  border-radius: 12px;
+}
+
+/* Khung ghi chú nhắc nhở */
+.confirm-note-box {
+  border-radius: 8px;
+  padding: 0.75rem 0.95rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.note-warning {
+  background-color: #fef8ee;
+  border: 1px solid #f6e2be;
+  color: #8a6528;
+}
+
+.note-info {
+  background-color: #edf5fa;
+  border: 1px solid #d0e4f2;
+  color: #376384;
+}
+
+.confirm-modal-footer {
+  padding: 1rem 1.4rem;
   border-top: 1px solid #eeebe3;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
   background-color: #faf9f6;
 }
 
-/* Cột hành động */
-.action-buttons {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+.btn-save-confirm {
+  background-color: #4c8a5a;
+  color: #ffffff;
 }
 
-.btn-circle-action {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid var(--line, #e9e5db);
+.btn-save-confirm:hover:not(:disabled) {
+  background-color: #3b7047;
+}
+
+.btn-confirm-deactivate {
+  background-color: #c0392b;
+  color: #ffffff;
+}
+
+.btn-confirm-deactivate:hover:not(:disabled) {
+  background-color: #a5281b;
+}
+
+/* Toast thông báo thành công */
+.toast-success {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
   background-color: #ffffff;
-  color: #496883;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 0.95rem;
+  border-left: 5px solid #4c8a5a;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  z-index: 2000;
+  animation: slideUp 0.3s ease-out;
 }
 
-.btn-circle-action:hover {
-  border-color: var(--blue, #496883);
-  background-color: #eaf1f4;
-  transform: scale(1.08);
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.toast-icon {
+  font-size: 1.5rem;
+}
+
+.toast-text b {
+  font-size: 0.95rem;
+  color: #2b383e;
+}
+
+.toast-text p {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: #65757d;
+}
+
+.toast-close {
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  color: #a0a8ab;
+  cursor: pointer;
+  margin-left: 0.5rem;
+}
+
+.toast-close:hover {
+  color: #c0392b;
 }
 
 /* Phân trang dưới cùng bảng */

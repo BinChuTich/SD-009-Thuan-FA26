@@ -1,9 +1,6 @@
 package com.example.sd009thuan.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -20,6 +17,7 @@ import java.time.Instant;
 @Table(name = "phieu_giam_gia")
 public class PhieuGiamGia {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Long id;
 
@@ -65,4 +63,94 @@ public class PhieuGiamGia {
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
 
+    public PhieuGiamGia() {
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getMaPhieuGiamGia() {
+        return maPhieuGiamGia;
+    }
+
+    public void setMaPhieuGiamGia(String maPhieuGiamGia) {
+        this.maPhieuGiamGia = maPhieuGiamGia;
+    }
+
+    public String getTenPhieuGiamGia() {
+        return tenPhieuGiamGia;
+    }
+
+    public void setTenPhieuGiamGia(String tenPhieuGiamGia) {
+        this.tenPhieuGiamGia = tenPhieuGiamGia;
+    }
+
+    public Integer getLoaiPhieuGiamGia() {
+        return loaiPhieuGiamGia;
+    }
+
+    public void setLoaiPhieuGiamGia(Integer loaiPhieuGiamGia) {
+        this.loaiPhieuGiamGia = loaiPhieuGiamGia;
+    }
+
+    public BigDecimal getGiaTriGiamGia() {
+        return giaTriGiamGia;
+    }
+
+    public void setGiaTriGiamGia(BigDecimal giaTriGiamGia) {
+        this.giaTriGiamGia = giaTriGiamGia;
+    }
+
+    public BigDecimal getGiamToiDa() {
+        return giamToiDa;
+    }
+
+    public void setGiamToiDa(BigDecimal giamToiDa) {
+        this.giamToiDa = giamToiDa;
+    }
+
+    public BigDecimal getHoaDonToiThieu() {
+        return hoaDonToiThieu;
+    }
+
+    public void setHoaDonToiThieu(BigDecimal hoaDonToiThieu) {
+        this.hoaDonToiThieu = hoaDonToiThieu;
+    }
+
+    public Integer getSoLuongSuDung() {
+        return soLuongSuDung;
+    }
+
+    public void setSoLuongSuDung(Integer soLuongSuDung) {
+        this.soLuongSuDung = soLuongSuDung;
+    }
+
+    public Instant getNgayBatDau() {
+        return ngayBatDau;
+    }
+
+    public void setNgayBatDau(Instant ngayBatDau) {
+        this.ngayBatDau = ngayBatDau;
+    }
+
+    public Instant getNgayKetThuc() {
+        return ngayKetThuc;
+    }
+
+    public void setNgayKetThuc(Instant ngayKetThuc) {
+        this.ngayKetThuc = ngayKetThuc;
+    }
+
+    public Integer getTrangThai() {
+        return trangThai;
+    }
+
+    public void setTrangThai(Integer trangThai) {
+        this.trangThai = trangThai;
+    }
 }

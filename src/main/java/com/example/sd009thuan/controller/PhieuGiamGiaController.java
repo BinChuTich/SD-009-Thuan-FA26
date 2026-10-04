@@ -13,9 +13,9 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/phieu-giam-gia")
-@CrossOrigin(origins = "*") // Cho phép Frontend gọi API mà không bị chặn CORS
+@CrossOrigin(origins = "*") 
 public class PhieuGiamGiaController {
-    // Tiêm (Inject) Service để xử lý dữ liệu
+    
     @Autowired
     private PhieuGiamGiaService phieuGiamGiaService;
 
@@ -58,5 +58,20 @@ public class PhieuGiamGiaController {
             return ResponseEntity.ok(updated);
         }
         return ResponseEntity.notFound().build();
+    }
+
+    @PostMapping
+    public ResponseEntity<?> create(@RequestBody PhieuGiamGiaDTO dto) {
+        try {
+            PhieuGiamGiaDTO created = phieuGiamGiaService.createPhieuGiamGia(dto);
+            return ResponseEntity.ok(created);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Lỗi khi thêm phiếu giảm giá: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/khach-hang")
+    public ResponseEntity<?> getDanhSachKhachHang() {
+        return ResponseEntity.ok(phieuGiamGiaService.getAllKhachHang());
     }
 }
