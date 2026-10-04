@@ -10,7 +10,10 @@
       </div>
 
       <button type="button" class="btn btn-back-top" @click="handleBack">
-        ← Quay lại danh sách
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display: inline-block; vertical-align: middle; margin-right: 4px;">
+          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+        </svg>
+        Quay lại danh sách
       </button>
     </div>
 
@@ -407,7 +410,9 @@
                       @click="openDeleteVariantConfirm(vItem)"
                       title="Xóa biến thể này"
                   >
-                    🗑
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                      <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
                   </button>
                 </td>
               </tr>
@@ -441,7 +446,10 @@
                     @click="resetColorImage(color.id)"
                     title="Đặt lại ảnh"
                 >
-                  🔄
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                  </svg>
                 </button>
                 <button
                     type="button"
@@ -475,7 +483,11 @@
               </div>
 
               <div v-else class="image-placeholder">
-                <div class="placeholder-icon">🖼️</div>
+                <div class="placeholder-icon">
+                  <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor" opacity="0.45">
+                    <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                  </svg>
+                </div>
                 <div class="placeholder-text">Nhóm màu này chưa có ảnh</div>
                 <div class="placeholder-sub">Nhấn để tải ảnh áp dụng cho toàn bộ kích cỡ màu này.</div>
               </div>

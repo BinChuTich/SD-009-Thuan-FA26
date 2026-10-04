@@ -21,13 +21,32 @@
               class="input-search"
           />
           <button class="btn btn-search" @click="handleSearch">
-            <span class="btn-icon">🔍</span> Tìm kiếm
+            <span class="btn-icon">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </span>
+            Tìm kiếm
           </button>
           <button class="btn btn-refresh" @click="resetFilters">
-            <span class="btn-icon">🔄</span> Làm mới
+            <span class="btn-icon">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+              </svg>
+            </span>
+            Làm mới
           </button>
           <button class="btn btn-export" @click="handleExportExcel" :disabled="exporting">
-            <span class="btn-icon">📥</span> {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
+            <span class="btn-icon">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+            </span>
+            {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
           </button>
         </div>
 
@@ -39,7 +58,11 @@
       <!-- 2. Khối 8 tiêu chí lọc thuộc tính -->
       <div class="filter-attributes-section">
         <div class="funnel-icon-wrap" title="Bộ lọc thuộc tính">
-          <span class="funnel-icon">🌪️</span>
+          <span class="funnel-icon">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
+            </svg>
+          </span>
         </div>
 
         <div class="attribute-dropdowns-grid">
@@ -137,7 +160,11 @@
           <tr v-else-if="products.length === 0">
             <td colspan="10" class="empty-state">
               <div class="empty-box">
-                <span class="empty-icon">📦</span>
+                <span class="empty-icon">
+                  <svg viewBox="0 0 24 24" width="38" height="38" fill="currentColor" opacity="0.45">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v3c0 .55.45 1 1 1h1v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8h1c.55 0 1-.45 1-1V4c0-1.1-.9-2-2-2zm-1 6v12H5V8h14zM4 4h16v2H4V4zm5 6h6v2H9v-2z"/>
+                  </svg>
+                </span>
                 <span class="empty-text">Không tìm thấy sản phẩm nào phù hợp với bộ lọc!</span>
                 <button type="button" class="btn btn-refresh-sm" @click="handleReset">Làm mới bộ lọc</button>
               </div>
@@ -207,6 +234,7 @@
             </td>
 
             <!-- Cột thao tác: Biến thể, Sửa, Xóa -->
+            <!-- Cột thao tác: Sửa, Xóa (Chỉ icon, không cần text) -->
             <td style="text-align: center;">
               <div class="action-buttons-group">
                 <button
@@ -214,14 +242,18 @@
                     @click="goToEditPage(item)"
                     title="Chỉnh sửa thông tin sản phẩm"
                 >
-                  ✏️ Sửa
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                  </svg>
                 </button>
                 <button
                     class="btn-action btn-delete"
                     @click="confirmDelete(item)"
                     title="Xóa sản phẩm"
                 >
-                  🗑️ Xóa
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                  </svg>
                 </button>
               </div>
             </td>
@@ -1046,50 +1078,43 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
 .btn-action {
+  width: 32px;
   height: 32px;
-  border: 1px solid #e9e5db;
+  border: 1px solid var(--line, #e9e5db);
   background-color: #ffffff;
   border-radius: 6px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
-  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  padding: 0;
 }
 
-.btn-variants {
-  padding: 0 8px;
-  font-weight: 700;
-  color: #496883;
-  background: #f0f5fa;
-  border-color: #cfdce8;
-}
-.btn-variants:hover {
-  background-color: #496883;
-  color: #ffffff;
+.btn-action svg {
+  display: block;
 }
 
 .btn-edit {
-  width: 32px;
-  color: #d2a764;
+  color: var(--blue, #496883);
 }
 .btn-edit:hover {
-  background-color: #fff9ee;
-  border-color: #d2a764;
+  background-color: #eaf1f4;
+  border-color: var(--blue, #496883);
+  transform: scale(1.08);
 }
 
 .btn-delete {
-  width: 32px;
-  color: #d9534f;
+  color: #dc2626;
 }
 .btn-delete:hover {
-  background-color: #fdf2f2;
-  border-color: #d9534f;
+  background-color: #fef2f2;
+  border-color: #dc2626;
+  transform: scale(1.08);
 }
 
 /* 4. Thanh phân trang */
