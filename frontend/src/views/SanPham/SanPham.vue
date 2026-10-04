@@ -200,25 +200,18 @@
             <td style="text-align: center;">
               <div class="action-buttons-group">
                 <button
-                    class="btn-action btn-variants"
-                    @click="goToVariants(item.id)"
-                    title="Quản lý biến thể (Kích cỡ, Màu sắc, Giá)"
-                >
-                  🏷️ {{ item.soLuongBienThe ?? 0 }}
-                </button>
-                <button
                     class="btn-action btn-edit"
                     @click="openEditModal(item)"
                     title="Chỉnh sửa thông tin sản phẩm"
                 >
-                  ✏️
+                  ✏️ Sửa
                 </button>
                 <button
                     class="btn-action btn-delete"
                     @click="confirmDelete(item)"
                     title="Xóa sản phẩm"
                 >
-                  🗑️
+                  🗑️ Xóa
                 </button>
               </div>
             </td>
@@ -620,13 +613,7 @@ const toggleStatus = async (item) => {
   }
 }
 
-// Điều hướng tới quản lý biến thể
-const goToVariants = (productId) => {
-  router.push({
-    path: '/bien-the-san-pham',
-    query: { sanPhamId: productId }
-  })
-}
+
 
 // Mở modal thêm
 const openCreateModal = () => {
