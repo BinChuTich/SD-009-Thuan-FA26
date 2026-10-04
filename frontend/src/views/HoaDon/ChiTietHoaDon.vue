@@ -16,11 +16,36 @@ const thanhToanLoading = ref(false)
 const errorMessage = ref('')
 
 // ===============================
+// MODAL THÔNG BÁO DẠNG POPUP (GIỐNG POPUP FORM)
+// ===============================
+const orderAlert = ref({
+  show: false,
+  message: '',
+  type: 'success' // 'success' | 'error'
+})
+let alertTimer = null
+
+const triggerAlert = (message, type = 'success') => {
+  if (alertTimer) clearTimeout(alertTimer)
+  orderAlert.value = {
+    show: true,
+    message,
+    type
+  }
+  // Tự đóng sau 3 giây hoặc người dùng bấm xác nhận
+  alertTimer = setTimeout(() => {
+    orderAlert.value.show = false
+  }, 3000)
+}
+
+// ===============================
 // STATE CHỈNH SỬA ĐƠN HÀNG
 // ===============================
 const showEditModal = ref(false)
 const editLoading = ref(false)
 const editForm = ref({
+  trangThai: 1,
+  trangThaiThanhToan: 0,
   tenKhachHang: '',
   soDienThoaiKhachHang: '',
   diaChiNhanHang: '',
@@ -30,6 +55,8 @@ const editForm = ref({
 const moModalChinhSua = () => {
   if (!hoaDon.value) return
   editForm.value = {
+    trangThai: Number(hoaDon.value.trangThai) || 1,
+    trangThaiThanhToan: Number(hoaDon.value.trangThaiThanhToan) || 0,
     tenKhachHang: hoaDon.value.tenKhachHang || hoaDon.value.khachHang?.hoTen || '',
     soDienThoaiKhachHang: hoaDon.value.soDienThoaiKhachHang || hoaDon.value.soDienThoai || '',
     diaChiNhanHang: hoaDon.value.diaChiNhanHang || hoaDon.value.diaChi || '',
@@ -48,22 +75,26 @@ const luuChinhSua = async () => {
     editLoading.value = true
     await api.put(`/api/hoa-don/${hoaDon.value.id}`, {
       ...hoaDon.value,
+      trangThai: Number(editForm.value.trangThai),
+      trangThaiThanhToan: Number(editForm.value.trangThaiThanhToan),
       tenKhachHang: editForm.value.tenKhachHang,
       soDienThoaiKhachHang: editForm.value.soDienThoaiKhachHang,
       diaChiNhanHang: editForm.value.diaChiNhanHang,
       ghiChu: editForm.value.ghiChu
     })
 
+    hoaDon.value.trangThai = Number(editForm.value.trangThai)
+    hoaDon.value.trangThaiThanhToan = Number(editForm.value.trangThaiThanhToan)
     hoaDon.value.tenKhachHang = editForm.value.tenKhachHang
     hoaDon.value.soDienThoaiKhachHang = editForm.value.soDienThoaiKhachHang
     hoaDon.value.diaChiNhanHang = editForm.value.diaChiNhanHang
     hoaDon.value.ghiChu = editForm.value.ghiChu
 
-    alert('Cập nhật thông tin đơn hàng thành công!')
     showEditModal.value = false
+    triggerAlert('Cập nhật thông tin đơn hàng thành công!', 'success')
   } catch (error) {
     console.error('Lỗi lưu thông tin chỉnh sửa:', error)
-    alert('Không thể lưu thông tin đơn hàng!')
+    triggerAlert('Không thể lưu thông tin đơn hàng!', 'error')
   } finally {
     editLoading.value = false
   }
@@ -213,10 +244,10 @@ const xuLyDonHang = async () => {
       trangThai: trangThaiMoi
     })
     hoaDon.value.trangThai = trangThaiMoi
-    alert(`Đã chuyển sang: ${getStatusText(trangThaiMoi)}`)
+    triggerAlert(`Đã chuyển trạng thái sang: ${getStatusText(trangThaiMoi)}`, 'success')
   } catch (error) {
     console.error('Lỗi cập nhật trạng thái:', error)
-    alert('Không thể cập nhật trạng thái đơn hàng!')
+    triggerAlert('Không thể cập nhật trạng thái đơn hàng!', 'error')
   } finally {
     statusLoading.value = false
   }
@@ -235,10 +266,10 @@ const thanhToan = async () => {
       trangThaiThanhToan: 1
     })
     hoaDon.value.trangThaiThanhToan = 1
-    alert('Đã xác nhận thanh toán!')
+    triggerAlert('Đã xác nhận thanh toán thành công!', 'success')
   } catch (error) {
     console.error('Lỗi cập nhật thanh toán:', error)
-    alert('Không thể cập nhật thanh toán!')
+    triggerAlert('Không thể cập nhật thanh toán!', 'error')
   } finally {
     thanhToanLoading.value = false
   }
@@ -481,11 +512,13 @@ onMounted(() => {
     </div>
 
     <!-- ================= MODAL CHỈNH SỬA ĐƠN HÀNG ================= -->
-    <!-- ================= MODAL CHỈNH SỬA ĐƠN HÀNG ================= -->
     <div v-if="showEditModal" class="modal-overlay" @click.self="dongModalChinhSua">
       <div class="modal-box">
         <div class="modal-header">
-          <h3>✏ Chỉnh Sửa Thông Tin Đơn Hàng</h3>
+          <div class="modal-title-with-icon">
+            <span class="modal-title-icon-edit">✏</span>
+            <h3>Chỉnh Sửa Thông Tin Đơn Hàng</h3>
+          </div>
           <button class="btn-close" @click="dongModalChinhSua">✕</button>
         </div>
 
@@ -565,6 +598,31 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- ================= MODAL THÔNG BÁO (POPUP ĐỒNG BỘ NGUYÊN BẢN VỚI FORM) ================= -->
+    <div v-if="orderAlert.show" class="modal-overlay" @click.self="orderAlert.show = false">
+      <div class="modal-box alert-modal-box">
+        <div class="modal-header">
+          <div class="modal-title-with-icon">
+            <span class="modal-title-icon-alert" :class="orderAlert.type">
+              {{ orderAlert.type === 'success' ? '✓' : '!' }}
+            </span>
+            <h3>{{ orderAlert.type === 'success' ? 'Thông Báo Thành Công' : 'Thông Báo Hệ Thống' }}</h3>
+          </div>
+          <button class="btn-close" @click="orderAlert.show = false">✕</button>
+        </div>
+
+        <div class="modal-body alert-modal-body">
+          <p class="alert-main-text">{{ orderAlert.message }}</p>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-modal-save" @click="orderAlert.show = false">
+            Xác Nhận
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -580,6 +638,62 @@ onMounted(() => {
   color: var(--text, #3d4a50);
   font-family: var(--system-font, sans-serif);
 }
+
+/* ================= MODAL TITLE & ICON GIỐNG ẢNH ================= */
+.modal-title-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.modal-title-icon-edit {
+  color: var(--blue, #496883);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.modal-title-icon-alert {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.modal-title-icon-alert.success {
+  background-color: #edf5ef;
+  color: #558764;
+  border: 1px solid #cce3d1;
+}
+
+.modal-title-icon-alert.error {
+  background-color: #fbeeed;
+  color: #c94343;
+  border: 1px solid #f6d4d4;
+}
+
+.alert-modal-box {
+  width: 440px !important;
+  max-width: 90%;
+}
+
+.alert-modal-body {
+  padding: 1.5rem 1.4rem !important;
+  text-align: center;
+}
+
+.alert-main-text {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: #3d4a50;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ================= MODAL BODY SELECT & ROW ================= */
 .modal-body .form-row-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -604,6 +718,7 @@ onMounted(() => {
   border-color: var(--blue, #496883);
   background-color: #ffffff;
 }
+
 /* ================= HEADER ================= */
 .page-header {
   display: flex;
@@ -666,7 +781,6 @@ onMounted(() => {
   gap: 0.4rem;
 }
 
-/* Nút Chỉnh sửa màu vàng Gold thương hiệu */
 .btn-edit {
   background-color: var(--gold, #d2a764) !important;
   color: #ffffff !important;
@@ -1116,7 +1230,7 @@ onMounted(() => {
   background: #ffffff;
   width: 520px;
   max-width: 92%;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid var(--line, #e9e5db);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
   overflow: hidden;
