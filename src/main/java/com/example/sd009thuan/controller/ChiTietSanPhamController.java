@@ -31,7 +31,8 @@ public class ChiTietSanPhamController {
     // GET /api/chi-tiet-san-pham/filter
     @GetMapping("/filter")
     public ResponseEntity<PageResponse<ChiTietSanPhamResponse>> filterVariants(
-            @RequestParam Long idSanPham,
+            @RequestParam(required = false) Long idSanPham,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long idKichCo,
             @RequestParam(required = false) Long idMauSac,
             @RequestParam(required = false) BigDecimal minGia,
@@ -41,8 +42,24 @@ public class ChiTietSanPhamController {
             @RequestParam(defaultValue = "10") int size
     ) {
         return ResponseEntity.ok(chiTietSanPhamService.filterVariants(
-                idSanPham, idKichCo, idMauSac, minGia, maxGia, trangThai, page, size
+                idSanPham, keyword, idKichCo, idMauSac, minGia, maxGia, trangThai, page, size
         ));
+    }
+
+    // GET /api/chi-tiet-san-pham/export-excel
+    @GetMapping("/export-excel")
+    public ResponseEntity<byte[]> exportExcel(
+            @RequestParam(required = false) Long idSanPham,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long idKichCo,
+            @RequestParam(required = false) Long idMauSac,
+            @RequestParam(required = false) Integer trangThai
+    ) {
+        byte[] bytes = chiTietSanPhamService.exportExcel(idSanPham, keyword, idKichCo, idMauSac, trangThai);
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=bien_the_san_pham.xlsx")
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                .body(bytes);
     }
 
     // GET /api/chi-tiet-san-pham/{id}

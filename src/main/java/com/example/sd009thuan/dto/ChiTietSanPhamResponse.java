@@ -30,4 +30,5 @@ public class ChiTietSanPhamResponse {
     private BigDecimal giaBan;
     private Integer trangThai;
     private Instant ngayTao;
+    private String anhDaiDien;
 }

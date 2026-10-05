@@ -86,7 +86,7 @@ const routes = [
         component: ThemSuaSanPham
     },
     {
-        path: '/bien-the-san-pham',
+        path: '/bien-the-san-pham/:id?',
         name: 'BienTheSanPham',
         component: BienTheSanPham
     },

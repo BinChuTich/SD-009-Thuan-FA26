@@ -36,14 +36,21 @@ public interface ChiTietSanPhamRepository extends JpaRepository<ChiTietSanPham, 
     Integer sumSoLuongBySanPhamId(@Param("idSanPham") Long idSanPham);
 
     @Query("SELECT ct FROM ChiTietSanPham ct WHERE " +
-           "ct.idSanPham.id = :idSanPham " +
+           "(:idSanPham IS NULL OR ct.idSanPham.id = :idSanPham) " +
            "AND (:idKichCo IS NULL OR ct.idKichCo.id = :idKichCo) " +
            "AND (:idMauSac IS NULL OR ct.idMauSac.id = :idMauSac) " +
            "AND (:trangThai IS NULL OR ct.trangThai = :trangThai) " +
            "AND (:minGia IS NULL OR ct.giaBan >= :minGia) " +
-           "AND (:maxGia IS NULL OR ct.giaBan <= :maxGia)")
+           "AND (:maxGia IS NULL OR ct.giaBan <= :maxGia) " +
+           "AND (:keyword IS NULL OR :keyword = '' OR " +
+           "     LOWER(ct.maChiTietSanPham) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "     LOWER(ct.idSanPham.tenSanPham) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "     LOWER(ct.idSanPham.maSanPham) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "     LOWER(ct.idMauSac.tenMauSac) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "     LOWER(ct.idKichCo.tenKichCo) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<ChiTietSanPham> filterVariants(
             @Param("idSanPham") Long idSanPham,
+            @Param("keyword") String keyword,
             @Param("idKichCo") Long idKichCo,
             @Param("idMauSac") Long idMauSac,
             @Param("minGia") BigDecimal minGia,

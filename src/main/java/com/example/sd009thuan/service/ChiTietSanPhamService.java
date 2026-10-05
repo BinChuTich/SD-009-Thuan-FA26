@@ -18,7 +18,15 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.sd009thuan.entity.HinhAnh;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -30,17 +38,20 @@ public class ChiTietSanPhamService {
     private final SanPhamRepository sanPhamRepository;
     private final KichCoRepository kichCoRepository;
     private final MauSacRepository mauSacRepository;
+    private final com.example.sd009thuan.repository.HinhAnhRepository hinhAnhRepository;
 
     public ChiTietSanPhamService(
             ChiTietSanPhamRepository chiTietSanPhamRepository,
             SanPhamRepository sanPhamRepository,
             KichCoRepository kichCoRepository,
-            MauSacRepository mauSacRepository
+            MauSacRepository mauSacRepository,
+            com.example.sd009thuan.repository.HinhAnhRepository hinhAnhRepository
     ) {
         this.chiTietSanPhamRepository = chiTietSanPhamRepository;
         this.sanPhamRepository = sanPhamRepository;
         this.kichCoRepository = kichCoRepository;
         this.mauSacRepository = mauSacRepository;
+        this.hinhAnhRepository = hinhAnhRepository;
     }
 
     public List<ChiTietSanPhamResponse> getBySanPhamId(Long idSanPham) {
@@ -51,6 +62,7 @@ public class ChiTietSanPhamService {
 
     public PageResponse<ChiTietSanPhamResponse> filterVariants(
             Long idSanPham,
+            String keyword,
             Long idKichCo,
             Long idMauSac,
             BigDecimal minGia,
@@ -61,7 +73,8 @@ public class ChiTietSanPhamService {
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
         Page<ChiTietSanPham> result = chiTietSanPhamRepository.filterVariants(
-                idSanPham, idKichCo, idMauSac, minGia, maxGia, trangThai, pageable
+                idSanPham, (keyword != null && !keyword.trim().isEmpty()) ? keyword.trim() : null,
+                idKichCo, idMauSac, minGia, maxGia, trangThai, pageable
         );
 
         List<ChiTietSanPhamResponse> dtoList = result.getContent().stream()
@@ -184,6 +197,14 @@ public class ChiTietSanPhamService {
     }
 
     private ChiTietSanPhamResponse convertToResponse(ChiTietSanPham ct) {
+        String anhDaiDien = null;
+        if (ct.getIdSanPham() != null) {
+            List<HinhAnh> imgs = hinhAnhRepository.findByIdSanPham_Id(ct.getIdSanPham().getId());
+            if (imgs != null && !imgs.isEmpty()) {
+                anhDaiDien = imgs.get(0).getDuongDan();
+            }
+        }
+
         return ChiTietSanPhamResponse.builder()
                 .id(ct.getId())
                 .idSanPham(ct.getIdSanPham() != null ? ct.getIdSanPham().getId() : null)
@@ -199,6 +220,80 @@ public class ChiTietSanPhamService {
                 .giaBan(ct.getGiaBan())
                 .trangThai(ct.getTrangThai())
                 .ngayTao(ct.getNgayTao())
+                .anhDaiDien(anhDaiDien)
                 .build();
+    }
+
+    public byte[] exportExcel(Long idSanPham, String keyword, Long idKichCo, Long idMauSac, Integer trangThai) {
+        PageResponse<ChiTietSanPhamResponse> pageData = filterVariants(
+                idSanPham, keyword, idKichCo, idMauSac, null, null, trangThai, 0, 10000
+        );
+        List<ChiTietSanPhamResponse> list = pageData.getContent();
+
+        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Biến thể sản phẩm");
+
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.WHITE.getIndex());
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+
+            CellStyle dataStyle = workbook.createCellStyle();
+            dataStyle.setBorderBottom(BorderStyle.THIN);
+            dataStyle.setBorderTop(BorderStyle.THIN);
+            dataStyle.setBorderRight(BorderStyle.THIN);
+            dataStyle.setBorderLeft(BorderStyle.THIN);
+
+            CellStyle numberStyle = workbook.createCellStyle();
+            numberStyle.cloneStyleFrom(dataStyle);
+            DataFormat format = workbook.createDataFormat();
+            numberStyle.setDataFormat(format.getFormat("#,##0"));
+
+            String[] headers = {
+                    "STT", "Mã SP", "Tên sản phẩm", "Mã CTSP", "Màu sắc", "Kích cỡ", "Số lượng", "Giá bán (VNĐ)", "Trạng thái"
+            };
+
+            Row headerRow = sheet.createRow(0);
+            headerRow.setHeightInPoints(24);
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            int rowIdx = 1;
+            for (ChiTietSanPhamResponse ct : list) {
+                Row row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue(rowIdx - 1);
+                row.createCell(1).setCellValue(ct.getMaSanPham() != null ? ct.getMaSanPham() : "");
+                row.createCell(2).setCellValue(ct.getTenSanPham() != null ? ct.getTenSanPham() : "");
+                row.createCell(3).setCellValue(ct.getMaChiTietSanPham() != null ? ct.getMaChiTietSanPham() : "");
+                row.createCell(4).setCellValue(ct.getTenMauSac() != null ? ct.getTenMauSac() : "");
+                row.createCell(5).setCellValue(ct.getTenKichCo() != null ? ct.getTenKichCo() : "");
+
+                Cell c6 = row.createCell(6);
+                c6.setCellValue(ct.getSoLuong() != null ? ct.getSoLuong() : 0);
+                c6.setCellStyle(numberStyle);
+
+                Cell c7 = row.createCell(7);
+                c7.setCellValue(ct.getGiaBan() != null ? ct.getGiaBan().doubleValue() : 0);
+                c7.setCellStyle(numberStyle);
+
+                row.createCell(8).setCellValue(ct.getTrangThai() != null && ct.getTrangThai() == 1 ? "Đang bán" : "Ngừng bán");
+            }
+
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException("Lỗi khi xuất file Excel: " + e.getMessage());
+        }
     }
 }

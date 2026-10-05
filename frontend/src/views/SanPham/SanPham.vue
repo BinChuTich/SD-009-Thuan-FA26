@@ -247,7 +247,7 @@
             </td>
 
             <!-- Cột thao tác: Biến thể, Sửa, Xóa -->
-            <!-- Cột thao tác: Sửa, Xóa (Chỉ icon, không cần text) -->
+            <!-- Cột thao tác: Sửa, Xem chi tiết biến thể (Chỉ icon, không cần text) -->
             <td style="text-align: center;">
               <div class="action-buttons-group">
                 <button
@@ -260,12 +260,13 @@
                   </svg>
                 </button>
                 <button
-                    class="btn-action btn-delete"
-                    @click="confirmDelete(item)"
-                    title="Xóa sản phẩm"
+                    class="btn-action btn-view"
+                    @click="goToVariants(item)"
+                    title="Xem chi tiết biến thể"
                 >
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
                   </svg>
                 </button>
               </div>
@@ -439,6 +440,11 @@ const goToAddPage = () => {
 // Chuyển trang Sửa sản phẩm
 const goToEditPage = (item) => {
   router.push(`/san-pham/chinh-sua/${item.id}`)
+}
+
+// Chuyển trang Biến thể sản phẩm (Xem chi tiết)
+const goToVariants = (item) => {
+  router.push({ path: '/bien-the-san-pham', query: { sanPhamId: item.id } })
 }
 
 // Toast
@@ -1163,6 +1169,15 @@ onMounted(() => {
 .btn-edit:hover {
   background-color: #eaf1f4;
   border-color: var(--blue, #496883);
+  transform: scale(1.08);
+}
+
+.btn-view {
+  color: #0284c7;
+}
+.btn-view:hover {
+  background-color: #e0f2fe;
+  border-color: #0284c7;
   transform: scale(1.08);
 }
 
