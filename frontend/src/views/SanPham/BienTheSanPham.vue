@@ -798,7 +798,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
               <div class="attr-summary-box">
                 <span class="attr-box-label">MÀU SẮC</span>
                 <div class="attr-box-val">
-                  <span class="attr-color-dot" :style="{ backgroundColor: editModal.data.maHex || '#e11d48' }"></span>
+                  <span class="attr-color-dot" :style="{ backgroundColor: editModal.data.maHex || 'var(--blue, #496883)' }"></span>
                   <span class="attr-text-val">{{ editModal.data.tenMauSac || 'Mặc định' }}</span>
                 </div>
               </div>
@@ -1064,7 +1064,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
 }
 
 .highlight-product-title {
-  color: #e11d48;
+  color: var(--blue, #496883);
   font-weight: 800;
 }
 
@@ -1766,7 +1766,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
 .qr-variant-price {
   font-size: 0.84rem;
   font-weight: 700;
-  color: #e11d48;
+  color: var(--blue, #496883);
 }
 
 /* Update Variant Dialog per Screenshot */
@@ -1794,10 +1794,10 @@ watch(() => route.query.sanPhamId, async (newId) => {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: #e11d48;
+  color: var(--blue, #496883);
   font-size: 0.8rem;
   font-weight: 700;
-  background-color: #fff1f2;
+  background-color: #eaf1f4;
   padding: 3px 8px;
   border-radius: 6px;
   width: fit-content;
@@ -1938,8 +1938,8 @@ watch(() => route.query.sanPhamId, async (newId) => {
 }
 
 .field-input-control:focus {
-  border-color: #e11d48;
-  box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.1);
+  border-color: var(--blue, #496883);
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.12);
 }
 
 .field-select-control {
@@ -1948,8 +1948,8 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
 .btn-save-variant-action {
   height: 2.75rem;
-  background-color: #e11d48;
-  border: none;
+  background-color: var(--blue, #496883);
+  border: 1px solid var(--blue, #496883);
   border-radius: 8px;
   color: #ffffff;
   font-size: 0.92rem;
@@ -1964,9 +1964,10 @@ watch(() => route.query.sanPhamId, async (newId) => {
 }
 
 .btn-save-variant-action:hover {
-  background-color: #be123c;
+  background-color: #3d576e;
+  border-color: #3d576e;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);
+  box-shadow: 0 4px 12px rgba(73, 104, 131, 0.25);
 }
 
 /* Responsive */
