@@ -191,28 +191,19 @@ public class PhieuGiamGiaService {
         phieu.setTenPhieuGiamGia(ten != null ? ten.trim() : "Phiếu giảm giá mới");
 
         phieu.setLoaiPhieuGiamGia(dto.getLoaiPhieuGiamGia() != null ? dto.getLoaiPhieuGiamGia() : 1);
-
-
         phieu.setGiaTriGiamGia(dto.getGiaTriGiamGia() != null ? dto.getGiaTriGiamGia() : BigDecimal.ZERO);
-
         phieu.setGiamToiDa(dto.getGiamToiDa());
-
         phieu.setHoaDonToiThieu(dto.getHoaDonToiThieu() != null ? dto.getHoaDonToiThieu() : BigDecimal.ZERO);
-
         phieu.setSoLuongSuDung(dto.getSoLuongSuDung() != null ? dto.getSoLuongSuDung() : 100);
-
         Instant ngayBatDau = dto.getNgayBatDau() != null ? dto.getNgayBatDau() : Instant.now();
         phieu.setNgayBatDau(ngayBatDau);
         phieu.setNgayKetThuc(dto.getNgayKetThuc());
-
         int status = dto.getTrangThai() != null ? dto.getTrangThai() : 1;
         if (phieu.getNgayKetThuc() != null && phieu.getNgayKetThuc().isBefore(Instant.now())) {
             status = 0;
         }
         phieu.setTrangThai(status);
-
         PhieuGiamGia saved = phieuGiamGiaRepository.save(phieu);
-
         if ("Cá nhân".equalsIgnoreCase(dto.getHinhThuc()) && dto.getIdKhachHangList() != null && !dto.getIdKhachHangList().isEmpty()) {
             for (Long idKhach : dto.getIdKhachHangList()) {
                 Optional<KhachHang> khOpt = khachHangRepository.findById(idKhach);

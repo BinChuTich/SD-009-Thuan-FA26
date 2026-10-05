@@ -5,13 +5,15 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Range;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface KhachHangRepository extends JpaRepository<KhachHang, Long> {
+public interface KhachHangRepository extends JpaRepository<KhachHang, Long>, JpaSpecificationExecutor<KhachHang> {
     List<KhachHang> findAllByOrderByTenKhachHangAsc();
     boolean existsByMaKhachHangIgnoreCase(String maKhachHang);
     boolean existsByTaiKhoanIgnoreCase(String taiKhoan);
@@ -21,6 +23,6 @@ public interface KhachHangRepository extends JpaRepository<KhachHang, Long> {
     boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
     Optional<KhachHang> findTopByOrderByIdDesc();
 
-    <T> Range<T> findAll(Specification<KhachHang> spec, Pageable pageable);
+
 }
 

@@ -36,5 +36,4 @@ public class VaiTro {
     @ColumnDefault("1")
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
-
 }

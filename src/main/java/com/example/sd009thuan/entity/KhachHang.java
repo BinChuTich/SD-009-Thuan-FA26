@@ -1,5 +1,4 @@
 package com.example.sd009thuan.entity;
-
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -76,5 +75,6 @@ public class KhachHang {
     @Nationalized
     @Column(name = "nguoi_cap_nhat", length = 100)
     private String nguoiCapNhat;
+
 
 }
