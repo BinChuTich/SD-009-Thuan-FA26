@@ -86,15 +86,6 @@ public class HoaDonService {
         }
 
         // =========================
-        // TRẠNG THÁI THANH TOÁN
-        // 0 = Chưa thanh toán
-        // 1 = Đã thanh toán
-        // =========================
-        if (hoaDon.getTrangThaiThanhToan() == null) {
-            hoaDon.setTrangThaiThanhToan(0);
-        }
-
-        // =========================
         // PHÍ SHIP
         // =========================
         if (hoaDon.getPhiShip() == null) {
@@ -204,14 +195,6 @@ public class HoaDonService {
             );
         }
 
-        // =========================
-        // TRẠNG THÁI THANH TOÁN
-        // =========================
-        if (hoaDonMoi.getTrangThaiThanhToan() != null) {
-            hoaDonCu.setTrangThaiThanhToan(
-                    hoaDonMoi.getTrangThaiThanhToan()
-            );
-        }
 
         if (hoaDonMoi.getGhiChu() != null) {
             hoaDonCu.setGhiChu(

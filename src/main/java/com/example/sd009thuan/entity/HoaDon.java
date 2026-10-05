@@ -112,4 +112,5 @@ public class HoaDon {
     @Column(name = "ghi_chu")
     private String ghiChu;
 
+
 }
