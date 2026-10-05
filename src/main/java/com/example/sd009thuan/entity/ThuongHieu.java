@@ -1,4 +1,5 @@
 package com.example.sd009thuan.entity;
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -34,4 +35,9 @@ public class ThuongHieu {
     @ColumnDefault("1")
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @OneToMany(mappedBy = "idThuongHieu")
+    private Set<SanPham> sanPhams = new LinkedHashSet<>();
+
 }
