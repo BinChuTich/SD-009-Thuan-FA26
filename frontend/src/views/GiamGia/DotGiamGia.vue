@@ -186,7 +186,7 @@
                       class="btn-action-square btn-action-power"
                       :class="item.trangThai === 1 ? 'power-active' : 'power-inactive'"
                       :title="item.trangThai === 1 ? 'Chuyển sang Ngưng Hoạt Động' : 'Chuyển sang Hoạt Động'"
-                      @click="toggleStatus(item)"
+                      @click="openToggleStatusModal(item)"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
@@ -572,6 +572,102 @@
         </div>
       </div>
     </div>
+
+    <!-- ========================================================
+         MODAL: XÁC NHẬN ĐỔI TRẠNG THÁI (CHUẨN HÌNH ẢNH MẪU)
+    ======================================================== -->
+    <div v-if="showToggleStatusModal && selectedToggleItem" class="modal-mask" @click.self="showToggleStatusModal = false">
+      <div class="toggle-status-modal-box">
+        <!-- Header -->
+        <div class="toggle-modal-header" :class="selectedToggleItem.trangThai === 1 ? 'header-deactivate' : 'header-activate'">
+          <div class="toggle-header-left">
+            <span class="warning-triangle-icon">⚠️</span>
+            <div class="toggle-title-wrap">
+              <h4 class="toggle-title-text" :class="selectedToggleItem.trangThai === 1 ? 'title-deactivate' : 'title-activate'">
+                {{ selectedToggleItem.trangThai === 1 ? 'Xác nhận ngừng hoạt động' : 'Xác nhận kích hoạt hoạt động' }}
+              </h4>
+              <p class="toggle-subtitle-text">
+                {{ selectedToggleItem.trangThai === 1 ? 'Tạm ngưng hiệu lực của đợt giảm giá' : 'Kích hoạt hiệu lực của đợt giảm giá' }}
+              </p>
+            </div>
+          </div>
+          <button class="btn-toggle-close" @click="showToggleStatusModal = false">✕</button>
+        </div>
+
+        <!-- Body -->
+        <div class="toggle-modal-body">
+          <p class="toggle-lead-msg">
+            Bạn có chắc chắn muốn chuyển đợt giảm giá <b>[{{ selectedToggleItem.maDotGiamGia || '—' }}]</b> sang trạng thái
+            <b :class="selectedToggleItem.trangThai === 1 ? 'text-danger' : 'text-green'">
+              {{ selectedToggleItem.trangThai === 1 ? 'Ngừng hoạt động' : 'Hoạt động' }}
+            </b> không?
+          </p>
+
+          <!-- Bảng tóm tắt thông tin -->
+          <div class="toggle-info-card">
+            <div class="toggle-info-row">
+              <span class="toggle-info-label">Mã đợt:</span>
+              <span class="toggle-info-val font-bold text-dark">{{ selectedToggleItem.maDotGiamGia || '—' }}</span>
+            </div>
+            <div class="toggle-info-row">
+              <span class="toggle-info-label">Tên đợt:</span>
+              <span class="toggle-info-val font-medium text-dark">{{ selectedToggleItem.tenDotGiamGia || '—' }}</span>
+            </div>
+            <div class="toggle-info-row">
+              <span class="toggle-info-label">Mức giảm:</span>
+              <span class="toggle-info-val font-bold text-dark">{{ selectedToggleItem.phanTramGiam != null ? selectedToggleItem.phanTramGiam + '%' : '0%' }}</span>
+            </div>
+            <div class="toggle-info-row">
+              <span class="toggle-info-label">Thời hạn:</span>
+              <span class="toggle-info-val">{{ formatInputDateDisplay(selectedToggleItem.ngayBatDau) }} ➔ {{ formatInputDateDisplay(selectedToggleItem.ngayKetThuc) }}</span>
+            </div>
+            <div class="toggle-info-row">
+              <span class="toggle-info-label">Trạng thái hiện tại:</span>
+              <span class="toggle-info-val font-bold" :class="selectedToggleItem.trangThai === 1 ? 'text-green' : 'text-danger'">
+                {{ selectedToggleItem.trangThai === 1 ? 'Đang hoạt động' : 'Ngừng hoạt động' }}
+              </span>
+            </div>
+            <div class="toggle-info-row">
+              <span class="toggle-info-label">Trạng thái mới:</span>
+              <span class="toggle-info-val font-bold" :class="selectedToggleItem.trangThai === 1 ? 'text-danger' : 'text-green'">
+                {{ selectedToggleItem.trangThai === 1 ? 'Ngừng hoạt động' : 'Đang hoạt động' }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Khung Lưu ý -->
+          <div class="toggle-warning-alert">
+            <div class="alert-content">
+              <b>⚠️ Lưu ý:</b>
+              <span v-if="selectedToggleItem.trangThai === 1">
+                Khi ngừng hoạt động, khách hàng sẽ tạm thời không thể áp dụng đợt giảm giá này khi thanh toán.
+              </span>
+              <span v-else>
+                Khi kích hoạt, đợt giảm giá này sẽ được áp dụng cho các sản phẩm theo đúng thời gian quy định.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="toggle-modal-footer">
+          <button class="btn btn-toggle-cancel" @click="showToggleStatusModal = false" :disabled="togglingStatus">
+            Hủy bỏ
+          </button>
+          <button
+              class="btn btn-toggle-action"
+              :class="selectedToggleItem.trangThai === 1 ? 'btn-red-action' : 'btn-green-action'"
+              :disabled="togglingStatus"
+              @click="confirmToggleStatus"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span>{{ togglingStatus ? 'Đang cập nhật...' : (selectedToggleItem.trangThai === 1 ? 'Ngừng hoạt động' : 'Hoạt động') }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -600,11 +696,16 @@ const pageSize = ref(5)
 const totalPages = ref(0)
 const totalElements = ref(0)
 
-// Modal xác nhận
+// Modal xác nhận lưu/tạo
 const showConfirmModal = ref(false)
 const isEditing = ref(false)
 const submitting = ref(false)
 const exporting = ref(false)
+
+// Modal xác nhận đổi trạng thái (theo hình ảnh thiết kế)
+const showToggleStatusModal = ref(false)
+const selectedToggleItem = ref(null)
+const togglingStatus = ref(false)
 
 // Form dữ liệu đợt giảm giá
 const formData = ref({
@@ -783,20 +884,41 @@ const visiblePages = computed(() => {
   return pages
 })
 
-// Đổi trạng thái Hoạt Động / Ngưng Hoạt Động
-const toggleStatus = async (item) => {
-  const isActivating = item.trangThai !== 1
+// Mở modal xác nhận đổi trạng thái (theo đúng giao diện mẫu)
+const openToggleStatusModal = (item) => {
+  selectedToggleItem.value = { ...item }
+  showToggleStatusModal.value = true
+}
+
+const toggleStatus = (item) => {
+  openToggleStatusModal(item)
+}
+
+// Xác nhận gọi API đổi trạng thái từ modal
+const confirmToggleStatus = async () => {
+  if (!selectedToggleItem.value) return
+  const itemInModal = selectedToggleItem.value
+  const isActivating = itemInModal.trangThai !== 1
   const targetStatus = isActivating ? 'Hoạt Động' : 'Ngưng Hoạt Động'
-  const confirmMsg = `Bạn có chắc chắn muốn chuyển trạng thái đợt giảm giá "${item.tenDotGiamGia || item.maDotGiamGia}" sang [${targetStatus}]?`
-  if (!confirm(confirmMsg)) return
 
   try {
-    const res = await api.put(`/api/dot-giam-gia/${item.id}/toggle-status`)
-    item.trangThai = res.data.trangThai
-    showToast(`Đã chuyển sang ${targetStatus} thành công!`, 'success')
+    togglingStatus.value = true
+    const res = await api.put(`/api/dot-giam-gia/${itemInModal.id}/toggle-status`)
+    
+    // Cập nhật trạng thái trực tiếp trên mảng danh sách
+    const targetInList = campaigns.value.find(c => c.id === itemInModal.id)
+    if (targetInList) {
+      targetInList.trangThai = res.data.trangThai
+    }
+    
+    showToast(`Đã chuyển đợt giảm giá sang trạng thái "${targetStatus}" thành công!`, 'success')
+    showToggleStatusModal.value = false
+    selectedToggleItem.value = null
   } catch (error) {
     console.error('Lỗi khi đổi trạng thái:', error)
     showToast(`Không thể cập nhật trạng thái đợt giảm giá!`, 'error')
+  } finally {
+    togglingStatus.value = false
   }
 }
 
@@ -1343,6 +1465,176 @@ onMounted(() => {
 .btn-cancel-confirm:hover { background: #fbf5e8; }
 .btn-accept-confirm { background: #3a7d44; color: #ffffff; font-weight: 700; height: 2.5rem; padding: 0 1.4rem; border-radius: 6px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; box-shadow: 0 2px 6px rgba(58, 125, 68, 0.25); }
 .btn-accept-confirm:hover { background: #2f6937; }
+
+/* ========================================================
+   MODAL XÁC NHẬN ĐỔI TRẠNG THÁI (Y HỆT HÌNH ẢNH MẪU)
+======================================================== */
+.toggle-status-modal-box {
+  background: #ffffff;
+  border-radius: 14px;
+  width: 92%;
+  max-width: 530px;
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.toggle-modal-header {
+  padding: 1.15rem 1.4rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid #f6e3e3;
+}
+.header-deactivate { background: #fffcfc; border-bottom-color: #f7dede; }
+.header-activate { background: #f9fdfa; border-bottom-color: #d7edd7; }
+
+.toggle-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+.warning-triangle-icon {
+  font-size: 1.7rem;
+  line-height: 1.1;
+}
+.toggle-title-wrap {
+  display: flex;
+  flex-direction: column;
+}
+.toggle-title-text {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+.title-deactivate { color: #c62828; }
+.title-activate { color: #2e7d32; }
+.toggle-subtitle-text {
+  margin: 3px 0 0 0;
+  font-size: 0.84rem;
+  color: #c45e5e;
+}
+.header-activate .toggle-subtitle-text { color: #558b2f; }
+
+.btn-toggle-close {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: #a0a6a8;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.btn-toggle-close:hover { color: #4b585e; }
+
+.toggle-modal-body {
+  padding: 1.35rem 1.4rem 1.1rem;
+}
+.toggle-lead-msg {
+  font-size: 0.95rem;
+  color: #374146;
+  margin: 0 0 1.15rem 0;
+  line-height: 1.5;
+}
+
+.toggle-info-card {
+  background: #fbfbfa;
+  border: 1px solid #ebe8df;
+  border-radius: 9px;
+  padding: 1.1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.toggle-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+}
+.toggle-info-label {
+  color: #7b858b;
+}
+.toggle-info-val {
+  color: #242c30;
+  text-align: right;
+}
+
+.toggle-warning-alert {
+  margin-top: 1.1rem;
+  background: #fffcf2;
+  border: 1px solid #faeec7;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+}
+.alert-content {
+  font-size: 0.85rem;
+  color: #7d5e1f;
+  line-height: 1.45;
+}
+.alert-content b {
+  color: #705214;
+  margin-right: 4px;
+}
+
+.toggle-modal-footer {
+  padding: 1.1rem 1.4rem 1.35rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  border-top: 1px solid #f7f5ef;
+}
+.btn-toggle-cancel {
+  background: #ffffff;
+  border: 1px solid #d4d0c7;
+  color: #3f4a50;
+  font-weight: 700;
+  height: 2.5rem;
+  padding: 0 1.5rem;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-toggle-cancel:hover {
+  background: #fbf9f4;
+  border-color: #b5b0a4;
+}
+
+.btn-toggle-action {
+  height: 2.5rem;
+  padding: 0 1.45rem;
+  border-radius: 7px;
+  border: none;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.15s;
+}
+.btn-red-action {
+  background: #b71c1c;
+  color: #ffffff;
+  box-shadow: 0 2px 7px rgba(183, 28, 28, 0.28);
+}
+.btn-red-action:hover:not(:disabled) {
+  background: #9b1414;
+}
+.btn-green-action {
+  background: #2e7d32;
+  color: #ffffff;
+  box-shadow: 0 2px 7px rgba(46, 125, 50, 0.28);
+}
+.btn-green-action:hover:not(:disabled) {
+  background: #216125;
+}
+.btn-toggle-action:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
 
 .flex-1 { flex: 1; }
 
