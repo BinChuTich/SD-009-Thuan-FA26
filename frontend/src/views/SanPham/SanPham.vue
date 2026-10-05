@@ -235,30 +235,29 @@
             <!-- Ngày tạo -->
             <td class="date-cell">{{ formatDate(item.ngayTao) }}</td>
 
-            <!-- Badge trạng thái kèm nút đổi -->
+            <!-- Trạng thái sản phẩm -->
             <td style="text-align: center;">
-              <button
-                  :class="['status-toggle-btn', item.trangThai === 1 ? 'status-active' : 'status-inactive']"
-                  @click="toggleStatus(item)"
-                  title="Nhấn để thay đổi trạng thái"
-              >
+              <span :class="['status-badge', item.trangThai === 1 ? 'status-active' : 'status-inactive']">
                 {{ item.trangThai === 1 ? 'Kinh doanh' : 'Ngừng KD' }}
-              </button>
+              </span>
             </td>
 
-            <!-- Cột thao tác: Biến thể, Sửa, Xóa -->
-            <!-- Cột thao tác: Sửa, Xem chi tiết biến thể (Chỉ icon, không cần text) -->
+            <!-- Cột thao tác: Trạng thái kinh doanh, Xem chi tiết biến thể (Chỉ icon, không cần text) -->
             <td style="text-align: center;">
               <div class="action-buttons-group">
+                <!-- Icon trạng thái kinh doanh -->
                 <button
-                    class="btn-action btn-edit"
-                    @click="goToEditPage(item)"
-                    title="Chỉnh sửa thông tin sản phẩm"
+                    class="btn-action btn-status"
+                    :class="{ 'is-active': item.trangThai === 1 }"
+                    @click="toggleStatus(item)"
+                    :title="item.trangThai === 1 ? 'Ngừng kinh doanh' : 'Mở kinh doanh'"
                 >
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                    <line x1="12" y1="2" x2="12" y2="12"></line>
                   </svg>
                 </button>
+                <!-- Icon xem chi tiết biến thể -->
                 <button
                     class="btn-action btn-view"
                     @click="goToVariants(item)"
@@ -1104,7 +1103,27 @@ onMounted(() => {
   font-size: 0.88rem;
 }
 
-/* Trạng thái */
+.status-badge {
+  display: inline-block;
+  padding: 0.35rem 0.8rem;
+  font-weight: 700;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.status-badge.status-active {
+  background-color: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.status-badge.status-inactive {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
 .status-toggle-btn {
   display: inline-block;
   padding: 0.35rem 0.8rem;
@@ -1161,6 +1180,20 @@ onMounted(() => {
 
 .btn-action svg {
   display: block;
+}
+
+.btn-status {
+  color: #dc2626;
+  background-color: #fff1f2;
+  border-color: #ffe4e6;
+}
+.btn-status.is-active {
+  color: #059669;
+  background-color: #ecfdf5;
+  border-color: #a7f3d0;
+}
+.btn-status:hover {
+  transform: scale(1.08);
 }
 
 .btn-edit {

@@ -109,9 +109,15 @@ const openEditModal = (item) => {
   editModal.value.data = {
     id: item.id,
     idSanPham: item.idSanPham || currentProduct.value?.id,
+    tenSanPham: item.tenSanPham || currentProduct.value?.tenSanPham,
+    maSanPham: item.maSanPham || currentProduct.value?.maSanPham,
     maChiTietSanPham: item.maChiTietSanPham,
     idKichCo: item.idKichCo,
+    tenKichCo: item.tenKichCo,
     idMauSac: item.idMauSac,
+    tenMauSac: item.tenMauSac,
+    maHex: item.maHex,
+    anhDaiDien: item.anhDaiDien || currentProduct.value?.anhDaiDien,
     soLuong: item.soLuong,
     giaBan: item.giaBan,
     trangThai: item.trangThai
@@ -756,76 +762,104 @@ watch(() => route.query.sanPhamId, async (newId) => {
       </div>
     </div>
 
-    <!-- Modal Chỉnh Sửa Biến Thể -->
+    <!-- Modal Cập Nhật Biến Thể theo đúng giao diện mẫu -->
     <div class="modal-backdrop" v-if="editModal.show" @click.self="closeEditModal">
-      <div class="modal-dialog-box">
-        <div class="modal-header-row">
-          <h3 class="modal-dialog-title">Chỉnh sửa biến thể</h3>
-          <button class="modal-close-icon" @click="closeEditModal">&times;</button>
+      <div class="modal-dialog-box update-variant-dialog">
+        <!-- Header -->
+        <div class="update-variant-header">
+          <div class="header-left-info">
+            <div class="variant-tag-badge">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+              <span>Cập nhật biến thể</span>
+            </div>
+            <h3 class="update-product-title">{{ editModal.data.tenSanPham || currentProduct?.tenSanPham || 'Sản phẩm' }}</h3>
+            <div class="update-product-code">Mã SP: {{ editModal.data.maSanPham || currentProduct?.maSanPham || '—' }}</div>
+          </div>
+          <button class="modal-close-icon" @click="closeEditModal" title="Đóng">&times;</button>
         </div>
 
-        <div class="modal-body-content">
-          <div class="modal-form-grid">
-            <div class="modal-field-item full-width">
-              <label class="form-item-label">Mã biến thể</label>
-              <input
-                  type="text"
-                  v-model="editModal.data.maChiTietSanPham"
-                  class="form-control-input"
-                  placeholder="Mã CTSP"
+        <!-- Body: 2 cột theo ảnh mẫu -->
+        <div class="update-variant-body">
+          <!-- Cột trái: Ảnh to + 2 thẻ thông tin Màu sắc, Kích cỡ -->
+          <div class="left-variant-preview">
+            <div class="large-img-card">
+              <img
+                  :src="formatImageUrl(editModal.data.anhDaiDien || currentProduct?.anhDaiDien)"
+                  @error="onImgError"
+                  alt="Variant big preview"
+                  class="preview-img-tag"
               />
             </div>
 
-            <div class="modal-field-item">
-              <label class="form-item-label">Màu sắc</label>
-              <select v-model="editModal.data.idMauSac" class="form-control-select">
-                <option v-for="c in colors" :key="c.id" :value="c.id">{{ c.tenMauSac }}</option>
-              </select>
-            </div>
+            <div class="variant-attr-summary-row">
+              <div class="attr-summary-box">
+                <span class="attr-box-label">MÀU SẮC</span>
+                <div class="attr-box-val">
+                  <span class="attr-color-dot" :style="{ backgroundColor: editModal.data.maHex || '#e11d48' }"></span>
+                  <span class="attr-text-val">{{ editModal.data.tenMauSac || 'Mặc định' }}</span>
+                </div>
+              </div>
 
-            <div class="modal-field-item">
-              <label class="form-item-label">Kích cỡ</label>
-              <select v-model="editModal.data.idKichCo" class="form-control-select">
-                <option v-for="s in sizes" :key="s.id" :value="s.id">{{ s.tenKichCo }}</option>
-              </select>
-            </div>
-
-            <div class="modal-field-item">
-              <label class="form-item-label">Số lượng tồn <span class="req-star">*</span></label>
-              <input
-                  type="number"
-                  min="0"
-                  v-model.number="editModal.data.soLuong"
-                  class="form-control-input"
-              />
-              <span class="err-text" v-if="editModal.errors.soLuong">{{ editModal.errors.soLuong }}</span>
-            </div>
-
-            <div class="modal-field-item">
-              <label class="form-item-label">Giá bán (VNĐ) <span class="req-star">*</span></label>
-              <input
-                  type="number"
-                  min="0"
-                  step="1000"
-                  v-model.number="editModal.data.giaBan"
-                  class="form-control-input"
-              />
-              <span class="err-text" v-if="editModal.errors.giaBan">{{ editModal.errors.giaBan }}</span>
-            </div>
-
-            <div class="modal-field-item full-width">
-              <label class="form-item-label">Trạng thái kinh doanh</label>
-              <select v-model="editModal.data.trangThai" class="form-control-select">
-                <option :value="1">Đang bán</option>
-                <option :value="0">Ngừng bán</option>
-              </select>
+              <div class="attr-summary-box">
+                <span class="attr-box-label">KÍCH CỠ</span>
+                <div class="attr-box-val">
+                  <span class="attr-text-val">Size {{ editModal.data.tenKichCo || '—' }}</span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="modal-footer-row">
-          <button class="btn btn-cancel-modal" @click="closeEditModal">Hủy bỏ</button>
-          <button class="btn btn-save-modal" @click="handleSaveVariant">Lưu thay đổi</button>
+          <!-- Cột phải: Cập nhật thông tin -->
+          <div class="right-variant-form-card">
+            <div class="form-card-heading">CẬP NHẬT THÔNG TIN</div>
+
+            <div class="form-fields-stack">
+              <div class="variant-field-group">
+                <label class="field-label-text">SỐ LƯỢNG</label>
+                <input
+                    type="number"
+                    min="0"
+                    v-model.number="editModal.data.soLuong"
+                    class="field-input-control"
+                    placeholder="0"
+                />
+                <span class="err-text" v-if="editModal.errors.soLuong">{{ editModal.errors.soLuong }}</span>
+              </div>
+
+              <div class="variant-field-group">
+                <label class="field-label-text">GIÁ BÁN <span class="req-star">*</span></label>
+                <input
+                    type="number"
+                    min="0"
+                    step="1000"
+                    v-model.number="editModal.data.giaBan"
+                    class="field-input-control field-price-focus"
+                    placeholder="0"
+                />
+                <span class="err-text" v-if="editModal.errors.giaBan">{{ editModal.errors.giaBan }}</span>
+              </div>
+
+              <div class="variant-field-group">
+                <label class="field-label-text">TRẠNG THÁI</label>
+                <select v-model.number="editModal.data.trangThai" class="field-input-control field-select-control">
+                  <option :value="1">Đang bán</option>
+                  <option :value="0">Ngừng bán</option>
+                </select>
+              </div>
+
+              <button class="btn-save-variant-action" @click="handleSaveVariant">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                  <polyline points="7 3 7 8 15 8"></polyline>
+                </svg>
+                Lưu biến thể
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1733,6 +1767,206 @@ watch(() => route.query.sanPhamId, async (newId) => {
   font-size: 0.84rem;
   font-weight: 700;
   color: #e11d48;
+}
+
+/* Update Variant Dialog per Screenshot */
+.update-variant-dialog {
+  max-width: 760px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  padding: 1.5rem 1.75rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+}
+
+.update-variant-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.header-left-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.variant-tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #e11d48;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background-color: #fff1f2;
+  padding: 3px 8px;
+  border-radius: 6px;
+  width: fit-content;
+  margin-bottom: 6px;
+}
+
+.update-product-title {
+  margin: 0 0 4px 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.update-product-code {
+  font-size: 0.88rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.update-variant-body {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 1.5rem;
+}
+
+.left-variant-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.large-img-card {
+  height: 235px;
+  background-color: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.preview-img-tag {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.variant-attr-summary-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.attr-summary-box {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background-color: #ffffff;
+}
+
+.attr-box-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.attr-box-val {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.attr-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.attr-text-val {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.right-variant-form-card {
+  background-color: #ffffff;
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.form-card-heading {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #334155;
+  letter-spacing: 0.6px;
+  margin-bottom: 1.1rem;
+}
+
+.form-fields-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1;
+}
+
+.variant-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field-label-text {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.3px;
+}
+
+.field-input-control {
+  height: 2.45rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0 0.85rem;
+  font-size: 0.92rem;
+  color: #0f172a;
+  outline: none;
+  background-color: #ffffff;
+  transition: all 0.2s;
+}
+
+.field-input-control:focus {
+  border-color: #e11d48;
+  box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.1);
+}
+
+.field-select-control {
+  cursor: pointer;
+}
+
+.btn-save-variant-action {
+  height: 2.75rem;
+  background-color: #e11d48;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: auto;
+}
+
+.btn-save-variant-action:hover {
+  background-color: #be123c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);
 }
 
 /* Responsive */
