@@ -10,49 +10,62 @@
 
     <!-- Khối khung trắng bao bọc toàn bộ chức năng -->
     <div class="product-card">
-      <!-- 1. Hàng tìm kiếm và các nút chính -->
-      <div class="top-action-bar">
-        <div class="search-group">
-          <input
-              type="text"
-              v-model="filters.keyword"
-              @keyup.enter="handleSearch"
-              placeholder="Tìm kiếm theo mã, tên sản phẩm..."
-              class="input-search"
-          />
-          <button class="btn btn-search" @click="handleSearch">
-            <span class="btn-icon">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
+      <!-- 1. Hàng tìm kiếm và các nút chính sắp xếp full theo mẫu -->
+      <div class="search-actions-bar">
+        <!-- Cột trái: Tìm kiếm full width -->
+        <div class="search-input-col">
+          <label class="search-label">Tìm kiếm</label>
+          <div class="input-inner-wrap">
+            <span class="prefix-search-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
             </span>
-            Tìm kiếm
-          </button>
-          <button class="btn btn-refresh" @click="resetFilters">
+            <input
+                type="text"
+                v-model="filters.keyword"
+                @keyup.enter="handleSearch"
+                @input="onKeywordChange"
+                placeholder="Tìm theo mã SP / tên sản phẩm..."
+                class="input-search-full"
+            />
+          </div>
+        </div>
+
+        <!-- Cột phải: 3 nút hành động (Đặt lại bộ lọc, Xuất Excel, + Thêm sản phẩm) -->
+        <div class="action-buttons-col">
+          <button class="btn btn-refresh" @click="resetFilters" title="Đặt lại bộ lọc">
             <span class="btn-icon">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="23 4 23 10 17 10"></polyline>
                 <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
               </svg>
             </span>
-            Làm mới
+            Đặt lại bộ lọc
           </button>
-          <button class="btn btn-export" @click="handleExportExcel" :disabled="exporting">
+          <button class="btn btn-export" @click="handleExportExcel" :disabled="exporting" title="Xuất danh sách ra file Excel">
             <span class="btn-icon">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
               </svg>
             </span>
             {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
           </button>
+          <button class="btn btn-add" @click="goToAddPage" title="Thêm mới sản phẩm">
+            <span class="btn-icon">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </span>
+            Thêm sản phẩm
+          </button>
         </div>
-
-        <button class="btn btn-add" @click="goToAddPage">
-          + Thêm sản phẩm
-        </button>
       </div>
 
       <!-- 2. Khối 8 tiêu chí lọc thuộc tính -->
@@ -495,6 +508,14 @@ const handleSearch = () => {
   fetchProducts()
 }
 
+let searchTimeout = null
+const onKeywordChange = () => {
+  if (searchTimeout) clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    handleSearch()
+  }, 350)
+}
+
 const resetFilters = () => {
   filters.value = {
     keyword: '',
@@ -706,43 +727,72 @@ onMounted(() => {
   padding: 1.5rem 1.75rem;
 }
 
-/* 1. Hàng tìm kiếm và nút thao tác trên cùng */
-.top-action-bar {
+/* 1. Hàng tìm kiếm và các nút chính sắp xếp full */
+.search-actions-bar {
   display: flex;
+  align-items: flex-end;
   justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem 1rem;
-  margin-bottom: 1.2rem;
-  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+  width: 100%;
 }
 
-.search-group {
+.search-input-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.search-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  margin: 0;
+}
+
+.input-inner-wrap {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.5rem 0.65rem;
-  flex: 1 1 auto;
-  min-width: 0;
-  flex-wrap: wrap;
+  width: 100%;
 }
 
-.input-search {
-  flex: 1 1 200px;
-  min-width: 170px;
-  max-width: 320px;
+.prefix-search-icon {
+  position: absolute;
+  left: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.input-search-full {
+  width: 100%;
   height: 2.5rem;
-  background-color: #f1f4f8;
-  border: 1px solid transparent;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 0 0.85rem;
-  font-size: 0.9rem;
-  color: #3d4a50;
+  padding: 0 1rem 0 2.5rem;
+  font-size: 0.92rem;
+  color: #1e293b;
   outline: none;
   transition: all 0.2s ease;
 }
 
-.input-search:focus {
+.input-search-full:focus {
   border-color: var(--blue, #496883);
   background-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.12);
+}
+
+.action-buttons-col {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
 }
 
 /* Các loại nút bấm */
@@ -1309,39 +1359,16 @@ textarea.form-control {
   to { opacity: 1; }
 }
 
-@media (max-width: 1200px) {
-  .top-action-bar {
-    gap: 0.75rem;
-  }
-}
-
-@media (max-width: 1050px) {
-  .attribute-dropdowns-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 900px) {
-  .top-action-bar {
+@media (max-width: 992px) {
+  .search-actions-bar {
     flex-direction: column;
     align-items: stretch;
-    gap: 0.75rem;
+    gap: 0.85rem;
   }
-  .search-group {
+  .action-buttons-col {
+    justify-content: flex-end;
     flex-wrap: wrap;
     width: 100%;
-  }
-  .input-search {
-    flex: 1 1 100%;
-    min-width: 100%;
-    max-width: 100%;
-  }
-  .btn-add {
-    width: 100%;
-    margin-left: 0;
-  }
-  .form-grid {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -1352,11 +1379,11 @@ textarea.form-control {
   .product-card {
     padding: 1rem;
   }
-  .search-group {
+  .action-buttons-col {
     flex-direction: column;
     align-items: stretch;
   }
-  .search-group .btn {
+  .action-buttons-col .btn {
     width: 100%;
   }
   .filter-attributes-section {
