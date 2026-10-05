@@ -46,9 +46,8 @@ public class DotGiamGia {
     @ColumnDefault("1")
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
-
-    @com.fasterxml.jackson.annotation.JsonIgnore
-    @OneToMany(mappedBy = "idDotGiamGia")
-    private Set<ChiTietDotGiamGia> chiTietDotGiamGias = new LinkedHashSet<>();
+//
+//    @OneToMany(mappedBy = "idDotGiamGia")
+//    private Set<ChiTietDotGiamGia> chiTietDotGiamGias = new LinkedHashSet<>();
 
 }
