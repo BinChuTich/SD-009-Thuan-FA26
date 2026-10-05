@@ -1,4 +1,3 @@
-```vue
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -54,7 +53,6 @@ const resetFilters = () => {
   }
 
   currentTab.value = 'Tất Cả'
-
   currentPage.value = 1
 }
 
@@ -63,7 +61,6 @@ const resetFilters = () => {
 ========================= */
 
 const invoiceList = ref([])
-
 const loading = ref(false)
 const errorMessage = ref('')
 
@@ -73,7 +70,6 @@ const errorMessage = ref('')
 
 const formatMoney = (money) => {
   if (money == null) return '0đ'
-
   return Number(money).toLocaleString('vi-VN') + 'đ'
 }
 
@@ -83,7 +79,6 @@ const formatMoney = (money) => {
 
 const formatDate = (date) => {
   if (!date) return ''
-
   return new Date(date).toLocaleDateString('vi-VN')
 }
 
@@ -93,7 +88,6 @@ const formatDate = (date) => {
 
 const formatTime = (date) => {
   if (!date) return ''
-
   return new Date(date).toLocaleTimeString('vi-VN')
 }
 
@@ -122,22 +116,16 @@ const getStatusClass = (status) => {
   switch (Number(status)) {
     case 1:
       return 'status-pending'
-
     case 2:
       return 'status-confirmed'
-
     case 3:
       return 'status-waiting'
-
     case 4:
       return 'status-shipping'
-
     case 5:
       return 'status-completed'
-
     case 6:
       return 'status-cancelled'
-
     default:
       return 'status-default'
   }
@@ -174,71 +162,28 @@ const loadHoaDon = async () => {
 
     const response = await api.get('/api/hoa-don')
 
-    console.log(
-        'Dữ liệu hóa đơn từ API:',
-        response.data
-    )
-
     invoiceList.value = response.data.map(item => ({
       id: item.id,
-
-      // Mã hóa đơn
       code: item.maHoaDon,
-
-      // Khách hàng
       customerName: item.tenKhachHang || 'Khách lẻ',
-
-      // Địa chỉ
       address: item.diaChiNhanHang || '',
-
-      // Người tạo hóa đơn
       employeeName: item.nguoiTao || 'Không xác định',
-
-      // Tổng tiền
       totalPrice: Number(item.tongTien || 0),
-
-      // Ngày giờ tạo
       createTime: formatTime(item.ngayTao),
-
-      // Ngày tạo
       createDate: formatDate(item.ngayTao),
-
-      // Giữ lại ngày gốc để lọc
       rawDate: item.ngayTao,
-
-      // Loại đơn
       type: Number(item.loaiDon) === 1
           ? 'Tại cửa hàng'
           : 'Online',
-
-      // Trạng thái đơn
       status: Number(item.trangThai),
-
-      // Trạng thái thanh toán
-      paymentStatus: Number(
-          item.trangThaiThanhToan ?? 0
-      ),
-
-      // Ghi chú
+      paymentStatus: Number(item.trangThaiThanhToan ?? 0),
       note: item.ghiChu || ''
     }))
 
-    console.log(
-        'Danh sách sau khi map:',
-        invoiceList.value
-    )
-
     currentPage.value = 1
-
   } catch (error) {
-    console.error(
-        'Lỗi lấy danh sách hóa đơn:',
-        error
-    )
-
-    errorMessage.value =
-        'Không thể tải dữ liệu hóa đơn.'
-
+    console.error('Lỗi lấy danh sách hóa đơn:', error)
+    errorMessage.value = 'Không thể tải dữ liệu hóa đơn.'
   } finally {
     loading.value = false
   }
@@ -250,89 +195,40 @@ const loadHoaDon = async () => {
 
 const filteredInvoiceList = computed(() => {
   return invoiceList.value.filter(item => {
-
-    /* -------------------------
-       Lọc mã hóa đơn
-    ------------------------- */
-
     if (filters.value.code) {
-      const keyword = filters.value.code
-          .trim()
-          .toLowerCase()
-
-      if (
-          !item.code
-              ?.toLowerCase()
-              .includes(keyword)
-      ) {
+      const keyword = filters.value.code.trim().toLowerCase()
+      if (!item.code?.toLowerCase().includes(keyword)) {
         return false
       }
     }
 
-    /* -------------------------
-       Lọc loại đơn
-    ------------------------- */
-
-    if (filters.value.type) {
-      if (
-          item.type !==
-          filters.value.type
-      ) {
-        return false
-      }
+    if (filters.value.type && item.type !== filters.value.type) {
+      return false
     }
-
-    /* -------------------------
-       Lọc từ ngày
-    ------------------------- */
 
     if (filters.value.startDate) {
-      const itemDate =
-          new Date(item.rawDate)
-
-      const startDate =
-          new Date(filters.value.startDate)
-
+      const itemDate = new Date(item.rawDate)
+      const startDate = new Date(filters.value.startDate)
       itemDate.setHours(0, 0, 0, 0)
       startDate.setHours(0, 0, 0, 0)
-
       if (itemDate < startDate) {
         return false
       }
     }
 
-    /* -------------------------
-       Lọc đến ngày
-    ------------------------- */
-
     if (filters.value.endDate) {
-      const itemDate =
-          new Date(item.rawDate)
-
-      const endDate =
-          new Date(filters.value.endDate)
-
+      const itemDate = new Date(item.rawDate)
+      const endDate = new Date(filters.value.endDate)
       itemDate.setHours(0, 0, 0, 0)
       endDate.setHours(0, 0, 0, 0)
-
       if (itemDate > endDate) {
         return false
       }
     }
 
-    /* -------------------------
-       Lọc trạng thái theo Tab
-    ------------------------- */
-
     if (currentTab.value !== 'Tất Cả') {
-
-      const statusText =
-          getStatusText(item.status)
-
-      if (
-          statusText !==
-          currentTab.value
-      ) {
+      const statusText = getStatusText(item.status)
+      if (statusText !== currentTab.value) {
         return false
       }
     }
@@ -346,40 +242,20 @@ const filteredInvoiceList = computed(() => {
 ========================= */
 
 const currentPage = ref(1)
-
 const pageSize = ref(5)
 
 const totalPages = computed(() => {
-  return Math.ceil(
-      filteredInvoiceList.value.length /
-      pageSize.value
-  )
+  return Math.ceil(filteredInvoiceList.value.length / pageSize.value) || 1
 })
 
 const paginatedInvoiceList = computed(() => {
-
-  const start =
-      (currentPage.value - 1) *
-      pageSize.value
-
-  const end =
-      start + pageSize.value
-
-  return filteredInvoiceList.value.slice(
-      start,
-      end
-  )
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return filteredInvoiceList.value.slice(start, end)
 })
 
 const changePage = (page) => {
-
-  if (
-      page < 1 ||
-      page > totalPages.value
-  ) {
-    return
-  }
-
+  if (page < 1 || page > totalPages.value) return
   currentPage.value = page
 }
 
@@ -397,46 +273,21 @@ onMounted(() => {
 </script>
 
 <template>
-
   <div class="hoa-don-page">
-
-    <!-- =========================
-         TIÊU ĐỀ
-    ========================== -->
-
+    <!-- TIÊU ĐỀ -->
     <div class="page-title-box">
-
       <div class="title-row">
-
-        <h2 class="page-title">
-          Quản Lý Hóa Đơn
-        </h2>
-
-
+        <h2 class="page-title">Quản Lý Hóa Đơn</h2>
       </div>
-
     </div>
 
-    <!-- =========================
-         BỘ LỌC
-    ========================== -->
-
+    <!-- BỘ LỌC -->
     <div class="card-box filter-card">
-
-      <div class="card-title">
-        Bộ lọc tìm kiếm
-      </div>
-
+      <div class="card-title">Bộ lọc tìm kiếm</div>
       <div class="filter-grid">
-
         <!-- Mã hóa đơn -->
-
         <div class="form-group">
-
-          <label>
-            Mã hóa đơn
-          </label>
-
+          <label>Mã hóa đơn</label>
           <input
               v-model="filters.code"
               @input="resetPage"
@@ -444,401 +295,198 @@ onMounted(() => {
               placeholder="Tìm theo mã hóa đơn..."
               class="form-control"
           />
-
         </div>
 
         <!-- Từ ngày -->
-
         <div class="form-group">
-
-          <label>
-            Từ ngày
-          </label>
-
+          <label>Từ ngày</label>
           <input
               v-model="filters.startDate"
               @change="resetPage"
               type="date"
               class="form-control"
           />
-
         </div>
 
         <!-- Đến ngày -->
-
         <div class="form-group">
-
-          <label>
-            Đến ngày
-          </label>
-
+          <label>Đến ngày</label>
           <input
               v-model="filters.endDate"
               @change="resetPage"
               type="date"
               class="form-control"
           />
-
         </div>
 
         <!-- Loại đơn -->
-
         <div class="form-group">
-
-          <label>
-            Loại đơn hàng
-          </label>
-
+          <label>Loại đơn hàng</label>
           <select
               v-model="filters.type"
               @change="resetPage"
               class="form-control"
           >
-
-            <option value="">
-              Tất cả
-            </option>
-
-            <option value="Tại cửa hàng">
-              Tại cửa hàng
-            </option>
-
-            <option value="Online">
-              Online
-            </option>
-
+            <option value="">Tất cả</option>
+            <option value="Tại cửa hàng">Tại cửa hàng</option>
+            <option value="Online">Online</option>
           </select>
-
         </div>
-
       </div>
 
       <!-- Nút lọc -->
-
       <div class="filter-actions">
-
-        <button
-            class="btn btn-primary"
-            @click="loadHoaDon"
-        >
+        <button class="btn btn-secondary" @click="resetFilters">
+          Đặt lại
+        </button>
+        <button class="btn btn-primary" @click="loadHoaDon">
           Làm Mới
         </button>
-
       </div>
-
     </div>
 
-    <!-- =========================
-         DANH SÁCH
-    ========================== -->
-
+    <!-- DANH SÁCH -->
     <div class="card-box table-card">
-
       <!-- Tabs -->
-
       <div class="status-tabs">
-
         <button
             v-for="tab in statusTabs"
             :key="tab"
             class="tab-item"
-            :class="{
-            active: currentTab === tab
-          }"
-            @click="
-            currentTab = tab;
-            resetPage()
-          "
+            :class="{ active: currentTab === tab }"
+            @click="currentTab = tab; resetPage()"
         >
           {{ tab }}
         </button>
-
       </div>
 
       <!-- Loading -->
-
-      <div
-          v-if="loading"
-          class="state-message"
-      >
+      <div v-if="loading" class="state-message">
         Đang tải dữ liệu...
       </div>
 
       <!-- Error -->
-
-      <div
-          v-else-if="errorMessage"
-          class="state-message error"
-      >
+      <div v-else-if="errorMessage" class="state-message error">
         {{ errorMessage }}
       </div>
 
       <!-- Bảng -->
-
-      <div
-          v-else
-          class="table-responsive"
-      >
-
+      <div v-else class="table-responsive">
         <table class="custom-table">
-
           <thead>
-
           <tr>
-
-            <th>
-              #
-            </th>
-
-            <th>
-              Mã Hóa Đơn
-            </th>
-
-            <th>
-              Khách Hàng
-            </th>
-
-            <th>
-              Nhân Viên
-            </th>
-
-            <th>
-              Tổng Tiền
-            </th>
-
-            <th>
-              Loại Đơn
-            </th>
-
-            <th>
-              Thời Gian Tạo
-            </th>
-
-            <th>
-              Trạng Thái
-            </th>
-
-            <!-- THÊM CỘT THANH TOÁN -->
-
-            <th>
-              Thanh Toán
-            </th>
-
-            <th class="text-center">
-              Thao Tác
-            </th>
-
+            <th>#</th>
+            <th>Mã Hóa Đơn</th>
+            <th>Khách Hàng</th>
+            <th>Nhân Viên</th>
+            <th>Tổng Tiền</th>
+            <th>Loại Đơn</th>
+            <th>Thời Gian Tạo</th>
+            <th>Trạng Thái</th>
+            <th>Thanh Toán</th>
+            <th class="text-center">Thao Tác</th>
           </tr>
-
           </thead>
 
           <tbody>
-
           <!-- Không có dữ liệu -->
-
-          <tr
-              v-if="
-              filteredInvoiceList.length === 0
-            "
-          >
-
-            <td
-                colspan="10"
-                class="text-center text-muted"
-            >
+          <tr v-if="filteredInvoiceList.length === 0">
+            <td colspan="10" class="text-center text-muted">
               Không có dữ liệu hóa đơn nào.
             </td>
-
           </tr>
 
           <!-- Danh sách -->
-
           <tr
               v-for="(item, index) in paginatedInvoiceList"
               :key="item.id"
           >
-
             <!-- STT -->
-
             <td>
-              {{
-                (currentPage - 1) *
-                pageSize +
-                index +
-                1
-              }}
+              {{ (currentPage - 1) * pageSize + index + 1 }}
             </td>
 
             <!-- Mã -->
-
             <td class="font-bold text-code">
               {{ item.code }}
             </td>
 
             <!-- Khách hàng -->
-
             <td>
               {{ item.customerName }}
             </td>
 
             <!-- Nhân viên -->
-
             <td>
               {{ item.employeeName }}
             </td>
 
             <!-- Tổng tiền -->
-
             <td class="font-bold text-price">
               {{ formatMoney(item.totalPrice) }}
             </td>
 
             <!-- Loại đơn -->
-
             <td>
-
-              <span
-                  :class="
-                  item.type === 'Tại cửa hàng'
-                    ? 'badge-store'
-                    : 'badge-online'
-                "
-              >
-                {{ item.type }}
-              </span>
-
+                <span :class="item.type === 'Tại cửa hàng' ? 'badge-store' : 'badge-online'">
+                  {{ item.type }}
+                </span>
             </td>
 
             <!-- Thời gian -->
-
             <td>
-
-              <div>
-                {{ item.createDate }}
-              </div>
-
-              <small class="text-muted">
-                {{ item.createTime }}
-              </small>
-
+              <div>{{ item.createDate }}</div>
+              <small class="text-muted">{{ item.createTime }}</small>
             </td>
 
             <!-- Trạng thái đơn -->
-
             <td>
-
-              <span
-                  class="badge-status"
-                  :class="
-                  getStatusClass(
-                    item.status
-                  )
-                "
-              >
-                {{
-                  getStatusText(
-                      item.status
-                  )
-                }}
-              </span>
-
+                <span class="badge-status" :class="getStatusClass(item.status)">
+                  {{ getStatusText(item.status) }}
+                </span>
             </td>
 
-            <!-- TRẠNG THÁI THANH TOÁN -->
-
+            <!-- Trạng thái thanh toán -->
             <td>
-
-              <span
-                  class="payment-badge"
-                  :class="
-                  getPaymentClass(
-                    item.paymentStatus
-                  )
-                "
-              >
-                {{
-                  getPaymentText(
-                      item.paymentStatus
-                  )
-                }}
-              </span>
-
+                <span class="payment-badge" :class="getPaymentClass(item.paymentStatus)">
+                  {{ getPaymentText(item.paymentStatus) }}
+                </span>
             </td>
 
-            <!-- Thao tác -->
-
+            <!-- THAO TÁC: CHỈ CÒN NÚT ICON MẮT XEM CHI TIẾT -->
             <td class="text-center">
-
               <button
-                  class="btn-action"
+                  class="btn-icon btn-view"
+                  title="Xem chi tiết"
                   @click="xemChiTiet(item.code)"
               >
-                Chi tiết
+                <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
               </button>
-
             </td>
-
           </tr>
-
           </tbody>
-
         </table>
 
-        <!-- =========================
-             PHÂN TRANG
-        ========================== -->
-
-        <div
-            v-if="
-            filteredInvoiceList.length > 0
-          "
-            class="pagination-container"
-        >
-
+        <!-- PHÂN TRANG -->
+        <div v-if="filteredInvoiceList.length > 0" class="pagination-container">
           <div class="pagination-info">
-
             Hiển thị
-
-            <strong>
-              {{
-                (currentPage - 1) *
-                pageSize + 1
-              }}
-            </strong>
-
+            <strong>{{ (currentPage - 1) * pageSize + 1 }}</strong>
             -
-
-            <strong>
-              {{
-                Math.min(
-                    currentPage * pageSize,
-                    filteredInvoiceList.length
-                )
-              }}
-            </strong>
-
+            <strong>{{ Math.min(currentPage * pageSize, filteredInvoiceList.length) }}</strong>
             trên tổng
-
-            <strong>
-              {{
-                filteredInvoiceList.length
-              }}
-            </strong>
-
+            <strong>{{ filteredInvoiceList.length }}</strong>
             hóa đơn
-
           </div>
 
           <div class="pagination">
-
             <button
                 class="page-btn"
                 :disabled="currentPage === 1"
-                @click="
-                changePage(
-                  currentPage - 1
-                )
-              "
+                @click="changePage(currentPage - 1)"
             >
               ‹
             </button>
@@ -847,45 +495,27 @@ onMounted(() => {
                 v-for="page in totalPages"
                 :key="page"
                 class="page-btn"
-                :class="{
-                active:
-                  currentPage === page
-              }"
-                @click="
-                changePage(page)
-              "
+                :class="{ active: currentPage === page }"
+                @click="changePage(page)"
             >
               {{ page }}
             </button>
 
             <button
                 class="page-btn"
-                :disabled="
-                currentPage === totalPages
-              "
-                @click="
-                changePage(
-                  currentPage + 1
-                )
-              "
+                :disabled="currentPage === totalPages"
+                @click="changePage(currentPage + 1)"
             >
               ›
             </button>
-
           </div>
-
         </div>
-
       </div>
-
     </div>
-
   </div>
-
 </template>
 
 <style scoped>
-
 .hoa-don-page {
   padding: 24px;
 }
@@ -909,23 +539,6 @@ onMounted(() => {
   font-weight: 700;
   color: #496883;
   margin: 0;
-}
-
-.btn-add {
-  background: #496883;
-  color: #ffffff;
-  border: none;
-  padding: 9px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.85rem;
-  transition: all 0.2s ease;
-}
-
-.btn-add:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
 }
 
 /* =========================
@@ -953,11 +566,7 @@ onMounted(() => {
 
 .filter-grid {
   display: grid;
-  grid-template-columns:
-    repeat(
-      auto-fit,
-      minmax(200px, 1fr)
-    );
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
 }
 
@@ -1084,6 +693,7 @@ onMounted(() => {
   padding: 12px 14px;
   border-bottom: 1px solid #e9e5db;
   color: #555;
+  vertical-align: middle;
 }
 
 .font-bold {
@@ -1106,10 +716,6 @@ onMounted(() => {
   text-align: center;
 }
 
-.customer-name {
-  font-weight: 500;
-}
-
 /* =========================
    BADGES
 ========================= */
@@ -1125,8 +731,6 @@ onMounted(() => {
   display: inline-block;
 }
 
-/* Loại đơn */
-
 .badge-store {
   background: #e6f4ea;
   color: #1e7e34;
@@ -1136,10 +740,6 @@ onMounted(() => {
   background: #e8f0fe;
   color: #1a73e8;
 }
-
-/* =========================
-   TRẠNG THÁI
-========================= */
 
 .badge-status {
   border: 1px solid transparent;
@@ -1187,10 +787,6 @@ onMounted(() => {
   border-color: #ddd;
 }
 
-/* =========================
-   THANH TOÁN
-========================= */
-
 .payment-badge {
   border: 1px solid transparent;
   white-space: nowrap;
@@ -1209,25 +805,32 @@ onMounted(() => {
 }
 
 /* =========================
-   BUTTON CHI TIẾT
+   ACTION BUTTON ICON MẮT
 ========================= */
 
-.btn-action {
-  background-color: #f7f5ef;
-  color: #496883;
-  border: 1px solid #d6d0c3;
-  padding: 5px 12px;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 600;
+.btn-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
   cursor: pointer;
+  padding: 0;
   transition: all 0.2s ease;
+  outline: none;
 }
 
-.btn-action:hover {
-  background-color: #496883;
-  color: #ffffff;
-  border-color: #496883;
+.btn-view {
+  background-color: #ffffff;
+  border: 1px solid #dedede;
+  color: #0b69a3;
+}
+
+.btn-view:hover {
+  background-color: #f3f7fb;
+  border-color: #b9d7ea;
+  transform: translateY(-1px);
 }
 
 /* =========================
@@ -1304,11 +907,10 @@ onMounted(() => {
 }
 
 /* =========================
-   MOBILE
+   RESPONSIVE
 ========================= */
 
 @media (max-width: 768px) {
-
   .hoa-don-page {
     padding: 16px;
   }
@@ -1317,10 +919,6 @@ onMounted(() => {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
-  }
-
-  .btn-add {
-    width: 100%;
   }
 
   .filter-grid {
@@ -1332,7 +930,5 @@ onMounted(() => {
     gap: 12px;
     align-items: center;
   }
-
 }
-
 </style>
