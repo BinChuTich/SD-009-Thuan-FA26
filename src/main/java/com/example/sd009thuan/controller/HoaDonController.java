@@ -46,7 +46,7 @@ public class HoaDonController {
                 hoaDonService.create(hoaDon)
         );
     }
-//    // PUT - Cập nhật hóa đơn
+    // PUT - Cập nhật hóa đơn
     @PutMapping("/{id}")
     public ResponseEntity<HoaDon> update(
             @PathVariable Long id,

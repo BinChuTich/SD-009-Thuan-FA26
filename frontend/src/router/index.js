@@ -24,6 +24,8 @@ import BienTheSanPham from '../views/SanPham/BienTheSanPham.vue'
 // Giảm giá
 import DotGiamGia from '../views/GiamGia/DotGiamGia.vue'
 import PhieuGiamGia from '../views/GiamGia/PhieuGiamGia.vue'
+import ChiTietPhieuGiamGia from '../views/GiamGia/ChiTietPhieuGiamGia.vue'
+import TaoPhieuGiamGia from '../views/GiamGia/TaoPhieuGiamGia.vue'
 
 // Thuộc tính
 import DanhMuc from '../views/ThuocTinh/DanhMuc.vue'
@@ -143,6 +145,16 @@ const routes = [
         path: '/phieu-giam-gia',
         name: 'PhieuGiamGia',
         component: PhieuGiamGia
+    },
+    {
+        path: '/phieu-giam-gia/tao-moi',
+        name: 'TaoPhieuGiamGia',
+        component: TaoPhieuGiamGia
+    },
+    {
+        path: '/phieu-giam-gia/chi-tiet/:id',
+        name: 'ChiTietPhieuGiamGia',
+        component: ChiTietPhieuGiamGia
     },
 
     // Khách hàng
