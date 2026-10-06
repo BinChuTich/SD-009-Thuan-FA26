@@ -376,6 +376,11 @@ const toggleSelectAll = (e) => {
 }
 
 // Phân trang
+const handlePageSizeChange = () => {
+  filters.value.page = 0
+  fetchVariants()
+}
+
 const changePage = (p) => {
   if (p < 0 || p >= pageData.value.totalPages) return
   filters.value.page = p
@@ -720,8 +725,21 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
       <!-- 5. Phân trang -->
       <div class="pagination-footer" v-if="pageData.totalPages > 0">
-        <div class="pagination-info">
-          Hiển thị <b>{{ variants.length }}</b> / <b>{{ pageData.totalElements }}</b> biến thể (Trang {{ pageData.number + 1 }} / {{ pageData.totalPages }})
+        <div class="pagination-left">
+          <div class="page-size-selector">
+            <span class="page-size-label">Hiển thị:</span>
+            <select v-model.number="filters.size" @change="handlePageSizeChange" class="page-size-select">
+              <option :value="5">5</option>
+              <option :value="10">10</option>
+              <option :value="15">15</option>
+              <option :value="20">20</option>
+              <option :value="25">25</option>
+            </select>
+            <span class="page-size-unit">/ trang</span>
+          </div>
+          <div class="pagination-info">
+            Hiển thị <b>{{ variants.length }}</b> / <b>{{ pageData.totalElements }}</b> biến thể (Trang {{ pageData.number + 1 }} / {{ pageData.totalPages }})
+          </div>
         </div>
         <div class="pagination-center">
           <button
@@ -1497,6 +1515,50 @@ watch(() => route.query.sanPhamId, async (newId) => {
   gap: 1rem;
   flex-wrap: wrap;
   padding-top: 0.5rem;
+}
+
+.pagination-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.page-size-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.page-size-label {
+  font-weight: 500;
+  color: #64748b;
+}
+
+.page-size-select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #1e293b;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.page-size-select:focus {
+  border-color: var(--blue, #496883);
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.12);
+}
+
+.page-size-unit {
+  font-size: 0.85rem;
+  color: #64748b;
 }
 
 .pagination-info {
