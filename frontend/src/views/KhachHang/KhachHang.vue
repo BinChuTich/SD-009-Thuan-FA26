@@ -140,16 +140,6 @@
                       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                     </svg>
                   </button>
-                  <button
-                    class="btn-circle-action btn-view"
-                    title="Xem chi tiết (Chỉ xem)"
-                    @click="goToDetail(item.id)"
-                  >
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                      <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
-                  </button>
                 </div>
               </td>
             </tr>
@@ -270,11 +260,7 @@ function goToCreate() {
 }
 
 function goToEdit(id) {
-  router.push(`/khach-hang/${id}?mode=edit`)
-}
-
-function goToDetail(id) {
-  router.push(`/khach-hang/${id}?mode=view`)
+  router.push(`/khach-hang/${id}`)
 }
 
 async function toggleStatus(item) {

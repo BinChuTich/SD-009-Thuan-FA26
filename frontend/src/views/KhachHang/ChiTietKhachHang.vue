@@ -7,8 +7,7 @@
           <span>←</span> Quay lại danh sách
         </button>
         <h2 class="page-title">
-          {{ isReadOnly ? 'Chi tiết khách hàng' : 'Cập nhật khách hàng' }}: {{ form.tenKhachHang || form.maKhachHang }}
-          <span v-if="isReadOnly" class="tag-readonly">(Chỉ xem)</span>
+          Thông tin khách hàng: {{ form.tenKhachHang || form.maKhachHang }}
         </h2>
       </div>
     </div>
@@ -39,24 +38,20 @@
 
             <!-- Họ và tên -->
             <div class="form-field">
-              <label>Họ và tên <span v-if="!isReadOnly" class="required">*</span></label>
+              <label>Họ và tên <span class="required">*</span></label>
               <input
                 v-model="form.tenKhachHang"
                 type="text"
-                :disabled="isReadOnly"
-                :class="{ 'input-disabled': isReadOnly }"
                 placeholder="Nhập họ và tên khách hàng..."
               />
             </div>
 
             <!-- Số điện thoại -->
             <div class="form-field">
-              <label>Số điện thoại <span v-if="!isReadOnly" class="required">*</span></label>
+              <label>Số điện thoại <span class="required">*</span></label>
               <input
                 v-model="form.soDienThoai"
                 type="text"
-                :disabled="isReadOnly"
-                :class="{ 'input-disabled': isReadOnly }"
                 placeholder="VD: 0987654321"
                 maxlength="11"
               />
@@ -68,8 +63,6 @@
               <input
                 v-model="form.email"
                 type="email"
-                :disabled="isReadOnly"
-                :class="{ 'input-disabled': isReadOnly }"
                 placeholder="example@gmail.com"
               />
             </div>
@@ -77,7 +70,7 @@
             <!-- Giới tính -->
             <div class="form-field">
               <label>Giới tính</label>
-              <select v-model="form.gioiTinh" :disabled="isReadOnly" :class="{ 'input-disabled': isReadOnly }">
+              <select v-model="form.gioiTinh">
                 <option :value="true">Nam</option>
                 <option :value="false">Nữ</option>
               </select>
@@ -89,8 +82,6 @@
               <input
                 v-model="form.ngaySinh"
                 type="date"
-                :disabled="isReadOnly"
-                :class="{ 'input-disabled': isReadOnly }"
                 :max="maxDate"
               />
             </div>
@@ -98,7 +89,7 @@
             <!-- Trạng thái -->
             <div class="form-field">
               <label>Trạng thái</label>
-              <select v-model="form.trangThai" :disabled="isReadOnly" :class="{ 'input-disabled': isReadOnly }">
+              <select v-model="form.trangThai">
                 <option :value="1">Hoạt động</option>
                 <option :value="0">Ngừng hoạt động</option>
               </select>
@@ -117,8 +108,6 @@
               <input
                 v-model="form.thanhPho"
                 type="text"
-                :disabled="isReadOnly"
-                :class="{ 'input-disabled': isReadOnly }"
                 placeholder="VD: Hà Nội, TP.HCM..."
               />
             </div>
@@ -128,8 +117,6 @@
               <input
                 v-model="form.huyen"
                 type="text"
-                :disabled="isReadOnly"
-                :class="{ 'input-disabled': isReadOnly }"
                 placeholder="VD: Cầu Giấy, Đống Đa..."
               />
             </div>
@@ -139,8 +126,6 @@
               <input
                 v-model="form.phuong"
                 type="text"
-                :disabled="isReadOnly"
-                :class="{ 'input-disabled': isReadOnly }"
                 placeholder="VD: Dịch Vọng Hậu..."
               />
             </div>
@@ -150,8 +135,6 @@
               <input
                 v-model="form.diaChiCuThe"
                 type="text"
-                :disabled="isReadOnly"
-                :class="{ 'input-disabled': isReadOnly }"
                 placeholder="Số nhà, ngõ, tên đường..."
               />
             </div>
@@ -163,10 +146,7 @@
           <button class="btn btn-secondary" @click="goBack">
             Quay lại danh sách
           </button>
-          <button v-if="isReadOnly" class="btn btn-primary" @click="switchToEdit">
-            ✏️ Chuyển sang chỉnh sửa
-          </button>
-          <button v-else class="btn btn-primary" :disabled="saving" @click="handleUpdate">
+          <button class="btn btn-primary" :disabled="saving" @click="handleUpdate">
             {{ saving ? 'Đang lưu...' : '💾 Lưu thay đổi' }}
           </button>
         </div>
@@ -176,7 +156,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref, watch } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
@@ -184,19 +164,6 @@ import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
 const route = useRoute()
 const router = useRouter()
 const id = route.params.id
-
-const isReadOnly = ref(route.query.mode !== 'edit')
-
-watch(
-  () => route.query.mode,
-  (newMode) => {
-    isReadOnly.value = newMode !== 'edit'
-  }
-)
-
-function switchToEdit() {
-  router.replace({ path: route.path, query: { mode: 'edit' } })
-}
 
 const loading = ref(true)
 const saving = ref(false)
