@@ -56,23 +56,41 @@
           <!-- Thương hiệu -->
           <div class="form-item">
             <label class="item-label">Thương hiệu <span class="text-danger">*</span></label>
-            <select v-model="form.idThuongHieu" class="form-select" required>
-              <option value="">-- Chọn thương hiệu --</option>
-              <option v-for="item in attributes.thuongHieu" :key="item.id" :value="item.id">
-                {{ item.tenThuongHieu }}
-              </option>
-            </select>
+            <div class="select-with-btn">
+              <select v-model="form.idThuongHieu" class="form-select" required>
+                <option value="">-- Chọn thương hiệu --</option>
+                <option v-for="item in attributes.thuongHieu" :key="item.id" :value="item.id">
+                  {{ item.tenThuongHieu }}
+                </option>
+              </select>
+              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('thuong-hieu')" title="Thêm thương hiệu mới">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Thêm mới</span>
+              </button>
+            </div>
           </div>
 
           <!-- Danh mục -->
           <div class="form-item">
             <label class="item-label">Danh mục <span class="text-danger">*</span></label>
-            <select v-model="form.idDanhMuc" class="form-select" required>
-              <option value="">-- Chọn danh mục --</option>
-              <option v-for="item in attributes.danhMuc" :key="item.id" :value="item.id">
-                {{ item.tenDanhMuc }}
-              </option>
-            </select>
+            <div class="select-with-btn">
+              <select v-model="form.idDanhMuc" class="form-select" required>
+                <option value="">-- Chọn danh mục --</option>
+                <option v-for="item in attributes.danhMuc" :key="item.id" :value="item.id">
+                  {{ item.tenDanhMuc }}
+                </option>
+              </select>
+              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('danh-muc')" title="Thêm danh mục mới">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Thêm mới</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -80,23 +98,41 @@
           <!-- Xuất xứ -->
           <div class="form-item">
             <label class="item-label">Xuất xứ <span class="text-danger">*</span></label>
-            <select v-model="form.idXuatXu" class="form-select" required>
-              <option value="">-- Chọn xuất xứ --</option>
-              <option v-for="item in attributes.xuatXu" :key="item.id" :value="item.id">
-                {{ item.tenXuatXu }}
-              </option>
-            </select>
+            <div class="select-with-btn">
+              <select v-model="form.idXuatXu" class="form-select" required>
+                <option value="">-- Chọn xuất xứ --</option>
+                <option v-for="item in attributes.xuatXu" :key="item.id" :value="item.id">
+                  {{ item.tenXuatXu }}
+                </option>
+              </select>
+              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('xuat-xu')" title="Thêm xuất xứ mới">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Thêm mới</span>
+              </button>
+            </div>
           </div>
 
           <!-- Chất liệu -->
           <div class="form-item">
             <label class="item-label">Chất liệu <span class="text-danger">*</span></label>
-            <select v-model="form.idChatLieu" class="form-select" required>
-              <option value="">-- Chọn chất liệu --</option>
-              <option v-for="item in attributes.chatLieu" :key="item.id" :value="item.id">
-                {{ item.tenChatLieu }}
-              </option>
-            </select>
+            <div class="select-with-btn">
+              <select v-model="form.idChatLieu" class="form-select" required>
+                <option value="">-- Chọn chất liệu --</option>
+                <option v-for="item in attributes.chatLieu" :key="item.id" :value="item.id">
+                  {{ item.tenChatLieu }}
+                </option>
+              </select>
+              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('chat-lieu')" title="Thêm chất liệu mới">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Thêm mới</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -104,23 +140,41 @@
           <!-- Cổ áo -->
           <div class="form-item">
             <label class="item-label">Cổ áo <span class="text-danger">*</span></label>
-            <select v-model="form.idCoAo" class="form-select" required>
-              <option value="">-- Chọn cổ áo --</option>
-              <option v-for="item in attributes.coAo" :key="item.id" :value="item.id">
-                {{ item.tenCoAo }}
-              </option>
-            </select>
+            <div class="select-with-btn">
+              <select v-model="form.idCoAo" class="form-select" required>
+                <option value="">-- Chọn cổ áo --</option>
+                <option v-for="item in attributes.coAo" :key="item.id" :value="item.id">
+                  {{ item.tenCoAo }}
+                </option>
+              </select>
+              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('co-ao')" title="Thêm cổ áo mới">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Thêm mới</span>
+              </button>
+            </div>
           </div>
 
           <!-- Tay áo -->
           <div class="form-item">
             <label class="item-label">Tay áo <span class="text-danger">*</span></label>
-            <select v-model="form.idTayAo" class="form-select" required>
-              <option value="">-- Chọn tay áo --</option>
-              <option v-for="item in attributes.tayAo" :key="item.id" :value="item.id">
-                {{ item.tenTayAo }}
-              </option>
-            </select>
+            <div class="select-with-btn">
+              <select v-model="form.idTayAo" class="form-select" required>
+                <option value="">-- Chọn tay áo --</option>
+                <option v-for="item in attributes.tayAo" :key="item.id" :value="item.id">
+                  {{ item.tenTayAo }}
+                </option>
+              </select>
+              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('tay-ao')" title="Thêm tay áo mới">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Thêm mới</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -128,12 +182,21 @@
           <!-- Họa tiết -->
           <div class="form-item">
             <label class="item-label">Họa tiết <span class="text-danger">*</span></label>
-            <select v-model="form.idHoaTiet" class="form-select" required>
-              <option value="">-- Chọn họa tiết --</option>
-              <option v-for="item in attributes.hoaTiet" :key="item.id" :value="item.id">
-                {{ item.tenHoaTiet }}
-              </option>
-            </select>
+            <div class="select-with-btn">
+              <select v-model="form.idHoaTiet" class="form-select" required>
+                <option value="">-- Chọn họa tiết --</option>
+                <option v-for="item in attributes.hoaTiet" :key="item.id" :value="item.id">
+                  {{ item.tenHoaTiet }}
+                </option>
+              </select>
+              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('hoa-tiet')" title="Thêm họa tiết mới">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Thêm mới</span>
+              </button>
+            </div>
           </div>
 
           <!-- Trạng thái -->
@@ -643,6 +706,65 @@
         </div>
       </div>
     </transition>
+
+    <!-- 9. Modal Thêm nhanh thuộc tính sản phẩm -->
+    <transition name="fade">
+      <div v-if="quickAttrModal.show" class="confirm-modal-overlay" @click.self="closeQuickAttrModal">
+        <div class="quick-attr-modal-card" @click.stop>
+          <div class="quick-attr-modal-header">
+            <div class="quick-attr-title-box">
+              <span class="quick-attr-badge">✨ Thuộc tính</span>
+              <h3 class="quick-attr-title">Thêm mới {{ quickAttrModal.title }}</h3>
+            </div>
+            <button type="button" class="btn-close-modal" @click="closeQuickAttrModal">&times;</button>
+          </div>
+
+          <div class="quick-attr-modal-body">
+            <div class="quick-attr-field">
+              <label class="item-label">Tên {{ quickAttrModal.title.toLowerCase() }} <span class="text-danger">*</span></label>
+              <input
+                  type="text"
+                  v-model="quickAttrModal.ten"
+                  class="form-input"
+                  :placeholder="`Nhập tên ${quickAttrModal.title.toLowerCase()}...`"
+                  @keyup.enter="submitQuickAttr"
+                  autofocus
+                  maxlength="255"
+              />
+            </div>
+
+            <div class="quick-attr-field mt-3">
+              <label class="item-label">Mã {{ quickAttrModal.title.toLowerCase() }} <span class="text-muted">(Tùy chọn)</span></label>
+              <input
+                  type="text"
+                  v-model="quickAttrModal.ma"
+                  class="form-input"
+                  :placeholder="`Mã ${quickAttrModal.title.toLowerCase()} (VD: ${quickAttrModal.codePrefix}01)...`"
+                  maxlength="50"
+              />
+            </div>
+
+            <div v-if="quickAttrModal.error" class="quick-attr-error-banner mt-3">
+              {{ quickAttrModal.error }}
+            </div>
+          </div>
+
+          <div class="quick-attr-modal-footer">
+            <button type="button" class="btn btn-confirm-cancel" @click="closeQuickAttrModal" :disabled="quickAttrModal.loading">
+              Hủy bỏ
+            </button>
+            <button
+                type="button"
+                class="btn btn-confirm-primary"
+                @click="submitQuickAttr"
+                :disabled="quickAttrModal.loading"
+            >
+              {{ quickAttrModal.loading ? 'Đang lưu...' : 'Lưu và Chọn' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -846,6 +968,95 @@ const handleAddCustomColor = async () => {
     showToast(msg, 'error')
   } finally {
     newColorForm.value.loading = false
+  }
+}
+
+// Modal Thêm nhanh 7 loại thuộc tính
+const attrTypeConfigs = {
+  'thuong-hieu': { title: 'Thương hiệu', field: 'idThuongHieu', listKey: 'thuongHieu', codePrefix: 'TH' },
+  'danh-muc': { title: 'Danh mục', field: 'idDanhMuc', listKey: 'danhMuc', codePrefix: 'DM' },
+  'xuat-xu': { title: 'Xuất xứ', field: 'idXuatXu', listKey: 'xuatXu', codePrefix: 'XX' },
+  'chat-lieu': { title: 'Chất liệu', field: 'idChatLieu', listKey: 'chatLieu', codePrefix: 'CL' },
+  'co-ao': { title: 'Cổ áo', field: 'idCoAo', listKey: 'coAo', codePrefix: 'CA' },
+  'tay-ao': { title: 'Tay áo', field: 'idTayAo', listKey: 'tayAo', codePrefix: 'TA' },
+  'hoa-tiet': { title: 'Họa tiết', field: 'idHoaTiet', listKey: 'hoaTiet', codePrefix: 'HT' }
+}
+
+const quickAttrModal = ref({
+  show: false,
+  type: '',
+  title: '',
+  field: '',
+  listKey: '',
+  codePrefix: '',
+  ten: '',
+  ma: '',
+  loading: false,
+  error: ''
+})
+
+const openQuickAddModal = (type) => {
+  const cfg = attrTypeConfigs[type]
+  if (!cfg) return
+  const suffix = Math.floor(1000 + Math.random() * 9000)
+  quickAttrModal.value = {
+    show: true,
+    type,
+    title: cfg.title,
+    field: cfg.field,
+    listKey: cfg.listKey,
+    codePrefix: cfg.codePrefix,
+    ten: '',
+    ma: `${cfg.codePrefix}${suffix}`,
+    loading: false,
+    error: ''
+  }
+}
+
+const closeQuickAttrModal = () => {
+  quickAttrModal.value.show = false
+  quickAttrModal.value.error = ''
+}
+
+const submitQuickAttr = async () => {
+  const ten = quickAttrModal.value.ten?.trim()
+  if (!ten) {
+    quickAttrModal.value.error = `Vui lòng nhập tên ${quickAttrModal.value.title.toLowerCase()}!`
+    return
+  }
+  if (ten.length > 255) {
+    quickAttrModal.value.error = 'Tên không được vượt quá 255 ký tự!'
+    return
+  }
+
+  quickAttrModal.value.loading = true
+  quickAttrModal.value.error = ''
+  try {
+    const payload = {
+      ten: ten,
+      ma: quickAttrModal.value.ma?.trim() || undefined,
+      trangThai: 1
+    }
+    const res = await api.post(`/api/thuoc-tinh/type/${quickAttrModal.value.type}`, payload)
+    const createdItem = res.data
+
+    // Thêm vào danh sách thuộc tính tương ứng
+    const listKey = quickAttrModal.value.listKey
+    if (!attributes.value[listKey]) {
+      attributes.value[listKey] = []
+    }
+    attributes.value[listKey].push(createdItem)
+
+    // Tự động gán thuộc tính mới tạo vào form
+    form.value[quickAttrModal.value.field] = createdItem.id
+
+    showToast(`Đã thêm mới và chọn ${quickAttrModal.value.title.toLowerCase()} "${ten}"!`, 'success')
+    closeQuickAttrModal()
+  } catch (err) {
+    const msg = err.response?.data?.message || 'Có lỗi xảy ra khi thêm thuộc tính!'
+    quickAttrModal.value.error = msg
+  } finally {
+    quickAttrModal.value.loading = false
   }
 }
 
@@ -1436,6 +1647,129 @@ onMounted(async () => {
 .form-textarea:focus {
   border-color: var(--blue, #496883);
   box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.15);
+}
+
+/* Select with Add Button */
+.select-with-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.select-with-btn .form-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.btn-add-attr-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 38px;
+  padding: 0 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #496883;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.btn-add-attr-inline:hover {
+  background-color: #496883;
+  color: #ffffff;
+  border-color: #496883;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.25);
+}
+
+/* Quick Attr Modal Card */
+.quick-attr-modal-card {
+  background: #ffffff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  animation: modalScaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.quick-attr-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.25rem 1.25rem 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.quick-attr-title-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.quick-attr-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #496883;
+  background-color: #eaf2f6;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.quick-attr-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.btn-close-modal {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  transition: color 0.2s;
+}
+
+.btn-close-modal:hover {
+  color: #ef4444;
+}
+
+.quick-attr-modal-body {
+  padding: 1.25rem;
+}
+
+.quick-attr-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quick-attr-error-banner {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.quick-attr-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.85rem 1.25rem;
+  background-color: #f8fafc;
+  border-top: 1px solid #f1f5f9;
 }
 
 .form-textarea {
