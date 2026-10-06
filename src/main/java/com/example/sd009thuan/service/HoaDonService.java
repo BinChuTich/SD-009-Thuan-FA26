@@ -78,9 +78,7 @@ public class HoaDonService {
             hoaDon.setNgayTao(Instant.now());
         }
 
-        // =========================
-        // TRẠNG THÁI ĐƠN
-        // =========================
+        // TRẠNG THÁI ĐƠ
         if (hoaDon.getTrangThai() == null) {
             hoaDon.setTrangThai(1);
         }
