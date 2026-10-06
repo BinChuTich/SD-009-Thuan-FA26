@@ -54,12 +54,7 @@ public class NhanVienService {
         if (!req.email().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
             throw new IllegalArgumentException("Email nhân viên không đúng định dạng");
         }
-        if (blank(req.soDienThoai()) == null) {
-            throw new IllegalArgumentException("Số điện thoại nhân viên không được để trống");
-        }
-        if (!req.soDienThoai().trim().matches("^0\\d{9,10}$")) {
-            throw new IllegalArgumentException("Số điện thoại phải gồm 10-11 số và bắt đầu bằng 0");
-        }
+        validateSoDienThoai(req.soDienThoai());
         if (req.gioiTinh() == null) {
             throw new IllegalArgumentException("Vui lòng chọn giới tính cho nhân viên");
         }
@@ -134,7 +129,10 @@ public class NhanVienService {
             }
             x.setEmail(blank(req.email()));
         }
-        if (blank(req.soDienThoai()) != null) x.setSoDienThoai(blank(req.soDienThoai()));
+        if (blank(req.soDienThoai()) != null) {
+            validateSoDienThoai(req.soDienThoai());
+            x.setSoDienThoai(blank(req.soDienThoai()));
+        }
         String oldImage = x.getAnhNhanVien();
         String imageUrl = fileStorageService.storeEmployeeImage(file);
         if (imageUrl != null) {
@@ -215,6 +213,25 @@ public class NhanVienService {
                 role == null ? null : role.getId(), role == null ? null : role.getMaVaiTro(), role == null ? null : role.getTenVaiTro(),
                 x.getTrangThai()
         );
+    }
+
+    private void validateSoDienThoai(String rawPhone) {
+        String phone = blank(rawPhone);
+        if (phone == null) {
+            throw new IllegalArgumentException("Số điện thoại nhân viên không được để trống");
+        }
+        if (!phone.matches("\\d+")) {
+            throw new IllegalArgumentException("Số điện thoại chỉ được chứa các chữ số");
+        }
+        if (!phone.startsWith("0")) {
+            throw new IllegalArgumentException("Số điện thoại phải bắt đầu bằng số 0");
+        }
+        if (phone.length() < 10) {
+            throw new IllegalArgumentException("Số điện thoại không được dưới 10 số");
+        }
+        if (phone.length() > 11) {
+            throw new IllegalArgumentException("Số điện thoại không được trên 11 số");
+        }
     }
 
     private String blank(String value) { return value == null || value.isBlank() ? null : value.trim(); }

@@ -82,8 +82,7 @@
                 <input
                   v-model="form.soDienThoai"
                   type="text"
-                  placeholder="VD: 0987654321"
-                  maxlength="11"
+                  placeholder="VD: 0987654321 (10 - 11 số)"
                 />
               </div>
 
@@ -350,6 +349,7 @@ async function handleUpdate() {
     })
   }
 
+  // 2. Validate số điện thoại
   const phone = form.soDienThoai ? form.soDienThoai.trim() : ''
   if (!phone) {
     return showAlert({
@@ -358,10 +358,31 @@ async function handleUpdate() {
       type: 'warning'
     })
   }
-  if (!/^0\d{9,10}$/.test(phone)) {
+  if (!/^\d+$/.test(phone)) {
     return showAlert({
       title: 'Thông tin chưa hợp lệ',
-      message: 'Số điện thoại phải từ 10 - 11 chữ số và bắt đầu bằng số 0!',
+      message: 'Số điện thoại chỉ được chứa các chữ số!',
+      type: 'warning'
+    })
+  }
+  if (!phone.startsWith('0')) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Số điện thoại phải bắt đầu bằng số 0!',
+      type: 'warning'
+    })
+  }
+  if (phone.length < 10) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Số điện thoại không được dưới 10 số (hiện tại có ' + phone.length + ' số)!',
+      type: 'warning'
+    })
+  }
+  if (phone.length > 11) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Số điện thoại không được trên 11 số (hiện tại có ' + phone.length + ' số)!',
       type: 'warning'
     })
   }

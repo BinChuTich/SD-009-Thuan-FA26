@@ -11,7 +11,7 @@ public record NhanVienRequest(
         String tenNhanVien,
         String matKhau,
         @Email(message = "Email nhân viên không hợp lệ") String email,
-        @Pattern(regexp = "^$|^0\\d{9,10}$", message = "Số điện thoại phải gồm 10-11 số và bắt đầu bằng 0") String soDienThoai,
+        String soDienThoai,
         String anhNhanVien,
         Boolean gioiTinh,
         LocalDate ngaySinh,
