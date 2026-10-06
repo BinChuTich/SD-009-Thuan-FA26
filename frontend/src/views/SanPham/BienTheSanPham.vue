@@ -737,9 +737,6 @@ watch(() => route.query.sanPhamId, async (newId) => {
             </select>
             <span class="page-size-unit">/ trang</span>
           </div>
-          <div class="pagination-info">
-            Hiển thị <b>{{ variants.length }}</b> / <b>{{ pageData.totalElements }}</b> biến thể (Trang {{ pageData.number + 1 }} / {{ pageData.totalPages }})
-          </div>
         </div>
         <div class="pagination-center">
           <button

@@ -289,9 +289,6 @@
             </select>
             <span class="page-size-unit">/ trang</span>
           </div>
-          <div class="pagination-info">
-            Hiển thị <b>{{ products.length }}</b> / <b>{{ pageData.totalElements }}</b> sản phẩm (Trang {{ pageData.number + 1 }} / {{ pageData.totalPages }})
-          </div>
         </div>
         <div class="pagination-center">
           <button
