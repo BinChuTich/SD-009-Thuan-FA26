@@ -9,4 +9,8 @@ import java.util.List;
 @Repository
 public interface CoAoRepository extends JpaRepository<CoAo, Long> {
     List<CoAo> findByTrangThai(Integer trangThai);
+    boolean existsByMaCoAo(String maCoAo);
+    boolean existsByMaCoAoAndIdNot(String maCoAo, Long id);
+    boolean existsByTenCoAoIgnoreCase(String tenCoAo);
+    boolean existsByTenCoAoIgnoreCaseAndIdNot(String tenCoAo, Long id);
 }

@@ -228,28 +228,79 @@ const closeModal = () => {
   modal.value.errors = {}
 }
 
-// Lưu thuộc tính (Thêm hoặc Cập nhật)
+const saving = ref(false)
+
+// Lưu thuộc tính (Thêm hoặc Cập nhật) với validate chặt chẽ
 const handleSave = async () => {
   modal.value.errors = {}
-  if (!modal.value.data.ten?.trim()) {
-    modal.value.errors.ten = `Vui lòng nhập tên ${currentTabInfo.value.name.toLowerCase()}!`
+  const rawTen = modal.value.data.ten ? modal.value.data.ten.trim() : ''
+  const rawMa = modal.value.data.ma ? modal.value.data.ma.trim() : ''
+  const typeName = currentTabInfo.value.name.toLowerCase()
+
+  // 1. Validate Tên
+  if (!rawTen) {
+    modal.value.errors.ten = `Vui lòng nhập tên ${typeName}!`
+  } else if (rawTen.length < 1) {
+    modal.value.errors.ten = `Tên ${typeName} không được để trống!`
+  } else if (rawTen.length > 255) {
+    modal.value.errors.ten = `Tên ${typeName} không được vượt quá 255 ký tự!`
+  } else {
+    // Kiểm tra trùng tên phía client
+    const isDupTen = items.value.some(it =>
+        it.ten && it.ten.trim().toLowerCase() === rawTen.toLowerCase() &&
+        (!modal.value.isEdit || it.id !== modal.value.id)
+    )
+    if (isDupTen) {
+      modal.value.errors.ten = `Tên ${typeName} "${rawTen}" đã tồn tại trong danh sách!`
+    }
+  }
+
+  // 2. Validate Mã (nếu người dùng nhập)
+  if (rawMa) {
+    if (rawMa.length > 50) {
+      modal.value.errors.ma = 'Mã thuộc tính không được vượt quá 50 ký tự!'
+    } else if (!/^[a-zA-Z0-9_.-]+$/.test(rawMa)) {
+      modal.value.errors.ma = 'Mã thuộc tính chỉ được chứa chữ cái, chữ số và các ký tự _ - .'
+    } else {
+      // Kiểm tra trùng mã phía client
+      const isDupMa = items.value.some(it =>
+          it.ma && it.ma.trim().toLowerCase() === rawMa.toLowerCase() &&
+          (!modal.value.isEdit || it.id !== modal.value.id)
+      )
+      if (isDupMa) {
+        modal.value.errors.ma = `Mã "${rawMa}" đã tồn tại trong danh sách!`
+      }
+    }
+  }
+
+  // 3. Validate Mã HEX nếu là Màu sắc
+  let finalHex = modal.value.data.maHex ? modal.value.data.maHex.trim() : '#496883'
+  if (currentTabInfo.value.hasColor) {
+    if (!/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(finalHex)) {
+      modal.value.errors.maHex = 'Mã màu HEX không hợp lệ (Ví dụ: #FF0000 hoặc #000)!'
+    }
+  }
+
+  // Dừng lại nếu có lỗi
+  if (Object.keys(modal.value.errors).length > 0) {
     return
   }
 
   const payload = {
-    ma: modal.value.data.ma?.trim(),
-    ten: modal.value.data.ten?.trim(),
-    maHex: modal.value.data.maHex,
+    ma: rawMa,
+    ten: rawTen,
+    maHex: finalHex,
     trangThai: Number(modal.value.data.trangThai)
   }
 
+  saving.value = true
   try {
     if (modal.value.isEdit) {
       await api.put(`/api/thuoc-tinh/type/${activeTab.value}/${modal.value.id}`, payload)
-      showToast('Cập nhật thành công', `Đã cập nhật ${currentTabInfo.value.name.toLowerCase()} "${payload.ten}"`)
+      showToast('Cập nhật thành công', `Đã cập nhật ${typeName} "${payload.ten}"`)
     } else {
       await api.post(`/api/thuoc-tinh/type/${activeTab.value}`, payload)
-      showToast('Thêm mới thành công', `Đã thêm ${currentTabInfo.value.name.toLowerCase()} "${payload.ten}"`)
+      showToast('Thêm mới thành công', `Đã thêm ${typeName} "${payload.ten}"`)
     }
     closeModal()
     await fetchTabItems()
@@ -257,7 +308,16 @@ const handleSave = async () => {
   } catch (err) {
     console.error('Lỗi lưu thuộc tính:', err)
     const msg = err.response?.data?.message || err.message || 'Lỗi khi lưu thuộc tính!'
+    if (msg.includes('Tên') || msg.includes('tên')) {
+      modal.value.errors.ten = msg
+    } else if (msg.includes('Mã') || msg.includes('mã')) {
+      modal.value.errors.ma = msg
+    } else if (msg.includes('màu') || msg.includes('HEX')) {
+      modal.value.errors.maHex = msg
+    }
     showToast('Lỗi thao tác', msg, 'error')
+  } finally {
+    saving.value = false
   }
 }
 
@@ -542,9 +602,12 @@ watch(() => route.query.tab, (newTab) => {
             <input
                 type="text"
                 v-model="modal.data.ma"
+                @input="delete modal.errors.ma"
                 class="form-input"
                 :placeholder="`Mã ${currentTabInfo.name.toLowerCase()} (VD: ${currentTabInfo.codePrefix}01)...`"
+                maxlength="50"
             />
+            <span class="error-msg" v-if="modal.errors.ma">{{ modal.errors.ma }}</span>
           </div>
 
           <div class="form-group">
@@ -552,9 +615,11 @@ watch(() => route.query.tab, (newTab) => {
             <input
                 type="text"
                 v-model="modal.data.ten"
+                @input="delete modal.errors.ten"
                 class="form-input"
                 :placeholder="`Nhập tên ${currentTabInfo.name.toLowerCase()}...`"
                 @keyup.enter="handleSave"
+                maxlength="255"
                 autofocus
             />
             <span class="error-msg" v-if="modal.errors.ten">{{ modal.errors.ten }}</span>
@@ -562,12 +627,13 @@ watch(() => route.query.tab, (newTab) => {
 
           <!-- Nhập mã màu nếu là Màu Sắc -->
           <div class="form-group" v-if="currentTabInfo.hasColor">
-            <label class="form-label">CHỌN MÃ MÀU HEX</label>
+            <label class="form-label">CHỌN MÃ MÀU HEX <span class="req">*</span></label>
             <div class="color-picker-row">
-              <input type="color" v-model="modal.data.maHex" class="color-picker-input" />
-              <input type="text" v-model="modal.data.maHex" class="form-input color-hex-input" placeholder="#000000" />
+              <input type="color" v-model="modal.data.maHex" @input="delete modal.errors.maHex" class="color-picker-input" />
+              <input type="text" v-model="modal.data.maHex" @input="delete modal.errors.maHex" class="form-input color-hex-input" placeholder="#000000" maxlength="7" />
               <span class="color-preview-block" :style="{ backgroundColor: modal.data.maHex }"></span>
             </div>
+            <span class="error-msg" v-if="modal.errors.maHex">{{ modal.errors.maHex }}</span>
           </div>
 
           <div class="form-group">
@@ -580,14 +646,15 @@ watch(() => route.query.tab, (newTab) => {
         </div>
 
         <div class="modal-footer">
-          <button class="btn-cancel" @click="closeModal">Hủy bỏ</button>
-          <button class="btn-submit" @click="handleSave">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <button class="btn-cancel" @click="closeModal" :disabled="saving">Hủy bỏ</button>
+          <button class="btn-submit" @click="handleSave" :disabled="saving">
+            <svg v-if="!saving" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
               <polyline points="17 21 17 13 7 13 7 21"></polyline>
               <polyline points="7 3 7 8 15 8"></polyline>
             </svg>
-            {{ modal.isEdit ? 'Lưu thay đổi' : 'Tạo thuộc tính' }}
+            <span v-else class="spinner-dot"></span>
+            {{ saving ? 'Đang lưu...' : (modal.isEdit ? 'Lưu thay đổi' : 'Tạo thuộc tính') }}
           </button>
         </div>
       </div>

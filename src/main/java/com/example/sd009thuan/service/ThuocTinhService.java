@@ -9,9 +9,12 @@ import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 @Service
 public class ThuocTinhService {
+
+    private static final Pattern HEX_PATTERN = Pattern.compile("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$");
 
     private final ChatLieuRepository chatLieuRepository;
     private final ThuongHieuRepository thuongHieuRepository;
@@ -22,6 +25,8 @@ public class ThuocTinhService {
     private final HoaTietRepository hoaTietRepository;
     private final MauSacRepository mauSacRepository;
     private final KichCoRepository kichCoRepository;
+    private final SanPhamRepository sanPhamRepository;
+    private final ChiTietSanPhamRepository chiTietSanPhamRepository;
 
     public ThuocTinhService(
             ChatLieuRepository chatLieuRepository,
@@ -32,7 +37,9 @@ public class ThuocTinhService {
             TayAoRepository tayAoRepository,
             HoaTietRepository hoaTietRepository,
             MauSacRepository mauSacRepository,
-            KichCoRepository kichCoRepository
+            KichCoRepository kichCoRepository,
+            SanPhamRepository sanPhamRepository,
+            ChiTietSanPhamRepository chiTietSanPhamRepository
     ) {
         this.chatLieuRepository = chatLieuRepository;
         this.thuongHieuRepository = thuongHieuRepository;
@@ -43,6 +50,8 @@ public class ThuocTinhService {
         this.hoaTietRepository = hoaTietRepository;
         this.mauSacRepository = mauSacRepository;
         this.kichCoRepository = kichCoRepository;
+        this.sanPhamRepository = sanPhamRepository;
+        this.chiTietSanPhamRepository = chiTietSanPhamRepository;
     }
 
     public Map<String, Object> getAllThuocTinh() {
@@ -72,6 +81,21 @@ public class ThuocTinhService {
     private String normalizeType(String type) {
         if (type == null) return "";
         return type.trim().toLowerCase().replace("_", "-");
+    }
+
+    private String getDisplayName(String type) {
+        return switch (normalizeType(type)) {
+            case "chat-lieu" -> "chất liệu";
+            case "thuong-hieu" -> "thương hiệu";
+            case "xuat-xu" -> "xuất xứ";
+            case "danh-muc" -> "danh mục";
+            case "co-ao" -> "cổ áo";
+            case "tay-ao" -> "tay áo";
+            case "hoa-tiet" -> "họa tiết";
+            case "mau-sac" -> "màu sắc";
+            case "kich-co" -> "kích cỡ";
+            default -> "thuộc tính";
+        };
     }
 
     public List<?> getByType(String type) {
@@ -107,75 +131,158 @@ public class ThuocTinhService {
     }
 
     public Object create(String type, ThuocTinhRequest req) {
-        if (req.getTen() == null || req.getTen().trim().isEmpty()) {
-            throw new IllegalArgumentException("Tên thuộc tính không được để trống!");
-        }
         String t = normalizeType(type);
-        long suffix = System.currentTimeMillis() % 1000000;
-        int status = (req.getTrangThai() != null) ? req.getTrangThai() : 1;
+        String displayName = getDisplayName(t);
 
+        // 1. Validate Tên
+        if (req.getTen() == null || req.getTen().trim().isEmpty()) {
+            throw new IllegalArgumentException("Tên " + displayName + " không được để trống!");
+        }
+        String ten = req.getTen().trim();
+        if (ten.length() > 255) {
+            throw new IllegalArgumentException("Tên " + displayName + " không được vượt quá 255 ký tự!");
+        }
+
+        // 2. Validate Mã
+        String ma = (req.getMa() != null) ? req.getMa().trim() : "";
+        if (ma.length() > 50) {
+            throw new IllegalArgumentException("Mã " + displayName + " không được vượt quá 50 ký tự!");
+        }
+
+        // 3. Validate Trạng thái
+        int status = (req.getTrangThai() != null && req.getTrangThai() == 0) ? 0 : 1;
+
+        // 4. Validate & kiểm tra trùng lặp theo từng loại
+        long suffix = System.currentTimeMillis() % 1000000;
         return switch (t) {
             case "chat-lieu" -> {
+                if (chatLieuRepository.existsByTenChatLieuIgnoreCase(ten)) {
+                    throw new IllegalArgumentException("Tên chất liệu \"" + ten + "\" đã tồn tại trong hệ thống!");
+                }
+                String finalMa = !ma.isEmpty() ? ma : "CL" + suffix;
+                if (chatLieuRepository.existsByMaChatLieu(finalMa)) {
+                    throw new IllegalArgumentException("Mã chất liệu \"" + finalMa + "\" đã tồn tại trong hệ thống!");
+                }
                 ChatLieu cl = new ChatLieu();
-                cl.setMaChatLieu((req.getMa() != null && !req.getMa().trim().isEmpty()) ? req.getMa().trim() : "CL" + suffix);
-                cl.setTenChatLieu(req.getTen().trim());
+                cl.setMaChatLieu(finalMa);
+                cl.setTenChatLieu(ten);
                 cl.setTrangThai(status);
                 yield chatLieuRepository.save(cl);
             }
             case "thuong-hieu" -> {
+                if (thuongHieuRepository.existsByTenThuongHieuIgnoreCase(ten)) {
+                    throw new IllegalArgumentException("Tên thương hiệu \"" + ten + "\" đã tồn tại trong hệ thống!");
+                }
+                String finalMa = !ma.isEmpty() ? ma : "TH" + suffix;
+                if (thuongHieuRepository.existsByMaThuongHieu(finalMa)) {
+                    throw new IllegalArgumentException("Mã thương hiệu \"" + finalMa + "\" đã tồn tại trong hệ thống!");
+                }
                 ThuongHieu th = new ThuongHieu();
-                th.setMaThuongHieu((req.getMa() != null && !req.getMa().trim().isEmpty()) ? req.getMa().trim() : "TH" + suffix);
-                th.setTenThuongHieu(req.getTen().trim());
+                th.setMaThuongHieu(finalMa);
+                th.setTenThuongHieu(ten);
                 th.setTrangThai(status);
                 yield thuongHieuRepository.save(th);
             }
             case "xuat-xu" -> {
+                if (xuatXuRepository.existsByTenXuatXuIgnoreCase(ten)) {
+                    throw new IllegalArgumentException("Tên xuất xứ \"" + ten + "\" đã tồn tại trong hệ thống!");
+                }
+                String finalMa = !ma.isEmpty() ? ma : "XX" + suffix;
+                if (xuatXuRepository.existsByMaXuatXu(finalMa)) {
+                    throw new IllegalArgumentException("Mã xuất xứ \"" + finalMa + "\" đã tồn tại trong hệ thống!");
+                }
                 XuatXu xx = new XuatXu();
-                xx.setMaXuatXu((req.getMa() != null && !req.getMa().trim().isEmpty()) ? req.getMa().trim() : "XX" + suffix);
-                xx.setTenXuatXu(req.getTen().trim());
+                xx.setMaXuatXu(finalMa);
+                xx.setTenXuatXu(ten);
                 xx.setTrangThai(status);
                 yield xuatXuRepository.save(xx);
             }
             case "danh-muc" -> {
+                if (danhMucRepository.existsByTenDanhMucIgnoreCase(ten)) {
+                    throw new IllegalArgumentException("Tên danh mục \"" + ten + "\" đã tồn tại trong hệ thống!");
+                }
+                String finalMa = !ma.isEmpty() ? ma : "DM" + suffix;
+                if (danhMucRepository.existsByMaDanhMuc(finalMa)) {
+                    throw new IllegalArgumentException("Mã danh mục \"" + finalMa + "\" đã tồn tại trong hệ thống!");
+                }
                 DanhMuc dm = new DanhMuc();
-                dm.setMaDanhMuc((req.getMa() != null && !req.getMa().trim().isEmpty()) ? req.getMa().trim() : "DM" + suffix);
-                dm.setTenDanhMuc(req.getTen().trim());
+                dm.setMaDanhMuc(finalMa);
+                dm.setTenDanhMuc(ten);
                 dm.setTrangThai(status);
                 yield danhMucRepository.save(dm);
             }
             case "co-ao" -> {
+                if (coAoRepository.existsByTenCoAoIgnoreCase(ten)) {
+                    throw new IllegalArgumentException("Tên cổ áo \"" + ten + "\" đã tồn tại trong hệ thống!");
+                }
+                String finalMa = !ma.isEmpty() ? ma : "CA" + suffix;
+                if (coAoRepository.existsByMaCoAo(finalMa)) {
+                    throw new IllegalArgumentException("Mã cổ áo \"" + finalMa + "\" đã tồn tại trong hệ thống!");
+                }
                 CoAo ca = new CoAo();
-                ca.setMaCoAo((req.getMa() != null && !req.getMa().trim().isEmpty()) ? req.getMa().trim() : "CA" + suffix);
-                ca.setTenCoAo(req.getTen().trim());
+                ca.setMaCoAo(finalMa);
+                ca.setTenCoAo(ten);
                 ca.setTrangThai(status);
                 yield coAoRepository.save(ca);
             }
             case "tay-ao" -> {
+                if (tayAoRepository.existsByTenTayAoIgnoreCase(ten)) {
+                    throw new IllegalArgumentException("Tên tay áo \"" + ten + "\" đã tồn tại trong hệ thống!");
+                }
+                String finalMa = !ma.isEmpty() ? ma : "TA" + suffix;
+                if (tayAoRepository.existsByMaTayAo(finalMa)) {
+                    throw new IllegalArgumentException("Mã tay áo \"" + finalMa + "\" đã tồn tại trong hệ thống!");
+                }
                 TayAo ta = new TayAo();
-                ta.setMaTayAo((req.getMa() != null && !req.getMa().trim().isEmpty()) ? req.getMa().trim() : "TA" + suffix);
-                ta.setTenTayAo(req.getTen().trim());
+                ta.setMaTayAo(finalMa);
+                ta.setTenTayAo(ten);
                 ta.setTrangThai(status);
                 yield tayAoRepository.save(ta);
             }
             case "hoa-tiet" -> {
+                if (hoaTietRepository.existsByTenHoaTietIgnoreCase(ten)) {
+                    throw new IllegalArgumentException("Tên họa tiết \"" + ten + "\" đã tồn tại trong hệ thống!");
+                }
+                String finalMa = !ma.isEmpty() ? ma : "HT" + suffix;
+                if (hoaTietRepository.existsByMaHoaTiet(finalMa)) {
+                    throw new IllegalArgumentException("Mã họa tiết \"" + finalMa + "\" đã tồn tại trong hệ thống!");
+                }
                 HoaTiet ht = new HoaTiet();
-                ht.setMaHoaTiet((req.getMa() != null && !req.getMa().trim().isEmpty()) ? req.getMa().trim() : "HT" + suffix);
-                ht.setTenHoaTiet(req.getTen().trim());
+                ht.setMaHoaTiet(finalMa);
+                ht.setTenHoaTiet(ten);
                 ht.setTrangThai(status);
                 yield hoaTietRepository.save(ht);
             }
             case "mau-sac" -> {
+                if (mauSacRepository.existsByTenMauSacIgnoreCase(ten)) {
+                    throw new IllegalArgumentException("Tên màu sắc \"" + ten + "\" đã tồn tại trong hệ thống!");
+                }
+                String finalMa = !ma.isEmpty() ? ma : "MS" + suffix;
+                if (mauSacRepository.existsByMaMauSac(finalMa)) {
+                    throw new IllegalArgumentException("Mã màu sắc \"" + finalMa + "\" đã tồn tại trong hệ thống!");
+                }
+                String hex = (req.getMaHex() != null && !req.getMaHex().trim().isEmpty()) ? req.getMaHex().trim() : "#496883";
+                if (!HEX_PATTERN.matcher(hex).matches()) {
+                    throw new IllegalArgumentException("Mã màu HEX không hợp lệ (Ví dụ: #FF0000 hoặc #FFF)!");
+                }
                 MauSac ms = new MauSac();
-                ms.setMaMauSac((req.getMa() != null && !req.getMa().trim().isEmpty()) ? req.getMa().trim() : "MS" + suffix);
-                ms.setTenMauSac(req.getTen().trim());
-                ms.setMaHex((req.getMaHex() != null && !req.getMaHex().trim().isEmpty()) ? req.getMaHex().trim() : "#000000");
+                ms.setMaMauSac(finalMa);
+                ms.setTenMauSac(ten);
+                ms.setMaHex(hex);
                 ms.setTrangThai(status);
                 yield mauSacRepository.save(ms);
             }
             case "kich-co" -> {
+                if (kichCoRepository.existsByTenKichCoIgnoreCase(ten)) {
+                    throw new IllegalArgumentException("Tên kích cỡ \"" + ten + "\" đã tồn tại trong hệ thống!");
+                }
+                String finalMa = !ma.isEmpty() ? ma : "KC" + suffix;
+                if (kichCoRepository.existsByMaKichCo(finalMa)) {
+                    throw new IllegalArgumentException("Mã kích cỡ \"" + finalMa + "\" đã tồn tại trong hệ thống!");
+                }
                 KichCo kc = new KichCo();
-                kc.setMaKichCo((req.getMa() != null && !req.getMa().trim().isEmpty()) ? req.getMa().trim() : "KC" + suffix);
-                kc.setTenKichCo(req.getTen().trim());
+                kc.setMaKichCo(finalMa);
+                kc.setTenKichCo(ten);
                 kc.setTrangThai(status);
                 yield kichCoRepository.save(kc);
             }
@@ -184,74 +291,150 @@ public class ThuocTinhService {
     }
 
     public Object update(String type, Long id, ThuocTinhRequest req) {
-        if (req.getTen() == null || req.getTen().trim().isEmpty()) {
-            throw new IllegalArgumentException("Tên thuộc tính không được để trống!");
-        }
         String t = normalizeType(type);
-        int status = (req.getTrangThai() != null) ? req.getTrangThai() : 1;
+        String displayName = getDisplayName(t);
 
+        // 1. Validate Tên
+        if (req.getTen() == null || req.getTen().trim().isEmpty()) {
+            throw new IllegalArgumentException("Tên " + displayName + " không được để trống!");
+        }
+        String ten = req.getTen().trim();
+        if (ten.length() > 255) {
+            throw new IllegalArgumentException("Tên " + displayName + " không được vượt quá 255 ký tự!");
+        }
+
+        // 2. Validate Mã
+        String ma = (req.getMa() != null) ? req.getMa().trim() : "";
+        if (ma.length() > 50) {
+            throw new IllegalArgumentException("Mã " + displayName + " không được vượt quá 50 ký tự!");
+        }
+
+        // 3. Validate Trạng thái
+        int status = (req.getTrangThai() != null && req.getTrangThai() == 0) ? 0 : 1;
+
+        // 4. Update & Kiểm tra trùng lặp cho ID khác
         return switch (t) {
             case "chat-lieu" -> {
                 ChatLieu cl = chatLieuRepository.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy chất liệu!"));
-                if (req.getMa() != null && !req.getMa().trim().isEmpty()) cl.setMaChatLieu(req.getMa().trim());
-                cl.setTenChatLieu(req.getTen().trim());
+                if (chatLieuRepository.existsByTenChatLieuIgnoreCaseAndIdNot(ten, id)) {
+                    throw new IllegalArgumentException("Tên chất liệu \"" + ten + "\" đã được sử dụng cho một chất liệu khác!");
+                }
+                if (!ma.isEmpty() && chatLieuRepository.existsByMaChatLieuAndIdNot(ma, id)) {
+                    throw new IllegalArgumentException("Mã chất liệu \"" + ma + "\" đã tồn tại trong hệ thống!");
+                }
+                if (!ma.isEmpty()) cl.setMaChatLieu(ma);
+                cl.setTenChatLieu(ten);
                 cl.setTrangThai(status);
                 yield chatLieuRepository.save(cl);
             }
             case "thuong-hieu" -> {
                 ThuongHieu th = thuongHieuRepository.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy thương hiệu!"));
-                if (req.getMa() != null && !req.getMa().trim().isEmpty()) th.setMaThuongHieu(req.getMa().trim());
-                th.setTenThuongHieu(req.getTen().trim());
+                if (thuongHieuRepository.existsByTenThuongHieuIgnoreCaseAndIdNot(ten, id)) {
+                    throw new IllegalArgumentException("Tên thương hiệu \"" + ten + "\" đã được sử dụng cho một thương hiệu khác!");
+                }
+                if (!ma.isEmpty() && thuongHieuRepository.existsByMaThuongHieuAndIdNot(ma, id)) {
+                    throw new IllegalArgumentException("Mã thương hiệu \"" + ma + "\" đã tồn tại trong hệ thống!");
+                }
+                if (!ma.isEmpty()) th.setMaThuongHieu(ma);
+                th.setTenThuongHieu(ten);
                 th.setTrangThai(status);
                 yield thuongHieuRepository.save(th);
             }
             case "xuat-xu" -> {
                 XuatXu xx = xuatXuRepository.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy xuất xứ!"));
-                if (req.getMa() != null && !req.getMa().trim().isEmpty()) xx.setMaXuatXu(req.getMa().trim());
-                xx.setTenXuatXu(req.getTen().trim());
+                if (xuatXuRepository.existsByTenXuatXuIgnoreCaseAndIdNot(ten, id)) {
+                    throw new IllegalArgumentException("Tên xuất xứ \"" + ten + "\" đã được sử dụng cho một xuất xứ khác!");
+                }
+                if (!ma.isEmpty() && xuatXuRepository.existsByMaXuatXuAndIdNot(ma, id)) {
+                    throw new IllegalArgumentException("Mã xuất xứ \"" + ma + "\" đã tồn tại trong hệ thống!");
+                }
+                if (!ma.isEmpty()) xx.setMaXuatXu(ma);
+                xx.setTenXuatXu(ten);
                 xx.setTrangThai(status);
                 yield xuatXuRepository.save(xx);
             }
             case "danh-muc" -> {
                 DanhMuc dm = danhMucRepository.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục!"));
-                if (req.getMa() != null && !req.getMa().trim().isEmpty()) dm.setMaDanhMuc(req.getMa().trim());
-                dm.setTenDanhMuc(req.getTen().trim());
+                if (danhMucRepository.existsByTenDanhMucIgnoreCaseAndIdNot(ten, id)) {
+                    throw new IllegalArgumentException("Tên danh mục \"" + ten + "\" đã được sử dụng cho một danh mục khác!");
+                }
+                if (!ma.isEmpty() && danhMucRepository.existsByMaDanhMucAndIdNot(ma, id)) {
+                    throw new IllegalArgumentException("Mã danh mục \"" + ma + "\" đã tồn tại trong hệ thống!");
+                }
+                if (!ma.isEmpty()) dm.setMaDanhMuc(ma);
+                dm.setTenDanhMuc(ten);
                 dm.setTrangThai(status);
                 yield danhMucRepository.save(dm);
             }
             case "co-ao" -> {
                 CoAo ca = coAoRepository.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy cổ áo!"));
-                if (req.getMa() != null && !req.getMa().trim().isEmpty()) ca.setMaCoAo(req.getMa().trim());
-                ca.setTenCoAo(req.getTen().trim());
+                if (coAoRepository.existsByTenCoAoIgnoreCaseAndIdNot(ten, id)) {
+                    throw new IllegalArgumentException("Tên cổ áo \"" + ten + "\" đã được sử dụng cho một cổ áo khác!");
+                }
+                if (!ma.isEmpty() && coAoRepository.existsByMaCoAoAndIdNot(ma, id)) {
+                    throw new IllegalArgumentException("Mã cổ áo \"" + ma + "\" đã tồn tại trong hệ thống!");
+                }
+                if (!ma.isEmpty()) ca.setMaCoAo(ma);
+                ca.setTenCoAo(ten);
                 ca.setTrangThai(status);
                 yield coAoRepository.save(ca);
             }
             case "tay-ao" -> {
                 TayAo ta = tayAoRepository.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy tay áo!"));
-                if (req.getMa() != null && !req.getMa().trim().isEmpty()) ta.setMaTayAo(req.getMa().trim());
-                ta.setTenTayAo(req.getTen().trim());
+                if (tayAoRepository.existsByTenTayAoIgnoreCaseAndIdNot(ten, id)) {
+                    throw new IllegalArgumentException("Tên tay áo \"" + ten + "\" đã được sử dụng cho một tay áo khác!");
+                }
+                if (!ma.isEmpty() && tayAoRepository.existsByMaTayAoAndIdNot(ma, id)) {
+                    throw new IllegalArgumentException("Mã tay áo \"" + ma + "\" đã tồn tại trong hệ thống!");
+                }
+                if (!ma.isEmpty()) ta.setMaTayAo(ma);
+                ta.setTenTayAo(ten);
                 ta.setTrangThai(status);
                 yield tayAoRepository.save(ta);
             }
             case "hoa-tiet" -> {
                 HoaTiet ht = hoaTietRepository.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy họa tiết!"));
-                if (req.getMa() != null && !req.getMa().trim().isEmpty()) ht.setMaHoaTiet(req.getMa().trim());
-                ht.setTenHoaTiet(req.getTen().trim());
+                if (hoaTietRepository.existsByTenHoaTietIgnoreCaseAndIdNot(ten, id)) {
+                    throw new IllegalArgumentException("Tên họa tiết \"" + ten + "\" đã được sử dụng cho một họa tiết khác!");
+                }
+                if (!ma.isEmpty() && hoaTietRepository.existsByMaHoaTietAndIdNot(ma, id)) {
+                    throw new IllegalArgumentException("Mã họa tiết \"" + ma + "\" đã tồn tại trong hệ thống!");
+                }
+                if (!ma.isEmpty()) ht.setMaHoaTiet(ma);
+                ht.setTenHoaTiet(ten);
                 ht.setTrangThai(status);
                 yield hoaTietRepository.save(ht);
             }
             case "mau-sac" -> {
                 MauSac ms = mauSacRepository.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy màu sắc!"));
-                if (req.getMa() != null && !req.getMa().trim().isEmpty()) ms.setMaMauSac(req.getMa().trim());
-                ms.setTenMauSac(req.getTen().trim());
-                if (req.getMaHex() != null && !req.getMaHex().trim().isEmpty()) ms.setMaHex(req.getMaHex().trim());
+                if (mauSacRepository.existsByTenMauSacIgnoreCaseAndIdNot(ten, id)) {
+                    throw new IllegalArgumentException("Tên màu sắc \"" + ten + "\" đã được sử dụng cho một màu sắc khác!");
+                }
+                if (!ma.isEmpty() && mauSacRepository.existsByMaMauSacAndIdNot(ma, id)) {
+                    throw new IllegalArgumentException("Mã màu sắc \"" + ma + "\" đã tồn tại trong hệ thống!");
+                }
+                if (req.getMaHex() != null && !req.getMaHex().trim().isEmpty()) {
+                    String hex = req.getMaHex().trim();
+                    if (!HEX_PATTERN.matcher(hex).matches()) {
+                        throw new IllegalArgumentException("Mã màu HEX không hợp lệ (Ví dụ: #FF0000 hoặc #FFF)!");
+                    }
+                    ms.setMaHex(hex);
+                }
+                if (!ma.isEmpty()) ms.setMaMauSac(ma);
+                ms.setTenMauSac(ten);
                 ms.setTrangThai(status);
                 yield mauSacRepository.save(ms);
             }
             case "kich-co" -> {
                 KichCo kc = kichCoRepository.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy kích cỡ!"));
-                if (req.getMa() != null && !req.getMa().trim().isEmpty()) kc.setMaKichCo(req.getMa().trim());
-                kc.setTenKichCo(req.getTen().trim());
+                if (kichCoRepository.existsByTenKichCoIgnoreCaseAndIdNot(ten, id)) {
+                    throw new IllegalArgumentException("Tên kích cỡ \"" + ten + "\" đã được sử dụng cho một kích cỡ khác!");
+                }
+                if (!ma.isEmpty() && kichCoRepository.existsByMaKichCoAndIdNot(ma, id)) {
+                    throw new IllegalArgumentException("Mã kích cỡ \"" + ma + "\" đã tồn tại trong hệ thống!");
+                }
+                if (!ma.isEmpty()) kc.setMaKichCo(ma);
+                kc.setTenKichCo(ten);
                 kc.setTrangThai(status);
                 yield kichCoRepository.save(kc);
             }
@@ -261,7 +444,7 @@ public class ThuocTinhService {
 
     public void changeStatus(String type, Long id, Integer status) {
         String t = normalizeType(type);
-        int newStatus = (status != null) ? status : 1;
+        int newStatus = (status != null && status == 0) ? 0 : 1;
         switch (t) {
             case "chat-lieu" -> {
                 ChatLieu cl = chatLieuRepository.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy chất liệu!"));
@@ -314,6 +497,58 @@ public class ThuocTinhService {
 
     public void delete(String type, Long id) {
         String t = normalizeType(type);
+        String displayName = getDisplayName(t);
+
+        // Kiểm tra ràng buộc khóa ngoại trước khi xóa
+        switch (t) {
+            case "chat-lieu" -> {
+                if (sanPhamRepository.existsByIdChatLieu_Id(id)) {
+                    throw new IllegalArgumentException("Chất liệu này đang được liên kết với sản phẩm, không thể xóa vĩnh viễn! Bạn hãy chuyển sang trạng thái Ngừng sử dụng.");
+                }
+            }
+            case "thuong-hieu" -> {
+                if (sanPhamRepository.existsByIdThuongHieu_Id(id)) {
+                    throw new IllegalArgumentException("Thương hiệu này đang được liên kết với sản phẩm, không thể xóa vĩnh viễn! Bạn hãy chuyển sang trạng thái Ngừng sử dụng.");
+                }
+            }
+            case "xuat-xu" -> {
+                if (sanPhamRepository.existsByIdXuatXu_Id(id)) {
+                    throw new IllegalArgumentException("Xuất xứ này đang được liên kết với sản phẩm, không thể xóa vĩnh viễn! Bạn hãy chuyển sang trạng thái Ngừng sử dụng.");
+                }
+            }
+            case "danh-muc" -> {
+                if (sanPhamRepository.existsByIdDanhMuc_Id(id)) {
+                    throw new IllegalArgumentException("Danh mục này đang được liên kết với sản phẩm, không thể xóa vĩnh viễn! Bạn hãy chuyển sang trạng thái Ngừng sử dụng.");
+                }
+            }
+            case "co-ao" -> {
+                if (sanPhamRepository.existsByIdCoAo_Id(id)) {
+                    throw new IllegalArgumentException("Cổ áo này đang được liên kết với sản phẩm, không thể xóa vĩnh viễn! Bạn hãy chuyển sang trạng thái Ngừng sử dụng.");
+                }
+            }
+            case "tay-ao" -> {
+                if (sanPhamRepository.existsByIdTayAo_Id(id)) {
+                    throw new IllegalArgumentException("Tay áo này đang được liên kết với sản phẩm, không thể xóa vĩnh viễn! Bạn hãy chuyển sang trạng thái Ngừng sử dụng.");
+                }
+            }
+            case "hoa-tiet" -> {
+                if (sanPhamRepository.existsByIdHoaTiet_Id(id)) {
+                    throw new IllegalArgumentException("Họa tiết này đang được liên kết với sản phẩm, không thể xóa vĩnh viễn! Bạn hãy chuyển sang trạng thái Ngừng sử dụng.");
+                }
+            }
+            case "mau-sac" -> {
+                if (chiTietSanPhamRepository.existsByIdMauSac_Id(id)) {
+                    throw new IllegalArgumentException("Màu sắc này đang được sử dụng trong biến thể sản phẩm, không thể xóa vĩnh viễn! Bạn hãy chuyển sang trạng thái Ngừng sử dụng.");
+                }
+            }
+            case "kich-co" -> {
+                if (chiTietSanPhamRepository.existsByIdKichCo_Id(id)) {
+                    throw new IllegalArgumentException("Kích cỡ này đang được sử dụng trong biến thể sản phẩm, không thể xóa vĩnh viễn! Bạn hãy chuyển sang trạng thái Ngừng sử dụng.");
+                }
+            }
+            default -> throw new IllegalArgumentException("Loại thuộc tính không hợp lệ: " + type);
+        }
+
         try {
             switch (t) {
                 case "chat-lieu" -> chatLieuRepository.deleteById(id);
@@ -328,7 +563,7 @@ public class ThuocTinhService {
                 default -> throw new IllegalArgumentException("Loại thuộc tính không hợp lệ: " + type);
             }
         } catch (DataIntegrityViolationException ex) {
-            throw new RuntimeException("Thuộc tính này đang được sử dụng trong sản phẩm, không thể xóa! Bạn có thể chuyển sang trạng thái Ngừng sử dụng.");
+            throw new IllegalArgumentException("Thuộc tính " + displayName + " này đang được sử dụng trong hệ thống, không thể xóa! Hãy chuyển sang trạng thái Ngừng sử dụng.");
         }
     }
 }

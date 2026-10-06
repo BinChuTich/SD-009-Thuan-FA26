@@ -9,4 +9,8 @@ import java.util.List;
 @Repository
 public interface HoaTietRepository extends JpaRepository<HoaTiet, Long> {
     List<HoaTiet> findByTrangThai(Integer trangThai);
+    boolean existsByMaHoaTiet(String maHoaTiet);
+    boolean existsByMaHoaTietAndIdNot(String maHoaTiet, Long id);
+    boolean existsByTenHoaTietIgnoreCase(String tenHoaTiet);
+    boolean existsByTenHoaTietIgnoreCaseAndIdNot(String tenHoaTiet, Long id);
 }

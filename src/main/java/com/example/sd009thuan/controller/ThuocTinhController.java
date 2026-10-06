@@ -86,12 +86,12 @@ public class ThuocTinhController {
     }
 
     @PostMapping("/type/{type}")
-    public ResponseEntity<?> create(@PathVariable String type, @RequestBody ThuocTinhRequest req) {
+    public ResponseEntity<?> create(@PathVariable String type, @jakarta.validation.Valid @RequestBody ThuocTinhRequest req) {
         return ResponseEntity.ok(thuocTinhService.create(type, req));
     }
 
     @PutMapping("/type/{type}/{id}")
-    public ResponseEntity<?> update(@PathVariable String type, @PathVariable Long id, @RequestBody ThuocTinhRequest req) {
+    public ResponseEntity<?> update(@PathVariable String type, @PathVariable Long id, @jakarta.validation.Valid @RequestBody ThuocTinhRequest req) {
         return ResponseEntity.ok(thuocTinhService.update(type, id, req));
     }
 

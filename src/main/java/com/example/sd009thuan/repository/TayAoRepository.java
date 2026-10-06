@@ -9,4 +9,8 @@ import java.util.List;
 @Repository
 public interface TayAoRepository extends JpaRepository<TayAo, Long> {
     List<TayAo> findByTrangThai(Integer trangThai);
+    boolean existsByMaTayAo(String maTayAo);
+    boolean existsByMaTayAoAndIdNot(String maTayAo, Long id);
+    boolean existsByTenTayAoIgnoreCase(String tenTayAo);
+    boolean existsByTenTayAoIgnoreCaseAndIdNot(String tenTayAo, Long id);
 }

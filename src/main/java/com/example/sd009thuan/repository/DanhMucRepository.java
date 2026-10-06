@@ -9,4 +9,8 @@ import java.util.List;
 @Repository
 public interface DanhMucRepository extends JpaRepository<DanhMuc, Long> {
     List<DanhMuc> findByTrangThai(Integer trangThai);
+    boolean existsByMaDanhMuc(String maDanhMuc);
+    boolean existsByMaDanhMucAndIdNot(String maDanhMuc, Long id);
+    boolean existsByTenDanhMucIgnoreCase(String tenDanhMuc);
+    boolean existsByTenDanhMucIgnoreCaseAndIdNot(String tenDanhMuc, Long id);
 }
