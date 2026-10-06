@@ -130,6 +130,32 @@ const closeEditModal = () => {
   editModal.value.show = false
 }
 
+// Modal Xem chi tiết biến thể
+const detailModal = ref({
+  show: false,
+  data: {}
+})
+
+const openDetailModal = (item) => {
+  detailModal.value.data = {
+    ...item,
+    tenSanPham: item.tenSanPham || currentProduct.value?.tenSanPham,
+    maSanPham: item.maSanPham || currentProduct.value?.maSanPham,
+    anhDaiDien: item.anhDaiDien || currentProduct.value?.anhDaiDien
+  }
+  detailModal.value.show = true
+}
+
+const closeDetailModal = () => {
+  detailModal.value.show = false
+}
+
+const switchToEditFromDetail = () => {
+  const item = { ...detailModal.value.data }
+  closeDetailModal()
+  openEditModal(item)
+}
+
 const handleSaveVariant = async () => {
   editModal.value.errors = {}
   const data = editModal.value.data
@@ -703,17 +729,15 @@ watch(() => route.query.sanPhamId, async (newId) => {
                   </svg>
                 </button>
 
-                <!-- 3. Icon Xóa (Trash icon) -->
+                <!-- 3. Icon Xem chi tiết (Eye icon) -->
                 <button
-                    class="btn-icon-round btn-delete-variant"
-                    @click="confirmDeleteVariant(item)"
-                    title="Xóa biến thể"
+                    class="btn-icon-round btn-view-variant"
+                    @click="openDetailModal(item)"
+                    title="Xem chi tiết biến thể"
                 >
                   <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    <line x1="10" y1="11" x2="10" y2="17"></line>
-                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
                   </svg>
                 </button>
               </div>
@@ -873,6 +897,99 @@ watch(() => route.query.sanPhamId, async (newId) => {
                 </svg>
                 Lưu biến thể
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Xem Chi Tiết Biến Thể -->
+    <div class="modal-backdrop" v-if="detailModal.show" @click.self="closeDetailModal">
+      <div class="modal-dialog-box update-variant-dialog">
+        <!-- Header -->
+        <div class="update-variant-header">
+          <div class="header-left-info">
+            <div class="variant-tag-badge view-badge">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <span>Chi tiết biến thể</span>
+            </div>
+            <h3 class="update-product-title">{{ detailModal.data.tenSanPham || currentProduct?.tenSanPham || 'Sản phẩm' }}</h3>
+            <div class="update-product-code">Mã SP: {{ detailModal.data.maSanPham || currentProduct?.maSanPham || '—' }} | Mã CTSP: {{ detailModal.data.maChiTietSanPham || '—' }}</div>
+          </div>
+          <button class="modal-close-icon" @click="closeDetailModal" title="Đóng">&times;</button>
+        </div>
+
+        <!-- Body: 2 cột đồng bộ với giao diện hệ thống -->
+        <div class="update-variant-body">
+          <!-- Cột trái: Ảnh to + 2 thẻ Màu sắc, Kích cỡ -->
+          <div class="left-variant-preview">
+            <div class="large-img-card">
+              <img
+                  :src="formatImageUrl(detailModal.data.anhDaiDien || currentProduct?.anhDaiDien)"
+                  @error="onImgError"
+                  alt="Variant preview"
+                  class="preview-img-tag"
+              />
+            </div>
+
+            <div class="variant-attr-summary-row">
+              <div class="attr-summary-box">
+                <span class="attr-box-label">MÀU SẮC</span>
+                <div class="attr-box-val">
+                  <span class="attr-color-dot" :style="{ backgroundColor: detailModal.data.maHex || 'var(--blue, #496883)' }"></span>
+                  <span class="attr-text-val">{{ detailModal.data.tenMauSac || 'Mặc định' }}</span>
+                </div>
+              </div>
+
+              <div class="attr-summary-box">
+                <span class="attr-box-label">KÍCH CỠ</span>
+                <div class="attr-box-val">
+                  <span class="attr-text-val">Size {{ detailModal.data.tenKichCo || '—' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cột phải: Thông tin chi tiết biến thể -->
+          <div class="right-variant-form-card">
+            <div class="form-card-heading">THÔNG TIN BIẾN THỂ</div>
+
+            <div class="detail-info-grid">
+              <div class="detail-item-box">
+                <span class="detail-item-label">Mã biến thể</span>
+                <span class="detail-item-value highlight-code">{{ detailModal.data.maChiTietSanPham || '—' }}</span>
+              </div>
+
+              <div class="detail-item-box">
+                <span class="detail-item-label">Số lượng tồn kho</span>
+                <span class="detail-item-value bold-number">{{ detailModal.data.soLuong ?? 0 }}</span>
+              </div>
+
+              <div class="detail-item-box">
+                <span class="detail-item-label">Giá bán</span>
+                <span class="detail-item-value price-number">{{ formatPrice(detailModal.data.giaBan) }}</span>
+              </div>
+
+              <div class="detail-item-box">
+                <span class="detail-item-label">Trạng thái</span>
+                <span :class="['detail-status-pill', detailModal.data.trangThai === 1 ? 'status-pill-active' : 'status-pill-inactive']">
+                  {{ detailModal.data.trangThai === 1 ? 'Đang bán' : 'Ngừng bán' }}
+                </span>
+              </div>
+            </div>
+
+            <div class="detail-actions-footer">
+              <button class="btn-detail-edit" @click="switchToEditFromDetail">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+                Chỉnh sửa biến thể
+              </button>
+              <button class="btn-detail-close" @click="closeDetailModal">Đóng</button>
             </div>
           </div>
         </div>
@@ -1463,17 +1580,131 @@ watch(() => route.query.sanPhamId, async (newId) => {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
 }
 
-/* 3. Icon Xóa (Trash) */
-.btn-delete-variant {
-  color: #dc2626;
-  background-color: #fef2f2;
-  border-color: #fecaca;
+/* 3. Icon Xem chi tiết (Eye) */
+.btn-view-variant {
+  color: #0284c7;
+  background-color: #f0f9ff;
+  border-color: #bae6fd;
 }
 
-.btn-delete-variant:hover {
-  background-color: #fee2e2;
+.btn-view-variant:hover {
+  background-color: #e0f2fe;
+  color: #0369a1;
   transform: scale(1.1);
-  box-shadow: 0 2px 5px rgba(220, 38, 38, 0.15);
+  box-shadow: 0 2px 5px rgba(2, 132, 199, 0.15);
+}
+
+.variant-tag-badge.view-badge {
+  color: #0284c7;
+  background-color: #e0f2fe;
+}
+
+.detail-info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  flex: 1;
+}
+
+.detail-item-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.65rem 0.85rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.detail-item-label {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.detail-item-value {
+  font-size: 0.92rem;
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.detail-item-value.highlight-code {
+  font-family: monospace;
+  color: var(--blue, #496883);
+}
+
+.detail-item-value.bold-number {
+  color: #0f172a;
+}
+
+.detail-item-value.price-number {
+  color: #e65228;
+  font-size: 1.05rem;
+}
+
+.detail-status-pill {
+  padding: 0.2rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.status-pill-active {
+  background-color: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.status-pill-inactive {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.detail-actions-footer {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.btn-detail-edit {
+  flex: 1;
+  height: 2.5rem;
+  background-color: var(--blue, #496883);
+  border: 1px solid var(--blue, #496883);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-detail-edit:hover {
+  background-color: #3d576e;
+  border-color: #3d576e;
+  transform: translateY(-1px);
+}
+
+.btn-detail-close {
+  height: 2.5rem;
+  padding: 0 1.25rem;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-detail-close:hover {
+  background-color: #f1f5f9;
 }
 
 .empty-cell {
