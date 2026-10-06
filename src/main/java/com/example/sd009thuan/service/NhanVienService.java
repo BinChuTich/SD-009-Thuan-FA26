@@ -60,14 +60,23 @@ public class NhanVienService {
         if (!req.soDienThoai().trim().matches("^0\\d{9,10}$")) {
             throw new IllegalArgumentException("Số điện thoại phải gồm 10-11 số và bắt đầu bằng 0");
         }
+        if (req.gioiTinh() == null) {
+            throw new IllegalArgumentException("Vui lòng chọn giới tính cho nhân viên");
+        }
+        if (req.ngaySinh() == null) {
+            throw new IllegalArgumentException("Ngày sinh nhân viên không được để trống");
+        }
+        if (req.ngaySinh().isAfter(java.time.LocalDate.now())) {
+            throw new IllegalArgumentException("Ngày sinh không được lớn hơn ngày hiện tại");
+        }
+        if (java.time.Period.between(req.ngaySinh(), java.time.LocalDate.now()).getYears() < 18) {
+            throw new IllegalArgumentException("Nhân viên phải từ đủ 18 tuổi trở lên");
+        }
         if (blank(req.queQuan()) == null) {
             throw new IllegalArgumentException("Tỉnh / Thành phố (Quê quán) không được để trống");
         }
         if (blank(req.phuong()) == null) {
             throw new IllegalArgumentException("Phường / Xã không được để trống");
-        }
-        if (blank(req.diaChiCuThe()) == null) {
-            throw new IllegalArgumentException("Địa chỉ cụ thể không được để trống");
         }
         validateUnique(req, null);
 

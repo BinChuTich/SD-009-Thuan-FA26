@@ -23,25 +23,27 @@
         <div class="avatar-upload-panel">
           <div class="avatar-card">
             <h4 class="card-subtitle">Ảnh đại diện</h4>
-            <div class="avatar-preview-box">
-              <img v-if="avatarPreview" :src="avatarPreview" class="avatar-preview-img" alt="avatar" />
-              <div v-else class="avatar-placeholder-text">{{ previewInitials }}</div>
-            </div>
-            <div class="avatar-actions">
-              <label class="btn btn-upload">
-                <span>📁</span> Đổi ảnh mới
+            <div class="avatar-integrated-wrapper">
+              <label class="avatar-uploader-box" title="Nhấp để chọn hoặc đổi ảnh đại diện">
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/jpg,image/webp"
                   @change="onImageSelected"
                   style="display: none"
                 />
+                <img v-if="avatarPreview" :src="avatarPreview" class="avatar-preview-img" alt="avatar" />
+                <div v-else class="avatar-empty-placeholder">
+                  <div class="avatar-placeholder-icon">📷</div>
+                  <span class="avatar-placeholder-text">Chọn ảnh</span>
+                </div>
+                <div class="avatar-hover-overlay">
+                  <span>📷 Đổi ảnh</span>
+                </div>
               </label>
-              <button v-if="avatarPreview" class="btn btn-remove-avatar" @click="removeAvatar">
+              <button v-if="avatarPreview" type="button" class="btn-remove-avatar-link" @click="removeAvatar">
                 Gỡ ảnh
               </button>
             </div>
-            <p class="avatar-hint">Định dạng: JPG, PNG, WEBP. Tối đa 5MB.</p>
           </div>
         </div>
 
@@ -97,7 +99,7 @@
 
               <!-- Giới tính -->
               <div class="form-field">
-                <label>Giới tính</label>
+                <label>Giới tính <span class="required">*</span></label>
                 <select v-model="form.gioiTinh">
                   <option :value="true">Nam</option>
                   <option :value="false">Nữ</option>
@@ -106,7 +108,7 @@
 
               <!-- Ngày sinh -->
               <div class="form-field">
-                <label>Ngày sinh</label>
+                <label>Ngày sinh <span class="required">*</span></label>
                 <input
                   v-model="form.ngaySinh"
                   type="date"
@@ -186,7 +188,7 @@
               </div>
 
               <div class="form-field full-width">
-                <label>Địa chỉ cụ thể <span class="required">*</span></label>
+                <label>Địa chỉ cụ thể</label>
                 <input
                   v-model="form.diaChiCuThe"
                   type="text"
@@ -380,19 +382,47 @@ async function handleUpdate() {
     })
   }
 
-  if (form.ngaySinh) {
-    const bDate = new Date(form.ngaySinh)
-    const today = new Date()
-    today.setHours(23, 59, 59, 999)
-    if (bDate > today) {
-      return showAlert({
-        title: 'Thông tin chưa hợp lệ',
-        message: 'Ngày sinh không được lớn hơn ngày hiện tại!',
-        type: 'warning'
-      })
-    }
+  // 4. Validate giới tính
+  if (form.gioiTinh === null || form.gioiTinh === undefined || form.gioiTinh === '') {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Vui lòng chọn giới tính của nhân viên!',
+      type: 'warning'
+    })
   }
 
+  // 5. Validate ngày sinh (Bắt buộc, <= hôm nay, từ đủ 18 tuổi)
+  if (!form.ngaySinh) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Ngày sinh của nhân viên không được để trống!',
+      type: 'warning'
+    })
+  }
+  const bDate = new Date(form.ngaySinh)
+  const today = new Date()
+  today.setHours(23, 59, 59, 999)
+  if (bDate > today) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Ngày sinh không được lớn hơn ngày hiện tại!',
+      type: 'warning'
+    })
+  }
+  let age = today.getFullYear() - bDate.getFullYear()
+  const m = today.getMonth() - bDate.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < bDate.getDate())) {
+    age--
+  }
+  if (age < 18) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Nhân viên phải từ đủ 18 tuổi trở lên!',
+      type: 'warning'
+    })
+  }
+
+  // 6. Validate vai trò
   if (!form.idVaiTro) {
     return showAlert({
       title: 'Thông tin chưa hợp lệ',
@@ -401,7 +431,7 @@ async function handleUpdate() {
     })
   }
 
-  // Validate địa chỉ (Bắt buộc)
+  // 7. Validate địa chỉ (Quê quán và Phường/Xã bắt buộc)
   if (!form.queQuan || !form.queQuan.trim()) {
     return showAlert({
       title: 'Thông tin chưa hợp lệ',
@@ -413,13 +443,6 @@ async function handleUpdate() {
     return showAlert({
       title: 'Thông tin chưa hợp lệ',
       message: 'Vui lòng nhập Phường / Xã của nhân viên!',
-      type: 'warning'
-    })
-  }
-  if (!form.diaChiCuThe || !form.diaChiCuThe.trim()) {
-    return showAlert({
-      title: 'Thông tin chưa hợp lệ',
-      message: 'Vui lòng nhập Địa chỉ cụ thể của nhân viên!',
       type: 'warning'
     })
   }
@@ -574,74 +597,102 @@ onMounted(async () => {
 }
 
 .card-subtitle {
-  margin: 0 0 1rem;
+  margin: 0 0 1.1rem;
   font-size: 1rem;
+  font-weight: 700;
   color: #496883;
 }
 
-.avatar-preview-box {
-  width: 130px;
-  height: 130px;
+.avatar-integrated-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.avatar-uploader-box {
+  width: 136px;
+  height: 136px;
   border-radius: 50%;
-  margin: 0 auto 1.2rem;
+  margin: 0 auto;
   background: #eaf1f5;
   border: 3px solid #ffffff;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-  display: grid;
-  place-items: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.avatar-uploader-box:hover {
+  border-color: #496883;
+  transform: scale(1.02);
+  box-shadow: 0 6px 18px rgba(73, 104, 131, 0.2);
 }
 
 .avatar-preview-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
+}
+
+.avatar-empty-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  color: #647b8c;
+}
+
+.avatar-placeholder-icon {
+  font-size: 2rem;
+  line-height: 1;
 }
 
 .avatar-placeholder-text {
-  font-size: 2.2rem;
-  font-weight: 800;
+  font-size: 0.85rem;
+  font-weight: 700;
   color: #496883;
 }
 
-.avatar-actions {
+.avatar-hover-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(43, 62, 79, 0.65);
+  color: #ffffff;
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
   align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
-.btn-upload {
-  background-color: #ffffff;
-  border: 1px solid #d2a764;
-  color: #926f34;
-  padding: 0.45rem 1rem;
-  border-radius: 6px;
-  font-size: 0.88rem;
+.avatar-uploader-box:hover .avatar-hover-overlay {
+  opacity: 1;
+}
+
+.btn-remove-avatar-link {
+  background: none;
+  border: none;
+  color: #c94a4a;
+  font-size: 0.84rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.btn-upload:hover {
-  background-color: #fef8ee;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  transition: background 0.15s;
 }
 
-.btn-remove-avatar {
-  background: transparent;
-  border: none;
-  color: #bf4545;
-  font-size: 0.82rem;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.avatar-hint {
-  margin: 0.8rem 0 0;
-  font-size: 0.78rem;
-  color: #8c979c;
+.btn-remove-avatar-link:hover {
+  background-color: #fde8e8;
 }
 
 /* Form Fields Panel */

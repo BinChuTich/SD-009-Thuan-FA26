@@ -56,4 +56,13 @@ public class DiaChiKhachHang {
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
 
+    @Size(max = 100)
+    @Nationalized
+    @Column(name = "ten_nguoi_nhan", length = 100)
+    private String tenNguoiNhan;
+
+    @Size(max = 20)
+    @Column(name = "so_dien_thoai_nhan", length = 20)
+    private String soDienThoaiNhan;
+
 }

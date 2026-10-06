@@ -14,6 +14,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -22,10 +24,12 @@ import java.util.Optional;
 public class KhachHangService {
     private final KhachHangRepository repo;
     private final DiaChiKhachHangRepository addressRepo;
+    private final FileStorageService fileStorageService;
 
-    public KhachHangService(KhachHangRepository repo, DiaChiKhachHangRepository addressRepo) {
+    public KhachHangService(KhachHangRepository repo, DiaChiKhachHangRepository addressRepo, FileStorageService fileStorageService) {
         this.repo = repo;
         this.addressRepo = addressRepo;
+        this.fileStorageService = fileStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -41,7 +45,7 @@ public class KhachHangService {
     }
 
     @Transactional
-    public KhachHangResponse create(KhachHangRequest req) {
+    public KhachHangResponse create(KhachHangRequest req, MultipartFile file) {
         validateRequired(req);
         validateUnique(req, null);
         KhachHang x = new KhachHang();
@@ -52,7 +56,10 @@ public class KhachHangService {
         x.setTenKhachHang(req.tenKhachHang().trim());
         x.setEmail(blankToNull(req.email()));
         x.setMatKhau(blankToNull(req.matKhau()) != null ? req.matKhau() : "123456");
-        x.setSoDienThoai(blankToNull(req.soDienThoai()));
+        String phone = blankToNull(req.soDienThoaiNhan()) != null ? req.soDienThoaiNhan() : req.soDienThoai();
+        x.setSoDienThoai(blankToNull(phone));
+        String imageUrl = fileStorageService.storeCustomerImage(file);
+        x.setAnhKhachHang(imageUrl != null ? imageUrl : blankToNull(req.anhKhachHang()));
         x.setNgaySinh(req.ngaySinh());
         x.setGioiTinh(req.gioiTinh() == null ? true : req.gioiTinh());
         x.setTrangThai(req.trangThai() == null ? 1 : req.trangThai());
@@ -64,19 +71,38 @@ public class KhachHangService {
     }
 
     @Transactional
-    public KhachHangResponse update(Long id, KhachHangRequest req) {
+    public KhachHangResponse create(KhachHangRequest req) {
+        return create(req, null);
+    }
+
+    @Transactional
+    public KhachHangResponse update(Long id, KhachHangRequest req, MultipartFile file) {
         KhachHang x = find(id);
         validateUnique(req, id);
         if (blankToNull(req.maKhachHang()) != null) x.setMaKhachHang(req.maKhachHang().trim());
         if (blankToNull(req.taiKhoan()) != null) x.setTaiKhoan(blankToNull(req.taiKhoan()));
         if (blankToNull(req.tenKhachHang()) != null) x.setTenKhachHang(req.tenKhachHang().trim());
-        if (blankToNull(req.email()) != null) x.setEmail(blankToNull(req.email()));
+        if (blankToNull(req.email()) != null) {
+            if (!req.email().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+                throw new IllegalArgumentException("Email khách hàng không đúng định dạng");
+            }
+            x.setEmail(blankToNull(req.email()));
+        }
         if (blankToNull(req.matKhau()) != null) x.setMatKhau(req.matKhau());
-        if (blankToNull(req.soDienThoai()) != null) {
-            if (!req.soDienThoai().trim().matches("^0\\d{9,10}$")) {
+        String phone = blankToNull(req.soDienThoaiNhan()) != null ? req.soDienThoaiNhan() : req.soDienThoai();
+        if (phone != null) {
+            if (!phone.trim().matches("^0\\d{9,10}$")) {
                 throw new IllegalArgumentException("Số điện thoại phải gồm 10-11 số và bắt đầu bằng 0");
             }
-            x.setSoDienThoai(blankToNull(req.soDienThoai()));
+            x.setSoDienThoai(blankToNull(phone));
+        }
+        String oldImage = x.getAnhKhachHang();
+        String imageUrl = fileStorageService.storeCustomerImage(file);
+        if (imageUrl != null) {
+            x.setAnhKhachHang(imageUrl);
+            fileStorageService.deleteIfLocal(oldImage);
+        } else if (blankToNull(req.anhKhachHang()) != null) {
+            x.setAnhKhachHang(blankToNull(req.anhKhachHang()));
         }
         if (req.ngaySinh() != null) x.setNgaySinh(req.ngaySinh());
         if (req.gioiTinh() != null) x.setGioiTinh(req.gioiTinh());
@@ -86,6 +112,11 @@ public class KhachHangService {
         x = repo.save(x);
         saveDefaultAddress(x, req);
         return toResponse(x);
+    }
+
+    @Transactional
+    public KhachHangResponse update(Long id, KhachHangRequest req) {
+        return update(id, req, null);
     }
 
     @Transactional
@@ -113,9 +144,37 @@ public class KhachHangService {
     }
 
     private void validateRequired(KhachHangRequest req) {
-        if (blankToNull(req.tenKhachHang()) == null) throw new IllegalArgumentException("Họ tên khách hàng không được để trống");
-        if (blankToNull(req.soDienThoai()) == null) throw new IllegalArgumentException("Số điện thoại khách hàng không được để trống");
-        if (!req.soDienThoai().trim().matches("0\\d{9,10}")) throw new IllegalArgumentException("Số điện thoại phải gồm 10-11 số và bắt đầu bằng 0");
+        if (blankToNull(req.tenKhachHang()) == null) {
+            throw new IllegalArgumentException("Họ tên khách hàng không được để trống");
+        }
+        if (blankToNull(req.email()) == null) {
+            throw new IllegalArgumentException("Email khách hàng không được để trống");
+        }
+        if (!req.email().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+            throw new IllegalArgumentException("Email khách hàng không đúng định dạng");
+        }
+        if (blankToNull(req.nguoiNhan()) == null) {
+            throw new IllegalArgumentException("Họ tên người nhận không được để trống");
+        }
+        String phoneNhan = blankToNull(req.soDienThoaiNhan()) != null ? req.soDienThoaiNhan() : req.soDienThoai();
+        if (blankToNull(phoneNhan) == null) {
+            throw new IllegalArgumentException("Số điện thoại người nhận không được để trống");
+        }
+        if (!phoneNhan.trim().matches("^0\\d{9,10}$")) {
+            throw new IllegalArgumentException("Số điện thoại người nhận phải gồm 10-11 số và bắt đầu bằng 0");
+        }
+        if (blankToNull(req.thanhPho()) == null) {
+            throw new IllegalArgumentException("Tỉnh / Thành phố nhận hàng không được để trống");
+        }
+        if (blankToNull(req.huyen()) == null) {
+            throw new IllegalArgumentException("Quận / Huyện nhận hàng không được để trống");
+        }
+        if (blankToNull(req.phuong()) == null) {
+            throw new IllegalArgumentException("Phường / Xã nhận hàng không được để trống");
+        }
+        if (blankToNull(req.diaChiCuThe()) == null) {
+            throw new IllegalArgumentException("Địa chỉ cụ thể nhận hàng không được để trống");
+        }
     }
 
     private void validateUnique(KhachHangRequest req, Long currentId) {
@@ -154,15 +213,17 @@ public class KhachHangService {
     }
 
     private void saveDefaultAddress(KhachHang customer, KhachHangRequest req) {
-        if (blankToNull(req.thanhPho()) == null && blankToNull(req.phuong()) == null && blankToNull(req.diaChiCuThe()) == null) return;
         Optional<DiaChiKhachHang> old = addressRepo.findFirstByIdKhachHangIdAndMacDinhTrueAndTrangThai(customer.getId(), 1);
         DiaChiKhachHang address = old.orElseGet(DiaChiKhachHang::new);
         address.setIdKhachHang(customer);
         address.setMaDiaChi("DC" + customer.getId());
-        address.setThanhPho(blankToNull(req.thanhPho()));
-        address.setHuyen(blankToNull(req.huyen()));
-        address.setPhuong(blankToNull(req.phuong()));
-        address.setDiaChiCuThe(blankToNull(req.diaChiCuThe()));
+        if (blankToNull(req.nguoiNhan()) != null) address.setTenNguoiNhan(blankToNull(req.nguoiNhan()));
+        String phoneNhan = blankToNull(req.soDienThoaiNhan()) != null ? req.soDienThoaiNhan() : req.soDienThoai();
+        if (phoneNhan != null) address.setSoDienThoaiNhan(blankToNull(phoneNhan));
+        if (blankToNull(req.thanhPho()) != null) address.setThanhPho(blankToNull(req.thanhPho()));
+        if (blankToNull(req.huyen()) != null) address.setHuyen(blankToNull(req.huyen()));
+        if (blankToNull(req.phuong()) != null) address.setPhuong(blankToNull(req.phuong()));
+        if (blankToNull(req.diaChiCuThe()) != null) address.setDiaChiCuThe(blankToNull(req.diaChiCuThe()));
         address.setMacDinh(true);
         address.setTrangThai(1);
         addressRepo.save(address);
@@ -177,8 +238,13 @@ public class KhachHangService {
         return new KhachHangResponse(
                 x.getId(), x.getMaKhachHang(), x.getTaiKhoan(), x.getTenKhachHang(), x.getEmail(), x.getSoDienThoai(),
                 x.getNgaySinh(), x.getGioiTinh(), x.getTrangThai(),
-                a == null ? null : a.getThanhPho(), a == null ? null : a.getHuyen(), a == null ? null : a.getPhuong(),
-                a == null ? null : a.getDiaChiCuThe(), null, null
+                a == null ? null : a.getThanhPho(),
+                a == null ? null : a.getHuyen(),
+                a == null ? null : a.getPhuong(),
+                a == null ? null : a.getDiaChiCuThe(),
+                a == null ? null : a.getTenNguoiNhan(),
+                a == null ? null : a.getSoDienThoaiNhan(),
+                x.getAnhKhachHang()
         );
     }
 

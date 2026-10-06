@@ -16,6 +16,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.Map;
 
 @RestController
@@ -61,14 +63,29 @@ public class KhachHangController {
     @GetMapping("/{id}")
     public KhachHangResponse get(@PathVariable Long id) { return service.get(id); }
 
-    @PostMapping
-    public ResponseEntity<KhachHangResponse> create(@RequestBody KhachHangRequest req) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req));
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<KhachHangResponse> createMultipart(
+            @RequestPart("data") KhachHangRequest req,
+            @RequestPart(value = "file", required = false) MultipartFile file) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, file));
     }
 
-    @PutMapping("/{id}")
-    public KhachHangResponse update(@PathVariable Long id, @RequestBody KhachHangRequest req) {
-        return service.update(id, req);
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<KhachHangResponse> createJson(@RequestBody KhachHangRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, null));
+    }
+
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public KhachHangResponse updateMultipart(
+            @PathVariable Long id,
+            @RequestPart("data") KhachHangRequest req,
+            @RequestPart(value = "file", required = false) MultipartFile file) {
+        return service.update(id, req, file);
+    }
+
+    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public KhachHangResponse updateJson(@PathVariable Long id, @RequestBody KhachHangRequest req) {
+        return service.update(id, req, null);
     }
 
     @PatchMapping("/{id}/toggle-status")

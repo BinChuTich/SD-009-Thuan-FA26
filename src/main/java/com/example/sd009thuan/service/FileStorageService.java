@@ -51,8 +51,39 @@ public class FileStorageService {
         }
     }
 
+    public String storeCustomerImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) return null;
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("File tải lên phải là ảnh");
+        }
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new IllegalArgumentException("Ảnh không được vượt quá 5MB");
+        }
+
+        String original = StringUtils.cleanPath(file.getOriginalFilename() == null ? "image" : file.getOriginalFilename());
+        String extension = "";
+        int dot = original.lastIndexOf('.');
+        if (dot >= 0) extension = original.substring(dot).toLowerCase();
+        if (!extension.matches("\\.(jpg|jpeg|png|gif|webp)$")) {
+            throw new IllegalArgumentException("Chỉ chấp nhận JPG, JPEG, PNG, GIF hoặc WEBP");
+        }
+
+        try {
+            Path directory = uploadRoot.resolve("khach-hang").normalize();
+            Files.createDirectories(directory);
+            String filename = UUID.randomUUID() + extension;
+            Path target = directory.resolve(filename).normalize();
+            if (!target.startsWith(directory)) throw new IllegalArgumentException("Tên file không hợp lệ");
+            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+            return "/uploads/khach-hang/" + filename;
+        } catch (IOException e) {
+            throw new IllegalStateException("Không thể lưu ảnh khách hàng", e);
+        }
+    }
+
     public void deleteIfLocal(String url) {
-        if (url == null || !url.startsWith("/uploads/nhan-vien/")) return;
+        if (url == null || (!url.startsWith("/uploads/nhan-vien/") && !url.startsWith("/uploads/khach-hang/"))) return;
         try {
             String relative = url.substring("/uploads/".length());
             Path file = uploadRoot.resolve(relative).normalize();

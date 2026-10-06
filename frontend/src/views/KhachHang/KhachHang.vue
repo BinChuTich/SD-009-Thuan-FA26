@@ -101,7 +101,14 @@
               </td>
               <td style="text-align: center;">
                 <div class="avatar-cell">
-                  <div class="avatar-placeholder">{{ initialsOf(item.tenKhachHang) }}</div>
+                  <img
+                    v-if="item.anhKhachHang"
+                    :src="item.anhKhachHang.startsWith('http') ? item.anhKhachHang : `http://localhost:8080${item.anhKhachHang}`"
+                    class="avatar-img"
+                    alt="avatar"
+                    @error="item.anhKhachHang = ''"
+                  />
+                  <div v-else class="avatar-placeholder">{{ initialsOf(item.tenKhachHang) }}</div>
                 </div>
               </td>
               <td class="font-bold text-blue">{{ item.maKhachHang }}</td>
@@ -565,6 +572,14 @@ onMounted(() => {
   font-weight: 700;
   display: grid;
   place-items: center;
+}
+
+.avatar-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #d8e2e6;
 }
 
 .font-bold {
