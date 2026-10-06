@@ -134,8 +134,7 @@
                 <input
                   v-model="form.soDienThoaiNhan"
                   type="text"
-                  placeholder="VD: 0987654321 (10-11 số)"
-                  maxlength="11"
+                  placeholder="VD: 0987654321 (10 - 11 số)"
                 />
               </div>
 
@@ -338,10 +337,31 @@ async function handleSubmit() {
       type: 'warning'
     })
   }
-  if (!/^0\d{9,10}$/.test(phone)) {
+  if (!/^\d+$/.test(phone)) {
     return showAlert({
       title: 'Thông tin chưa hợp lệ',
-      message: 'Số điện thoại người nhận phải từ 10 - 11 chữ số và bắt đầu bằng số 0!',
+      message: 'Số điện thoại chỉ được chứa các chữ số!',
+      type: 'warning'
+    })
+  }
+  if (!phone.startsWith('0')) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Số điện thoại phải bắt đầu bằng số 0!',
+      type: 'warning'
+    })
+  }
+  if (phone.length < 10) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Số điện thoại không được dưới 10 số (hiện tại có ' + phone.length + ' số)!',
+      type: 'warning'
+    })
+  }
+  if (phone.length > 11) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Số điện thoại không được trên 11 số (hiện tại có ' + phone.length + ' số)!',
       type: 'warning'
     })
   }

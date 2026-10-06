@@ -81,19 +81,25 @@ public class KhachHangService {
         validateUnique(req, id);
         if (blankToNull(req.maKhachHang()) != null) x.setMaKhachHang(req.maKhachHang().trim());
         if (blankToNull(req.taiKhoan()) != null) x.setTaiKhoan(blankToNull(req.taiKhoan()));
-        if (blankToNull(req.tenKhachHang()) != null) x.setTenKhachHang(req.tenKhachHang().trim());
-        if (blankToNull(req.email()) != null) {
+        if (req.tenKhachHang() != null) {
+            if (blankToNull(req.tenKhachHang()) == null) {
+                throw new IllegalArgumentException("Họ tên khách hàng không được để trống");
+            }
+            x.setTenKhachHang(req.tenKhachHang().trim());
+        }
+        if (req.email() != null) {
+            if (blankToNull(req.email()) == null) {
+                throw new IllegalArgumentException("Email khách hàng không được để trống");
+            }
             if (!req.email().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
                 throw new IllegalArgumentException("Email khách hàng không đúng định dạng");
             }
             x.setEmail(blankToNull(req.email()));
         }
         if (blankToNull(req.matKhau()) != null) x.setMatKhau(req.matKhau());
-        String phone = blankToNull(req.soDienThoaiNhan()) != null ? req.soDienThoaiNhan() : req.soDienThoai();
-        if (phone != null) {
-            if (!phone.trim().matches("^0\\d{9,10}$")) {
-                throw new IllegalArgumentException("Số điện thoại phải gồm 10-11 số và bắt đầu bằng 0");
-            }
+        if (req.soDienThoaiNhan() != null || req.soDienThoai() != null) {
+            String phone = req.soDienThoaiNhan() != null ? req.soDienThoaiNhan() : req.soDienThoai();
+            validateSoDienThoai(phone);
             x.setSoDienThoai(blankToNull(phone));
         }
         String oldImage = x.getAnhKhachHang();
@@ -157,12 +163,7 @@ public class KhachHangService {
             throw new IllegalArgumentException("Họ tên người nhận không được để trống");
         }
         String phoneNhan = blankToNull(req.soDienThoaiNhan()) != null ? req.soDienThoaiNhan() : req.soDienThoai();
-        if (blankToNull(phoneNhan) == null) {
-            throw new IllegalArgumentException("Số điện thoại người nhận không được để trống");
-        }
-        if (!phoneNhan.trim().matches("^0\\d{9,10}$")) {
-            throw new IllegalArgumentException("Số điện thoại người nhận phải gồm 10-11 số và bắt đầu bằng 0");
-        }
+        validateSoDienThoai(phoneNhan);
         if (blankToNull(req.thanhPho()) == null) {
             throw new IllegalArgumentException("Tỉnh / Thành phố nhận hàng không được để trống");
         }
@@ -246,6 +247,25 @@ public class KhachHangService {
                 a == null ? null : a.getSoDienThoaiNhan(),
                 x.getAnhKhachHang()
         );
+    }
+
+    private void validateSoDienThoai(String rawPhone) {
+        String phone = blankToNull(rawPhone);
+        if (phone == null) {
+            throw new IllegalArgumentException("Số điện thoại không được để trống");
+        }
+        if (!phone.matches("\\d+")) {
+            throw new IllegalArgumentException("Số điện thoại chỉ được chứa các chữ số");
+        }
+        if (!phone.startsWith("0")) {
+            throw new IllegalArgumentException("Số điện thoại phải bắt đầu bằng số 0");
+        }
+        if (phone.length() < 10) {
+            throw new IllegalArgumentException("Số điện thoại không được dưới 10 số");
+        }
+        if (phone.length() > 11) {
+            throw new IllegalArgumentException("Số điện thoại không được trên 11 số");
+        }
     }
 
     private String blankToNull(String value) {
