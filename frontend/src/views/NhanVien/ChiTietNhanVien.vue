@@ -6,7 +6,10 @@
         <button class="btn-back" @click="goBack">
           <span>←</span> Quay lại danh sách
         </button>
-        <h2 class="page-title">Chi tiết nhân viên: {{ form.tenNhanVien || form.maNhanVien }}</h2>
+        <h2 class="page-title">
+          {{ isReadOnly ? 'Chi tiết nhân viên' : 'Cập nhật nhân viên' }}: {{ form.tenNhanVien || form.maNhanVien }}
+          <span v-if="isReadOnly" class="tag-readonly">(Chỉ xem)</span>
+        </h2>
       </div>
     </div>
 
@@ -25,7 +28,7 @@
               <img v-if="avatarPreview" :src="avatarPreview" class="avatar-preview-img" alt="avatar" />
               <div v-else class="avatar-placeholder-text">{{ previewInitials }}</div>
             </div>
-            <div class="avatar-actions">
+            <div v-if="!isReadOnly" class="avatar-actions">
               <label class="btn btn-upload">
                 <span>📁</span> Đổi ảnh mới
                 <input
@@ -39,7 +42,7 @@
                 Gỡ ảnh
               </button>
             </div>
-            <p class="avatar-hint">Định dạng: JPG, PNG, WEBP. Tối đa 5MB.</p>
+            <p v-if="!isReadOnly" class="avatar-hint">Định dạng: JPG, PNG, WEBP. Tối đa 5MB.</p>
           </div>
         </div>
 
@@ -64,20 +67,24 @@
 
               <!-- Họ và tên -->
               <div class="form-field">
-                <label>Họ và tên <span class="required">*</span></label>
+                <label>Họ và tên <span v-if="!isReadOnly" class="required">*</span></label>
                 <input
                   v-model="form.tenNhanVien"
                   type="text"
+                  :disabled="isReadOnly"
+                  :class="{ 'input-disabled': isReadOnly }"
                   placeholder="Nhập họ và tên..."
                 />
               </div>
 
               <!-- Số điện thoại -->
               <div class="form-field">
-                <label>Số điện thoại <span class="required">*</span></label>
+                <label>Số điện thoại <span v-if="!isReadOnly" class="required">*</span></label>
                 <input
                   v-model="form.soDienThoai"
                   type="text"
+                  :disabled="isReadOnly"
+                  :class="{ 'input-disabled': isReadOnly }"
                   placeholder="VD: 0987654321"
                   maxlength="11"
                 />
@@ -85,10 +92,12 @@
 
               <!-- Email -->
               <div class="form-field">
-                <label>Email <span class="required">*</span></label>
+                <label>Email <span v-if="!isReadOnly" class="required">*</span></label>
                 <input
                   v-model="form.email"
                   type="email"
+                  :disabled="isReadOnly"
+                  :class="{ 'input-disabled': isReadOnly }"
                   placeholder="example@gmail.com"
                 />
               </div>
@@ -96,7 +105,7 @@
               <!-- Giới tính -->
               <div class="form-field">
                 <label>Giới tính</label>
-                <select v-model="form.gioiTinh">
+                <select v-model="form.gioiTinh" :disabled="isReadOnly" :class="{ 'input-disabled': isReadOnly }">
                   <option :value="true">Nam</option>
                   <option :value="false">Nữ</option>
                 </select>
@@ -108,14 +117,16 @@
                 <input
                   v-model="form.ngaySinh"
                   type="date"
+                  :disabled="isReadOnly"
+                  :class="{ 'input-disabled': isReadOnly }"
                   :max="maxDate"
                 />
               </div>
 
               <!-- Vai trò (Chỉ có 2 vai trò: Quản trị viên & Nhân viên) -->
               <div class="form-field">
-                <label>Vai trò <span class="required">*</span></label>
-                <select v-model="form.idVaiTro">
+                <label>Vai trò <span v-if="!isReadOnly" class="required">*</span></label>
+                <select v-model="form.idVaiTro" :disabled="isReadOnly" :class="{ 'input-disabled': isReadOnly }">
                   <option v-for="r in roles" :key="r.id" :value="r.id">
                     {{ r.tenVaiTro }}
                   </option>
@@ -125,7 +136,7 @@
               <!-- Trạng thái -->
               <div class="form-field">
                 <label>Trạng thái</label>
-                <select v-model="form.trangThai">
+                <select v-model="form.trangThai" :disabled="isReadOnly" :class="{ 'input-disabled': isReadOnly }">
                   <option :value="1">Hoạt động</option>
                   <option :value="0">Ngừng hoạt động</option>
                 </select>
@@ -144,15 +155,19 @@
                 <input
                   v-model="form.tenTaiKhoan"
                   type="text"
+                  :disabled="isReadOnly"
+                  :class="{ 'input-disabled': isReadOnly }"
                   placeholder="Tên tài khoản"
                 />
               </div>
 
               <div class="form-field">
-                <label>Đổi mật khẩu mới <span class="tag-hint">(Để trống nếu không đổi)</span></label>
+                <label>Đổi mật khẩu mới <span v-if="!isReadOnly" class="tag-hint">(Để trống nếu không đổi)</span></label>
                 <input
                   v-model="form.matKhau"
                   type="password"
+                  :disabled="isReadOnly"
+                  :class="{ 'input-disabled': isReadOnly }"
                   placeholder="Nhập mật khẩu mới nếu muốn đổi..."
                 />
               </div>
@@ -166,28 +181,34 @@
             </h4>
             <div class="form-grid">
               <div class="form-field">
-                <label>Tỉnh / Thành phố (Quê quán) <span class="required">*</span></label>
+                <label>Tỉnh / Thành phố (Quê quán) <span v-if="!isReadOnly" class="required">*</span></label>
                 <input
                   v-model="form.queQuan"
                   type="text"
+                  :disabled="isReadOnly"
+                  :class="{ 'input-disabled': isReadOnly }"
                   placeholder="VD: Hà Nội, Hải Phòng..."
                 />
               </div>
 
               <div class="form-field">
-                <label>Phường / Xã <span class="required">*</span></label>
+                <label>Phường / Xã <span v-if="!isReadOnly" class="required">*</span></label>
                 <input
                   v-model="form.phuong"
                   type="text"
+                  :disabled="isReadOnly"
+                  :class="{ 'input-disabled': isReadOnly }"
                   placeholder="VD: Phường Dịch Vọng..."
                 />
               </div>
 
               <div class="form-field full-width">
-                <label>Địa chỉ cụ thể <span class="required">*</span></label>
+                <label>Địa chỉ cụ thể <span v-if="!isReadOnly" class="required">*</span></label>
                 <input
                   v-model="form.diaChiCuThe"
                   type="text"
+                  :disabled="isReadOnly"
+                  :class="{ 'input-disabled': isReadOnly }"
                   placeholder="Số nhà, ngõ, tên đường..."
                 />
               </div>
@@ -197,9 +218,12 @@
           <!-- Nút hành động -->
           <div class="form-actions-bar">
             <button class="btn btn-secondary" @click="goBack">
-              Quay lại
+              Quay lại danh sách
             </button>
-            <button class="btn btn-primary" :disabled="saving" @click="handleUpdate">
+            <button v-if="isReadOnly" class="btn btn-primary" @click="switchToEdit">
+              ✏️ Chuyển sang chỉnh sửa
+            </button>
+            <button v-else class="btn btn-primary" :disabled="saving" @click="handleUpdate">
               {{ saving ? 'Đang lưu...' : '💾 Lưu thay đổi' }}
             </button>
           </div>
@@ -210,7 +234,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
@@ -218,6 +242,19 @@ import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
 const route = useRoute()
 const router = useRouter()
 const id = route.params.id
+
+const isReadOnly = ref(route.query.mode !== 'edit')
+
+watch(
+  () => route.query.mode,
+  (newMode) => {
+    isReadOnly.value = newMode !== 'edit'
+  }
+)
+
+function switchToEdit() {
+  router.replace({ path: route.path, query: { mode: 'edit' } })
+}
 
 const loading = ref(true)
 const saving = ref(false)
@@ -523,6 +560,20 @@ onMounted(async () => {
   font-size: 1.35rem;
   font-weight: 700;
   color: var(--blue, #496883);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tag-readonly {
+  display: inline-block;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 12px;
+  background-color: #edf2f6;
+  color: #496883;
+  font-weight: 600;
 }
 
 .loading-card {

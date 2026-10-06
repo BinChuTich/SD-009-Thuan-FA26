@@ -135,18 +135,34 @@
                 <div class="action-buttons">
                   <button
                     v-if="item.role !== 'Quản trị viên'"
-                    class="btn-circle-action"
+                    class="btn-circle-action btn-power"
                     :title="item.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'"
                     @click="toggleStatus(item)"
                   >
-                    <span class="icon-power">⏻</span>
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                      <line x1="12" y1="2" x2="12" y2="12"></line>
+                    </svg>
                   </button>
                   <button
-                    class="btn-circle-action"
-                    title="Xem chi tiết & Chỉnh sửa"
+                    class="btn-circle-action btn-edit"
+                    title="Chỉnh sửa nhân viên"
+                    @click="goToEdit(item.id)"
+                  >
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                  </button>
+                  <button
+                    class="btn-circle-action btn-view"
+                    title="Xem chi tiết (Chỉ xem)"
                     @click="goToDetail(item.id)"
                   >
-                    <span class="icon-eye">👁</span>
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
                   </button>
                 </div>
               </td>
@@ -290,8 +306,12 @@ function goToCreate() {
   router.push('/nhan-vien/them')
 }
 
+function goToEdit(id) {
+  router.push(`/nhan-vien/${id}?mode=edit`)
+}
+
 function goToDetail(id) {
-  router.push(`/nhan-vien/${id}`)
+  router.push(`/nhan-vien/${id}?mode=view`)
 }
 
 async function toggleStatus(item) {
@@ -683,17 +703,36 @@ onMounted(async () => {
   border-radius: 6px;
   border: 1px solid var(--line, #e9e5db);
   background-color: #ffffff;
-  color: #496883;
-  display: grid;
-  place-items: center;
+  color: #556268;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
-  font-size: 0.95rem;
 }
 
-.btn-circle-action:hover {
-  border-color: var(--blue, #496883);
-  background-color: #eaf1f4;
+.btn-circle-action svg {
+  display: block;
+}
+
+.btn-power:hover {
+  border-color: #e09f3e;
+  background-color: #fff8eb;
+  color: #b57a1b;
+  transform: scale(1.08);
+}
+
+.btn-edit:hover {
+  border-color: #496883;
+  background-color: #eef4f8;
+  color: #38536b;
+  transform: scale(1.08);
+}
+
+.btn-view:hover {
+  border-color: #627d98;
+  background-color: #f1f5f9;
+  color: #243b53;
   transform: scale(1.08);
 }
 
