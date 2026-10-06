@@ -135,19 +135,27 @@ public class SanPhamService {
 
     @Transactional
     public SanPhamResponse create(SanPhamRequest req) {
+        String trimmedName = req.getTenSanPham() != null ? req.getTenSanPham().trim() : "";
+        if (trimmedName.isEmpty()) {
+            throw new IllegalArgumentException("Tên sản phẩm không được để trống!");
+        }
+        if (sanPhamRepository.existsByTenSanPhamIgnoreCase(trimmedName)) {
+            throw new IllegalArgumentException("Tên sản phẩm '" + trimmedName + "' đã tồn tại trong hệ thống!");
+        }
+
         if (req.getMaSanPham() == null || req.getMaSanPham().trim().isEmpty()) {
             req.setMaSanPham("SP" + System.currentTimeMillis());
         } else {
             String trimmedCode = req.getMaSanPham().trim();
             if (sanPhamRepository.existsByMaSanPham(trimmedCode)) {
-                throw new RuntimeException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại!");
+                throw new IllegalArgumentException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại!");
             }
             req.setMaSanPham(trimmedCode);
         }
 
         SanPham sp = new SanPham();
         sp.setMaSanPham(req.getMaSanPham());
-        sp.setTenSanPham(req.getTenSanPham());
+        sp.setTenSanPham(trimmedName);
         sp.setMoTa(req.getMoTa());
         sp.setTrangThai(req.getTrangThai() != null ? req.getTrangThai() : 1);
         sp.setNguoiTao(req.getNguoiThaoTac() != null ? req.getNguoiThaoTac() : "Admin");
@@ -198,15 +206,23 @@ public class SanPhamService {
         SanPham sp = sanPhamRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm có ID: " + id));
 
+        String trimmedName = req.getTenSanPham() != null ? req.getTenSanPham().trim() : "";
+        if (trimmedName.isEmpty()) {
+            throw new IllegalArgumentException("Tên sản phẩm không được để trống!");
+        }
+        if (sanPhamRepository.existsByTenSanPhamIgnoreCaseAndIdNot(trimmedName, id)) {
+            throw new IllegalArgumentException("Tên sản phẩm '" + trimmedName + "' đã được sử dụng ở sản phẩm khác!");
+        }
+
         if (req.getMaSanPham() != null && !req.getMaSanPham().trim().isEmpty()) {
             String trimmedCode = req.getMaSanPham().trim();
             if (sanPhamRepository.existsByMaSanPhamAndIdNot(trimmedCode, id)) {
-                throw new RuntimeException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại ở sản phẩm khác!");
+                throw new IllegalArgumentException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại ở sản phẩm khác!");
             }
             sp.setMaSanPham(trimmedCode);
         }
 
-        sp.setTenSanPham(req.getTenSanPham());
+        sp.setTenSanPham(trimmedName);
         sp.setMoTa(req.getMoTa());
         if (req.getTrangThai() != null) {
             sp.setTrangThai(req.getTrangThai());
@@ -334,17 +350,24 @@ public class SanPhamService {
         SanPham sp = sanPhamRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm có ID: " + id));
 
-        List<ChiTietSanPham> variants = chiTietSanPhamRepository.findByIdSanPham_Id(id);
-        if (variants != null && !variants.isEmpty()) {
-            chiTietSanPhamRepository.deleteAll(variants);
-        }
+        try {
+            List<ChiTietSanPham> variants = chiTietSanPhamRepository.findByIdSanPham_Id(id);
+            if (variants != null && !variants.isEmpty()) {
+                chiTietSanPhamRepository.deleteAll(variants);
+                chiTietSanPhamRepository.flush();
+            }
 
-        List<HinhAnh> images = hinhAnhRepository.findByIdSanPham_Id(id);
-        if (images != null && !images.isEmpty()) {
-            hinhAnhRepository.deleteAll(images);
-        }
+            List<HinhAnh> images = hinhAnhRepository.findByIdSanPham_Id(id);
+            if (images != null && !images.isEmpty()) {
+                hinhAnhRepository.deleteAll(images);
+                hinhAnhRepository.flush();
+            }
 
-        sanPhamRepository.delete(sp);
+            sanPhamRepository.delete(sp);
+            sanPhamRepository.flush();
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            throw new IllegalArgumentException("Không thể xóa sản phẩm vì đã có biến thể phát sinh giao dịch/hóa đơn trong hệ thống! Vui lòng chuyển trạng thái sang 'Ngừng kinh doanh'.");
+        }
     }
 
     public byte[] exportExcel(SanPhamFilterRequest req) {

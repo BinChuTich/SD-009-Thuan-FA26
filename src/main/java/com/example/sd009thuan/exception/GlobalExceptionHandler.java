@@ -45,8 +45,13 @@ public class GlobalExceptionHandler {
         Map<String, Object> response = new HashMap<>();
         String msg = "Dữ liệu bị trùng lặp hoặc vi phạm ràng buộc cơ sở dữ liệu!";
         String fullErr = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
-        if (fullErr != null && (fullErr.contains("UQ") || fullErr.contains("duplicate") || fullErr.contains("trùng"))) {
-            msg = "Mã hoặc dữ liệu đã tồn tại trong hệ thống (trùng lặp)!";
+        if (fullErr != null) {
+            String lower = fullErr.toLowerCase();
+            if (lower.contains("fk_") || lower.contains("foreign key") || lower.contains("reference constraint") || lower.contains("conflicted with the reference")) {
+                msg = "Không thể xóa hoặc thay đổi vì dữ liệu đang được liên kết trong hệ thống (hóa đơn, lịch sử giao dịch,...). Vui lòng chuyển trạng thái thay vì xóa!";
+            } else if (lower.contains("uq") || lower.contains("duplicate") || lower.contains("trùng") || lower.contains("unique key")) {
+                msg = "Mã hoặc thông tin đã tồn tại trong hệ thống (trùng lặp)!";
+            }
         }
         response.put("timestamp", LocalDateTime.now().toString());
         response.put("status", HttpStatus.BAD_REQUEST.value());

@@ -809,14 +809,34 @@ const toggleSelectAllVariants = () => {
 
 // Áp dụng số lượng & giá bán mặc định hàng loạt
 const applyBulkValues = () => {
+  if (bulkQty.value !== null && bulkQty.value !== undefined && bulkQty.value !== '') {
+    const sl = Number(bulkQty.value)
+    if (isNaN(sl) || !Number.isInteger(sl) || sl < 0 || sl > 999999) {
+      showToast('Số lượng áp dụng phải là số nguyên từ 0 đến 999,999!', 'error')
+      return
+    }
+  }
+  if (bulkPrice.value !== null && bulkPrice.value !== undefined && bulkPrice.value !== '') {
+    const gb = Number(bulkPrice.value)
+    if (isNaN(gb) || gb < 0 || gb > 1000000000) {
+      showToast('Giá bán áp dụng phải từ 0 đến 1,000,000,000 VNĐ!', 'error')
+      return
+    }
+  }
+
   let count = 0
   variantsList.value.forEach(v => {
     if (v.selected) {
-      if (bulkQty.value !== null && bulkQty.value !== undefined) v.soLuong = bulkQty.value
-      if (bulkPrice.value !== null && bulkPrice.value !== undefined) v.giaBan = bulkPrice.value
+      if (bulkQty.value !== null && bulkQty.value !== undefined && bulkQty.value !== '') v.soLuong = Number(bulkQty.value)
+      if (bulkPrice.value !== null && bulkPrice.value !== undefined && bulkPrice.value !== '') v.giaBan = Number(bulkPrice.value)
       count++
     }
   })
+
+  if (count === 0) {
+    showToast('Vui lòng chọn ít nhất một biến thể để áp dụng hàng loạt!', 'warning')
+    return
+  }
   showToast(`Đã áp dụng cho ${count} biến thể được chọn!`, 'success')
 }
 
@@ -881,17 +901,65 @@ const handleQuickAdd = (type) => {
 
 // Xác nhận Lưu / Cập nhật sản phẩm
 const openSaveConfirm = () => {
-  if (!form.value.tenSanPham?.trim()) {
+  const ten = form.value.tenSanPham?.trim()
+  if (!ten) {
     showToast('Vui lòng nhập tên sản phẩm!', 'error')
     return
   }
+  if (ten.length > 255) {
+    showToast('Tên sản phẩm không được vượt quá 255 ký tự!', 'error')
+    return
+  }
+
+  if (form.value.maSanPham?.trim()) {
+    const ma = form.value.maSanPham.trim()
+    if (ma.length > 50) {
+      showToast('Mã sản phẩm không được vượt quá 50 ký tự!', 'error')
+      return
+    }
+    const codeRegex = /^[A-Za-z0-9_-]+$/
+    if (!codeRegex.test(ma)) {
+      showToast('Mã sản phẩm chỉ được chứa chữ cái, số, gạch dưới và gạch ngang (không dấu cách)!', 'error')
+      return
+    }
+  }
+
+  if (form.value.moTa && form.value.moTa.length > 2000) {
+    showToast('Mô tả sản phẩm không được vượt quá 2000 ký tự!', 'error')
+    return
+  }
+
+  // Validate các biến thể được chọn
+  const activeVariants = variantsList.value.filter(v => v.selected !== false)
+  for (const v of activeVariants) {
+    const label = `${v.tenMauSac || 'Màu'} - ${v.tenKichCo || 'Size'}`
+    if (v.soLuong === '' || v.soLuong === null || v.soLuong === undefined) {
+      showToast(`Vui lòng nhập số lượng cho biến thể (${label})!`, 'error')
+      return
+    }
+    const sl = Number(v.soLuong)
+    if (isNaN(sl) || !Number.isInteger(sl) || sl < 0 || sl > 999999) {
+      showToast(`Số lượng biến thể (${label}) phải là số nguyên từ 0 đến 999,999!`, 'error')
+      return
+    }
+
+    if (v.giaBan === '' || v.giaBan === null || v.giaBan === undefined) {
+      showToast(`Vui lòng nhập giá bán cho biến thể (${label})!`, 'error')
+      return
+    }
+    const gb = Number(v.giaBan)
+    if (isNaN(gb) || gb < 0 || gb > 1000000000) {
+      showToast(`Giá bán biến thể (${label}) phải từ 0 đến 1,000,000,000 VNĐ!`, 'error')
+      return
+    }
+  }
 
   const actionText = isEdit.value ? 'chỉnh sửa' : 'lưu'
-  const countVar = variantsList.value.length
+  const countVar = activeVariants.length
 
   openConfirm({
     title: isEdit.value ? 'Xác nhận chỉnh sửa sản phẩm' : 'Xác nhận lưu sản phẩm',
-    message: `Bạn có muốn ${actionText} sản phẩm "${form.value.tenSanPham}"${countVar > 0 ? ` cùng ${countVar} biến thể` : ''} không?`,
+    message: `Bạn có muốn ${actionText} sản phẩm "${ten}"${countVar > 0 ? ` cùng ${countVar} biến thể` : ''} không?`,
     type: 'primary',
     confirmText: isEdit.value ? 'Xác nhận cập nhật' : 'Xác nhận lưu',
     onConfirm: submitForm
