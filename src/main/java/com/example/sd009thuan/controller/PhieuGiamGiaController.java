@@ -53,11 +53,15 @@ public class PhieuGiamGiaController {
 
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable Long id, @RequestBody PhieuGiamGiaDTO dto) {
-        PhieuGiamGiaDTO updated = phieuGiamGiaService.updatePhieuGiamGia(id, dto);
-        if (updated != null) {
-            return ResponseEntity.ok(updated);
+        try {
+            PhieuGiamGiaDTO updated = phieuGiamGiaService.updatePhieuGiamGia(id, dto);
+            if (updated != null) {
+                return ResponseEntity.ok(updated);
+            }
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Lỗi khi cập nhật phiếu giảm giá: " + e.getMessage());
         }
-        return ResponseEntity.notFound().build();
     }
 
     @PostMapping
