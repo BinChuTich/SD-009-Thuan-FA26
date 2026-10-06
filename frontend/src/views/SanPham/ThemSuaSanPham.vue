@@ -212,11 +212,6 @@
               </span>
             </div>
           </div>
-          <div class="picker-action-col">
-            <button type="button" class="btn btn-quick-add" @click="handleQuickAdd('mauSac')">
-              + Thêm nhanh
-            </button>
-          </div>
         </div>
 
         <!-- Hàng 2: Kích cỡ -->
@@ -276,11 +271,6 @@
                 <span class="chip-remove" @click.stop="removeSize(size.id)">×</span>
               </span>
             </div>
-          </div>
-          <div class="picker-action-col">
-            <button type="button" class="btn btn-quick-add" @click="handleQuickAdd('kichCo')">
-              + Thêm nhanh
-            </button>
           </div>
         </div>
 
@@ -653,8 +643,8 @@ const fileInputs = ref({})
 // Biến thể đã sinh
 const variantsList = ref([])
 const selectAllVariants = ref(true)
-const bulkQty = ref(100)
-const bulkPrice = ref(250000)
+const bulkQty = ref(0)
+const bulkPrice = ref(0)
 const submitting = ref(false)
 
 // Lọc màu sắc & kích cỡ theo search
