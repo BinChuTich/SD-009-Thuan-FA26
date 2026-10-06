@@ -411,9 +411,7 @@ async function handleSubmit() {
       const fd = new FormData()
       fd.append('data', new Blob([JSON.stringify(payload)], { type: 'application/json' }))
       fd.append('file', selectedFile.value)
-      await api.post('/api/nhan-vien', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      await api.post('/api/nhan-vien', fd)
     } else {
       await api.post('/api/nhan-vien', payload)
     }

@@ -432,9 +432,7 @@ async function handleUpdate() {
       const fd = new FormData()
       fd.append('data', new Blob([JSON.stringify(payload)], { type: 'application/json' }))
       fd.append('file', selectedFile.value)
-      await api.put(`/api/nhan-vien/${id}`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      await api.put(`/api/nhan-vien/${id}`, fd)
     } else {
       await api.put(`/api/nhan-vien/${id}`, payload)
     }

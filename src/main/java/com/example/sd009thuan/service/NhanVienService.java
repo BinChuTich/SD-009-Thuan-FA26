@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
+import java.util.List;
 
 @Service
 public class NhanVienService {
@@ -44,19 +45,43 @@ public class NhanVienService {
 
     @Transactional
     public NhanVienResponse create(NhanVienRequest req, MultipartFile file) {
+        if (blank(req.tenNhanVien()) == null) {
+            throw new IllegalArgumentException("Họ tên nhân viên không được để trống");
+        }
+        if (blank(req.email()) == null) {
+            throw new IllegalArgumentException("Email nhân viên không được để trống");
+        }
+        if (!req.email().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+            throw new IllegalArgumentException("Email nhân viên không đúng định dạng");
+        }
         validateUnique(req, null);
-        VaiTro role = roleRepo.findById(req.idVaiTro()).orElseThrow(() -> new EntityNotFoundException("Không tìm thấy vai trò"));
+
+        Long roleId = req.idVaiTro();
+        if (roleId == null) {
+            roleId = roleRepo.findByMaVaiTroIgnoreCaseAndTrangThai("NV", 1)
+                    .map(VaiTro::getId)
+                    .orElseGet(() -> roleRepo.findByTrangThaiOrderByIdAsc(1).stream()
+                            .filter(r -> "ADMIN".equalsIgnoreCase(r.getMaVaiTro()) || "NV".equalsIgnoreCase(r.getMaVaiTro()))
+                            .map(VaiTro::getId).findFirst().orElse(null));
+        }
+        if (roleId == null) {
+            throw new IllegalArgumentException("Vui lòng chọn vai trò cho nhân viên");
+        }
+        VaiTro role = roleRepo.findById(roleId).orElseThrow(() -> new EntityNotFoundException("Không tìm thấy vai trò"));
+
         NhanVien x = new NhanVien();
         x.setIdVaiTro(role);
-        x.setMaNhanVien(blank(req.maNhanVien()) == null ? nextCode() : req.maNhanVien().trim());
-        x.setTenTaiKhoan(blank(req.tenTaiKhoan()));
+        String code = blank(req.maNhanVien()) == null ? nextCode() : req.maNhanVien().trim();
+        x.setMaNhanVien(code);
+        String account = blank(req.tenTaiKhoan());
+        x.setTenTaiKhoan(account != null ? account : code.toLowerCase());
         x.setTenNhanVien(req.tenNhanVien().trim());
         x.setMatKhau(blank(req.matKhau()) == null ? "123456" : req.matKhau());
         x.setEmail(blank(req.email()));
         x.setSoDienThoai(blank(req.soDienThoai()));
         String imageUrl = fileStorageService.storeEmployeeImage(file);
         x.setAnhNhanVien(imageUrl != null ? imageUrl : blank(req.anhNhanVien()));
-        x.setGioiTinh(req.gioiTinh());
+        x.setGioiTinh(req.gioiTinh() == null ? true : req.gioiTinh());
         x.setNgaySinh(req.ngaySinh());
         x.setQueQuan(blank(req.queQuan()));
         x.setPhuong(blank(req.phuong()));
@@ -71,27 +96,34 @@ public class NhanVienService {
     public NhanVienResponse update(Long id, NhanVienRequest req, MultipartFile file) {
         NhanVien x = find(id);
         validateUnique(req, id);
-        VaiTro role = roleRepo.findById(req.idVaiTro()).orElseThrow(() -> new EntityNotFoundException("Không tìm thấy vai trò"));
-        x.setIdVaiTro(role);
+        if (req.idVaiTro() != null) {
+            VaiTro role = roleRepo.findById(req.idVaiTro()).orElseThrow(() -> new EntityNotFoundException("Không tìm thấy vai trò"));
+            x.setIdVaiTro(role);
+        }
         if (blank(req.maNhanVien()) != null) x.setMaNhanVien(req.maNhanVien().trim());
-        x.setTenTaiKhoan(blank(req.tenTaiKhoan()));
-        x.setTenNhanVien(req.tenNhanVien().trim());
+        if (blank(req.tenTaiKhoan()) != null) x.setTenTaiKhoan(req.tenTaiKhoan().trim());
+        if (blank(req.tenNhanVien()) != null) x.setTenNhanVien(req.tenNhanVien().trim());
         if (blank(req.matKhau()) != null) x.setMatKhau(req.matKhau());
-        x.setEmail(blank(req.email()));
-        x.setSoDienThoai(blank(req.soDienThoai()));
+        if (blank(req.email()) != null) {
+            if (!req.email().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+                throw new IllegalArgumentException("Email nhân viên không đúng định dạng");
+            }
+            x.setEmail(blank(req.email()));
+        }
+        if (blank(req.soDienThoai()) != null) x.setSoDienThoai(blank(req.soDienThoai()));
         String oldImage = x.getAnhNhanVien();
         String imageUrl = fileStorageService.storeEmployeeImage(file);
         if (imageUrl != null) {
             x.setAnhNhanVien(imageUrl);
             fileStorageService.deleteIfLocal(oldImage);
-        } else {
+        } else if (blank(req.anhNhanVien()) != null) {
             x.setAnhNhanVien(blank(req.anhNhanVien()));
         }
-        x.setGioiTinh(req.gioiTinh());
-        x.setNgaySinh(req.ngaySinh());
-        x.setQueQuan(blank(req.queQuan()));
-        x.setPhuong(blank(req.phuong()));
-        x.setDiaChiCuThe(blank(req.diaChiCuThe()));
+        if (req.gioiTinh() != null) x.setGioiTinh(req.gioiTinh() == null ? true : req.gioiTinh());
+        if (req.ngaySinh() != null) x.setNgaySinh(req.ngaySinh());
+        if (blank(req.queQuan()) != null) x.setQueQuan(blank(req.queQuan()));
+        if (blank(req.phuong()) != null) x.setPhuong(blank(req.phuong()));
+        if (blank(req.diaChiCuThe()) != null) x.setDiaChiCuThe(blank(req.diaChiCuThe()));
         if (req.trangThai() != null) x.setTrangThai(req.trangThai());
         x.setNgayCapNhat(Instant.now());
         x.setNguoiCapNhat("admin");
@@ -115,7 +147,7 @@ public class NhanVienService {
     }
 
     @Transactional(readOnly = true)
-    public java.util.List<NhanVienResponse> findAllForExport(String keyword, Long roleId, Integer status) {
+    public List<NhanVienResponse> findAllForExport(String keyword, Long roleId, Integer status) {
         Specification<NhanVien> spec = Specification.where(NhanVienSpecification.keyword(keyword))
                 .and(NhanVienSpecification.role(roleId))
                 .and(NhanVienSpecification.status(status));
@@ -124,8 +156,10 @@ public class NhanVienService {
     }
 
     @Transactional(readOnly = true)
-    public java.util.List<VaiTro> roles() {
-        return roleRepo.findByTrangThaiOrderByIdAsc(1);
+    public List<VaiTro> roles() {
+        return roleRepo.findByTrangThaiOrderByIdAsc(1).stream()
+                .filter(r -> "ADMIN".equalsIgnoreCase(r.getMaVaiTro()) || "NV".equalsIgnoreCase(r.getMaVaiTro()))
+                .toList();
     }
 
     private void validateUnique(NhanVienRequest req, Long currentId) {
@@ -140,7 +174,7 @@ public class NhanVienService {
                 .ifPresent(x -> { throw new IllegalArgumentException("Email đã tồn tại"); });
     }
 
-    private String nextCode() {
+    public String nextCode() {
         long next = repo.findTopByOrderByIdDesc().map(x -> x.getId() + 1).orElse(1L);
         return String.format("NV%03d", next);
     }
