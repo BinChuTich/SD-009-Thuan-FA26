@@ -93,11 +93,8 @@ public class PhieuGiamGiaService {
         if (dto.getNgayBatDau() == null) {
             throw new IllegalArgumentException("Ngày bắt đầu không được để trống!");
         }
-        if (dto.getNgayKetThuc() == null) {
-            throw new IllegalArgumentException("Ngày kết thúc không được để trống!");
-        }
-        if (dto.getNgayKetThuc().isBefore(dto.getNgayBatDau())) {
-            throw new IllegalArgumentException("Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu!");
+        if (dto.getNgayKetThuc() != null && dto.getNgayKetThuc().isBefore(dto.getNgayBatDau())) {
+            throw new IllegalArgumentException("Thời gian kết thúc phải diễn ra sau hoặc cùng thời điểm với thời gian bắt đầu!");
         }
 
         // 8. Khi tạo mới: Ngày bắt đầu phải là ngày hiện tại
