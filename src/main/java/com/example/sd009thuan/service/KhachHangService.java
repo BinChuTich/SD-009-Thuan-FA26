@@ -54,7 +54,7 @@ public class KhachHangService {
         x.setMatKhau(blankToNull(req.matKhau()) != null ? req.matKhau() : "123456");
         x.setSoDienThoai(blankToNull(req.soDienThoai()));
         x.setNgaySinh(req.ngaySinh());
-        x.setGioiTinh(req.gioiTinh());
+        x.setGioiTinh(req.gioiTinh() == null ? true : req.gioiTinh());
         x.setTrangThai(req.trangThai() == null ? 1 : req.trangThai());
         x.setNgayTao(Instant.now());
         x.setNguoiTao("admin");
@@ -65,15 +65,19 @@ public class KhachHangService {
 
     @Transactional
     public KhachHangResponse update(Long id, KhachHangRequest req) {
-        validateRequired(req);
         KhachHang x = find(id);
         validateUnique(req, id);
         if (blankToNull(req.maKhachHang()) != null) x.setMaKhachHang(req.maKhachHang().trim());
         if (blankToNull(req.taiKhoan()) != null) x.setTaiKhoan(blankToNull(req.taiKhoan()));
-        x.setTenKhachHang(req.tenKhachHang().trim());
+        if (blankToNull(req.tenKhachHang()) != null) x.setTenKhachHang(req.tenKhachHang().trim());
         if (blankToNull(req.email()) != null) x.setEmail(blankToNull(req.email()));
         if (blankToNull(req.matKhau()) != null) x.setMatKhau(req.matKhau());
-        x.setSoDienThoai(blankToNull(req.soDienThoai()));
+        if (blankToNull(req.soDienThoai()) != null) {
+            if (!req.soDienThoai().trim().matches("^0\\d{9,10}$")) {
+                throw new IllegalArgumentException("Số điện thoại phải gồm 10-11 số và bắt đầu bằng 0");
+            }
+            x.setSoDienThoai(blankToNull(req.soDienThoai()));
+        }
         if (req.ngaySinh() != null) x.setNgaySinh(req.ngaySinh());
         if (req.gioiTinh() != null) x.setGioiTinh(req.gioiTinh());
         if (req.trangThai() != null) x.setTrangThai(req.trangThai());

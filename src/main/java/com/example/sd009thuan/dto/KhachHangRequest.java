@@ -9,10 +9,10 @@ import java.time.LocalDate;
 public record KhachHangRequest(
         String maKhachHang,
         String taiKhoan,
-        @NotBlank(message = "Họ tên khách hàng không được để trống") String tenKhachHang,
+        String tenKhachHang,
         @Email(message = "Email khách hàng không hợp lệ") String email,
         String matKhau,
-        @Pattern(regexp = "^$|^0\\d{9,10}$", message = "Số điện thoại phải gồm 10-11 số và bắt đầu bằng 0") String soDienThoai,
+        String soDienThoai,
         LocalDate ngaySinh,
         Boolean gioiTinh,
         Integer trangThai,

@@ -62,12 +62,12 @@ public class KhachHangController {
     public KhachHangResponse get(@PathVariable Long id) { return service.get(id); }
 
     @PostMapping
-    public ResponseEntity<KhachHangResponse> create(@Valid @RequestBody KhachHangRequest req) {
+    public ResponseEntity<KhachHangResponse> create(@RequestBody KhachHangRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req));
     }
 
     @PutMapping("/{id}")
-    public KhachHangResponse update(@PathVariable Long id, @Valid @RequestBody KhachHangRequest req) {
+    public KhachHangResponse update(@PathVariable Long id, @RequestBody KhachHangRequest req) {
         return service.update(id, req);
     }
 

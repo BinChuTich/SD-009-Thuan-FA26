@@ -54,6 +54,21 @@ public class NhanVienService {
         if (!req.email().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
             throw new IllegalArgumentException("Email nhân viên không đúng định dạng");
         }
+        if (blank(req.soDienThoai()) == null) {
+            throw new IllegalArgumentException("Số điện thoại nhân viên không được để trống");
+        }
+        if (!req.soDienThoai().trim().matches("^0\\d{9,10}$")) {
+            throw new IllegalArgumentException("Số điện thoại phải gồm 10-11 số và bắt đầu bằng 0");
+        }
+        if (blank(req.queQuan()) == null) {
+            throw new IllegalArgumentException("Tỉnh / Thành phố (Quê quán) không được để trống");
+        }
+        if (blank(req.phuong()) == null) {
+            throw new IllegalArgumentException("Phường / Xã không được để trống");
+        }
+        if (blank(req.diaChiCuThe()) == null) {
+            throw new IllegalArgumentException("Địa chỉ cụ thể không được để trống");
+        }
         validateUnique(req, null);
 
         Long roleId = req.idVaiTro();

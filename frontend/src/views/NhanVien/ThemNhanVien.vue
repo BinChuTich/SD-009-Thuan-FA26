@@ -163,7 +163,7 @@
             </h4>
             <div class="form-grid">
               <div class="form-field">
-                <label>Tỉnh / Thành phố (Quê quán)</label>
+                <label>Tỉnh / Thành phố (Quê quán) <span class="required">*</span></label>
                 <input
                   v-model="form.queQuan"
                   type="text"
@@ -172,7 +172,7 @@
               </div>
 
               <div class="form-field">
-                <label>Phường / Xã</label>
+                <label>Phường / Xã <span class="required">*</span></label>
                 <input
                   v-model="form.phuong"
                   type="text"
@@ -181,7 +181,7 @@
               </div>
 
               <div class="form-field full-width">
-                <label>Địa chỉ cụ thể</label>
+                <label>Địa chỉ cụ thể <span class="required">*</span></label>
                 <input
                   v-model="form.diaChiCuThe"
                   type="text"
@@ -374,6 +374,29 @@ async function handleSubmit() {
     return showAlert({
       title: 'Thông tin chưa hợp lệ',
       message: 'Vui lòng chọn vai trò cho nhân viên!',
+      type: 'warning'
+    })
+  }
+
+  // 6. Validate địa chỉ (Bắt buộc)
+  if (!form.queQuan || !form.queQuan.trim()) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Vui lòng nhập Tỉnh / Thành phố (Quê quán) của nhân viên!',
+      type: 'warning'
+    })
+  }
+  if (!form.phuong || !form.phuong.trim()) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Vui lòng nhập Phường / Xã của nhân viên!',
+      type: 'warning'
+    })
+  }
+  if (!form.diaChiCuThe || !form.diaChiCuThe.trim()) {
+    return showAlert({
+      title: 'Thông tin chưa hợp lệ',
+      message: 'Vui lòng nhập Địa chỉ cụ thể của nhân viên!',
       type: 'warning'
     })
   }

@@ -391,9 +391,15 @@ onMounted(async () => {
   height: 36px;
   border-radius: 8px;
   background-color: #f7eee1;
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: #b18b52;
+  flex-shrink: 0;
+}
+
+.filter-icon-box svg {
+  display: block;
 }
 
 .filter-title {
@@ -401,6 +407,7 @@ onMounted(async () => {
   font-weight: 700;
   margin: 0;
   color: #43545c;
+  line-height: 1;
 }
 
 .filter-inputs-grid {
@@ -408,6 +415,7 @@ onMounted(async () => {
   grid-template-columns: 2.2fr 1fr 1fr;
   gap: 1rem;
   margin-bottom: 1.2rem;
+  align-items: center;
 }
 
 .form-field {
@@ -424,14 +432,23 @@ onMounted(async () => {
 
 .prefix-icon {
   position: absolute;
-  left: 0.95rem;
+  left: 0.85rem;
   top: 50%;
   transform: translateY(-50%);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #9aa0a0;
+  width: 20px;
+  height: 20px;
+  color: #8c979a;
   pointer-events: none;
+  z-index: 1;
+}
+
+.prefix-icon svg {
+  display: block;
+  width: 18px;
+  height: 18px;
 }
 
 .form-field input,
@@ -450,7 +467,7 @@ onMounted(async () => {
 }
 
 .search-field input {
-  padding-left: 2.6rem;
+  padding-left: 2.5rem;
 }
 
 .form-field input:focus,
