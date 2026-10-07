@@ -1,4 +1,5 @@
 package com.example.sd009thuan.entity;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -10,16 +11,15 @@ import org.hibernate.annotations.Nationalized;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.LinkedHashSet;
-import java.util.Set;
 
 @Getter
 @Setter
 @Entity
 @Table(name = "hoa_don")
-
 public class HoaDon {
+
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Long id;
 
@@ -101,16 +101,53 @@ public class HoaDon {
     @Column(name = "nguoi_cap_nhat", length = 100)
     private String nguoiCapNhat;
 
+    // =========================
+    // TRẠNG THÁI ĐƠN HÀNG
+    // =========================
 
+    /*
+     * 1 = Chờ xác nhận
+     * 2 = Đã xác nhận
+     * 3 = Chờ vận chuyển
+     * 4 = Vận chuyển
+     * 5 = Đã hoàn thành
+     * 6 = Hủy
+     */
     @NotNull
     @ColumnDefault("1")
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
+
+    // =========================
+    // TRẠNG THÁI THANH TOÁN
+    // =========================
+
+    /*
+     * 0 = Chưa thanh toán
+     * 1 = Đã thanh toán
+     */
+    @NotNull
+    @ColumnDefault("0")
+    @Column(
+            name = "trang_thai_thanh_toan",
+            nullable = false
+    )
+    private Integer trangThaiThanhToan;
 
     @Nationalized
     @Lob
     @Column(name = "ghi_chu")
     private String ghiChu;
 
+    // =========================
+    // GETTER / SETTER
+    // =========================
 
+    public String getMaHoaDon() {
+        return maHoaDon;
+    }
+
+    public void setMaHoaDon(String maHoaDon) {
+        this.maHoaDon = maHoaDon;
+    }
 }
