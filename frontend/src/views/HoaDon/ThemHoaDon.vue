@@ -18,7 +18,6 @@
       </button>
     </div>
 
-    <!-- Loading -->
     <div v-if="loading" class="loading">
       Đang lưu hóa đơn...
     </div>
