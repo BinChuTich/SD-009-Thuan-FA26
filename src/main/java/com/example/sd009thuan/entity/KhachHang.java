@@ -77,4 +77,7 @@ public class KhachHang {
     private String nguoiCapNhat;
 
 
+    @Size(max = 255)
+    @Column(name = "anh_khach_hang")
+    private String anhKhachHang;
 }

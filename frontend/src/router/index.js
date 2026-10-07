@@ -7,10 +7,14 @@ import ThongKe from '../views/ThongKe.vue'
 import BanHang from '../views/BanHang.vue'
 
 // Khách hàng
-import KhachHang from '../views/KhachHang.vue'
+import KhachHang from '../views/KhachHang/KhachHang.vue'
+import ThemKhachHang from '../views/KhachHang/ThemKhachHang.vue'
+import ChiTietKhachHang from '../views/KhachHang/ChiTietKhachHang.vue'
 
 // Nhân viên
-import NhanVien from '../views/NhanVien.vue'
+import NhanVien from '../views/NhanVien/NhanVien.vue'
+import ThemNhanVien from '../views/NhanVien/ThemNhanVien.vue'
+import ChiTietNhanVien from '../views/NhanVien/ChiTietNhanVien.vue'
 
 // Hóa đơn
 import DanhSachHoaDon from '../views/HoaDon/DanhSachHoaDon.vue'
@@ -182,12 +186,32 @@ const routes = [
         name: 'KhachHang',
         component: KhachHang
     },
+    {
+        path: '/khach-hang/them',
+        name: 'ThemKhachHang',
+        component: ThemKhachHang
+    },
+    {
+        path: '/khach-hang/:id',
+        name: 'ChiTietKhachHang',
+        component: ChiTietKhachHang
+    },
 
     // Nhân viên
     {
         path: '/nhan-vien',
         name: 'NhanVien',
         component: NhanVien
+    },
+    {
+        path: '/nhan-vien/them',
+        name: 'ThemNhanVien',
+        component: ThemNhanVien
+    },
+    {
+        path: '/nhan-vien/:id',
+        name: 'ChiTietNhanVien',
+        component: ChiTietNhanVien
     }
 ]
 
