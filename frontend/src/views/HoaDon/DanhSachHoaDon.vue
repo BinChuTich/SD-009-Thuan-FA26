@@ -906,10 +906,6 @@ onMounted(() => {
   color: #dc3545;
 }
 
-/* =========================
-   RESPONSIVE
-========================= */
-
 @media (max-width: 768px) {
   .hoa-don-page {
     padding: 16px;

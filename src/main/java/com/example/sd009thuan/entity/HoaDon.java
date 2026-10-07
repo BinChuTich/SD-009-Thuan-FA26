@@ -101,10 +101,6 @@ public class HoaDon {
     @Column(name = "nguoi_cap_nhat", length = 100)
     private String nguoiCapNhat;
 
-    // =========================
-    // TRẠNG THÁI ĐƠN HÀNG
-    // =========================
-
     /*
      * 1 = Chờ xác nhận
      * 2 = Đã xác nhận

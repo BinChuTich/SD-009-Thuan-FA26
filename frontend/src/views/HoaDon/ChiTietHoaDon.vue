@@ -2,10 +2,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api.js'
-
 const route = useRoute()
 const router = useRouter()
-
 const maHoaDon = route.params.maHoaDon || route.params.ma
 
 const hoaDon = ref(null)
