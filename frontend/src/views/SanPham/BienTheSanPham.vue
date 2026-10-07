@@ -160,13 +160,46 @@ const handleSaveVariant = async () => {
   editModal.value.errors = {}
   const data = editModal.value.data
 
-  if (data.soLuong === '' || data.soLuong < 0) {
-    editModal.value.errors.soLuong = 'Số lượng không được âm'
+  if (!data.idKichCo) {
+    editModal.value.errors.idKichCo = 'Vui lòng chọn kích cỡ'
     return
   }
-  if (data.giaBan === '' || data.giaBan < 0) {
-    editModal.value.errors.giaBan = 'Giá bán không được âm'
+  if (!data.idMauSac) {
+    editModal.value.errors.idMauSac = 'Vui lòng chọn màu sắc'
     return
+  }
+
+  if (data.soLuong === '' || data.soLuong === null || data.soLuong === undefined) {
+    editModal.value.errors.soLuong = 'Vui lòng nhập số lượng'
+    return
+  }
+  const sl = Number(data.soLuong)
+  if (isNaN(sl) || !Number.isInteger(sl) || sl < 0 || sl > 999999) {
+    editModal.value.errors.soLuong = 'Số lượng phải là số nguyên từ 0 đến 999,999'
+    return
+  }
+
+  if (data.giaBan === '' || data.giaBan === null || data.giaBan === undefined) {
+    editModal.value.errors.giaBan = 'Vui lòng nhập giá bán'
+    return
+  }
+  const gb = Number(data.giaBan)
+  if (isNaN(gb) || gb < 0 || gb > 1000000000) {
+    editModal.value.errors.giaBan = 'Giá bán phải từ 0 đến 1,000,000,000 VNĐ'
+    return
+  }
+
+  if (data.maChiTietSanPham?.trim()) {
+    const ma = data.maChiTietSanPham.trim()
+    if (ma.length > 50) {
+      editModal.value.errors.maChiTietSanPham = 'Mã chi tiết sản phẩm không quá 50 ký tự'
+      return
+    }
+    const codeRegex = /^[A-Za-z0-9_-]+$/
+    if (!codeRegex.test(ma)) {
+      editModal.value.errors.maChiTietSanPham = 'Mã chỉ gồm chữ cái, số, gạch dưới và gạch ngang'
+      return
+    }
   }
 
   try {
@@ -175,7 +208,7 @@ const handleSaveVariant = async () => {
       idSanPham: data.idSanPham,
       idKichCo: data.idKichCo,
       idMauSac: data.idMauSac,
-      maChiTietSanPham: data.maChiTietSanPham,
+      maChiTietSanPham: data.maChiTietSanPham ? data.maChiTietSanPham.trim() : undefined,
       soLuong: Number(data.soLuong),
       giaBan: Number(data.giaBan),
       trangThai: Number(data.trangThai),
@@ -184,7 +217,7 @@ const handleSaveVariant = async () => {
 
     await api.put(`/api/chi-tiet-san-pham/${data.id}`, payload)
     closeEditModal()
-    showToast('Cập nhật thành công', `Đã cập nhật biến thể ${data.maChiTietSanPham}`)
+    showToast('Cập nhật thành công', `Đã cập nhật biến thể ${data.maChiTietSanPham || ''}`)
     fetchVariants()
   } catch (err) {
     console.error('Lỗi cập nhật biến thể:', err)

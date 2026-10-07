@@ -99,6 +99,13 @@ public class ChiTietSanPhamService {
 
     @Transactional
     public ChiTietSanPhamResponse create(ChiTietSanPhamRequest req) {
+        if (req.getSoLuong() == null || req.getSoLuong() < 0 || req.getSoLuong() > 999999) {
+            throw new IllegalArgumentException("Số lượng biến thể phải là số nguyên từ 0 đến 999,999!");
+        }
+        if (req.getGiaBan() == null || req.getGiaBan().compareTo(BigDecimal.ZERO) < 0 || req.getGiaBan().compareTo(new BigDecimal("1000000000")) > 0) {
+            throw new IllegalArgumentException("Đơn giá biến thể phải từ 0 đến 1,000,000,000 VNĐ!");
+        }
+
         SanPham sp = sanPhamRepository.findById(req.getIdSanPham())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm có ID: " + req.getIdSanPham()));
         KichCo kc = kichCoRepository.findById(req.getIdKichCo())
@@ -110,13 +117,13 @@ public class ChiTietSanPhamService {
                 req.getIdSanPham(), req.getIdKichCo(), req.getIdMauSac()
         );
         if (existing.isPresent()) {
-            throw new RuntimeException("Biến thể với kích cỡ " + kc.getTenKichCo() + " và màu sắc " + ms.getTenMauSac() + " đã tồn tại cho sản phẩm này!");
+            throw new IllegalArgumentException("Biến thể với kích cỡ " + kc.getTenKichCo() + " và màu sắc " + ms.getTenMauSac() + " đã tồn tại cho sản phẩm này!");
         }
 
         if (req.getMaChiTietSanPham() == null || req.getMaChiTietSanPham().trim().isEmpty()) {
             req.setMaChiTietSanPham("CTSP" + System.currentTimeMillis());
         } else if (chiTietSanPhamRepository.existsByMaChiTietSanPham(req.getMaChiTietSanPham().trim())) {
-            throw new RuntimeException("Mã chi tiết sản phẩm đã tồn tại: " + req.getMaChiTietSanPham());
+            throw new IllegalArgumentException("Mã chi tiết sản phẩm đã tồn tại: " + req.getMaChiTietSanPham());
         }
 
         ChiTietSanPham ct = new ChiTietSanPham();
@@ -135,6 +142,13 @@ public class ChiTietSanPhamService {
 
     @Transactional
     public ChiTietSanPhamResponse update(Long id, ChiTietSanPhamRequest req) {
+        if (req.getSoLuong() == null || req.getSoLuong() < 0 || req.getSoLuong() > 999999) {
+            throw new IllegalArgumentException("Số lượng biến thể phải là số nguyên từ 0 đến 999,999!");
+        }
+        if (req.getGiaBan() == null || req.getGiaBan().compareTo(BigDecimal.ZERO) < 0 || req.getGiaBan().compareTo(new BigDecimal("1000000000")) > 0) {
+            throw new IllegalArgumentException("Đơn giá biến thể phải từ 0 đến 1,000,000,000 VNĐ!");
+        }
+
         ChiTietSanPham ct = chiTietSanPhamRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy biến thể có ID: " + id));
 
@@ -143,9 +157,16 @@ public class ChiTietSanPhamService {
         MauSac ms = mauSacRepository.findById(req.getIdMauSac())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy màu sắc có ID: " + req.getIdMauSac()));
 
+        Optional<ChiTietSanPham> duplicate = chiTietSanPhamRepository.findByIdSanPham_IdAndIdKichCo_IdAndIdMauSac_Id(
+                ct.getIdSanPham().getId(), req.getIdKichCo(), req.getIdMauSac()
+        );
+        if (duplicate.isPresent() && !duplicate.get().getId().equals(id)) {
+            throw new IllegalArgumentException("Biến thể với kích cỡ " + kc.getTenKichCo() + " và màu sắc " + ms.getTenMauSac() + " đã tồn tại ở sản phẩm này!");
+        }
+
         if (req.getMaChiTietSanPham() != null && !req.getMaChiTietSanPham().trim().isEmpty()) {
             if (chiTietSanPhamRepository.existsByMaChiTietSanPhamAndIdNot(req.getMaChiTietSanPham().trim(), id)) {
-                throw new RuntimeException("Mã chi tiết sản phẩm đã được sử dụng: " + req.getMaChiTietSanPham());
+                throw new IllegalArgumentException("Mã chi tiết sản phẩm đã được sử dụng: " + req.getMaChiTietSanPham());
             }
             ct.setMaChiTietSanPham(req.getMaChiTietSanPham().trim());
         }
@@ -176,7 +197,12 @@ public class ChiTietSanPhamService {
         if (!chiTietSanPhamRepository.existsById(id)) {
             throw new RuntimeException("Không tìm thấy biến thể có ID: " + id);
         }
-        chiTietSanPhamRepository.deleteById(id);
+        try {
+            chiTietSanPhamRepository.deleteById(id);
+            chiTietSanPhamRepository.flush();
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            throw new IllegalArgumentException("Không thể xóa biến thể vì đã phát sinh giao dịch/hóa đơn trong hệ thống! Vui lòng đổi trạng thái sang 'Ngừng kinh doanh'.");
+        }
     }
 
     @Transactional

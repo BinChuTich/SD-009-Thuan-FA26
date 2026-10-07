@@ -56,23 +56,41 @@
           <!-- Thương hiệu -->
           <div class="form-item">
             <label class="item-label">Thương hiệu <span class="text-danger">*</span></label>
-            <select v-model="form.idThuongHieu" class="form-select" required>
-              <option value="">-- Chọn thương hiệu --</option>
-              <option v-for="item in attributes.thuongHieu" :key="item.id" :value="item.id">
-                {{ item.tenThuongHieu }}
-              </option>
-            </select>
+            <div class="select-with-btn">
+              <select v-model="form.idThuongHieu" class="form-select" required>
+                <option value="">-- Chọn thương hiệu --</option>
+                <option v-for="item in attributes.thuongHieu" :key="item.id" :value="item.id">
+                  {{ item.tenThuongHieu }}
+                </option>
+              </select>
+              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('thuong-hieu')" title="Thêm thương hiệu mới">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Thêm mới</span>
+              </button>
+            </div>
           </div>
 
           <!-- Danh mục -->
           <div class="form-item">
             <label class="item-label">Danh mục <span class="text-danger">*</span></label>
-            <select v-model="form.idDanhMuc" class="form-select" required>
-              <option value="">-- Chọn danh mục --</option>
-              <option v-for="item in attributes.danhMuc" :key="item.id" :value="item.id">
-                {{ item.tenDanhMuc }}
-              </option>
-            </select>
+            <div class="select-with-btn">
+              <select v-model="form.idDanhMuc" class="form-select" required>
+                <option value="">-- Chọn danh mục --</option>
+                <option v-for="item in attributes.danhMuc" :key="item.id" :value="item.id">
+                  {{ item.tenDanhMuc }}
+                </option>
+              </select>
+              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('danh-muc')" title="Thêm danh mục mới">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Thêm mới</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -80,23 +98,41 @@
           <!-- Xuất xứ -->
           <div class="form-item">
             <label class="item-label">Xuất xứ <span class="text-danger">*</span></label>
-            <select v-model="form.idXuatXu" class="form-select" required>
-              <option value="">-- Chọn xuất xứ --</option>
-              <option v-for="item in attributes.xuatXu" :key="item.id" :value="item.id">
-                {{ item.tenXuatXu }}
-              </option>
-            </select>
+            <div class="select-with-btn">
+              <select v-model="form.idXuatXu" class="form-select" required>
+                <option value="">-- Chọn xuất xứ --</option>
+                <option v-for="item in attributes.xuatXu" :key="item.id" :value="item.id">
+                  {{ item.tenXuatXu }}
+                </option>
+              </select>
+              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('xuat-xu')" title="Thêm xuất xứ mới">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Thêm mới</span>
+              </button>
+            </div>
           </div>
 
           <!-- Chất liệu -->
           <div class="form-item">
             <label class="item-label">Chất liệu <span class="text-danger">*</span></label>
-            <select v-model="form.idChatLieu" class="form-select" required>
-              <option value="">-- Chọn chất liệu --</option>
-              <option v-for="item in attributes.chatLieu" :key="item.id" :value="item.id">
-                {{ item.tenChatLieu }}
-              </option>
-            </select>
+            <div class="select-with-btn">
+              <select v-model="form.idChatLieu" class="form-select" required>
+                <option value="">-- Chọn chất liệu --</option>
+                <option v-for="item in attributes.chatLieu" :key="item.id" :value="item.id">
+                  {{ item.tenChatLieu }}
+                </option>
+              </select>
+              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('chat-lieu')" title="Thêm chất liệu mới">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Thêm mới</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -104,23 +140,41 @@
           <!-- Cổ áo -->
           <div class="form-item">
             <label class="item-label">Cổ áo <span class="text-danger">*</span></label>
-            <select v-model="form.idCoAo" class="form-select" required>
-              <option value="">-- Chọn cổ áo --</option>
-              <option v-for="item in attributes.coAo" :key="item.id" :value="item.id">
-                {{ item.tenCoAo }}
-              </option>
-            </select>
+            <div class="select-with-btn">
+              <select v-model="form.idCoAo" class="form-select" required>
+                <option value="">-- Chọn cổ áo --</option>
+                <option v-for="item in attributes.coAo" :key="item.id" :value="item.id">
+                  {{ item.tenCoAo }}
+                </option>
+              </select>
+              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('co-ao')" title="Thêm cổ áo mới">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Thêm mới</span>
+              </button>
+            </div>
           </div>
 
           <!-- Tay áo -->
           <div class="form-item">
             <label class="item-label">Tay áo <span class="text-danger">*</span></label>
-            <select v-model="form.idTayAo" class="form-select" required>
-              <option value="">-- Chọn tay áo --</option>
-              <option v-for="item in attributes.tayAo" :key="item.id" :value="item.id">
-                {{ item.tenTayAo }}
-              </option>
-            </select>
+            <div class="select-with-btn">
+              <select v-model="form.idTayAo" class="form-select" required>
+                <option value="">-- Chọn tay áo --</option>
+                <option v-for="item in attributes.tayAo" :key="item.id" :value="item.id">
+                  {{ item.tenTayAo }}
+                </option>
+              </select>
+              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('tay-ao')" title="Thêm tay áo mới">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Thêm mới</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -128,12 +182,21 @@
           <!-- Họa tiết -->
           <div class="form-item">
             <label class="item-label">Họa tiết <span class="text-danger">*</span></label>
-            <select v-model="form.idHoaTiet" class="form-select" required>
-              <option value="">-- Chọn họa tiết --</option>
-              <option v-for="item in attributes.hoaTiet" :key="item.id" :value="item.id">
-                {{ item.tenHoaTiet }}
-              </option>
-            </select>
+            <div class="select-with-btn">
+              <select v-model="form.idHoaTiet" class="form-select" required>
+                <option value="">-- Chọn họa tiết --</option>
+                <option v-for="item in attributes.hoaTiet" :key="item.id" :value="item.id">
+                  {{ item.tenHoaTiet }}
+                </option>
+              </select>
+              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('hoa-tiet')" title="Thêm họa tiết mới">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Thêm mới</span>
+              </button>
+            </div>
           </div>
 
           <!-- Trạng thái -->
@@ -155,45 +218,148 @@
             <label class="item-label">Màu sắc <span class="text-danger">*</span></label>
           </div>
           <div class="picker-input-col">
-            <div class="multiselect-dropdown-wrap">
-              <div class="dropdown-trigger" @click.stop="toggleColorDropdown">
-                <span class="trigger-text" v-if="selectedColors.length === 0">Chọn màu...</span>
-                <span class="trigger-text" v-else>{{ selectedColorNames }}</span>
-                <span class="trigger-arrow">⌄</span>
+            <div class="color-picker-input-group">
+              <div class="multiselect-dropdown-wrap">
+                <div class="dropdown-trigger" @click.stop="toggleColorDropdown">
+                  <span class="trigger-text" v-if="selectedColors.length === 0">Chọn màu...</span>
+                  <span class="trigger-text" v-else>{{ selectedColorNames }}</span>
+                  <span class="trigger-arrow">⌄</span>
+                </div>
+
+                <!-- Menu chọn màu sắc -->
+                <div v-if="showColorDropdown" class="multiselect-popover" @click.stop>
+                  <div class="popover-search">
+                    <input
+                        type="text"
+                        v-model="colorSearch"
+                        placeholder="Nhập màu sắc..."
+                        class="popover-input"
+                    />
+                    <button
+                        type="button"
+                        class="btn-clear-all"
+                        v-if="selectedColors.length > 0"
+                        @click="clearAllColors"
+                    >
+                      Bỏ chọn tất cả ✕
+                    </button>
+                  </div>
+                  <div class="popover-list">
+                    <div
+                        v-for="color in filteredColors"
+                        :key="color.id"
+                        class="popover-item"
+                        :class="{ selected: isColorSelected(color.id) }"
+                        @click="toggleColor(color)"
+                    >
+                      <span
+                          class="color-dot"
+                          :style="{ backgroundColor: color.maHex || '#888' }"
+                      ></span>
+                      <span class="item-name">{{ color.tenMauSac }}</span>
+                      <span v-if="isColorSelected(color.id)" class="check-icon">✓</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <!-- Menu chọn màu sắc -->
-              <div v-if="showColorDropdown" class="multiselect-popover" @click.stop>
-                <div class="popover-search">
-                  <input
-                      type="text"
-                      v-model="colorSearch"
-                      placeholder="Nhập màu sắc..."
-                      class="popover-input"
-                  />
+              <!-- Nút Bảng màu trực quan & Native Color Picker ngay bên cạnh dropdown -->
+              <div class="color-palette-action-wrapper" @click.stop>
+                <div class="palette-btn-group">
+                  <!-- Ô chọn màu nhanh (Native color picker quang phổ) -->
+                  <label class="native-color-picker-box" title="Click để chọn màu từ bảng màu quang phổ">
+                    <input
+                        type="color"
+                        v-model="quickPickHex"
+                        @change="handleQuickPickColor"
+                        class="native-color-input"
+                    />
+                    <span class="color-preview-disc" :style="{ backgroundColor: quickPickHex }"></span>
+                  </label>
+
+                  <!-- Nút mở Popover Bảng màu -->
                   <button
                       type="button"
-                      class="btn-clear-all"
-                      v-if="selectedColors.length > 0"
-                      @click="clearAllColors"
+                      class="btn btn-palette-open"
+                      @click.stop="toggleColorPalette"
+                      :class="{ active: showColorPalette }"
+                      title="Mở bảng màu sắc trực quan"
                   >
-                    Bỏ chọn tất cả ✕
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
+                      <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
+                      <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
+                      <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
+                      <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C22 6.5 17.5 2 12 2z"/>
+                    </svg>
+                    <span>Bảng màu</span>
                   </button>
                 </div>
-                <div class="popover-list">
-                  <div
-                      v-for="color in filteredColors"
-                      :key="color.id"
-                      class="popover-item"
-                      :class="{ selected: isColorSelected(color.id) }"
-                      @click="toggleColor(color)"
-                  >
-                    <span
-                        class="color-dot"
-                        :style="{ backgroundColor: color.maHex || '#888' }"
-                    ></span>
-                    <span class="item-name">{{ color.tenMauSac }}</span>
-                    <span v-if="isColorSelected(color.id)" class="check-icon">✓</span>
+
+                <!-- Popover Bảng màu -->
+                <div v-if="showColorPalette" class="color-palette-popover" @click.stop>
+                  <div class="palette-popover-header">
+                    <div class="palette-header-title">
+                      <span class="palette-title-icon">🎨</span>
+                      <strong>Bảng màu sắc</strong>
+                    </div>
+                    <span class="palette-selected-count">Đã chọn: {{ selectedColors.length }}</span>
+                  </div>
+
+                  <!-- Lưới các ô màu có sẵn trong hệ thống -->
+                  <div class="palette-swatches-section">
+                    <div class="palette-section-label">Màu sắc có sẵn (Click để chọn):</div>
+                    <div class="palette-swatches-grid" v-if="attributes.mauSac && attributes.mauSac.length > 0">
+                      <button
+                          type="button"
+                          v-for="color in attributes.mauSac"
+                          :key="color.id"
+                          class="palette-swatch-btn"
+                          :class="{ selected: isColorSelected(color.id) }"
+                          :style="{ backgroundColor: color.maHex || '#888' }"
+                          @click="toggleColor(color)"
+                          :title="`${color.tenMauSac} (${color.maHex || ''})`"
+                      >
+                        <span v-if="isColorSelected(color.id)" class="swatch-check">✓</span>
+                      </button>
+                    </div>
+                    <div v-else class="text-muted small py-1">Chưa có màu sắc trong hệ thống</div>
+                  </div>
+
+                  <!-- Thêm màu tùy chỉnh từ bảng màu quang phổ -->
+                  <div class="palette-custom-section">
+                    <div class="palette-section-label">Chọn màu mới từ Bảng màu:</div>
+                    <div class="custom-color-row">
+                      <input
+                          type="color"
+                          v-model="newColorForm.maHex"
+                          class="custom-color-input"
+                          title="Chọn mã màu"
+                      />
+                      <input
+                          type="text"
+                          v-model="newColorForm.maHex"
+                          class="custom-hex-text"
+                          placeholder="#000000"
+                          maxlength="7"
+                      />
+                      <input
+                          type="text"
+                          v-model="newColorForm.ten"
+                          class="custom-name-text"
+                          placeholder="Tên màu..."
+                          maxlength="50"
+                          @keyup.enter="handleAddCustomColor"
+                      />
+                      <button
+                          type="button"
+                          class="btn btn-add-custom-color"
+                          @click="handleAddCustomColor"
+                          :disabled="newColorForm.loading"
+                      >
+                        {{ newColorForm.loading ? '...' : '+ Thêm' }}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -211,11 +377,6 @@
                 <span class="chip-remove" @click.stop="removeColor(color.id)">×</span>
               </span>
             </div>
-          </div>
-          <div class="picker-action-col">
-            <button type="button" class="btn btn-quick-add" @click="handleQuickAdd('mauSac')">
-              + Thêm nhanh
-            </button>
           </div>
         </div>
 
@@ -276,11 +437,6 @@
                 <span class="chip-remove" @click.stop="removeSize(size.id)">×</span>
               </span>
             </div>
-          </div>
-          <div class="picker-action-col">
-            <button type="button" class="btn btn-quick-add" @click="handleQuickAdd('kichCo')">
-              + Thêm nhanh
-            </button>
           </div>
         </div>
 
@@ -550,6 +706,65 @@
         </div>
       </div>
     </transition>
+
+    <!-- 9. Modal Thêm nhanh thuộc tính sản phẩm -->
+    <transition name="fade">
+      <div v-if="quickAttrModal.show" class="confirm-modal-overlay" @click.self="closeQuickAttrModal">
+        <div class="quick-attr-modal-card" @click.stop>
+          <div class="quick-attr-modal-header">
+            <div class="quick-attr-title-box">
+              <span class="quick-attr-badge">✨ Thuộc tính</span>
+              <h3 class="quick-attr-title">Thêm mới {{ quickAttrModal.title }}</h3>
+            </div>
+            <button type="button" class="btn-close-modal" @click="closeQuickAttrModal">&times;</button>
+          </div>
+
+          <div class="quick-attr-modal-body">
+            <div class="quick-attr-field">
+              <label class="item-label">Tên {{ quickAttrModal.title.toLowerCase() }} <span class="text-danger">*</span></label>
+              <input
+                  type="text"
+                  v-model="quickAttrModal.ten"
+                  class="form-input"
+                  :placeholder="`Nhập tên ${quickAttrModal.title.toLowerCase()}...`"
+                  @keyup.enter="submitQuickAttr"
+                  autofocus
+                  maxlength="255"
+              />
+            </div>
+
+            <div class="quick-attr-field mt-3">
+              <label class="item-label">Mã {{ quickAttrModal.title.toLowerCase() }} <span class="text-muted">(Tùy chọn)</span></label>
+              <input
+                  type="text"
+                  v-model="quickAttrModal.ma"
+                  class="form-input"
+                  :placeholder="`Mã ${quickAttrModal.title.toLowerCase()} (VD: ${quickAttrModal.codePrefix}01)...`"
+                  maxlength="50"
+              />
+            </div>
+
+            <div v-if="quickAttrModal.error" class="quick-attr-error-banner mt-3">
+              {{ quickAttrModal.error }}
+            </div>
+          </div>
+
+          <div class="quick-attr-modal-footer">
+            <button type="button" class="btn btn-confirm-cancel" @click="closeQuickAttrModal" :disabled="quickAttrModal.loading">
+              Hủy bỏ
+            </button>
+            <button
+                type="button"
+                class="btn btn-confirm-primary"
+                @click="submitQuickAttr"
+                :disabled="quickAttrModal.loading"
+            >
+              {{ quickAttrModal.loading ? 'Đang lưu...' : 'Lưu và Chọn' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -653,8 +868,8 @@ const fileInputs = ref({})
 // Biến thể đã sinh
 const variantsList = ref([])
 const selectAllVariants = ref(true)
-const bulkQty = ref(100)
-const bulkPrice = ref(250000)
+const bulkQty = ref(0)
+const bulkPrice = ref(0)
 const submitting = ref(false)
 
 // Lọc màu sắc & kích cỡ theo search
@@ -682,14 +897,179 @@ const selectedSizeNames = computed(() => {
 const isColorSelected = (id) => selectedColors.value.some(c => c.id === id)
 const isSizeSelected = (id) => selectedSizes.value.some(s => s.id === id)
 
+// Bảng màu & Color Picker
+const showColorPalette = ref(false)
+const quickPickHex = ref('#496883')
+const newColorForm = ref({
+  ten: '',
+  maHex: '#496883',
+  loading: false
+})
+
+const toggleColorPalette = () => {
+  showColorPalette.value = !showColorPalette.value
+  showColorDropdown.value = false
+  showSizeDropdown.value = false
+}
+
+// Khi người dùng chọn màu từ ô Native Color Picker quang phổ
+const handleQuickPickColor = () => {
+  const hex = (quickPickHex.value || '').toUpperCase()
+  newColorForm.value.maHex = hex
+
+  // 1. Tìm xem trong danh mục màu sắc đã có màu có mã hex này chưa
+  const exactMatch = attributes.value.mauSac?.find(
+    c => c.maHex && c.maHex.toUpperCase() === hex
+  )
+
+  if (exactMatch) {
+    if (!isColorSelected(exactMatch.id)) {
+      toggleColor(exactMatch)
+      showToast(`Đã chọn màu "${exactMatch.tenMauSac}" từ bảng màu!`, 'success')
+    } else {
+      showToast(`Màu "${exactMatch.tenMauSac}" đã được chọn trước đó.`, 'info')
+    }
+    return
+  }
+
+  // 2. Nếu chưa có màu khớp mã Hex, tự động mở bảng màu để người dùng đặt tên và lưu nhanh
+  showColorPalette.value = true
+  showToast(`Mã màu ${hex} chưa có trong danh mục. Bạn có thể đặt tên và bấm "+ Thêm"!`, 'info')
+}
+
+// Thêm màu mới trực tiếp từ Bảng màu
+const handleAddCustomColor = async () => {
+  const ten = newColorForm.value.ten?.trim()
+  if (!ten) {
+    showToast('Vui lòng nhập tên cho màu mới!', 'error')
+    return
+  }
+  const hex = newColorForm.value.maHex || quickPickHex.value
+
+  newColorForm.value.loading = true
+  try {
+    const res = await api.post('/api/thuoc-tinh/type/mau-sac', {
+      ten: ten,
+      maHex: hex,
+      trangThai: 1
+    })
+    const createdColor = res.data
+    // Đưa vào danh sách màu sắc của hệ thống
+    if (!attributes.value.mauSac) attributes.value.mauSac = []
+    attributes.value.mauSac.push(createdColor)
+    // Tự động chọn luôn màu vừa thêm
+    if (!isColorSelected(createdColor.id)) {
+      toggleColor(createdColor)
+    }
+    newColorForm.value.ten = ''
+    showToast(`Đã thêm và chọn màu "${createdColor.tenMauSac}"!`, 'success')
+  } catch (err) {
+    const msg = err.response?.data?.message || 'Không thể thêm màu mới!'
+    showToast(msg, 'error')
+  } finally {
+    newColorForm.value.loading = false
+  }
+}
+
+// Modal Thêm nhanh 7 loại thuộc tính
+const attrTypeConfigs = {
+  'thuong-hieu': { title: 'Thương hiệu', field: 'idThuongHieu', listKey: 'thuongHieu', codePrefix: 'TH' },
+  'danh-muc': { title: 'Danh mục', field: 'idDanhMuc', listKey: 'danhMuc', codePrefix: 'DM' },
+  'xuat-xu': { title: 'Xuất xứ', field: 'idXuatXu', listKey: 'xuatXu', codePrefix: 'XX' },
+  'chat-lieu': { title: 'Chất liệu', field: 'idChatLieu', listKey: 'chatLieu', codePrefix: 'CL' },
+  'co-ao': { title: 'Cổ áo', field: 'idCoAo', listKey: 'coAo', codePrefix: 'CA' },
+  'tay-ao': { title: 'Tay áo', field: 'idTayAo', listKey: 'tayAo', codePrefix: 'TA' },
+  'hoa-tiet': { title: 'Họa tiết', field: 'idHoaTiet', listKey: 'hoaTiet', codePrefix: 'HT' }
+}
+
+const quickAttrModal = ref({
+  show: false,
+  type: '',
+  title: '',
+  field: '',
+  listKey: '',
+  codePrefix: '',
+  ten: '',
+  ma: '',
+  loading: false,
+  error: ''
+})
+
+const openQuickAddModal = (type) => {
+  const cfg = attrTypeConfigs[type]
+  if (!cfg) return
+  const suffix = Math.floor(1000 + Math.random() * 9000)
+  quickAttrModal.value = {
+    show: true,
+    type,
+    title: cfg.title,
+    field: cfg.field,
+    listKey: cfg.listKey,
+    codePrefix: cfg.codePrefix,
+    ten: '',
+    ma: `${cfg.codePrefix}${suffix}`,
+    loading: false,
+    error: ''
+  }
+}
+
+const closeQuickAttrModal = () => {
+  quickAttrModal.value.show = false
+  quickAttrModal.value.error = ''
+}
+
+const submitQuickAttr = async () => {
+  const ten = quickAttrModal.value.ten?.trim()
+  if (!ten) {
+    quickAttrModal.value.error = `Vui lòng nhập tên ${quickAttrModal.value.title.toLowerCase()}!`
+    return
+  }
+  if (ten.length > 255) {
+    quickAttrModal.value.error = 'Tên không được vượt quá 255 ký tự!'
+    return
+  }
+
+  quickAttrModal.value.loading = true
+  quickAttrModal.value.error = ''
+  try {
+    const payload = {
+      ten: ten,
+      ma: quickAttrModal.value.ma?.trim() || undefined,
+      trangThai: 1
+    }
+    const res = await api.post(`/api/thuoc-tinh/type/${quickAttrModal.value.type}`, payload)
+    const createdItem = res.data
+
+    // Thêm vào danh sách thuộc tính tương ứng
+    const listKey = quickAttrModal.value.listKey
+    if (!attributes.value[listKey]) {
+      attributes.value[listKey] = []
+    }
+    attributes.value[listKey].push(createdItem)
+
+    // Tự động gán thuộc tính mới tạo vào form
+    form.value[quickAttrModal.value.field] = createdItem.id
+
+    showToast(`Đã thêm mới và chọn ${quickAttrModal.value.title.toLowerCase()} "${ten}"!`, 'success')
+    closeQuickAttrModal()
+  } catch (err) {
+    const msg = err.response?.data?.message || 'Có lỗi xảy ra khi thêm thuộc tính!'
+    quickAttrModal.value.error = msg
+  } finally {
+    quickAttrModal.value.loading = false
+  }
+}
+
 const toggleColorDropdown = () => {
   showColorDropdown.value = !showColorDropdown.value
   showSizeDropdown.value = false
+  showColorPalette.value = false
 }
 
 const toggleSizeDropdown = () => {
   showSizeDropdown.value = !showSizeDropdown.value
   showColorDropdown.value = false
+  showColorPalette.value = false
 }
 
 const toggleColor = (color) => {
@@ -730,6 +1110,7 @@ const clearAllSizes = () => {
 const closeAllDropdowns = () => {
   showColorDropdown.value = false
   showSizeDropdown.value = false
+  showColorPalette.value = false
 }
 
 // Sinh danh sách biến thể tự động từ các Màu x Size đã chọn
@@ -809,14 +1190,34 @@ const toggleSelectAllVariants = () => {
 
 // Áp dụng số lượng & giá bán mặc định hàng loạt
 const applyBulkValues = () => {
+  if (bulkQty.value !== null && bulkQty.value !== undefined && bulkQty.value !== '') {
+    const sl = Number(bulkQty.value)
+    if (isNaN(sl) || !Number.isInteger(sl) || sl < 0 || sl > 999999) {
+      showToast('Số lượng áp dụng phải là số nguyên từ 0 đến 999,999!', 'error')
+      return
+    }
+  }
+  if (bulkPrice.value !== null && bulkPrice.value !== undefined && bulkPrice.value !== '') {
+    const gb = Number(bulkPrice.value)
+    if (isNaN(gb) || gb < 0 || gb > 1000000000) {
+      showToast('Giá bán áp dụng phải từ 0 đến 1,000,000,000 VNĐ!', 'error')
+      return
+    }
+  }
+
   let count = 0
   variantsList.value.forEach(v => {
     if (v.selected) {
-      if (bulkQty.value !== null && bulkQty.value !== undefined) v.soLuong = bulkQty.value
-      if (bulkPrice.value !== null && bulkPrice.value !== undefined) v.giaBan = bulkPrice.value
+      if (bulkQty.value !== null && bulkQty.value !== undefined && bulkQty.value !== '') v.soLuong = Number(bulkQty.value)
+      if (bulkPrice.value !== null && bulkPrice.value !== undefined && bulkPrice.value !== '') v.giaBan = Number(bulkPrice.value)
       count++
     }
   })
+
+  if (count === 0) {
+    showToast('Vui lòng chọn ít nhất một biến thể để áp dụng hàng loạt!', 'warning')
+    return
+  }
   showToast(`Đã áp dụng cho ${count} biến thể được chọn!`, 'success')
 }
 
@@ -881,17 +1282,65 @@ const handleQuickAdd = (type) => {
 
 // Xác nhận Lưu / Cập nhật sản phẩm
 const openSaveConfirm = () => {
-  if (!form.value.tenSanPham?.trim()) {
+  const ten = form.value.tenSanPham?.trim()
+  if (!ten) {
     showToast('Vui lòng nhập tên sản phẩm!', 'error')
     return
   }
+  if (ten.length > 255) {
+    showToast('Tên sản phẩm không được vượt quá 255 ký tự!', 'error')
+    return
+  }
+
+  if (form.value.maSanPham?.trim()) {
+    const ma = form.value.maSanPham.trim()
+    if (ma.length > 50) {
+      showToast('Mã sản phẩm không được vượt quá 50 ký tự!', 'error')
+      return
+    }
+    const codeRegex = /^[A-Za-z0-9_-]+$/
+    if (!codeRegex.test(ma)) {
+      showToast('Mã sản phẩm chỉ được chứa chữ cái, số, gạch dưới và gạch ngang (không dấu cách)!', 'error')
+      return
+    }
+  }
+
+  if (form.value.moTa && form.value.moTa.length > 2000) {
+    showToast('Mô tả sản phẩm không được vượt quá 2000 ký tự!', 'error')
+    return
+  }
+
+  // Validate các biến thể được chọn
+  const activeVariants = variantsList.value.filter(v => v.selected !== false)
+  for (const v of activeVariants) {
+    const label = `${v.tenMauSac || 'Màu'} - ${v.tenKichCo || 'Size'}`
+    if (v.soLuong === '' || v.soLuong === null || v.soLuong === undefined) {
+      showToast(`Vui lòng nhập số lượng cho biến thể (${label})!`, 'error')
+      return
+    }
+    const sl = Number(v.soLuong)
+    if (isNaN(sl) || !Number.isInteger(sl) || sl < 0 || sl > 999999) {
+      showToast(`Số lượng biến thể (${label}) phải là số nguyên từ 0 đến 999,999!`, 'error')
+      return
+    }
+
+    if (v.giaBan === '' || v.giaBan === null || v.giaBan === undefined) {
+      showToast(`Vui lòng nhập giá bán cho biến thể (${label})!`, 'error')
+      return
+    }
+    const gb = Number(v.giaBan)
+    if (isNaN(gb) || gb < 0 || gb > 1000000000) {
+      showToast(`Giá bán biến thể (${label}) phải từ 0 đến 1,000,000,000 VNĐ!`, 'error')
+      return
+    }
+  }
 
   const actionText = isEdit.value ? 'chỉnh sửa' : 'lưu'
-  const countVar = variantsList.value.length
+  const countVar = activeVariants.length
 
   openConfirm({
     title: isEdit.value ? 'Xác nhận chỉnh sửa sản phẩm' : 'Xác nhận lưu sản phẩm',
-    message: `Bạn có muốn ${actionText} sản phẩm "${form.value.tenSanPham}"${countVar > 0 ? ` cùng ${countVar} biến thể` : ''} không?`,
+    message: `Bạn có muốn ${actionText} sản phẩm "${ten}"${countVar > 0 ? ` cùng ${countVar} biến thể` : ''} không?`,
     type: 'primary',
     confirmText: isEdit.value ? 'Xác nhận cập nhật' : 'Xác nhận lưu',
     onConfirm: submitForm
@@ -1200,6 +1649,129 @@ onMounted(async () => {
   box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.15);
 }
 
+/* Select with Add Button */
+.select-with-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.select-with-btn .form-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.btn-add-attr-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 38px;
+  padding: 0 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #496883;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.btn-add-attr-inline:hover {
+  background-color: #496883;
+  color: #ffffff;
+  border-color: #496883;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.25);
+}
+
+/* Quick Attr Modal Card */
+.quick-attr-modal-card {
+  background: #ffffff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  animation: modalScaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.quick-attr-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.25rem 1.25rem 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.quick-attr-title-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.quick-attr-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #496883;
+  background-color: #eaf2f6;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.quick-attr-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.btn-close-modal {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  transition: color 0.2s;
+}
+
+.btn-close-modal:hover {
+  color: #ef4444;
+}
+
+.quick-attr-modal-body {
+  padding: 1.25rem;
+}
+
+.quick-attr-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quick-attr-error-banner {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.quick-attr-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.85rem 1.25rem;
+  background-color: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+}
+
 .form-textarea {
   resize: vertical;
 }
@@ -1226,6 +1798,246 @@ onMounted(async () => {
 .picker-action-col {
   width: 120px;
   padding-top: 0.2rem;
+}
+
+/* Color picker input group & Palette action */
+.color-picker-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.color-palette-action-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.palette-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.native-color-picker-box {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s;
+}
+
+.native-color-picker-box:hover {
+  border-color: #496883;
+  transform: translateY(-1px);
+}
+
+.native-color-input {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 60px;
+  height: 60px;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.color-preview-disc {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+.btn-palette-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 38px;
+  padding: 0 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #496883;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-palette-open:hover,
+.btn-palette-open.active {
+  background-color: #496883;
+  color: #ffffff;
+  border-color: #496883;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.25);
+}
+
+/* Palette Popover */
+.color-palette-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 320px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.palette-popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.palette-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+
+.palette-selected-count {
+  font-size: 0.75rem;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.palette-section-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.4rem;
+}
+
+.palette-swatches-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.45rem;
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.palette-swatch-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.palette-swatch-btn:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px #496883;
+}
+
+.palette-swatch-btn.selected {
+  box-shadow: 0 0 0 2px #496883, 0 2px 5px rgba(0, 0, 0, 0.2);
+  transform: scale(1.1);
+}
+
+.swatch-check {
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.85rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.palette-custom-section {
+  padding-top: 0.6rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.custom-color-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.custom-color-input {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  background: none;
+}
+
+.custom-hex-text {
+  width: 75px;
+  height: 34px;
+  font-size: 0.78rem;
+  font-family: monospace;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0 0.35rem;
+  text-transform: uppercase;
+}
+
+.custom-name-text {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  font-size: 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0 0.5rem;
+}
+
+.btn-add-custom-color {
+  height: 34px;
+  padding: 0 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background-color: #496883;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.btn-add-custom-color:hover:not(:disabled) {
+  background-color: #385166;
+}
+
+.btn-add-custom-color:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .multiselect-dropdown-wrap {

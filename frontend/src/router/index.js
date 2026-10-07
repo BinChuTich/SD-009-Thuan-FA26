@@ -29,6 +29,7 @@ import ChiTietPhieuGiamGia from '../views/GiamGia/ChiTietPhieuGiamGia.vue'
 import TaoPhieuGiamGia from '../views/GiamGia/TaoPhieuGiamGia.vue'
 
 // Thuộc tính
+import ThuocTinh from '../views/ThuocTinh/ThuocTinh.vue'
 import DanhMuc from '../views/ThuocTinh/DanhMuc.vue'
 import ThuongHieu from '../views/ThuocTinh/ThuongHieu.vue'
 import ChatLieu from '../views/ThuocTinh/ChatLieu.vue'
@@ -104,46 +105,53 @@ const routes = [
         component: BienTheSanPham
     },
 
-    // Thuộc tính
+    // =========================
+    // THUỘC TÍNH SẢN PHẨM
+    // =========================
     {
-        path: '/danh-muc',
-        name: 'DanhMuc',
-        component: DanhMuc
+        path: '/thuoc-tinh',
+        name: 'ThuocTinh',
+        component: ThuocTinh
     },
     {
-        path: '/thuong-hieu',
-        name: 'ThuongHieu',
-        component: ThuongHieu
+        path: '/danh-sach-thuoc-tinh',
+        redirect: '/thuoc-tinh'
     },
     {
         path: '/chat-lieu',
-        name: 'ChatLieu',
-        component: ChatLieu
-    },
-    {
-        path: '/xuat-xu',
-        name: 'XuatXu',
-        component: XuatXu
-    },
-    {
-        path: '/co-ao',
-        name: 'CoAo',
-        component: CoAo
-    },
-    {
-        path: '/tay-ao',
-        name: 'TayAo',
-        component: TayAo
+        redirect: '/thuoc-tinh?tab=chat-lieu'
     },
     {
         path: '/mau-sac',
-        name: 'MauSac',
-        component: MauSac
+        redirect: '/thuoc-tinh?tab=mau-sac'
     },
     {
         path: '/kich-co',
-        name: 'KichCo',
-        component: KichCo
+        redirect: '/thuoc-tinh?tab=kich-co'
+    },
+    {
+        path: '/danh-muc',
+        redirect: '/thuoc-tinh?tab=danh-muc'
+    },
+    {
+        path: '/thuong-hieu',
+        redirect: '/thuoc-tinh?tab=thuong-hieu'
+    },
+    {
+        path: '/xuat-xu',
+        redirect: '/thuoc-tinh?tab=xuat-xu'
+    },
+    {
+        path: '/co-ao',
+        redirect: '/thuoc-tinh?tab=co-ao'
+    },
+    {
+        path: '/tay-ao',
+        redirect: '/thuoc-tinh?tab=tay-ao'
+    },
+    {
+        path: '/hoa-tiet',
+        redirect: '/thuoc-tinh?tab=hoa-tiet'
     },
 
     // Giảm giá

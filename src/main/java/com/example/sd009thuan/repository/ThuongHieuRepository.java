@@ -9,4 +9,8 @@ import java.util.List;
 @Repository
 public interface ThuongHieuRepository extends JpaRepository<ThuongHieu, Long> {
     List<ThuongHieu> findByTrangThai(Integer trangThai);
+    boolean existsByMaThuongHieu(String maThuongHieu);
+    boolean existsByMaThuongHieuAndIdNot(String maThuongHieu, Long id);
+    boolean existsByTenThuongHieuIgnoreCase(String tenThuongHieu);
+    boolean existsByTenThuongHieuIgnoreCaseAndIdNot(String tenThuongHieu, Long id);
 }

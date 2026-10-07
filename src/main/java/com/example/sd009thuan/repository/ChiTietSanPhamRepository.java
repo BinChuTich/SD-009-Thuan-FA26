@@ -24,6 +24,10 @@ public interface ChiTietSanPhamRepository extends JpaRepository<ChiTietSanPham, 
 
     boolean existsByMaChiTietSanPhamAndIdNot(String maChiTietSanPham, Long id);
 
+    boolean existsByIdMauSac_Id(Long idMauSac);
+
+    boolean existsByIdKichCo_Id(Long idKichCo);
+
     Optional<ChiTietSanPham> findByIdSanPham_IdAndIdKichCo_IdAndIdMauSac_Id(Long idSanPham, Long idKichCo, Long idMauSac);
 
     @Query("SELECT MIN(ct.giaBan) FROM ChiTietSanPham ct WHERE ct.idSanPham.id = :idSanPham AND ct.trangThai = 1")

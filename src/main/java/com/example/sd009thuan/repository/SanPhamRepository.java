@@ -19,7 +19,25 @@ public interface SanPhamRepository extends JpaRepository<SanPham, Long>, JpaSpec
 
     boolean existsByMaSanPhamAndIdNot(String maSanPham, Long id);
 
+    boolean existsByTenSanPhamIgnoreCase(String tenSanPham);
+
+    boolean existsByTenSanPhamIgnoreCaseAndIdNot(String tenSanPham, Long id);
+
     Optional<SanPham> findByMaSanPham(String maSanPham);
+
+    boolean existsByIdChatLieu_Id(Long idChatLieu);
+
+    boolean existsByIdThuongHieu_Id(Long idThuongHieu);
+
+    boolean existsByIdXuatXu_Id(Long idXuatXu);
+
+    boolean existsByIdDanhMuc_Id(Long idDanhMuc);
+
+    boolean existsByIdCoAo_Id(Long idCoAo);
+
+    boolean existsByIdTayAo_Id(Long idTayAo);
+
+    boolean existsByIdHoaTiet_Id(Long idHoaTiet);
 
     @Query("SELECT sp FROM SanPham sp WHERE " +
            "(:keyword IS NULL OR LOWER(sp.maSanPham) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
