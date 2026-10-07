@@ -2,11 +2,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api.js'
-
 const route = useRoute()
 const router = useRouter()
 const maHoaDon = route.params.maHoaDon || route.params.ma
-
 const hoaDon = ref(null)
 const loading = ref(false)
 const statusLoading = ref(false)
@@ -286,18 +284,40 @@ const xuLyDonHang = async () => {
 
 const thanhToan = async () => {
   if (!hoaDon.value) return
-  if (Number(hoaDon.value.trangThaiThanhToan) === 1) return
+
+  if (Number(hoaDon.value.trangThaiThanhToan) === 1) {
+    return
+  }
 
   try {
     thanhToanLoading.value = true
-    await api.put(`/api/hoa-don/${hoaDon.value.id}`, {
-      trangThaiThanhToan: 1
-    })
-    hoaDon.value.trangThaiThanhToan = 1
-    triggerAlert('Đã xác nhận thanh toán thành công!', 'success')
+
+    const response = await api.put(
+        `/api/hoa-don/${hoaDon.value.id}/trang-thai-thanh-toan`,
+        {
+          trangThaiThanhToan: 1
+        }
+    )
+
+    if (response.data) {
+      hoaDon.value = response.data
+    } else {
+      hoaDon.value.trangThaiThanhToan = 1
+    }
+
+    triggerAlert(
+        'Đã xác nhận thanh toán thành công!',
+        'success'
+    )
   } catch (error) {
     console.error('Lỗi cập nhật thanh toán:', error)
-    triggerAlert('Không thể cập nhật thanh toán!', 'error')
+    console.error('Response:', error.response?.data)
+    triggerAlert(
+        error.response?.data?.message ||
+        'Không thể cập nhật thanh toán!',
+        'error'
+    )
+
   } finally {
     thanhToanLoading.value = false
   }

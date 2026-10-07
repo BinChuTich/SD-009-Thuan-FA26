@@ -67,12 +67,12 @@ public class KhachHangController {
     public ResponseEntity<KhachHangResponse> createMultipart(
             @RequestPart("data") KhachHangRequest req,
             @RequestPart(value = "file", required = false) MultipartFile file) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, file));
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req));
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<KhachHangResponse> createJson(@RequestBody KhachHangRequest req) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, null));
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req));
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -80,12 +80,12 @@ public class KhachHangController {
             @PathVariable Long id,
             @RequestPart("data") KhachHangRequest req,
             @RequestPart(value = "file", required = false) MultipartFile file) {
-        return service.update(id, req, file);
+        return service.update(id, req);
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public KhachHangResponse updateJson(@PathVariable Long id, @RequestBody KhachHangRequest req) {
-        return service.update(id, req, null);
+        return service.update(id, req);
     }
 
     @PatchMapping("/{id}/toggle-status")
