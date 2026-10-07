@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -30,6 +32,91 @@ public class PhieuGiamGiaService {
 
     @Autowired
     private KhachHangPhieuGiamGiaRepository khachHangPhieuGiamGiaRepository;
+
+    private void validatePhieuGiamGiaDTO(PhieuGiamGiaDTO dto, boolean isCreate) {
+        if (dto == null) {
+            throw new IllegalArgumentException("Dữ liệu phiếu giảm giá không hợp lệ!");
+        }
+
+        // 1. Tên phiếu giảm giá
+        if (dto.getTenPhieuGiamGia() == null || dto.getTenPhieuGiamGia().trim().isEmpty()) {
+            throw new IllegalArgumentException("Tên phiếu giảm giá không được để trống!");
+        }
+        if (dto.getTenPhieuGiamGia().trim().length() > 255) {
+            throw new IllegalArgumentException("Tên phiếu giảm giá không được vượt quá 255 ký tự!");
+        }
+
+        // 2. Loại phiếu giảm giá
+        if (dto.getLoaiPhieuGiamGia() == null || (dto.getLoaiPhieuGiamGia() != 1 && dto.getLoaiPhieuGiamGia() != 2)) {
+            throw new IllegalArgumentException("Loại phiếu giảm giá không hợp lệ (1: %, 2: Tiền mặt)!");
+        }
+
+        // 3. Mức giảm giá
+        if (dto.getGiaTriGiamGia() == null || dto.getGiaTriGiamGia().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Mức giảm giá phải lớn hơn 0!");
+        }
+        if (dto.getLoaiPhieuGiamGia() == 1) {
+            if (dto.getGiaTriGiamGia().compareTo(BigDecimal.ONE) < 0 || dto.getGiaTriGiamGia().compareTo(new BigDecimal("100")) > 0) {
+                throw new IllegalArgumentException("Mức giảm theo phần trăm phải từ 1% đến 100%!");
+            }
+        } else if (dto.getLoaiPhieuGiamGia() == 2) {
+            if (dto.getGiaTriGiamGia().compareTo(new BigDecimal("1000")) < 0) {
+                throw new IllegalArgumentException("Mức giảm tiền mặt phải tối thiểu từ 1.000 VNĐ!");
+            }
+        }
+
+        // 4. Giảm tối đa (khi là %)
+        if (dto.getLoaiPhieuGiamGia() == 1 && dto.getGiamToiDa() != null) {
+            if (dto.getGiamToiDa().compareTo(new BigDecimal("1000")) < 0) {
+                throw new IllegalArgumentException("Mức giảm tối đa phải tối thiểu từ 1.000 VNĐ!");
+            }
+        }
+
+        // 5. Hóa đơn tối thiểu
+        if (dto.getHoaDonToiThieu() == null || dto.getHoaDonToiThieu().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Hóa đơn tối thiểu không được để trống và không được âm!");
+        }
+        if (dto.getHoaDonToiThieu().compareTo(BigDecimal.ZERO) > 0 && dto.getHoaDonToiThieu().compareTo(new BigDecimal("1000")) < 0) {
+            throw new IllegalArgumentException("Hóa đơn tối thiểu phải từ 1.000 VNĐ trở lên (hoặc bằng 0)!");
+        }
+        if (dto.getLoaiPhieuGiamGia() == 2 && dto.getHoaDonToiThieu() != null
+                && dto.getGiaTriGiamGia().compareTo(dto.getHoaDonToiThieu()) > 0) {
+            throw new IllegalArgumentException("Mức giảm tiền mặt không được lớn hơn giá trị hóa đơn tối thiểu!");
+        }
+
+        // 6. Số lượng sử dụng
+        if (dto.getSoLuongSuDung() == null || dto.getSoLuongSuDung() <= 0) {
+            throw new IllegalArgumentException("Số lượt sử dụng phải là số nguyên lớn hơn 0!");
+        }
+
+        // 7. Ngày bắt đầu và Ngày kết thúc
+        if (dto.getNgayBatDau() == null) {
+            throw new IllegalArgumentException("Ngày bắt đầu không được để trống!");
+        }
+        if (dto.getNgayKetThuc() == null) {
+            throw new IllegalArgumentException("Ngày kết thúc không được để trống!");
+        }
+        if (dto.getNgayKetThuc().isBefore(dto.getNgayBatDau())) {
+            throw new IllegalArgumentException("Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu!");
+        }
+
+        // 8. Khi tạo mới: Ngày bắt đầu phải là ngày hiện tại
+        if (isCreate) {
+            ZoneId zoneId = ZoneId.of("Asia/Ho_Chi_Minh");
+            LocalDate today = LocalDate.now(zoneId);
+            LocalDate startDate = dto.getNgayBatDau().atZone(zoneId).toLocalDate();
+            if (!startDate.equals(today)) {
+                throw new IllegalArgumentException("Ngày bắt đầu phải là ngày hiện tại (" + today + ")!");
+            }
+        }
+
+        // 9. Khách hàng đối với phiếu cá nhân
+        if ("Cá nhân".equalsIgnoreCase(dto.getHinhThuc())) {
+            if (dto.getIdKhachHangList() == null || dto.getIdKhachHangList().isEmpty()) {
+                throw new IllegalArgumentException("Hình thức Cá nhân yêu cầu chọn ít nhất 1 khách hàng áp dụng!");
+            }
+        }
+    }
 
     private PhieuGiamGiaDTO convertToDTO(PhieuGiamGia phieu) {
         PhieuGiamGiaDTO dto = new PhieuGiamGiaDTO();
@@ -131,40 +218,26 @@ public class PhieuGiamGiaService {
 
 
     public PhieuGiamGiaDTO updatePhieuGiamGia(Long id, PhieuGiamGiaDTO dto) {
+        validatePhieuGiamGiaDTO(dto, false);
+
         Optional<PhieuGiamGia> optional = phieuGiamGiaRepository.findById(id);
         if (optional.isPresent()) {
             PhieuGiamGia phieu = optional.get();
 
-            if (dto.getTenPhieuGiamGia() != null && !dto.getTenPhieuGiamGia().trim().isEmpty()) {
-                phieu.setTenPhieuGiamGia(dto.getTenPhieuGiamGia().trim());
-            }
-            if (dto.getLoaiPhieuGiamGia() != null) {
-                phieu.setLoaiPhieuGiamGia(dto.getLoaiPhieuGiamGia());
-            }
-            if (dto.getGiaTriGiamGia() != null) {
-                phieu.setGiaTriGiamGia(dto.getGiaTriGiamGia());
-            }
-            phieu.setGiamToiDa(dto.getGiamToiDa());
+            phieu.setTenPhieuGiamGia(dto.getTenPhieuGiamGia().trim());
+            phieu.setLoaiPhieuGiamGia(dto.getLoaiPhieuGiamGia());
+            phieu.setGiaTriGiamGia(dto.getGiaTriGiamGia());
+            phieu.setGiamToiDa(dto.getLoaiPhieuGiamGia() == 1 ? dto.getGiamToiDa() : null);
+            phieu.setHoaDonToiThieu(dto.getHoaDonToiThieu());
+            phieu.setSoLuongSuDung(dto.getSoLuongSuDung());
+            phieu.setNgayBatDau(dto.getNgayBatDau());
+            phieu.setNgayKetThuc(dto.getNgayKetThuc());
 
-            if (dto.getHoaDonToiThieu() != null) {
-                phieu.setHoaDonToiThieu(dto.getHoaDonToiThieu());
-            }
-            if (dto.getSoLuongSuDung() != null) {
-                phieu.setSoLuongSuDung(dto.getSoLuongSuDung());
-            }
-            if (dto.getNgayBatDau() != null) {
-                phieu.setNgayBatDau(dto.getNgayBatDau());
-            }
-            if (dto.getNgayKetThuc() != null) {
-                phieu.setNgayKetThuc(dto.getNgayKetThuc());
-            }
-            if (dto.getTrangThai() != null) {
-                phieu.setTrangThai(dto.getTrangThai());
-            }
-
+            int status = dto.getTrangThai() != null ? dto.getTrangThai() : 1;
             if (phieu.getNgayKetThuc() != null && phieu.getNgayKetThuc().isBefore(Instant.now())) {
-                phieu.setTrangThai(0);
+                status = 0;
             }
+            phieu.setTrangThai(status);
 
             PhieuGiamGia saved = phieuGiamGiaRepository.save(phieu);
             return convertToDTO(saved);
@@ -178,6 +251,8 @@ public class PhieuGiamGiaService {
 
     @Transactional
     public PhieuGiamGiaDTO createPhieuGiamGia(PhieuGiamGiaDTO dto) {
+        validatePhieuGiamGiaDTO(dto, true);
+
         PhieuGiamGia phieu = new PhieuGiamGia();
 
         String ma = dto.getMaPhieuGiamGia();
@@ -186,24 +261,23 @@ public class PhieuGiamGiaService {
         }
         phieu.setMaPhieuGiamGia(ma.trim().toUpperCase());
 
-
-        String ten = dto.getTenPhieuGiamGia();
-        phieu.setTenPhieuGiamGia(ten != null ? ten.trim() : "Phiếu giảm giá mới");
-
-        phieu.setLoaiPhieuGiamGia(dto.getLoaiPhieuGiamGia() != null ? dto.getLoaiPhieuGiamGia() : 1);
-        phieu.setGiaTriGiamGia(dto.getGiaTriGiamGia() != null ? dto.getGiaTriGiamGia() : BigDecimal.ZERO);
-        phieu.setGiamToiDa(dto.getGiamToiDa());
-        phieu.setHoaDonToiThieu(dto.getHoaDonToiThieu() != null ? dto.getHoaDonToiThieu() : BigDecimal.ZERO);
-        phieu.setSoLuongSuDung(dto.getSoLuongSuDung() != null ? dto.getSoLuongSuDung() : 100);
-        Instant ngayBatDau = dto.getNgayBatDau() != null ? dto.getNgayBatDau() : Instant.now();
-        phieu.setNgayBatDau(ngayBatDau);
+        phieu.setTenPhieuGiamGia(dto.getTenPhieuGiamGia().trim());
+        phieu.setLoaiPhieuGiamGia(dto.getLoaiPhieuGiamGia());
+        phieu.setGiaTriGiamGia(dto.getGiaTriGiamGia());
+        phieu.setGiamToiDa(dto.getLoaiPhieuGiamGia() == 1 ? dto.getGiamToiDa() : null);
+        phieu.setHoaDonToiThieu(dto.getHoaDonToiThieu());
+        phieu.setSoLuongSuDung(dto.getSoLuongSuDung());
+        phieu.setNgayBatDau(dto.getNgayBatDau());
         phieu.setNgayKetThuc(dto.getNgayKetThuc());
+
         int status = dto.getTrangThai() != null ? dto.getTrangThai() : 1;
         if (phieu.getNgayKetThuc() != null && phieu.getNgayKetThuc().isBefore(Instant.now())) {
             status = 0;
         }
         phieu.setTrangThai(status);
+
         PhieuGiamGia saved = phieuGiamGiaRepository.save(phieu);
+
         if ("Cá nhân".equalsIgnoreCase(dto.getHinhThuc()) && dto.getIdKhachHangList() != null && !dto.getIdKhachHangList().isEmpty()) {
             for (Long idKhach : dto.getIdKhachHangList()) {
                 Optional<KhachHang> khOpt = khachHangRepository.findById(idKhach);

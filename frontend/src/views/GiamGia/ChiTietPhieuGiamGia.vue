@@ -135,7 +135,6 @@
                   disabled
                   class="input-disabled"
               />
-              <span class="field-hint">Mã định danh duy nhất trong database.</span>
             </div>
 
             <!-- Tên phiếu giảm giá -->
@@ -205,13 +204,17 @@
                 <input
                     type="number"
                     v-model.number="form.giaTriGiamGia"
-                    min="0"
+                    :min="form.loaiPhieuGiamGia === 1 ? 1 : 1000"
                     :max="form.loaiPhieuGiamGia === 1 ? 100 : 999999999"
-                    placeholder="Nhập mức giảm..."
+                    :placeholder="form.loaiPhieuGiamGia === 1 ? 'Nhập từ 1 - 100%' : 'VD: 12 -> 12.000 đ'"
+                    @blur="handleMoneyBlur('giaTriGiamGia')"
                     :class="{ 'input-error': errors.giaTriGiamGia }"
                 />
                 <span class="input-addon">{{ form.loaiPhieuGiamGia === 1 ? '%' : 'đ' }}</span>
               </div>
+              <span v-if="form.loaiPhieuGiamGia === 2 && form.giaTriGiamGia" class="field-hint text-blue font-medium">
+                ≈ {{ formatMoney(form.giaTriGiamGia) }}
+              </span>
               <span v-if="errors.giaTriGiamGia" class="error-msg">{{ errors.giaTriGiamGia }}</span>
             </div>
 
@@ -225,25 +228,38 @@
                 <input
                     type="number"
                     v-model.number="form.giamToiDa"
-                    min="0"
-                    placeholder="VD: 50000 (để trống nếu không giới hạn)"
+                    min="1000"
+                    :disabled="form.loaiPhieuGiamGia === 2"
+                    :placeholder="form.loaiPhieuGiamGia === 2 ? 'Không áp dụng' : 'VD: 50 -> 50.000 đ'"
+                    @blur="handleMoneyBlur('giamToiDa')"
+                    :class="{ 'input-error': errors.giamToiDa }"
                 />
                 <span class="input-addon">đ</span>
               </div>
+              <span v-if="form.loaiPhieuGiamGia === 1 && form.giamToiDa" class="field-hint text-blue font-medium">
+                ≈ {{ formatMoney(form.giamToiDa) }}
+              </span>
+              <span v-if="errors.giamToiDa" class="error-msg">{{ errors.giamToiDa }}</span>
             </div>
 
             <!-- Đơn hàng tối thiểu -->
             <div class="form-field">
-              <label>Hóa đơn tối thiểu (VNĐ)</label>
+              <label>Hóa đơn tối thiểu (VNĐ) <span class="required">*</span></label>
               <div class="input-with-addon">
                 <input
                     type="number"
                     v-model.number="form.hoaDonToiThieu"
                     min="0"
-                    placeholder="VD: 200000"
+                    placeholder="VD: 700 -> 700.000 đ"
+                    @blur="handleMoneyBlur('hoaDonToiThieu')"
+                    :class="{ 'input-error': errors.hoaDonToiThieu }"
                 />
                 <span class="input-addon">đ</span>
               </div>
+              <span v-if="form.hoaDonToiThieu" class="field-hint text-blue font-medium">
+                ≈ {{ formatMoney(form.hoaDonToiThieu) }}
+              </span>
+              <span v-if="errors.hoaDonToiThieu" class="error-msg">{{ errors.hoaDonToiThieu }}</span>
             </div>
 
             <!-- Số lượng sử dụng -->
@@ -291,6 +307,7 @@
               <input
                   type="date"
                   v-model="form.ngayKetThucStr"
+                  :min="form.ngayBatDauStr || ''"
                   :class="{ 'input-error': errors.ngayKetThuc }"
               />
               <span v-if="errors.ngayKetThuc" class="error-msg">{{ errors.ngayKetThuc }}</span>
@@ -369,7 +386,39 @@
       </div>
     </div>
 
-    <!-- 4. THÔNG BÁO THÀNH CÔNG (TOAST NOTIFICATION) -->
+    <!-- 4. POPUP MODAL CẢNH BÁO LỖI NHẬP LIỆU (THAY THẾ ALERT XẤU CỦA TRÌNH DUYỆT) -->
+    <div v-if="showErrorModal" class="modal-overlay" @click.self="showErrorModal = false">
+      <div class="modal-box error-modal-box">
+        <div class="error-modal-header">
+          <div class="error-warning-icon">⚠️</div>
+          <div class="error-title-wrap">
+            <h3 class="error-title">Thông tin chưa hợp lệ</h3>
+            <p class="error-subtitle">Vui lòng kiểm tra lại các trường dữ liệu dưới đây</p>
+          </div>
+          <button class="modal-close-btn" @click="showErrorModal = false">✕</button>
+        </div>
+
+        <div class="error-modal-body">
+          <div class="error-list-panel">
+            <div v-for="(msg, field) in errors" :key="field" class="error-item-line">
+              <span class="error-bullet">❌</span>
+              <span class="error-text-content">{{ msg }}</span>
+            </div>
+          </div>
+          <div class="error-hint-panel">
+            💡 <span>Gợi ý: Nếu chọn <b>Giảm theo phần trăm (%)</b>, mức giảm phải nằm trong khoảng từ <b>1% đến 100%</b>.</span>
+          </div>
+        </div>
+
+        <div class="error-modal-footer">
+          <button class="btn btn-primary btn-error-close" @click="showErrorModal = false">
+            Xác nhận
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. THÔNG BÁO THÀNH CÔNG (TOAST NOTIFICATION) -->
     <div v-if="showSuccessToast" class="toast-success">
       <div class="toast-icon">✅</div>
       <div class="toast-text">
@@ -382,7 +431,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import api from '../../api'
 
@@ -396,6 +445,7 @@ const loading = ref(false)
 const saving = ref(false)
 const errorMessage = ref('')
 const showConfirmModal = ref(false)
+const showErrorModal = ref(false)
 const showSuccessToast = ref(false)
 
 
@@ -505,31 +555,125 @@ const currentStatusMeta = computed(() => {
   return { text: 'Đang hoạt động', badgeClass: 'status-active' }
 })
 
+const autoAppendThreeZeros = (field) => {
+  if (!form.value) return
+  const val = form.value[field]
+  if (val != null && val !== '') {
+    const num = Number(val)
+    if (!isNaN(num) && num > 0 && num < 1000) {
+      form.value[field] = Math.round(num * 1000)
+    }
+  }
+}
+
+const handleMoneyBlur = (field) => {
+  if (!form.value) return
+  if (field === 'giaTriGiamGia' && form.value.loaiPhieuGiamGia !== 2) {
+    return
+  }
+  if (field === 'giamToiDa' && form.value.loaiPhieuGiamGia !== 1) {
+    return
+  }
+  autoAppendThreeZeros(field)
+}
+
+const normalizeMoneyInputs = () => {
+  if (!form.value) return
+  if (form.value.loaiPhieuGiamGia === 2) {
+    autoAppendThreeZeros('giaTriGiamGia')
+  }
+  autoAppendThreeZeros('hoaDonToiThieu')
+  if (form.value.loaiPhieuGiamGia === 1) {
+    autoAppendThreeZeros('giamToiDa')
+  }
+}
+
+watch(() => form.value?.loaiPhieuGiamGia, (newVal) => {
+  if (form.value && newVal === 2) {
+    form.value.giamToiDa = null
+    if (errors.value.giamToiDa) delete errors.value.giamToiDa
+    if (form.value.giaTriGiamGia != null && form.value.giaTriGiamGia !== '') {
+      autoAppendThreeZeros('giaTriGiamGia')
+    }
+  } else if (form.value && newVal === 1) {
+    if (form.value.giaTriGiamGia && form.value.giaTriGiamGia > 100) {
+      form.value.giaTriGiamGia = null
+    }
+  }
+  if (errors.value.giaTriGiamGia) delete errors.value.giaTriGiamGia
+})
+
 const validateForm = () => {
+  normalizeMoneyInputs()
   errors.value = {}
 
+  // 1. Tên phiếu giảm giá
   if (!form.value.tenPhieuGiamGia || !form.value.tenPhieuGiamGia.trim()) {
     errors.value.tenPhieuGiamGia = 'Vui lòng nhập tên phiếu giảm giá!'
+  } else if (form.value.tenPhieuGiamGia.trim().length > 255) {
+    errors.value.tenPhieuGiamGia = 'Tên phiếu giảm giá không được vượt quá 255 ký tự!'
   }
 
-  if (form.value.giaTriGiamGia == null || form.value.giaTriGiamGia <= 0) {
-    errors.value.giaTriGiamGia = 'Mức giảm phải lớn hơn 0!'
-  } else if (form.value.loaiPhieuGiamGia === 1 && form.value.giaTriGiamGia > 100) {
-    errors.value.giaTriGiamGia = 'Giảm theo phần trăm không được vượt quá 100%!'
+  // 2. Mức giảm giá
+  if (form.value.giaTriGiamGia === null || form.value.giaTriGiamGia === undefined || form.value.giaTriGiamGia === '') {
+    errors.value.giaTriGiamGia = 'Vui lòng nhập mức giảm giá!'
+  } else {
+    const val = Number(form.value.giaTriGiamGia)
+    if (isNaN(val) || val <= 0) {
+      errors.value.giaTriGiamGia = 'Mức giảm giá phải lớn hơn 0!'
+    } else if (form.value.loaiPhieuGiamGia === 1) {
+      if (val < 1 || val > 100) {
+        errors.value.giaTriGiamGia = 'Mức giảm theo phần trăm phải từ 1% đến 100%!'
+      }
+    } else if (form.value.loaiPhieuGiamGia === 2) {
+      if (val < 1000) {
+        errors.value.giaTriGiamGia = 'Mức giảm tiền mặt phải tối thiểu từ 1.000 đ!'
+      } else if (form.value.hoaDonToiThieu !== null && form.value.hoaDonToiThieu !== '' && val > Number(form.value.hoaDonToiThieu)) {
+        errors.value.giaTriGiamGia = 'Mức giảm tiền mặt không được lớn hơn hóa đơn tối thiểu!'
+      }
+    }
   }
 
-  if (form.value.soLuongSuDung == null || form.value.soLuongSuDung < 0) {
-    errors.value.soLuongSuDung = 'Số lượt sử dụng không được âm!'
+  // 3. Giảm tối đa (nếu là loại %)
+  if (form.value.loaiPhieuGiamGia === 1 && form.value.giamToiDa !== null && form.value.giamToiDa !== undefined && form.value.giamToiDa !== '') {
+    const maxVal = Number(form.value.giamToiDa)
+    if (isNaN(maxVal) || maxVal < 1000) {
+      errors.value.giamToiDa = 'Mức giảm tối đa phải tối thiểu từ 1.000 đ!'
+    }
   }
 
+  // 4. Hóa đơn tối thiểu
+  if (form.value.hoaDonToiThieu === null || form.value.hoaDonToiThieu === undefined || form.value.hoaDonToiThieu === '') {
+    errors.value.hoaDonToiThieu = 'Vui lòng nhập giá trị hóa đơn tối thiểu!'
+  } else {
+    const minBill = Number(form.value.hoaDonToiThieu)
+    if (isNaN(minBill) || minBill < 0) {
+      errors.value.hoaDonToiThieu = 'Hóa đơn tối thiểu không được nhỏ hơn 0!'
+    } else if (minBill > 0 && minBill < 1000) {
+      errors.value.hoaDonToiThieu = 'Hóa đơn tối thiểu phải từ 1.000 đ trở lên (hoặc bằng 0)!'
+    }
+  }
+
+  // 5. Số lượng sử dụng
+  if (form.value.soLuongSuDung === null || form.value.soLuongSuDung === undefined || form.value.soLuongSuDung === '') {
+    errors.value.soLuongSuDung = 'Vui lòng nhập số lượt sử dụng!'
+  } else {
+    const qty = Number(form.value.soLuongSuDung)
+    if (isNaN(qty) || !Number.isInteger(qty) || qty <= 0) {
+      errors.value.soLuongSuDung = 'Số lượt sử dụng phải là số nguyên lớn hơn 0!'
+    }
+  }
+
+  // 6. Ngày bắt đầu
   if (!form.value.ngayBatDauStr) {
     errors.value.ngayBatDau = 'Vui lòng chọn ngày bắt đầu!'
   }
 
+  // 7. Ngày kết thúc
   if (!form.value.ngayKetThucStr) {
     errors.value.ngayKetThuc = 'Vui lòng chọn ngày kết thúc!'
   } else if (form.value.ngayBatDauStr && form.value.ngayKetThucStr < form.value.ngayBatDauStr) {
-    errors.value.ngayKetThuc = 'Ngày kết thúc phải sau hoặc bằng ngày bắt đầu!'
+    errors.value.ngayKetThuc = 'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu!'
   }
 
   return Object.keys(errors.value).length === 0
@@ -537,7 +681,7 @@ const validateForm = () => {
 
 const openConfirmModal = () => {
   if (!validateForm()) {
-    alert('Vui lòng kiểm tra lại các trường dữ liệu có lỗi!')
+    showErrorModal.value = true
     return
   }
   showConfirmModal.value = true
@@ -556,9 +700,9 @@ const submitUpdate = async () => {
     tenPhieuGiamGia: form.value.tenPhieuGiamGia.trim(),
     loaiPhieuGiamGia: form.value.loaiPhieuGiamGia,
     giaTriGiamGia: form.value.giaTriGiamGia,
-    giamToiDa: form.value.giamToiDa,
-    hoaDonToiThieu: form.value.hoaDonToiThieu,
-    soLuongSuDung: form.value.soLuongSuDung,
+    giamToiDa: form.value.loaiPhieuGiamGia === 1 && form.value.giamToiDa ? Number(form.value.giamToiDa) : null,
+    hoaDonToiThieu: form.value.hoaDonToiThieu != null ? Number(form.value.hoaDonToiThieu) : 0,
+    soLuongSuDung: Number(form.value.soLuongSuDung),
     ngayBatDau: dateInputToIso(form.value.ngayBatDauStr, false),
     ngayKetThuc: dateInputToIso(form.value.ngayKetThucStr, true),
     trangThai: form.value.trangThai
@@ -567,10 +711,26 @@ const submitUpdate = async () => {
   try {
     await api.put(`/api/phieu-giam-gia/${form.value.id}`, payload)
     showConfirmModal.value = false
-    router.push('/phieu-giam-gia')
+    showSuccessToast.value = true
+    setTimeout(() => {
+      showSuccessToast.value = false
+      router.push('/phieu-giam-gia')
+    }, 1200)
   } catch (err) {
     console.error('Lỗi khi cập nhật vào SQL Server:', err)
-    alert('Cập nhật phiếu giảm giá thất bại! Vui lòng kiểm tra lại kết nối backend.')
+    let msg = 'Cập nhật phiếu giảm giá thất bại!'
+    if (err.response?.data) {
+      if (typeof err.response.data === 'string') {
+        msg = err.response.data
+      } else if (err.response.data.message) {
+        msg = err.response.data.message
+      } else if (err.response.data.error) {
+        msg = err.response.data.error
+      }
+    } else if (err.message) {
+      msg = err.message
+    }
+    alert(msg)
   } finally {
     saving.value = false
   }
@@ -1266,6 +1426,113 @@ onMounted(() => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* POPUP MODAL CẢNH BÁO LỖI NHẬP LIỆU ĐẸP MẮT */
+.error-modal-box {
+  background: #ffffff;
+  border-radius: 14px;
+  width: 90%;
+  max-width: 480px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  animation: popIn 0.2s ease-out;
+  border: 1px solid #f9d6d5;
+}
+
+.error-modal-header {
+  padding: 1.15rem 1.35rem;
+  background-color: #fff4f4;
+  border-bottom: 1px solid #fcdcdc;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.error-warning-icon {
+  font-size: 1.8rem;
+}
+
+.error-title-wrap {
+  flex: 1;
+}
+
+.error-title {
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: #c0392b;
+}
+
+.error-subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  color: #9c4b44;
+}
+
+.error-modal-body {
+  padding: 1.25rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.error-list-panel {
+  background-color: #fdf7f7;
+  border: 1px solid #f6dede;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.error-item-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.88rem;
+  color: #b03a2e;
+  line-height: 1.4;
+}
+
+.error-bullet {
+  font-size: 0.85rem;
+  margin-top: 1px;
+}
+
+.error-text-content {
+  font-weight: 600;
+}
+
+.error-hint-panel {
+  background-color: #fdfbee;
+  border: 1px solid #f5edcf;
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.82rem;
+  color: #8c7634;
+  line-height: 1.4;
+}
+
+.error-modal-footer {
+  padding: 0.9rem 1.4rem;
+  border-top: 1px solid #f5efea;
+  display: flex;
+  justify-content: flex-end;
+  background-color: #faf9f6;
+}
+
+.btn-error-close {
+  background-color: #c0392b;
+  color: #ffffff;
+  padding: 0.55rem 1.25rem;
+}
+
+.btn-error-close:hover {
+  background-color: #a93226;
 }
 
 @media (max-width: 992px) {
