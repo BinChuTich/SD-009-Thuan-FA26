@@ -9,38 +9,26 @@ const router = useRouter()
 const maHoaDon = route.params.maHoaDon || route.params.ma
 
 const hoaDon = ref(null)
-
 const loading = ref(false)
 const statusLoading = ref(false)
 const thanhToanLoading = ref(false)
 const errorMessage = ref('')
 
-// ===============================
-// MODAL THÔNG BÁO DẠNG POPUP (GIỐNG POPUP FORM)
-// ===============================
 const orderAlert = ref({
   show: false,
   message: '',
-  type: 'success' // 'success' | 'error'
+  type: 'success'
 })
 let alertTimer = null
 
 const triggerAlert = (message, type = 'success') => {
   if (alertTimer) clearTimeout(alertTimer)
-  orderAlert.value = {
-    show: true,
-    message,
-    type
-  }
-  // Tự đóng sau 3 giây hoặc người dùng bấm xác nhận
+  orderAlert.value = { show: true, message, type }
   alertTimer = setTimeout(() => {
     orderAlert.value.show = false
   }, 3000)
 }
 
-// ===============================
-// STATE CHỈNH SỬA ĐƠN HÀNG
-// ===============================
 const showEditModal = ref(false)
 const editLoading = ref(false)
 const editForm = ref({
@@ -52,8 +40,75 @@ const editForm = ref({
   ghiChu: ''
 })
 
+const editFormErrors = ref({
+  trangThai: '',
+  tenKhachHang: '',
+  soDienThoaiKhachHang: '',
+  diaChiNhanHang: '',
+  ghiChu: ''
+})
+
+const validateEditModalForm = () => {
+  let isValid = true
+  editFormErrors.value = {
+    trangThai: '',
+    tenKhachHang: '',
+    soDienThoaiKhachHang: '',
+    diaChiNhanHang: '',
+    ghiChu: ''
+  }
+
+  const ten = editForm.value.tenKhachHang?.trim() || ''
+  if (!ten) {
+    editFormErrors.value.tenKhachHang = 'Tên khách hàng không được để trống'
+    isValid = false
+  } else if (ten.length < 2 || ten.length > 50) {
+    editFormErrors.value.tenKhachHang = 'Tên khách hàng phải từ 2 đến 50 ký tự'
+    isValid = false
+  }
+
+  const sdt = editForm.value.soDienThoaiKhachHang?.trim() || ''
+  const phoneRegex = /^(03|05|07|08|09)\d{8}$/
+  if (!sdt) {
+    editFormErrors.value.soDienThoaiKhachHang = 'Số điện thoại không được để trống'
+    isValid = false
+  } else if (!phoneRegex.test(sdt)) {
+    editFormErrors.value.soDienThoaiKhachHang = 'Số điện thoại không hợp lệ '
+    isValid = false
+  }
+
+  const diaChi = editForm.value.diaChiNhanHang?.trim() || ''
+  if (!diaChi) {
+    editFormErrors.value.diaChiNhanHang = 'Địa chỉ nhận hàng không được để trống'
+    isValid = false
+  } else if (diaChi.length > 255) {
+    editFormErrors.value.diaChiNhanHang = 'Địa chỉ không được vượt quá 255 ký tự'
+    isValid = false
+  }
+
+  const ghiChu = editForm.value.ghiChu?.trim() || ''
+  if (ghiChu.length > 255) {
+    editFormErrors.value.ghiChu = 'Ghi chú không được dài quá 255 ký tự'
+    isValid = false
+  }
+
+  if (Number(editForm.value.trangThai) === 5 && Number(editForm.value.trangThaiThanhToan) === 0) {
+    editFormErrors.value.trangThai = 'Đơn hoàn thành bắt buộc phải là "Đã thanh toán"'
+    isValid = false
+  }
+
+  return isValid
+}
+
 const moModalChinhSua = () => {
   if (!hoaDon.value) return
+  editFormErrors.value = {
+    trangThai: '',
+    tenKhachHang: '',
+    soDienThoaiKhachHang: '',
+    diaChiNhanHang: '',
+    ghiChu: ''
+  }
   editForm.value = {
     trangThai: Number(hoaDon.value.trangThai) || 1,
     trangThaiThanhToan: Number(hoaDon.value.trangThaiThanhToan) || 0,
@@ -71,24 +126,26 @@ const dongModalChinhSua = () => {
 
 const luuChinhSua = async () => {
   if (!hoaDon.value) return
+  if (!validateEditModalForm()) return
+
   try {
     editLoading.value = true
     await api.put(`/api/hoa-don/${hoaDon.value.id}`, {
       ...hoaDon.value,
       trangThai: Number(editForm.value.trangThai),
       trangThaiThanhToan: Number(editForm.value.trangThaiThanhToan),
-      tenKhachHang: editForm.value.tenKhachHang,
-      soDienThoaiKhachHang: editForm.value.soDienThoaiKhachHang,
-      diaChiNhanHang: editForm.value.diaChiNhanHang,
-      ghiChu: editForm.value.ghiChu
+      tenKhachHang: editForm.value.tenKhachHang.trim(),
+      soDienThoaiKhachHang: editForm.value.soDienThoaiKhachHang.trim(),
+      diaChiNhanHang: editForm.value.diaChiNhanHang.trim(),
+      ghiChu: editForm.value.ghiChu?.trim() || ''
     })
 
     hoaDon.value.trangThai = Number(editForm.value.trangThai)
     hoaDon.value.trangThaiThanhToan = Number(editForm.value.trangThaiThanhToan)
-    hoaDon.value.tenKhachHang = editForm.value.tenKhachHang
-    hoaDon.value.soDienThoaiKhachHang = editForm.value.soDienThoaiKhachHang
-    hoaDon.value.diaChiNhanHang = editForm.value.diaChiNhanHang
-    hoaDon.value.ghiChu = editForm.value.ghiChu
+    hoaDon.value.tenKhachHang = editForm.value.tenKhachHang.trim()
+    hoaDon.value.soDienThoaiKhachHang = editForm.value.soDienThoaiKhachHang.trim()
+    hoaDon.value.diaChiNhanHang = editForm.value.diaChiNhanHang.trim()
+    hoaDon.value.ghiChu = editForm.value.ghiChu?.trim() || ''
 
     showEditModal.value = false
     triggerAlert('Cập nhật thông tin đơn hàng thành công!', 'success')
@@ -100,14 +157,10 @@ const luuChinhSua = async () => {
   }
 }
 
-// ===============================
-// LOAD HÓA ĐƠN
-// ===============================
 const loadHoaDon = async () => {
   try {
     loading.value = true
     errorMessage.value = ''
-
     const response = await api.get(`/api/hoa-don/code/${maHoaDon}`)
     hoaDon.value = response.data
   } catch (error) {
@@ -122,25 +175,16 @@ const loadHoaDon = async () => {
   }
 }
 
-// ===============================
-// FORMAT TIỀN
-// ===============================
 const formatMoney = (money) => {
   if (money == null) return '0 ₫'
   return Number(money).toLocaleString('vi-VN') + ' ₫'
 }
 
-// ===============================
-// FORMAT NGÀY + GIỜ
-// ===============================
 const formatDateTime = (date) => {
   if (!date) return '---'
   return new Date(date).toLocaleString('vi-VN')
 }
 
-// ===============================
-// TRẠNG THÁI
-// ===============================
 const statusList = [
   { id: 1, name: 'Chờ xác nhận', shortName: 'Hóa đơn chờ' },
   { id: 2, name: 'Đã xác nhận', shortName: 'Đã xác nhận' },
@@ -180,9 +224,6 @@ const getStatusClass = (status) => {
   }
 }
 
-// ===============================
-// TRẠNG THÁI THANH TOÁN
-// ===============================
 const getPaymentText = (status) => {
   return Number(status) === 1 ? 'Đã thanh toán' : 'Chưa thanh toán'
 }
@@ -191,9 +232,6 @@ const getPaymentClass = (status) => {
   return Number(status) === 1 ? 'payment-paid' : 'payment-unpaid'
 }
 
-// ===============================
-// TỔNG THANH TOÁN
-// ===============================
 const tongThanhToan = computed(() => {
   if (!hoaDon.value) return 0
   const tongTien = Number(hoaDon.value.tongTien || 0)
@@ -202,9 +240,6 @@ const tongThanhToan = computed(() => {
   return Math.max(0, tongTien + phiShip - giamGia)
 })
 
-// ===============================
-// TRẠNG THÁI HIỆN TẠI
-// ===============================
 const currentStatus = computed(() => {
   if (!hoaDon.value) return 0
   return Number(hoaDon.value.trangThai)
@@ -229,9 +264,6 @@ const actionText = computed(() => {
   }
 })
 
-// ===============================
-// CHUYỂN TRẠNG THÁI
-// ===============================
 const xuLyDonHang = async () => {
   if (!hoaDon.value) return
   const hienTai = Number(hoaDon.value.trangThai)
@@ -253,9 +285,6 @@ const xuLyDonHang = async () => {
   }
 }
 
-// ===============================
-// THANH TOÁN
-// ===============================
 const thanhToan = async () => {
   if (!hoaDon.value) return
   if (Number(hoaDon.value.trangThaiThanhToan) === 1) return
@@ -290,57 +319,53 @@ onMounted(() => {
 
 <template>
   <div class="invoice-page">
-    <!-- ================= HEADER ================= -->
     <div class="page-header">
-      <div>
+      <div class="header-info">
         <div class="breadcrumb">
-          <span>Hóa đơn</span>
-          <b>/</b>
-          <strong>Chi tiết hóa đơn</strong>
+          <span class="breadcrumb-link" @click="quayLai">Hóa đơn</span>
+          <span class="divider">/</span>
+          <span class="current">Chi tiết hóa đơn</span>
         </div>
 
-        <div v-if="hoaDon" class="invoice-meta">
-          <span>Mã đơn hàng: <strong>{{ hoaDon.maHoaDon }}</strong></span>
-          <span>|</span>
-          <span>Ngày tạo: <strong>{{ formatDateTime(hoaDon.ngayTao) }}</strong></span>
-          <br />
-          <span>Tạo bởi: <strong>{{ hoaDon.nguoiTao || 'Admin' }}</strong></span>
-          <span>|</span>
-          <span>Cập nhật gần nhất: <strong>{{ formatDateTime(hoaDon.ngayCapNhat || hoaDon.ngayTao) }}</strong></span>
+        <div v-if="hoaDon" class="order-title-wrapper">
+          <h2 class="order-code">Hóa đơn #{{ hoaDon.maHoaDon }}</h2>
+          <div class="header-meta-chips">
+            <span class="meta-chip">
+              <i class="meta-icon">📅</i> Tạo ngày: <strong>{{ formatDateTime(hoaDon.ngayTao) }}</strong>
+            </span>
+            <span class="meta-chip">
+              <i class="meta-icon">👤</i> Tạo bởi: <strong>{{ hoaDon.nguoiTao || 'Admin' }}</strong>
+            </span>
+            <span class="meta-chip">
+              <i class="meta-icon">🔄</i> Cập nhật: <strong>{{ formatDateTime(hoaDon.ngayCapNhat || hoaDon.ngayTao) }}</strong>
+            </span>
+          </div>
         </div>
       </div>
 
       <div class="header-actions">
-        <!-- NÚT CHỈNH SỬA ĐƠN HÀNG -->
         <button class="btn-edit" @click="moModalChinhSua">
           ✏ Chỉnh sửa đơn hàng
         </button>
-
         <button class="btn-pos" @click="quayLai">
           ⇆ Quay lại Bán hàng tại quầy
         </button>
-
         <button class="btn-list" @click="quayLai">
           ← Quay lại danh sách
         </button>
       </div>
     </div>
 
-    <!-- ================= LOADING ================= -->
     <div v-if="loading" class="loading">
       Đang tải thông tin hóa đơn...
     </div>
 
-    <!-- ================= ERROR ================= -->
     <div v-if="errorMessage" class="error-box">
       {{ errorMessage }}
     </div>
 
-    <!-- ================= CONTENT ================= -->
     <div v-if="hoaDon && !loading" class="detail-layout">
-      <!-- ================= LEFT ================= -->
       <div class="left-column">
-        <!-- TRẠNG THÁI -->
         <div class="card status-card">
           <div class="card-title">
             <div>
@@ -394,7 +419,6 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- KHÁCH HÀNG & GIAO HÀNG -->
         <div class="two-column">
           <div class="card">
             <div class="card-title">
@@ -438,9 +462,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- ================= RIGHT ================= -->
       <div class="right-column">
-        <!-- TỔNG KẾT -->
         <div class="card payment-summary">
           <div class="card-title">
             <span>▣ Tổng Kết Thanh Toán</span>
@@ -467,7 +489,6 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- LỊCH SỬ THANH TOÁN -->
         <div class="card">
           <div class="card-title">
             <span>◷ Lịch Sử Thanh Toán</span>
@@ -511,7 +532,6 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- ================= MODAL CHỈNH SỬA ĐƠN HÀNG ================= -->
     <div v-if="showEditModal" class="modal-overlay" @click.self="dongModalChinhSua">
       <div class="modal-box">
         <div class="modal-header">
@@ -523,11 +543,14 @@ onMounted(() => {
         </div>
 
         <div class="modal-body">
-          <!-- 1. Cụm đổi Trạng thái đơn hàng & Thanh toán -->
           <div class="form-row-2">
             <div class="form-group">
               <label>Trạng Thái Đơn Hàng</label>
-              <select v-model="editForm.trangThai">
+              <select
+                  v-model="editForm.trangThai"
+                  :class="{ 'field-error': editFormErrors.trangThai }"
+                  @change="editFormErrors.trangThai = ''"
+              >
                 <option :value="1">Chờ xác nhận</option>
                 <option :value="2">Đã xác nhận</option>
                 <option :value="3">Chờ vận chuyển</option>
@@ -535,45 +558,57 @@ onMounted(() => {
                 <option :value="5">Đã hoàn thành</option>
                 <option :value="6">Đã hủy</option>
               </select>
+              <span v-if="editFormErrors.trangThai" class="error-msg">{{ editFormErrors.trangThai }}</span>
             </div>
 
             <div class="form-group">
               <label>Trạng Thái Thanh Toán</label>
-              <select v-model="editForm.trangThaiThanhToan">
+              <select
+                  v-model="editForm.trangThaiThanhToan"
+                  @change="editFormErrors.trangThai = ''"
+              >
                 <option :value="0">Chưa thanh toán</option>
                 <option :value="1">Đã thanh toán</option>
               </select>
             </div>
           </div>
 
-          <!-- 2. Thông tin khách hàng & Giao hàng -->
           <div class="form-row-2">
             <div class="form-group">
-              <label>Tên Khách Hàng</label>
+              <label>Tên Khách Hàng <span class="required-star">*</span></label>
               <input
                   type="text"
                   v-model="editForm.tenKhachHang"
+                  :class="{ 'field-error': editFormErrors.tenKhachHang }"
                   placeholder="Nhập tên khách hàng..."
+                  @input="editFormErrors.tenKhachHang = ''"
               />
+              <span v-if="editFormErrors.tenKhachHang" class="error-msg">{{ editFormErrors.tenKhachHang }}</span>
             </div>
 
             <div class="form-group">
-              <label>Số Điện Thoại</label>
+              <label>Số Điện Thoại <span class="required-star">*</span></label>
               <input
                   type="text"
                   v-model="editForm.soDienThoaiKhachHang"
+                  :class="{ 'field-error': editFormErrors.soDienThoaiKhachHang }"
                   placeholder="Nhập số điện thoại..."
+                  @input="editFormErrors.soDienThoaiKhachHang = ''"
               />
+              <span v-if="editFormErrors.soDienThoaiKhachHang" class="error-msg">{{ editFormErrors.soDienThoaiKhachHang }}</span>
             </div>
           </div>
 
           <div class="form-group">
-            <label>Địa Chỉ Giao Hàng</label>
+            <label>Địa Chỉ Giao Hàng <span class="required-star">*</span></label>
             <textarea
                 rows="2"
                 v-model="editForm.diaChiNhanHang"
+                :class="{ 'field-error': editFormErrors.diaChiNhanHang }"
                 placeholder="Nhập địa chỉ giao hàng..."
+                @input="editFormErrors.diaChiNhanHang = ''"
             ></textarea>
+            <span v-if="editFormErrors.diaChiNhanHang" class="error-msg">{{ editFormErrors.diaChiNhanHang }}</span>
           </div>
 
           <div class="form-group">
@@ -581,8 +616,11 @@ onMounted(() => {
             <textarea
                 rows="2"
                 v-model="editForm.ghiChu"
+                :class="{ 'field-error': editFormErrors.ghiChu }"
                 placeholder="Nhập ghi chú cho đơn hàng..."
+                @input="editFormErrors.ghiChu = ''"
             ></textarea>
+            <span v-if="editFormErrors.ghiChu" class="error-msg">{{ editFormErrors.ghiChu }}</span>
           </div>
         </div>
 
@@ -599,7 +637,6 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- ================= MODAL THÔNG BÁO (POPUP ĐỒNG BỘ NGUYÊN BẢN VỚI FORM) ================= -->
     <div v-if="orderAlert.show" class="modal-overlay" @click.self="orderAlert.show = false">
       <div class="modal-box alert-modal-box">
         <div class="modal-header">
@@ -639,125 +676,83 @@ onMounted(() => {
   font-family: var(--system-font, sans-serif);
 }
 
-/* ================= MODAL TITLE & ICON GIỐNG ẢNH ================= */
-.modal-title-with-icon {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.modal-title-icon-edit {
-  color: var(--blue, #496883);
-  font-size: 1.15rem;
-  font-weight: 700;
-}
-
-.modal-title-icon-alert {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  font-size: 0.85rem;
-  font-weight: 800;
-}
-
-.modal-title-icon-alert.success {
-  background-color: #edf5ef;
-  color: #558764;
-  border: 1px solid #cce3d1;
-}
-
-.modal-title-icon-alert.error {
-  background-color: #fbeeed;
-  color: #c94343;
-  border: 1px solid #f6d4d4;
-}
-
-.alert-modal-box {
-  width: 440px !important;
-  max-width: 90%;
-}
-
-.alert-modal-body {
-  padding: 1.5rem 1.4rem !important;
-  text-align: center;
-}
-
-.alert-main-text {
-  font-size: 0.98rem;
-  font-weight: 600;
-  color: #3d4a50;
-  line-height: 1.5;
-  margin: 0;
-}
-
-/* ================= MODAL BODY SELECT & ROW ================= */
-.modal-body .form-row-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-.modal-body select {
-  width: 100%;
-  height: 2.5rem;
-  border: 1px solid var(--line, #e9e5db);
-  border-radius: 8px;
-  padding: 0 0.85rem;
-  font-size: 0.92rem;
-  color: var(--text, #3d4a50);
-  background-color: #fcfbf8;
-  outline: none;
-  box-sizing: border-box;
-  cursor: pointer;
-}
-
-.modal-body select:focus {
-  border-color: var(--blue, #496883);
-  background-color: #ffffff;
-}
-
-/* ================= HEADER ================= */
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.3rem;
+  align-items: flex-end;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #ebe6dc;
+}
+
+.header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
 .breadcrumb {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.95rem;
-  margin-bottom: 0.6rem;
+  gap: 0.45rem;
+  font-size: 0.88rem;
 }
 
-.breadcrumb span {
-  color: #8c9597;
-}
-
-.breadcrumb b {
-  color: #d6d0c3;
-  font-weight: normal;
-}
-
-.breadcrumb strong {
-  color: var(--blue, #496883);
-  font-weight: 700;
-}
-
-.invoice-meta {
+.breadcrumb-link {
   color: #7b8587;
-  font-size: 0.85rem;
-  line-height: 1.8;
+  cursor: pointer;
 }
 
-.invoice-meta strong {
-  color: #3d4a50;
-  font-weight: 700;
+.breadcrumb-link:hover {
+  color: var(--blue, #496883);
+  text-decoration: underline;
+}
+
+.divider {
+  color: #cbd5e1;
+}
+
+.current {
+  color: var(--blue, #496883);
+  font-weight: 600;
+}
+
+.order-code {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #2c383f;
+  letter-spacing: -0.02em;
+}
+
+.header-meta-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.35rem;
+}
+
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background-color: #ffffff;
+  border: 1px solid #e2ddd4;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: #64748b;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.meta-chip strong {
+  color: #334155;
+  font-weight: 600;
+}
+
+.meta-icon {
+  font-style: normal;
+  font-size: 0.85rem;
 }
 
 .header-actions {
@@ -766,7 +761,6 @@ onMounted(() => {
   align-items: center;
 }
 
-/* Nút Header */
 .btn-pos,
 .btn-list,
 .btn-edit {
@@ -812,7 +806,6 @@ onMounted(() => {
   background-color: #eaf1f4 !important;
 }
 
-/* ================= LAYOUT ================= */
 .detail-layout {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
@@ -853,7 +846,6 @@ onMounted(() => {
   gap: 0.5rem;
 }
 
-/* ================= STATUS BADGES ================= */
 .current-status {
   padding: 0.35rem 0.85rem;
   border-radius: 14px;
@@ -861,42 +853,14 @@ onMounted(() => {
   font-weight: 700;
 }
 
-.status-pending {
-  background-color: #f7eee1;
-  color: #b18b52;
-}
+.status-pending { background-color: #f7eee1; color: #b18b52; }
+.status-confirmed { background-color: #eaf1f5; color: var(--blue, #496883); }
+.status-waiting { background-color: #fdf5ea; color: #c48c3b; }
+.status-shipping { background-color: #e3edf3; color: #38627e; }
+.status-completed { background-color: #edf5ef; color: #558764; }
+.status-cancelled { background-color: #fbeeed; color: #c94343; }
+.status-default { background-color: #f3f1ec; color: #7b8587; }
 
-.status-confirmed {
-  background-color: #eaf1f5;
-  color: var(--blue, #496883);
-}
-
-.status-waiting {
-  background-color: #fdf5ea;
-  color: #c48c3b;
-}
-
-.status-shipping {
-  background-color: #e3edf3;
-  color: #38627e;
-}
-
-.status-completed {
-  background-color: #edf5ef;
-  color: #558764;
-}
-
-.status-cancelled {
-  background-color: #fbeeed;
-  color: #c94343;
-}
-
-.status-default {
-  background-color: #f3f1ec;
-  color: #7b8587;
-}
-
-/* ================= TIMELINE ================= */
 .status-card {
   min-height: 270px;
 }
@@ -969,7 +933,6 @@ onMounted(() => {
   margin-top: 4px;
 }
 
-/* ================= STATUS BUTTON ================= */
 .status-action {
   display: flex;
   justify-content: flex-end;
@@ -1017,7 +980,6 @@ onMounted(() => {
   font-weight: 700;
 }
 
-/* ================= TWO COLUMN ================= */
 .two-column {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1052,7 +1014,6 @@ onMounted(() => {
   text-align: right;
 }
 
-/* ================= PAYMENT SUMMARY ================= */
 .payment-summary {
   padding-bottom: 0.6rem;
 }
@@ -1098,7 +1059,6 @@ onMounted(() => {
   font-size: 1.45rem;
 }
 
-/* ================= PAYMENT HISTORY ================= */
 .payment-history {
   padding-top: 0.6rem;
 }
@@ -1149,17 +1109,9 @@ onMounted(() => {
   font-weight: 700;
 }
 
-.payment-paid {
-  background-color: #edf5ef;
-  color: #558764;
-}
+.payment-paid { background-color: #edf5ef; color: #558764; }
+.payment-unpaid { background-color: #f7eee1; color: #b18b52; }
 
-.payment-unpaid {
-  background-color: #f7eee1;
-  color: #b18b52;
-}
-
-/* Nút thanh toán */
 .payment-action {
   margin-top: 1rem;
 }
@@ -1197,7 +1149,6 @@ onMounted(() => {
   font-weight: 700;
 }
 
-/* Nút In Hóa Đơn */
 .btn-print {
   width: 100%;
   padding: 0.85rem;
@@ -1215,7 +1166,102 @@ onMounted(() => {
   background-color: #38536b !important;
 }
 
-/* ================= MODAL CHỈNH SỬA ================= */
+.required-star {
+  color: #c94343;
+  margin-left: 2px;
+}
+
+.modal-body .field-error {
+  border-color: #c94343 !important;
+  background-color: #fff8f8 !important;
+}
+
+.error-msg {
+  color: #c94343;
+  font-size: 0.78rem;
+  font-weight: 500;
+  margin-top: 0.15rem;
+  line-height: 1.2;
+}
+
+.modal-title-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.modal-title-icon-edit {
+  color: var(--blue, #496883);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.modal-title-icon-alert {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.modal-title-icon-alert.success {
+  background-color: #edf5ef;
+  color: #558764;
+  border: 1px solid #cce3d1;
+}
+
+.modal-title-icon-alert.error {
+  background-color: #fbeeed;
+  color: #c94343;
+  border: 1px solid #f6d4d4;
+}
+
+.alert-modal-box {
+  width: 440px !important;
+  max-width: 90%;
+}
+
+.alert-modal-body {
+  padding: 1.5rem 1.4rem !important;
+  text-align: center;
+}
+
+.alert-main-text {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: #3d4a50;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.modal-body .form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.modal-body select {
+  width: 100%;
+  height: 2.5rem;
+  border: 1px solid var(--line, #e9e5db);
+  border-radius: 8px;
+  padding: 0 0.85rem;
+  font-size: 0.92rem;
+  color: var(--text, #3d4a50);
+  background-color: #fcfbf8;
+  outline: none;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.modal-body select:focus {
+  border-color: var(--blue, #496883);
+  background-color: #ffffff;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1353,7 +1399,6 @@ onMounted(() => {
   }
 }
 
-/* Loading & Error */
 .loading {
   background: #ffffff;
   padding: 3rem;
@@ -1373,7 +1418,6 @@ onMounted(() => {
   font-size: 0.92rem;
 }
 
-/* Responsive */
 @media (max-width: 1000px) {
   .detail-layout {
     grid-template-columns: 1fr;
@@ -1393,6 +1437,7 @@ onMounted(() => {
   }
   .page-header {
     flex-direction: column;
+    align-items: flex-start;
     gap: 1rem;
   }
   .header-actions {
