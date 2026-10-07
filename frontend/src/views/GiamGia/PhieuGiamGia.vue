@@ -597,14 +597,14 @@ const openToggleStatusModal = (item) => {
   showToggleConfirmModal.value = true
 }
 
-// Đóng modal xác nhận
+
 const closeToggleConfirmModal = () => {
   if (togglingStatus.value) return
   showToggleConfirmModal.value = false
   voucherToToggle.value = null
 }
 
-// Xác nhận đổi trạng thái qua API Backend
+
 const confirmToggleStatus = async () => {
   if (!voucherToToggle.value) return
   togglingStatus.value = true

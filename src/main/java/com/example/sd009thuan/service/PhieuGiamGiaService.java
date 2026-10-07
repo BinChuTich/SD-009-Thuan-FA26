@@ -38,7 +38,7 @@ public class PhieuGiamGiaService {
             throw new IllegalArgumentException("Dữ liệu phiếu giảm giá không hợp lệ!");
         }
 
-        // 1. Tên phiếu giảm giá
+
         if (dto.getTenPhieuGiamGia() == null || dto.getTenPhieuGiamGia().trim().isEmpty()) {
             throw new IllegalArgumentException("Tên phiếu giảm giá không được để trống!");
         }
@@ -46,7 +46,7 @@ public class PhieuGiamGiaService {
             throw new IllegalArgumentException("Tên phiếu giảm giá không được vượt quá 255 ký tự!");
         }
 
-        // 2. Loại phiếu giảm giá
+
         if (dto.getLoaiPhieuGiamGia() == null || (dto.getLoaiPhieuGiamGia() != 1 && dto.getLoaiPhieuGiamGia() != 2)) {
             throw new IllegalArgumentException("Loại phiếu giảm giá không hợp lệ (1: %, 2: Tiền mặt)!");
         }
