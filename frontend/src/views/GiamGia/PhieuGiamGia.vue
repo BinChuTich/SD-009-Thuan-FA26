@@ -106,13 +106,6 @@
     <div class="content-card table-card">
       <div class="table-header-row">
         <h3 class="table-title">Danh sách phiếu giảm giá</h3>
-        <div class="header-right-tools">
-          <!-- Nút làm mới dữ liệu từ Database -->
-          <button class="btn-refresh" @click="fetchVouchers" title="Tải lại từ Database">
-            <span :class="['refresh-icon', { 'spin': loading }]">🔄</span> Làm mới
-          </button>
-          <span class="record-count">Tìm thấy {{ filteredList.length }} bản ghi (Trang {{ currentPage }}/{{ totalPages }}).</span>
-        </div>
       </div>
 
       <div class="table-responsive">
@@ -216,18 +209,12 @@
       <!-- 4. Thanh phân trang dưới cùng bảng -->
       <div class="pagination-footer" v-if="filteredList.length > 0">
         <div class="pagination-left">
-          <span class="pagination-label">Hiển thị</span>
-          <select v-model.number="pageSize" class="page-size-select">
+          <select v-model.number="pageSize" class="page-size-select" title="Số dòng mỗi trang">
             <option :value="5">5</option>
             <option :value="10">10</option>
             <option :value="20">20</option>
             <option :value="50">50</option>
           </select>
-          <span class="pagination-label">phiếu / trang</span>
-          <span class="pagination-separator">|</span>
-          <span class="pagination-info">
-            Hiển thị <b>{{ startIndex }}</b> - <b>{{ endIndex }}</b> trên tổng số <b>{{ filteredList.length }}</b> phiếu
-          </span>
         </div>
 
         <div class="pagination-controls">
@@ -412,15 +399,17 @@ const toastMessage = ref('')
 const currentPage = ref(1)
 const pageSize = ref(5)
 
-const formatDate = (dateStr) => {
-  if (!dateStr) return '-'
+const formatDate = (dateStr, isEndDate = false) => {
+  if (!dateStr) return isEndDate ? 'Vô hạn' : '-'
   try {
     const d = new Date(dateStr)
     if (isNaN(d.getTime())) return dateStr
     const day = String(d.getDate()).padStart(2, '0')
     const month = String(d.getMonth() + 1).padStart(2, '0')
     const year = d.getFullYear()
-    return `${day}/${month}/${year}`
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    return `${hours}:${minutes} ${day}/${month}/${year}`
   } catch (e) {
     return dateStr
   }
@@ -477,8 +466,8 @@ const fetchVouchers = async () => {
         giamToiDaFormatted: item.giamToiDa ? `${Number(item.giamToiDa).toLocaleString('vi-VN')} đ` : 'Không giới hạn',
         hoaDonToiThieuFormatted: item.hoaDonToiThieu ? `${Number(item.hoaDonToiThieu).toLocaleString('vi-VN')} đ` : '0 đ',
         soLuongSuDung: item.soLuongSuDung ?? 0,
-        startDate: formatDate(item.ngayBatDau),
-        endDate: formatDate(item.ngayKetThuc),
+        startDate: formatDate(item.ngayBatDau, false),
+        endDate: formatDate(item.ngayKetThuc, true),
         rawStartDate: item.ngayBatDau,
         rawEndDate: item.ngayKetThuc,
         rawTrangThai: item.trangThai,

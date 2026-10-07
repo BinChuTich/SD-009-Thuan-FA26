@@ -83,7 +83,7 @@
             <div class="info-row">
               <span class="info-label">Thời gian:</span>
               <span class="info-value text-xs text-muted-dark">
-                {{ form.ngayBatDauStr ? formatDateDisplay(form.ngayBatDauStr) : '---' }} ➔ {{ form.ngayKetThucStr ? formatDateDisplay(form.ngayKetThucStr) : '---' }}
+                {{ form.ngayBatDauStr ? formatDateTimeDisplay(form.ngayBatDauStr) : '---' }} ➔ {{ form.ngayKetThucStr ? formatDateTimeDisplay(form.ngayKetThucStr) : 'Vô hạn' }}
               </span>
             </div>
           </div>
@@ -165,20 +165,15 @@
             <div class="form-field">
               <label>
                 Mã phiếu giảm giá
-                <span class="field-hint-inline">(Tự nhập hoặc sinh tự động)</span>
+                <span class="field-hint-inline">(Tự nhập hoặc để trống để sinh tự động)</span>
               </label>
-              <div class="input-with-button">
-                <input
-                    type="text"
-                    v-model="form.maPhieuGiamGia"
-                    placeholder="VD: PGG_SUMMER2026..."
-                    @input="form.maPhieuGiamGia = form.maPhieuGiamGia.toUpperCase()"
-                    :class="{ 'input-error': errors.maPhieuGiamGia }"
-                />
-                <button type="button" class="btn-gen-code" @click="generateRandomCode" title="Tạo mã ngẫu nhiên">
-                  🎲 Tạo mã
-                </button>
-              </div>
+              <input
+                  type="text"
+                  v-model="form.maPhieuGiamGia"
+                  placeholder="Để trống hệ thống sẽ tự sinh mã..."
+                  @input="form.maPhieuGiamGia = form.maPhieuGiamGia.toUpperCase()"
+                  :class="{ 'input-error': errors.maPhieuGiamGia }"
+              />
               <span v-if="errors.maPhieuGiamGia" class="error-msg">{{ errors.maPhieuGiamGia }}</span>
             </div>
 
@@ -333,29 +328,46 @@
           </div>
 
           <div class="form-grid-2">
-            <!-- Ngày bắt đầu -->
+            <!-- Thời gian bắt đầu -->
             <div class="form-field">
               <label>
-                Ngày bắt đầu <span class="required">*</span>
+                Thời gian bắt đầu <span class="required">*</span>
                 <span class="field-hint-inline">(Ngày hiện tại)</span>
               </label>
               <input
-                  type="date"
+                  type="datetime-local"
                   v-model="form.ngayBatDauStr"
                   :class="{ 'input-error': errors.ngayBatDau }"
               />
               <span v-if="errors.ngayBatDau" class="error-msg">{{ errors.ngayBatDau }}</span>
             </div>
 
-            <!-- Ngày kết thúc -->
+            <!-- Thời gian kết thúc -->
             <div class="form-field">
-              <label>Ngày kết thúc <span class="required">*</span></label>
+              <div class="field-label-row">
+                <label>
+                  Thời gian kết thúc
+                  <span class="field-hint-inline">(Để trống = Vô hạn)</span>
+                </label>
+                <button
+                    v-if="form.ngayKetThucStr"
+                    type="button"
+                    class="btn-clear-date"
+                    @click="form.ngayKetThucStr = ''"
+                    title="Bấm để không giới hạn thời gian kết thúc"
+                >
+                  ✕ Đặt vô hạn
+                </button>
+              </div>
               <input
-                  type="date"
+                  type="datetime-local"
                   v-model="form.ngayKetThucStr"
-                  :min="form.ngayBatDauStr || getTodayString()"
+                  :min="form.ngayBatDauStr || ''"
                   :class="{ 'input-error': errors.ngayKetThuc }"
               />
+              <span class="field-hint" v-if="!form.ngayKetThucStr">
+                💡 Không chọn thời gian kết thúc = Áp dụng <b>Vô hạn</b>.
+              </span>
               <span v-if="errors.ngayKetThuc" class="error-msg">{{ errors.ngayKetThuc }}</span>
             </div>
           </div>
@@ -432,7 +444,7 @@
             </div>
             <div class="summary-line">
               <span class="s-label">Thời hạn:</span>
-              <span class="s-val">{{ formatDateDisplay(form.ngayBatDauStr) }} ➔ {{ formatDateDisplay(form.ngayKetThucStr) }}</span>
+              <span class="s-val">{{ formatDateTimeDisplay(form.ngayBatDauStr) }} ➔ {{ formatDateTimeDisplay(form.ngayKetThucStr) }}</span>
             </div>
             <div class="summary-line">
               <span class="s-label">Trạng thái:</span>
@@ -526,6 +538,16 @@ const getTodayString = () => {
   return `${year}-${month}-${day}`
 }
 
+const getNowDateTimeString = () => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
 const form = ref({
   maPhieuGiamGia: '',
   tenPhieuGiamGia: '',
@@ -535,7 +557,7 @@ const form = ref({
   giamToiDa: null,
   hoaDonToiThieu: null,
   soLuongSuDung: null,
-  ngayBatDauStr: getTodayString(),
+  ngayBatDauStr: getNowDateTimeString(),
   ngayKetThucStr: '',
   trangThai: 1
 })
@@ -587,12 +609,6 @@ watch(() => form.value.loaiPhieuGiamGia, (newVal) => {
   if (errors.value.giaTriGiamGia) delete errors.value.giaTriGiamGia
 })
 
-const generateRandomCode = () => {
-  const randomSuffix = Math.floor(100000 + Math.random() * 900000)
-  form.value.maPhieuGiamGia = `PGG${randomSuffix}`
-  if (errors.value.maPhieuGiamGia) delete errors.value.maPhieuGiamGia
-}
-
 const fetchCustomers = async () => {
   try {
     const res = await api.get('/api/phieu-giam-gia/khach-hang')
@@ -603,7 +619,6 @@ const fetchCustomers = async () => {
 }
 
 onMounted(() => {
-  generateRandomCode()
   fetchCustomers()
 })
 
@@ -648,11 +663,28 @@ const formatDateDisplay = (dateStr) => {
   return dateStr
 }
 
-const dateInputToIso = (dateStr, isEndOfDay = false) => {
-  if (!dateStr) return null
+const formatDateTimeDisplay = (dtStr) => {
+  if (!dtStr) return 'Vô hạn'
   try {
-    const time = isEndOfDay ? 'T23:59:59Z' : 'T00:00:00Z'
-    return new Date(dateStr + time).toISOString()
+    const d = new Date(dtStr)
+    if (isNaN(d.getTime())) return dtStr
+    const day = String(d.getDate()).padStart(2, '0')
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const year = d.getFullYear()
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    return `${hours}:${minutes} ${day}/${month}/${year}`
+  } catch (e) {
+    return dtStr
+  }
+}
+
+const dateTimeInputToIso = (dtStr) => {
+  if (!dtStr) return null
+  try {
+    const d = new Date(dtStr)
+    if (isNaN(d.getTime())) return null
+    return d.toISOString()
   } catch (e) {
     return null
   }
@@ -720,20 +752,21 @@ const validateForm = () => {
     }
   }
 
-  // 6. Ngày bắt đầu (bắt buộc phải là ngày hiện tại)
+  // 6. Thời gian bắt đầu (bắt buộc phải là ngày hiện tại)
   if (!form.value.ngayBatDauStr) {
-    errors.value.ngayBatDau = 'Vui lòng chọn ngày bắt đầu!'
-  } else if (form.value.ngayBatDauStr !== today) {
-    errors.value.ngayBatDau = `Ngày bắt đầu phải là ngày hiện tại (${formatDateDisplay(today)})!`
+    errors.value.ngayBatDau = 'Vui lòng chọn thời gian bắt đầu!'
+  } else {
+    const startDateOnly = form.value.ngayBatDauStr.split('T')[0]
+    if (startDateOnly !== today) {
+      errors.value.ngayBatDau = `Thời gian bắt đầu phải bắt đầu trong ngày hôm nay (${formatDateDisplay(today)})!`
+    }
   }
 
-  // 7. Ngày kết thúc
-  if (!form.value.ngayKetThucStr) {
-    errors.value.ngayKetThuc = 'Vui lòng chọn ngày kết thúc!'
-  } else if (form.value.ngayBatDauStr && form.value.ngayKetThucStr < form.value.ngayBatDauStr) {
-    errors.value.ngayKetThuc = 'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu!'
-  } else if (form.value.ngayKetThucStr < today) {
-    errors.value.ngayKetThuc = 'Ngày kết thúc không được là ngày trong quá khứ!'
+  // 7. Thời gian kết thúc (Nếu để trống thì là vô hạn, không validate)
+  if (form.value.ngayKetThucStr) {
+    if (form.value.ngayBatDauStr && new Date(form.value.ngayKetThucStr) < new Date(form.value.ngayBatDauStr)) {
+      errors.value.ngayKetThuc = 'Thời gian kết thúc phải diễn ra sau hoặc cùng thời điểm với thời gian bắt đầu!'
+    }
   }
 
   // 8. Khách hàng đối với phiếu cá nhân
@@ -769,8 +802,8 @@ const submitCreate = async () => {
       giamToiDa: form.value.loaiPhieuGiamGia === 1 && form.value.giamToiDa ? Number(form.value.giamToiDa) : null,
       hoaDonToiThieu: form.value.hoaDonToiThieu ? Number(form.value.hoaDonToiThieu) : 0,
       soLuongSuDung: Number(form.value.soLuongSuDung),
-      ngayBatDau: dateInputToIso(form.value.ngayBatDauStr, false),
-      ngayKetThuc: dateInputToIso(form.value.ngayKetThucStr, true),
+      ngayBatDau: dateTimeInputToIso(form.value.ngayBatDauStr),
+      ngayKetThuc: dateTimeInputToIso(form.value.ngayKetThucStr),
       trangThai: Number(form.value.trangThai),
       idKhachHangList: form.value.hinhThuc === 'Cá nhân' ? selectedCustomerIds.value : []
     }
@@ -1190,6 +1223,29 @@ const goBack = () => {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+}
+
+.field-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-clear-date {
+  background: none;
+  border: none;
+  color: #c0392b;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-clear-date:hover {
+  background-color: #fde8e8;
+  text-decoration: underline;
 }
 
 .required {

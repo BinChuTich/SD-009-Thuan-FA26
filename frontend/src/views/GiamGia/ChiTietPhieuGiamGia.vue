@@ -80,6 +80,13 @@
               <span class="info-label">Số lượt sử dụng:</span>
               <span class="info-value font-medium">{{ form.soLuongSuDung || 0 }} lượt</span>
             </div>
+
+            <div class="info-row">
+              <span class="info-label">Thời gian:</span>
+              <span class="info-value text-xs text-muted-dark">
+                {{ form.ngayBatDauStr ? formatDateTimeDisplay(form.ngayBatDauStr) : '---' }} ➔ {{ form.ngayKetThucStr ? formatDateTimeDisplay(form.ngayKetThucStr) : 'Vô hạn' }}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -290,26 +297,43 @@
           </div>
 
           <div class="form-grid-2">
-            <!-- Ngày bắt đầu -->
+            <!-- Thời gian bắt đầu -->
             <div class="form-field">
-              <label>Ngày bắt đầu <span class="required">*</span></label>
+              <label>Thời gian bắt đầu <span class="required">*</span></label>
               <input
-                  type="date"
+                  type="datetime-local"
                   v-model="form.ngayBatDauStr"
                   :class="{ 'input-error': errors.ngayBatDau }"
               />
               <span v-if="errors.ngayBatDau" class="error-msg">{{ errors.ngayBatDau }}</span>
             </div>
 
-            <!-- Ngày kết thúc -->
+            <!-- Thời gian kết thúc -->
             <div class="form-field">
-              <label>Ngày kết thúc <span class="required">*</span></label>
+              <div class="field-label-row">
+                <label>
+                  Thời gian kết thúc
+                  <span class="field-hint-inline">(Để trống = Vô hạn)</span>
+                </label>
+                <button
+                    v-if="form.ngayKetThucStr"
+                    type="button"
+                    class="btn-clear-date"
+                    @click="form.ngayKetThucStr = ''"
+                    title="Bấm để không giới hạn thời gian kết thúc"
+                >
+                  ✕ Đặt vô hạn
+                </button>
+              </div>
               <input
-                  type="date"
+                  type="datetime-local"
                   v-model="form.ngayKetThucStr"
                   :min="form.ngayBatDauStr || ''"
                   :class="{ 'input-error': errors.ngayKetThuc }"
               />
+              <span class="field-hint" v-if="!form.ngayKetThucStr">
+                💡 Không chọn thời gian kết thúc = Áp dụng <b>Vô hạn</b>.
+              </span>
               <span v-if="errors.ngayKetThuc" class="error-msg">{{ errors.ngayKetThuc }}</span>
             </div>
           </div>
@@ -360,7 +384,7 @@
             </div>
             <div class="summary-line">
               <span class="s-label">Thời hạn:</span>
-              <span class="s-val">{{ formatDateDisplay(form.ngayBatDauStr) }} ➔ {{ formatDateDisplay(form.ngayKetThucStr) }}</span>
+              <span class="s-val">{{ formatDateTimeDisplay(form.ngayBatDauStr) }} ➔ {{ formatDateTimeDisplay(form.ngayKetThucStr) }}</span>
             </div>
             <div class="summary-line">
               <span class="s-label">Lượt sử dụng:</span>
@@ -469,7 +493,23 @@ const formatDateDisplay = (dateStr) => {
   return dateStr
 }
 
-const isoToDateInput = (isoStr) => {
+const formatDateTimeDisplay = (dtStr) => {
+  if (!dtStr) return 'Vô hạn'
+  try {
+    const d = new Date(dtStr)
+    if (isNaN(d.getTime())) return dtStr
+    const day = String(d.getDate()).padStart(2, '0')
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const year = d.getFullYear()
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    return `${hours}:${minutes} ${day}/${month}/${year}`
+  } catch (e) {
+    return dtStr
+  }
+}
+
+const isoToDateTimeInput = (isoStr) => {
   if (!isoStr) return ''
   try {
     const d = new Date(isoStr)
@@ -477,17 +517,20 @@ const isoToDateInput = (isoStr) => {
     const year = d.getFullYear()
     const month = String(d.getMonth() + 1).padStart(2, '0')
     const day = String(d.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    return `${year}-${month}-${day}T${hours}:${minutes}`
   } catch (e) {
     return ''
   }
 }
 
-const dateInputToIso = (dateStr, isEndOfDay = false) => {
-  if (!dateStr) return null
+const dateTimeInputToIso = (dtStr) => {
+  if (!dtStr) return null
   try {
-    const time = isEndOfDay ? 'T23:59:59Z' : 'T00:00:00Z'
-    return new Date(dateStr + time).toISOString()
+    const d = new Date(dtStr)
+    if (isNaN(d.getTime())) return null
+    return d.toISOString()
   } catch (e) {
     return null
   }
@@ -521,8 +564,8 @@ const fetchVoucherDetail = async () => {
       giamToiDa: data.giamToiDa ?? null,
       hoaDonToiThieu: data.hoaDonToiThieu ?? 0,
       soLuongSuDung: data.soLuongSuDung ?? 0,
-      ngayBatDauStr: isoToDateInput(data.ngayBatDau),
-      ngayKetThucStr: isoToDateInput(data.ngayKetThuc),
+      ngayBatDauStr: isoToDateTimeInput(data.ngayBatDau),
+      ngayKetThucStr: isoToDateTimeInput(data.ngayKetThuc),
       trangThai: data.trangThai ?? 1,
       hinhThuc: data.hinhThuc || (data.soKhachHang > 0 ? 'Cá nhân' : 'Công khai'),
       soKhachHang: data.soKhachHang || 0,
@@ -540,8 +583,8 @@ const currentStatusMeta = computed(() => {
   if (!form.value) return { text: 'Không xác định', badgeClass: 'status-inactive' }
 
   const now = new Date()
-  const endObj = form.value.ngayKetThucStr ? new Date(form.value.ngayKetThucStr + 'T23:59:59') : null
-  const startObj = form.value.ngayBatDauStr ? new Date(form.value.ngayBatDauStr + 'T00:00:00') : null
+  const endObj = form.value.ngayKetThucStr ? new Date(form.value.ngayKetThucStr) : null
+  const startObj = form.value.ngayBatDauStr ? new Date(form.value.ngayBatDauStr) : null
 
   if (endObj && endObj < now) {
     return { text: 'Đã hết hạn', badgeClass: 'status-expired' }
@@ -664,16 +707,16 @@ const validateForm = () => {
     }
   }
 
-  // 6. Ngày bắt đầu
+  // 6. Thời gian bắt đầu
   if (!form.value.ngayBatDauStr) {
-    errors.value.ngayBatDau = 'Vui lòng chọn ngày bắt đầu!'
+    errors.value.ngayBatDau = 'Vui lòng chọn thời gian bắt đầu!'
   }
 
-  // 7. Ngày kết thúc
-  if (!form.value.ngayKetThucStr) {
-    errors.value.ngayKetThuc = 'Vui lòng chọn ngày kết thúc!'
-  } else if (form.value.ngayBatDauStr && form.value.ngayKetThucStr < form.value.ngayBatDauStr) {
-    errors.value.ngayKetThuc = 'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu!'
+  // 7. Thời gian kết thúc (Nếu để trống thì là vô hạn, không validate)
+  if (form.value.ngayKetThucStr) {
+    if (form.value.ngayBatDauStr && new Date(form.value.ngayKetThucStr) < new Date(form.value.ngayBatDauStr)) {
+      errors.value.ngayKetThuc = 'Thời gian kết thúc phải diễn ra sau hoặc cùng thời điểm với thời gian bắt đầu!'
+    }
   }
 
   return Object.keys(errors.value).length === 0
@@ -703,8 +746,8 @@ const submitUpdate = async () => {
     giamToiDa: form.value.loaiPhieuGiamGia === 1 && form.value.giamToiDa ? Number(form.value.giamToiDa) : null,
     hoaDonToiThieu: form.value.hoaDonToiThieu != null ? Number(form.value.hoaDonToiThieu) : 0,
     soLuongSuDung: Number(form.value.soLuongSuDung),
-    ngayBatDau: dateInputToIso(form.value.ngayBatDauStr, false),
-    ngayKetThuc: dateInputToIso(form.value.ngayKetThucStr, true),
+    ngayBatDau: dateTimeInputToIso(form.value.ngayBatDauStr),
+    ngayKetThuc: dateTimeInputToIso(form.value.ngayKetThucStr),
     trangThai: form.value.trangThai
   }
 
@@ -1071,6 +1114,35 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+}
+
+.field-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-clear-date {
+  background: none;
+  border: none;
+  color: #c0392b;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-clear-date:hover {
+  background-color: #fde8e8;
+  text-decoration: underline;
+}
+
+.field-hint-inline {
+  font-size: 0.78rem;
+  color: #8c9597;
+  font-weight: normal;
 }
 
 .required {
