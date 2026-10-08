@@ -73,7 +73,6 @@ public class HoaDonService {
 
         return hoaDonRepository.save(hoaDon);
     }
-
     public HoaDon update(Long id, HoaDon hoaDonMoi) {
 
         HoaDon hoaDonCu = hoaDonRepository.findById(id)
@@ -155,7 +154,6 @@ public class HoaDonService {
     }
 
     // Cập nhật nhanh trạng thái đơn hàng
-    // dùng cho các nút chuyển bước / hủy đơn
     public HoaDon updateTrangThai(Long id, Integer trangThai) {
 
         HoaDon hoaDon = hoaDonRepository.findById(id)

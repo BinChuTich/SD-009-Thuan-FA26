@@ -11,7 +11,6 @@ const loading = ref(false)
 const statusLoading = ref(false)
 const thanhToanLoading = ref(false)
 const errorMessage = ref('')
-
 const orderAlert = ref({
   show: false,
   message: '',
@@ -329,13 +328,13 @@ onMounted(() => {
           <h2 class="order-code">Hóa đơn #{{ hoaDon.maHoaDon }}</h2>
           <div class="header-meta-chips">
             <span class="meta-chip">
-              <i class="meta-icon">📅</i> Tạo ngày: <strong>{{ formatDateTime(hoaDon.ngayTao) }}</strong>
+              Tạo ngày: <strong>{{ formatDateTime(hoaDon.ngayTao) }}</strong>
             </span>
             <span class="meta-chip">
-              <i class="meta-icon">👤</i> Tạo bởi: <strong>{{ hoaDon.nguoiTao || 'Admin' }}</strong>
+               Tạo bởi: <strong>{{ hoaDon.nguoiTao || 'Admin' }}</strong>
             </span>
             <span class="meta-chip">
-              <i class="meta-icon">🔄</i> Cập nhật: <strong>{{ formatDateTime(hoaDon.ngayCapNhat || hoaDon.ngayTao) }}</strong>
+               Cập nhật: <strong>{{ formatDateTime(hoaDon.ngayCapNhat || hoaDon.ngayTao) }}</strong>
             </span>
           </div>
         </div>
@@ -343,7 +342,7 @@ onMounted(() => {
 
       <div class="header-actions">
         <button class="btn-edit" @click="moModalChinhSua">
-          ✏ Chỉnh sửa đơn hàng
+           Chỉnh sửa đơn hàng
         </button>
         <button class="btn-pos" @click="quayLai">
           ⇆ Quay lại Bán hàng tại quầy
@@ -440,7 +439,7 @@ onMounted(() => {
 
           <div class="card">
             <div class="card-title">
-              <span>♧ Thông Tin Giao Hàng</span>
+              <span> Thông Tin Giao Hàng</span>
             </div>
             <div class="info-list">
               <div class="info-row">

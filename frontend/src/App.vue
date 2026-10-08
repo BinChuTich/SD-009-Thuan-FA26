@@ -41,7 +41,7 @@ const toggleMenu = (menu) => {
         <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/>
       </svg>
     </span>
-          <span class="menu-text">Tổng quan</span>
+          <span class="menu-text">Thống kê </span>
         </router-link>
 
         <!-- 2. Bán Hàng Tại Quầy -->
@@ -54,7 +54,7 @@ const toggleMenu = (menu) => {
           <span class="menu-text">Bán Hàng Tại Quầy</span>
         </router-link>
 
-        <!-- 3. Quản Lý Hóa Đơn (Link trực tiếp dạng túi xách) -->
+        <!-- 3. Quản Lý Hóa Đơn  -->
         <router-link to="/hoa-don" class="menu-item" active-class="active">
     <span class="menu-icon">
       <svg viewBox="0 0 24 24" fill="currentColor">
@@ -64,7 +64,7 @@ const toggleMenu = (menu) => {
           <span class="menu-text">Quản Lý Hóa Đơn</span>
         </router-link>
 
-        <!-- 4. Quản Lý Sản Phẩm (Hộp đóng hàng có nắp) -->
+        <!-- 4. Quản Lý Sản Phẩm -->
         <div class="menu-group">
           <div class="menu-item has-sub" @click="toggleMenu('sanPham')">
       <span class="menu-icon">

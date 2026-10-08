@@ -519,11 +519,6 @@ onMounted(() => {
 .hoa-don-page {
   padding: 24px;
 }
-
-/* =========================
-   TITLE
-========================= */
-
 .page-title-box {
   margin-bottom: 20px;
 }
@@ -540,11 +535,6 @@ onMounted(() => {
   color: #496883;
   margin: 0;
 }
-
-/* =========================
-   CARD
-========================= */
-
 .card-box {
   background: #ffffff;
   border-radius: 8px;
@@ -559,11 +549,6 @@ onMounted(() => {
   margin-bottom: 16px;
   font-size: 1rem;
 }
-
-/* =========================
-   FILTER
-========================= */
-
 .filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -628,11 +613,6 @@ onMounted(() => {
   background-color: #e9e5db;
   color: #647074;
 }
-
-/* =========================
-   STATUS TABS
-========================= */
-
 .status-tabs {
   display: flex;
   gap: 8px;
@@ -664,15 +644,9 @@ onMounted(() => {
   background: #eaf1f4;
   color: #496883;
 }
-
-/* =========================
-   TABLE
-========================= */
-
 .table-responsive {
   overflow-x: auto;
 }
-
 .custom-table {
   width: 100%;
   border-collapse: collapse;
@@ -715,11 +689,6 @@ onMounted(() => {
 .text-center {
   text-align: center;
 }
-
-/* =========================
-   BADGES
-========================= */
-
 .badge-store,
 .badge-online,
 .badge-status,
@@ -803,11 +772,6 @@ onMounted(() => {
   color: #e67e22;
   border-color: #f5d6a6;
 }
-
-/* =========================
-   ACTION BUTTON ICON MẮT
-========================= */
-
 .btn-icon {
   width: 34px;
   height: 34px;
@@ -832,11 +796,6 @@ onMounted(() => {
   border-color: #b9d7ea;
   transform: translateY(-1px);
 }
-
-/* =========================
-   PHÂN TRANG
-========================= */
-
 .pagination-container {
   display: flex;
   justify-content: space-between;
@@ -845,22 +804,18 @@ onMounted(() => {
   margin-top: 12px;
   border-top: 1px solid #e9e5db;
 }
-
 .pagination-info {
   color: #647074;
   font-size: 0.85rem;
 }
-
 .pagination-info strong {
   color: #496883;
 }
-
 .pagination {
   display: flex;
   align-items: center;
   gap: 5px;
 }
-
 .page-btn {
   min-width: 34px;
   height: 34px;
@@ -874,53 +829,40 @@ onMounted(() => {
   font-weight: 600;
   transition: all 0.2s ease;
 }
-
 .page-btn:hover:not(:disabled) {
   background: #496883;
   color: #ffffff;
   border-color: #496883;
 }
-
 .page-btn.active {
   background: #496883;
   color: #ffffff;
   border-color: #496883;
 }
-
 .page-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
-
-/* =========================
-   LOADING / ERROR
-========================= */
-
 .state-message {
   padding: 30px;
   text-align: center;
   color: #647074;
 }
-
 .state-message.error {
   color: #dc3545;
 }
-
 @media (max-width: 768px) {
   .hoa-don-page {
     padding: 16px;
   }
-
   .title-row {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
-
   .filter-grid {
     grid-template-columns: 1fr;
   }
-
   .pagination-container {
     flex-direction: column;
     gap: 12px;
