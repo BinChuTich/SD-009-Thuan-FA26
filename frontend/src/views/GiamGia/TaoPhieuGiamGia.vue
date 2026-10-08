@@ -77,7 +77,7 @@
 
             <div class="info-row">
               <span class="info-label">Số lượt sử dụng:</span>
-              <span class="info-value font-medium">{{ form.soLuongSuDung || 0 }} lượt</span>
+              <span class="info-value font-medium">{{ (form.soLuongSuDung && form.soLuongSuDung > 0) ? form.soLuongSuDung + ' lượt' : 'Không giới hạn' }}</span>
             </div>
 
             <div class="info-row">
@@ -302,14 +302,20 @@
 
             <!-- Số lượng sử dụng -->
             <div class="form-field full-width">
-              <label>Số lượt sử dụng <span class="required">*</span></label>
+              <label>
+                Số lượt sử dụng
+                <span class="field-hint-inline">(Để trống = Không giới hạn)</span>
+              </label>
               <input
                   type="number"
                   v-model.number="form.soLuongSuDung"
                   min="1"
-                  placeholder="Nhập số lượt có thể áp dụng..."
+                  placeholder="Để trống = Không giới hạn số lượt dùng..."
                   :class="{ 'input-error': errors.soLuongSuDung }"
               />
+              <span class="field-hint" v-if="!form.soLuongSuDung">
+                💡 Không nhập số lượng = Áp dụng <b>Không giới hạn</b> số lượt sử dụng.
+              </span>
               <span v-if="errors.soLuongSuDung" class="error-msg">{{ errors.soLuongSuDung }}</span>
             </div>
           </div>
@@ -332,11 +338,12 @@
             <div class="form-field">
               <label>
                 Thời gian bắt đầu <span class="required">*</span>
-                <span class="field-hint-inline">(Ngày hiện tại)</span>
+                <span class="field-hint-inline">(Từ hôm nay trở đi)</span>
               </label>
               <input
                   type="datetime-local"
                   v-model="form.ngayBatDauStr"
+                  :min="getTodayString() + 'T00:00'"
                   :class="{ 'input-error': errors.ngayBatDau }"
               />
               <span v-if="errors.ngayBatDau" class="error-msg">{{ errors.ngayBatDau }}</span>
@@ -440,7 +447,7 @@
             </div>
             <div class="summary-line">
               <span class="s-label">Lượt sử dụng:</span>
-              <span class="s-val">{{ form.soLuongSuDung }} lượt</span>
+              <span class="s-val">{{ (form.soLuongSuDung && form.soLuongSuDung > 0) ? form.soLuongSuDung + ' lượt' : 'Không giới hạn' }}</span>
             </div>
             <div class="summary-line">
               <span class="s-label">Thời hạn:</span>
@@ -470,7 +477,7 @@
       </div>
     </div>
 
-
+    <!-- 4. POPUP MODAL CẢNH BÁO LỖI NHẬP LIỆU (THAY THẾ ALERT XẤU CỦA TRÌNH DUYỆT) -->
     <div v-if="showErrorModal" class="modal-overlay" @click.self="showErrorModal = false">
       <div class="modal-box error-modal-box">
         <div class="error-modal-header">
@@ -502,7 +509,7 @@
       </div>
     </div>
 
-
+    <!-- 5. THÔNG BÁO THÀNH CÔNG (TOAST NOTIFICATION) -->
     <div v-if="showSuccessToast" class="toast-success">
       <div class="toast-icon">✅</div>
       <div class="toast-text">
@@ -639,14 +646,23 @@ const toggleCustomerSelect = (id) => {
   } else {
     selectedCustomerIds.value.push(id)
   }
+  if (form.value.hinhThuc === 'Cá nhân') {
+    form.value.soLuongSuDung = selectedCustomerIds.value.length || null
+  }
 }
 
 const selectAllCustomers = () => {
   selectedCustomerIds.value = filteredCustomerList.value.map(k => k.id)
+  if (form.value.hinhThuc === 'Cá nhân') {
+    form.value.soLuongSuDung = selectedCustomerIds.value.length || null
+  }
 }
 
 const clearSelectedCustomers = () => {
   selectedCustomerIds.value = []
+  if (form.value.hinhThuc === 'Cá nhân') {
+    form.value.soLuongSuDung = null
+  }
 }
 
 const formatMoney = (val) => {
@@ -742,23 +758,21 @@ const validateForm = () => {
     }
   }
 
-  // 5. Số lượng sử dụng
-  if (form.value.soLuongSuDung === null || form.value.soLuongSuDung === undefined || form.value.soLuongSuDung === '') {
-    errors.value.soLuongSuDung = 'Vui lòng nhập số lượt sử dụng!'
-  } else {
+  // 5. Số lượng sử dụng (Tùy chọn: để trống là không giới hạn)
+  if (form.value.soLuongSuDung !== null && form.value.soLuongSuDung !== undefined && form.value.soLuongSuDung !== '') {
     const qty = Number(form.value.soLuongSuDung)
     if (isNaN(qty) || !Number.isInteger(qty) || qty <= 0) {
       errors.value.soLuongSuDung = 'Số lượt sử dụng phải là số nguyên lớn hơn 0!'
     }
   }
 
-  // 6. Thời gian bắt đầu (bắt buộc phải là ngày hiện tại)
+  // 6. Thời gian bắt đầu (Cho phép hôm nay hoặc các ngày tiếp theo, chỉ chặn ngày trong quá khứ)
   if (!form.value.ngayBatDauStr) {
     errors.value.ngayBatDau = 'Vui lòng chọn thời gian bắt đầu!'
   } else {
     const startDateOnly = form.value.ngayBatDauStr.split('T')[0]
-    if (startDateOnly !== today) {
-      errors.value.ngayBatDau = `Thời gian bắt đầu phải bắt đầu trong ngày hôm nay (${formatDateDisplay(today)})!`
+    if (startDateOnly < today) {
+      errors.value.ngayBatDau = `Thời gian bắt đầu không được là ngày trong quá khứ (phải từ ngày ${formatDateDisplay(today)} trở đi)!`
     }
   }
 
@@ -801,7 +815,7 @@ const submitCreate = async () => {
       giaTriGiamGia: Number(form.value.giaTriGiamGia),
       giamToiDa: form.value.loaiPhieuGiamGia === 1 && form.value.giamToiDa ? Number(form.value.giamToiDa) : null,
       hoaDonToiThieu: form.value.hoaDonToiThieu ? Number(form.value.hoaDonToiThieu) : 0,
-      soLuongSuDung: Number(form.value.soLuongSuDung),
+      soLuongSuDung: (form.value.soLuongSuDung && Number(form.value.soLuongSuDung) > 0) ? Number(form.value.soLuongSuDung) : 0,
       ngayBatDau: dateTimeInputToIso(form.value.ngayBatDauStr),
       ngayKetThuc: dateTimeInputToIso(form.value.ngayKetThucStr),
       trangThai: Number(form.value.trangThai),
