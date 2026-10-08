@@ -470,7 +470,7 @@
       </div>
     </div>
 
-    <!-- 4. POPUP MODAL CẢNH BÁO LỖI NHẬP LIỆU (THAY THẾ ALERT XẤU CỦA TRÌNH DUYỆT) -->
+
     <div v-if="showErrorModal" class="modal-overlay" @click.self="showErrorModal = false">
       <div class="modal-box error-modal-box">
         <div class="error-modal-header">
@@ -502,7 +502,7 @@
       </div>
     </div>
 
-    <!-- 5. THÔNG BÁO THÀNH CÔNG (TOAST NOTIFICATION) -->
+
     <div v-if="showSuccessToast" class="toast-success">
       <div class="toast-icon">✅</div>
       <div class="toast-text">
