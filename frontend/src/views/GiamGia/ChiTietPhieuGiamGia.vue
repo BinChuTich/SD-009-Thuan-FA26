@@ -78,7 +78,7 @@
 
             <div class="info-row">
               <span class="info-label">Số lượt sử dụng:</span>
-              <span class="info-value font-medium">{{ form.soLuongSuDung || 0 }} lượt</span>
+              <span class="info-value font-medium">{{ (form.soLuongSuDung && form.soLuongSuDung > 0) ? form.soLuongSuDung + ' lượt' : 'Không giới hạn' }}</span>
             </div>
 
             <div class="info-row">
@@ -271,14 +271,20 @@
 
             <!-- Số lượng sử dụng -->
             <div class="form-field full-width">
-              <label>Số lượt sử dụng <span class="required">*</span></label>
+              <label>
+                Số lượt sử dụng
+                <span class="field-hint-inline">(Để trống = Không giới hạn)</span>
+              </label>
               <input
                   type="number"
                   v-model.number="form.soLuongSuDung"
                   min="1"
-                  placeholder="Nhập số lượt có thể dùng..."
+                  placeholder="Để trống = Không giới hạn số lượt dùng..."
                   :class="{ 'input-error': errors.soLuongSuDung }"
               />
+              <span class="field-hint" v-if="!form.soLuongSuDung">
+                💡 Không nhập số lượng = Áp dụng <b>Không giới hạn</b> số lượt sử dụng.
+              </span>
               <span v-if="errors.soLuongSuDung" class="error-msg">{{ errors.soLuongSuDung }}</span>
             </div>
           </div>
@@ -388,7 +394,7 @@
             </div>
             <div class="summary-line">
               <span class="s-label">Lượt sử dụng:</span>
-              <span class="s-val">{{ form.soLuongSuDung }} lượt</span>
+              <span class="s-val">{{ (form.soLuongSuDung && form.soLuongSuDung > 0) ? form.soLuongSuDung + ' lượt' : 'Không giới hạn' }}</span>
             </div>
             <div class="summary-line">
               <span class="s-label">Trạng thái:</span>
@@ -697,10 +703,8 @@ const validateForm = () => {
     }
   }
 
-  // 5. Số lượng sử dụng
-  if (form.value.soLuongSuDung === null || form.value.soLuongSuDung === undefined || form.value.soLuongSuDung === '') {
-    errors.value.soLuongSuDung = 'Vui lòng nhập số lượt sử dụng!'
-  } else {
+  // 5. Số lượng sử dụng (Tùy chọn: để trống là không giới hạn)
+  if (form.value.soLuongSuDung !== null && form.value.soLuongSuDung !== undefined && form.value.soLuongSuDung !== '') {
     const qty = Number(form.value.soLuongSuDung)
     if (isNaN(qty) || !Number.isInteger(qty) || qty <= 0) {
       errors.value.soLuongSuDung = 'Số lượt sử dụng phải là số nguyên lớn hơn 0!'
@@ -745,7 +749,7 @@ const submitUpdate = async () => {
     giaTriGiamGia: form.value.giaTriGiamGia,
     giamToiDa: form.value.loaiPhieuGiamGia === 1 && form.value.giamToiDa ? Number(form.value.giamToiDa) : null,
     hoaDonToiThieu: form.value.hoaDonToiThieu != null ? Number(form.value.hoaDonToiThieu) : 0,
-    soLuongSuDung: Number(form.value.soLuongSuDung),
+    soLuongSuDung: (form.value.soLuongSuDung && Number(form.value.soLuongSuDung) > 0) ? Number(form.value.soLuongSuDung) : 0,
     ngayBatDau: dateTimeInputToIso(form.value.ngayBatDauStr),
     ngayKetThuc: dateTimeInputToIso(form.value.ngayKetThucStr),
     trangThai: form.value.trangThai

@@ -84,9 +84,9 @@ public class PhieuGiamGiaService {
             throw new IllegalArgumentException("Mức giảm tiền mặt không được lớn hơn giá trị hóa đơn tối thiểu!");
         }
 
-        // 6. Số lượng sử dụng
-        if (dto.getSoLuongSuDung() == null || dto.getSoLuongSuDung() <= 0) {
-            throw new IllegalArgumentException("Số lượt sử dụng phải là số nguyên lớn hơn 0!");
+        // 6. Số lượng sử dụng (Nếu có nhập thì phải > 0, nếu để trống hoặc 0 thì hiểu là không giới hạn)
+        if (dto.getSoLuongSuDung() != null && dto.getSoLuongSuDung() < 0) {
+            throw new IllegalArgumentException("Số lượt sử dụng không được là số âm!");
         }
 
         // 7. Ngày bắt đầu và Ngày kết thúc
@@ -97,13 +97,13 @@ public class PhieuGiamGiaService {
             throw new IllegalArgumentException("Thời gian kết thúc phải diễn ra sau hoặc cùng thời điểm với thời gian bắt đầu!");
         }
 
-        // 8. Khi tạo mới: Ngày bắt đầu phải là ngày hiện tại
+        // 8. Khi tạo mới: Ngày bắt đầu không được là ngày trong quá khứ (phải từ hôm nay trở đi)
         if (isCreate) {
             ZoneId zoneId = ZoneId.of("Asia/Ho_Chi_Minh");
             LocalDate today = LocalDate.now(zoneId);
             LocalDate startDate = dto.getNgayBatDau().atZone(zoneId).toLocalDate();
-            if (!startDate.equals(today)) {
-                throw new IllegalArgumentException("Ngày bắt đầu phải là ngày hiện tại (" + today + ")!");
+            if (startDate.isBefore(today)) {
+                throw new IllegalArgumentException("Thời gian bắt đầu không được là ngày trong quá khứ (phải từ ngày hiện tại " + today + " trở đi)!");
             }
         }
 
@@ -226,7 +226,8 @@ public class PhieuGiamGiaService {
             phieu.setGiaTriGiamGia(dto.getGiaTriGiamGia());
             phieu.setGiamToiDa(dto.getLoaiPhieuGiamGia() == 1 ? dto.getGiamToiDa() : null);
             phieu.setHoaDonToiThieu(dto.getHoaDonToiThieu());
-            phieu.setSoLuongSuDung(dto.getSoLuongSuDung());
+            int soLuong = (dto.getSoLuongSuDung() != null && dto.getSoLuongSuDung() > 0) ? dto.getSoLuongSuDung() : 0;
+            phieu.setSoLuongSuDung(soLuong);
             phieu.setNgayBatDau(dto.getNgayBatDau());
             phieu.setNgayKetThuc(dto.getNgayKetThuc());
 
@@ -263,7 +264,8 @@ public class PhieuGiamGiaService {
         phieu.setGiaTriGiamGia(dto.getGiaTriGiamGia());
         phieu.setGiamToiDa(dto.getLoaiPhieuGiamGia() == 1 ? dto.getGiamToiDa() : null);
         phieu.setHoaDonToiThieu(dto.getHoaDonToiThieu());
-        phieu.setSoLuongSuDung(dto.getSoLuongSuDung());
+        int soLuongMoi = (dto.getSoLuongSuDung() != null && dto.getSoLuongSuDung() > 0) ? dto.getSoLuongSuDung() : 0;
+        phieu.setSoLuongSuDung(soLuongMoi);
         phieu.setNgayBatDau(dto.getNgayBatDau());
         phieu.setNgayKetThuc(dto.getNgayKetThuc());
 
