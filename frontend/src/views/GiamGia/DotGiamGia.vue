@@ -1,12 +1,28 @@
 <template>
   <div class="dot-giam-gia-wrapper">
-    <!-- Thông báo nổi (Toast Notification) -->
-    <transition name="fade">
+    <!-- Thông báo nổi góc phải (Toast Notification) -->
+    <transition name="toast-slide">
       <div v-if="toast.show" :class="['toast-msg', `toast-${toast.type}`]">
-        <svg v-if="toast.type === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        <svg v-else-if="toast.type === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        <span>{{ toast.message }}</span>
+        <div class="toast-icon">
+          <svg v-if="toast.type === 'success'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <svg v-else-if="toast.type === 'error'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+        </div>
+        <div class="toast-content">
+          <span class="toast-title">{{ toast.type === 'success' ? 'Thành công' : (toast.type === 'error' ? 'Lỗi' : 'Thông báo') }}</span>
+          <span class="toast-text">{{ toast.message }}</span>
+        </div>
+        <button class="toast-btn-close" @click="closeToast" title="Đóng">✕</button>
       </div>
     </transition>
 
@@ -27,21 +43,28 @@
       <div class="content-card filter-card">
         <div class="card-header-filter">
           <div class="filter-icon-box">
-            <span class="filter-icon">🍸</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b88628" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+            </svg>
           </div>
           <div class="filter-title-wrap">
             <h3 class="filter-title">Bộ lọc</h3>
-            <p class="filter-subtitle">Tra cứu nhanh dữ liệu từ cơ sở dữ liệu.</p>
+            <p class="filter-subtitle">Tìm kiếm và lọc đợt giảm giá</p>
           </div>
         </div>
 
-        <!-- Lưới 4 ô lọc -->
+        <!-- Lưới 5 ô lọc -->
         <div class="filter-inputs-grid">
           <!-- Tìm kiếm -->
           <div class="form-field">
             <label>Tìm kiếm</label>
             <div class="input-inner">
-              <span class="prefix-icon">🔍</span>
+              <span class="prefix-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </span>
               <input
                   type="text"
                   v-model="filters.keyword"
@@ -86,16 +109,6 @@
             </select>
           </div>
 
-          <!-- Hình thức -->
-          <div class="form-field">
-            <label>Hình thức</label>
-            <select v-model="filters.hinhThuc" @change="handleFilterChange">
-              <option value="">Tất cả hình thức</option>
-              <option value="Công khai">Công khai</option>
-              <option value="Cá nhân">Cá nhân</option>
-            </select>
-          </div>
-
           <!-- Trạng thái -->
           <div class="form-field">
             <label>Trạng thái</label>
@@ -110,19 +123,26 @@
         <!-- Cụm nút thao tác -->
         <div class="filter-actions">
           <button class="btn btn-reset" @click="resetFilters">
-            <span class="btn-icon">↺</span> Đặt lại bộ lọc
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="1 4 1 10 7 10"></polyline>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+            </svg>
+            <span>Đặt lại bộ lọc</span>
           </button>
           <button class="btn btn-excel" @click="exportToExcel" :disabled="exporting">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="8" y1="13" x2="16" y2="13"></line>
-              <line x1="8" y1="17" x2="16" y2="17"></line>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
             <span>{{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}</span>
           </button>
           <button class="btn btn-theme" @click="openCreateView">
-            <span>+</span> Tạo đợt giảm giá
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>Tạo đợt giảm giá</span>
           </button>
         </div>
       </div>
@@ -141,29 +161,27 @@
           <table class="custom-table">
             <thead>
             <tr>
-              <th style="width: 50px; text-align: center;">STT</th>
-              <th style="width: 120px;">Mã</th>
-              <th>Tên đợt giảm giá</th>
-              <th style="width: 130px; text-align: center;">Hình thức</th>
-              <th style="width: 140px;">Giá trị giảm</th>
-              <th style="width: 130px; text-align: center;">Lượt sử dụng</th>
-              <th style="width: 135px;">Ngày bắt đầu</th>
-              <th style="width: 135px;">Ngày kết thúc</th>
+              <th style="width: 55px; text-align: center;">STT</th>
+              <th style="width: 130px;">Mã</th>
+              <th style="width: 220px;">Tên đợt giảm giá</th>
+              <th style="width: 170px;">Giá trị giảm</th>
+              <th style="width: 155px;">Ngày bắt đầu</th>
+              <th style="width: 155px;">Ngày kết thúc</th>
               <th style="width: 150px; text-align: center; white-space: nowrap;">Trạng thái</th>
-              <th style="width: 120px; text-align: center; white-space: nowrap;">Hành động</th>
+              <th style="width: 110px; text-align: center; white-space: nowrap;">Hành động</th>
             </tr>
             </thead>
             <tbody>
             <!-- Trạng thái Đang tải -->
             <tr v-if="loading">
-              <td colspan="10" class="empty-cell">
-                <span class="loading-spinner">⏳</span> Đang tải dữ liệu từ database SQL Server...
+              <td colspan="8" class="empty-cell">
+                <span class="inline-spinner"></span> Đang tải dữ liệu...
               </td>
             </tr>
 
             <!-- Trạng thái Lỗi -->
             <tr v-else-if="errorMessage">
-              <td colspan="10" class="error-cell">
+              <td colspan="8" class="error-cell">
                 {{ errorMessage }}
                 <div style="margin-top: 8px;">
                   <button class="btn btn-reset" style="height: 2rem; font-size: 0.85rem;" @click="fetchData">Thử lại</button>
@@ -173,7 +191,7 @@
 
             <!-- Trạng thái Không có dữ liệu -->
             <tr v-else-if="campaigns.length === 0">
-              <td colspan="10" class="empty-cell">
+              <td colspan="8" class="empty-cell">
                 Không có đợt giảm giá nào phù hợp với bộ lọc hiện tại.
               </td>
             </tr>
@@ -185,11 +203,6 @@
               </td>
               <td class="font-bold text-blue">{{ item.maDotGiamGia || '—' }}</td>
               <td class="font-medium text-title">{{ item.tenDotGiamGia || '—' }}</td>
-              <td style="text-align: center;">
-                <span :class="['badge-form', (item.hinhThuc === 'Cá nhân') ? 'badge-personal' : 'badge-public']">
-                  <span class="dot-icon">●</span> {{ item.hinhThuc || 'Công khai' }}
-                </span>
-              </td>
               <td class="text-dark">
                 <div v-if="isCashDiscount(item)" class="discount-col-info">
                   <span class="font-bold text-dark">{{ formatMoney(item.giaTriGiam || item.phanTramGiam) }}</span>
@@ -204,14 +217,6 @@
                     <span v-if="item.giamToiDa" class="tag-max-discount">Tối đa: {{ formatMoney(item.giamToiDa) }}</span>
                   </div>
                 </div>
-              </td>
-              <td style="text-align: center;">
-                <span v-if="item.soLuong || item.soLuongSuDung" class="badge-usage-count">
-                  {{ item.soLuong || item.soLuongSuDung }} lượt
-                </span>
-                <span v-else class="badge-mini badge-infinity">
-                  Không giới hạn
-                </span>
               </td>
               <td class="text-date">{{ formatDate(item.ngayBatDau) }}</td>
               <td class="text-date">
@@ -232,28 +237,28 @@
               <!-- Cột Hành động: 2 nút vuông bo góc mềm (Nguồn + Sửa) y hệt ảnh thiết kế -->
               <td style="text-align: center;">
                 <div class="action-buttons">
-                  <!-- Nút 1: Đổi trạng thái (Power Icon dạng thẻ vuông) -->
+                  <!-- Nút 1: Đổi trạng thái (Bật/Tắt) -->
                   <button
                       class="btn-action-square btn-action-power"
                       :class="item.trangThai === 1 ? 'power-active' : 'power-inactive'"
                       :title="item.trangThai === 1 ? 'Chuyển sang Ngưng Hoạt Động' : 'Chuyển sang Hoạt Động'"
                       @click="openToggleStatusModal(item)"
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
                       <line x1="12" y1="2" x2="12" y2="12"></line>
                     </svg>
                   </button>
 
-                  <!-- Nút 2: Sửa đợt giảm giá (Edit Icon dạng thẻ vuông) -->
+                  <!-- Nút 2: Xem chi tiết & Sửa (Eye Icon thanh lịch) -->
                   <button
                       class="btn-action-square btn-action-edit"
-                      title="Chỉnh sửa đợt giảm giá"
+                      title="Xem chi tiết & Chỉnh sửa"
                       @click="openEditView(item)"
                   >
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
                     </svg>
                   </button>
                 </div>
@@ -349,7 +354,7 @@
         <div class="preview-col">
           <div class="content-card preview-card">
             <div class="preview-icon-box">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#b88628" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b88628" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             </div>
             <div class="preview-badge-code">
               {{ formData.maDotGiamGia || 'DGG_NEW' }}
@@ -359,13 +364,6 @@
             </h3>
 
             <div class="preview-divider"></div>
-
-            <div class="preview-info-row">
-              <span class="preview-label">Hình thức:</span>
-              <span :class="['badge-form', formData.hinhThuc === 'Công khai' ? 'badge-public' : 'badge-personal']">
-                <span class="dot-icon">●</span> {{ formData.hinhThuc || 'Cá nhân' }}
-              </span>
-            </div>
 
             <div class="preview-info-row">
               <span class="preview-label">Trạng thái:</span>
@@ -382,22 +380,9 @@
             </div>
 
             <div class="preview-info-row">
-              <span class="preview-label">Đơn tối thiểu:</span>
-              <span class="preview-val">0 đ</span>
-            </div>
-
-            <div class="preview-info-row">
               <span class="preview-label">Giảm tối đa:</span>
               <span :class="formData.loaiGiamGia === 2 ? 'text-hint' : (formData.giamToiDa ? 'font-bold text-danger' : 'text-hint')">
                 {{ formData.loaiGiamGia === 2 ? 'Không áp dụng' : (formData.giamToiDa ? formatMoney(formData.giamToiDa) : 'Không giới hạn') }}
-              </span>
-            </div>
-
-            <div class="preview-info-row">
-              <span class="preview-label">Số lượt sử dụng:</span>
-              <span class="preview-val">
-                <span v-if="formData.soLuong && Number(formData.soLuong) > 0" class="font-bold text-dark">{{ formData.soLuong }} lượt</span>
-                <span v-else class="badge-mini badge-infinity">Không giới hạn</span>
               </span>
             </div>
 
@@ -407,90 +392,10 @@
             </div>
 
             <div class="preview-info-col">
-              <span class="preview-label">Thời gian:</span>
+              <span class="preview-label">Thời gian áp dụng:</span>
               <span class="preview-date-range">
                 {{ formatInputDateDisplay(formData.ngayBatDau) }} ➔ {{ formData.ngayKetThuc ? formatInputDateDisplay(formData.ngayKetThuc) : '---' }}
               </span>
-            </div>
-          </div>
-
-          <!-- Card 2: Khách hàng áp dụng (Y hệt ảnh thiết kế mẫu) -->
-          <div class="content-card customer-scope-card">
-            <div class="scope-card-header">
-              <div class="scope-icon-box">
-                <span class="scope-icon">👥</span>
-              </div>
-              <div class="scope-header-text">
-                <h4 class="scope-title">Khách hàng áp dụng</h4>
-                <p class="scope-subtitle">
-                  <template v-if="formData.hinhThuc === 'Cá nhân'">
-                    Đã chọn <b>{{ selectedCustomerCount }}</b> khách hàng
-                  </template>
-                  <template v-else>
-                    Áp dụng cho tất cả khách hàng
-                  </template>
-                </p>
-              </div>
-            </div>
-
-            <!-- Nếu là Cá nhân: Hiện giao diện tìm kiếm và chọn khách hàng cụ thể -->
-            <div v-if="formData.hinhThuc === 'Cá nhân'" class="scope-customer-selection">
-              <div class="customer-search-box">
-                <input
-                    type="text"
-                    v-model="customerSearchKeyword"
-                    placeholder="Tìm theo tên, SĐT, mã KH..."
-                    class="customer-search-input"
-                />
-              </div>
-
-              <div class="customer-quick-actions">
-                <button type="button" class="btn-link-action" @click="selectAllCustomers">
-                  Chọn tất cả
-                </button>
-                <span class="divider">|</span>
-                <button type="button" class="btn-link-action" @click="deselectAllCustomers">
-                  Bỏ chọn hết
-                </button>
-              </div>
-
-              <div class="customer-list-box">
-                <div
-                    v-for="c in filteredCustomers"
-                    :key="c.id"
-                    class="customer-item-row"
-                    :class="{ 'item-checked': c.selected }"
-                    @click="c.selected = !c.selected"
-                >
-                  <input
-                      type="checkbox"
-                      v-model="c.selected"
-                      @click.stop
-                  />
-                  <div class="customer-item-info">
-                    <div class="customer-name-phone">
-                      <b class="c-name">{{ c.ten }}</b>
-                      <span class="c-phone">({{ c.sdt }})</span>
-                    </div>
-                    <div class="customer-meta-sub">
-                      <span class="c-code">{{ c.ma }}</span>
-                      <span v-if="c.email" class="c-email">• {{ c.email }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div v-if="filteredCustomers.length === 0" class="customer-empty-text">
-                  Không tìm thấy khách hàng nào.
-                </div>
-              </div>
-            </div>
-
-            <!-- Nếu là Công khai: Hiện ghi chú áp dụng toàn bộ -->
-            <div v-else class="scope-public-notice">
-              <span class="notice-icon">🌐</span>
-              <p>
-                <b>Công Khai:</b> Đợt giảm giá này tự động áp dụng cho <b>tất cả khách hàng</b> khi mua các sản phẩm áp dụng.
-              </p>
             </div>
           </div>
         </div>
@@ -513,8 +418,7 @@
               <div class="form-field">
                 <label>
                   Mã đợt giảm giá
-                  <span v-if="isEditing" class="tag-lock">🔒 Cố định</span>
-                  <span v-else class="text-hint">(tự sinh nếu để trống)</span>
+                  <span v-if="!isEditing" class="text-hint">(tự sinh nếu để trống)</span>
                 </label>
                 <input
                     type="text"
@@ -534,30 +438,12 @@
                 />
               </div>
 
-              <!-- Hình thức áp dụng: Công Khai / Cá Nhân dạng select dropdown -->
-              <div class="form-field">
-                <label>Hình thức áp dụng <span class="text-danger">*</span></label>
-                <select v-model="formData.hinhThuc">
-                  <option value="Công khai">Công khai (Tất cả khách hàng)</option>
-                  <option value="Cá nhân">Cá nhân (Chọn khách hàng cụ thể)</option>
-                </select>
-              </div>
-
               <!-- Loại giảm giá -->
               <div class="form-field">
                 <label>Loại giảm giá <span class="text-danger">*</span></label>
                 <select v-model.number="formData.loaiGiamGia" @change="onLoaiGiamGiaChange">
                   <option :value="1">Giảm theo phần trăm (%)</option>
                   <option :value="2">Giảm theo số tiền (VNĐ)</option>
-                </select>
-              </div>
-
-              <!-- Trạng thái hoạt động -->
-              <div class="form-field">
-                <label>Trạng thái hoạt động <span class="text-danger">*</span></label>
-                <select v-model.number="formData.trangThai">
-                  <option :value="1">Hoạt Động</option>
-                  <option :value="0">Ngưng Hoạt Động</option>
                 </select>
               </div>
 
@@ -591,12 +477,11 @@
                 </div>
               </div>
 
-              <!-- Giảm tối đa: KHÓA khi loaiGiamGia === 1 (Giảm %) theo đúng yêu cầu -->
+              <!-- Giảm tối đa: Chỉ áp dụng khi giảm % -->
               <div class="form-field">
                 <label>
                   Giảm tối đa (VNĐ)
-                  <span v-if="formData.loaiGiamGia === 2" class="tag-lock-hint">🔒 Khóa khi giảm bằng tiền</span>
-                  <span v-else class="text-hint">(áp dụng cho giảm %)</span>
+                  <span v-if="formData.loaiGiamGia === 2" class="text-hint">(không áp dụng khi giảm tiền)</span>
                 </label>
                 <div class="input-inner">
                   <input
@@ -606,40 +491,29 @@
                       v-model.number="formData.giamToiDa"
                       @input="handleGiamToiDaInput"
                       :disabled="formData.loaiGiamGia === 2"
-                      :placeholder="formData.loaiGiamGia === 2 ? 'Không áp dụng khi giảm bằng tiền' : 'Nhập mức giảm tối đa (VD: 50.000)'"
+                      :placeholder="formData.loaiGiamGia === 2 ? 'Không áp dụng khi giảm bằng tiền' : 'Mức giảm tối đa (VD: 50.000)'"
                       :class="{ 'input-disabled': formData.loaiGiamGia === 2 }"
                   />
                   <span v-if="formData.loaiGiamGia === 1" class="suffix-text font-bold">₫</span>
                 </div>
               </div>
 
-              <!-- Lượt sử dụng: để trống là không giới hạn -->
-              <div class="form-field">
-                <label>
-                  Số lượt sử dụng
-                  <span class="text-hint">(để trống = không giới hạn)</span>
-                </label>
-                <div class="input-inner">
-                  <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      v-model.number="formData.soLuong"
-                      @input="handleSoLuongInput"
-                      placeholder="Để trống là không giới hạn"
-                  />
-                  <span class="suffix-text font-bold">lượt</span>
-                </div>
-              </div>
 
-              <!-- Ghi chú lượt dùng -->
-              <div class="form-field flex-center-field">
-                <div class="limit-hint-box">
-                  <span class="limit-icon">ℹ️</span>
-                  <span>
-                    <b>Giới hạn lượt dùng:</b> Để trống để áp dụng <b>không giới hạn</b> lượt sử dụng.
-                  </span>
-                </div>
+
+              <!-- Trạng thái: Khi tạo mới không được chọn, mặc định luôn là Hoạt Động -->
+              <div class="form-field">
+                <label>Trạng thái</label>
+                <select v-if="isEditing" v-model.number="formData.trangThai">
+                  <option :value="1">Hoạt Động</option>
+                  <option :value="0">Ngưng Hoạt Động</option>
+                </select>
+                <input
+                    v-else
+                    type="text"
+                    value="Hoạt Động"
+                    disabled
+                    class="input-disabled"
+                />
               </div>
             </div>
           </div>
@@ -790,7 +664,7 @@
                   </button>
                 </div>
                 <small v-if="!formData.ngayKetThuc" class="text-infinity-hint">
-                  ✨ Đang áp dụng <b>Vô thời hạn</b> (không giới hạn ngày kết thúc)
+                  Đang áp dụng <b>Vô thời hạn</b>
                 </small>
                 <span
                   v-else-if="formData.ngayBatDau && new Date(formData.ngayKetThuc) <= new Date(formData.ngayBatDau)"
@@ -824,7 +698,6 @@
       <div class="confirm-modal-box">
         <div class="confirm-header">
           <div class="confirm-title-left">
-            <span class="warning-triangle">⚠️</span>
             <h4>{{ isEditing ? 'Xác nhận cập nhật' : 'Xác nhận tạo mới' }}</h4>
           </div>
           <button class="btn-close" @click="showConfirmModal = false">✕</button>
@@ -842,12 +715,6 @@
               <span class="confirm-val font-medium">{{ formData.tenDotGiamGia }}</span>
             </div>
             <div class="confirm-row">
-              <span class="confirm-label">Hình thức:</span>
-              <span class="confirm-val font-medium">
-                {{ formData.hinhThuc === 'Cá nhân' ? `Cá nhân (Chọn ${selectedCustomerCount} khách hàng)` : 'Công khai (Tất cả khách hàng)' }}
-              </span>
-            </div>
-            <div class="confirm-row">
               <span class="confirm-label">Loại giảm:</span>
               <span class="confirm-val font-medium">{{ formData.loaiGiamGia === 2 ? 'Giảm bằng tiền mặt (VNĐ)' : 'Giảm theo phần trăm (%)' }}</span>
             </div>
@@ -861,13 +728,6 @@
               <span class="confirm-label">Giảm tối đa:</span>
               <span class="confirm-val">
                 {{ formData.loaiGiamGia === 2 ? 'Không áp dụng (Khóa khi giảm bằng tiền)' : (formData.giamToiDa ? formatMoney(formData.giamToiDa) : 'Không giới hạn') }}
-              </span>
-            </div>
-            <div class="confirm-row">
-              <span class="confirm-label">Lượt sử dụng:</span>
-              <span class="confirm-val">
-                <b v-if="formData.soLuong">{{ formData.soLuong }} lượt</b>
-                <span v-else class="badge-mini badge-infinity">Không giới hạn</span>
               </span>
             </div>
             <div class="confirm-row">
@@ -907,7 +767,6 @@
         <!-- Header -->
         <div class="toggle-modal-header" :class="selectedToggleItem.trangThai === 1 ? 'header-deactivate' : 'header-activate'">
           <div class="toggle-header-left">
-            <span class="warning-triangle-icon">⚠️</span>
             <div class="toggle-title-wrap">
               <h4 class="toggle-title-text" :class="selectedToggleItem.trangThai === 1 ? 'title-deactivate' : 'title-activate'">
                 {{ selectedToggleItem.trangThai === 1 ? 'Xác nhận ngừng hoạt động' : 'Xác nhận kích hoạt hoạt động' }}
@@ -940,7 +799,7 @@
               <span class="toggle-info-val font-medium text-dark">{{ selectedToggleItem.tenDotGiamGia || '—' }}</span>
             </div>
             <div class="toggle-info-row">
-              <span class="toggle-info-label">Hình thức:</span>
+              <span class="toggle-info-label">Loại giảm:</span>
               <span class="toggle-info-val font-medium">{{ isCashDiscount(selectedToggleItem) ? 'Giảm bằng tiền mặt (VNĐ)' : 'Giảm theo phần trăm (%)' }}</span>
             </div>
             <div class="toggle-info-row">
@@ -952,13 +811,6 @@
             <div v-if="selectedToggleItem.giamToiDa" class="toggle-info-row">
               <span class="toggle-info-label">Giảm tối đa:</span>
               <span class="toggle-info-val font-bold text-danger">{{ formatMoney(selectedToggleItem.giamToiDa) }}</span>
-            </div>
-            <div class="toggle-info-row">
-              <span class="toggle-info-label">Lượt sử dụng:</span>
-              <span class="toggle-info-val">
-                <b v-if="selectedToggleItem.soLuong || selectedToggleItem.soLuongSuDung">{{ selectedToggleItem.soLuong || selectedToggleItem.soLuongSuDung }} lượt</b>
-                <span v-else class="badge-mini badge-infinity">Không giới hạn</span>
-              </span>
             </div>
             <div class="toggle-info-row">
               <span class="toggle-info-label">Thời hạn:</span>
@@ -981,7 +833,7 @@
           <!-- Khung Lưu ý -->
           <div class="toggle-warning-alert">
             <div class="alert-content">
-              <b>⚠️ Lưu ý:</b>
+              <span class="alert-tag">Lưu ý:</span>
               <span v-if="selectedToggleItem.trangThai === 1">
                 Khi ngừng hoạt động, khách hàng sẽ tạm thời không thể áp dụng đợt giảm giá này khi thanh toán.
               </span>
@@ -1027,7 +879,11 @@ let toastTimer = null
 const showToast = (message, type = 'success') => {
   if (toastTimer) clearTimeout(toastTimer)
   toast.value = { show: true, message, type }
-  toastTimer = setTimeout(() => { toast.value.show = false }, 3000)
+  toastTimer = setTimeout(() => { toast.value.show = false }, 3200)
+}
+const closeToast = () => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value.show = false
 }
 
 // Dữ liệu danh sách đợt giảm giá
@@ -1050,17 +906,14 @@ const showToggleStatusModal = ref(false)
 const selectedToggleItem = ref(null)
 const togglingStatus = ref(false)
 
-// Form dữ liệu đợt giảm giá
 const formData = ref({
   id: null,
   maDotGiamGia: '',
   tenDotGiamGia: '',
   loaiGiamGia: 1, // 1: Giảm theo %, 2: Giảm theo số tiền (VNĐ)
-  hinhThuc: 'Cá nhân', // 'Cá nhân' (chọn KH cụ thể) hoặc 'Công khai' (tất cả KH)
   phanTramGiam: 15,
   giaTriGiam: 50000,
   giamToiDa: null,
-  soLuong: null, // Số lượt sử dụng: null là không giới hạn
   ngayBatDau: '',
   ngayKetThuc: '',
   trangThai: 1
@@ -1096,40 +949,6 @@ const handleSearchProductUI = () => {
   showToast(`Tìm thấy ${filteredProducts.value.length} sản phẩm phù hợp!`, 'info')
 }
 
-// Dữ liệu khách hàng mẫu (Giao diện khi chọn đợt giảm giá Cá Nhân)
-const customerSearchKeyword = ref('')
-const customers = ref([
-  { id: 1, ma: 'KH001', ten: 'Phạm Văn An', sdt: '0911111111', email: 'an.pham@gmail.com', selected: false },
-  { id: 2, ma: 'KH002', ten: 'Nguyễn Thị Bình', sdt: '0922222222', email: 'binh.nguyen@gmail.com', selected: false },
-  { id: 3, ma: 'KH003', ten: 'Hoàng Anh Cường', sdt: '0933333333', email: 'cuong.hoang@gmail.com', selected: false },
-  { id: 4, ma: 'KH004', ten: 'Trần Thị Thu Hà', sdt: '0944444444', email: 'ha.tran@gmail.com', selected: false },
-  { id: 5, ma: 'KH005', ten: 'Lê Hoàng Long', sdt: '0955555555', email: 'long.le@gmail.com', selected: false },
-  { id: 6, ma: 'KH006', ten: 'Vũ Minh Đức', sdt: '0966666666', email: 'duc.vu@gmail.com', selected: false },
-  { id: 7, ma: 'KH007', ten: 'Đặng Mai Phương', sdt: '0977777777', email: 'phuong.dang@gmail.com', selected: false }
-])
-
-const filteredCustomers = computed(() => {
-  const kw = (customerSearchKeyword.value || '').trim().toLowerCase()
-  if (!kw) return customers.value
-  return customers.value.filter(c =>
-      c.ten.toLowerCase().includes(kw) ||
-      c.sdt.includes(kw) ||
-      c.ma.toLowerCase().includes(kw)
-  )
-})
-
-const selectedCustomerCount = computed(() => customers.value.filter(c => c.selected).length)
-
-const selectAllCustomers = () => {
-  filteredCustomers.value.forEach(c => (c.selected = true))
-  showToast(`Đã chọn tất cả ${filteredCustomers.value.length} khách hàng!`, 'info')
-}
-
-const deselectAllCustomers = () => {
-  customers.value.forEach(c => (c.selected = false))
-  showToast('Đã bỏ chọn toàn bộ khách hàng!', 'info')
-}
-
 // Helper nhận diện loại giảm giá tiền mặt
 const isCashDiscount = (item) => {
   if (!item) return false
@@ -1142,14 +961,12 @@ const isCashDiscount = (item) => {
 // Xử lý khi thay đổi Loại giảm giá trong form: Giảm % thì chọn được giảm tối đa, giảm tiền thì không
 const onLoaiGiamGiaChange = () => {
   if (formData.value.loaiGiamGia === 2) {
-    // Giảm theo số tiền: không chọn được giảm tối đa (khóa và xóa trắng)
     formData.value.giamToiDa = null
     if (!formData.value.giaTriGiam) {
       formData.value.giaTriGiam = 50000
     }
     showToast('Đã chuyển sang giảm bằng tiền (Ô Giảm tối đa đã bị khóa)!', 'info')
   } else {
-    // Giảm theo phần trăm: được nhập giảm tối đa
     showToast('Đã chuyển sang giảm theo % (Bạn có thể nhập Giảm tối đa)!', 'info')
   }
 }
@@ -1199,21 +1016,6 @@ const handleNgayKetThucChange = () => {
   }
 }
 
-// Xử lý và kiểm soát số lượt sử dụng
-const handleSoLuongInput = () => {
-  if (formData.value.soLuong !== null && formData.value.soLuong !== '' && formData.value.soLuong !== undefined) {
-    const val = Number(formData.value.soLuong)
-    if (val < 1) {
-      formData.value.soLuong = null
-      showToast('Lượt sử dụng phải là số nguyên > 0 (để trống nếu không giới hạn)!', 'info')
-    } else {
-      formData.value.soLuong = Math.floor(val)
-    }
-  } else {
-    formData.value.soLuong = null
-  }
-}
-
 // Lưu trữ và khôi phục metadata đợt giảm giá (lượt sử dụng, hình thức, giảm tối đa)
 const getSavedCampaignMeta = (id, ma) => {
   try {
@@ -1247,7 +1049,6 @@ const filters = ref({
   startDate: '',
   endDate: '',
   loaiGiam: '',
-  hinhThuc: '',
   trangThai: ''
 })
 
@@ -1314,13 +1115,10 @@ const fetchData = async () => {
     const data = response.data
     let list = data.content || []
     
-    // Khôi phục metadata mở rộng (lượt sử dụng, hình thức, giảm tối đa)
+    // Khôi phục metadata mở rộng (giảm tối đa)
     list.forEach(item => {
       const meta = getSavedCampaignMeta(item.id, item.maDotGiamGia)
       if (meta) {
-        if (meta.soLuong !== undefined && item.soLuong == null) item.soLuong = meta.soLuong
-        if (meta.soLuongSuDung !== undefined && item.soLuongSuDung == null) item.soLuongSuDung = meta.soLuongSuDung
-        if (meta.hinhThuc && !item.hinhThuc) item.hinhThuc = meta.hinhThuc
         if (meta.giamToiDa !== undefined && item.giamToiDa == null) item.giamToiDa = meta.giamToiDa
       }
     })
@@ -1330,11 +1128,6 @@ const fetchData = async () => {
       list = list.filter(item => !isCashDiscount(item))
     } else if (filters.value.loaiGiam === '2') {
       list = list.filter(item => isCashDiscount(item))
-    }
-
-    // Lọc theo hình thức nếu người dùng chọn
-    if (filters.value.hinhThuc) {
-      list = list.filter(item => (item.hinhThuc || 'Công khai') === filters.value.hinhThuc)
     }
 
     campaigns.value = list
@@ -1377,7 +1170,6 @@ const resetFilters = () => {
     startDate: '',
     endDate: '',
     loaiGiam: '',
-    hinhThuc: '',
     trangThai: ''
   }
   currentPage.value = 1
@@ -1511,7 +1303,6 @@ const exportToExcel = async () => {
           <td style="border: 1px solid #bfbfbf; padding: 6px;">${item.tenDotGiamGia || ''}</td>
           <td style="text-align: center; border: 1px solid #bfbfbf; padding: 6px;">${typeText}</td>
           <td style="text-align: center; font-weight: bold; border: 1px solid #bfbfbf; padding: 6px;">${discountDisplay}</td>
-          <td style="text-align: center; border: 1px solid #bfbfbf; padding: 6px;">${item.soLuong || item.soLuongSuDung ? (item.soLuong || item.soLuongSuDung) + ' lượt' : 'Không giới hạn'}</td>
           <td style="text-align: center; border: 1px solid #bfbfbf; padding: 6px;">${formatDate(item.ngayBatDau)}</td>
           <td style="text-align: center; border: 1px solid #bfbfbf; padding: 6px;">${item.ngayKetThuc ? formatDate(item.ngayKetThuc) : 'Vô thời hạn'}</td>
           <td style="text-align: center; font-weight: bold; color: ${statusColor}; border: 1px solid #bfbfbf; padding: 6px;">${statusText}</td>
@@ -1547,12 +1338,12 @@ const exportToExcel = async () => {
         <body>
           <table>
             <tr>
-              <td colspan="9" class="title" style="height: 38px; vertical-align: middle; border: none;">
+              <td colspan="8" class="title" style="height: 38px; vertical-align: middle; border: none;">
                 DANH SÁCH ĐỢT GIẢM GIÁ - CỬA HÀNG FF T-SHIRT
               </td>
             </tr>
             <tr>
-              <td colspan="9" style="color: #666; font-style: italic; border: none; padding-bottom: 10px;">
+              <td colspan="8" style="color: #666; font-style: italic; border: none; padding-bottom: 10px;">
                 Thời gian xuất: ${nowStr} | Tổng số bản ghi: ${dataList.length} đợt giảm giá
               </td>
             </tr>
@@ -1563,7 +1354,6 @@ const exportToExcel = async () => {
                 <th style="width: 260px;">Tên đợt giảm giá</th>
                 <th style="width: 120px;">Hình thức</th>
                 <th style="width: 160px;">Mức giảm & Tối đa</th>
-                <th style="width: 130px;">Lượt sử dụng</th>
                 <th style="width: 160px;">Ngày bắt đầu</th>
                 <th style="width: 160px;">Ngày kết thúc</th>
                 <th style="width: 140px;">Trạng thái</th>
@@ -1603,20 +1393,16 @@ const openCreateView = () => {
     id: null,
     maDotGiamGia: '',
     tenDotGiamGia: '',
-    hinhThuc: 'Cá nhân',
     loaiGiamGia: 1, // 1: Giảm theo %, 2: Giảm theo tiền
     phanTramGiam: 15,
     giaTriGiam: 50000,
     giamToiDa: null, // Bị khóa khi loaiGiamGia === 1
-    soLuong: null, // Để trống là không giới hạn
     ngayBatDau: toInputDateTime(new Date()),
     ngayKetThuc: '', // Để trống = vô thời hạn
     trangThai: 1
   }
   products.value.forEach(p => (p.selected = false))
   productSearchKeyword.value = ''
-  customers.value.forEach(c => (c.selected = false))
-  customerSearchKeyword.value = ''
   currentView.value = 'form'
   showToast('Chuyển sang màn hình tạo đợt giảm giá!', 'info')
 }
@@ -1626,28 +1412,22 @@ const openEditView = (item) => {
   isEditing.value = true
   const isCash = isCashDiscount(item)
   const meta = getSavedCampaignMeta(item.id, item.maDotGiamGia)
-  const effectiveSoLuong = (item.soLuong != null) ? item.soLuong : ((item.soLuongSuDung != null) ? item.soLuongSuDung : (meta?.soLuong != null ? meta.soLuong : null))
-  const effectiveHinhThuc = item.hinhThuc || meta?.hinhThuc || 'Cá nhân'
   const effectiveGiamToiDa = (item.giamToiDa != null) ? item.giamToiDa : (meta?.giamToiDa != null ? meta.giamToiDa : null)
 
   formData.value = {
     id: item.id,
     maDotGiamGia: item.maDotGiamGia || '',
     tenDotGiamGia: item.tenDotGiamGia || '',
-    hinhThuc: effectiveHinhThuc,
     loaiGiamGia: isCash ? 2 : 1,
     phanTramGiam: !isCash ? (item.phanTramGiam || 15) : 15,
     giaTriGiam: isCash ? (item.giaTriGiam || item.phanTramGiam || 50000) : 50000,
     giamToiDa: !isCash ? effectiveGiamToiDa : null,
-    soLuong: effectiveSoLuong,
     ngayBatDau: toInputDateTime(item.ngayBatDau),
     ngayKetThuc: item.ngayKetThuc ? toInputDateTime(item.ngayKetThuc) : '',
     trangThai: item.trangThai != null ? item.trangThai : 1
   }
   products.value.forEach((p, i) => (p.selected = i < 3))
   productSearchKeyword.value = ''
-  customers.value.forEach(c => (c.selected = false))
-  customerSearchKeyword.value = ''
   currentView.value = 'form'
   showToast(`Mở chỉnh sửa đợt "${item.tenDotGiamGia}"!`, 'info')
 }
@@ -1701,14 +1481,6 @@ const onSaveClick = () => {
     }
   }
 
-  // Lượt sử dụng: để trống là không giới hạn. Nếu có nhập thì phải là số nguyên > 0
-  if (formData.value.soLuong != null && formData.value.soLuong !== '') {
-    if (Number(formData.value.soLuong) <= 0 || !Number.isInteger(Number(formData.value.soLuong))) {
-      showToast('Lượt sử dụng phải là số nguyên lớn hơn 0!', 'error')
-      return
-    }
-  }
-
   showConfirmModal.value = true
 }
 
@@ -1725,8 +1497,6 @@ const doSubmitAPI = async () => {
       loaiGiamGia: formData.value.loaiGiamGia,
       giaTriGiam: isPercent ? null : formData.value.giaTriGiam,
       giamToiDa: isPercent ? (formData.value.giamToiDa || null) : null,
-      soLuong: formData.value.soLuong ? Number(formData.value.soLuong) : null,
-      soLuongSuDung: formData.value.soLuong ? Number(formData.value.soLuong) : null,
       ngayBatDau: new Date(formData.value.ngayBatDau).toISOString(),
       ngayKetThuc: formData.value.ngayKetThuc ? new Date(formData.value.ngayKetThuc).toISOString() : null,
       trangThai: formData.value.trangThai
@@ -1741,12 +1511,9 @@ const doSubmitAPI = async () => {
       showToast('Tạo mới đợt giảm giá thành công!', 'success')
     }
 
-    // Lưu metadata mở rộng (lượt sử dụng, hình thức, giảm tối đa) vào local cache
+    // Lưu metadata mở rộng (giảm tối đa) vào local cache
     const savedId = isEditing.value ? formData.value.id : res?.data?.id
     saveCampaignMeta(savedId, formData.value.maDotGiamGia, {
-      soLuong: formData.value.soLuong ? Number(formData.value.soLuong) : null,
-      soLuongSuDung: formData.value.soLuong ? Number(formData.value.soLuong) : null,
-      hinhThuc: formData.value.hinhThuc,
       giamToiDa: formData.value.giamToiDa
     })
 
@@ -1768,7 +1535,7 @@ onMounted(() => {
 
 <style scoped>
 .dot-giam-gia-wrapper {
-  padding: 1.25rem 1.75rem 2.5rem;
+  padding: 2rem 2.75rem 4rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   font-family: var(--system-font, sans-serif);
@@ -1776,102 +1543,225 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
-/* Toast */
+/* Toast Notification góc phải trên màn hình */
 .toast-msg {
   position: fixed;
-  top: 22px;
+  top: 24px;
   right: 28px;
-  padding: 0.8rem 1.3rem;
-  border-radius: 8px;
+  min-width: 320px;
+  max-width: 460px;
+  padding: 1rem 1.2rem;
+  border-radius: 10px;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-  z-index: 9999;
+  gap: 0.9rem;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  z-index: 99999;
 }
-.toast-success { background: #2e7d32; color: #fff; }
-.toast-error { background: #d32f2f; color: #fff; }
-.toast-info { background: #304b60; color: #fff; }
-.fade-enter-active, .fade-leave-active { transition: all 0.25s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-10px); }
+.toast-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.toast-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+.toast-title {
+  font-size: 0.9rem;
+  font-weight: 750;
+  color: #111827;
+  line-height: 1.25;
+}
+.toast-text {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #4b5563;
+  line-height: 1.4;
+}
+.toast-btn-close {
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.toast-btn-close:hover {
+  color: #111827;
+  background-color: #f3f4f6;
+}
 
-/* Header breadcrumb */
-.breadcrumb-header { margin-bottom: 1.2rem; display: flex; align-items: center; }
-.breadcrumb-text { font-size: 0.95rem; color: #8c9597; }
-.breadcrumb-text b { color: var(--blue, #496883); font-weight: 700; }
-.slash { margin: 0 6px; color: #d8d4c9; }
+/* Biến thể màu cho Toast tinh tế (không nền chói lọi) */
+.toast-success {
+  border-left: 4px solid #16a34a;
+}
+.toast-success .toast-icon {
+  background-color: #f0fdf4;
+  color: #16a34a;
+}
+.toast-error {
+  border-left: 4px solid #dc2626;
+}
+.toast-error .toast-icon {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+.toast-info {
+  border-left: 4px solid #2563eb;
+}
+.toast-info .toast-icon {
+  background-color: #eff6ff;
+  color: #2563eb;
+}
 
-/* Content Card */
+/* Hiệu ứng trượt từ góc phải */
+.toast-slide-enter-active,
+.toast-slide-leave-active {
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.toast-slide-enter-from {
+  opacity: 0;
+  transform: translateX(45px);
+}
+.toast-slide-leave-to {
+  opacity: 0;
+  transform: translateX(45px);
+}
+
+/* Header breadcrumb: Tăng khoảng cách lề thoáng đãng */
+.breadcrumb-header {
+  margin-bottom: 1.6rem;
+  display: flex;
+  align-items: center;
+  padding: 0 0.5rem;
+}
+.breadcrumb-text {
+  font-size: 1rem;
+  color: #6b7280;
+  letter-spacing: 0.01em;
+}
+.breadcrumb-text b {
+  color: #111827;
+  font-weight: 800;
+}
+.slash {
+  margin: 0 10px;
+  color: #d1d5db;
+}
+
+/* Content Card: Tăng padding trong và margin ngoài để tạo khoảng trắng đẹp mắt */
 .content-card {
   background: #ffffff;
-  border-radius: 10px;
-  border: 1px solid var(--line, #e9e5db);
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
-  padding: 1.4rem 1.6rem;
-  margin-bottom: 1.25rem;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+  padding: 1.75rem 2.25rem;
+  margin-bottom: 1.75rem;
 }
 
-.card-header-filter { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.2rem; }
+.card-header-filter {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.6rem;
+}
 .filter-icon-box {
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
-  background-color: #f7eee1;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  background-color: #fef3c7;
   display: grid;
   place-items: center;
 }
-.filter-icon { font-size: 1.2rem; color: #b18b52; }
+.filter-icon { font-size: 1.25rem; color: #b45309; }
 .filter-title-wrap { display: flex; flex-direction: column; }
-.filter-title { font-size: 1.1rem; font-weight: 700; margin: 0; color: #43545c; }
-.filter-subtitle { font-size: 0.85rem; color: #8c9597; margin: 2px 0 0 0; }
+.filter-title { font-size: 1.18rem; font-weight: 800; margin: 0; color: #111827; letter-spacing: -0.015em; }
+.filter-subtitle { font-size: 0.86rem; color: #6b7280; margin: 4px 0 0 0; }
 
 .filter-inputs-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.2rem;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1.35rem;
+  margin-bottom: 1.6rem;
 }
 
-.form-field { display: flex; flex-direction: column; gap: 0.45rem; }
-.form-field label { font-size: 0.88rem; font-weight: 700; color: #4f5d63; }
-.input-inner { position: relative; display: flex; align-items: center; }
-.prefix-icon { position: absolute; left: 0.8rem; font-size: 0.95rem; color: #9aa0a0; pointer-events: none; }
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.form-field label {
+  font-size: 0.9rem;
+  font-weight: 750;
+  color: #1f2937;
+  letter-spacing: 0.01em;
+}
+.input-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.prefix-icon {
+  position: absolute;
+  left: 1rem;
+  color: #9ca3af;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
 
 .form-field input, .form-field select {
   width: 100%;
-  height: 2.6rem;
-  border: 1px solid var(--line, #e9e5db);
+  height: 2.75rem;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  padding: 0 0.85rem;
+  padding: 0 1.1rem;
   font-size: 0.92rem;
-  color: var(--text, #3d4a50);
-  background-color: #fcfbf8;
+  color: #1f2937;
+  background-color: #ffffff;
   outline: none;
   transition: all 0.2s;
   box-sizing: border-box;
 }
-.form-field .input-inner input[type="text"] { padding-left: 2.4rem; }
-.form-field input:focus, .form-field select:focus {
-  border-color: var(--blue, #496883);
-  background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.08);
+.form-field .input-inner input[type="text"] {
+  padding-left: 2.85rem;
 }
-.input-disabled { background: #f5f3ed !important; cursor: not-allowed; color: #8c9597; }
+.form-field input:focus, .form-field select:focus {
+  border-color: #3b82f6;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+.input-disabled { background: #f3f4f6 !important; cursor: not-allowed; color: #9ca3af; }
 
 .filter-actions {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 0.75rem;
-  border-top: 1px dashed #efeae0;
-  padding-top: 1.1rem;
+  gap: 0.9rem;
+  border-top: 1px dashed #e5e7eb;
+  padding-top: 1.4rem;
+  margin-top: 0.5rem;
 }
 
 .btn {
-  height: 2.5rem;
-  padding: 0 1.35rem;
+  height: 2.65rem;
+  padding: 0 1.5rem;
   border-radius: 8px;
   font-size: 0.92rem;
   font-weight: 700;
@@ -1879,69 +1769,131 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.55rem;
   transition: all 0.2s;
   border: 1px solid transparent;
 }
 .btn-sm { height: 2.2rem; padding: 0 0.9rem; font-size: 0.84rem; }
-.btn-reset { border: 1px solid #dfd5c2; background-color: #fff8eb; color: #957b48; }
-.btn-reset:hover { background-color: #faeed7; }
-.btn-excel { background-color: #1d6f42; color: #ffffff; }
-.btn-excel:hover:not(:disabled) { background-color: #145531; }
+.btn-reset { border: 1px solid #d1d5db; background-color: #ffffff; color: #4b5563; }
+.btn-reset:hover { background-color: #f9fafb; border-color: #9ca3af; }
+.btn-excel { background-color: #15803d; color: #ffffff; }
+.btn-excel:hover:not(:disabled) { background-color: #166534; }
 .btn-excel:disabled { opacity: 0.65; cursor: not-allowed; }
 .btn-theme { background-color: #304b60; color: #ffffff; }
-.btn-theme:hover { background-color: #223747; }
-.btn-outline { background: #ffffff; border-color: #dfd5c2; color: #556268; }
-.btn-outline:hover { background: #fbf9f4; border-color: #c99738; }
+.btn-theme:hover { background-color: #1e3342; }
+.btn-outline { background: #ffffff; border-color: #d1d5db; color: #4b5563; }
+.btn-outline:hover { background: #f9fafb; border-color: #9ca3af; }
 
-/* Table */
-.table-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.1rem; }
-.table-title { font-size: 1.1rem; font-weight: 700; margin: 0; color: #3c4d55; }
-.record-count { font-size: 0.88rem; color: #8c9597; }
-.table-responsive { overflow-x: auto; }
-.custom-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
-.custom-table th { background-color: #faf9f6; color: #6f7c82; font-weight: 700; padding: 0.95rem 1rem; text-align: left; border-bottom: 1px solid #efede7; white-space: nowrap; }
-.custom-table td { padding: 0.95rem 1rem; border-bottom: 1px solid #f2f0eb; color: #4b585e; vertical-align: middle; }
-.custom-table tr:hover td { background-color: #fcfbf8; }
+/* Table chuẩn chỉnh khoảng cách lề và chữ cách xa viền */
+.table-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.4rem;
+}
+.table-title {
+  font-size: 1.18rem;
+  font-weight: 800;
+  margin: 0;
+  color: #111827;
+  letter-spacing: -0.015em;
+}
+.record-count {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+.record-count b {
+  color: #111827;
+}
+.table-responsive {
+  overflow-x: auto;
+}
+.custom-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.custom-table th {
+  background-color: #f9fafb;
+  color: #374151;
+  font-weight: 750;
+  padding: 0.95rem 1.05rem;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+.custom-table td {
+  padding: 1rem 1.05rem;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+  vertical-align: middle;
+  line-height: 1.5;
+}
+.custom-table th:first-child,
+.custom-table td:first-child {
+  padding-left: 1.25rem;
+}
+.custom-table th:last-child,
+.custom-table td:last-child {
+  padding-right: 1.25rem;
+}
+.custom-table tr:hover td {
+  background-color: #f9fafb;
+}
 
-.empty-cell { text-align: center; padding: 2.5rem !important; color: #8c9597; font-style: italic; }
-.error-cell { text-align: center; padding: 2.5rem !important; color: #e04f4f; font-weight: 500; }
+.empty-cell { text-align: center; padding: 2.75rem !important; color: #6b7280; font-style: italic; }
+.error-cell { text-align: center; padding: 2.75rem !important; color: #dc2626; font-weight: 500; }
+.inline-spinner {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border: 2px solid #d1d5db;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 .font-bold { font-weight: 700; }
 .font-medium { font-weight: 600; }
-.text-blue { color: var(--blue, #496883); font-family: monospace, sans-serif; letter-spacing: 0.5px; }
-.text-title { color: #2b383e; }
-.text-dark { color: #1f272b; }
-.text-date { color: #556268; font-size: 0.9rem; }
-.text-muted { color: #9aa0a0; }
-.text-danger { color: #e04f4f; }
-.text-green { color: #2e7d32; }
-.text-hint { font-size: 0.8rem; font-weight: normal; color: #8c9597; }
-.tag-lock { font-size: 0.75rem; background: #efeae0; padding: 0.15rem 0.4rem; border-radius: 4px; color: #556268; margin-left: 0.4rem; }
+.text-blue { color: #1d4ed8; font-family: monospace, sans-serif; letter-spacing: 0.5px; }
+.text-title { color: #111827; }
+.text-dark { color: #111827; }
+.text-date { color: #4b5563; font-size: 0.88rem; }
+.text-muted { color: #9ca3af; }
+.text-danger { color: #dc2626; }
+.text-green { color: #16a34a; }
+.text-hint { font-size: 0.8rem; font-weight: normal; color: #6b7280; }
+.tag-lock { font-size: 0.75rem; background: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 4px; color: #4b5563; margin-left: 0.4rem; }
 
 /* Badge Status */
 .badge-status {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 122px;
+  min-width: 120px;
   white-space: nowrap;
   font-size: 0.8rem;
   font-weight: 700;
-  padding: 0.35rem 0.75rem;
-  border-radius: 12px;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
   box-sizing: border-box;
 }
-.status-active { background-color: #edf6ef; color: #2e7d32; }
-.status-inactive { background-color: #fdf0f0; color: #d32f2f; }
+.status-active { background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.status-inactive { background-color: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
 
 /* ========================================================
-   CỘT HÀNH ĐỘNG: 2 NÚT VUÔNG BO GÓC MỀM (Y HỆT HÌNH ẢNH)
+   CỘT HÀNH ĐỘNG: 2 NÚT VUÔNG BO GÓC MỀM ĐƠN GIẢN
 ======================================================== */
 .action-buttons {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
   white-space: nowrap;
 }
 
@@ -1954,57 +1906,89 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.18s ease;
   box-sizing: border-box;
   flex-shrink: 0;
 }
 
 /* Nút 1: Power button xanh lá khi đang hoạt động */
 .btn-action-power.power-active {
-  background-color: #eaf5ea;
-  border-color: #d1ebd1;
-  color: #2e7d32;
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #16a34a;
 }
 .btn-action-power.power-active:hover {
-  background-color: #d7edd7;
-  color: #1e5a22;
+  background-color: #dcfce7;
+  color: #15803d;
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(46, 125, 50, 0.18);
 }
 
 /* Nút 1: Power button đỏ khi đang ngưng hoạt động */
 .btn-action-power.power-inactive {
-  background-color: #fdeeed;
-  border-color: #fad2d0;
-  color: #c62828;
+  background-color: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
 }
 .btn-action-power.power-inactive:hover {
-  background-color: #fbd6d4;
-  color: #a71d1d;
+  background-color: #fee2e2;
+  color: #b91c1c;
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(198, 40, 40, 0.18);
 }
 
-/* Nút 2: Edit button xanh pastel / navy dịu mắt chuẩn ảnh */
+/* Nút 2: Edit button thanh lịch */
 .btn-action-edit {
-  background-color: #eef4f8;
-  border-color: #d8e5ee;
+  background-color: #f0f4f8;
+  border-color: #dbe4ee;
   color: #304b60;
 }
 .btn-action-edit:hover {
-  background-color: #dceaf2;
+  background-color: #e2ecf5;
   color: #1e3342;
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(48, 75, 96, 0.18);
 }
 
 /* Pagination */
-.pagination-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-top: 1.25rem; padding-top: 1.1rem; border-top: 1px dashed var(--line, #e9e5db); }
-.page-size-selector { display: flex; align-items: center; gap: 0.6rem; }
-.page-size-label { font-size: 0.88rem; color: #6f7c82; font-weight: 600; }
-.page-size-selector select { height: 2.2rem; padding: 0 0.75rem; border: 1px solid var(--line, #e9e5db); border-radius: 6px; background-color: #fcfbf8; color: var(--text, #3d4a50); font-size: 0.9rem; font-weight: 600; outline: none; cursor: pointer; }
-.pagination-controls { display: flex; align-items: center; gap: 0.4rem; }
-.pg-btn { min-width: 34px; height: 34px; padding: 0 0.5rem; border-radius: 6px; border: 1px solid var(--line, #e9e5db); background-color: #ffffff; color: #4b585e; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.pagination-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+  margin-top: 1.5rem;
+  padding-top: 1.35rem;
+  border-top: 1px dashed var(--line, #e9e5db);
+}
+.page-size-selector { display: flex; align-items: center; gap: 0.75rem; }
+.page-size-label { font-size: 0.9rem; color: #6f7c82; font-weight: 600; }
+.page-size-selector select {
+  height: 2.35rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--line, #e9e5db);
+  border-radius: 6px;
+  background-color: #fcfbf8;
+  color: var(--text, #3d4a50);
+  font-size: 0.9rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+.pagination-controls { display: flex; align-items: center; gap: 0.5rem; }
+.pg-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--line, #e9e5db);
+  background-color: #ffffff;
+  color: #4b585e;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
 .pg-btn:hover:not(:disabled) { border-color: var(--blue, #496883); color: var(--blue, #496883); background-color: #f4f7f9; }
 .pg-btn.active { background-color: var(--blue, #496883); color: #ffffff; border-color: var(--blue, #496883); }
 .pg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -2012,12 +1996,20 @@ onMounted(() => {
 /* ========================================================
    STYLES CHO VIEW 2: TẠO MỚI / CHỈNH SỬA FULL-PAGE
 ======================================================== */
-.form-header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.8rem; }
-.form-breadcrumb { display: flex; align-items: center; gap: 0.6rem; }
+.form-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.6rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0 0.5rem;
+}
+.form-breadcrumb { display: flex; align-items: center; gap: 0.8rem; }
 .btn-back-link {
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  border-radius: 7px;
   background: #ffffff;
   border: 1px solid #e0dbce;
   cursor: pointer;
@@ -2027,37 +2019,60 @@ onMounted(() => {
   transition: all 0.15s;
 }
 .btn-back-link:hover { background: #fbf9f4; border-color: #304b60; }
-.form-header-actions { display: flex; gap: 0.6rem; }
+.form-header-actions { display: flex; gap: 0.8rem; }
 
-.form-main-layout { display: grid; grid-template-columns: 290px 1fr; gap: 1.25rem; align-items: start; }
-.preview-card { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 1.6rem 1.25rem; }
-.preview-icon-box { width: 58px; height: 58px; border-radius: 12px; background: #fbf5e8; display: grid; place-items: center; margin-bottom: 0.8rem; }
-.preview-badge-code { font-family: monospace; font-size: 0.82rem; font-weight: 700; color: #304b60; background: #eef3f7; padding: 0.2rem 0.6rem; border-radius: 4px; margin-bottom: 0.6rem; }
-.preview-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: #2b383e; line-height: 1.35; }
-.preview-divider { width: 100%; height: 1px; background: #efeae0; margin: 1.1rem 0; }
-.preview-info-row { width: 100%; display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; margin-bottom: 0.75rem; }
-.preview-info-col { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; font-size: 0.85rem; margin-top: 0.4rem; padding-top: 0.75rem; border-top: 1px dashed #efeae0; }
-.preview-label { color: #8c9597; font-size: 0.85rem; }
-.preview-discount-val { font-size: 1.2rem; font-weight: 800; color: #c62828; }
-.preview-date-range { color: #496883; font-weight: 600; font-size: 0.82rem; text-align: left; }
+.form-main-layout {
+  display: grid;
+  grid-template-columns: 310px 1fr;
+  gap: 1.75rem;
+  align-items: start;
+}
+.preview-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem 1.6rem;
+}
+.preview-icon-box { width: 62px; height: 62px; border-radius: 14px; background: #fbf5e8; display: grid; place-items: center; margin-bottom: 1rem; }
+.preview-badge-code { font-family: monospace; font-size: 0.84rem; font-weight: 700; color: #304b60; background: #eef3f7; padding: 0.25rem 0.7rem; border-radius: 5px; margin-bottom: 0.75rem; }
+.preview-title { margin: 0; font-size: 1.15rem; font-weight: 800; color: #111827; line-height: 1.35; letter-spacing: -0.01em; }
+.preview-divider { width: 100%; height: 1px; background: #efeae0; margin: 1.35rem 0; }
+.preview-info-row { width: 100%; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; margin-bottom: 0.9rem; }
+.preview-info-col { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; font-size: 0.88rem; margin-top: 0.5rem; padding-top: 0.9rem; border-top: 1px dashed #efeae0; }
+.preview-label { color: #8c9597; font-size: 0.86rem; }
+.preview-discount-val { font-size: 1.25rem; font-weight: 800; color: #c62828; }
+.preview-date-range { color: #496883; font-weight: 600; font-size: 0.85rem; text-align: left; }
 
-.form-section-card { padding: 1.4rem 1.6rem; margin-bottom: 1.1rem; }
-.section-card-head { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.1rem; }
-.sec-icon-box { width: 36px; height: 36px; border-radius: 8px; background: #fbf5e8; display: grid; place-items: center; }
-.sec-title { margin: 0; font-size: 1.02rem; color: #304b60; font-weight: 700; }
-.sec-desc { margin: 2px 0 0; font-size: 0.8rem; color: #8c9597; }
-.form-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+.form-section-card {
+  padding: 1.75rem 2.25rem;
+  margin-bottom: 1.5rem;
+}
+.section-card-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.sec-icon-box { width: 40px; height: 40px; border-radius: 9px; background: #fbf5e8; display: grid; place-items: center; }
+.sec-title { margin: 0; font-size: 1.1rem; color: #111827; font-weight: 800; letter-spacing: -0.01em; }
+.sec-desc { margin: 3px 0 0; font-size: 0.84rem; color: #8c9597; }
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.4rem;
+}
 
 /* Thanh tìm kiếm sản phẩm cao cấp & hiện đại */
 .product-search-wrapper {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.85rem;
-  margin-bottom: 0.95rem;
+  gap: 1.1rem;
+  margin-bottom: 1.25rem;
   flex-wrap: wrap;
   background: #fdfbf7;
-  padding: 0.75rem 0.9rem;
+  padding: 0.9rem 1.2rem;
   border-radius: 9px;
   border: 1px solid #efeae0;
 }
@@ -2065,7 +2080,7 @@ onMounted(() => {
 .product-search-box {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.75rem;
   flex: 1;
   min-width: 280px;
 }
@@ -2079,7 +2094,7 @@ onMounted(() => {
 
 .search-svg-icon {
   position: absolute;
-  left: 0.85rem;
+  left: 1rem;
   color: #9aa1a4;
   pointer-events: none;
   transition: color 0.2s;
@@ -2087,11 +2102,11 @@ onMounted(() => {
 
 .product-search-input {
   width: 100%;
-  height: 2.45rem;
+  height: 2.75rem;
   border: 1px solid #ded7c9;
-  border-radius: 7px;
-  padding: 0 2.2rem 0 2.45rem;
-  font-size: 0.88rem;
+  border-radius: 8px;
+  padding: 0 2.4rem 0 2.85rem;
+  font-size: 0.9rem;
   background: #ffffff;
   color: #37444a;
   outline: none;
@@ -2107,15 +2122,15 @@ onMounted(() => {
 
 .btn-clear-search {
   position: absolute;
-  right: 0.65rem;
+  right: 0.75rem;
   background: #ebe6dc;
   border: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: #636d72;
   cursor: pointer;
   transition: all 0.15s;
@@ -2126,48 +2141,46 @@ onMounted(() => {
 }
 
 .btn-search-product {
-  height: 2.45rem;
-  padding: 0 1.15rem;
+  height: 2.75rem;
+  padding: 0 1.35rem;
   background: #304b60;
   color: #ffffff;
   border: none;
-  border-radius: 7px;
+  border-radius: 8px;
   font-weight: 700;
-  font-size: 0.86rem;
+  font-size: 0.88rem;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
-  box-shadow: 0 2px 5px rgba(48, 75, 96, 0.2);
 }
 
 .btn-search-product:hover {
   background: #213544;
   transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(48, 75, 96, 0.25);
 }
 
 .product-search-actions {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.75rem;
   flex-shrink: 0;
 }
 
 .btn-toggle-all {
-  height: 2.45rem;
-  padding: 0 1rem;
-  border-radius: 7px;
+  height: 2.75rem;
+  padding: 0 1.25rem;
+  border-radius: 8px;
   border: 1px solid #dcd4c3;
   background: #ffffff;
   color: #4b585e;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
   cursor: pointer;
   transition: all 0.18s ease;
   white-space: nowrap;
@@ -2186,10 +2199,10 @@ onMounted(() => {
 }
 
 .product-badge-found {
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: #637076;
   background: #f2ede1;
-  padding: 0.35rem 0.65rem;
+  padding: 0.45rem 0.85rem;
   border-radius: 6px;
   white-space: nowrap;
   font-weight: 600;
@@ -2197,49 +2210,104 @@ onMounted(() => {
 .product-badge-found b {
   color: #304b60;
 }
-.product-table-box { max-height: 220px; overflow-y: auto; border: 1px solid #e9e5db; border-radius: 6px; background: #ffffff; }
+.product-table-box { max-height: 260px; overflow-y: auto; border: 1px solid #e9e5db; border-radius: 8px; background: #ffffff; }
+.product-table th { padding: 0.95rem 1.25rem; }
+.product-table td { padding: 0.95rem 1.25rem; }
 .row-active td { background: #f0f7f3 !important; }
 .tag-select { font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600; }
 .tag-selected { background: #e8f5e9; color: #2e7d32; }
 .tag-unselected { background: #eee; color: #888; }
-.product-count-summary { font-size: 0.85rem; color: #8c9597; margin-top: 0.6rem; text-align: right; }
-.form-footer-bar { display: flex; justify-content: flex-end; gap: 0.75rem; padding: 1rem 1.4rem; }
+.product-count-summary { font-size: 0.88rem; color: #8c9597; margin-top: 0.8rem; text-align: right; }
+.form-footer-bar { display: flex; justify-content: flex-end; gap: 0.85rem; padding: 1.25rem 0.5rem; }
 
-/* Modal Xác nhận */
+/* Modal Xác nhận lưu / cập nhật */
 .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 10000; animation: fadeIn 0.15s ease-out; }
-.confirm-modal-box { background: #ffffff; border-radius: 12px; width: 92%; max-width: 520px; box-shadow: 0 12px 36px rgba(0,0,0,0.18); overflow: hidden; }
-.confirm-header { padding: 1rem 1.4rem; background: #fffcf5; border-bottom: 1px solid #f2edd9; display: flex; justify-content: space-between; align-items: center; }
+.confirm-modal-box {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 92%;
+  max-width: 520px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+.confirm-header {
+  padding: 1.1rem 1.4rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 .confirm-title-left { display: flex; align-items: center; gap: 0.6rem; }
-.warning-triangle { font-size: 1.3rem; }
-.confirm-header h4 { margin: 0; font-size: 1.1rem; color: #7f6027; font-weight: 700; }
-.btn-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #8c9597; }
+.confirm-header h4 { margin: 0; font-size: 1.15rem; color: #111827; font-weight: 800; letter-spacing: -0.015em; }
+.btn-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #9ca3af; padding: 4px; border-radius: 4px; transition: color 0.15s; }
+.btn-close:hover { color: #111827; background-color: #f3f4f6; }
 
-.confirm-body { padding: 1.4rem 1.4rem 1rem; }
-.confirm-lead-text { font-size: 0.95rem; color: #3d4a50; margin: 0 0 1rem 0; line-height: 1.45; }
-.confirm-lead-text b { color: #304b60; }
+.confirm-body { padding: 1.35rem 1.4rem 1rem; }
+.confirm-lead-text { font-size: 0.93rem; color: #374151; margin: 0 0 1rem 0; line-height: 1.5; }
+.confirm-lead-text b { color: #111827; font-weight: 700; }
 
-.confirm-info-card { background: #fbf9f4; border: 1px solid #efeae0; border-radius: 8px; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.65rem; }
-.confirm-row { display: flex; justify-content: space-between; font-size: 0.9rem; }
-.confirm-label { color: #8c9597; }
-.confirm-val { color: #2b383e; }
+.confirm-info-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.confirm-row { display: flex; justify-content: space-between; font-size: 0.88rem; }
+.confirm-label { color: #6b7280; font-weight: 500; }
+.confirm-val { color: #111827; font-weight: 600; }
 
-.confirm-footer { padding: 1rem 1.4rem 1.25rem; display: flex; justify-content: flex-end; gap: 0.75rem; }
-.btn-cancel-confirm { background: #fffdf7; border: 1px solid #dfd5c2; color: #7f6027; font-weight: 700; height: 2.5rem; padding: 0 1.3rem; border-radius: 6px; }
-.btn-cancel-confirm:hover { background: #fbf5e8; }
-.btn-accept-confirm { background: #3a7d44; color: #ffffff; font-weight: 700; height: 2.5rem; padding: 0 1.4rem; border-radius: 6px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; box-shadow: 0 2px 6px rgba(58, 125, 68, 0.25); }
-.btn-accept-confirm:hover { background: #2f6937; }
+.confirm-footer {
+  padding: 1rem 1.4rem 1.25rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  border-top: 1px solid #f3f4f6;
+}
+.btn-cancel-confirm {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  font-weight: 600;
+  height: 2.5rem;
+  padding: 0 1.35rem;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-cancel-confirm:hover { background: #f9fafb; border-color: #9ca3af; }
+.btn-accept-confirm {
+  background: #16a34a;
+  color: #ffffff;
+  font-weight: 700;
+  height: 2.5rem;
+  padding: 0 1.45rem;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.15s;
+}
+.btn-accept-confirm:hover { background: #15803d; }
 
 /* ========================================================
-   MODAL XÁC NHẬN ĐỔI TRẠNG THÁI (Y HỆT HÌNH ẢNH MẪU)
+   MODAL XÁC NHẬN ĐỔI TRẠNG THÁI (ĐƠN GIẢN, KHÔNG MÀU MÈ)
 ======================================================== */
 .toggle-status-modal-box {
   background: #ffffff;
-  border-radius: 14px;
+  border-radius: 12px;
   width: 92%;
-  max-width: 530px;
-  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.22);
+  max-width: 520px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
   overflow: hidden;
   animation: fadeIn 0.15s ease-out;
+  border: 1px solid #e5e7eb;
 }
 
 .toggle-modal-header {
@@ -2247,19 +2315,14 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  border-bottom: 1px solid #f6e3e3;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
 }
-.header-deactivate { background: #fffcfc; border-bottom-color: #f7dede; }
-.header-activate { background: #f9fdfa; border-bottom-color: #d7edd7; }
 
 .toggle-header-left {
   display: flex;
   align-items: flex-start;
   gap: 0.85rem;
-}
-.warning-triangle-icon {
-  font-size: 1.7rem;
-  line-height: 1.1;
 }
 .toggle-title-wrap {
   display: flex;
@@ -2268,101 +2331,105 @@ onMounted(() => {
 .toggle-title-text {
   margin: 0;
   font-size: 1.15rem;
-  font-weight: 700;
-  letter-spacing: -0.2px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: #111827;
 }
-.title-deactivate { color: #c62828; }
-.title-activate { color: #2e7d32; }
+.title-deactivate { color: #b91c1c; }
+.title-activate { color: #15803d; }
 .toggle-subtitle-text {
   margin: 3px 0 0 0;
   font-size: 0.84rem;
-  color: #c45e5e;
+  color: #6b7280;
 }
-.header-activate .toggle-subtitle-text { color: #558b2f; }
 
 .btn-toggle-close {
   background: transparent;
   border: none;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   cursor: pointer;
-  color: #a0a6a8;
-  padding: 0;
+  color: #9ca3af;
+  padding: 4px;
+  border-radius: 4px;
   line-height: 1;
-  transition: color 0.15s;
+  transition: all 0.15s;
 }
-.btn-toggle-close:hover { color: #4b585e; }
+.btn-toggle-close:hover { color: #111827; background-color: #f3f4f6; }
 
 .toggle-modal-body {
   padding: 1.35rem 1.4rem 1.1rem;
 }
 .toggle-lead-msg {
-  font-size: 0.95rem;
-  color: #374146;
+  font-size: 0.93rem;
+  color: #374151;
   margin: 0 0 1.15rem 0;
   line-height: 1.5;
 }
 
 .toggle-info-card {
-  background: #fbfbfa;
-  border: 1px solid #ebe8df;
-  border-radius: 9px;
-  padding: 1.1rem 1.25rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.7rem;
 }
 .toggle-info-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 .toggle-info-label {
-  color: #7b858b;
+  color: #6b7280;
+  font-weight: 500;
 }
 .toggle-info-val {
-  color: #242c30;
+  color: #111827;
+  font-weight: 600;
   text-align: right;
 }
 
 .toggle-warning-alert {
   margin-top: 1.1rem;
-  background: #fffcf2;
-  border: 1px solid #faeec7;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  padding: 0.85rem 1rem;
+  padding: 0.8rem 1rem;
 }
 .alert-content {
   font-size: 0.85rem;
-  color: #7d5e1f;
+  color: #4b5563;
   line-height: 1.45;
 }
-.alert-content b {
-  color: #705214;
-  margin-right: 4px;
+.alert-tag {
+  font-weight: 750;
+  color: #1f2937;
+  margin-right: 6px;
 }
 
 .toggle-modal-footer {
-  padding: 1.1rem 1.4rem 1.35rem;
+  padding: 1.1rem 1.4rem 1.3rem;
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
-  border-top: 1px solid #f7f5ef;
+  border-top: 1px solid #f3f4f6;
 }
 .btn-toggle-cancel {
   background: #ffffff;
-  border: 1px solid #d4d0c7;
-  color: #3f4a50;
-  font-weight: 700;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  font-weight: 600;
   height: 2.5rem;
-  padding: 0 1.5rem;
+  padding: 0 1.4rem;
   border-radius: 7px;
   cursor: pointer;
   transition: all 0.15s;
 }
 .btn-toggle-cancel:hover {
-  background: #fbf9f4;
-  border-color: #b5b0a4;
+  background: #f9fafb;
+  border-color: #9ca3af;
 }
 
 .btn-toggle-action {
@@ -2371,7 +2438,7 @@ onMounted(() => {
   border-radius: 7px;
   border: none;
   font-weight: 700;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -2379,20 +2446,18 @@ onMounted(() => {
   transition: all 0.15s;
 }
 .btn-red-action {
-  background: #b71c1c;
+  background: #dc2626;
   color: #ffffff;
-  box-shadow: 0 2px 7px rgba(183, 28, 28, 0.28);
 }
 .btn-red-action:hover:not(:disabled) {
-  background: #9b1414;
+  background: #b91c1c;
 }
 .btn-green-action {
-  background: #2e7d32;
+  background: #16a34a;
   color: #ffffff;
-  box-shadow: 0 2px 7px rgba(46, 125, 50, 0.28);
 }
 .btn-green-action:hover:not(:disabled) {
-  background: #216125;
+  background: #15803d;
 }
 .btn-toggle-action:disabled {
   opacity: 0.65;
@@ -2480,378 +2545,7 @@ onMounted(() => {
   font-weight: 700;
 }
 
-.badge-usage-count {
-  display: inline-block;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #304b60;
-  background: #f0f4f8;
-  padding: 0.2rem 0.55rem;
-  border-radius: 5px;
-  border: 1px solid #dce5ee;
-}
 
-.limit-hint-box {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.55rem 0.75rem;
-  background: #fdfbf7;
-  border: 1px dashed #dcd4c3;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  color: #5d676b;
-  margin-top: 1.4rem;
-  line-height: 1.35;
-}
-
-.limit-icon {
-  font-size: 1rem;
-  flex-shrink: 0;
-}
-
-.flex-center-field {
-  display: flex;
-  align-items: flex-end;
-}
-
-.btn-clear-date {
-  position: absolute;
-  right: 2.2rem;
-  background: #ebe6dc;
-  border: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 0.65rem;
-  color: #555f63;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-clear-date:hover {
-  background: #d32f2f;
-  color: #ffffff;
-}
-
-.text-infinity-hint {
-  display: block;
-  font-size: 0.78rem;
-  color: #2e7d32;
-  margin-top: 0.3rem;
-  font-weight: 500;
-}
-
-/* ========================================================
-   STYLES CHO HÌNH THỨC ÁP DỤNG (CÁ NHÂN / CÔNG KHAI)
-======================================================== */
-.full-col {
-  grid-column: span 2;
-}
-
-.badge-form {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  padding: 0.2rem 0.65rem;
-  border-radius: 20px;
-}
-
-.badge-personal {
-  background: #eef5fb;
-  color: #235478;
-  border: 1px solid #c2dcf0;
-}
-
-.badge-public {
-  background: #fdf7eb;
-  color: #b7791f;
-  border: 1px solid #f5dfb8;
-}
-
-.dot-icon {
-  font-size: 0.65rem;
-}
-
-.radio-pill-group {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.85rem;
-  margin-top: 0.35rem;
-}
-
-.radio-pill-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.85rem 1rem;
-  border: 1.5px solid #ded7c9;
-  border-radius: 9px;
-  background: #ffffff;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.radio-pill-card input[type="radio"] {
-  margin-top: 3px;
-  cursor: pointer;
-  accent-color: #304b60;
-}
-
-.radio-pill-card:hover {
-  border-color: #304b60;
-  background: #fdfbf7;
-}
-
-.radio-pill-card.pill-active {
-  border-color: #304b60;
-  background: #f0f6fa;
-  box-shadow: 0 0 0 1px #304b60;
-}
-
-.pill-content {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.pill-title {
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: #2b383e;
-}
-
-.pill-desc {
-  font-size: 0.78rem;
-  color: #727e84;
-  line-height: 1.35;
-}
-
-/* Card 2 bên cột trái: Khách hàng áp dụng */
-.customer-scope-card {
-  margin-top: 1.15rem;
-  padding: 1.25rem;
-  background: #ffffff;
-  border: 1px solid #e5dec9;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.scope-card-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.95rem;
-}
-
-.scope-icon-box {
-  width: 38px;
-  height: 38px;
-  border-radius: 9px;
-  background: #fbf5e8;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-}
-
-.scope-icon {
-  font-size: 1.25rem;
-}
-
-.scope-header-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.scope-title {
-  margin: 0;
-  font-size: 0.96rem;
-  font-weight: 700;
-  color: #304b60;
-}
-
-.scope-subtitle {
-  margin: 2px 0 0;
-  font-size: 0.78rem;
-  color: #7a868b;
-}
-
-.scope-subtitle b {
-  color: #304b60;
-}
-
-.scope-customer-selection {
-  display: flex;
-  flex-direction: column;
-}
-
-.customer-search-box {
-  margin-bottom: 0.65rem;
-}
-
-.customer-search-input {
-  width: 100%;
-  height: 2.3rem;
-  border: 1px solid #ded7c9;
-  border-radius: 6px;
-  padding: 0 0.8rem;
-  font-size: 0.83rem;
-  background: #fdfbf7;
-  color: #37444a;
-  outline: none;
-  box-sizing: border-box;
-  transition: all 0.2s;
-}
-
-.customer-search-input:focus {
-  border-color: #304b60;
-  background: #ffffff;
-  box-shadow: 0 0 0 2px rgba(48, 75, 96, 0.1);
-}
-
-.customer-quick-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  margin-bottom: 0.75rem;
-  color: #7a868b;
-}
-
-.btn-link-action {
-  background: none;
-  border: none;
-  padding: 0;
-  color: #304b60;
-  font-weight: 600;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: color 0.15s;
-}
-
-.btn-link-action:hover {
-  text-decoration: underline;
-  color: #1f3342;
-}
-
-.divider {
-  color: #d0c8b8;
-}
-
-.customer-list-box {
-  max-height: 220px;
-  overflow-y: auto;
-  border: 1px solid #ede7d9;
-  border-radius: 8px;
-  padding: 0.4rem;
-  background: #faf8f3;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.customer-item-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.65rem;
-  padding: 0.55rem 0.65rem;
-  border-radius: 6px;
-  cursor: pointer;
-  background: #ffffff;
-  border: 1px solid #f0eae0;
-  transition: all 0.15s;
-}
-
-.customer-item-row:hover {
-  background: #fbf6ec;
-  border-color: #dcd3be;
-}
-
-.customer-item-row.item-checked {
-  background: #f4f8fb;
-  border-color: #b8d5ea;
-}
-
-.customer-item-row input[type="checkbox"] {
-  margin-top: 3px;
-  cursor: pointer;
-  accent-color: #304b60;
-}
-
-.customer-item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  line-height: 1.35;
-}
-
-.customer-name-phone {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-}
-
-.c-name {
-  font-size: 0.83rem;
-  color: #2b383e;
-}
-
-.c-phone {
-  font-size: 0.78rem;
-  color: #637077;
-}
-
-.customer-meta-sub {
-  font-size: 0.74rem;
-  color: #8c9597;
-}
-
-.c-code {
-  font-family: monospace;
-  font-weight: 600;
-  color: #304b60;
-}
-
-.c-email {
-  color: #8c9597;
-}
-
-.customer-empty-text {
-  padding: 1rem;
-  text-align: center;
-  font-size: 0.82rem;
-  color: #8c9597;
-  font-style: italic;
-}
-
-.scope-public-notice {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.65rem;
-  padding: 0.85rem 0.95rem;
-  background: #fcf9f2;
-  border: 1px dashed #decfae;
-  border-radius: 8px;
-  font-size: 0.82rem;
-  color: #5a666c;
-  line-height: 1.45;
-}
-
-.scope-public-notice .notice-icon {
-  font-size: 1.25rem;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.scope-public-notice p {
-  margin: 0;
-}
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-8px); }
@@ -2862,8 +2556,6 @@ onMounted(() => {
   .form-main-layout { grid-template-columns: 1fr; }
   .filter-inputs-grid { grid-template-columns: repeat(2, 1fr); }
   .form-grid-2 { grid-template-columns: 1fr; }
-  .full-col { grid-column: span 1; }
-  .radio-pill-group { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 650px) {
