@@ -44,5 +44,11 @@ public class LichSuHoaDon {
     @Nationalized
     @Column(name = "vai_tro_nguoi_thuc_hien", length = 100)
     private String vaiTroNguoiThucHien;
+    @Column(name = "trang_thai")
+    private Integer trangThai;
+    @Nationalized
+    @Lob
+    @Column(name = "ghi_chu")
+    private String ghiChu;
 
 }
