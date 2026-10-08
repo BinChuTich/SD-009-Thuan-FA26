@@ -44,22 +44,64 @@ public class HoaDonController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<HoaDon> update(@PathVariable Long id, @RequestBody HoaDon hoaDon) {
+    public ResponseEntity<HoaDon> update(
+            @PathVariable Long id,
+            @RequestBody HoaDon hoaDon) {
+
         try {
-            return ResponseEntity.ok(hoaDonService.update(id, hoaDon));
+            return ResponseEntity.ok(
+                    hoaDonService.update(id, hoaDon)
+            );
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
     }
 
     @PutMapping("/{id}/trang-thai")
-    public ResponseEntity<HoaDon> updateTrangThai(@PathVariable Long id, @RequestBody Map<String, Integer> body) {
+    public ResponseEntity<HoaDon> updateTrangThai(
+            @PathVariable Long id,
+            @RequestBody Map<String, Integer> body) {
+
         Integer trangThai = body.get("trangThai");
+
         if (trangThai == null) {
             return ResponseEntity.badRequest().build();
         }
+
         try {
-            return ResponseEntity.ok(hoaDonService.updateTrangThai(id, trangThai));
+            return ResponseEntity.ok(
+                    hoaDonService.updateTrangThai(
+                            id,
+                            trangThai
+                    )
+            );
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // Cập nhật trạng thái thanh toán
+    // 0 = Chưa thanh toán
+    // 1 = Đã thanh toán
+    @PutMapping("/{id}/trang-thai-thanh-toan")
+    public ResponseEntity<HoaDon> updateTrangThaiThanhToan(
+            @PathVariable Long id,
+            @RequestBody Map<String, Integer> body) {
+
+        Integer trangThaiThanhToan =
+                body.get("trangThaiThanhToan");
+
+        if (trangThaiThanhToan == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        try {
+            return ResponseEntity.ok(
+                    hoaDonService.updateTrangThaiThanhToan(
+                            id,
+                            trangThaiThanhToan
+                    )
+            );
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
@@ -67,10 +109,13 @@ public class HoaDonController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
+
         if (hoaDonService.getById(id).isEmpty()) {
             return ResponseEntity.notFound().build();
         }
+
         hoaDonService.delete(id);
+
         return ResponseEntity.noContent().build();
     }
 }
