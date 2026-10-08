@@ -10,12 +10,8 @@
     <!-- 2. Khung Bộ lọc (Tone màu ấm FF T-shirt) -->
     <div class="content-card filter-card">
       <div class="card-header-filter">
-        <div class="filter-icon-box">
-          <span class="filter-icon">🌪️</span>
-        </div>
         <div class="filter-title-wrap">
           <h3 class="filter-title">Bộ lọc</h3>
-          <p class="filter-subtitle">Tra cứu nhanh dữ liệu.</p>
         </div>
       </div>
 
@@ -25,7 +21,6 @@
         <div class="form-field">
           <label>Tìm kiếm</label>
           <div class="input-inner">
-            <span class="prefix-icon">🔍</span>
             <input
                 type="text"
                 v-model="filters.keyword"
@@ -91,13 +86,13 @@
       <!-- Cụm nút thao tác bên dưới bên phải -->
       <div class="filter-actions">
         <button class="btn btn-reset" @click="resetFilters">
-          <span class="btn-icon">↺</span> Đặt lại bộ lọc
+          Đặt lại bộ lọc
         </button>
         <button class="btn btn-export">
-          <span class="btn-icon">📥</span> Xuất Excel
+          Xuất Excel
         </button>
         <button class="btn btn-primary" @click="openCreateModal">
-          <span>+</span> Tạo phiếu mới
+          Tạo phiếu mới
         </button>
       </div>
     </div>
@@ -208,15 +203,6 @@
 
       <!-- 4. Thanh phân trang dưới cùng bảng -->
       <div class="pagination-footer" v-if="filteredList.length > 0">
-        <div class="pagination-left">
-          <select v-model.number="pageSize" class="page-size-select" title="Số dòng mỗi trang">
-            <option :value="5">5</option>
-            <option :value="10">10</option>
-            <option :value="20">20</option>
-            <option :value="50">50</option>
-          </select>
-        </div>
-
         <div class="pagination-controls">
           <button
               class="pg-btn"
@@ -270,10 +256,6 @@
     <div v-if="showToggleConfirmModal" class="modal-overlay" @click.self="closeToggleConfirmModal">
       <div class="modal-box confirm-modal-box">
         <div class="confirm-modal-header" :class="{ 'header-danger': voucherToToggle?.rawTrangThai === 1 }">
-          <div class="confirm-warning-icon">
-            <span v-if="voucherToToggle?.rawTrangThai === 1">⚠️</span>
-            <span v-else>⚡</span>
-          </div>
           <div class="confirm-title-wrap">
             <h3 class="confirm-title">
               {{ voucherToToggle?.rawTrangThai === 1 ? 'Xác nhận ngừng hoạt động' : 'Xác nhận kích hoạt phiếu' }}
@@ -332,10 +314,10 @@
           <!-- Lời nhắc lưu ý -->
           <div class="confirm-note-box" :class="{ 'note-warning': voucherToToggle?.rawTrangThai === 1, 'note-info': voucherToToggle?.rawTrangThai === 0 }">
             <span v-if="voucherToToggle?.rawTrangThai === 1">
-              ⚠️ <b>Lưu ý:</b> Khi ngừng hoạt động, khách hàng sẽ tạm thời không thể áp dụng mã giảm giá này khi thanh toán.
+              <b>Lưu ý:</b> Khi ngừng hoạt động, khách hàng sẽ tạm thời không thể áp dụng mã giảm giá này khi thanh toán.
             </span>
             <span v-else>
-              💡 <b>Lưu ý:</b> Phiếu giảm giá sẽ có hiệu lực sử dụng ngay lập tức cho các đơn hàng thỏa mãn điều kiện.
+              <b>Lưu ý:</b> Phiếu giảm giá sẽ có hiệu lực sử dụng ngay lập tức cho các đơn hàng thỏa mãn điều kiện.
             </span>
           </div>
         </div>
@@ -350,7 +332,6 @@
               :disabled="togglingStatus"
           >
             <span v-if="togglingStatus" class="spin">🔄</span>
-            <span v-else>✔</span>
             {{ togglingStatus ? 'Đang cập nhật...' : (voucherToToggle?.rawTrangThai === 1 ? 'Ngừng hoạt động' : 'Kích hoạt phiếu') }}
           </button>
         </div>
@@ -359,7 +340,6 @@
 
     <!-- 5. TOAST THÔNG BÁO THÀNH CÔNG -->
     <div v-if="showSuccessToast" class="toast-success">
-      <div class="toast-icon">✅</div>
       <div class="toast-text">
         <b>Thành công!</b>
         <p>{{ toastMessage }}</p>
@@ -597,14 +577,14 @@ const openToggleStatusModal = (item) => {
   showToggleConfirmModal.value = true
 }
 
-
+// Đóng modal xác nhận
 const closeToggleConfirmModal = () => {
   if (togglingStatus.value) return
   showToggleConfirmModal.value = false
   voucherToToggle.value = null
 }
 
-
+// Xác nhận đổi trạng thái qua API Backend
 const confirmToggleStatus = async () => {
   if (!voucherToToggle.value) return
   togglingStatus.value = true
@@ -643,7 +623,7 @@ const openCreateModal = () => {
 
 <style scoped>
 .voucher-page-wrapper {
-  padding: 1.25rem 1.75rem 2.5rem;
+  padding: 1.5rem 2.5rem 2.5rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   font-family: var(--system-font, sans-serif);
@@ -652,7 +632,8 @@ const openCreateModal = () => {
 }
 
 .breadcrumb-header {
-  margin-bottom: 1.2rem;
+  margin-bottom: 1.25rem;
+  padding: 0.2rem 0;
 }
 
 .breadcrumb-left {
@@ -1372,7 +1353,7 @@ const openCreateModal = () => {
 /* Phân trang dưới cùng bảng */
 .pagination-footer {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   padding: 1.1rem 1.25rem 0.5rem;
   margin-top: 0.5rem;
