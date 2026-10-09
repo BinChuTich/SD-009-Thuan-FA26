@@ -57,11 +57,11 @@
               <label class="field-label">Đơn hàng tối thiểu <span class="required">*</span></label>
               <div class="input-with-addon">
                 <input
-                    type="number"
-                    v-model.number="form.hoaDonToiThieu"
-                    min="0"
-                    placeholder="VD: 700 -> 700.000 đ"
-                    @blur="handleMoneyBlur('hoaDonToiThieu')"
+                    type="text"
+                    :value="displayMoney.hoaDonToiThieu"
+                    placeholder="VD: 100.000"
+                    @input="onMoneyInput('hoaDonToiThieu', $event)"
+                    @blur="onMoneyBlur('hoaDonToiThieu')"
                     class="form-control"
                     :class="{ 'input-error': errors.hoaDonToiThieu }"
                 />
@@ -69,9 +69,6 @@
               </div>
               <div v-if="errors.hoaDonToiThieu" class="field-error-msg">
                 <span class="err-icon">ⓘ</span> {{ errors.hoaDonToiThieu }}
-              </div>
-              <div v-else-if="form.hoaDonToiThieu" class="field-hint-text">
-                ≈ {{ formatMoney(form.hoaDonToiThieu) }}
               </div>
             </div>
           </div>
@@ -94,12 +91,22 @@
               </label>
               <div class="input-with-addon">
                 <input
+                    v-if="form.loaiPhieuGiamGia === 1"
                     type="number"
                     v-model.number="form.giaTriGiamGia"
-                    :min="form.loaiPhieuGiamGia === 1 ? 1 : 1000"
-                    :max="form.loaiPhieuGiamGia === 1 ? 100 : 999999999"
-                    :placeholder="form.loaiPhieuGiamGia === 1 ? 'Nhập từ 1 - 100%' : 'VD: 15 -> 15.000 đ'"
-                    @blur="handleMoneyBlur('giaTriGiamGia')"
+                    min="1"
+                    max="100"
+                    placeholder="Nhập từ 1 - 100%"
+                    class="form-control"
+                    :class="{ 'input-error': errors.giaTriGiamGia }"
+                />
+                <input
+                    v-else
+                    type="text"
+                    :value="displayMoney.giaTriGiamGia"
+                    placeholder="VD: 20.000"
+                    @input="onMoneyInput('giaTriGiamGia', $event)"
+                    @blur="onMoneyBlur('giaTriGiamGia')"
                     class="form-control"
                     :class="{ 'input-error': errors.giaTriGiamGia }"
                 />
@@ -108,25 +115,21 @@
               <div v-if="errors.giaTriGiamGia" class="field-error-msg">
                 <span class="err-icon">ⓘ</span> {{ errors.giaTriGiamGia }}
               </div>
-              <div v-else-if="form.loaiPhieuGiamGia === 2 && form.giaTriGiamGia" class="field-hint-text">
-                ≈ {{ formatMoney(form.giaTriGiamGia) }}
-              </div>
             </div>
           </div>
 
-          <!-- Hàng 4: Giảm tối đa (VNĐ) - Chỉ áp dụng khi giảm theo % -->
+          <!-- Hàng 4: Giảm tối đa (VNĐ) - Bắt buộc khi giảm theo % -->
           <div class="form-field full-width" v-if="form.loaiPhieuGiamGia === 1">
             <label class="field-label">
-              Giảm tối đa (VNĐ)
-              <span class="field-hint-inline">(Không bắt buộc)</span>
+              Giảm tối đa (VNĐ) <span class="required">*</span>
             </label>
             <div class="input-with-addon">
               <input
-                  type="number"
-                  v-model.number="form.giamToiDa"
-                  min="1000"
-                  placeholder="VD: 50 -> 50.000 đ (để trống nếu không giới hạn tối đa)"
-                  @blur="handleMoneyBlur('giamToiDa')"
+                  type="text"
+                  :value="displayMoney.giamToiDa"
+                  placeholder="VD: 50.000"
+                  @input="onMoneyInput('giamToiDa', $event)"
+                  @blur="onMoneyBlur('giamToiDa')"
                   class="form-control"
                   :class="{ 'input-error': errors.giamToiDa }"
               />
@@ -134,9 +137,6 @@
             </div>
             <div v-if="errors.giamToiDa" class="field-error-msg">
               <span class="err-icon">ⓘ</span> {{ errors.giamToiDa }}
-            </div>
-            <div v-else-if="form.giamToiDa" class="field-hint-text">
-              ≈ {{ formatMoney(form.giamToiDa) }}
             </div>
           </div>
 
@@ -163,21 +163,7 @@
 
             <!-- Ngày kết thúc -->
             <div class="form-field">
-              <div class="field-label-row">
-                <label class="field-label">
-                  Ngày kết thúc <span class="required">*</span>
-                  <span class="field-hint-inline">(Để trống = Vô hạn)</span>
-                </label>
-                <button
-                    v-if="form.ngayKetThucStr"
-                    type="button"
-                    class="btn-clear-date"
-                    @click="form.ngayKetThucStr = ''"
-                    title="Đặt thời gian áp dụng vô hạn"
-                >
-                  Đặt vô hạn
-                </button>
-              </div>
+              <label class="field-label">Ngày kết thúc <span class="required">*</span></label>
               <input
                   type="datetime-local"
                   v-model="form.ngayKetThucStr"
@@ -187,9 +173,6 @@
               />
               <div v-if="errors.ngayKetThuc" class="field-error-msg">
                 <span class="err-icon">ⓘ</span> {{ errors.ngayKetThuc }}
-              </div>
-              <div v-else-if="!form.ngayKetThucStr" class="field-hint-text">
-                Áp dụng không giới hạn ngày kết thúc (Vô hạn).
               </div>
             </div>
           </div>
@@ -352,7 +335,6 @@
         <div class="confirm-modal-header">
           <div class="confirm-title-wrap">
             <h3 class="confirm-title">Xác nhận tạo phiếu giảm giá</h3>
-            <p class="confirm-subtitle">Kiểm tra thông tin trước khi thêm vào cơ sở dữ liệu</p>
           </div>
           <button class="modal-close-btn" @click="closeConfirmModal">✕</button>
         </div>
@@ -362,55 +344,6 @@
             Bạn có chắc chắn muốn tạo phiếu giảm giá mới
             <b class="text-blue">[{{ form.tenPhieuGiamGia }}]</b> không?
           </p>
-
-          <!-- Bảng tóm tắt thông số -->
-          <div class="confirm-summary-panel">
-            <div class="summary-line">
-              <span class="s-label">Tên phiếu:</span>
-              <span class="s-val font-medium">{{ form.tenPhieuGiamGia }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Hình thức:</span>
-              <span class="s-val font-medium">
-                {{ form.hinhThuc }}
-                <span v-if="form.hinhThuc === 'Cá nhân'" class="text-xs text-muted">
-                  ({{ selectedCustomerIds.length }} khách hàng)
-                </span>
-              </span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Mức giảm:</span>
-              <span class="s-val font-bold text-highlight">
-                {{ form.loaiPhieuGiamGia === 1 ? form.giaTriGiamGia + '%' : formatMoney(form.giaTriGiamGia) }}
-              </span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Đơn tối thiểu:</span>
-              <span class="s-val">{{ formatMoney(form.hoaDonToiThieu) }}</span>
-            </div>
-            <div class="summary-line" v-if="form.loaiPhieuGiamGia === 1 && form.giamToiDa">
-              <span class="s-label">Giảm tối đa:</span>
-              <span class="s-val">{{ formatMoney(form.giamToiDa) }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Số lượng phát hành:</span>
-              <span class="s-val">{{ form.soLuongSuDung }} lượt</span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Thời hạn:</span>
-              <span class="s-val">{{ formatDateTimeDisplay(form.ngayBatDauStr) }} ➔ {{ formatDateTimeDisplay(form.ngayKetThucStr) }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Trạng thái khởi tạo:</span>
-              <span class="s-val font-medium" :class="calculatedStatusMeta.class">
-                {{ calculatedStatusMeta.text }}
-              </span>
-            </div>
-          </div>
-
-          <div class="confirm-note-box note-info">
-            <b>Lưu ý:</b> Trạng thái của phiếu được tự động xác định dựa trên ngày bắt đầu. Phiếu sẽ tự động có hiệu lực ngay khi đến thời điểm bắt đầu.
-          </div>
         </div>
 
         <div class="confirm-modal-footer">
@@ -500,51 +433,90 @@ const calculatedStatusMeta = computed(() => {
   return { text: 'Đang hoạt động', class: 'text-success font-bold' }
 })
 
-// Tự động thêm 3 số 0 khi nhập tiền mặt nếu số nhập < 1000
-const autoAppendThreeZeros = (field) => {
+// Giá trị hiển thị định dạng tiền tệ có dấu chấm phân cách hàng nghìn trực tiếp trong ô input
+const displayMoney = ref({
+  hoaDonToiThieu: '',
+  giaTriGiamGia: '',
+  giamToiDa: ''
+})
+
+const formatNumberString = (val) => {
+  if (val == null || val === '') return ''
+  const num = Number(val)
+  if (isNaN(num)) return ''
+  return num.toLocaleString('vi-VN')
+}
+
+// Xử lý khi người dùng nhập vào các ô tiền tệ: chỉ cho phép số, format trực tiếp trong ô
+const onMoneyInput = (field, event) => {
+  const raw = event.target.value.replace(/\D/g, '')
+  if (!raw) {
+    form.value[field] = null
+    displayMoney.value[field] = ''
+    event.target.value = ''
+  } else {
+    const trimmed = raw.slice(0, 12)
+    const num = parseInt(trimmed, 10)
+    form.value[field] = num
+    displayMoney.value[field] = num.toLocaleString('vi-VN')
+    event.target.value = displayMoney.value[field]
+  }
+  if (errors.value[field]) {
+    delete errors.value[field]
+  }
+}
+
+// Khi blur ra ngoài: nếu số > 0 và < 1000 thì tự động nhân 1000 (VD: 15 -> 15.000, 700 -> 700.000)
+const onMoneyBlur = (field) => {
   const val = form.value[field]
   if (val != null && val !== '') {
-    const num = Number(val)
+    let num = Number(val)
     if (!isNaN(num) && num > 0 && num < 1000) {
-      form.value[field] = Math.round(num * 1000)
+      num = Math.round(num * 1000)
+      form.value[field] = num
+      displayMoney.value[field] = num.toLocaleString('vi-VN')
     }
   }
 }
 
-const handleMoneyBlur = (field) => {
-  if (field === 'giaTriGiamGia' && form.value.loaiPhieuGiamGia !== 2) {
-    return
-  }
-  if (field === 'giamToiDa' && form.value.loaiPhieuGiamGia !== 1) {
-    return
-  }
-  autoAppendThreeZeros(field)
-}
-
 const normalizeMoneyInputs = () => {
+  onMoneyBlur('hoaDonToiThieu')
   if (form.value.loaiPhieuGiamGia === 2) {
-    autoAppendThreeZeros('giaTriGiamGia')
+    onMoneyBlur('giaTriGiamGia')
   }
-  autoAppendThreeZeros('hoaDonToiThieu')
   if (form.value.loaiPhieuGiamGia === 1) {
-    autoAppendThreeZeros('giamToiDa')
+    onMoneyBlur('giamToiDa')
   }
 }
 
 watch(() => form.value.loaiPhieuGiamGia, (newVal) => {
   if (newVal === 2) {
     form.value.giamToiDa = null
+    displayMoney.value.giamToiDa = ''
     if (errors.value.giamToiDa) delete errors.value.giamToiDa
     if (form.value.giaTriGiamGia != null && form.value.giaTriGiamGia !== '') {
-      autoAppendThreeZeros('giaTriGiamGia')
+      onMoneyBlur('giaTriGiamGia')
     }
   } else if (newVal === 1) {
     if (form.value.giaTriGiamGia && form.value.giaTriGiamGia > 100) {
       form.value.giaTriGiamGia = null
     }
+    displayMoney.value.giaTriGiamGia = ''
+    if (form.value.giamToiDa != null && form.value.giamToiDa !== '') {
+      onMoneyBlur('giamToiDa')
+    }
   }
   if (errors.value.giaTriGiamGia) delete errors.value.giaTriGiamGia
 })
+
+// Tự động xóa chữ đỏ lỗi khi người dùng gõ nhập lại
+watch(() => form.value.tenPhieuGiamGia, (v) => { if (v && errors.value.tenPhieuGiamGia) delete errors.value.tenPhieuGiamGia })
+watch(() => form.value.soLuongSuDung, (v) => { if (v && errors.value.soLuongSuDung) delete errors.value.soLuongSuDung })
+watch(() => form.value.hoaDonToiThieu, (v) => { if (v && errors.value.hoaDonToiThieu) delete errors.value.hoaDonToiThieu })
+watch(() => form.value.giaTriGiamGia, (v) => { if (v && errors.value.giaTriGiamGia) delete errors.value.giaTriGiamGia })
+watch(() => form.value.giamToiDa, (v) => { if (v && errors.value.giamToiDa) delete errors.value.giamToiDa })
+watch(() => form.value.ngayBatDauStr, (v) => { if (v && errors.value.ngayBatDau) delete errors.value.ngayBatDau })
+watch(() => form.value.ngayKetThucStr, () => { if (errors.value.ngayKetThuc) delete errors.value.ngayKetThuc })
 
 // Nạp danh sách khách hàng từ Backend
 const fetchCustomers = async () => {
@@ -692,11 +664,15 @@ const validateForm = () => {
     }
   }
 
-  // 5. Giảm tối đa (Khi giảm theo %)
-  if (form.value.loaiPhieuGiamGia === 1 && form.value.giamToiDa != null && form.value.giamToiDa !== '') {
-    const maxVal = Number(form.value.giamToiDa)
-    if (isNaN(maxVal) || maxVal < 1000) {
-      errs.giamToiDa = 'Mức giảm tối đa phải từ 1.000 đ trở lên.'
+  // 5. Giảm tối đa (Bắt buộc khi giảm theo %)
+  if (form.value.loaiPhieuGiamGia === 1) {
+    if (form.value.giamToiDa == null || form.value.giamToiDa === '') {
+      errs.giamToiDa = 'Vui lòng nhập mức giảm tối đa.'
+    } else {
+      const maxVal = Number(form.value.giamToiDa)
+      if (isNaN(maxVal) || maxVal < 1000) {
+        errs.giamToiDa = 'Mức giảm tối đa phải từ 1.000 đ trở lên.'
+      }
     }
   }
 
@@ -712,8 +688,10 @@ const validateForm = () => {
     }
   }
 
-  // 7. Thời gian kết thúc (Nếu có thì phải sau thời gian bắt đầu)
-  if (form.value.ngayKetThucStr && form.value.ngayBatDauStr) {
+  // 7. Thời gian kết thúc (Bắt buộc và phải sau thời gian bắt đầu)
+  if (!form.value.ngayKetThucStr) {
+    errs.ngayKetThuc = 'Vui lòng chọn thời gian kết thúc.'
+  } else if (form.value.ngayBatDauStr) {
     const startDate = new Date(form.value.ngayBatDauStr)
     const endDate = new Date(form.value.ngayKetThucStr)
     if (endDate <= startDate) {
@@ -1322,9 +1300,14 @@ const goBack = () => {
   padding: 1.25rem 1.5rem;
 }
 
+.confirm-modal-box {
+  max-width: 460px;
+}
+
 .confirm-message-text {
-  margin: 0 0 1rem;
+  margin: 0.25rem 0;
   font-size: 0.95rem;
+  line-height: 1.5;
   color: #374151;
 }
 

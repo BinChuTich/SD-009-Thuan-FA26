@@ -77,6 +77,7 @@
           <select v-model="filters.trangThai">
             <option value="">Tất cả trạng thái</option>
             <option value="active">Đang hoạt động</option>
+            <option value="upcoming">Sắp diễn ra</option>
             <option value="expired">Đã hết hạn</option>
             <option value="inactive">Ngừng hoạt động</option>
           </select>

@@ -65,8 +65,11 @@ public class PhieuGiamGiaService {
             }
         }
 
-        // 4. Giảm tối đa (khi là %)
-        if (dto.getLoaiPhieuGiamGia() == 1 && dto.getGiamToiDa() != null) {
+        // 4. Giảm tối đa (Bắt buộc khi là %)
+        if (dto.getLoaiPhieuGiamGia() == 1) {
+            if (dto.getGiamToiDa() == null) {
+                throw new IllegalArgumentException("Mức giảm tối đa không được để trống khi giảm theo %!");
+            }
             if (dto.getGiamToiDa().compareTo(new BigDecimal("1000")) < 0) {
                 throw new IllegalArgumentException("Mức giảm tối đa phải tối thiểu từ 1.000 VNĐ!");
             }
@@ -93,7 +96,10 @@ public class PhieuGiamGiaService {
         if (dto.getNgayBatDau() == null) {
             throw new IllegalArgumentException("Ngày bắt đầu không được để trống!");
         }
-        if (dto.getNgayKetThuc() != null && dto.getNgayKetThuc().isBefore(dto.getNgayBatDau())) {
+        if (dto.getNgayKetThuc() == null) {
+            throw new IllegalArgumentException("Ngày kết thúc không được để trống!");
+        }
+        if (dto.getNgayKetThuc().isBefore(dto.getNgayBatDau())) {
             throw new IllegalArgumentException("Thời gian kết thúc phải diễn ra sau hoặc cùng thời điểm với thời gian bắt đầu!");
         }
 
