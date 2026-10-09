@@ -649,21 +649,20 @@ watch(() => route.query.sanPhamId, async (newId) => {
             <th style="width: 80px; text-align: center;">Kích cỡ</th>
             <th style="width: 90px; text-align: center;">Số lượng</th>
             <th style="width: 120px; text-align: right;">Giá bán</th>
-            <th style="width: 80px; text-align: center;">Giảm</th>
             <th style="width: 110px; text-align: center;">Trạng thái</th>
             <th style="width: 130px; text-align: center;">Hành động</th>
           </tr>
           </thead>
           <tbody>
           <tr v-if="loading">
-            <td colspan="12" class="empty-cell">
+            <td colspan="11" class="empty-cell">
               <div class="loading-state">
                 <span class="loading-spinner"></span> Đang tải danh sách biến thể...
               </div>
             </td>
           </tr>
           <tr v-else-if="variants.length === 0">
-            <td colspan="12" class="empty-cell">
+            <td colspan="11" class="empty-cell">
               Không tìm thấy biến thể nào phù hợp!
             </td>
           </tr>
@@ -720,11 +719,6 @@ watch(() => route.query.sanPhamId, async (newId) => {
             <!-- Giá bán -->
             <td style="text-align: right;" class="cell-price">
               {{ formatPrice(item.giaBan) }}
-            </td>
-
-            <!-- Giảm -->
-            <td style="text-align: center;" class="cell-discount">
-              —
             </td>
 
             <!-- Trạng thái -->
