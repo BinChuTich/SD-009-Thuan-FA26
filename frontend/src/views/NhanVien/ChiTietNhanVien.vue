@@ -456,7 +456,10 @@ function validateAll() {
 async function loadRoles() {
   try {
     const res = await api.get('/api/nhan-vien/vai-tro')
-    roles.value = res.data || []
+    roles.value = (res.data || []).filter(r =>
+      r.maVaiTro === 'ADMIN' || r.maVaiTro === 'NV' ||
+      r.tenVaiTro === 'Quản trị viên' || r.tenVaiTro === 'Nhân viên'
+    )
   } catch (e) {
     console.error('Lỗi vai trò:', e)
   }
@@ -1007,11 +1010,11 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background-color: #496883;
+  background-color: #b38e6e;
   color: #ffffff;
 }
 .btn-primary:hover {
-  background-color: #38536b;
+  background-color: #9c7756;
 }
 
 @media (max-width: 900px) {

@@ -69,15 +69,15 @@
           <thead>
             <tr>
               <th style="width: 50px; text-align: center">STT</th>
-              <th style="width: 65px; text-align: center">Ảnh</th>
-              <th style="width: 110px">Mã NV</th>
-              <th style="width: 160px">Họ tên</th>
+              <th style="width: 65px; text-align: center">ẢNH</th>
+              <th style="width: 110px">MÃ NV</th>
+              <th style="width: 160px">HỌ TÊN</th>
               <th style="width: 120px">SĐT</th>
-              <th style="width: 180px">Email</th>
-              <th>Địa chỉ</th>
-              <th style="width: 120px">Chức vụ</th>
-              <th style="width: 120px; text-align: center">Trạng thái</th>
-              <th style="width: 100px; text-align: center">Hành động</th>
+              <th style="width: 180px">EMAIL</th>
+              <th>ĐỊA CHỈ</th>
+              <th style="width: 120px">CHỨC VỤ</th>
+              <th style="width: 120px; text-align: center">TRẠNG THÁI</th>
+              <th style="width: 100px; text-align: center">HÀNH ĐỘNG</th>
             </tr>
           </thead>
           <tbody>
@@ -220,7 +220,10 @@ function getInitials(name) {
 async function loadRoles() {
   try {
     const res = await api.get('/api/nhan-vien/vai-tro')
-    roles.value = res.data
+    roles.value = (res.data || []).filter(r =>
+      r.maVaiTro === 'ADMIN' || r.maVaiTro === 'NV' ||
+      r.tenVaiTro === 'Quản trị viên' || r.tenVaiTro === 'Nhân viên'
+    )
   } catch (e) {
     showAlert({
       title: 'Lỗi tải danh mục vai trò',
@@ -512,12 +515,18 @@ onMounted(async () => {
 }
 
 .btn-primary {
-  background-color: var(--blue, #496883);
-  border: none;
+  background-color: #b38e6e;
+  border: 1px solid #a67c52;
+  border-radius: 9999px;
   color: #ffffff;
+  padding: 0 1.4rem;
+  box-shadow: 0 2px 6px rgba(179, 142, 110, 0.25);
 }
 .btn-primary:hover {
-  background-color: #38536b;
+  background-color: #9c7756;
+  border-color: #8f6a49;
+  box-shadow: 0 4px 10px rgba(179, 142, 110, 0.35);
+  transform: translateY(-1px);
 }
 
 .table-header-row {
@@ -552,13 +561,15 @@ onMounted(async () => {
 }
 
 .custom-table th {
-  background-color: #faf9f6;
-  color: #6f7c82;
+  background-color: #d8c7b8;
+  color: #433227;
   font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
   padding: 0.95rem 1rem;
   text-align: left;
-  border-bottom: 1px solid #efede7;
-  font-size: 0.95rem;
+  border-bottom: 2px solid #c8b7a6;
   white-space: nowrap;
 }
 
@@ -591,8 +602,8 @@ onMounted(async () => {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background-color: #eaf1f5;
-  color: var(--blue, #496883);
+  background-color: #f0e6dc;
+  color: #8c6a46;
   font-size: 0.85rem;
   font-weight: 700;
   display: grid;
@@ -608,7 +619,7 @@ onMounted(async () => {
 }
 
 .text-blue {
-  color: var(--blue, #496883);
+  color: #8c6a46;
   font-family: monospace, sans-serif;
   letter-spacing: 0.4px;
 }
@@ -642,26 +653,29 @@ onMounted(async () => {
 
 .role-admin {
   font-weight: 700;
-  color: var(--blue, #496883);
+  color: #8c6a46;
 }
 
 .badge-status {
   display: inline-block;
-  font-size: 0.82rem;
-  font-weight: 700;
-  padding: 0.35rem 0.85rem;
-  border-radius: 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.32rem 0.85rem;
+  border-radius: 9999px;
   white-space: nowrap;
+  letter-spacing: 0.2px;
 }
 
 .status-active {
-  background-color: #edf6ef;
-  color: #4c8a5a;
+  background-color: #eaf5ed;
+  color: #247541;
+  border: 1px solid #bce1c7;
 }
 
 .status-inactive {
-  background-color: #f7eeee;
-  color: #a65d5d;
+  background-color: #f7edeb;
+  color: #b34a3b;
+  border: 1px solid #ecc9c3;
 }
 
 .action-buttons {
@@ -710,7 +724,7 @@ onMounted(async () => {
 }
 
 .switch-toggle input:checked + .slider-round {
-  background-color: #2e9f65;
+  background-color: #b38e6e;
 }
 
 .switch-toggle input:checked + .slider-round::before {

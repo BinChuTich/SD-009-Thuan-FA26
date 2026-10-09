@@ -353,8 +353,12 @@ public class KhachHangService {
 
     private KhachHangResponse toResponse(KhachHang x) {
         DiaChiKhachHang a = addressRepo.findFirstByIdKhachHangIdAndMacDinhTrueAndTrangThai(x.getId(), 1).orElse(null);
+        String account = x.getTaiKhoan();
+        if (account == null || account.isBlank()) {
+            account = x.getMaKhachHang() != null ? x.getMaKhachHang().toLowerCase() : "-";
+        }
         return new KhachHangResponse(
-                x.getId(), x.getMaKhachHang(), x.getTaiKhoan(), x.getTenKhachHang(), x.getEmail(), x.getSoDienThoai(),
+                x.getId(), x.getMaKhachHang(), account, x.getTenKhachHang(), x.getEmail(), x.getSoDienThoai(),
                 x.getNgaySinh(), x.getGioiTinh(), x.getTrangThai(),
                 a == null ? null : a.getThanhPho(),
                 a == null ? null : a.getHuyen(),

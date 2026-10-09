@@ -33,6 +33,41 @@ public class NhanVienService {
         this.emailService = emailService;
     }
 
+    @jakarta.annotation.PostConstruct
+    @Transactional
+    public void normalizeRoles() {
+        try {
+            List<VaiTro> allRoles = roleRepo.findAll();
+            for (VaiTro r : allRoles) {
+                if ("ADMIN".equalsIgnoreCase(r.getMaVaiTro())) {
+                    r.setTenVaiTro("Quản trị viên");
+                    r.setTrangThai(1);
+                    roleRepo.save(r);
+                } else if ("NV".equalsIgnoreCase(r.getMaVaiTro())) {
+                    r.setTenVaiTro("Nhân viên");
+                    r.setTrangThai(1);
+                    roleRepo.save(r);
+                } else {
+                    // Chuyển nhân viên có vai trò khác sang vai trò NV (nếu có)
+                    VaiTro nvRole = roleRepo.findByMaVaiTroIgnoreCaseAndTrangThai("NV", 1).orElse(null);
+                    if (nvRole != null) {
+                        List<NhanVien> emps = repo.findAll().stream()
+                                .filter(e -> e.getIdVaiTro() != null && e.getIdVaiTro().getId().equals(r.getId()))
+                                .toList();
+                        for (NhanVien emp : emps) {
+                            emp.setIdVaiTro(nvRole);
+                            repo.save(emp);
+                        }
+                    }
+                    // Loại bỏ hoàn toàn vai trò này
+                    r.setTrangThai(0);
+                    roleRepo.save(r);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
     @Transactional(readOnly = true)
     public Page<NhanVienResponse> search(String keyword, Long roleId, Integer status, Pageable pageable) {
         Specification<NhanVien> spec = Specification.where(NhanVienSpecification.keyword(keyword))

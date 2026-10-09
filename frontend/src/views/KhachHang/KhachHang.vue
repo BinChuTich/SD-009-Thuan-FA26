@@ -42,7 +42,7 @@
           {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
         </button>
         <button class="btn btn-primary" @click="goToCreate">
-          + Thêm khách hàng
+          + Thêm khách hàng mới
         </button>
       </div>
     </div>
@@ -60,23 +60,24 @@
           <thead>
             <tr>
               <th style="width: 50px; text-align: center;">STT</th>
-              <th style="width: 110px;">Mã</th>
-              <th style="width: 170px;">Tên</th>
+              <th style="width: 105px;">MÃ KH</th>
+              <th style="width: 165px;">HỌ TÊN</th>
+              <th style="width: 140px;">TÀI KHOẢN</th>
               <th style="width: 120px;">SĐT</th>
-              <th style="width: 90px;">Giới tính</th>
-              <th>Địa chỉ</th>
-              <th style="width: 130px; text-align: center;">Trạng thái</th>
-              <th style="width: 120px; text-align: center;">Hành động</th>
+              <th>ĐỊA CHỈ</th>
+              <th style="width: 95px; text-align: center;">GIỚI TÍNH</th>
+              <th style="width: 135px; text-align: center;">TRẠNG THÁI</th>
+              <th style="width: 120px; text-align: center;">HÀNH ĐỘNG</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="8" style="text-align: center; padding: 2.5rem; color: #8a969b;">
+              <td colspan="9" style="text-align: center; padding: 2.5rem; color: #8a969b;">
                 Đang tải dữ liệu khách hàng...
               </td>
             </tr>
             <tr v-else-if="!items.length">
-              <td colspan="8" style="text-align: center; padding: 2.5rem; color: #8a969b;">
+              <td colspan="9" style="text-align: center; padding: 2.5rem; color: #8a969b;">
                 Không tìm thấy khách hàng nào phù hợp.
               </td>
             </tr>
@@ -84,11 +85,12 @@
               <td style="text-align: center;" class="text-muted">
                 {{ page * size + index + 1 }}
               </td>
-              <td class="font-bold text-blue">{{ item.maKhachHang }}</td>
+              <td class="font-bold text-code">{{ item.maKhachHang }}</td>
               <td class="font-medium text-dark">{{ item.tenKhachHang }}</td>
+              <td class="text-account font-medium">{{ item.taiKhoan || item.maKhachHang?.toLowerCase() || '-' }}</td>
               <td class="text-dark">{{ item.soDienThoai || '-' }}</td>
-              <td>{{ genderText(item.gioiTinh) }}</td>
               <td class="text-address">{{ formatAddress(item) || '-' }}</td>
+              <td style="text-align: center;">{{ genderText(item.gioiTinh) }}</td>
               <td style="text-align: center;">
                 <span
                   class="badge-status"
@@ -774,11 +776,21 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background-color: #496883;
+  background-color: #b38e6e;
   color: #ffffff;
+  border: 1px solid #a67c52;
+  border-radius: 9999px;
+  padding: 0.6rem 1.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(179, 142, 110, 0.25);
+  transition: all 0.2s ease;
 }
 .btn-primary:hover {
-  background-color: #38536b;
+  background-color: #9c7756;
+  border-color: #8f6a49;
+  box-shadow: 0 4px 10px rgba(179, 142, 110, 0.35);
+  transform: translateY(-1px);
 }
 
 .btn-secondary {
@@ -811,11 +823,14 @@ onMounted(() => {
 }
 
 .custom-table th {
-  background-color: #faf8f4;
-  color: #496883;
+  background-color: #d8c7b8;
+  color: #433227;
   font-weight: 700;
-  padding: 0.85rem 0.9rem;
-  border-bottom: 2px solid #e9e5db;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
+  padding: 0.9rem 0.95rem;
+  border-bottom: 2px solid #c8b7a6;
   text-align: left;
   white-space: nowrap;
 }
@@ -845,17 +860,19 @@ onMounted(() => {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: #eaf1f5;
-  color: #496883;
+  background: #f0e6dc;
+  color: #8c6a46;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 0.8rem;
-  border: 1px solid #d4e1e8;
+  border: 1px solid #e2d3c5;
 }
 
-.text-blue { color: #496883; }
+.text-code { color: #8c6a46; }
+.text-account { color: #52443a; }
+.text-blue { color: #8c6a46; }
 .text-dark { color: #222b30; }
 .text-muted { color: #88959c; }
 .font-bold { font-weight: 700; }
@@ -863,18 +880,21 @@ onMounted(() => {
 
 .badge-status {
   display: inline-block;
-  padding: 0.28rem 0.65rem;
-  border-radius: 20px;
+  padding: 0.32rem 0.85rem;
+  border-radius: 9999px;
   font-size: 0.8rem;
   font-weight: 600;
+  letter-spacing: 0.2px;
 }
 .status-active {
-  background-color: #e6f6ee;
-  color: #1b7a4b;
+  background-color: #eaf5ed;
+  color: #247541;
+  border: 1px solid #bce1c7;
 }
 .status-inactive {
-  background-color: #faecec;
-  color: #b53838;
+  background-color: #f7edeb;
+  color: #b34a3b;
+  border: 1px solid #ecc9c3;
 }
 
 .action-buttons {
@@ -922,7 +942,7 @@ onMounted(() => {
 }
 
 .switch-toggle input:checked + .slider-round {
-  background-color: #2e9f65;
+  background-color: #b38e6e;
 }
 
 .switch-toggle input:checked + .slider-round::before {
@@ -943,21 +963,23 @@ onMounted(() => {
 }
 
 .btn-edit {
-  color: #496883;
-  border-color: #d8e2e8;
+  color: #8c7152;
+  border-color: #dfd5c8;
 }
 .btn-edit:hover {
-  background-color: #496883;
+  background-color: #8c7152;
+  border-color: #8c7152;
   color: #ffffff;
 }
 
 .btn-address {
-  color: #9c6c22;
-  border-color: #ecd9b8;
-  background-color: #fff9ed;
+  color: #a67c52;
+  border-color: #dfd2c4;
+  background-color: #faf5ef;
 }
 .btn-address:hover {
-  background-color: #b37e28;
+  background-color: #b38e6e;
+  border-color: #b38e6e;
   color: #ffffff;
 }
 

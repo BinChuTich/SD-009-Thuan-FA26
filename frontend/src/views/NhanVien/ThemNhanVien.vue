@@ -481,7 +481,10 @@ function validateAll() {
 async function loadRoles() {
   try {
     const res = await api.get('/api/nhan-vien/vai-tro')
-    roles.value = res.data || []
+    roles.value = (res.data || []).filter(r =>
+      r.maVaiTro === 'ADMIN' || r.maVaiTro === 'NV' ||
+      r.tenVaiTro === 'Quản trị viên' || r.tenVaiTro === 'Nhân viên'
+    )
     if (roles.value.length > 0) {
       const defaultRole = roles.value.find(r => r.maVaiTro === 'NV') || roles.value[0]
       form.idVaiTro = defaultRole.id
@@ -987,11 +990,11 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background-color: #496883;
+  background-color: #b38e6e;
   color: #ffffff;
 }
 .btn-primary:hover {
-  background-color: #38536b;
+  background-color: #9c7756;
 }
 
 @media (max-width: 900px) {
