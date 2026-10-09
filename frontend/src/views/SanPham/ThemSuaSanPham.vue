@@ -508,14 +508,6 @@
             </div>
             <div class="group-header-right">
               <span class="size-summary">{{ group.sizesSummary }}</span>
-              <button
-                  type="button"
-                  class="btn-delete-group"
-                  @click="openDeleteColorGroupConfirm(group)"
-                  title="Xóa toàn bộ biến thể màu này"
-              >
-                ✕ Xóa màu {{ group.color.tenMauSac }}
-              </button>
             </div>
           </div>
 
@@ -1290,22 +1282,6 @@ const openDeleteVariantConfirm = (item) => {
   })
 }
 
-// Xóa toàn bộ biến thể của 1 nhóm màu
-const openDeleteColorGroupConfirm = (group) => {
-  openConfirm({
-    title: 'Xác nhận xóa nhóm màu',
-    message: `Bạn có muốn xóa tất cả biến thể và ảnh của màu "${group.color.tenMauSac}" không?`,
-    type: 'danger',
-    confirmText: 'Xóa nhóm màu',
-    onConfirm: () => {
-      const colorId = group.color.id
-      variantsList.value = variantsList.value.filter(v => v.idMauSac !== colorId)
-      delete colorImages.value[colorId]
-      selectedColors.value = selectedColors.value.filter(c => c.id !== colorId)
-      showToast(`Đã xóa toàn bộ biến thể và ảnh của màu "${group.color.tenMauSac}"!`)
-    }
-  })
-}
 
 // Upload ảnh theo màu
 const triggerUpload = (colorId) => {
@@ -2403,31 +2379,6 @@ onMounted(async () => {
   color: #1e293b;
 }
 
-.group-header-right {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.btn-delete-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  background-color: #ffffff;
-  border: 1px solid #fecaca;
-  color: #ef4444;
-  padding: 0.25rem 0.65rem;
-  border-radius: 6px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-delete-group:hover {
-  background-color: #fef2f2;
-  border-color: #ef4444;
-}
 
 .size-summary {
   font-size: 0.82rem;
