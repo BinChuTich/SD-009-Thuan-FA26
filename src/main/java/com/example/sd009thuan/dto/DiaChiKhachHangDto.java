@@ -11,3 +11,4 @@ public record DiaChiKhachHangDto(
         Boolean macDinh,
         Integer trangThai
 ) {}
+

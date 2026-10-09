@@ -10,7 +10,25 @@
           Thông tin nhân viên: {{ form.tenNhanVien || form.maNhanVien }}
         </h2>
       </div>
+      <div class="header-right">
+        <button type="button" class="btn-scan-cccd" @click="showScanModal = true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          Quét CCCD gắn chip
+        </button>
+      </div>
     </div>
+
+    <!-- Modal Quét CCCD -->
+    <CccdScannerModal
+      v-if="showScanModal"
+      @close="showScanModal = false"
+      @scan-success="onCccdScanned"
+    />
 
     <div v-if="loading" class="content-card loading-card">
       <p>Đang tải thông tin nhân viên...</p>
@@ -267,7 +285,8 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
-import { getProvinces, getDistricts, getWards } from '@/services/provincesApi.js'
+import { getProvinces, getDistricts, getWards, matchAddressHierarchy } from '@/services/provincesApi.js'
+import CccdScannerModal from '@/components/CccdScannerModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -275,6 +294,7 @@ const id = route.params.id
 
 const loading = ref(true)
 const saving = ref(false)
+const showScanModal = ref(false)
 const roles = ref([])
 const selectedFile = ref(null)
 const avatarPreview = ref('')
@@ -344,6 +364,56 @@ function onWardChange() {
   const w = wardsList.value.find(item => item.code === selectedWardCode.value)
   form.phuong = w ? w.name : ''
   validateField('phuong')
+}
+
+async function onCccdScanned(data) {
+  showScanModal.value = false
+  if (!data) return
+
+  // 1. Điền Họ và tên
+  if (data.fullName) {
+    form.tenNhanVien = data.fullName
+    errors.tenNhanVien = ''
+  }
+
+  // 2. Điền Ngày sinh
+  if (data.dob) {
+    form.ngaySinh = data.dob
+    validateField('ngaySinh')
+  }
+
+  // 3. Điền Giới tính
+  if (typeof data.gender === 'boolean') {
+    form.gioiTinh = data.gender
+  }
+
+  // 4. Khớp và Điền Địa chỉ thông minh
+  if (data.fullAddress) {
+    try {
+      const matched = await matchAddressHierarchy(data.fullAddress)
+      if (matched.provinceCode) {
+        selectedProvinceCode.value = matched.provinceCode
+        form.queQuan = matched.provinceName
+        districtsList.value = await getDistricts(matched.provinceCode)
+
+        if (matched.districtCode) {
+          selectedDistrictCode.value = matched.districtCode
+          wardsList.value = await getWards(matched.districtCode)
+
+          if (matched.wardCode) {
+            selectedWardCode.value = matched.wardCode
+            form.phuong = matched.wardName
+          }
+        }
+      }
+      form.diaChiCuThe = matched.specificAddress || data.fullAddress
+    } catch (e) {
+      console.error('Lỗi khớp địa chỉ CCCD:', e)
+      form.diaChiCuThe = data.fullAddress
+    }
+  }
+
+  showToast(`Đã quét CCCD thành công! Đã điền thông tin: ${data.fullName}`, 'success')
 }
 
 function validateField(fieldName) {
@@ -678,6 +748,37 @@ onMounted(() => {
   font-size: 1.45rem;
   font-weight: 700;
   color: var(--blue, #496883);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.btn-scan-cccd {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.6rem 1.35rem;
+  background-color: #2e9f65;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(46, 159, 101, 0.25);
+  transition: all 0.2s;
+}
+
+.btn-scan-cccd:hover {
+  background-color: #248352;
+  box-shadow: 0 4px 12px rgba(46, 159, 101, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-scan-cccd svg {
+  display: block;
 }
 
 .loading-card {
