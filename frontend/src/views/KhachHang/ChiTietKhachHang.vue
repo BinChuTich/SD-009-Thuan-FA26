@@ -882,11 +882,11 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background-color: #b38e6e;
+  background-color: #3b596a;
   color: #ffffff;
 }
 .btn-primary:hover {
-  background-color: #9c7756;
+  background-color: #2c4350;
 }
 
 @media (max-width: 900px) {

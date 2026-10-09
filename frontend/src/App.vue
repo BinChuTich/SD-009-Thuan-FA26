@@ -1,6 +1,10 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { dialogState, handleConfirmChoice, handleAlertClose, removeToast } from './utils/dialog.js'
+
+const route = useRoute()
+
 const openMenus = ref({
   sanPham: true,
   thuocTinh: true,
@@ -10,6 +14,19 @@ const openMenus = ref({
 const toggleMenu = (menu) => {
   openMenus.value[menu] = !openMenus.value[menu]
 }
+
+const pageTitle = computed(() => {
+  if (route.path === '/khach-hang') return 'Quản lý khách hàng'
+  if (route.path === '/nhan-vien') return 'Quản lý nhân viên'
+  if (route.path === '/thong-ke' || route.path === '/') return 'Tổng quan'
+  if (route.path === '/ban-hang') return 'Bán hàng tại quầy'
+  if (route.path === '/hoa-don') return 'Quản lý hóa đơn'
+  if (route.path === '/san-pham') return 'Quản lý sản phẩm'
+  if (route.path === '/bien-the-san-pham') return 'Biến thể sản phẩm'
+  if (route.path === '/dot-giam-gia') return 'Đợt giảm giá'
+  if (route.path === '/phieu-giam-gia') return 'Phiếu giảm giá'
+  return ''
+})
 </script>
 
 <template>
@@ -137,6 +154,9 @@ const toggleMenu = (menu) => {
 
     <main class="main-content">
       <header class="top-header">
+        <div class="header-left">
+          <h2 v-if="pageTitle" class="header-page-title">{{ pageTitle }}</h2>
+        </div>
         <div class="header-right">
           <div class="user-profile-badge">
             <div class="user-avatar-circle" title="Tài khoản: Quản trị viên">
@@ -536,13 +556,27 @@ const toggleMenu = (menu) => {
 }
 
 .top-header {
-  height: 3.2rem !important;
-  background-color: #ffffff;
-  padding: 0 24px;
+  min-height: 4.2rem;
+  background-color: transparent;
+  padding: 1.2rem 2.2rem 0.5rem;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #e9e5db;
+  border-bottom: none;
+  box-sizing: border-box;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.header-page-title {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #3b4950;
+  line-height: 1.2;
 }
 
 .header-right {

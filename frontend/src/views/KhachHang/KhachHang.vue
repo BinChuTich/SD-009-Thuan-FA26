@@ -1,12 +1,5 @@
 <template>
   <div class="customer-page-wrapper">
-    <!-- Header -->
-    <div class="breadcrumb-header">
-      <div class="breadcrumb-left">
-        <h2 class="page-title">Quản lý khách hàng</h2>
-      </div>
-    </div>
-
     <!-- Khung Bộ lọc -->
     <div class="content-card filter-card">
       <div class="card-header-filter">
@@ -649,22 +642,11 @@ onMounted(() => {
 
 <style scoped>
 .customer-page-wrapper {
-  padding: 1.5rem 2rem 3rem;
+  padding: 0.5rem 2.2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);
   box-sizing: border-box;
-}
-
-.breadcrumb-header {
-  margin-bottom: 1.3rem;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: var(--blue, #496883);
 }
 
 .content-card {
@@ -776,20 +758,20 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background-color: #b38e6e;
+  background-color: #3b596a;
   color: #ffffff;
-  border: 1px solid #a67c52;
+  border: 1px solid #324b5a;
   border-radius: 9999px;
   padding: 0.6rem 1.4rem;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(179, 142, 110, 0.25);
+  box-shadow: 0 2px 6px rgba(59, 89, 106, 0.25);
   transition: all 0.2s ease;
 }
 .btn-primary:hover {
-  background-color: #9c7756;
-  border-color: #8f6a49;
-  box-shadow: 0 4px 10px rgba(179, 142, 110, 0.35);
+  background-color: #2c4350;
+  border-color: #243742;
+  box-shadow: 0 4px 10px rgba(59, 89, 106, 0.35);
   transform: translateY(-1px);
 }
 
@@ -823,14 +805,14 @@ onMounted(() => {
 }
 
 .custom-table th {
-  background-color: #d8c7b8;
-  color: #433227;
+  background-color: #faf8f5;
+  color: #4a5568;
   font-weight: 700;
   text-transform: uppercase;
   font-size: 0.82rem;
   letter-spacing: 0.5px;
   padding: 0.9rem 0.95rem;
-  border-bottom: 2px solid #c8b7a6;
+  border-bottom: 2px solid #e9e5db;
   text-align: left;
   white-space: nowrap;
 }
