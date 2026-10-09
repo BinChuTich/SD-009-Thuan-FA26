@@ -13,10 +13,10 @@ import java.util.List;
 @Repository
 public interface PhieuGiamGiaRepository extends JpaRepository<PhieuGiamGia, Long> {
 
-
+    // Tìm kiếm phiếu giảm giá sắp xếp theo id giảm dần (mới nhất lên đầu)
     List<PhieuGiamGia> findAllByOrderByIdDesc();
 
-
+    // Tìm kiếm phiếu giảm giá có phân trang sắp xếp theo id giảm dần
     Page<PhieuGiamGia> findAllByOrderByIdDesc(Pageable pageable);
 
     @Query(value = "SELECT kh.ten_khach_hang FROM khach_hang_phieu_giam_gia kp " +

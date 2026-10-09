@@ -70,15 +70,22 @@
           <div class="form-grid-2">
             <!-- Cột trái: Số lượng -->
             <div class="form-field">
-              <label class="field-label">Số lượng <span class="required">*</span></label>
+              <label class="field-label">
+                Số lượng <span class="required">*</span>
+                <span v-if="isPersonalVoucher" class="field-badge-inline">Tự động theo số khách</span>
+              </label>
               <input
                   type="number"
                   v-model.number="form.soLuongSuDung"
+                  :disabled="isPersonalVoucher"
                   min="1"
-                  placeholder="Nhập số lượng phiếu phát hành..."
+                  :placeholder="isPersonalVoucher ? 'Khóa tự động = số khách hàng' : 'Nhập số lượng phiếu phát hành...'"
                   class="form-control"
-                  :class="{ 'input-error': errors.soLuongSuDung }"
+                  :class="{ 'input-error': errors.soLuongSuDung, 'input-locked': isPersonalVoucher }"
               />
+              <div v-if="isPersonalVoucher" class="field-hint-inline text-muted mt-1">
+                Số lượng tự động khóa = <b>{{ selectedCustomerIds.length }}</b> lượt (theo số khách được chọn)
+              </div>
               <div v-if="errors.soLuongSuDung" class="field-error-msg">
                 <span class="err-icon">ⓘ</span> {{ errors.soLuongSuDung }}
               </div>
@@ -232,31 +239,112 @@
         <div class="section-body">
           <div class="target-info-row">
             <span class="target-label">Hình thức phát hành:</span>
-            <span :class="['badge-form', form.hinhThuc === 'Công khai' ? 'badge-public' : 'badge-personal']">
-              ● {{ form.hinhThuc || 'Công khai' }}
+            <span :class="['badge-form', isPersonalVoucher ? 'badge-personal' : 'badge-public']">
+              ● {{ isPersonalVoucher ? 'Cá nhân' : 'Công khai' }}
             </span>
           </div>
 
-          <!-- Danh sách khách hàng (Nếu là hình thức Cá nhân) -->
-          <div v-if="form.hinhThuc === 'Cá nhân'" class="customers-assign-panel">
+          <!-- Bảng Khách hàng áp dụng (Nếu là hình thức Cá nhân) -->
+          <div v-if="isPersonalVoucher" class="customers-assign-panel">
             <div class="customers-panel-header">
               <h4 class="customers-panel-title">Danh sách khách hàng nhận phiếu</h4>
               <div class="customers-count-badge">
-                {{ (form.danhSachKhachHang || []).length }} khách hàng
+                Đã chọn <b>{{ selectedCustomerIds.length }}</b> khách hàng
               </div>
             </div>
 
-            <div class="customers-tags-wrapper">
-              <div
-                  v-for="(kh, idx) in form.danhSachKhachHang"
-                  :key="idx"
-                  class="customer-tag-pill"
-              >
-                {{ kh }}
+            <!-- Ô tìm kiếm & Bộ lọc Giới tính, Tháng sinh -->
+            <div class="customers-filter-bar">
+              <div class="cust-filter-item flex-search">
+                <input
+                    type="text"
+                    v-model="custSearchKeyword"
+                    placeholder="Tìm theo mã, tên, SĐT, email..."
+                    class="form-control cust-search-input"
+                />
               </div>
-              <div v-if="!form.danhSachKhachHang || form.danhSachKhachHang.length === 0" class="text-muted text-sm">
-                Chưa có khách hàng liên kết cụ thể trong database.
+
+              <div class="cust-filter-item">
+                <select v-model="custScopeFilter" class="form-control form-select-sm font-bold text-blue">
+                  <option value="selected">Khách hàng đang áp dụng</option>
+                  <option value="all">Tất cả khách hàng</option>
+                </select>
               </div>
+
+              <div class="cust-filter-item">
+                <select v-model="custGenderFilter" class="form-control form-select-sm">
+                  <option value="">Tất cả giới tính</option>
+                  <option value="female">Nữ</option>
+                  <option value="male">Nam</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Bảng dữ liệu khách hàng -->
+            <div class="customers-table-wrapper">
+              <table class="cust-table">
+                <thead>
+                <tr>
+                  <th style="width: 45px; text-align: center;">
+                    <input
+                        type="checkbox"
+                        :checked="isAllVisibleSelected"
+                        @change="toggleSelectAllVisible"
+                        title="Chọn tất cả danh sách đang hiển thị"
+                    />
+                  </th>
+                  <th style="width: 100px;">Mã KH</th>
+                  <th>Họ và tên</th>
+                  <th style="width: 85px; text-align: center;">Giới tính</th>
+                  <th style="width: 105px;">Ngày sinh</th>
+                  <th style="width: 120px;">Số điện thoại</th>
+                  <th>Email</th>
+                  <th style="width: 95px; text-align: center;">Tổng đơn</th>
+                  <th style="width: 130px;">Mua gần nhất</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-if="filteredCustomerList.length === 0">
+                  <td colspan="9" class="table-empty-cell">
+                    Không tìm thấy khách hàng nào khớp với điều kiện lọc.
+                  </td>
+                </tr>
+                <tr
+                    v-else
+                    v-for="kh in filteredCustomerList"
+                    :key="kh.id"
+                    :class="{ 'row-selected': selectedCustomerIds.includes(kh.id) }"
+                    @click="toggleCustomerSelect(kh.id)"
+                    class="cust-row"
+                >
+                  <td style="text-align: center;" @click.stop>
+                    <input
+                        type="checkbox"
+                        :checked="selectedCustomerIds.includes(kh.id)"
+                        @change="toggleCustomerSelect(kh.id)"
+                    />
+                  </td>
+                  <td class="font-bold text-blue">{{ kh.maKhachHang || ('KH' + kh.id) }}</td>
+                  <td class="font-bold text-dark">{{ kh.tenKhachHang }}</td>
+                  <td style="text-align: center;">
+                    <span :class="['badge-gender', kh.gioiTinh === false ? 'gender-female' : 'gender-male']">
+                      {{ kh.gioiTinh === false ? 'Nữ' : 'Nam' }}
+                    </span>
+                  </td>
+                  <td class="text-muted-dark">{{ kh.ngaySinh ? formatDateDisplay(kh.ngaySinh) : '---' }}</td>
+                  <td class="font-medium text-dark">{{ kh.soDienThoai || '---' }}</td>
+                  <td class="text-muted-dark">{{ kh.email || '---' }}</td>
+                  <td style="text-align: center;">
+                    <span class="badge-order-count">{{ kh.tongDonMua || 0 }} đơn</span>
+                  </td>
+                  <td class="text-muted-dark">{{ kh.ngayMuaGanNhat ? formatDateTimeDisplay(kh.ngayMuaGanNhat) : 'Chưa mua' }}</td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div v-if="errors.customers" class="field-error-msg mt-3">
+              <span class="err-icon">ⓘ</span> {{ errors.customers }}
             </div>
           </div>
         </div>
@@ -353,6 +441,17 @@ const formatMoney = (val) => {
   return `${Number(val).toLocaleString('vi-VN')} đ`
 }
 
+const formatDateDisplay = (dateStr) => {
+  if (!dateStr) return '---'
+  try {
+    const parts = dateStr.split('-')
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`
+    return dateStr
+  } catch (e) {
+    return dateStr
+  }
+}
+
 const formatDateTimeDisplay = (dtStr) => {
   if (!dtStr) return 'Vô hạn'
   try {
@@ -396,6 +495,42 @@ const dateTimeInputToIso = (dtStr) => {
   }
 }
 
+const customerList = ref([])
+const custSearchKeyword = ref('')
+const custScopeFilter = ref('selected')
+const custGenderFilter = ref('')
+const selectedCustomerIds = ref([])
+
+// Xác định phiếu giảm giá là Cá nhân hay Công khai một cách chuẩn xác, bất chấp encoding
+const isPersonalVoucher = computed(() => {
+  if (!form.value) return false
+  if (selectedCustomerIds.value.length > 0) return true
+  if (form.value.danhSachKhachHang && form.value.danhSachKhachHang.length > 0) return true
+  if (form.value.soKhachHang && form.value.soKhachHang > 0) return true
+  const ht = (form.value.hinhThuc || '').toLowerCase()
+  return ht.includes('nhân') || ht.includes('nhan') || ht.includes('cá') || ht.includes('ca')
+})
+
+// Nạp danh sách tất cả khách hàng từ Backend
+const fetchCustomers = async () => {
+  try {
+    const res = await api.get('/api/phieu-giam-gia/khach-hang')
+    customerList.value = res.data || []
+
+    // Khớp danh sách ID khách hàng nếu trước đó chưa có ID mà có danh sách tên
+    if (selectedCustomerIds.value.length === 0 && form.value?.danhSachKhachHang?.length > 0) {
+      const matchedIds = customerList.value
+        .filter(c => form.value.danhSachKhachHang.includes(c.tenKhachHang))
+        .map(c => Number(c.id))
+      if (matchedIds.length > 0) {
+        selectedCustomerIds.value = matchedIds
+      }
+    }
+  } catch (err) {
+    console.error('Không thể nạp danh sách khách hàng:', err)
+  }
+}
+
 // Nạp chi tiết phiếu từ Backend
 const fetchVoucherDetail = async () => {
   if (!voucherId) {
@@ -433,6 +568,24 @@ const fetchVoucherDetail = async () => {
       danhSachKhachHang: data.danhSachKhachHang || []
     }
 
+    // Nạp danh sách ID khách hàng được gán
+    if (data.idKhachHangList && Array.isArray(data.idKhachHangList) && data.idKhachHangList.length > 0) {
+      selectedCustomerIds.value = data.idKhachHangList.map(id => Number(id))
+    } else if (data.danhSachKhachHang && Array.isArray(data.danhSachKhachHang) && data.danhSachKhachHang.length > 0 && customerList.value.length > 0) {
+      // Khớp theo tên khách hàng nếu idKhachHangList chưa có
+      selectedCustomerIds.value = customerList.value
+        .filter(c => data.danhSachKhachHang.includes(c.tenKhachHang))
+        .map(c => Number(c.id))
+    } else {
+      selectedCustomerIds.value = []
+    }
+
+    if (selectedCustomerIds.value.length > 0) {
+      custScopeFilter.value = 'selected'
+    } else {
+      custScopeFilter.value = 'all'
+    }
+
     displayMoney.value = {
       hoaDonToiThieu: form.value.hoaDonToiThieu ? formatNumberString(form.value.hoaDonToiThieu) : '',
       giaTriGiamGia: (form.value.loaiPhieuGiamGia === 2 && form.value.giaTriGiamGia) ? formatNumberString(form.value.giaTriGiamGia) : '',
@@ -457,12 +610,15 @@ const calculatedStatusMeta = computed(() => {
   const startObj = form.value.ngayBatDauStr ? new Date(form.value.ngayBatDauStr) : null
 
   if (endObj && endObj < now) {
-    return { text: 'Đã hết hạn', class: 'text-danger font-bold' }
+    return { text: 'Đã kết thúc', class: 'text-danger font-bold' }
+  }
+  if (form.value.trangThai === 0) {
+    return { text: 'Ngừng hoạt động', class: 'text-muted font-bold' }
   }
   if (startObj && startObj > now) {
     return { text: 'Sắp diễn ra', class: 'text-warning font-bold' }
   }
-  return { text: 'Đang hoạt động', class: 'text-success font-bold' }
+  return { text: 'Đang diễn ra', class: 'text-success font-bold' }
 })
 
 // Xử lý khi người dùng nhập vào các ô tiền tệ: chỉ cho phép số, format trực tiếp trong ô
@@ -619,8 +775,96 @@ const validateForm = () => {
     }
   }
 
+  // 8. Nếu là hình thức Cá nhân thì phải chọn khách hàng
+  if (form.value.hinhThuc === 'Cá nhân' && selectedCustomerIds.value.length === 0) {
+    errs.customers = 'Vui lòng chọn ít nhất 1 khách hàng nhận phiếu giảm giá cá nhân.'
+  }
+
   errors.value = errs
   return Object.keys(errs).length === 0
+}
+
+const filteredCustomerList = computed(() => {
+  const list = customerList.value.filter(kh => {
+    // 0. Lọc phạm vi: Tất cả hay Chỉ khách đang áp dụng phiếu
+    if (custScopeFilter.value === 'selected' && !selectedCustomerIds.value.includes(kh.id)) {
+      return false
+    }
+
+    // 1. Lọc từ khóa
+    if (custSearchKeyword.value.trim()) {
+      const kw = custSearchKeyword.value.toLowerCase().trim()
+      const match = (kh.tenKhachHang && kh.tenKhachHang.toLowerCase().includes(kw)) ||
+          (kh.soDienThoai && kh.soDienThoai.toLowerCase().includes(kw)) ||
+          (kh.maKhachHang && kh.maKhachHang.toLowerCase().includes(kw)) ||
+          (kh.email && kh.email.toLowerCase().includes(kw))
+      if (!match) return false
+    }
+
+    // 2. Lọc theo Giới tính (phục vụ sự kiện 8/3 chỉ gửi cho nữ)
+    if (custGenderFilter.value) {
+      if (custGenderFilter.value === 'female' && kh.gioiTinh !== false) return false
+      if (custGenderFilter.value === 'male' && kh.gioiTinh !== true) return false
+    }
+
+    return true
+  })
+
+  // Ưu tiên hiển thị khách hàng đang được áp dụng phiếu lên hàng đầu
+  return list.sort((a, b) => {
+    const aSel = selectedCustomerIds.value.includes(a.id) ? 1 : 0
+    const bSel = selectedCustomerIds.value.includes(b.id) ? 1 : 0
+    if (bSel !== aSel) return bSel - aSel
+    return (a.tenKhachHang || '').localeCompare(b.tenKhachHang || '', 'vi')
+  })
+})
+
+// Tự động đồng bộ số lượng phiếu theo số khách hàng được chọn khi là Cá nhân
+watch([() => form.value?.hinhThuc, () => selectedCustomerIds.value.length], ([hinhThuc, count]) => {
+  if (form.value && hinhThuc === 'Cá nhân') {
+    form.value.soLuongSuDung = count
+    if (count > 0 && errors.value.soLuongSuDung) delete errors.value.soLuongSuDung
+    if (count > 0 && errors.value.customers) delete errors.value.customers
+  }
+})
+
+const toggleCustomerSelect = (id) => {
+  const idx = selectedCustomerIds.value.indexOf(id)
+  if (idx > -1) {
+    selectedCustomerIds.value.splice(idx, 1)
+  } else {
+    selectedCustomerIds.value.push(id)
+  }
+}
+
+const isAllVisibleSelected = computed(() => {
+  if (filteredCustomerList.value.length === 0) return false
+  return filteredCustomerList.value.every(kh => selectedCustomerIds.value.includes(kh.id))
+})
+
+const toggleSelectAllVisible = () => {
+  if (isAllVisibleSelected.value) {
+    const visibleIds = filteredCustomerList.value.map(kh => kh.id)
+    selectedCustomerIds.value = selectedCustomerIds.value.filter(id => !visibleIds.includes(id))
+  } else {
+    filteredCustomerList.value.forEach(kh => {
+      if (!selectedCustomerIds.value.includes(kh.id)) {
+        selectedCustomerIds.value.push(kh.id)
+      }
+    })
+  }
+}
+
+const selectAllVisibleCustomers = () => {
+  filteredCustomerList.value.forEach(kh => {
+    if (!selectedCustomerIds.value.includes(kh.id)) {
+      selectedCustomerIds.value.push(kh.id)
+    }
+  })
+}
+
+const clearSelectedCustomers = () => {
+  selectedCustomerIds.value = []
 }
 
 const openConfirmModal = () => {
@@ -651,6 +895,7 @@ const submitUpdate = async () => {
     id: form.value.id,
     maPhieuGiamGia: form.value.maPhieuGiamGia,
     tenPhieuGiamGia: form.value.tenPhieuGiamGia.trim(),
+    hinhThuc: isPersonalVoucher.value ? 'Cá nhân' : 'Công khai',
     loaiPhieuGiamGia: form.value.loaiPhieuGiamGia,
     giaTriGiamGia: Number(form.value.giaTriGiamGia),
     giamToiDa: form.value.loaiPhieuGiamGia === 1 && form.value.giamToiDa ? Number(form.value.giamToiDa) : null,
@@ -658,7 +903,8 @@ const submitUpdate = async () => {
     soLuongSuDung: Number(form.value.soLuongSuDung),
     ngayBatDau: dateTimeInputToIso(form.value.ngayBatDauStr),
     ngayKetThuc: dateTimeInputToIso(form.value.ngayKetThucStr),
-    trangThai: 1 // Luôn duy trì kích hoạt, backend và frontend tự tính hiển thị
+    trangThai: 1, // Luôn duy trì kích hoạt, backend và frontend tự tính hiển thị
+    idKhachHangList: isPersonalVoucher.value ? selectedCustomerIds.value.map(id => Number(id)) : []
   }
 
   try {
@@ -690,8 +936,8 @@ const goBack = () => {
   router.push('/phieu-giam-gia')
 }
 
-onMounted(() => {
-  fetchVoucherDetail()
+onMounted(async () => {
+  await Promise.all([fetchCustomers(), fetchVoucherDetail()])
 })
 </script>
 
@@ -1025,20 +1271,142 @@ onMounted(() => {
   border-radius: 12px;
 }
 
-.customers-tags-wrapper {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
+.input-locked {
+  background-color: #f3f4f6 !important;
+  color: #374151 !important;
+  font-weight: 600;
+  cursor: not-allowed;
+  border-color: #d1d5db;
 }
 
-.customer-tag-pill {
-  background-color: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  padding: 0.35rem 0.9rem;
-  font-size: 0.88rem;
+.field-badge-inline {
+  font-size: 0.72rem;
+  background-color: #e0e7ff;
+  color: #3730a3;
+  padding: 2px 7px;
+  border-radius: 4px;
   font-weight: 600;
+  margin-left: 6px;
+}
+
+.customers-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.cust-filter-item.flex-search {
+  flex: 1 1 240px;
+}
+
+.form-select-sm {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.85rem;
+  border-radius: 7px;
+  border: 1px solid #d1d5db;
+  background-color: #ffffff;
+  outline: none;
+}
+
+.badge-gender {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.gender-female {
+  background-color: #fce7f3;
+  color: #db2777;
+}
+
+.gender-male {
+  background-color: #e0f2fe;
+  color: #0284c7;
+}
+
+.badge-order-count {
+  background-color: #f3f4f6;
   color: #374151;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.cust-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.btn-link-action {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-link-action:hover {
+  text-decoration: underline;
+}
+
+.sep-slash {
+  color: #d1d5db;
+}
+
+.customers-table-wrapper {
+  max-height: 380px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.cust-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.cust-table th {
+  background-color: #f9fafb;
+  padding: 0.65rem 0.85rem;
+  font-weight: 600;
+  color: #4b5563;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.cust-table td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.cust-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cust-row:hover {
+  background-color: #f8fafc;
+}
+
+.row-selected {
+  background-color: #eff6ff !important;
+}
+
+.table-empty-cell {
+  text-align: center;
+  padding: 2rem !important;
+  color: #9ca3af;
 }
 
 /* Submit bar dưới cùng */

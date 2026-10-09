@@ -38,15 +38,22 @@
           <div class="form-grid-2">
             <!-- Cột trái: Số lượng -->
             <div class="form-field">
-              <label class="field-label">Số lượng <span class="required">*</span></label>
+              <label class="field-label">
+                Số lượng <span class="required">*</span>
+                <span v-if="form.hinhThuc === 'Cá nhân'" class="field-badge-inline">Tự động theo số khách</span>
+              </label>
               <input
                   type="number"
                   v-model.number="form.soLuongSuDung"
+                  :disabled="form.hinhThuc === 'Cá nhân'"
                   min="1"
-                  placeholder="Nhập số lượng phiếu phát hành..."
+                  :placeholder="form.hinhThuc === 'Cá nhân' ? 'Khóa tự động = số khách hàng' : 'Nhập số lượng phiếu phát hành...'"
                   class="form-control"
-                  :class="{ 'input-error': errors.soLuongSuDung }"
+                  :class="{ 'input-error': errors.soLuongSuDung, 'input-locked': form.hinhThuc === 'Cá nhân' }"
               />
+              <div v-if="form.hinhThuc === 'Cá nhân'" class="field-hint-inline text-muted mt-1">
+                Số lượng tự động khóa = <b>{{ selectedCustomerIds.length }}</b> lượt (theo số khách được chọn)
+              </div>
               <div v-if="errors.soLuongSuDung" class="field-error-msg">
                 <span class="err-icon">ⓘ</span> {{ errors.soLuongSuDung }}
               </div>
@@ -229,33 +236,31 @@
             <div class="customers-panel-header">
               <h4 class="customers-panel-title">Danh sách khách hàng nhận phiếu</h4>
               <div class="customers-count-badge">
-                Đã chọn {{ selectedCustomerIds.length }}
+                Đã chọn <b>{{ selectedCustomerIds.length }}</b> khách hàng
               </div>
             </div>
 
-            <!-- Ô tìm kiếm & Chọn nhanh -->
-            <div class="customers-search-row">
-              <div class="cust-search-input-wrap">
+            <!-- Ô tìm kiếm & Bộ lọc Giới tính -->
+            <div class="customers-filter-bar">
+              <div class="cust-filter-item flex-search">
                 <input
                     type="text"
                     v-model="custSearchKeyword"
-                    placeholder="Tìm kiếm theo mã, tên, SĐT..."
+                    placeholder="Tìm theo mã, tên, SĐT, email..."
                     class="form-control cust-search-input"
                 />
               </div>
 
-              <div class="cust-quick-actions">
-                <button type="button" class="btn-link-action" @click="selectAllCustomers">
-                  Chọn tất cả
-                </button>
-                <span class="sep-slash">/</span>
-                <button type="button" class="btn-link-action text-danger" @click="clearSelectedCustomers">
-                  Bỏ chọn hết
-                </button>
+              <div class="cust-filter-item">
+                <select v-model="custGenderFilter" class="form-control form-select-sm">
+                  <option value="">Tất cả giới tính</option>
+                  <option value="female">Nữ</option>
+                  <option value="male">Nam</option>
+                </select>
               </div>
             </div>
 
-            <!-- Bảng dữ liệu khách hàng theo mẫu Ảnh 2 -->
+            <!-- Bảng dữ liệu khách hàng -->
             <div class="customers-table-wrapper">
               <table class="cust-table">
                 <thead>
@@ -265,22 +270,23 @@
                         type="checkbox"
                         :checked="isAllVisibleSelected"
                         @change="toggleSelectAllVisible"
-                        title="Chọn tất cả danh sách hiện tại"
+                        title="Chọn tất cả danh sách đang hiển thị"
                     />
                   </th>
-                  <th style="width: 110px;">Mã KH</th>
-                  <th>Tên Khách Hàng</th>
-                  <th style="width: 120px;">Ngày sinh</th>
-                  <th style="width: 130px;">Số điện thoại</th>
+                  <th style="width: 100px;">Mã KH</th>
+                  <th>Họ và tên</th>
+                  <th style="width: 85px; text-align: center;">Giới tính</th>
+                  <th style="width: 105px;">Ngày sinh</th>
+                  <th style="width: 120px;">Số điện thoại</th>
                   <th>Email</th>
-                  <th style="width: 100px; text-align: center;">Đã mua</th>
-                  <th style="width: 140px;">Gần nhất</th>
+                  <th style="width: 95px; text-align: center;">Tổng đơn</th>
+                  <th style="width: 130px;">Mua gần nhất</th>
                 </tr>
                 </thead>
                 <tbody>
                 <tr v-if="filteredCustomerList.length === 0">
-                  <td colspan="8" class="table-empty-cell">
-                    Không tìm thấy khách hàng nào khớp với từ khóa tìm kiếm.
+                  <td colspan="9" class="table-empty-cell">
+                    Không tìm thấy khách hàng nào khớp với điều kiện lọc.
                   </td>
                 </tr>
                 <tr
@@ -300,11 +306,18 @@
                   </td>
                   <td class="font-bold text-blue">{{ kh.maKhachHang || ('KH' + kh.id) }}</td>
                   <td class="font-bold text-dark">{{ kh.tenKhachHang }}</td>
+                  <td style="text-align: center;">
+                    <span :class="['badge-gender', kh.gioiTinh === false ? 'gender-female' : 'gender-male']">
+                      {{ kh.gioiTinh === false ? 'Nữ' : 'Nam' }}
+                    </span>
+                  </td>
                   <td class="text-muted-dark">{{ kh.ngaySinh ? formatDateDisplay(kh.ngaySinh) : '---' }}</td>
                   <td class="font-medium text-dark">{{ kh.soDienThoai || '---' }}</td>
                   <td class="text-muted-dark">{{ kh.email || '---' }}</td>
-                  <td style="text-align: center;" class="text-muted-dark">0 đơn</td>
-                  <td class="text-muted-dark">---</td>
+                  <td style="text-align: center;">
+                    <span class="badge-order-count">{{ kh.tongDonMua || 0 }} đơn</span>
+                  </td>
+                  <td class="text-muted-dark">{{ kh.ngayMuaGanNhat ? formatDateTimeDisplay(kh.ngayMuaGanNhat) : 'Chưa mua' }}</td>
                 </tr>
                 </tbody>
               </table>
@@ -382,6 +395,7 @@ const showSuccessToast = ref(false)
 
 const customerList = ref([])
 const custSearchKeyword = ref('')
+const custGenderFilter = ref('')
 const selectedCustomerIds = ref([])
 
 const getTodayString = () => {
@@ -420,17 +434,21 @@ const form = ref({
 
 const errors = ref({})
 
-// Tính toán trạng thái tự động theo Ngày bắt đầu
+// Tính toán trạng thái tự động theo vòng đời thời gian
 const calculatedStatusMeta = computed(() => {
   if (!form.value.ngayBatDauStr) {
     return { text: 'Chưa xác định', class: 'text-muted' }
   }
   const startDate = new Date(form.value.ngayBatDauStr)
+  const endDate = form.value.ngayKetThucStr ? new Date(form.value.ngayKetThucStr) : null
   const now = new Date()
+  if (endDate && endDate < now) {
+    return { text: 'Đã kết thúc', class: 'text-danger font-bold' }
+  }
   if (startDate > now) {
     return { text: 'Sắp diễn ra', class: 'text-warning font-bold' }
   }
-  return { text: 'Đang hoạt động', class: 'text-success font-bold' }
+  return { text: 'Đang diễn ra', class: 'text-success font-bold' }
 })
 
 // Giá trị hiển thị định dạng tiền tệ có dấu chấm phân cách hàng nghìn trực tiếp trong ô input
@@ -533,14 +551,34 @@ onMounted(() => {
 })
 
 const filteredCustomerList = computed(() => {
-  if (!custSearchKeyword.value.trim()) return customerList.value
-  const kw = custSearchKeyword.value.toLowerCase().trim()
   return customerList.value.filter(kh => {
-    return (kh.tenKhachHang && kh.tenKhachHang.toLowerCase().includes(kw)) ||
-        (kh.soDienThoai && kh.soDienThoai.toLowerCase().includes(kw)) ||
-        (kh.maKhachHang && kh.maKhachHang.toLowerCase().includes(kw)) ||
-        (kh.email && kh.email.toLowerCase().includes(kw))
+    // 1. Lọc từ khóa
+    if (custSearchKeyword.value.trim()) {
+      const kw = custSearchKeyword.value.toLowerCase().trim()
+      const match = (kh.tenKhachHang && kh.tenKhachHang.toLowerCase().includes(kw)) ||
+          (kh.soDienThoai && kh.soDienThoai.toLowerCase().includes(kw)) ||
+          (kh.maKhachHang && kh.maKhachHang.toLowerCase().includes(kw)) ||
+          (kh.email && kh.email.toLowerCase().includes(kw))
+      if (!match) return false
+    }
+
+    // 2. Lọc theo Giới tính
+    if (custGenderFilter.value) {
+      if (custGenderFilter.value === 'female' && kh.gioiTinh !== false) return false
+      if (custGenderFilter.value === 'male' && kh.gioiTinh !== true) return false
+    }
+
+    return true
   })
+})
+
+// Tự động đồng bộ số lượng phiếu theo số khách hàng được chọn khi là Cá nhân
+watch([() => form.value.hinhThuc, () => selectedCustomerIds.value.length], ([hinhThuc, count]) => {
+  if (hinhThuc === 'Cá nhân') {
+    form.value.soLuongSuDung = count
+    if (count > 0 && errors.value.soLuongSuDung) delete errors.value.soLuongSuDung
+    if (count > 0 && errors.value.customers) delete errors.value.customers
+  }
 })
 
 const toggleCustomerSelect = (id) => {
@@ -568,6 +606,14 @@ const toggleSelectAllVisible = () => {
       }
     })
   }
+}
+
+const selectAllVisibleCustomers = () => {
+  filteredCustomerList.value.forEach(kh => {
+    if (!selectedCustomerIds.value.includes(kh.id)) {
+      selectedCustomerIds.value.push(kh.id)
+    }
+  })
 }
 
 const selectAllCustomers = () => {
@@ -784,7 +830,7 @@ const submitCreate = async () => {
       ngayBatDau: startInstant,
       ngayKetThuc: endInstant,
       trangThai: 1, // Luôn kích hoạt để hệ thống nhận diện
-      idKhachHangList: form.value.hinhThuc === 'Cá nhân' ? selectedCustomerIds.value : []
+      idKhachHangList: form.value.hinhThuc === 'Cá nhân' ? selectedCustomerIds.value.map(id => Number(id)) : []
     }
 
     await api.post('/api/phieu-giam-gia', payload)
@@ -1090,12 +1136,70 @@ const goBack = () => {
   border-radius: 12px;
 }
 
-.customers-search-row {
+.input-locked {
+  background-color: #f3f4f6 !important;
+  color: #374151 !important;
+  font-weight: 600;
+  cursor: not-allowed;
+  border-color: #d1d5db;
+}
+
+.field-badge-inline {
+  font-size: 0.72rem;
+  background-color: #e0e7ff;
+  color: #3730a3;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+.customers-filter-bar {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 0.75rem;
   margin-bottom: 1rem;
-  gap: 1rem;
+}
+
+.cust-filter-item.flex-search {
+  flex: 1 1 240px;
+}
+
+.form-select-sm {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.85rem;
+  border-radius: 7px;
+  border: 1px solid #d1d5db;
+  background-color: #ffffff;
+  outline: none;
+}
+
+.badge-gender {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.gender-female {
+  background-color: #fce7f3;
+  color: #db2777;
+}
+
+.gender-male {
+  background-color: #e0f2fe;
+  color: #0284c7;
+}
+
+.badge-order-count {
+  background-color: #f3f4f6;
+  color: #374151;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.8rem;
 }
 
 .cust-search-input-wrap {

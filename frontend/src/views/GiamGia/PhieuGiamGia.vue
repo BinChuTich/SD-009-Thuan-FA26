@@ -76,9 +76,9 @@
           <label>Trạng thái</label>
           <select v-model="filters.trangThai">
             <option value="">Tất cả trạng thái</option>
-            <option value="active">Đang hoạt động</option>
+            <option value="active">Đang diễn ra</option>
             <option value="upcoming">Sắp diễn ra</option>
-            <option value="expired">Đã hết hạn</option>
+            <option value="expired">Đã kết thúc / Hết hạn</option>
             <option value="inactive">Ngừng hoạt động</option>
           </select>
         </div>
@@ -168,11 +168,11 @@
                 <button
                     class="btn-action-status"
                     :class="{
-                      'status-on': item.rawTrangThai === 1 && !item.isExpired,
+                      'status-on': item.rawTrangThai !== 0 && !item.isExpired,
                       'status-off': item.rawTrangThai === 0 && !item.isExpired,
                       'status-disabled': item.isExpired
                     }"
-                    :title="item.isExpired ? 'Phiếu đã hết hạn - Không thể đổi trạng thái' : (item.rawTrangThai === 1 ? 'Đổi trạng thái: Đang hoạt động (Bấm để ngừng hoạt động)' : 'Đổi trạng thái: Ngừng hoạt động (Bấm để kích hoạt lại)')"
+                    :title="item.isExpired ? 'Phiếu đã hết hạn - Không thể đổi trạng thái' : (item.rawTrangThai !== 0 ? 'Đổi trạng thái: Đang hoạt động (Bấm để ngừng hoạt động)' : 'Đổi trạng thái: Ngừng hoạt động (Bấm để kích hoạt lại)')"
                     :disabled="item.isExpired"
                     @click="openToggleStatusModal(item)"
                 >
@@ -256,20 +256,20 @@
     <!-- 4. POPUP MODAL XÁC NHẬN ĐỔI TRẠNG THÁI HOẠT ĐỘNG (CHUẨN ĐẸP NHƯ BÊN CẬP NHẬT) -->
     <div v-if="showToggleConfirmModal" class="modal-overlay" @click.self="closeToggleConfirmModal">
       <div class="modal-box confirm-modal-box">
-        <div class="confirm-modal-header" :class="{ 'header-danger': voucherToToggle?.rawTrangThai === 1 }">
+        <div class="confirm-modal-header" :class="{ 'header-danger': voucherToToggle?.rawTrangThai !== 0 }">
           <div class="confirm-title-wrap">
             <h3 class="confirm-title">
-              {{ voucherToToggle?.rawTrangThai === 1 ? 'Xác nhận ngừng hoạt động' : 'Xác nhận kích hoạt phiếu' }}
+              {{ voucherToToggle?.rawTrangThai !== 0 ? 'Xác nhận ngừng hoạt động' : 'Xác nhận kích hoạt phiếu' }}
             </h3>
             <p class="confirm-subtitle">
-              {{ voucherToToggle?.rawTrangThai === 1 ? 'Tạm ngưng hiệu lực của phiếu giảm giá' : 'Kích hoạt phiếu giảm giá vào hoạt động' }}
+              {{ voucherToToggle?.rawTrangThai !== 0 ? 'Tạm ngưng hiệu lực của phiếu giảm giá' : 'Kích hoạt phiếu giảm giá vào hoạt động' }}
             </p>
           </div>
           <button class="modal-close-btn" @click="closeToggleConfirmModal">✕</button>
         </div>
 
         <div class="confirm-modal-body">
-          <p class="confirm-message-text" v-if="voucherToToggle?.rawTrangThai === 1">
+          <p class="confirm-message-text" v-if="voucherToToggle?.rawTrangThai !== 0">
             Bạn có chắc chắn muốn chuyển phiếu giảm giá
             <b class="text-blue">[{{ voucherToToggle?.code }}]</b> sang trạng thái
             <b class="text-danger">Ngừng hoạt động</b> không?
@@ -306,15 +306,15 @@
             </div>
             <div class="summary-line">
               <span class="s-label">Trạng thái mới:</span>
-              <span :class="['badge-status-sm', voucherToToggle?.rawTrangThai === 1 ? 'status-inactive' : 'status-active']">
-                {{ voucherToToggle?.rawTrangThai === 1 ? 'Ngừng hoạt động' : 'Đang hoạt động' }}
+              <span :class="['badge-status-sm', voucherToToggle?.rawTrangThai !== 0 ? 'status-inactive' : 'status-active']">
+                {{ voucherToToggle?.rawTrangThai !== 0 ? 'Ngừng hoạt động' : 'Đang hoạt động' }}
               </span>
             </div>
           </div>
 
           <!-- Lời nhắc lưu ý -->
-          <div class="confirm-note-box" :class="{ 'note-warning': voucherToToggle?.rawTrangThai === 1, 'note-info': voucherToToggle?.rawTrangThai === 0 }">
-            <span v-if="voucherToToggle?.rawTrangThai === 1">
+          <div class="confirm-note-box" :class="{ 'note-warning': voucherToToggle?.rawTrangThai !== 0, 'note-info': voucherToToggle?.rawTrangThai === 0 }">
+            <span v-if="voucherToToggle?.rawTrangThai !== 0">
               <b>Lưu ý:</b> Khi ngừng hoạt động, khách hàng sẽ tạm thời không thể áp dụng mã giảm giá này khi thanh toán.
             </span>
             <span v-else>
@@ -328,12 +328,12 @@
             Hủy bỏ
           </button>
           <button
-              :class="['btn', voucherToToggle?.rawTrangThai === 1 ? 'btn-confirm-deactivate' : 'btn-save-confirm']"
+              :class="['btn', voucherToToggle?.rawTrangThai !== 0 ? 'btn-confirm-deactivate' : 'btn-save-confirm']"
               @click="confirmToggleStatus"
               :disabled="togglingStatus"
           >
             <span v-if="togglingStatus" class="spin">🔄</span>
-            {{ togglingStatus ? 'Đang cập nhật...' : (voucherToToggle?.rawTrangThai === 1 ? 'Ngừng hoạt động' : 'Kích hoạt phiếu') }}
+            {{ togglingStatus ? 'Đang cập nhật...' : (voucherToToggle?.rawTrangThai !== 0 ? 'Ngừng hoạt động' : 'Kích hoạt phiếu') }}
           </button>
         </div>
       </div>
@@ -414,20 +414,20 @@ const fetchVouchers = async () => {
       const isExpired = endDateObj ? endDateObj < now : false
       const isUpcoming = startDateObj ? startDateObj > now : false
 
-      let statusText = 'Đang hoạt động'
+      let statusText = 'Đang diễn ra'
       let statusCode = 'active'
 
       if (isExpired) {
-        statusText = 'Đã hết hạn'
+        statusText = 'Đã kết thúc'
         statusCode = 'expired'
       } else if (item.trangThai === 0) {
         statusText = 'Ngừng hoạt động'
         statusCode = 'inactive'
-      } else if (isUpcoming) {
+      } else if (isUpcoming || item.trangThai === 2) {
         statusText = 'Sắp diễn ra'
         statusCode = 'upcoming'
       } else {
-        statusText = 'Đang hoạt động'
+        statusText = 'Đang diễn ra'
         statusCode = 'active'
       }
 
@@ -590,7 +590,7 @@ const confirmToggleStatus = async () => {
   if (!voucherToToggle.value) return
   togglingStatus.value = true
   const item = voucherToToggle.value
-  const newStatusText = item.rawTrangThai === 1 ? 'Ngừng hoạt động' : 'Đang hoạt động'
+  const newStatusText = item.rawTrangThai !== 0 ? 'Ngừng hoạt động' : 'Đang hoạt động'
 
   try {
     await api.put(`/api/phieu-giam-gia/${item.id}/toggle-status`)
