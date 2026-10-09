@@ -140,6 +140,18 @@ const totalPages = computed(() => {
   return Math.ceil(filteredItems.value.length / pageSize.value) || 1
 })
 
+const visiblePages = computed(() => {
+  const current = currentPage.value
+  const total = totalPages.value
+  const pages = []
+  const start = Math.max(0, current - 2)
+  const end = Math.min(total - 1, current + 2)
+  for (let i = start; i <= end; i++) {
+    pages.push(i)
+  }
+  return pages
+})
+
 const paginatedItems = computed(() => {
   const start = currentPage.value * pageSize.value
   return filteredItems.value.slice(start, start + pageSize.value)
@@ -518,27 +530,59 @@ onMounted(() => {
         </table>
       </div>
 
-      <!-- Phân trang -->
-      <div v-if="filteredItems.length > 0" class="table-pagination-footer">
-        <div class="pagination-info">
-          Hiển thị <strong>{{ paginatedItems.length }}</strong> / <strong>{{ filteredItems.length }}</strong> bản ghi
+      <!-- Thanh phân trang tương tự trang sản phẩm -->
+      <div v-if="totalPages > 0" class="pagination-footer">
+        <div class="pagination-left">
+          <div class="page-size-selector">
+            <span class="page-size-label">Hiển thị:</span>
+            <select v-model.number="pageSize" @change="currentPage = 0" class="page-size-select">
+              <option :value="5">5</option>
+              <option :value="10">10</option>
+              <option :value="15">15</option>
+              <option :value="20">20</option>
+              <option :value="25">25</option>
+            </select>
+            <span class="page-size-unit">/ trang</span>
+          </div>
+          <div class="pagination-info">
+            Hiển thị <strong>{{ paginatedItems.length }}</strong> / <strong>{{ filteredItems.length }}</strong> bản ghi
+          </div>
         </div>
-        <div class="pagination-controls">
+        <div class="pagination-center">
           <button
-              class="page-btn"
+              class="pg-box"
+              :disabled="currentPage === 0"
+              @click="changePage(0)"
+              title="Trang đầu"
+          >«</button>
+          <button
+              class="pg-box"
               :disabled="currentPage === 0"
               @click="changePage(currentPage - 1)"
-          >
-            ‹ Trước
-          </button>
-          <span class="page-indicator">Trang {{ currentPage + 1 }} / {{ totalPages }}</span>
+              title="Trang trước"
+          >‹</button>
+
           <button
-              class="page-btn"
+              v-for="p in visiblePages"
+              :key="p"
+              :class="['pg-box', { active: currentPage === p }]"
+              @click="changePage(p)"
+          >
+            {{ p + 1 }}
+          </button>
+
+          <button
+              class="pg-box"
               :disabled="currentPage >= totalPages - 1"
               @click="changePage(currentPage + 1)"
-          >
-            Sau ›
-          </button>
+              title="Trang sau"
+          >›</button>
+          <button
+              class="pg-box"
+              :disabled="currentPage >= totalPages - 1"
+              @click="changePage(totalPages - 1)"
+              title="Trang cuối"
+          >»</button>
         </div>
       </div>
     </div>
@@ -913,7 +957,6 @@ onMounted(() => {
 .btn-reset:hover {
   background-color: #f8fafc;
   border-color: #94a3b8;
-  transform: translateY(-1px);
 }
 
 .btn-add-new {
@@ -923,7 +966,6 @@ onMounted(() => {
 
 .btn-add-new:hover {
   background-color: #663b31;
-  transform: translateY(-1px);
 }
 
 .btn-export-excel {
@@ -933,7 +975,6 @@ onMounted(() => {
 
 .btn-export-excel:hover {
   background-color: #256628;
-  transform: translateY(-1px);
 }
 
 /* Data Table Card */
@@ -1062,7 +1103,6 @@ onMounted(() => {
 .btn-view-edit:hover {
   background-color: #e0f2fe;
   border-color: #0284c7;
-  transform: scale(1.08);
 }
 
 .btn-delete-item {
@@ -1074,7 +1114,6 @@ onMounted(() => {
 .btn-delete-item:hover {
   background-color: #fee2e2;
   border-color: #dc2626;
-  transform: scale(1.08);
 }
 
 .empty-state-cell {
@@ -1105,47 +1144,97 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* Pagination Footer */
-.table-pagination-footer {
+/* 4. Thanh phân trang tương tự trang sản phẩm */
+.pagination-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background-color: #ffffff;
+  border-top: 1px solid #f1f4f8;
+}
+
+.pagination-left {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.85rem 1.25rem;
-  background-color: #ffffff;
-  border-top: 1px solid #f1f5f9;
-  font-size: 0.85rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.page-size-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
   color: #64748b;
 }
 
-.pagination-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
+.page-size-label {
+  font-weight: 500;
 }
 
-.page-btn {
-  padding: 0.35rem 0.75rem;
+.page-size-select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  outline: none;
+}
+
+.page-size-select:focus {
+  border-color: #496883;
+}
+
+.page-size-unit {
+  color: #64748b;
+}
+
+.pagination-info {
+  font-size: 0.88rem;
+  color: #6f7c82;
+}
+
+.pagination-center {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.pg-box {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 6px;
   border: 1px solid #cbd5e1;
   background: #ffffff;
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s;
+  color: #3d4a50;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.page-btn:hover:not(:disabled) {
-  background-color: #f8fafc;
-  border-color: #94a3b8;
+.pg-box:hover:not(:disabled) {
+  border-color: #496883;
+  color: #496883;
 }
 
-.page-btn:disabled {
-  opacity: 0.5;
+.pg-box:disabled {
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-.page-indicator {
-  font-weight: 600;
-  color: #334155;
+.pg-box.active {
+  border-color: #d2a764;
+  color: #ffffff;
+  background-color: #d2a764;
 }
 
 /* Modal Dialogs */
