@@ -365,7 +365,7 @@ onMounted(() => {
 
     <!-- Khối khung trắng bao bọc toàn bộ chức năng (style đồng bộ trang sản phẩm) -->
     <div class="product-card">
-      <!-- 1. Hàng tìm kiếm và các nút chính -->
+      <!-- 1. Hàng tìm kiếm, bộ lọc trạng thái và các nút chính -->
       <div class="search-actions-bar">
         <!-- Cột trái: Tìm kiếm -->
         <div class="search-input-col">
@@ -386,7 +386,17 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Cột phải: 3 nút hành động (Đặt lại bộ lọc, Xuất Excel, + Thêm mới) -->
+        <!-- Cột giữa: Bộ lọc trạng thái -->
+        <div class="filter-select-col">
+          <label class="search-label">Trạng thái</label>
+          <select v-model="filterStatus" class="filter-select-control">
+            <option value="">Tất cả trạng thái</option>
+            <option value="1">Kinh doanh</option>
+            <option value="0">Ngừng kinh doanh</option>
+          </select>
+        </div>
+
+        <!-- Cột phải: 3 nút hành động (Đặt lại, Xuất Excel, + Thêm mới) -->
         <div class="action-buttons-col">
           <button class="btn btn-refresh" @click="resetFilters" title="Đặt lại bộ lọc">
             <span class="btn-icon">
@@ -395,7 +405,7 @@ onMounted(() => {
                 <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
               </svg>
             </span>
-            Đặt lại bộ lọc
+            Đặt lại
           </button>
 
           <button class="btn btn-export" @click="exportExcel" title="Xuất danh sách ra file Excel">
@@ -420,25 +430,6 @@ onMounted(() => {
             </span>
             Thêm mới
           </button>
-        </div>
-      </div>
-
-      <!-- 2. Khối lọc thuộc tính / trạng thái -->
-      <div class="filter-attributes-section">
-        <div class="funnel-icon-wrap" title="Bộ lọc trạng thái">
-          <span class="funnel-icon">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
-            </svg>
-          </span>
-        </div>
-
-        <div class="attribute-dropdowns-grid">
-          <select v-model="filterStatus" class="filter-pill-select">
-            <option value="">-- Trạng thái --</option>
-            <option value="1">Kinh doanh</option>
-            <option value="0">Ngừng kinh doanh</option>
-          </select>
         </div>
       </div>
 
@@ -922,52 +913,33 @@ onMounted(() => {
   background-color: #e4cda7;
 }
 
-/* 2. Tiêu chí lọc trạng thái */
-.filter-attributes-section {
+/* 2. Cột lọc trạng thái cùng hàng */
+.filter-select-col {
   display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  padding: 0.75rem 1rem;
-  background: #fbfaf7;
-  border: 1px solid #f0ede6;
-  border-radius: 10px;
-}
-
-.funnel-icon-wrap {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  font-size: 1.3rem;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 200px;
   flex-shrink: 0;
-  color: #64748b;
 }
 
-.attribute-dropdowns-grid {
-  flex: 1;
-  display: flex;
-  gap: 0.75rem 1rem;
-  max-width: 280px;
-}
-
-.filter-pill-select {
-  height: 2.35rem;
+.filter-select-control {
   width: 100%;
-  background-color: #ffffff;
-  border: 1px solid #e2ded5;
+  height: 2.5rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 0 0.85rem;
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   color: #4f5a60;
   outline: none;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: all 0.2s ease;
 }
 
-.filter-pill-select:focus {
+.filter-select-control:focus {
   border-color: var(--blue, #496883);
-  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.1);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.12);
 }
 
 /* 3. Bảng dữ liệu */
@@ -1512,6 +1484,9 @@ onMounted(() => {
     flex-direction: column;
     align-items: stretch;
     gap: 0.85rem;
+  }
+  .filter-select-col {
+    width: 100%;
   }
   .action-buttons-col {
     justify-content: flex-end;
