@@ -50,14 +50,13 @@ const formErrors = ref({})
 // Toast notification
 const toast = ref({
   show: false,
-  title: '',
   message: '',
   type: 'success'
 })
 let toastTimer = null
-const showToast = (title, message = '', type = 'success') => {
+const showToast = (message = '', type = 'success') => {
   if (toastTimer) clearTimeout(toastTimer)
-  toast.value = { show: true, title, message, type }
+  toast.value = { show: true, message, type }
   toastTimer = setTimeout(() => {
     toast.value.show = false
   }, 3500)
@@ -113,7 +112,7 @@ const fetchItems = async () => {
     }
   } catch (err) {
     console.error(`Lỗi tải danh sách ${props.title}:`, err)
-    showToast('Lỗi tải dữ liệu', `Không thể tải danh sách ${props.title}`, 'error')
+    showToast(`Không thể tải danh sách ${props.title}`, 'error')
   } finally {
     loading.value = false
   }
@@ -247,13 +246,13 @@ const promptSaveNew = () => {
           trangThai: Number(formData.value.trangThai)
         }
         await api.post(`/api/thuoc-tinh/type/${props.attrType}`, payload)
-        showToast('Thành công', `Đã thêm mới ${props.title.toLowerCase()} thành công!`)
+        showToast(`Đã thêm mới ${props.title.toLowerCase()} thành công!`, 'success')
         closeAddModal()
         await fetchItems()
       } catch (err) {
         console.error('Lỗi thêm thuộc tính:', err)
         const msg = err.response?.data?.message || err.message || 'Không thể thêm mới!'
-        showToast('Lỗi', msg, 'error')
+        showToast(msg, 'error')
       }
     }
   })
@@ -277,13 +276,13 @@ const promptSaveUpdate = () => {
           trangThai: Number(formData.value.trangThai)
         }
         await api.put(`/api/thuoc-tinh/type/${props.attrType}/${formData.value.id}`, payload)
-        showToast('Thành công', `Cập nhật ${props.title.toLowerCase()} thành công!`)
+        showToast(`Cập nhật ${props.title.toLowerCase()} thành công!`, 'success')
         closeEditModal()
         await fetchItems()
       } catch (err) {
         console.error('Lỗi cập nhật thuộc tính:', err)
         const msg = err.response?.data?.message || err.message || 'Không thể cập nhật!'
-        showToast('Lỗi', msg, 'error')
+        showToast(msg, 'error')
       }
     }
   })
@@ -299,12 +298,12 @@ const confirmDeleteItem = (item) => {
     onConfirm: async () => {
       try {
         await api.delete(`/api/thuoc-tinh/type/${props.attrType}/${item.id}`)
-        showToast('Thành công', `Đã xóa ${props.title.toLowerCase()} "${item.ten}"!`)
+        showToast(`Đã xóa ${props.title.toLowerCase()} "${item.ten}"!`, 'success')
         await fetchItems()
       } catch (err) {
         console.error('Lỗi xóa thuộc tính:', err)
         const msg = err.response?.data?.message || err.message || 'Không thể xóa vì đang có sản phẩm sử dụng!'
-        showToast('Không thể xóa', msg, 'error')
+        showToast(msg, 'error')
       }
     }
   })
@@ -327,7 +326,7 @@ const exportExcel = () => {
     })
 
     if (dataToExport.length === 0) {
-      showToast('Thông báo', 'Không có dữ liệu để xuất Excel!', 'warning')
+      showToast('Không có dữ liệu để xuất Excel!', 'error')
       return
     }
 
@@ -336,10 +335,10 @@ const exportExcel = () => {
     XLSX.utils.book_append_sheet(workbook, worksheet, props.title)
     const fileName = `Danh_Sach_${props.title.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`
     XLSX.writeFile(workbook, fileName)
-    showToast('Thành công', `Đã xuất ${dataToExport.length} dòng ra file Excel!`)
+    showToast(`Đã xuất ${dataToExport.length} dòng ra file Excel!`, 'success')
   } catch (err) {
     console.error('Lỗi xuất Excel:', err)
-    showToast('Lỗi', 'Không thể xuất file Excel!', 'error')
+    showToast('Không thể xuất file Excel!', 'error')
   }
 }
 
@@ -355,172 +354,186 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="attribute-management-page">
-    <!-- 1. Header & Breadcrumb -->
+  <div class="product-page-container">
+    <!-- Tiêu đề trang -->
     <div class="page-header-row">
-      <div class="header-left">
-        <h2 class="page-title">Quản Lý {{ title }}</h2>
-        <div class="breadcrumb-trail">
-          <router-link to="/" class="bc-link">Trang chủ</router-link>
-          <span class="bc-sep">|</span>
-          <router-link to="/san-pham" class="bc-link">Sản phẩm</router-link>
-          <span class="bc-sep">|</span>
-          <span class="bc-current">{{ title }}</span>
-        </div>
+      <h2 class="main-page-title">QUẢN LÝ {{ title.toUpperCase() }}</h2>
+      <div v-if="toast.show" :class="['toast-notification', toast.type]">
+        {{ toast.message }}
       </div>
     </div>
 
-    <!-- 2. Khung bộ lọc tìm kiếm -->
-    <div class="filter-card">
-      <div class="filter-card-header">
-        <span class="filter-icon">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-            <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
-          </svg>
-        </span>
-        <h3 class="filter-card-title">Bộ lọc tìm kiếm {{ title }}</h3>
-      </div>
-
-      <div class="filter-card-body">
-        <div class="filter-inputs-row">
-          <!-- Từ khóa tìm kiếm -->
-          <div class="filter-item search-item">
-            <label class="filter-label">Từ khóa tìm kiếm</label>
-            <div class="search-input-wrap">
-              <span class="search-icon-slot">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                </svg>
-              </span>
-              <input
-                  type="text"
-                  v-model="searchKeyword"
-                  :placeholder="`Tìm theo mã hoặc tên ${title.toLowerCase()}...`"
-                  class="filter-input"
-              />
-              <button v-if="searchKeyword" class="btn-clear-search" @click="searchKeyword = ''">✕</button>
-            </div>
+    <!-- Khối khung trắng bao bọc toàn bộ chức năng (style đồng bộ trang sản phẩm) -->
+    <div class="product-card">
+      <!-- 1. Hàng tìm kiếm và các nút chính -->
+      <div class="search-actions-bar">
+        <!-- Cột trái: Tìm kiếm -->
+        <div class="search-input-col">
+          <label class="search-label">Tìm kiếm</label>
+          <div class="input-inner-wrap">
+            <span class="prefix-search-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </span>
+            <input
+                type="text"
+                v-model="searchKeyword"
+                :placeholder="`Tìm theo mã / tên ${title.toLowerCase()}...`"
+                class="input-search-full"
+            />
           </div>
+        </div>
 
-          <!-- Trạng thái -->
-          <div class="filter-item status-item">
-            <label class="filter-label">Trạng thái</label>
-            <div class="select-wrap">
-              <select v-model="filterStatus" class="filter-select">
-                <option value="">Tất cả trạng thái</option>
-                <option value="1">Kinh doanh</option>
-                <option value="0">Ngừng kinh doanh</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Nhóm các nút hành động bên phải -->
-          <div class="filter-actions-group">
-            <button type="button" class="btn-filter-action btn-reset" @click="resetFilters" title="Đặt lại bộ lọc">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M23 4v6h-6"></path>
+        <!-- Cột phải: 3 nút hành động (Đặt lại bộ lọc, Xuất Excel, + Thêm mới) -->
+        <div class="action-buttons-col">
+          <button class="btn btn-refresh" @click="resetFilters" title="Đặt lại bộ lọc">
+            <span class="btn-icon">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
                 <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
               </svg>
-              <span>Đặt lại</span>
-            </button>
+            </span>
+            Đặt lại bộ lọc
+          </button>
 
-            <button type="button" class="btn-filter-action btn-add-new" @click="openAddModal">
-              <span>+ Thêm mới</span>
-            </button>
-
-            <button type="button" class="btn-filter-action btn-export-excel" @click="exportExcel">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
-                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+          <button class="btn btn-export" @click="exportExcel" title="Xuất danh sách ra file Excel">
+            <span class="btn-icon">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
               </svg>
-              <span>Xuất Excel</span>
-            </button>
-          </div>
+            </span>
+            Xuất Excel
+          </button>
+
+          <button class="btn btn-add" @click="openAddModal" :title="`Thêm mới ${title.toLowerCase()}`">
+            <span class="btn-icon">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </span>
+            Thêm mới
+          </button>
         </div>
       </div>
-    </div>
 
-    <!-- 3. Bảng dữ liệu danh sách thuộc tính -->
-    <div class="data-table-card">
+      <!-- 2. Khối lọc thuộc tính / trạng thái -->
+      <div class="filter-attributes-section">
+        <div class="funnel-icon-wrap" title="Bộ lọc trạng thái">
+          <span class="funnel-icon">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
+            </svg>
+          </span>
+        </div>
+
+        <div class="attribute-dropdowns-grid">
+          <select v-model="filterStatus" class="filter-pill-select">
+            <option value="">-- Trạng thái --</option>
+            <option value="1">Kinh doanh</option>
+            <option value="0">Ngừng kinh doanh</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 3. Bảng dữ liệu thuộc tính -->
       <div class="table-responsive">
-        <table class="styled-attr-table">
+        <table class="product-table">
           <thead>
           <tr>
-            <th style="width: 70px; text-align: center;">STT</th>
-            <th style="width: 200px;">MÃ {{ title.toUpperCase() }}</th>
-            <th>TÊN {{ title.toUpperCase() }}</th>
-            <th v-if="hasColor" style="width: 140px; text-align: center;">MÃ MÀU</th>
-            <th style="width: 160px; text-align: center;">TRẠNG THÁI</th>
-            <th style="width: 130px; text-align: center;">HÀNH ĐỘNG</th>
+            <th style="width: 60px; text-align: center;">STT</th>
+            <th style="width: 180px;">Mã {{ title }}</th>
+            <th>Tên {{ title }}</th>
+            <th v-if="hasColor" style="width: 140px; text-align: center;">Mã màu</th>
+            <th style="width: 160px; text-align: center;">Trạng thái</th>
+            <th style="width: 140px; text-align: center;">Hành động</th>
           </tr>
           </thead>
           <tbody>
           <tr v-if="loading">
-            <td :colspan="hasColor ? 6 : 5" class="empty-state-cell">
-              <div class="loading-wrap">
-                <span class="loading-spinner"></span> Đang tải dữ liệu {{ title.toLowerCase() }}...
+            <td :colspan="hasColor ? 6 : 5" class="empty-state">
+              <div class="empty-box">
+                <div class="loading-spinner"></div>
+                <span class="empty-text">Đang tải dữ liệu {{ title.toLowerCase() }}...</span>
               </div>
             </td>
           </tr>
           <tr v-else-if="filteredItems.length === 0">
-            <td :colspan="hasColor ? 6 : 5" class="empty-state-cell">
-              Không tìm thấy {{ title.toLowerCase() }} nào phù hợp!
+            <td :colspan="hasColor ? 6 : 5" class="empty-state">
+              <div class="empty-box">
+                <span class="empty-icon">
+                  <svg viewBox="0 0 24 24" width="38" height="38" fill="currentColor" opacity="0.45">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v3c0 .55.45 1 1 1h1v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8h1c.55 0 1-.45 1-1V4c0-1.1-.9-2-2-2zm-1 6v12H5V8h14zM4 4h16v2H4V4zm5 6h6v2H9v-2z"/>
+                  </svg>
+                </span>
+                <span class="empty-text">Không tìm thấy {{ title.toLowerCase() }} nào phù hợp!</span>
+                <button type="button" class="btn btn-refresh-sm" @click="resetFilters">Làm mới bộ lọc</button>
+              </div>
             </td>
           </tr>
-          <tr v-else v-for="(item, index) in paginatedItems" :key="item.id" class="data-row">
+          <tr v-else v-for="(item, index) in paginatedItems" :key="item.id">
             <!-- STT -->
-            <td style="text-align: center;" class="cell-stt">
+            <td style="text-align: center;" class="stt-cell">
               {{ currentPage * pageSize + index + 1 }}
             </td>
 
             <!-- Mã thuộc tính -->
-            <td class="cell-code">
-              <strong>{{ item.ma || '—' }}</strong>
+            <td class="code-cell">
+              <b>{{ item.ma || '—' }}</b>
             </td>
 
             <!-- Tên thuộc tính -->
-            <td class="cell-name">
-              {{ item.ten || '—' }}
+            <td class="product-name-cell">
+              <div class="name-text">{{ item.ten || '—' }}</div>
             </td>
 
-            <!-- Màu sắc (nếu có) -->
-            <td v-if="hasColor" style="text-align: center;" class="cell-color">
-              <div class="color-indicator-wrap">
-                <span class="color-preview-circle" :style="{ backgroundColor: item.maHex || '#888' }"></span>
-                <span class="color-hex-text">{{ item.maHex || '—' }}</span>
+            <!-- Mã màu (nếu có) -->
+            <td v-if="hasColor" style="text-align: center;">
+              <div class="color-badge-wrap">
+                <span class="color-dot" :style="{ backgroundColor: item.maHex || '#888' }"></span>
+                <span class="color-code">{{ item.maHex || '—' }}</span>
               </div>
             </td>
 
             <!-- Trạng thái -->
             <td style="text-align: center;">
-              <span :class="['status-badge', item.trangThai === 1 ? 'badge-active' : 'badge-inactive']">
+              <span :class="['status-badge', item.trangThai === 1 ? 'status-active' : 'status-inactive']">
                 {{ item.trangThai === 1 ? 'Kinh doanh' : 'Ngừng KD' }}
               </span>
             </td>
 
-            <!-- Hành động: Con Mắt (Cập nhật) & Thùng Rác (Xóa) -->
+            <!-- Cột hành động: Icon mắt (Cập nhật) & Icon thùng rác (Xóa) -->
             <td style="text-align: center;">
-              <div class="action-btn-group">
-                <!-- Icon Mắt (Cập nhật) -->
+              <div class="action-buttons-group">
+                <!-- Icon mắt (Xem / Cập nhật) -->
                 <button
-                    type="button"
-                    class="btn-row-action btn-view-edit"
+                    class="btn-action btn-view"
                     @click="openEditModal(item)"
                     :title="`Cập nhật ${title.toLowerCase()}`"
                 >
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
                   </svg>
                 </button>
 
-                <!-- Icon Xóa (Thùng rác) -->
+                <!-- Icon xóa (Thùng rác) -->
                 <button
-                    type="button"
-                    class="btn-row-action btn-delete-item"
+                    class="btn-action btn-delete"
                     @click="confirmDeleteItem(item)"
                     :title="`Xóa ${title.toLowerCase()}`"
                 >
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
                   </svg>
                 </button>
               </div>
@@ -530,8 +543,8 @@ onMounted(() => {
         </table>
       </div>
 
-      <!-- Thanh phân trang tương tự trang sản phẩm -->
-      <div v-if="totalPages > 0" class="pagination-footer">
+      <!-- 4. Thanh phân trang tương tự trang sản phẩm -->
+      <div class="pagination-footer" v-if="totalPages > 0">
         <div class="pagination-left">
           <div class="page-size-selector">
             <span class="page-size-label">Hiển thị:</span>
@@ -543,9 +556,6 @@ onMounted(() => {
               <option :value="25">25</option>
             </select>
             <span class="page-size-unit">/ trang</span>
-          </div>
-          <div class="pagination-info">
-            Hiển thị <strong>{{ paginatedItems.length }}</strong> / <strong>{{ filteredItems.length }}</strong> bản ghi
           </div>
         </div>
         <div class="pagination-center">
@@ -587,463 +597,434 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- 4. MODAL THÊM MỚI -->
-    <div v-if="showAddModal" class="modal-backdrop-overlay" @click.self="closeAddModal">
-      <div class="modal-card-dialog">
-        <div class="modal-card-header">
-          <h4 class="modal-card-title">+ THÊM {{ title.toUpperCase() }} MỚI</h4>
-          <button class="modal-close-cross" @click="closeAddModal">✕</button>
+    <!-- MODAL THÊM MỚI -->
+    <div v-if="showAddModal" class="modal-backdrop" @click.self="closeAddModal">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3 class="modal-title">Thêm Mới {{ title }}</h3>
+          <button type="button" class="btn-close-modal" @click="closeAddModal">✕</button>
         </div>
 
-        <div class="modal-card-body">
-          <!-- Mã thuộc tính -->
-          <div class="form-field-group">
-            <label class="form-field-label">Mã {{ title.toLowerCase() }} <span class="required-star">*</span></label>
-            <input
-                type="text"
-                v-model="formData.ma"
-                class="form-field-input"
-                placeholder="Ví dụ: TH_9852"
-            />
-            <span class="field-error-msg" v-if="formErrors.ma">{{ formErrors.ma }}</span>
-          </div>
-
-          <!-- Tên thuộc tính -->
-          <div class="form-field-group">
-            <label class="form-field-label">Tên {{ title.toLowerCase() }} <span class="required-star">*</span></label>
-            <input
-                type="text"
-                v-model="formData.ten"
-                class="form-field-input"
-                :placeholder="`Nhập tên ${title.toLowerCase()}`"
-            />
-            <span class="field-error-msg" v-if="formErrors.ten">{{ formErrors.ten }}</span>
-          </div>
-
-          <!-- Mã màu (nếu là Màu sắc) -->
-          <div v-if="hasColor" class="form-field-group">
-            <label class="form-field-label">Mã màu (Hex) <span class="required-star">*</span></label>
-            <div class="color-picker-input-group">
-              <input type="color" v-model="formData.maHex" class="color-picker-box" />
+        <div class="modal-form">
+          <div class="form-grid">
+            <div class="form-group full-width">
+              <label class="form-label">Mã {{ title }} <span class="required">*</span></label>
               <input
                   type="text"
-                  v-model="formData.maHex"
-                  class="form-field-input"
-                  placeholder="#1e293b"
+                  v-model="formData.ma"
+                  class="form-control"
+                  placeholder="Hệ thống tự sinh mã..."
               />
             </div>
-            <span class="field-error-msg" v-if="formErrors.maHex">{{ formErrors.maHex }}</span>
-          </div>
 
-          <!-- Trạng thái hoạt động -->
-          <div class="form-field-group">
-            <label class="form-field-label">Trạng thái hoạt động</label>
-            <select v-model.number="formData.trangThai" class="form-field-input form-field-select">
-              <option :value="1">Kinh doanh</option>
-              <option :value="0">Ngừng kinh doanh</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="modal-card-footer">
-          <button type="button" class="btn-modal-cancel" @click="closeAddModal">Hủy bỏ</button>
-          <button type="button" class="btn-modal-confirm" @click="promptSaveNew">Xác nhận lưu</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 5. MODAL CẬP NHẬT -->
-    <div v-if="showEditModal" class="modal-backdrop-overlay" @click.self="closeEditModal">
-      <div class="modal-card-dialog">
-        <div class="modal-card-header">
-          <h4 class="modal-card-title">✏️ CẬP NHẬT {{ title.toUpperCase() }}</h4>
-          <button class="modal-close-cross" @click="closeEditModal">✕</button>
-        </div>
-
-        <div class="modal-card-body">
-          <!-- Mã thuộc tính (readonly) -->
-          <div class="form-field-group">
-            <label class="form-field-label">Mã {{ title.toLowerCase() }} <span class="required-star">*</span></label>
-            <input
-                type="text"
-                v-model="formData.ma"
-                class="form-field-input input-readonly"
-                readonly
-                disabled
-            />
-          </div>
-
-          <!-- Tên thuộc tính -->
-          <div class="form-field-group">
-            <label class="form-field-label">Tên {{ title.toLowerCase() }} <span class="required-star">*</span></label>
-            <input
-                type="text"
-                v-model="formData.ten"
-                class="form-field-input"
-                :placeholder="`Nhập tên ${title.toLowerCase()}`"
-            />
-            <span class="field-error-msg" v-if="formErrors.ten">{{ formErrors.ten }}</span>
-          </div>
-
-          <!-- Mã màu (nếu là Màu sắc) -->
-          <div v-if="hasColor" class="form-field-group">
-            <label class="form-field-label">Mã màu (Hex) <span class="required-star">*</span></label>
-            <div class="color-picker-input-group">
-              <input type="color" v-model="formData.maHex" class="color-picker-box" />
+            <div class="form-group full-width">
+              <label class="form-label">Tên {{ title }} <span class="required">*</span></label>
               <input
                   type="text"
-                  v-model="formData.maHex"
-                  class="form-field-input"
-                  placeholder="#1e293b"
+                  v-model="formData.ten"
+                  class="form-control"
+                  :placeholder="`Nhập tên ${title.toLowerCase()}...`"
+              />
+              <span class="field-error-msg" v-if="formErrors.ten">{{ formErrors.ten }}</span>
+            </div>
+
+            <div v-if="hasColor" class="form-group full-width">
+              <label class="form-label">Mã màu (Hex) <span class="required">*</span></label>
+              <div class="color-picker-input-wrap">
+                <input type="color" v-model="formData.maHex" class="color-picker-box" />
+                <input
+                    type="text"
+                    v-model="formData.maHex"
+                    class="form-control"
+                    placeholder="#1e293b"
+                />
+              </div>
+              <span class="field-error-msg" v-if="formErrors.maHex">{{ formErrors.maHex }}</span>
+            </div>
+
+            <div class="form-group full-width">
+              <label class="form-label">Trạng thái hoạt động</label>
+              <select v-model.number="formData.trangThai" class="form-control">
+                <option :value="1">Kinh doanh</option>
+                <option :value="0">Ngừng kinh doanh</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeAddModal">Hủy bỏ</button>
+            <button type="button" class="btn btn-primary" @click="promptSaveNew">Xác nhận lưu</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL CẬP NHẬT (KHI BẤM ICON MẮT) -->
+    <div v-if="showEditModal" class="modal-backdrop" @click.self="closeEditModal">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3 class="modal-title">Cập Nhật {{ title }}</h3>
+          <button type="button" class="btn-close-modal" @click="closeEditModal">✕</button>
+        </div>
+
+        <div class="modal-form">
+          <div class="form-grid">
+            <div class="form-group full-width">
+              <label class="form-label">Mã {{ title }}</label>
+              <input
+                  type="text"
+                  v-model="formData.ma"
+                  class="form-control"
+                  disabled
               />
             </div>
-            <span class="field-error-msg" v-if="formErrors.maHex">{{ formErrors.maHex }}</span>
+
+            <div class="form-group full-width">
+              <label class="form-label">Tên {{ title }} <span class="required">*</span></label>
+              <input
+                  type="text"
+                  v-model="formData.ten"
+                  class="form-control"
+                  :placeholder="`Nhập tên ${title.toLowerCase()}...`"
+              />
+              <span class="field-error-msg" v-if="formErrors.ten">{{ formErrors.ten }}</span>
+            </div>
+
+            <div v-if="hasColor" class="form-group full-width">
+              <label class="form-label">Mã màu (Hex) <span class="required">*</span></label>
+              <div class="color-picker-input-wrap">
+                <input type="color" v-model="formData.maHex" class="color-picker-box" />
+                <input
+                    type="text"
+                    v-model="formData.maHex"
+                    class="form-control"
+                    placeholder="#1e293b"
+                />
+              </div>
+              <span class="field-error-msg" v-if="formErrors.maHex">{{ formErrors.maHex }}</span>
+            </div>
+
+            <div class="form-group full-width">
+              <label class="form-label">Trạng thái hoạt động</label>
+              <select v-model.number="formData.trangThai" class="form-control">
+                <option :value="1">Kinh doanh</option>
+                <option :value="0">Ngừng kinh doanh</option>
+              </select>
+            </div>
           </div>
 
-          <!-- Trạng thái hoạt động -->
-          <div class="form-field-group">
-            <label class="form-field-label">Trạng thái hoạt động</label>
-            <select v-model.number="formData.trangThai" class="form-field-input form-field-select">
-              <option :value="1">Kinh doanh</option>
-              <option :value="0">Ngừng kinh doanh</option>
-            </select>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeEditModal">Hủy bỏ</button>
+            <button type="button" class="btn btn-primary" @click="promptSaveUpdate">Xác nhận cập nhật</button>
           </div>
-        </div>
-
-        <div class="modal-card-footer">
-          <button type="button" class="btn-modal-cancel" @click="closeEditModal">Hủy bỏ</button>
-          <button type="button" class="btn-modal-confirm" @click="promptSaveUpdate">Xác nhận lưu</button>
         </div>
       </div>
     </div>
 
-    <!-- 6. DIALOG XÁC NHẬN CHUNG (THÊM, CẬP NHẬT, XÓA) -->
-    <div v-if="confirmDialog.show" class="confirm-backdrop-overlay" @click.self="closeConfirm">
-      <div class="confirm-dialog-box">
-        <div class="confirm-header">
-          <span :class="['confirm-icon-badge', `icon-${confirmDialog.type}`]">
-            <svg v-if="confirmDialog.type === 'danger'" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-            </svg>
-            <svg v-else viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-          </span>
-          <h4 class="confirm-title-text">{{ confirmDialog.title }}</h4>
-        </div>
+    <!-- MODAL XÁC NHẬN HÀNH ĐỘNG (XÓA / LƯU) -->
+    <transition name="fade">
+      <div v-if="confirmDialog.show" class="confirm-modal-overlay" @click="closeConfirm">
+        <div class="confirm-modal-box" @click.stop>
+          <div class="confirm-icon-wrap" :class="confirmDialog.type">
+            <span v-if="confirmDialog.type === 'danger'">⚠️</span>
+            <span v-else-if="confirmDialog.type === 'info'">ℹ️</span>
+            <span v-else>❓</span>
+          </div>
 
-        <div class="confirm-message-text">
-          {{ confirmDialog.message }}
-        </div>
+          <h3 class="confirm-title">{{ confirmDialog.title }}</h3>
+          <p class="confirm-message">{{ confirmDialog.message }}</p>
 
-        <div class="confirm-footer-btns">
-          <button type="button" class="btn-confirm-cancel" @click="closeConfirm">Hủy</button>
-          <button
-              type="button"
-              :class="['btn-confirm-submit', `btn-type-${confirmDialog.type}`]"
-              @click="executeConfirm"
-          >
-            {{ confirmDialog.confirmText }}
-          </button>
+          <div class="confirm-actions">
+            <button type="button" class="btn btn-confirm-cancel" @click="closeConfirm">
+              Hủy bỏ
+            </button>
+            <button
+                type="button"
+                :class="['btn', confirmDialog.type === 'danger' ? 'btn-confirm-danger' : 'btn-confirm-primary']"
+                @click="executeConfirm"
+            >
+              {{ confirmDialog.confirmText || 'Đồng ý' }}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-
-    <!-- 7. TOAST THÔNG BÁO -->
-    <div v-if="toast.show" :class="['global-toast-notification', `toast-${toast.type}`]">
-      <div class="toast-title-bold">{{ toast.title }}</div>
-      <div class="toast-desc-text" v-if="toast.message">{{ toast.message }}</div>
-    </div>
+    </transition>
   </div>
 </template>
 
 <style scoped>
-.attribute-management-page {
-  padding: 1.25rem 1.5rem;
-  max-width: 1400px;
-  margin: 0 auto;
+/* Vùng hiển thị trang đồng bộ trang sản phẩm */
+.product-page-container {
+  padding: 1.25rem 1.5rem 2.5rem;
+  background-color: var(--bg, #f7f5ef);
+  min-height: calc(100vh - 48px);
+  color: var(--text, #3d4a50);
+  box-sizing: border-box;
 }
 
-/* Header & Breadcrumb */
 .page-header-row {
-  margin-bottom: 1.25rem;
-}
-
-.page-title {
-  font-size: 1.45rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 0.35rem 0;
-}
-
-.breadcrumb-trail {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 0.45rem;
-  font-size: 0.85rem;
-  color: #64748b;
+  margin-bottom: 1rem;
 }
 
-.bc-link {
-  color: #64748b;
-  text-decoration: none;
-  transition: color 0.15s;
+.main-page-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  letter-spacing: 0.3px;
+  margin: 0;
 }
 
-.bc-link:hover {
-  color: #2563eb;
-}
-
-.bc-sep {
-  color: #cbd5e1;
-}
-
-.bc-current {
-  color: #334155;
+/* Toast notification */
+.toast-notification {
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
   font-weight: 600;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.toast-notification.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+.toast-notification.error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
 }
 
-/* Filter Card */
-.filter-card {
+/* Khối Card trắng */
+.product-card {
   background: #ffffff;
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid #f1f5f9;
-  margin-bottom: 1.5rem;
-  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+  padding: 1.5rem 1.75rem;
 }
 
-.filter-card-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  color: #334155;
-}
-
-.filter-icon {
-  color: #d97706;
-  display: flex;
-  align-items: center;
-}
-
-.filter-card-title {
-  font-size: 0.98rem;
-  font-weight: 700;
-  margin: 0;
-  color: #1e293b;
-}
-
-.filter-inputs-row {
+/* 1. Hàng tìm kiếm và các nút chính */
+.search-actions-bar {
   display: flex;
   align-items: flex-end;
-  gap: 1rem;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+  width: 100%;
 }
 
-.filter-item {
+.search-input-col {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  min-width: 0;
 }
 
-.filter-label {
-  font-size: 0.82rem;
+.search-label {
+  font-size: 0.85rem;
   font-weight: 600;
   color: #64748b;
+  margin: 0;
 }
 
-.search-item {
-  flex: 1;
-  min-width: 260px;
-}
-
-.search-input-wrap {
+.input-inner-wrap {
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
-.search-icon-slot {
+.prefix-search-icon {
   position: absolute;
-  left: 0.75rem;
-  color: #94a3b8;
+  left: 0.95rem;
   display: flex;
   align-items: center;
+  justify-content: center;
+  color: #94a3b8;
   pointer-events: none;
 }
 
-.filter-input {
+.input-search-full {
   width: 100%;
-  height: 38px;
-  padding: 0 2rem 0 2.25rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  font-size: 0.88rem;
+  height: 2.5rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0 1rem 0 2.5rem;
+  font-size: 0.92rem;
   color: #1e293b;
   outline: none;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+}
+
+.input-search-full:focus {
+  border-color: var(--blue, #496883);
   background-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.12);
 }
 
-.filter-input:focus {
-  border-color: #64748b;
-  box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.15);
-}
-
-.btn-clear-search {
-  position: absolute;
-  right: 0.75rem;
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-  font-size: 0.8rem;
-  padding: 2px;
-}
-
-.btn-clear-search:hover {
-  color: #ef4444;
-}
-
-.status-item {
-  width: 180px;
-}
-
-.filter-select {
-  height: 38px;
-  width: 100%;
-  padding: 0 0.85rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  font-size: 0.88rem;
-  color: #1e293b;
-  outline: none;
-  background-color: #ffffff;
-  cursor: pointer;
-}
-
-.filter-select:focus {
-  border-color: #64748b;
-}
-
-.filter-actions-group {
+.action-buttons-col {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  margin-left: auto;
+  flex-shrink: 0;
 }
 
-.btn-filter-action {
-  height: 38px;
-  padding: 0 1.15rem;
-  border-radius: 6px;
+/* Các loại nút bấm */
+.btn {
+  height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 8px;
   font-size: 0.88rem;
   font-weight: 700;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  justify-content: center;
+  gap: 0.4rem;
   border: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.btn-reset {
-  background-color: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #475569;
+.btn-icon {
+  font-size: 0.9rem;
 }
 
-.btn-reset:hover {
-  background-color: #f8fafc;
-  border-color: #94a3b8;
-}
-
-.btn-add-new {
-  background-color: #7c4a3e;
+/* Nút Làm mới */
+.btn-refresh {
+  background-color: #d2a764;
   color: #ffffff;
 }
-
-.btn-add-new:hover {
-  background-color: #663b31;
+.btn-refresh:hover {
+  background-color: #be9453;
 }
 
-.btn-export-excel {
+/* Nút Xuất Excel */
+.btn-export {
   background-color: #2e7d32;
   color: #ffffff;
 }
-
-.btn-export-excel:hover {
+.btn-export:hover {
   background-color: #256628;
 }
 
-/* Data Table Card */
-.data-table-card {
-  background: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.03);
-  border: 1px solid #e2e8f0;
-  overflow: hidden;
+/* Nút Thêm mới */
+.btn-add {
+  background-color: #edd9b8;
+  color: #4a3e2e;
+}
+.btn-add:hover {
+  background-color: #e4cda7;
 }
 
-.table-responsive {
+/* 2. Tiêu chí lọc trạng thái */
+.filter-attributes-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: #fbfaf7;
+  border: 1px solid #f0ede6;
+  border-radius: 10px;
+}
+
+.funnel-icon-wrap {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+  color: #64748b;
+}
+
+.attribute-dropdowns-grid {
+  flex: 1;
+  display: flex;
+  gap: 0.75rem 1rem;
+  max-width: 280px;
+}
+
+.filter-pill-select {
+  height: 2.35rem;
   width: 100%;
+  background-color: #ffffff;
+  border: 1px solid #e2ded5;
+  border-radius: 8px;
+  padding: 0 0.85rem;
+  font-size: 0.88rem;
+  color: #4f5a60;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.filter-pill-select:focus {
+  border-color: var(--blue, #496883);
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.1);
+}
+
+/* 3. Bảng dữ liệu */
+.table-responsive {
   overflow-x: auto;
 }
 
-.styled-attr-table {
+.product-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.88rem;
-  text-align: left;
+  font-size: 0.92rem;
 }
 
-.styled-attr-table thead tr {
-  background-color: #e5dcd6;
-}
-
-.styled-attr-table th {
-  padding: 0.85rem 1rem;
+.product-table th {
+  background-color: #f8fafc;
+  color: #6c787f;
   font-weight: 700;
-  color: #4a3b32;
-  font-size: 0.82rem;
-  letter-spacing: 0.02em;
-  border-bottom: 1px solid #d5c8be;
+  padding: 0.9rem 1rem;
+  text-align: left;
+  border-bottom: 2px solid #edf1f5;
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 
-.styled-attr-table td {
-  padding: 0.95rem 1rem;
-  border-bottom: 1px solid #f1f5f9;
-  color: #334155;
+.product-table td {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid #f1f4f7;
+  vertical-align: middle;
+  color: #4a565c;
 }
 
-.data-row:hover {
-  background-color: #fdfaf8;
+.product-table tr:hover td {
+  background-color: #faf9f5;
 }
 
-.cell-stt {
+.stt-cell {
   color: #64748b;
   font-weight: 600;
 }
 
-.cell-code {
+.code-cell {
   color: #1e293b;
+  font-size: 0.92rem;
+}
+
+.name-text {
   font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.cell-name {
-  font-weight: 500;
   color: #1e293b;
 }
 
-.color-indicator-wrap {
+.color-badge-wrap {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.color-preview-circle {
+.color-dot {
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -1051,97 +1032,127 @@ onMounted(() => {
   display: inline-block;
 }
 
-.color-hex-text {
-  font-size: 0.82rem;
+.color-code {
+  font-size: 0.85rem;
   font-family: monospace;
   color: #64748b;
 }
 
 .status-badge {
   display: inline-block;
-  padding: 0.25rem 0.65rem;
-  border-radius: 4px;
-  font-size: 0.78rem;
+  padding: 0.35rem 0.8rem;
   font-weight: 700;
-}
-
-.badge-active {
-  background-color: #15803d;
-  color: #ffffff;
-}
-
-.badge-inactive {
-  background-color: #dc2626;
-  color: #ffffff;
-}
-
-.action-btn-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.btn-row-action {
-  width: 32px;
-  height: 32px;
   border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  font-size: 0.82rem;
+  white-space: nowrap;
 }
 
-.btn-view-edit {
-  color: #0284c7;
-  border-color: #e0f2fe;
-  background-color: #f0f9ff;
+.status-badge.status-active {
+  background-color: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
 }
 
-.btn-view-edit:hover {
-  background-color: #e0f2fe;
-  border-color: #0284c7;
-}
-
-.btn-delete-item {
-  color: #dc2626;
-  border-color: #fee2e2;
+.status-badge.status-inactive {
   background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
 }
 
-.btn-delete-item:hover {
-  background-color: #fee2e2;
-  border-color: #dc2626;
-}
-
-.empty-state-cell {
-  text-align: center;
-  padding: 2.5rem 1rem !important;
-  color: #64748b;
-}
-
-.loading-wrap {
+/* Các nút hành động */
+.action-buttons-group {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  color: #475569;
+}
+
+.btn-action {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line, #e9e5db);
+  background-color: #ffffff;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  padding: 0;
+}
+
+.btn-action svg {
+  display: block;
+}
+
+.btn-view {
+  color: #0284c7;
+}
+.btn-view:hover {
+  background-color: #e0f2fe;
+  border-color: #0284c7;
+}
+
+.btn-delete {
+  color: #dc2626;
+}
+.btn-delete:hover {
+  background-color: #fef2f2;
+  border-color: #dc2626;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem !important;
+  color: #8c9ba5;
+  font-size: 0.95rem;
+}
+
+.empty-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1rem 0;
+  width: 100%;
+}
+
+.empty-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.empty-text {
+  font-size: 0.95rem;
+  color: #71828d;
+  font-weight: 600;
 }
 
 .loading-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid #cbd5e1;
-  border-top-color: #2563eb;
+  width: 22px;
+  height: 22px;
+  border: 3px solid #e2e8f0;
+  border-top-color: var(--blue, #496883);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-  display: inline-block;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.btn-refresh-sm {
+  margin-top: 0.25rem;
+  padding: 0.4rem 0.9rem;
+  background-color: #eef3f6;
+  color: #496883;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid #d5e1e8;
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 /* 4. Thanh phân trang tương tự trang sản phẩm */
@@ -1149,8 +1160,8 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.25rem;
-  background-color: #ffffff;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
   border-top: 1px solid #f1f4f8;
 }
 
@@ -1171,32 +1182,31 @@ onMounted(() => {
 
 .page-size-label {
   font-weight: 500;
+  color: #64748b;
 }
 
 .page-size-select {
   height: 32px;
   padding: 0 8px;
-  border: 1px solid #cbd5e1;
-  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 6px;
+  background-color: #ffffff;
+  color: #1e293b;
   font-size: 0.88rem;
   font-weight: 600;
-  color: #334155;
   cursor: pointer;
   outline: none;
+  transition: border-color 0.2s;
 }
 
 .page-size-select:focus {
-  border-color: #496883;
+  border-color: var(--blue, #496883);
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.12);
 }
 
 .page-size-unit {
+  font-size: 0.85rem;
   color: #64748b;
-}
-
-.pagination-info {
-  font-size: 0.88rem;
-  color: #6f7c82;
 }
 
 .pagination-center {
@@ -1208,14 +1218,14 @@ onMounted(() => {
   min-width: 34px;
   height: 34px;
   padding: 0 6px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--line, #e9e5db);
   background: #ffffff;
   border-radius: 6px;
   font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
   color: #3d4a50;
-  transition: all 0.2s;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1237,322 +1247,302 @@ onMounted(() => {
   background-color: #d2a764;
 }
 
-/* Modal Dialogs */
-.modal-backdrop-overlay {
+/* Modal Form Thêm / Sửa */
+.modal-backdrop {
   position: fixed;
   inset: 0;
   background-color: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1050;
-  backdrop-filter: blur(2px);
-  padding: 1rem;
+  z-index: 1000;
+  padding: 1.5rem;
 }
 
-.modal-card-dialog {
+.modal-dialog {
   background: #ffffff;
-  width: 100%;
-  max-width: 480px;
   border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  animation: modalScale 0.2s ease-out;
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 }
 
-@keyframes modalScale {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-.modal-card-header {
+.modal-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
-  background-color: #fbf7f4;
-  border-bottom: 1px solid #f1e9e3;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #f0ede6;
 }
 
-.modal-card-title {
+.modal-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #1a1a1a;
   margin: 0;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #4a3b32;
 }
 
-.modal-close-cross {
-  background: transparent;
+.btn-close-modal {
+  background: none;
   border: none;
-  font-size: 1.1rem;
-  color: #8c7c72;
+  font-size: 1.2rem;
+  color: #888;
   cursor: pointer;
-  line-height: 1;
+}
+.btn-close-modal:hover {
+  color: #000;
 }
 
-.modal-close-cross:hover {
-  color: #ef4444;
+.modal-form {
+  padding: 1.5rem;
 }
 
-.modal-card-body {
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 1rem;
 }
 
-.form-field-group {
+.form-group {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
 }
 
-.form-field-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #334155;
-}
-
-.required-star {
-  color: #ef4444;
-}
-
-.form-field-input {
-  width: 100%;
-  height: 38px;
-  padding: 0 0.85rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
+.form-label {
   font-size: 0.88rem;
-  color: #1e293b;
+  font-weight: 700;
+  color: #3d4a50;
+}
+
+.form-label .required {
+  color: #d9534f;
+}
+
+.form-control {
+  height: 2.45rem;
+  border: 1px solid #d5d9df;
+  border-radius: 6px;
+  padding: 0 0.8rem;
+  font-size: 0.9rem;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.2s;
+  background-color: #ffffff;
+  color: #1e293b;
 }
 
-.form-field-input:focus {
-  border-color: #7c4a3e;
+.form-control:focus {
+  border-color: #496883;
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.1);
 }
 
-.input-readonly {
-  background-color: #f1f5f9;
+.form-control:disabled {
+  background-color: #f8fafc;
   color: #64748b;
   cursor: not-allowed;
 }
 
-.color-picker-input-group {
+.color-picker-input-wrap {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.75rem;
 }
 
 .color-picker-box {
-  width: 42px;
-  height: 38px;
-  padding: 2px;
-  border: 1px solid #cbd5e1;
+  width: 44px;
+  height: 2.45rem;
+  border: 1px solid #d5d9df;
   border-radius: 6px;
   cursor: pointer;
+  padding: 2px;
+  background-color: #ffffff;
 }
 
 .field-error-msg {
-  font-size: 0.78rem;
-  color: #ef4444;
+  font-size: 0.8rem;
+  color: #dc2626;
+  font-weight: 500;
 }
 
-.modal-card-footer {
+.modal-footer {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.85rem;
-  padding: 1rem 1.25rem 1.25rem;
-  background-color: #ffffff;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #f0ede6;
 }
 
-.btn-modal-cancel {
-  padding: 0.5rem 1.25rem;
-  border-radius: 6px;
-  border: 1px solid #cbd5e1;
-  background-color: #ffffff;
-  color: #475569;
-  font-size: 0.88rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s;
+.btn-secondary {
+  background-color: #f1f4f8;
+  color: #556877;
+}
+.btn-secondary:hover {
+  background-color: #e2e8f0;
 }
 
-.btn-modal-cancel:hover {
-  background-color: #f8fafc;
-}
-
-.btn-modal-confirm {
-  padding: 0.5rem 1.35rem;
-  border-radius: 6px;
-  border: none;
-  background-color: #7c4a3e;
+.btn-primary {
+  background-color: #496883;
   color: #ffffff;
-  font-size: 0.88rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s;
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: #385269;
 }
 
-.btn-modal-confirm:hover {
-  background-color: #663b31;
-}
-
-/* Confirm Dialog */
-.confirm-backdrop-overlay {
+/* Modal xác nhận chuyên nghiệp */
+.confirm-modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.45);
+  background-color: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1100;
+  z-index: 9999;
   backdrop-filter: blur(2px);
-  padding: 1rem;
 }
 
-.confirm-dialog-box {
+.confirm-modal-box {
   background: #ffffff;
-  width: 100%;
-  max-width: 400px;
-  border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
-  padding: 1.5rem;
+  border-radius: 14px;
+  width: 90%;
+  max-width: 440px;
+  padding: 1.75rem 1.5rem 1.5rem;
   text-align: center;
-  animation: modalScale 0.2s ease-out;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
-.confirm-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.65rem;
-  margin-bottom: 0.75rem;
-}
-
-.confirm-icon-badge {
-  width: 44px;
-  height: 44px;
+.confirm-icon-wrap {
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
+  margin: 0 auto 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 1.5rem;
 }
 
-.icon-primary {
-  background-color: #eff6ff;
+.confirm-icon-wrap.primary {
+  background: #eff6ff;
   color: #2563eb;
 }
 
-.icon-danger {
-  background-color: #fef2f2;
-  color: #ef4444;
+.confirm-icon-wrap.danger {
+  background: #fef2f2;
+  color: #dc2626;
 }
 
-.confirm-title-text {
-  margin: 0;
-  font-size: 1.05rem;
+.confirm-icon-wrap.info {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.confirm-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: #1e293b;
 }
 
-.confirm-message-text {
-  font-size: 0.88rem;
-  color: #475569;
+.confirm-message {
+  margin: 0 0 1.5rem;
+  font-size: 0.92rem;
+  color: #64748b;
   line-height: 1.5;
-  margin-bottom: 1.25rem;
 }
 
-.confirm-footer-btns {
+.confirm-actions {
   display: flex;
-  align-items: center;
   justify-content: center;
   gap: 0.75rem;
 }
 
 .btn-confirm-cancel {
-  padding: 0.45rem 1.15rem;
-  border-radius: 6px;
-  border: 1px solid #cbd5e1;
-  background-color: #ffffff;
+  background: #f1f5f9;
   color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 0.6rem 1.4rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
   font-weight: 600;
-  font-size: 0.85rem;
   cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .btn-confirm-cancel:hover {
-  background-color: #f8fafc;
+  background: #e2e8f0;
 }
 
-.btn-confirm-submit {
-  padding: 0.45rem 1.25rem;
-  border-radius: 6px;
+.btn-confirm-primary {
+  background: var(--blue, #496883);
+  color: #ffffff;
   border: none;
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: #ffffff;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-type-primary {
-  background-color: #2563eb;
-}
-
-.btn-type-primary:hover {
-  background-color: #1d4ed8;
-}
-
-.btn-type-danger {
-  background-color: #ef4444;
-}
-
-.btn-type-danger:hover {
-  background-color: #dc2626;
-}
-
-/* Toast */
-.global-toast-notification {
-  position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
-  padding: 0.85rem 1.25rem;
+  padding: 0.6rem 1.4rem;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1200;
-  color: #ffffff;
-  max-width: 350px;
-  animation: slideInRight 0.3s ease-out;
-}
-
-@keyframes slideInRight {
-  from { opacity: 0; transform: translateX(30px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-.toast-success {
-  background-color: #10b981;
-}
-
-.toast-error {
-  background-color: #ef4444;
-}
-
-.toast-warning {
-  background-color: #f59e0b;
-}
-
-.toast-title-bold {
-  font-weight: 700;
   font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
-.toast-desc-text {
-  font-size: 0.82rem;
-  margin-top: 0.2rem;
-  opacity: 0.95;
+.btn-confirm-primary:hover {
+  background: #385269;
+}
+
+.btn-confirm-danger {
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  padding: 0.6rem 1.4rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-confirm-danger:hover {
+  background: #b91c1c;
+}
+
+@media (max-width: 992px) {
+  .search-actions-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.85rem;
+  }
+  .action-buttons-col {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .product-page-container {
+    padding: 1rem 0.75rem 2rem;
+  }
+  .product-card {
+    padding: 1rem;
+  }
+  .action-buttons-col {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .action-buttons-col .btn {
+    width: 100%;
+  }
+  .pagination-footer {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: center;
+    text-align: center;
+  }
+  .pagination-center {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }
 </style>

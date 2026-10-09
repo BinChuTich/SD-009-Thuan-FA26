@@ -786,7 +786,6 @@ watch(() => route.query.tab, (newTab) => {
 .btn-create-attr:hover {
   background-color: #385167;
   border-color: #385167;
-  transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(73, 104, 131, 0.3);
 }
 
