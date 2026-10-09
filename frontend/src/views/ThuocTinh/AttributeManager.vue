@@ -834,7 +834,7 @@ onMounted(() => {
   height: 38px;
   padding: 0 2rem 0 2.25rem;
   border: 1px solid #cbd5e1;
-  border-radius: 20px;
+  border-radius: 6px;
   font-size: 0.88rem;
   color: #1e293b;
   outline: none;
@@ -844,7 +844,7 @@ onMounted(() => {
 
 .filter-input:focus {
   border-color: #64748b;
-  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.1);
+  box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.15);
 }
 
 .btn-clear-search {
@@ -869,9 +869,9 @@ onMounted(() => {
 .filter-select {
   height: 38px;
   width: 100%;
-  padding: 0 1rem;
+  padding: 0 0.85rem;
   border: 1px solid #cbd5e1;
-  border-radius: 20px;
+  border-radius: 6px;
   font-size: 0.88rem;
   color: #1e293b;
   outline: none;
@@ -893,14 +893,14 @@ onMounted(() => {
 .btn-filter-action {
   height: 38px;
   padding: 0 1.15rem;
-  border-radius: 20px;
-  font-size: 0.86rem;
-  font-weight: 600;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   border: none;
 }
 
@@ -913,6 +913,7 @@ onMounted(() => {
 .btn-reset:hover {
   background-color: #f8fafc;
   border-color: #94a3b8;
+  transform: translateY(-1px);
 }
 
 .btn-add-new {
@@ -922,23 +923,25 @@ onMounted(() => {
 
 .btn-add-new:hover {
   background-color: #663b31;
+  transform: translateY(-1px);
 }
 
 .btn-export-excel {
-  background-color: #558b68;
+  background-color: #2e7d32;
   color: #ffffff;
 }
 
 .btn-export-excel:hover {
-  background-color: #457255;
+  background-color: #256628;
+  transform: translateY(-1px);
 }
 
 /* Data Table Card */
 .data-table-card {
   background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.03);
+  border: 1px solid #e2e8f0;
   overflow: hidden;
 }
 
@@ -1015,10 +1018,10 @@ onMounted(() => {
 
 .status-badge {
   display: inline-block;
-  padding: 0.25rem 0.85rem;
-  border-radius: 20px;
+  padding: 0.25rem 0.65rem;
+  border-radius: 4px;
   font-size: 0.78rem;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .badge-active {
@@ -1034,38 +1037,44 @@ onMounted(() => {
 .action-btn-group {
   display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.5rem;
 }
 
 .btn-row-action {
   width: 32px;
   height: 32px;
   border-radius: 6px;
-  border: none;
-  background: transparent;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s ease;
 }
 
 .btn-view-edit {
-  color: #3b82f6;
+  color: #0284c7;
+  border-color: #e0f2fe;
+  background-color: #f0f9ff;
 }
 
 .btn-view-edit:hover {
-  background-color: #eff6ff;
-  color: #1d4ed8;
+  background-color: #e0f2fe;
+  border-color: #0284c7;
+  transform: scale(1.08);
 }
 
 .btn-delete-item {
-  color: #ef4444;
+  color: #dc2626;
+  border-color: #fee2e2;
+  background-color: #fef2f2;
 }
 
 .btn-delete-item:hover {
-  background-color: #fef2f2;
-  color: #b91c1c;
+  background-color: #fee2e2;
+  border-color: #dc2626;
+  transform: scale(1.08);
 }
 
 .empty-state-cell {
@@ -1272,12 +1281,12 @@ onMounted(() => {
 
 .btn-modal-cancel {
   padding: 0.5rem 1.25rem;
-  border-radius: 20px;
+  border-radius: 6px;
   border: 1px solid #cbd5e1;
   background-color: #ffffff;
   color: #475569;
-  font-size: 0.86rem;
-  font-weight: 600;
+  font-size: 0.88rem;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -1288,18 +1297,18 @@ onMounted(() => {
 
 .btn-modal-confirm {
   padding: 0.5rem 1.35rem;
-  border-radius: 20px;
+  border-radius: 6px;
   border: none;
-  background-color: #8c5e4e;
+  background-color: #7c4a3e;
   color: #ffffff;
-  font-size: 0.86rem;
-  font-weight: 600;
+  font-size: 0.88rem;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .btn-modal-confirm:hover {
-  background-color: #734839;
+  background-color: #663b31;
 }
 
 /* Confirm Dialog */
