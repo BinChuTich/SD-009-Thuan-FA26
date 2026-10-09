@@ -1,81 +1,36 @@
 <script setup>
-import {
-  ref,
-  computed,
-  onMounted
-} from 'vue'
-
-import {
-  useRoute,
-  useRouter
-} from 'vue-router'
-
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import api from '@/api.js'
-
 const route = useRoute()
 const router = useRouter()
-
-const maHoaDon =
-    route.params.maHoaDon
-
+const maHoaDon = route.params.maHoaDon
 const hoaDon = ref(null)
-
 const loading = ref(false)
 const saving = ref(false)
 const paying = ref(false)
-
 const errorMessage = ref('')
 
-// ===============================
-// LOAD
-// ===============================
 const loadHoaDon = async () => {
-
   try {
-
     loading.value = true
     errorMessage.value = ''
-
-    const response =
-        await api.get(
-            `/api/hoa-don/code/${maHoaDon}`
-        )
-
-    hoaDon.value =
-        response.data
-
+    const response = await api.get(`/api/hoa-don/code/${maHoaDon}`)
+    hoaDon.value = response.data
   } catch (error) {
-
-    console.error(error)
-
-    errorMessage.value =
-        'Không thể tải thông tin hóa đơn.'
-
+    console.error('Lỗi tải hóa đơn:', error)
+    errorMessage.value = 'Không thể tải thông tin hóa đơn.'
   } finally {
-
     loading.value = false
-
   }
 }
 
-// ===============================
-// FORMAT MONEY
-// ===============================
 const formatMoney = (money) => {
-
-  if (money == null) {
-    return '0đ'
-  }
-
-  return Number(money)
-      .toLocaleString('vi-VN') + 'đ'
+  if (money == null) return '0đ'
+  return Number(money).toLocaleString('vi-VN') + 'đ'
 }
 
-// ===============================
-// TRẠNG THÁI ĐƠN
-// ===============================
 const getStatusText = (status) => {
-
   const map = {
     1: 'Chờ xác nhận',
     2: 'Đã xác nhận',
@@ -84,589 +39,246 @@ const getStatusText = (status) => {
     5: 'Đã hoàn thành',
     6: 'Hủy'
   }
-
-  return map[Number(status)] ||
-      'Chưa cập nhật'
+  return map[Number(status)] || 'Chưa cập nhật'
 }
 
-// ===============================
-// TRẠNG THÁI TIẾP THEO
-// ===============================
 const nextStatus = computed(() => {
-
-  if (!hoaDon.value) {
-    return null
-  }
-
-  switch (
-      Number(hoaDon.value.trangThai)
-      ) {
-
-    case 1:
-      return 2
-
-    case 2:
-      return 3
-
-    case 3:
-      return 4
-
-    case 4:
-      return 5
-
-    default:
-      return null
-  }
+  if (!hoaDon.value) return null
+  const currentStatus = Number(hoaDon.value.trangThai)
+  return currentStatus >= 1 && currentStatus <= 4 ? currentStatus + 1 : null
 })
 
-// ===============================
-// TEXT BUTTON
-// ===============================
 const actionText = computed(() => {
-
-  if (!hoaDon.value) {
-    return ''
-  }
-
-  switch (
-      Number(hoaDon.value.trangThai)
-      ) {
-
+  if (!hoaDon.value) return ''
+  switch (Number(hoaDon.value.trangThai)) {
     case 1:
       return '✓ Xác nhận đơn hàng'
-
     case 2:
       return '✓ Chuyển chờ vận chuyển'
-
     case 3:
       return '✓ Chuyển vận chuyển'
-
     case 4:
       return '✓ Hoàn thành đơn hàng'
-
     default:
       return ''
   }
 })
 
-// ===============================
-// PAYMENT STATUS
-// ===============================
 const isPaid = computed(() => {
-
-  return Number(
-      hoaDon.value?.trangThaiThanhToan
-  ) === 1
-
+  return Number(hoaDon.value?.trangThaiThanhToan) === 1
 })
 
-// ===============================
-// XÁC NHẬN ĐƠN
-// ===============================
+const finalTotalPayment = computed(() => {
+  if (!hoaDon.value) return 0
+  if (hoaDon.value.tongTien != null) {
+    return Number(hoaDon.value.tongTien)
+  }
+  const hang = Number(hoaDon.value.tongTienHang || 0)
+  const ship = Number(hoaDon.value.phiShip || 0)
+  const giam = Number(hoaDon.value.tongTienGiamGia || 0)
+  return Math.max(0, hang + ship - giam)
+})
+
 const xacNhanDon = async () => {
+  if (!hoaDon.value) return
+  const status = nextStatus.value
+  if (!status) return
 
-  if (!hoaDon.value) {
-    return
-  }
-
-  const status =
-      nextStatus.value
-
-  if (!status) {
-    return
-  }
-
-  const confirmed =
-      window.confirm(
-          `Bạn có chắc muốn chuyển đơn hàng sang "${getStatusText(status)}"?`
-      )
-
-  if (!confirmed) {
-    return
-  }
-
-  try {
-
-    saving.value = true
-
-    await api.put(
-        `/api/hoa-don/${hoaDon.value.id}`,
-        {
-          trangThai: status
-        }
-    )
-
-    hoaDon.value.trangThai =
-        status
-
-    alert(
-        `Đã chuyển đơn hàng sang "${getStatusText(status)}"!`
-    )
-
-  } catch (error) {
-
-    console.error(
-        'Lỗi cập nhật trạng thái:',
-        error
-    )
-
-    alert(
-        error.response?.data?.message ||
-        'Không thể cập nhật trạng thái đơn hàng!'
-    )
-
-  } finally {
-
-    saving.value = false
-
-  }
-}
-
-// ===============================
-// THANH TOÁN
-// ===============================
-const thanhToan = async () => {
-
-  if (!hoaDon.value) {
-    return
-  }
-
-  if (isPaid.value) {
-    return
-  }
-
-  const confirmed =
-      window.confirm(
-          'Bạn có chắc hóa đơn này đã được thanh toán?'
-      )
-
-  if (!confirmed) {
-    return
-  }
-
-  try {
-
-    paying.value = true
-
-    await api.put(
-        `/api/hoa-don/${hoaDon.value.id}`,
-        {
-          trangThaiThanhToan: 1
-        }
-    )
-
-    hoaDon.value.trangThaiThanhToan =
-        1
-
-    alert(
-        'Thanh toán thành công!'
-    )
-
-  } catch (error) {
-
-    console.error(
-        'Lỗi cập nhật thanh toán:',
-        error
-    )
-
-    alert(
-        error.response?.data?.message ||
-        'Không thể cập nhật trạng thái thanh toán!'
-    )
-
-  } finally {
-
-    paying.value = false
-
-  }
-}
-
-// ===============================
-// QUAY LẠI
-// ===============================
-const quayLai = () => {
-
-  router.push(
-      `/hoa-don/${maHoaDon}`
+  const confirmed = window.confirm(
+      `Bạn có chắc muốn chuyển đơn hàng sang "${getStatusText(status)}"?`
   )
+  if (!confirmed) return
+
+  try {
+    saving.value = true
+    await api.put(`/api/hoa-don/${hoaDon.value.id}`, { trangThai: status })
+    hoaDon.value.trangThai = status
+    alert(`Đã chuyển đơn hàng sang "${getStatusText(status)}"!`)
+  } catch (error) {
+    console.error('Lỗi cập nhật trạng thái:', error)
+    alert(error.response?.data?.message || 'Không thể cập nhật trạng thái đơn hàng!')
+  } finally {
+    saving.value = false
+  }
 }
 
-// ===============================
-// LOAD
-// ===============================
+const thanhToan = async () => {
+  if (!hoaDon.value || isPaid.value) return
+
+  const confirmed = window.confirm('Bạn có chắc hóa đơn này đã được thanh toán?')
+  if (!confirmed) return
+
+  try {
+    paying.value = true
+    await api.put(`/api/hoa-don/${hoaDon.value.id}`, { trangThaiThanhToan: 1 })
+    hoaDon.value.trangThaiThanhToan = 1
+    alert('Thanh toán thành công!')
+  } catch (error) {
+    console.error('Lỗi cập nhật thanh toán:', error)
+    alert(error.response?.data?.message || 'Không thể cập nhật trạng thái thanh toán!')
+  } finally {
+    paying.value = false
+  }
+}
+
+const quayLai = () => {
+  router.push(`/hoa-don/${maHoaDon}`)
+}
+
 onMounted(() => {
   loadHoaDon()
 })
 </script>
 
 <template>
-
   <div class="confirm-page">
-
     <!-- HEADER -->
     <div class="page-header">
-
       <div class="title-row">
-
         <span class="title-line"></span>
-
         <div>
-
-          <h2>
-            Xử lý hóa đơn
-          </h2>
-
-          <p>
-            Hóa đơn {{ maHoaDon }}
-          </p>
-
+          <h2>Xử lý hóa đơn</h2>
+          <p>Hóa đơn: {{ maHoaDon }}</p>
         </div>
-
       </div>
 
-      <button
-          class="btn-back"
-          @click="quayLai"
-      >
+      <button class="btn-back" @click="quayLai">
         ← Quay lại
       </button>
-
     </div>
 
-    <!-- LOADING -->
-    <div
-        v-if="loading"
-        class="loading"
-    >
+    <!-- LOADING & ERROR -->
+    <div v-if="loading" class="loading">
       Đang tải thông tin hóa đơn...
     </div>
 
-    <!-- ERROR -->
-    <div
-        v-if="errorMessage"
-        class="error-box"
-    >
+    <div v-else-if="errorMessage" class="error-box">
       {{ errorMessage }}
     </div>
 
-    <!-- CONTENT -->
-    <div
-        v-if="hoaDon && !loading"
-        class="content"
-    >
-
-      <!-- THÔNG TIN -->
+    <!-- MAIN CONTENT -->
+    <div v-else-if="hoaDon" class="content">
+      <!-- KHUNG THÔNG TIN HÓA ĐƠN -->
       <div class="card">
-
         <div class="card-header">
-
           <div>
-
-            <h3>
-              Thông tin hóa đơn
-            </h3>
-
-            <p>
-              Kiểm tra thông tin trước khi xử lý
-            </p>
-
+            <h3>Thông tin hóa đơn</h3>
+            <p>Kiểm tra thông tin trước khi xử lý</p>
           </div>
 
           <div class="status-group">
-
             <span class="status">
-              {{
-                getStatusText(
-                    hoaDon.trangThai
-                )
-              }}
+              {{ getStatusText(hoaDon.trangThai) }}
             </span>
-
-            <span
-                v-if="isPaid"
-                class="payment-paid"
-            >
+            <span v-if="isPaid" class="payment-paid">
               ✓ Đã thanh toán
             </span>
-
-            <span
-                v-else
-                class="payment-unpaid"
-            >
+            <span v-else class="payment-unpaid">
               Chưa thanh toán
             </span>
-
           </div>
-
         </div>
 
         <div class="info-grid">
-
           <div class="info-item">
-
-            <span class="label">
-              Mã hóa đơn
-            </span>
-
-            <strong>
-              {{ hoaDon.maHoaDon }}
-            </strong>
-
+            <span class="label">Mã hóa đơn</span>
+            <strong>{{ hoaDon.maHoaDon }}</strong>
           </div>
 
           <div class="info-item">
-
-            <span class="label">
-              Khách hàng
-            </span>
-
-            <strong>
-              {{
-                hoaDon.tenKhachHang ||
-                'Khách lẻ'
-              }}
-            </strong>
-
+            <span class="label">Khách hàng</span>
+            <strong>{{ hoaDon.tenKhachHang || 'Khách lẻ' }}</strong>
           </div>
 
           <div class="info-item">
-
-            <span class="label">
-              Số điện thoại
-            </span>
-
-            <strong>
-              {{
-                hoaDon.soDienThoaiKhachHang ||
-                '---'
-              }}
-            </strong>
-
+            <span class="label">Số điện thoại</span>
+            <strong>{{ hoaDon.soDienThoaiKhachHang || hoaDon.soDienThoai || '---' }}</strong>
           </div>
 
           <div class="info-item">
-
-            <span class="label">
-              Tổng thanh toán
-            </span>
-
-            <strong class="price">
-              {{
-                formatMoney(
-                    Number(
-                        hoaDon.tongTien || 0
-                    ) +
-                    Number(
-                        hoaDon.phiShip || 0
-                    ) -
-                    Number(
-                        hoaDon.tongTienGiamGia || 0
-                    )
-                )
-              }}
-            </strong>
-
+            <span class="label">Tổng thanh toán</span>
+            <strong class="price">{{ formatMoney(finalTotalPayment) }}</strong>
           </div>
-
         </div>
-
       </div>
 
-      <!-- THANH TOÁN -->
+      <!-- KHUNG THANH TOÁN -->
       <div class="card">
-
         <div class="card-header">
-
           <div>
-
-            <h3>
-              Thanh toán
-            </h3>
-
-            <p>
-              Trạng thái thanh toán của hóa đơn
-            </p>
-
+            <h3>Thanh toán</h3>
+            <p>Trạng thái thanh toán của hóa đơn</p>
           </div>
-
         </div>
 
-        <div
-            v-if="isPaid"
-            class="paid-box"
-        >
-          <span class="paid-icon">
-            ✓
-          </span>
-
+        <div v-if="isPaid" class="paid-box">
+          <span class="paid-icon">✓</span>
           <div>
-
-            <strong>
-              Đã thanh toán
-            </strong>
-
-            <p>
-              Hóa đơn này đã được thanh toán.
-            </p>
-
+            <strong>Đã thanh toán</strong>
+            <p>Hóa đơn này đã được xác nhận thanh toán.</p>
           </div>
-
         </div>
 
-        <div
-            v-else
-            class="unpaid-box"
-        >
-
+        <div v-else class="unpaid-box">
           <div>
-
-            <strong>
-              Chưa thanh toán
-            </strong>
-
-            <p>
-              Xác nhận khi khách hàng đã thanh toán.
-            </p>
-
+            <strong>Chưa thanh toán</strong>
+            <p>Xác nhận ngay khi khách hàng đã chuyển khoản hoặc thanh toán tiền mặt.</p>
           </div>
 
-          <button
-              class="btn-payment"
-              @click="thanhToan"
-              :disabled="paying"
-          >
-            {{
-              paying
-                  ? 'Đang xử lý...'
-                  : '✓ Xác nhận đã thanh toán'
-            }}
+          <button class="btn-payment" @click="thanhToan" :disabled="paying">
+            {{ paying ? 'Đang xử lý...' : '✓ Xác nhận đã thanh toán' }}
           </button>
-
         </div>
-
       </div>
 
-      <!-- TRẠNG THÁI -->
+      <!-- TIẾN TRÌNH TRẠNG THÁI -->
       <div class="card">
-
         <div class="card-header">
-
           <div>
-
-            <h3>
-              Trạng thái đơn hàng
-            </h3>
-
-            <p>
-              Tiến trình xử lý đơn hàng
-            </p>
-
+            <h3>Trạng thái đơn hàng</h3>
+            <p>Tiến trình xử lý đơn hàng</p>
           </div>
-
         </div>
 
         <div class="status-flow">
-
-          <div
-              class="flow-item"
-              :class="{
-              active:
-                Number(hoaDon.trangThai) >= 1
-            }"
-          >
-            <div class="flow-number">
-              1
-            </div>
-
-            <span>
-              Chờ xác nhận
-            </span>
+          <div class="flow-item" :class="{ active: Number(hoaDon.trangThai) >= 1 }">
+            <div class="flow-number">1</div>
+            <span>Chờ xác nhận</span>
           </div>
 
-          <div class="flow-line"></div>
+          <div class="flow-line" :class="{ active: Number(hoaDon.trangThai) >= 2 }"></div>
 
-          <div
-              class="flow-item"
-              :class="{
-              active:
-                Number(hoaDon.trangThai) >= 2
-            }"
-          >
-            <div class="flow-number">
-              2
-            </div>
-
-            <span>
-              Đã xác nhận
-            </span>
+          <div class="flow-item" :class="{ active: Number(hoaDon.trangThai) >= 2 }">
+            <div class="flow-number">2</div>
+            <span>Đã xác nhận</span>
           </div>
 
-          <div class="flow-line"></div>
+          <div class="flow-line" :class="{ active: Number(hoaDon.trangThai) >= 3 }"></div>
 
-          <div
-              class="flow-item"
-              :class="{
-              active:
-                Number(hoaDon.trangThai) >= 3
-            }"
-          >
-            <div class="flow-number">
-              3
-            </div>
-
-            <span>
-              Chờ vận chuyển
-            </span>
+          <div class="flow-item" :class="{ active: Number(hoaDon.trangThai) >= 3 }">
+            <div class="flow-number">3</div>
+            <span>Chờ vận chuyển</span>
           </div>
 
-          <div class="flow-line"></div>
+          <div class="flow-line" :class="{ active: Number(hoaDon.trangThai) >= 4 }"></div>
 
-          <div
-              class="flow-item"
-              :class="{
-              active:
-                Number(hoaDon.trangThai) >= 4
-            }"
-          >
-            <div class="flow-number">
-              4
-            </div>
-
-            <span>
-              Vận chuyển
-            </span>
+          <div class="flow-item" :class="{ active: Number(hoaDon.trangThai) >= 4 }">
+            <div class="flow-number">4</div>
+            <span>Vận chuyển</span>
           </div>
 
-          <div class="flow-line"></div>
+          <div class="flow-line" :class="{ active: Number(hoaDon.trangThai) >= 5 }"></div>
 
-          <div
-              class="flow-item"
-              :class="{
-              active:
-                Number(hoaDon.trangThai) >= 5
-            }"
-          >
-            <div class="flow-number">
-              5
-            </div>
-
-            <span>
-              Đã hoàn thành
-            </span>
+          <div class="flow-item" :class="{ active: Number(hoaDon.trangThai) >= 5 }">
+            <div class="flow-number">5</div>
+            <span>Đã hoàn thành</span>
           </div>
-
         </div>
-
       </div>
 
-      <!-- BUTTON -->
+      <!-- NÚT THAO TÁC CUỐI TRANG -->
       <div class="action-buttons">
-
-        <button
-            class="btn-cancel"
-            @click="quayLai"
-            :disabled="saving || paying"
-        >
+        <button class="btn-cancel" @click="quayLai" :disabled="saving || paying">
           Hủy
         </button>
 
@@ -676,23 +288,14 @@ onMounted(() => {
             @click="xacNhanDon"
             :disabled="saving || paying"
         >
-          {{
-            saving
-                ? 'Đang xử lý...'
-                : actionText
-          }}
+          {{ saving ? 'Đang xử lý...' : actionText }}
         </button>
-
       </div>
-
     </div>
-
   </div>
-
 </template>
 
 <style scoped>
-
 .confirm-page {
   min-height: 100vh;
   background: #f7f5ef;
@@ -738,6 +341,11 @@ onMounted(() => {
   color: #496883;
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-back:hover {
+  background: #f0ebe1;
 }
 
 .content {
@@ -782,7 +390,7 @@ onMounted(() => {
 .status,
 .payment-paid,
 .payment-unpaid {
-  padding: 7px 12px;
+  padding: 6px 12px;
   border-radius: 20px;
   font-size: 13px;
   font-weight: 600;
@@ -812,7 +420,7 @@ onMounted(() => {
 .info-item {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
 }
 
 .label {
@@ -826,9 +434,10 @@ onMounted(() => {
 
 .price {
   color: #c94a29 !important;
+  font-size: 1.15rem;
 }
 
-/* PAYMENT */
+/* KHỐI THANH TOÁN */
 .paid-box,
 .unpaid-box {
   display: flex;
@@ -842,6 +451,7 @@ onMounted(() => {
 .paid-box {
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
+  justify-content: flex-start;
 }
 
 .unpaid-box {
@@ -855,11 +465,9 @@ onMounted(() => {
   border-radius: 50%;
   background: #dcfce7;
   color: #15803d;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   font-size: 20px;
   font-weight: bold;
 }
@@ -877,23 +485,25 @@ onMounted(() => {
 }
 
 .btn-payment {
-  padding: 11px 18px;
+  padding: 10px 18px;
   border: none;
   border-radius: 8px;
   background: #496883;
   color: white;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
 }
 
 .btn-payment:hover {
   background: #3d596f;
 }
 
-/* STATUS FLOW */
+/* FLOW TRẠNG THÁI */
 .status-flow {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
@@ -915,11 +525,9 @@ onMounted(() => {
   border-radius: 50%;
   background: #eee;
   color: #888;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   font-weight: 700;
 }
 
@@ -937,10 +545,14 @@ onMounted(() => {
   flex: 1;
   height: 2px;
   background: #e5e5e5;
-  margin-top: 17px;
+  margin-bottom: 24px;
 }
 
-/* ACTION */
+.flow-line.active {
+  background: #496883;
+}
+
+/* THAO TÁC */
 .action-buttons {
   display: flex;
   justify-content: flex-end;
@@ -956,6 +568,11 @@ onMounted(() => {
   color: #555;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel:hover {
+  background: #f0ebe1;
 }
 
 .btn-confirm {
@@ -966,6 +583,7 @@ onMounted(() => {
   color: white;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
 .btn-confirm:hover {
@@ -991,7 +609,6 @@ button:disabled {
 }
 
 @media (max-width: 768px) {
-
   .confirm-page {
     padding: 15px;
   }
@@ -1010,10 +627,6 @@ button:disabled {
     min-width: 100px;
   }
 
-  .flow-line {
-    min-width: 30px;
-  }
-
   .paid-box,
   .unpaid-box {
     flex-direction: column;
@@ -1024,5 +637,4 @@ button:disabled {
     flex-wrap: wrap;
   }
 }
-
 </style>

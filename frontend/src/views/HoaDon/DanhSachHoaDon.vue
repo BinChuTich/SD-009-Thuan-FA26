@@ -5,24 +5,15 @@ import api from '@/api.js'
 
 const router = useRouter()
 
-/* =========================
-   ĐIỀU HƯỚNG
-========================= */
-
-const xemChiTiet = (ma) => {
-  router.push(`/hoa-don/${ma}`)
+const xemChiTiet = (id) => {
+  router.push(`/hoa-don/${id}`)
 }
 
-const themHoaDon = () => {
-  router.push('/hoa-don/them')
+const exportExcel = () => {
+  alert('Đang xuất danh sách hóa đơn ra file Excel...')
 }
-
-/* =========================
-   TAB TRẠNG THÁI
-========================= */
 
 const currentTab = ref('Tất Cả')
-
 const statusTabs = [
   'Tất Cả',
   'Chờ Xác Nhận',
@@ -33,10 +24,6 @@ const statusTabs = [
   'Hủy'
 ]
 
-/* =========================
-   BỘ LỌC
-========================= */
-
 const filters = ref({
   code: '',
   startDate: '',
@@ -44,56 +31,31 @@ const filters = ref({
   type: ''
 })
 
-const resetFilters = () => {
-  filters.value = {
-    code: '',
-    startDate: '',
-    endDate: '',
-    type: ''
-  }
-
-  currentTab.value = 'Tất Cả'
-  currentPage.value = 1
-}
-
-/* =========================
-   DỮ LIỆU
-========================= */
-
 const invoiceList = ref([])
 const loading = ref(false)
 const errorMessage = ref('')
 
-/* =========================
-   FORMAT TIỀN
-========================= */
+const currentPage = ref(1)
+const pageSize = ref(5)
+
+const resetPage = () => {
+  currentPage.value = 1
+}
 
 const formatMoney = (money) => {
   if (money == null) return '0đ'
   return Number(money).toLocaleString('vi-VN') + 'đ'
 }
 
-/* =========================
-   FORMAT NGÀY
-========================= */
-
 const formatDate = (date) => {
   if (!date) return ''
   return new Date(date).toLocaleDateString('vi-VN')
 }
 
-/* =========================
-   FORMAT GIỜ
-========================= */
-
 const formatTime = (date) => {
   if (!date) return ''
   return new Date(date).toLocaleTimeString('vi-VN')
 }
-
-/* =========================
-   TRẠNG THÁI ĐƠN
-========================= */
 
 const getStatusText = (status) => {
   const statusMap = {
@@ -104,13 +66,8 @@ const getStatusText = (status) => {
     5: 'Đã Hoàn Thành',
     6: 'Hủy'
   }
-
   return statusMap[status] || 'Chưa cập nhật'
 }
-
-/* =========================
-   CLASS TRẠNG THÁI
-========================= */
 
 const getStatusClass = (status) => {
   switch (Number(status)) {
@@ -131,38 +88,20 @@ const getStatusClass = (status) => {
   }
 }
 
-/* =========================
-   TRẠNG THÁI THANH TOÁN
-========================= */
-
 const getPaymentText = (status) => {
-  return Number(status) === 1
-      ? 'Đã thanh toán'
-      : 'Chưa thanh toán'
+  return Number(status) === 1 ? 'Đã thanh toán' : 'Chưa thanh toán'
 }
-
-/* =========================
-   CLASS THANH TOÁN
-========================= */
 
 const getPaymentClass = (status) => {
-  return Number(status) === 1
-      ? 'payment-paid'
-      : 'payment-unpaid'
+  return Number(status) === 1 ? 'payment-paid' : 'payment-unpaid'
 }
-
-/* =========================
-   LẤY DỮ LIỆU API
-========================= */
 
 const loadHoaDon = async () => {
   try {
     loading.value = true
     errorMessage.value = ''
-
     const response = await api.get('/api/hoa-don')
-
-    invoiceList.value = response.data.map(item => ({
+    invoiceList.value = response.data.map((item) => ({
       id: item.id,
       code: item.maHoaDon,
       customerName: item.tenKhachHang || 'Khách lẻ',
@@ -172,14 +111,11 @@ const loadHoaDon = async () => {
       createTime: formatTime(item.ngayTao),
       createDate: formatDate(item.ngayTao),
       rawDate: item.ngayTao,
-      type: Number(item.loaiDon) === 1
-          ? 'Tại cửa hàng'
-          : 'Online',
+      type: Number(item.loaiDon) === 1 ? 'Tại cửa hàng' : 'Online',
       status: Number(item.trangThai),
       paymentStatus: Number(item.trangThaiThanhToan ?? 0),
       note: item.ghiChu || ''
     }))
-
     currentPage.value = 1
   } catch (error) {
     console.error('Lỗi lấy danh sách hóa đơn:', error)
@@ -189,12 +125,8 @@ const loadHoaDon = async () => {
   }
 }
 
-/* =========================
-   DANH SÁCH SAU KHI LỌC
-========================= */
-
 const filteredInvoiceList = computed(() => {
-  return invoiceList.value.filter(item => {
+  return invoiceList.value.filter((item) => {
     if (filters.value.code) {
       const keyword = filters.value.code.trim().toLowerCase()
       if (!item.code?.toLowerCase().includes(keyword)) {
@@ -211,9 +143,7 @@ const filteredInvoiceList = computed(() => {
       const startDate = new Date(filters.value.startDate)
       itemDate.setHours(0, 0, 0, 0)
       startDate.setHours(0, 0, 0, 0)
-      if (itemDate < startDate) {
-        return false
-      }
+      if (itemDate < startDate) return false
     }
 
     if (filters.value.endDate) {
@@ -221,28 +151,17 @@ const filteredInvoiceList = computed(() => {
       const endDate = new Date(filters.value.endDate)
       itemDate.setHours(0, 0, 0, 0)
       endDate.setHours(0, 0, 0, 0)
-      if (itemDate > endDate) {
-        return false
-      }
+      if (itemDate > endDate) return false
     }
 
     if (currentTab.value !== 'Tất Cả') {
       const statusText = getStatusText(item.status)
-      if (statusText !== currentTab.value) {
-        return false
-      }
+      if (statusText !== currentTab.value) return false
     }
 
     return true
   })
 })
-
-/* =========================
-   PHÂN TRANG
-========================= */
-
-const currentPage = ref(1)
-const pageSize = ref(5)
 
 const totalPages = computed(() => {
   return Math.ceil(filteredInvoiceList.value.length / pageSize.value) || 1
@@ -259,33 +178,23 @@ const changePage = (page) => {
   currentPage.value = page
 }
 
-const resetPage = () => {
-  currentPage.value = 1
-}
-
-/* =========================
-   MOUNT
-========================= */
-
 onMounted(() => {
   loadHoaDon()
 })
 </script>
 
 <template>
-  <div class="hoa-don-page">
-    <!-- TIÊU ĐỀ -->
-    <div class="page-title-box">
-      <div class="title-row">
-        <h2 class="page-title">Quản Lý Hóa Đơn</h2>
-      </div>
+  <div class="hoa-don-container">
+    <!-- TIÊU ĐỀ CHÍNH -->
+    <div class="page-breadcrumb">
+      <span class="crumb-parent">Hóa đơn</span>
+      <span class="crumb-separator">/</span>
+      <span class="crumb-current">Danh sách hóa đơn</span>
     </div>
 
-    <!-- BỘ LỌC -->
+    <!-- KHUNG 1: BỘ LỌC TÌM KIẾM -->
     <div class="card-box filter-card">
-      <div class="card-title">Bộ lọc tìm kiếm</div>
       <div class="filter-grid">
-        <!-- Mã hóa đơn -->
         <div class="form-group">
           <label>Mã hóa đơn</label>
           <input
@@ -297,7 +206,6 @@ onMounted(() => {
           />
         </div>
 
-        <!-- Từ ngày -->
         <div class="form-group">
           <label>Từ ngày</label>
           <input
@@ -308,7 +216,6 @@ onMounted(() => {
           />
         </div>
 
-        <!-- Đến ngày -->
         <div class="form-group">
           <label>Đến ngày</label>
           <input
@@ -319,7 +226,6 @@ onMounted(() => {
           />
         </div>
 
-        <!-- Loại đơn -->
         <div class="form-group">
           <label>Loại đơn hàng</label>
           <select
@@ -333,21 +239,24 @@ onMounted(() => {
           </select>
         </div>
       </div>
-
-      <!-- Nút lọc -->
-      <div class="filter-actions">
-        <button class="btn btn-secondary" @click="resetFilters">
-          Đặt lại
-        </button>
-        <button class="btn btn-primary" @click="loadHoaDon">
-          Làm Mới
-        </button>
-      </div>
     </div>
 
-    <!-- DANH SÁCH -->
+    <!-- KHUNG 2: DANH SÁCH BẢNG HÓA ĐƠN -->
     <div class="card-box table-card">
-      <!-- Tabs -->
+      <!-- HEADER KHUNG BẢNG -->
+      <div class="table-card-header">
+        <h3 class="card-heading">Danh sách hóa đơn</h3>
+        <button class="btn-export" @click="exportExcel">
+          <svg class="icon-export" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Xuất Excel
+        </button>
+      </div>
+
+      <!-- TABS TRẠNG THÁI -->
       <div class="status-tabs">
         <button
             v-for="tab in statusTabs"
@@ -360,22 +269,20 @@ onMounted(() => {
         </button>
       </div>
 
-      <!-- Loading -->
+      <!-- LOADING & ERROR -->
       <div v-if="loading" class="state-message">
-        Đang tải dữ liệu...
+        Đang tải dữ liệu hóa đơn...
       </div>
-
-      <!-- Error -->
       <div v-else-if="errorMessage" class="state-message error">
         {{ errorMessage }}
       </div>
 
-      <!-- Bảng -->
+      <!-- BẢNG DỮ LIỆU -->
       <div v-else class="table-responsive">
         <table class="custom-table">
           <thead>
           <tr>
-            <th>#</th>
+            <th class="th-stt">#</th>
             <th>Mã Hóa Đơn</th>
             <th>Khách Hàng</th>
             <th>Nhân Viên</th>
@@ -387,82 +294,51 @@ onMounted(() => {
             <th class="text-center">Thao Tác</th>
           </tr>
           </thead>
-
           <tbody>
-          <!-- Không có dữ liệu -->
           <tr v-if="filteredInvoiceList.length === 0">
-            <td colspan="10" class="text-center text-muted">
+            <td colspan="10" class="text-center text-empty">
               Không có dữ liệu hóa đơn nào.
             </td>
           </tr>
 
-          <!-- Danh sách -->
           <tr
               v-for="(item, index) in paginatedInvoiceList"
               :key="item.id"
+              class="table-row"
           >
-            <!-- STT -->
-            <td>
-              {{ (currentPage - 1) * pageSize + index + 1 }}
-            </td>
-
-            <!-- Mã -->
-            <td class="font-bold text-code">
-              {{ item.code }}
-            </td>
-
-            <!-- Khách hàng -->
-            <td>
-              {{ item.customerName }}
-            </td>
-
-            <!-- Nhân viên -->
-            <td>
-              {{ item.employeeName }}
-            </td>
-
-            <!-- Tổng tiền -->
-            <td class="font-bold text-price">
-              {{ formatMoney(item.totalPrice) }}
-            </td>
-
-            <!-- Loại đơn -->
+            <td class="text-muted">{{ (currentPage - 1) * pageSize + index + 1 }}</td>
+            <td class="font-bold text-code">{{ item.code }}</td>
+            <td class="text-customer">{{ item.customerName }}</td>
+            <td class="text-employee">{{ item.employeeName }}</td>
+            <td class="font-bold text-price">{{ formatMoney(item.totalPrice) }}</td>
             <td>
                 <span :class="item.type === 'Tại cửa hàng' ? 'badge-store' : 'badge-online'">
                   {{ item.type }}
                 </span>
             </td>
-
-            <!-- Thời gian -->
             <td>
-              <div>{{ item.createDate }}</div>
-              <small class="text-muted">{{ item.createTime }}</small>
+              <div class="date-main">{{ item.createDate }}</div>
+              <div class="time-sub">{{ item.createTime }}</div>
             </td>
-
-            <!-- Trạng thái đơn -->
             <td>
                 <span class="badge-status" :class="getStatusClass(item.status)">
                   {{ getStatusText(item.status) }}
                 </span>
             </td>
-
-            <!-- Trạng thái thanh toán -->
             <td>
-                <span class="payment-badge" :class="getPaymentClass(item.paymentStatus)">
+                <span class="badge-payment" :class="getPaymentClass(item.paymentStatus)">
                   {{ getPaymentText(item.paymentStatus) }}
                 </span>
             </td>
-
-            <!-- THAO TÁC: CHỈ CÒN NÚT ICON MẮT XEM CHI TIẾT -->
             <td class="text-center">
               <button
-                  class="btn-icon btn-view"
+                  class="btn-action-view"
                   title="Xem chi tiết"
                   @click="xemChiTiet(item.code)"
               >
-                <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
                 </svg>
               </button>
             </td>
@@ -471,20 +347,16 @@ onMounted(() => {
         </table>
 
         <!-- PHÂN TRANG -->
-        <div v-if="filteredInvoiceList.length > 0" class="pagination-container">
+        <div v-if="filteredInvoiceList.length > 0" class="pagination-section">
           <div class="pagination-info">
-            Hiển thị
-            <strong>{{ (currentPage - 1) * pageSize + 1 }}</strong>
-            -
-            <strong>{{ Math.min(currentPage * pageSize, filteredInvoiceList.length) }}</strong>
-            trên tổng
-            <strong>{{ filteredInvoiceList.length }}</strong>
-            hóa đơn
+            Hiển thị <strong>{{ (currentPage - 1) * pageSize + 1 }}</strong> -
+            <strong>{{ Math.min(currentPage * pageSize, filteredInvoiceList.length) }}</strong> trên tổng
+            <strong>{{ filteredInvoiceList.length }}</strong> hóa đơn
           </div>
 
-          <div class="pagination">
+          <div class="pagination-buttons">
             <button
-                class="page-btn"
+                class="btn-pager"
                 :disabled="currentPage === 1"
                 @click="changePage(currentPage - 1)"
             >
@@ -494,7 +366,7 @@ onMounted(() => {
             <button
                 v-for="page in totalPages"
                 :key="page"
-                class="page-btn"
+                class="btn-pager"
                 :class="{ active: currentPage === page }"
                 @click="changePage(page)"
             >
@@ -502,7 +374,7 @@ onMounted(() => {
             </button>
 
             <button
-                class="page-btn"
+                class="btn-pager"
                 :disabled="currentPage === totalPages"
                 @click="changePage(currentPage + 1)"
             >
@@ -516,357 +388,409 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.hoa-don-page {
-  padding: 24px;
+.hoa-don-container {
+  padding: 24px 32px;
+  background-color: #faf7f0;
+  min-height: 100vh;
+  box-sizing: border-box;
+  margin-left: 20px;
 }
-.page-title-box {
+
+.page-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
   margin-bottom: 20px;
 }
 
-.title-row {
+.crumb-parent {
+  color: #8c969e;
+  font-weight: 400;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.crumb-parent:hover {
+  color: #3e5c76;
+}
+
+.crumb-separator {
+  color: #b0b7bd;
+  font-weight: 300;
+  user-select: none;
+}
+
+.crumb-current {
+  color: #3e5c76;
+  font-weight: 600;
+}
+
+.card-box {
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid #ebd9c8;
+  padding: 22px 26px;
+  margin-bottom: 22px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.card-heading {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #3e5c76;
+  margin: 0;
+}
+
+.table-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.page-title {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #496883;
-  margin: 0;
-}
-.card-box {
-  background: #ffffff;
-  border-radius: 8px;
-  border: 1px solid #e9e5db;
-  padding: 20px;
-  margin-bottom: 24px;
-}
-
-.card-title {
-  font-weight: 600;
-  color: #496883;
   margin-bottom: 16px;
-  font-size: 1rem;
 }
+
+.btn-export {
+  background-color: #f7ebe1;
+  color: #3e5c76;
+  border: 1.5px solid #e5c3a3;
+  height: 35px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.2s ease;
+}
+
+.btn-export:hover {
+  background-color: #f2decb;
+  border-color: #cca47f;
+  transform: translateY(-1px);
+}
+
+.icon-export {
+  width: 15px;
+  height: 15px;
+}
+
 .filter-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
 }
 
 .form-group label {
-  font-size: 0.85rem;
+  font-size: 0.83rem;
   font-weight: 500;
-  color: #647074;
+  color: #555e65;
 }
 
 .form-control {
   height: 38px;
   padding: 0 12px;
-  border: 1px solid #d6d0c3;
-  border-radius: 6px;
+  border: 1px solid #d5c8b8;
+  border-radius: 7px;
+  background-color: #ffffff;
+  color: #333333;
+  font-size: 0.88rem;
   outline: none;
-  font-size: 0.9rem;
-  color: #333;
-  background-color: #fff;
+  transition: border-color 0.2s ease;
 }
 
 .form-control:focus {
-  border-color: #496883;
+  border-color: #3e5c76;
 }
 
-.filter-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.btn {
-  height: 36px;
-  padding: 0 16px;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  transition: opacity 0.2s ease;
-}
-
-.btn:hover {
-  opacity: 0.9;
-}
-
-.btn-primary {
-  background-color: #496883;
-  color: #ffffff;
-}
-
-.btn-secondary {
-  background-color: #e9e5db;
-  color: #647074;
-}
 .status-tabs {
   display: flex;
   gap: 8px;
-  border-bottom: 1px solid #e9e5db;
-  padding-bottom: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
   overflow-x: auto;
 }
 
 .tab-item {
-  padding: 8px 16px;
+  padding: 7px 18px;
+  border-radius: 6px;
   border: none;
   background: transparent;
-  color: #647074;
-  font-size: 0.9rem;
+  color: #4f5d68;
+  font-size: 0.88rem;
   font-weight: 600;
-  border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s ease;
 }
 
 .tab-item:hover {
-  background: #f7f5ef;
-  color: #496883;
+  background: #f4ede4;
 }
 
 .tab-item.active {
-  background: #eaf1f4;
-  color: #496883;
+  background: #e8f1f5;
+  color: #3e5c76;
 }
+
 .table-responsive {
   overflow-x: auto;
 }
+
 .custom-table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 
 .custom-table th {
-  background-color: #f7f5ef;
-  color: #496883;
-  padding: 12px 14px;
-  font-weight: 600;
-  border-bottom: 1px solid #e9e5db;
+  background-color: #f5efeb;
+  color: #3e5c76;
+  font-weight: 700;
+  padding: 13px 14px;
   white-space: nowrap;
+  border-bottom: 1px solid #ebd9c8;
 }
 
 .custom-table td {
-  padding: 12px 14px;
-  border-bottom: 1px solid #e9e5db;
-  color: #555;
+  padding: 13px 14px;
+  border-bottom: 1px solid #f1e7dc;
+  color: #40484f;
   vertical-align: middle;
 }
 
+.table-row:hover {
+  background-color: #fcfaf7;
+}
+
 .font-bold {
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .text-code {
-  color: #496883;
+  color: #2b353b;
+}
+
+.text-customer {
+  color: #3e474f;
+}
+
+.text-employee {
+  color: #5d676e;
 }
 
 .text-price {
-  color: #c94a29;
+  color: #2b353b;
 }
 
-.text-muted {
-  color: #8a9292;
+.date-main {
+  color: #3e474f;
+}
+
+.time-sub {
+  font-size: 0.75rem;
+  color: #8c969e;
 }
 
 .text-center {
   text-align: center;
 }
-.badge-store,
-.badge-online,
-.badge-status,
-.payment-badge {
-  padding: 4px 8px;
+
+.text-empty {
+  padding: 30px;
+  color: #8c969e;
+}
+
+.badge-store {
+  background: #e8f6ed;
+  color: #23783a;
+  padding: 4px 10px;
   border-radius: 4px;
-  font-size: 0.75rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.badge-online {
+  background: #e7f0fd;
+  color: #1a73e8;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.badge-status {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.76rem;
   font-weight: 600;
   display: inline-block;
 }
 
-.badge-store {
-  background: #e6f4ea;
-  color: #1e7e34;
-}
-
-.badge-online {
-  background: #e8f0fe;
-  color: #1a73e8;
-}
-
-.badge-status {
-  border: 1px solid transparent;
+.status-waiting {
+  background: #f5edff;
+  color: #8a3ee6;
 }
 
 .status-pending {
   background: #fff4e5;
-  color: #e67e22;
-  border-color: #f5d6a6;
+  color: #d97706;
 }
 
 .status-confirmed {
-  background: #e8f0fe;
-  color: #1a73e8;
-  border-color: #c8d9f5;
-}
-
-.status-waiting {
-  background: #f3e8ff;
-  color: #7b3fb5;
-  border-color: #dfc8f4;
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 .status-shipping {
   background: #e0f7fa;
   color: #00838f;
-  border-color: #b2ebf2;
 }
 
 .status-completed {
-  background: #e6f4ea;
-  color: #1e7e34;
-  border-color: #b7dfc1;
+  background: #e6f6ec;
+  color: #1b7a37;
 }
 
 .status-cancelled {
-  background: #fdecea;
-  color: #c62828;
-  border-color: #f5c2c0;
+  background: #fee6e6;
+  color: #be2626;
 }
 
 .status-default {
-  background: #f5f5f5;
-  color: #777;
-  border-color: #ddd;
+  background: #f0e9df;
+  color: #636b72;
 }
 
-.payment-badge {
-  border: 1px solid transparent;
-  white-space: nowrap;
+.badge-payment {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.76rem;
+  font-weight: 600;
 }
 
 .payment-paid {
-  background: #e6f4ea;
-  color: #1e7e34;
-  border-color: #b7dfc1;
+  background: #eaf8ed;
+  color: #227838;
+  border: 1px solid #bce1c5;
 }
 
 .payment-unpaid {
-  background: #fff4e5;
-  color: #e67e22;
-  border-color: #f5d6a6;
+  background: #fff6eb;
+  color: #b75e11;
+  border: 1px solid #fad3ae;
 }
-.btn-icon {
-  width: 34px;
-  height: 34px;
+
+.btn-action-view {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d5c8b8;
+  background: #ffffff;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  color: #277da1;
   cursor: pointer;
-  padding: 0;
-  transition: all 0.2s ease;
-  outline: none;
+  transition: all 0.2s;
 }
 
-.btn-view {
-  background-color: #ffffff;
-  border: 1px solid #dedede;
-  color: #0b69a3;
+.btn-action-view:hover {
+  background-color: #faf7f0;
+  border-color: #a49787;
 }
 
-.btn-view:hover {
-  background-color: #f3f7fb;
-  border-color: #b9d7ea;
-  transform: translateY(-1px);
-}
-.pagination-container {
+.pagination-section {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 0 4px;
-  margin-top: 12px;
-  border-top: 1px solid #e9e5db;
+  padding-top: 18px;
+  margin-top: 8px;
 }
+
 .pagination-info {
-  color: #647074;
   font-size: 0.85rem;
+  color: #555e65;
 }
-.pagination-info strong {
-  color: #496883;
-}
-.pagination {
+
+.pagination-buttons {
   display: flex;
-  align-items: center;
   gap: 5px;
 }
-.page-btn {
-  min-width: 34px;
-  height: 34px;
-  padding: 0 8px;
-  border: 1px solid #d6d0c3;
+
+.btn-pager {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #ded5c7;
   background: #ffffff;
-  color: #496883;
-  border-radius: 5px;
+  color: #555e65;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   font-weight: 600;
-  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
 }
-.page-btn:hover:not(:disabled) {
-  background: #496883;
+
+.btn-pager.active {
+  background: #36536b;
+  border-color: #36536b;
   color: #ffffff;
-  border-color: #496883;
 }
-.page-btn.active {
-  background: #496883;
-  color: #ffffff;
-  border-color: #496883;
+
+.btn-pager:hover:not(:disabled):not(.active) {
+  background: #f4ede4;
 }
-.page-btn:disabled {
-  opacity: 0.4;
+
+.btn-pager:disabled {
+  opacity: 0.35;
   cursor: not-allowed;
 }
+
 .state-message {
-  padding: 30px;
+  padding: 36px;
   text-align: center;
-  color: #647074;
+  color: #555e65;
 }
+
 .state-message.error {
-  color: #dc3545;
+  color: #c53030;
 }
+
+@media (max-width: 1024px) {
+  .filter-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
-  .hoa-don-page {
+  .hoa-don-container {
     padding: 16px;
   }
-  .title-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
+
   .filter-grid {
     grid-template-columns: 1fr;
   }
-  .pagination-container {
+
+  .table-card-header {
     flex-direction: column;
-    gap: 12px;
-    align-items: center;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .pagination-section {
+    flex-direction: column;
+    gap: 14px;
+    align-items: flex-start;
   }
 }
 </style>

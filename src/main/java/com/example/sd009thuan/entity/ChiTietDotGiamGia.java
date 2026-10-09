@@ -15,10 +15,10 @@ public class ChiTietDotGiamGia {
     @Column(name = "id", nullable = false)
     private Long id;
 
-    @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_dot_giam_gia", nullable = false)
-    private DotGiamGia idDotGiamGia;
+//    @NotNull
+//    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+//    @JoinColumn(name = "id_dot_giam_gia", nullable = false)
+//    private DotGiamGia idDotGiamGia;
 
     @NotNull
     @ColumnDefault("1")

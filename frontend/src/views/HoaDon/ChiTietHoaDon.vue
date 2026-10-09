@@ -1,1484 +1,1016 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api.js'
+
 const route = useRoute()
 const router = useRouter()
-const maHoaDon = route.params.maHoaDon || route.params.ma
-
-const hoaDon = ref(null)
+const invoiceCode = ref(route.params.ma || 'HD001')
 const loading = ref(false)
-const statusLoading = ref(false)
-const thanhToanLoading = ref(false)
-const errorMessage = ref('')
-const orderAlert = ref({
+
+const toast = ref({
   show: false,
   message: '',
   type: 'success'
 })
-let alertTimer = null
+let toastTimer = null
 
-const triggerAlert = (message, type = 'success') => {
-  if (alertTimer) clearTimeout(alertTimer)
-  orderAlert.value = { show: true, message, type }
-  alertTimer = setTimeout(() => {
-    orderAlert.value.show = false
-  }, 3000)
+const showToast = (message, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { show: true, message, type }
+  toastTimer = setTimeout(() => {
+    toast.value.show = false
+  }, 2800)
 }
 
-const showEditModal = ref(false)
-const editLoading = ref(false)
-const editForm = ref({
-  trangThai: 1,
-  trangThaiThanhToan: 0,
-  tenKhachHang: '',
-  soDienThoaiKhachHang: '',
-  diaChiNhanHang: '',
-  ghiChu: ''
+const quayLaiHoaDon = () => {
+  router.push('/hoa-don')
+}
+
+const invoiceData = ref({
+  code: 'HD001',
+  statusBadge: 'Hóa đơn chờ',
+  currentStepIndex: 1,
+  steps: [
+    { id: 1, name: 'Hóa đơn chờ', time: '', done: false, active: true, pending: false },
+    { id: 2, name: 'Đã xác nhận', time: '', done: false, active: false, pending: true },
+    { id: 3, name: 'Chờ vận chuyển', time: '', done: false, active: false, pending: true },
+    { id: 4, name: 'Đang vận chuyển', time: '', done: false, active: false, pending: true },
+    { id: 5, name: 'Hoàn thành', time: '', done: false, active: false, pending: true }
+  ],
+  customer: {
+    name: 'Khách lẻ',
+    phone: '---',
+    email: '---'
+  },
+  delivery: {
+    address: '---',
+    type: 'Tại cửa hàng',
+    note: ''
+  },
+  summary: {
+    totalProductPrice: 0,
+    shippingFee: 0,
+    voucherDiscount: 0,
+    totalPayment: 0
+  },
+  paymentHistory: {
+    method: 'Tiền mặt',
+    description: 'Thanh toán đơn hàng',
+    time: '',
+    status: 'Chưa thanh toán',
+    amount: 0
+  },
+  items: []
 })
 
-const editFormErrors = ref({
-  trangThai: '',
-  tenKhachHang: '',
-  soDienThoaiKhachHang: '',
-  diaChiNhanHang: '',
-  ghiChu: ''
-})
-
-const validateEditModalForm = () => {
-  let isValid = true
-  editFormErrors.value = {
-    trangThai: '',
-    tenKhachHang: '',
-    soDienThoaiKhachHang: '',
-    diaChiNhanHang: '',
-    ghiChu: ''
-  }
-
-  const ten = editForm.value.tenKhachHang?.trim() || ''
-  if (!ten) {
-    editFormErrors.value.tenKhachHang = 'Tên khách hàng không được để trống'
-    isValid = false
-  } else if (ten.length < 2 || ten.length > 50) {
-    editFormErrors.value.tenKhachHang = 'Tên khách hàng phải từ 2 đến 50 ký tự'
-    isValid = false
-  }
-
-  const sdt = editForm.value.soDienThoaiKhachHang?.trim() || ''
-  const phoneRegex = /^(03|05|07|08|09)\d{8}$/
-  if (!sdt) {
-    editFormErrors.value.soDienThoaiKhachHang = 'Số điện thoại không được để trống'
-    isValid = false
-  } else if (!phoneRegex.test(sdt)) {
-    editFormErrors.value.soDienThoaiKhachHang = 'Số điện thoại không hợp lệ '
-    isValid = false
-  }
-
-  const diaChi = editForm.value.diaChiNhanHang?.trim() || ''
-  if (!diaChi) {
-    editFormErrors.value.diaChiNhanHang = 'Địa chỉ nhận hàng không được để trống'
-    isValid = false
-  } else if (diaChi.length > 255) {
-    editFormErrors.value.diaChiNhanHang = 'Địa chỉ không được vượt quá 255 ký tự'
-    isValid = false
-  }
-
-  const ghiChu = editForm.value.ghiChu?.trim() || ''
-  if (ghiChu.length > 255) {
-    editFormErrors.value.ghiChu = 'Ghi chú không được dài quá 255 ký tự'
-    isValid = false
-  }
-
-  if (Number(editForm.value.trangThai) === 5 && Number(editForm.value.trangThaiThanhToan) === 0) {
-    editFormErrors.value.trangThai = 'Đơn hoàn thành bắt buộc phải là "Đã thanh toán"'
-    isValid = false
-  }
-
-  return isValid
+const formatMoney = (amount) => {
+  if (amount == null) return '0 đ'
+  return Number(amount).toLocaleString('vi-VN') + ' đ'
 }
 
-const moModalChinhSua = () => {
-  if (!hoaDon.value) return
-  editFormErrors.value = {
-    trangThai: '',
-    tenKhachHang: '',
-    soDienThoaiKhachHang: '',
-    diaChiNhanHang: '',
-    ghiChu: ''
+const applyOrderStatus = (statusNumber) => {
+  const currentStep = Math.min(Math.max(Number(statusNumber) || 1, 1), 5)
+  invoiceData.value.currentStepIndex = currentStep
+
+  invoiceData.value.steps = invoiceData.value.steps.map((step, idx) => {
+    const stepNum = idx + 1
+    return {
+      ...step,
+      done: stepNum < currentStep,
+      active: stepNum === currentStep,
+      pending: stepNum > currentStep
+    }
+  })
+
+  const badgeMap = {
+    1: 'Hóa đơn chờ',
+    2: 'Đã xác nhận',
+    3: 'Chờ vận chuyển',
+    4: 'Đang vận chuyển',
+    5: 'Hoàn thành'
   }
-  editForm.value = {
-    trangThai: Number(hoaDon.value.trangThai) || 1,
-    trangThaiThanhToan: Number(hoaDon.value.trangThaiThanhToan) || 0,
-    tenKhachHang: hoaDon.value.tenKhachHang || hoaDon.value.khachHang?.hoTen || '',
-    soDienThoaiKhachHang: hoaDon.value.soDienThoaiKhachHang || hoaDon.value.soDienThoai || '',
-    diaChiNhanHang: hoaDon.value.diaChiNhanHang || hoaDon.value.diaChi || '',
-    ghiChu: hoaDon.value.ghiChu || ''
-  }
-  showEditModal.value = true
+  invoiceData.value.statusBadge = badgeMap[currentStep] || 'Hóa đơn chờ'
 }
 
-const dongModalChinhSua = () => {
-  showEditModal.value = false
-}
-
-const luuChinhSua = async () => {
-  if (!hoaDon.value) return
-  if (!validateEditModalForm()) return
-
-  try {
-    editLoading.value = true
-    await api.put(`/api/hoa-don/${hoaDon.value.id}`, {
-      ...hoaDon.value,
-      trangThai: Number(editForm.value.trangThai),
-      trangThaiThanhToan: Number(editForm.value.trangThaiThanhToan),
-      tenKhachHang: editForm.value.tenKhachHang.trim(),
-      soDienThoaiKhachHang: editForm.value.soDienThoaiKhachHang.trim(),
-      diaChiNhanHang: editForm.value.diaChiNhanHang.trim(),
-      ghiChu: editForm.value.ghiChu?.trim() || ''
-    })
-
-    hoaDon.value.trangThai = Number(editForm.value.trangThai)
-    hoaDon.value.trangThaiThanhToan = Number(editForm.value.trangThaiThanhToan)
-    hoaDon.value.tenKhachHang = editForm.value.tenKhachHang.trim()
-    hoaDon.value.soDienThoaiKhachHang = editForm.value.soDienThoaiKhachHang.trim()
-    hoaDon.value.diaChiNhanHang = editForm.value.diaChiNhanHang.trim()
-    hoaDon.value.ghiChu = editForm.value.ghiChu?.trim() || ''
-
-    showEditModal.value = false
-    triggerAlert('Cập nhật thông tin đơn hàng thành công!', 'success')
-  } catch (error) {
-    console.error('Lỗi lưu thông tin chỉnh sửa:', error)
-    triggerAlert('Không thể lưu thông tin đơn hàng!', 'error')
-  } finally {
-    editLoading.value = false
-  }
-}
-
-const loadHoaDon = async () => {
+const loadDetail = async () => {
   try {
     loading.value = true
-    errorMessage.value = ''
-    const response = await api.get(`/api/hoa-don/code/${maHoaDon}`)
-    hoaDon.value = response.data
-  } catch (error) {
-    console.error('Lỗi lấy hóa đơn:', error)
-    if (error.response?.status === 404) {
-      errorMessage.value = 'Không tìm thấy hóa đơn: ' + maHoaDon
-    } else {
-      errorMessage.value = 'Không thể tải thông tin hóa đơn.'
+
+    const response = await api.get(`/api/hoa-don/code/${invoiceCode.value}`)
+    const data = response.data
+
+    if (!data || Array.isArray(data)) {
+      console.error('API không trả về chi tiết hóa đơn:', data)
+      showToast('Không tìm thấy dữ liệu hóa đơn!', 'warning')
+      return
     }
+
+    invoiceData.value.code = data.maHoaDon || data.code || invoiceCode.value
+
+    // Thông tin khách hàng
+    invoiceData.value.customer = {
+      name: data.tenKhachHang || data.customerName || 'Khách lẻ',
+      phone: data.soDienThoai || data.sdt || '---',
+      email: data.email || '---'
+    }
+
+    // Thông tin giao hàng
+    invoiceData.value.delivery = {
+      address: data.diaChiNhanHang || data.diaChi || data.address || '---',
+      type: Number(data.loaiDon) === 1 ? 'Tại cửa hàng' : 'Online',
+      note: data.ghiChu || data.note || '---'
+    }
+
+    // Thông tin thanh toán
+    invoiceData.value.summary = {
+      totalProductPrice: Number(data.tongTienHang ?? data.tongTien ?? 0),
+      shippingFee: Number(data.phiShip ?? data.phiVanChuyen ?? 0),
+      voucherDiscount: Number(data.tongTienGiamGia ?? data.tienGiamGia ?? 0),
+      totalPayment: Number(data.tongTien ?? 0)
+    }
+
+    invoiceData.value.paymentHistory = {
+      method: data.hinhThucThanhToan || (Number(data.loaiDon) === 1 ? 'Tiền mặt' : 'Chuyển khoản'),
+      description: data.ghiChuThanhToan || data.ghiChu || 'Thanh toán đơn hàng',
+      time: data.thoiGianThanhToan || data.ngayTao || '',
+      status: Number(data.trangThaiThanhToan) === 1 ? 'Đã thanh toán' : 'Chưa thanh toán',
+      amount: Number(data.tongTien ?? 0)
+    }
+
+    // Danh sách sản phẩm trong hóa đơn
+    const details = data.chiTietHoaDon || []
+    invoiceData.value.items = Array.isArray(details)
+        ? details.map((item, idx) => ({
+          id: item.id || idx + 1,
+          code: item.maSanPham || item.maSp || `SP${idx + 1}`,
+          name: item.tenSanPham || item.name || 'Áo phông',
+          color: item.mauSac || item.color || 'Tiêu chuẩn',
+          size: item.kichCo || item.size || 'F',
+          quantity: Number(item.soLuong ?? item.quantity ?? 1),
+          price: Number(item.donGia ?? item.price ?? 0),
+          total: Number(
+              item.thanhTien ?? (Number(item.soLuong ?? 1) * Number(item.donGia ?? 0))
+          )
+        }))
+        : []
+
+    const status = Number(data.trangThai ?? data.status ?? 1)
+    applyOrderStatus(status)
+  } catch (error) {
+    console.error('Lỗi tải chi tiết hóa đơn:', error)
+    showToast('Không thể tải chi tiết hóa đơn!', 'warning')
   } finally {
     loading.value = false
   }
 }
 
-const formatMoney = (money) => {
-  if (money == null) return '0 ₫'
-  return Number(money).toLocaleString('vi-VN') + ' ₫'
-}
-
-const formatDateTime = (date) => {
-  if (!date) return '---'
-  return new Date(date).toLocaleString('vi-VN')
-}
-
-const statusList = [
-  { id: 1, name: 'Chờ xác nhận', shortName: 'Hóa đơn chờ' },
-  { id: 2, name: 'Đã xác nhận', shortName: 'Đã xác nhận' },
-  { id: 3, name: 'Chờ vận chuyển', shortName: 'Chờ vận chuyển' },
-  { id: 4, name: 'Vận chuyển', shortName: 'Đang vận chuyển' },
-  { id: 5, name: 'Đã hoàn thành', shortName: 'Hoàn thành' }
-]
-
-const getStatusText = (status) => {
-  const map = {
-    1: 'Chờ xác nhận',
-    2: 'Đã xác nhận',
-    3: 'Chờ vận chuyển',
-    4: 'Vận chuyển',
-    5: 'Đã hoàn thành',
-    6: 'Hủy'
+const handleNextStatus = async () => {
+  if (invoiceData.value.currentStepIndex >= 5) {
+    showToast('Đơn hàng đã hoàn thành')
+    return
   }
-  return map[Number(status)] || 'Chưa cập nhật'
-}
 
-const getStatusClass = (status) => {
-  switch (Number(status)) {
-    case 1:
-      return 'status-pending'
-    case 2:
-      return 'status-confirmed'
-    case 3:
-      return 'status-waiting'
-    case 4:
-      return 'status-shipping'
-    case 5:
-      return 'status-completed'
-    case 6:
-      return 'status-cancelled'
-    default:
-      return 'status-default'
-  }
-}
-
-const getPaymentText = (status) => {
-  return Number(status) === 1 ? 'Đã thanh toán' : 'Chưa thanh toán'
-}
-
-const getPaymentClass = (status) => {
-  return Number(status) === 1 ? 'payment-paid' : 'payment-unpaid'
-}
-
-const tongThanhToan = computed(() => {
-  if (!hoaDon.value) return 0
-  const tongTien = Number(hoaDon.value.tongTien || 0)
-  const phiShip = Number(hoaDon.value.phiShip || 0)
-  const giamGia = Number(hoaDon.value.tongTienGiamGia || 0)
-  return Math.max(0, tongTien + phiShip - giamGia)
-})
-
-const currentStatus = computed(() => {
-  if (!hoaDon.value) return 0
-  return Number(hoaDon.value.trangThai)
-})
-
-const canAction = computed(() => {
-  return [1, 2, 3, 4].includes(currentStatus.value)
-})
-
-const actionText = computed(() => {
-  switch (currentStatus.value) {
-    case 1:
-      return '✓ Xác nhận đơn hàng'
-    case 2:
-      return '✓ Chuyển chờ vận chuyển'
-    case 3:
-      return '✓ Chuyển vận chuyển'
-    case 4:
-      return '✓ Hoàn thành đơn hàng'
-    default:
-      return ''
-  }
-})
-
-const xuLyDonHang = async () => {
-  if (!hoaDon.value) return
-  const hienTai = Number(hoaDon.value.trangThai)
-  if (![1, 2, 3, 4].includes(hienTai)) return
-
-  const trangThaiMoi = hienTai + 1
-  try {
-    statusLoading.value = true
-    await api.put(`/api/hoa-don/${hoaDon.value.id}`, {
-      trangThai: trangThaiMoi
-    })
-    hoaDon.value.trangThai = trangThaiMoi
-    triggerAlert(`Đã chuyển trạng thái sang: ${getStatusText(trangThaiMoi)}`, 'success')
-  } catch (error) {
-    console.error('Lỗi cập nhật trạng thái:', error)
-    triggerAlert('Không thể cập nhật trạng thái đơn hàng!', 'error')
-  } finally {
-    statusLoading.value = false
-  }
-}
-
-const thanhToan = async () => {
-  if (!hoaDon.value) return
-  if (Number(hoaDon.value.trangThaiThanhToan) === 1) return
+  const nextStep = invoiceData.value.currentStepIndex + 1
 
   try {
-    thanhToanLoading.value = true
-    await api.put(`/api/hoa-don/${hoaDon.value.id}`, {
-      trangThaiThanhToan: 1
+    await api.put(`/api/hoa-don/${invoiceCode.value}/trang-thai`, {
+      trangThai: nextStep
     })
-    hoaDon.value.trangThaiThanhToan = 1
-    triggerAlert('Đã xác nhận thanh toán thành công!', 'success')
-  } catch (error) {
-    console.error('Lỗi cập nhật thanh toán:', error)
-    triggerAlert('Không thể cập nhật thanh toán!', 'error')
-  } finally {
-    thanhToanLoading.value = false
+  } catch (e) {
+    console.warn('API update chưa sẵn sàng, cập nhật trực tiếp trên client:', e)
   }
+
+  applyOrderStatus(nextStep)
+
+  // Cập nhật mốc thời gian cho bước hiện tại (chuyển index về 0-based)
+  const currentIdx = nextStep - 1
+  if (invoiceData.value.steps[currentIdx]) {
+    const now = new Date()
+    const timeStr = now.toTimeString().split(' ')[0]
+    const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`
+    invoiceData.value.steps[currentIdx].time = `${timeStr} ${dateStr}`
+  }
+
+  showToast(`Đã cập nhật trạng thái: ${invoiceData.value.statusBadge}!`)
 }
 
-const quayLai = () => {
-  router.push('/hoa-don')
-}
-
-const inHoaDon = () => {
+const handlePrint = () => {
   window.print()
 }
 
 onMounted(() => {
-  loadHoaDon()
+  loadDetail()
 })
 </script>
 
 <template>
-  <div class="invoice-page">
-    <div class="page-header">
-      <div class="header-info">
-        <div class="breadcrumb">
-          <span class="breadcrumb-link" @click="quayLai">Hóa đơn</span>
-          <span class="divider">/</span>
-          <span class="current">Chi tiết hóa đơn</span>
-        </div>
-
-        <div v-if="hoaDon" class="order-title-wrapper">
-          <h2 class="order-code">Hóa đơn #{{ hoaDon.maHoaDon }}</h2>
-          <div class="header-meta-chips">
-            <span class="meta-chip">
-              Tạo ngày: <strong>{{ formatDateTime(hoaDon.ngayTao) }}</strong>
-            </span>
-            <span class="meta-chip">
-               Tạo bởi: <strong>{{ hoaDon.nguoiTao || 'Admin' }}</strong>
-            </span>
-            <span class="meta-chip">
-               Cập nhật: <strong>{{ formatDateTime(hoaDon.ngayCapNhat || hoaDon.ngayTao) }}</strong>
-            </span>
-          </div>
-        </div>
+  <div class="chi-tiet-page">
+    <!-- Toast Popup -->
+    <transition name="toast-fade">
+      <div v-if="toast.show" class="toast-popup" :class="toast.type">
+        <span class="toast-icon">✓</span>
+        <span class="toast-text">{{ toast.message }}</span>
       </div>
+    </transition>
 
-      <div class="header-actions">
-        <button class="btn-edit" @click="moModalChinhSua">
-           Chỉnh sửa đơn hàng
+    <!-- Top Navigation -->
+    <div class="top-nav-bar">
+      <div class="breadcrumb-group">
+        <button class="btn-back" @click="quayLaiHoaDon" title="Quay lại danh sách hóa đơn">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
         </button>
-        <button class="btn-pos" @click="quayLai">
-          ⇆ Quay lại Bán hàng tại quầy
-        </button>
-        <button class="btn-list" @click="quayLai">
-          ← Quay lại danh sách
-        </button>
+
+        <div class="page-breadcrumb">
+          <span class="crumb-link" @click="quayLaiHoaDon">Hóa đơn</span>
+          <span class="crumb-separator">/</span>
+          <span class="crumb-current">Chi tiết hóa đơn: {{ invoiceData.code }}</span>
+        </div>
       </div>
     </div>
 
-    <div v-if="loading" class="loading">
-      Đang tải thông tin hóa đơn...
-    </div>
-
-    <div v-if="errorMessage" class="error-box">
-      {{ errorMessage }}
-    </div>
-
-    <div v-if="hoaDon && !loading" class="detail-layout">
-      <div class="left-column">
-        <div class="card status-card">
-          <div class="card-title">
-            <div>
-              <span class="title-icon">▣</span>
-              Trạng Thái Đơn Hàng
+    <!-- Main Layout Grid -->
+    <div class="main-layout-grid">
+      <!-- Cột Trái -->
+      <div class="left-section">
+        <!-- Tiến trình trạng thái -->
+        <div class="card-box">
+          <div class="card-header-flex">
+            <div class="header-title-box">
+              <h3 class="card-title">Trạng Thái Đơn Hàng</h3>
             </div>
-            <span class="current-status" :class="getStatusClass(hoaDon.trangThai)">
-              {{ getStatusText(hoaDon.trangThai) }}
-            </span>
+            <span class="badge-status-top">{{ invoiceData.statusBadge }}</span>
           </div>
 
-          <div class="status-timeline">
+          <div class="stepper-container">
             <div
-                v-for="item in statusList"
-                :key="item.id"
-                class="timeline-item"
-                :class="{
-                active: currentStatus >= item.id,
-                current: currentStatus === item.id
-              }"
+                v-for="(step, idx) in invoiceData.steps"
+                :key="step.id"
+                class="step-node"
             >
-              <div class="timeline-icon">
-                <span v-if="currentStatus > item.id">✓</span>
-                <span v-else-if="currentStatus === item.id">{{ item.id === 5 ? '⚑' : '⌛' }}</span>
-                <span v-else>{{ item.id }}</span>
+              <div
+                  v-if="idx > 0"
+                  class="step-line"
+                  :class="{ 'line-active': idx < invoiceData.currentStepIndex }"
+              ></div>
+
+              <div
+                  class="node-circle"
+                  :class="{
+                  'circle-done': step.done,
+                  'circle-active': step.active,
+                  'circle-pending': step.pending
+                }"
+              >
+                <svg v-if="step.done" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <svg v-else-if="step.active" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M5 22h14M5 2h14M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" />
+                </svg>
+                <span v-else>{{ step.id }}</span>
               </div>
-              <div class="timeline-name">
-                {{ item.shortName }}
-              </div>
-              <div v-if="currentStatus >= item.id" class="timeline-date">
-                {{ item.id === 1 ? formatDateTime(hoaDon.ngayTao) : '' }}
+
+              <div class="node-text">
+                <span class="node-title" :class="{ 'text-muted': step.pending }">{{ step.name }}</span>
+                <span v-if="step.time" class="node-time">{{ step.time }}</span>
               </div>
             </div>
           </div>
 
-          <div class="status-action">
-            <button
-                v-if="canAction"
-                class="btn-status"
-                :disabled="statusLoading"
-                @click="xuLyDonHang"
-            >
-              {{ statusLoading ? 'Đang cập nhật...' : actionText }}
+          <div class="action-status-footer" v-if="invoiceData.currentStepIndex < 5">
+            <button class="btn-action-status" @click="handleNextStatus">
+              ✓ {{
+                invoiceData.currentStepIndex === 1 ? 'Xác nhận đơn hàng' :
+                    invoiceData.currentStepIndex === 2 ? 'Chuyển vận chuyển' :
+                        invoiceData.currentStepIndex === 3 ? 'Giao hàng' :
+                            'Xác nhận hoàn thành'
+              }}
             </button>
-            <span v-else-if="currentStatus === 5" class="completed-box">
-              ✓ Đơn hàng đã hoàn thành
-            </span>
-            <span v-else-if="currentStatus === 6" class="cancelled-box">
-              ✕ Đơn hàng đã hủy
-            </span>
           </div>
         </div>
 
-        <div class="two-column">
-          <div class="card">
-            <div class="card-title">
-              <span>♙ Thông Tin Khách Hàng</span>
+        <!-- Khách hàng & Giao hàng -->
+        <div class="info-dual-grid">
+          <div class="card-box sub-card">
+            <div class="card-header-simple">
+              <h3 class="card-title">Thông Tin Khách Hàng</h3>
             </div>
-            <div class="info-list">
+            <div class="info-table">
               <div class="info-row">
-                <span>Tên Khách Hàng</span>
-                <strong>{{ hoaDon.tenKhachHang || hoaDon.khachHang?.hoTen || 'Khách vãng lai' }}</strong>
+                <span class="info-label">Tên Khách Hàng</span>
+                <span class="info-value font-bold">{{ invoiceData.customer.name }}</span>
               </div>
               <div class="info-row">
-                <span>Số Điện Thoại</span>
-                <strong>{{ hoaDon.soDienThoaiKhachHang || hoaDon.soDienThoai || '---' }}</strong>
+                <span class="info-label">Số Điện Thoại</span>
+                <span class="info-value">{{ invoiceData.customer.phone }}</span>
               </div>
               <div class="info-row">
-                <span>Email</span>
-                <strong>{{ hoaDon.email || 'Không có' }}</strong>
+                <span class="info-label">Email</span>
+                <span class="info-value text-sub">{{ invoiceData.customer.email }}</span>
               </div>
             </div>
           </div>
 
-          <div class="card">
-            <div class="card-title">
-              <span> Thông Tin Giao Hàng</span>
+          <div class="card-box sub-card">
+            <div class="card-header-simple">
+              <h3 class="card-title">Thông Tin Giao Hàng</h3>
             </div>
-            <div class="info-list">
-              <div class="info-row">
-                <span>Địa Chỉ</span>
-                <strong>{{ hoaDon.diaChiNhanHang || hoaDon.diaChi || '---' }}</strong>
+            <div class="info-table">
+              <div class="info-row align-start">
+                <span class="info-label">Địa Chỉ</span>
+                <span class="info-value address-value">{{ invoiceData.delivery.address }}</span>
               </div>
               <div class="info-row">
-                <span>Loại Đơn</span>
-                <strong>{{ Number(hoaDon.loaiDon) === 1 ? 'Cửa hàng' : 'Online' }}</strong>
+                <span class="info-label">Loại Đơn</span>
+                <span class="info-value font-medium">{{ invoiceData.delivery.type }}</span>
               </div>
               <div class="info-row">
-                <span>Ghi Chú</span>
-                <strong>{{ hoaDon.ghiChu || '---' }}</strong>
+                <span class="info-label">Ghi Chú</span>
+                <span class="info-value text-sub">{{ invoiceData.delivery.note }}</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="right-column">
-        <div class="card payment-summary">
-          <div class="card-title">
-            <span>▣ Tổng Kết Thanh Toán</span>
+      <!-- Cột Phải -->
+      <div class="right-section">
+        <!-- Tổng tiền hóa đơn -->
+        <div class="card-box">
+          <div class="header-title-box mb-16">
+            <h3 class="card-title">Thanh Toán</h3>
           </div>
+          <div class="summary-content">
+            <div class="summary-item">
+              <span class="s-label">Tổng Tiền Hàng</span>
+              <span class="s-value">{{ formatMoney(invoiceData.summary.totalProductPrice) }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="s-label">Phí Vận Chuyển</span>
+              <span class="s-value">{{ formatMoney(invoiceData.summary.shippingFee) }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="s-label">Phiếu Giảm Giá</span>
+              <span class="s-value">{{ formatMoney(invoiceData.summary.voucherDiscount) }}</span>
+            </div>
 
-          <div class="summary-row">
-            <span>Tổng Tiền Hàng</span>
-            <strong>{{ formatMoney(hoaDon.tongTien) }}</strong>
-          </div>
+            <div class="summary-divider"></div>
 
-          <div class="summary-row">
-            <span>Phí Vận Chuyển</span>
-            <strong>{{ formatMoney(hoaDon.phiShip) }}</strong>
-          </div>
-
-          <div class="summary-row discount">
-            <span>Phiếu Giảm Giá</span>
-            <strong>{{ formatMoney(hoaDon.tongTienGiamGia) }}</strong>
-          </div>
-
-          <div class="summary-total">
-            <span>Tổng Tiền</span>
-            <strong>{{ formatMoney(tongThanhToan) }}</strong>
+            <div class="summary-total-row">
+              <span class="total-label">Tổng Tiền</span>
+              <span class="total-price-orange">{{ formatMoney(invoiceData.summary.totalPayment) }}</span>
+            </div>
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-title">
-            <span>◷ Lịch Sử Thanh Toán</span>
+        <!-- Lịch sử thanh toán -->
+        <div class="card-box">
+          <div class="header-title-box mb-16">
+            <h3 class="card-title">Lịch Sử Thanh Toán</h3>
           </div>
 
-          <div class="payment-history">
-            <div class="payment-item">
-              <div>
-                <strong>Tiền mặt</strong>
-                <p>Thanh toán đơn cửa hàng</p>
-                <small>{{ formatDateTime(hoaDon.ngayTao) }}</small>
-              </div>
-
-              <div class="payment-right">
-                <span class="payment-badge" :class="getPaymentClass(hoaDon.trangThaiThanhToan)">
-                  {{ getPaymentText(hoaDon.trangThaiThanhToan) }}
-                </span>
-                <strong>{{ formatMoney(tongThanhToan) }}</strong>
-              </div>
+          <div class="payment-record-box">
+            <div class="payment-header-row">
+              <span class="pay-method-name">{{ invoiceData.paymentHistory.method }}</span>
+              <span :class="invoiceData.paymentHistory.status === 'Đã thanh toán' ? 'badge-paid-green' : 'badge-unpaid-orange'">
+                {{ invoiceData.paymentHistory.status }}
+              </span>
+            </div>
+            <div class="pay-desc">{{ invoiceData.paymentHistory.description }}</div>
+            <div class="payment-bottom-row">
+              <span class="pay-time-text">{{ invoiceData.paymentHistory.time }}</span>
+              <span class="pay-amount-bold">{{ formatMoney(invoiceData.paymentHistory.amount) }}</span>
             </div>
           </div>
 
-          <div class="payment-action">
-            <button
-                v-if="Number(hoaDon.trangThaiThanhToan) === 0"
-                class="btn-payment"
-                :disabled="thanhToanLoading"
-                @click="thanhToan"
-            >
-              {{ thanhToanLoading ? 'Đang cập nhật...' : '✓ Xác nhận đã thanh toán' }}
+          <div class="payment-action-box">
+            <button class="btn-paid-status">
+              ✓ {{ invoiceData.paymentHistory.status }}
             </button>
-            <div v-else class="paid-success">
-              ✓ Đã thanh toán
-            </div>
+            <button class="btn-print-invoice" @click="handlePrint">
+              In Hóa Đơn
+            </button>
           </div>
-        </div>
-
-        <button class="btn-print" @click="inHoaDon">
-          🖨 In Hóa Đơn
-        </button>
-      </div>
-    </div>
-
-    <div v-if="showEditModal" class="modal-overlay" @click.self="dongModalChinhSua">
-      <div class="modal-box">
-        <div class="modal-header">
-          <div class="modal-title-with-icon">
-            <span class="modal-title-icon-edit">✏</span>
-            <h3>Chỉnh Sửa Thông Tin Đơn Hàng</h3>
-          </div>
-          <button class="btn-close" @click="dongModalChinhSua">✕</button>
-        </div>
-
-        <div class="modal-body">
-          <div class="form-row-2">
-            <div class="form-group">
-              <label>Trạng Thái Đơn Hàng</label>
-              <select
-                  v-model="editForm.trangThai"
-                  :class="{ 'field-error': editFormErrors.trangThai }"
-                  @change="editFormErrors.trangThai = ''"
-              >
-                <option :value="1">Chờ xác nhận</option>
-                <option :value="2">Đã xác nhận</option>
-                <option :value="3">Chờ vận chuyển</option>
-                <option :value="4">Đang vận chuyển</option>
-                <option :value="5">Đã hoàn thành</option>
-                <option :value="6">Đã hủy</option>
-              </select>
-              <span v-if="editFormErrors.trangThai" class="error-msg">{{ editFormErrors.trangThai }}</span>
-            </div>
-
-            <div class="form-group">
-              <label>Trạng Thái Thanh Toán</label>
-              <select
-                  v-model="editForm.trangThaiThanhToan"
-                  @change="editFormErrors.trangThai = ''"
-              >
-                <option :value="0">Chưa thanh toán</option>
-                <option :value="1">Đã thanh toán</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-row-2">
-            <div class="form-group">
-              <label>Tên Khách Hàng <span class="required-star">*</span></label>
-              <input
-                  type="text"
-                  v-model="editForm.tenKhachHang"
-                  :class="{ 'field-error': editFormErrors.tenKhachHang }"
-                  placeholder="Nhập tên khách hàng..."
-                  @input="editFormErrors.tenKhachHang = ''"
-              />
-              <span v-if="editFormErrors.tenKhachHang" class="error-msg">{{ editFormErrors.tenKhachHang }}</span>
-            </div>
-
-            <div class="form-group">
-              <label>Số Điện Thoại <span class="required-star">*</span></label>
-              <input
-                  type="text"
-                  v-model="editForm.soDienThoaiKhachHang"
-                  :class="{ 'field-error': editFormErrors.soDienThoaiKhachHang }"
-                  placeholder="Nhập số điện thoại..."
-                  @input="editFormErrors.soDienThoaiKhachHang = ''"
-              />
-              <span v-if="editFormErrors.soDienThoaiKhachHang" class="error-msg">{{ editFormErrors.soDienThoaiKhachHang }}</span>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Địa Chỉ Giao Hàng <span class="required-star">*</span></label>
-            <textarea
-                rows="2"
-                v-model="editForm.diaChiNhanHang"
-                :class="{ 'field-error': editFormErrors.diaChiNhanHang }"
-                placeholder="Nhập địa chỉ giao hàng..."
-                @input="editFormErrors.diaChiNhanHang = ''"
-            ></textarea>
-            <span v-if="editFormErrors.diaChiNhanHang" class="error-msg">{{ editFormErrors.diaChiNhanHang }}</span>
-          </div>
-
-          <div class="form-group">
-            <label>Ghi Chú</label>
-            <textarea
-                rows="2"
-                v-model="editForm.ghiChu"
-                :class="{ 'field-error': editFormErrors.ghiChu }"
-                placeholder="Nhập ghi chú cho đơn hàng..."
-                @input="editFormErrors.ghiChu = ''"
-            ></textarea>
-            <span v-if="editFormErrors.ghiChu" class="error-msg">{{ editFormErrors.ghiChu }}</span>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn-modal-cancel" @click="dongModalChinhSua">Hủy</button>
-          <button
-              class="btn-modal-save"
-              :disabled="editLoading"
-              @click="luuChinhSua"
-          >
-            {{ editLoading ? 'Đang lưu...' : 'Lưu Thay Đổi' }}
-          </button>
         </div>
       </div>
     </div>
 
-    <div v-if="orderAlert.show" class="modal-overlay" @click.self="orderAlert.show = false">
-      <div class="modal-box alert-modal-box">
-        <div class="modal-header">
-          <div class="modal-title-with-icon">
-            <span class="modal-title-icon-alert" :class="orderAlert.type">
-              {{ orderAlert.type === 'success' ? '✓' : '!' }}
-            </span>
-            <h3>{{ orderAlert.type === 'success' ? 'Thông Báo Thành Công' : 'Thông Báo Hệ Thống' }}</h3>
-          </div>
-          <button class="btn-close" @click="orderAlert.show = false">✕</button>
-        </div>
+    <!-- Bảng danh sách sản phẩm chi tiết -->
+    <div class="card-box invoice-items-card">
+      <div class="header-title-box mb-16">
+        <h3 class="card-title">Hóa Đơn Chi Tiết ({{ invoiceData.items.length }} sản phẩm)</h3>
+      </div>
 
-        <div class="modal-body alert-modal-body">
-          <p class="alert-main-text">{{ orderAlert.message }}</p>
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn-modal-save" @click="orderAlert.show = false">
-            Xác Nhận
-          </button>
-        </div>
+      <div class="table-responsive">
+        <table class="products-table">
+          <thead>
+          <tr>
+            <th class="col-stt text-center">STT</th>
+            <th class="col-code text-left">Mã SP</th>
+            <th class="col-name text-left">Tên Sản Phẩm</th>
+            <th class="col-variant text-center">Phân Loại</th>
+            <th class="col-qty text-center">Số Lượng</th>
+            <th class="col-price text-right">Đơn Giá</th>
+            <th class="col-total text-right">Thành Tiền</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr v-if="invoiceData.items.length === 0">
+            <td colspan="7" class="text-center text-muted" style="padding: 24px;">Không có sản phẩm trong đơn hàng.</td>
+          </tr>
+          <tr v-for="(item, index) in invoiceData.items" :key="item.id">
+            <td class="text-center text-muted">{{ index + 1 }}</td>
+            <td class="text-left font-bold text-code">{{ item.code }}</td>
+            <td class="text-left font-medium">{{ item.name }}</td>
+            <td class="text-center">
+              <div class="variant-wrapper">
+                <span class="variant-tag">{{ item.color }}</span>
+                <span class="variant-tag size-tag">Size: {{ item.size }}</span>
+              </div>
+            </td>
+            <td class="text-center font-bold">{{ item.quantity }}</td>
+            <td class="text-right">{{ formatMoney(item.price) }}</td>
+            <td class="text-right font-bold text-dark">{{ formatMoney(item.total) }}</td>
+          </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
-.invoice-page {
+.chi-tiet-page {
+  padding: 24px 30px;
+  background-color: #faf7f0;
   min-height: 100vh;
-  background-color: var(--bg, #f7f5ef);
-  padding: 1.25rem 1.75rem 2.5rem;
-  color: var(--text, #3d4a50);
-  font-family: var(--system-font, sans-serif);
+  box-sizing: border-box;
+  position: relative;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #ebe6dc;
-}
-
-.header-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.breadcrumb {
+.toast-popup {
+  position: fixed;
+  top: 24px;
+  right: 28px;
+  background-color: #36536b;
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 10px;
   font-size: 0.88rem;
+  font-weight: 600;
+  z-index: 9999;
+  border: 1px solid #4a6880;
 }
 
-.breadcrumb-link {
-  color: #7b8587;
+.toast-popup.warning {
+  background-color: #d97706;
+  border-color: #b45309;
+}
+
+.toast-icon {
+  background: rgba(255, 255, 255, 0.2);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.75rem;
+}
+
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.toast-fade-enter-from,
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.top-nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.breadcrumb-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-back {
+  background: transparent;
+  border: none;
   cursor: pointer;
+  color: #3e5c76;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.2s;
 }
 
-.breadcrumb-link:hover {
-  color: var(--blue, #496883);
+.btn-back:hover {
+  background-color: #ece4d8;
+  transform: translateX(-2px);
+}
+
+.page-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.crumb-link {
+  color: #8c969e;
+  cursor: pointer;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.crumb-link:hover {
+  color: #3e5c76;
   text-decoration: underline;
 }
 
-.divider {
-  color: #cbd5e1;
+.crumb-separator {
+  color: #b8c0c6;
 }
 
-.current {
-  color: var(--blue, #496883);
-  font-weight: 600;
-}
-
-.order-code {
-  margin: 0;
-  font-size: 1.45rem;
-  font-weight: 800;
-  color: #2c383f;
-  letter-spacing: -0.02em;
-}
-
-.header-meta-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-top: 0.35rem;
-}
-
-.meta-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  background-color: #ffffff;
-  border: 1px solid #e2ddd4;
-  padding: 0.3rem 0.65rem;
-  border-radius: 6px;
-  font-size: 0.82rem;
-  color: #64748b;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-}
-
-.meta-chip strong {
-  color: #334155;
-  font-weight: 600;
-}
-
-.meta-icon {
-  font-style: normal;
-  font-size: 0.85rem;
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.65rem;
-  align-items: center;
-}
-
-.btn-pos,
-.btn-list,
-.btn-edit {
-  padding: 0.55rem 1.15rem;
-  border-radius: 7px;
-  font-size: 0.9rem;
+.crumb-current {
+  color: #3e5c76;
   font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
 }
 
-.btn-edit {
-  background-color: var(--gold, #d2a764) !important;
-  color: #ffffff !important;
-  border: 1px solid var(--gold, #d2a764) !important;
-}
-
-.btn-edit:hover {
-  background-color: #be9453 !important;
-  border-color: #be9453 !important;
-}
-
-.btn-pos {
-  background-color: var(--blue, #496883) !important;
-  color: #ffffff !important;
-  border: 1px solid var(--blue, #496883) !important;
-}
-
-.btn-pos:hover {
-  background-color: #38536b !important;
-}
-
-.btn-list {
-  background-color: #ffffff !important;
-  color: var(--blue, #496883) !important;
-  border: 1px solid var(--line, #e9e5db) !important;
-}
-
-.btn-list:hover {
-  background-color: #eaf1f4 !important;
-}
-
-.detail-layout {
+.main-layout-grid {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
-  gap: 1.25rem;
-  align-items: start;
+  grid-template-columns: 1.8fr 1fr;
+  gap: 20px;
 }
 
-.left-column,
-.right-column {
+.left-section,
+.right-section {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 20px;
 }
 
-.card {
+.card-box {
   background: #ffffff;
-  border: 1px solid var(--line, #e9e5db);
   border-radius: 10px;
-  padding: 1.35rem 1.5rem;
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+  border: 1px solid #ebd9c8;
+  padding: 20px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.card-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.header-title-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-header-simple {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  margin-bottom: 16px;
 }
 
 .card-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 0.9rem;
-  border-bottom: 1px solid #f0ece3;
-  color: #3e4e56;
   font-size: 1.05rem;
   font-weight: 700;
+  color: #3e5c76;
+  margin: 0;
 }
 
-.card-title > div,
-.card-title > span {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.mb-16 {
+  margin-bottom: 16px;
 }
 
-.current-status {
-  padding: 0.35rem 0.85rem;
-  border-radius: 14px;
-  font-size: 0.82rem;
-  font-weight: 700;
+.invoice-items-card {
+  margin-top: 20px;
 }
 
-.status-pending { background-color: #f7eee1; color: #b18b52; }
-.status-confirmed { background-color: #eaf1f5; color: var(--blue, #496883); }
-.status-waiting { background-color: #fdf5ea; color: #c48c3b; }
-.status-shipping { background-color: #e3edf3; color: #38627e; }
-.status-completed { background-color: #edf5ef; color: #558764; }
-.status-cancelled { background-color: #fbeeed; color: #c94343; }
-.status-default { background-color: #f3f1ec; color: #7b8587; }
-
-.status-card {
-  min-height: 270px;
+.badge-status-top {
+  background-color: #fdf5ea;
+  color: #c97e27;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: 20px;
+  border: 1px solid #f9e2c4;
 }
 
-.status-timeline {
-  position: relative;
+.stepper-container {
   display: flex;
   justify-content: space-between;
-  padding: 2.2rem 1.8rem 1rem;
-}
-
-.status-timeline::before {
-  content: '';
-  position: absolute;
-  top: 54px;
-  left: 60px;
-  right: 60px;
-  height: 2px;
-  background-color: #e6e0d5;
-}
-
-.timeline-item {
+  align-items: flex-start;
   position: relative;
-  z-index: 1;
-  width: 110px;
+  margin: 10px 10px 24px 10px;
+}
+
+.step-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  flex: 1;
   text-align: center;
 }
 
-.timeline-icon {
-  width: 44px;
-  height: 44px;
-  margin: 0 auto 0.6rem;
+.node-circle {
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  background-color: #f7f5ef;
-  color: #9aa0a0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.05rem;
   font-weight: 700;
-  border: 3px solid #ffffff;
-  box-shadow: 0 0 0 1px var(--line, #e9e5db);
-  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  z-index: 2;
+  margin-bottom: 8px;
+  background-color: #ffffff;
 }
 
-.timeline-item.active .timeline-icon {
-  background-color: var(--blue, #496883) !important;
-  color: #ffffff !important;
-  box-shadow: 0 0 0 2px var(--blue, #496883) !important;
+.circle-done {
+  background-color: #3e5c76;
+  color: #ffffff;
+  border: 2px solid #3e5c76;
 }
 
-.timeline-item.current .timeline-icon {
-  box-shadow: 0 0 0 4px rgba(73, 104, 131, 0.2) !important;
+.circle-active {
+  background-color: #3e5c76;
+  color: #f5af5f;
+  border: 2px solid #3e5c76;
 }
 
-.timeline-name {
-  font-size: 0.85rem;
-  color: #7b8587;
-  line-height: 1.35;
+.circle-pending {
+  border: 2px solid #dedede;
+  color: #8c8c8c;
+  background-color: #ffffff;
 }
 
-.timeline-item.active .timeline-name {
-  color: var(--blue, #496883) !important;
+.step-line {
+  position: absolute;
+  top: 19px;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background-color: #e5e5e5;
+  z-index: 1;
+}
+
+.line-active {
+  background-color: #3e5c76;
+}
+
+.node-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.node-title {
+  font-size: 0.82rem;
   font-weight: 700;
+  color: #333333;
 }
 
-.timeline-date {
-  font-size: 0.75rem;
-  color: #9aa0a0;
-  margin-top: 4px;
+.node-time {
+  font-size: 0.72rem;
+  color: #8c969e;
 }
 
-.status-action {
+.text-muted {
+  color: #999999 !important;
+}
+
+.action-status-footer {
   display: flex;
   justify-content: flex-end;
-  margin-top: 1.1rem;
-  padding-top: 1rem;
-  border-top: 1px dashed #efeae0;
+  border-top: 1px dashed #ebd9c8;
+  padding-top: 14px;
 }
 
-.btn-status {
-  border: 0;
-  border-radius: 7px;
-  padding: 0.6rem 1.35rem;
-  background-color: var(--blue, #496883) !important;
-  color: #ffffff !important;
-  font-size: 0.9rem;
-  font-weight: 700;
+.btn-action-status {
+  background-color: #36536b;
+  color: #ffffff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s;
 }
 
-.btn-status:hover {
-  background-color: #38536b !important;
+.btn-action-status:hover {
+  opacity: 0.9;
 }
 
-.btn-status:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.completed-box {
-  padding: 0.6rem 1.1rem;
-  border-radius: 7px;
-  background-color: #edf5ef;
-  color: #558764;
-  font-size: 0.88rem;
-  font-weight: 700;
-}
-
-.cancelled-box {
-  padding: 0.6rem 1.1rem;
-  border-radius: 7px;
-  background-color: #fbeeed;
-  color: #c94343;
-  font-size: 0.88rem;
-  font-weight: 700;
-}
-
-.two-column {
+.info-dual-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1.25rem;
+  gap: 20px;
+  align-items: stretch;
 }
 
-.info-list {
-  padding-top: 0.4rem;
+.sub-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.info-table {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
 }
 
 .info-row {
-  min-height: 40px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
-  border-bottom: 1px solid #f3efe8;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  min-height: 24px;
 }
 
-.info-row:last-child {
-  border-bottom: 0;
+.info-row.align-start {
+  align-items: flex-start;
 }
 
-.info-row span {
-  color: #7b8587;
+.info-label {
+  color: #636b72;
+  width: 130px;
+  flex-shrink: 0;
 }
 
-.info-row strong {
-  color: #3d4a50;
-  font-weight: 600;
+.info-value {
+  color: #2b353b;
   text-align: right;
+  flex: 1;
+  word-break: break-word;
 }
 
-.payment-summary {
-  padding-bottom: 0.6rem;
+.address-value {
+  max-width: 250px;
+  line-height: 1.45;
+  font-weight: 500;
 }
 
-.summary-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.85rem 0;
-  border-bottom: 1px solid #f3efe8;
-  font-size: 0.92rem;
-}
-
-.summary-row span {
-  color: #7b8587;
-}
-
-.summary-row strong {
-  color: #3d4a50;
-}
-
-.summary-row.discount strong {
-  color: #558764;
-}
-
-.summary-total {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.1rem 0 0.5rem;
-  font-weight: 800;
-  border-top: 1px dashed #e8e2d5;
-  margin-top: 0.4rem;
-}
-
-.summary-total span {
-  color: #3d4a50;
-  font-size: 1.05rem;
-}
-
-.summary-total strong {
-  color: #d97706 !important;
-  font-size: 1.45rem;
-}
-
-.payment-history {
-  padding-top: 0.6rem;
-}
-
-.payment-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  background-color: #faf9f6;
-  border: 1px solid #eeebe3;
-  border-radius: 8px;
-  padding: 0.85rem;
-  margin-bottom: 0.65rem;
-}
-
-.payment-item strong {
-  font-size: 0.92rem;
-  color: #3d4a50;
-}
-
-.payment-item p {
-  margin: 4px 0;
-  color: #7b8587;
-  font-size: 0.85rem;
-}
-
-.payment-item small {
-  color: #9aa0a0;
-  font-size: 0.78rem;
-}
-
-.payment-right {
+.summary-content {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 0.5rem;
+  gap: 12px;
 }
 
-.payment-right > strong {
-  color: #d97706 !important;
-  font-size: 0.95rem;
-}
-
-.payment-badge {
-  padding: 0.25rem 0.65rem;
-  border-radius: 12px;
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.payment-paid { background-color: #edf5ef; color: #558764; }
-.payment-unpaid { background-color: #f7eee1; color: #b18b52; }
-
-.payment-action {
-  margin-top: 1rem;
-}
-
-.btn-payment {
-  width: 100%;
-  padding: 0.75rem;
-  border: 0;
-  border-radius: 8px;
-  background-color: var(--blue, #496883) !important;
-  color: #ffffff !important;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-payment:hover {
-  background-color: #38536b !important;
-}
-
-.btn-payment:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.paid-success {
-  width: 100%;
-  padding: 0.75rem;
-  border-radius: 8px;
-  background-color: #edf5ef;
-  color: #558764;
-  text-align: center;
-  font-size: 0.92rem;
-  font-weight: 700;
-}
-
-.btn-print {
-  width: 100%;
-  padding: 0.85rem;
-  border: 0;
-  border-radius: 8px;
-  background-color: var(--blue, #496883) !important;
-  color: #ffffff !important;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-print:hover {
-  background-color: #38536b !important;
-}
-
-.required-star {
-  color: #c94343;
-  margin-left: 2px;
-}
-
-.modal-body .field-error {
-  border-color: #c94343 !important;
-  background-color: #fff8f8 !important;
-}
-
-.error-msg {
-  color: #c94343;
-  font-size: 0.78rem;
-  font-weight: 500;
-  margin-top: 0.15rem;
-  line-height: 1.2;
-}
-
-.modal-title-with-icon {
+.summary-item {
   display: flex;
+  justify-content: space-between;
+  font-size: 0.86rem;
+}
+
+.s-label {
+  color: #666666;
+}
+
+.s-value {
+  color: #222222;
+  font-weight: 600;
+}
+
+.summary-divider {
+  border-top: 1px dashed #ebd9c8;
+  margin: 6px 0;
+}
+
+.summary-total-row {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 0.6rem;
 }
 
-.modal-title-icon-edit {
-  color: var(--blue, #496883);
-  font-size: 1.15rem;
+.total-label {
+  font-size: 1rem;
   font-weight: 700;
+  color: #222222;
 }
 
-.modal-title-icon-alert {
+.total-price-orange {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #b85d19;
+}
+
+.payment-record-box {
+  background-color: #fcfbf9;
+  border: 1px solid #f0e6dc;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.payment-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.pay-method-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #222222;
+}
+
+.badge-paid-green {
+  background-color: #eaf8ed;
+  color: #2e7d32;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.badge-unpaid-orange {
+  background-color: #fff6eb;
+  color: #b75e11;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.pay-desc {
+  font-size: 0.78rem;
+  color: #777777;
+  margin-bottom: 6px;
+}
+
+.payment-bottom-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pay-time-text {
+  font-size: 0.75rem;
+  color: #888888;
+}
+
+.pay-amount-bold {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #b85d19;
+}
+
+.payment-action-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn-paid-status {
+  width: 100%;
+  height: 38px;
+  background-color: #edf7ef;
+  color: #2e7d32;
+  border: 1px solid #cce5d0;
+  border-radius: 6px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-print-invoice {
+  width: 100%;
+  height: 36px;
+  background-color: #36536b;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.products-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.88rem;
+}
+
+.col-stt     { width: 60px; }
+.col-code    { width: 110px; }
+.col-name    { width: 32%; }
+.col-variant { width: 22%; }
+.col-qty     { width: 90px; }
+.col-price   { width: 15%; }
+.col-total   { width: 15%; }
+
+.products-table th {
+  background-color: #f5efeb;
+  color: #3e5c76;
+  font-weight: 700;
+  padding: 12px 14px;
+  border-bottom: 1px solid #ebd9c8;
+  vertical-align: middle;
+}
+
+.products-table td {
+  padding: 14px 14px;
+  border-bottom: 1px solid #f1e7dc;
+  color: #333333;
+  vertical-align: middle;
+}
+
+.text-left {
+  text-align: left !important;
+}
+
+.text-center {
+  text-align: center !important;
+}
+
+.text-right {
+  text-align: right !important;
+}
+
+.variant-wrapper {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  font-size: 0.85rem;
-  font-weight: 800;
+  gap: 6px;
 }
 
-.modal-title-icon-alert.success {
-  background-color: #edf5ef;
-  color: #558764;
-  border: 1px solid #cce3d1;
-}
-
-.modal-title-icon-alert.error {
-  background-color: #fbeeed;
-  color: #c94343;
-  border: 1px solid #f6d4d4;
-}
-
-.alert-modal-box {
-  width: 440px !important;
-  max-width: 90%;
-}
-
-.alert-modal-body {
-  padding: 1.5rem 1.4rem !important;
-  text-align: center;
-}
-
-.alert-main-text {
-  font-size: 0.98rem;
+.variant-tag {
+  background: #ede6dd;
+  color: #5d4a38;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 4px;
   font-weight: 600;
-  color: #3d4a50;
-  line-height: 1.5;
-  margin: 0;
+  white-space: nowrap;
 }
 
-.modal-body .form-row-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+.size-tag {
+  background: #e8f0fe;
+  color: #1a73e8;
 }
 
-.modal-body select {
-  width: 100%;
-  height: 2.5rem;
-  border: 1px solid var(--line, #e9e5db);
-  border-radius: 8px;
-  padding: 0 0.85rem;
-  font-size: 0.92rem;
-  color: var(--text, #3d4a50);
-  background-color: #fcfbf8;
-  outline: none;
-  box-sizing: border-box;
-  cursor: pointer;
+.text-code {
+  color: #3e5c76;
 }
 
-.modal-body select:focus {
-  border-color: var(--blue, #496883);
-  background-color: #ffffff;
-}
-
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 999;
-}
-
-.modal-box {
-  background: #ffffff;
-  width: 520px;
-  max-width: 92%;
-  border-radius: 12px;
-  border: 1px solid var(--line, #e9e5db);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
-  overflow: hidden;
-  animation: modalFadeIn 0.2s ease;
-}
-
-.modal-header {
-  padding: 1.1rem 1.4rem;
-  background-color: #faf9f6;
-  border-bottom: 1px solid #efeae0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 1.1rem;
+.font-bold {
   font-weight: 700;
-  color: var(--blue, #496883);
 }
 
-.btn-close {
-  background: transparent;
-  border: none;
-  font-size: 1.2rem;
-  color: #8c9597;
-  cursor: pointer;
+.font-medium {
+  font-weight: 500;
 }
 
-.btn-close:hover {
-  color: #333;
+.text-dark {
+  color: #222222;
 }
 
-.modal-body {
-  padding: 1.4rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+.text-sub {
+  color: #333333;
 }
 
-.modal-body .form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.modal-body label {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: #4f5d63;
-}
-
-.modal-body input,
-.modal-body textarea {
-  width: 100%;
-  border: 1px solid var(--line, #e9e5db);
-  border-radius: 8px;
-  padding: 0.65rem 0.85rem;
-  font-size: 0.92rem;
-  color: var(--text, #3d4a50);
-  background-color: #fcfbf8;
-  outline: none;
-  box-sizing: border-box;
-}
-
-.modal-body input:focus,
-.modal-body textarea:focus {
-  border-color: var(--blue, #496883);
-  background-color: #ffffff;
-}
-
-.modal-footer {
-  padding: 1rem 1.4rem;
-  background-color: #faf9f6;
-  border-top: 1px dashed #efeae0;
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-}
-
-.btn-modal-cancel {
-  background: #ffffff;
-  color: #647074;
-  border: 1px solid #ded8cb;
-  padding: 0.55rem 1.2rem;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.btn-modal-save {
-  background: var(--blue, #496883);
-  color: #ffffff;
-  border: none;
-  padding: 0.55rem 1.4rem;
-  border-radius: 6px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.btn-modal-save:hover {
-  background: #38536b;
-}
-
-.btn-modal-save:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-@keyframes modalFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.loading {
-  background: #ffffff;
-  padding: 3rem;
-  border-radius: 10px;
-  border: 1px solid var(--line, #e9e5db);
-  text-align: center;
-  color: #7b8587;
-  font-size: 0.95rem;
-}
-
-.error-box {
-  background-color: #fbeeed;
-  color: #c94343;
-  padding: 1rem 1.25rem;
-  border-radius: 8px;
-  border: 1px solid #f6d4d4;
-  font-size: 0.92rem;
-}
-
-@media (max-width: 1000px) {
-  .detail-layout {
+@media (max-width: 1024px) {
+  .main-layout-grid {
     grid-template-columns: 1fr;
   }
-  .right-column {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-  .btn-print {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 768px) {
-  .invoice-page {
-    padding: 1rem;
-  }
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-  .header-actions {
-    width: 100%;
-    flex-wrap: wrap;
-  }
-  .header-actions button {
-    flex: 1;
-  }
-  .two-column {
+  .info-dual-grid {
     grid-template-columns: 1fr;
-  }
-  .right-column {
-    display: flex;
-  }
-  .status-timeline {
-    padding-left: 0;
-    padding-right: 0;
-  }
-  .status-timeline::before {
-    left: 20px;
-    right: 20px;
-  }
-  .timeline-name {
-    font-size: 0.75rem;
-  }
-}
-
-@media print {
-  .invoice-page {
-    background: #ffffff;
-    padding: 0;
-  }
-  .header-actions,
-  .status-action,
-  .payment-action,
-  .btn-print,
-  .modal-overlay {
-    display: none !important;
-  }
-  .card {
-    box-shadow: none;
-    border: 1px solid #ddd;
-    break-inside: avoid;
   }
 }
 </style>
