@@ -153,9 +153,9 @@ const pageTitle = computed(() => {
     </aside>
 
     <main class="main-content">
-      <header class="top-header">
+      <header v-if="pageTitle" class="top-header">
         <div class="header-left">
-          <h2 v-if="pageTitle" class="header-page-title">{{ pageTitle }}</h2>
+          <h2 class="header-page-title">{{ pageTitle }}</h2>
         </div>
         <div class="header-right">
           <div class="user-profile-badge">
@@ -556,13 +556,15 @@ const pageTitle = computed(() => {
 }
 
 .top-header {
-  min-height: 4.2rem;
-  background-color: transparent;
-  padding: 1.2rem 2.2rem 0.5rem;
+  background-color: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 16px 24px;
+  margin: 20px 2.2rem 20px 2.2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: none;
+  box-shadow: 0 1px 4px rgba(65, 60, 50, 0.03);
   box-sizing: border-box;
 }
 

@@ -342,7 +342,7 @@ onMounted(async () => {
 
 <style scoped>
 .employee-page-wrapper {
-  padding: 0.5rem 2.2rem 3rem;
+  padding: 0 2.2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);
