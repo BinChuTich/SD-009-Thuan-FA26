@@ -1,12 +1,12 @@
-// Service tích hợp API hành chính Việt Nam sau sáp nhập: https://provinces.open-api.vn/
+// Service tích hợp API hành chính Việt Nam: https://provinces.open-api.vn/
+// Cấu trúc rút gọn 2 cấp: Tỉnh / Thành phố và Phường / Xã
 import axios from 'axios'
 
 const PROVINCES_BASE_URL = 'https://provinces.open-api.vn/api'
 
 // Cache để tránh gọi lại nhiều lần và tăng tốc độ tối đa
 let provincesCache = null
-const districtsCache = new Map()
-const wardsCache = new Map()
+const provinceWardsCache = new Map()
 
 export async function getProvinces() {
   if (provincesCache) return provincesCache
@@ -20,42 +20,39 @@ export async function getProvinces() {
   }
 }
 
-export async function getDistricts(provinceCode) {
+// Lấy danh sách toàn bộ Phường / Xã của một Tỉnh / Thành phố (rút gọn 2 cấp)
+export async function getWardsByProvince(provinceCode) {
   if (!provinceCode) return []
-  if (districtsCache.has(provinceCode)) {
-    return districtsCache.get(provinceCode)
+  if (provinceWardsCache.has(provinceCode)) {
+    return provinceWardsCache.get(provinceCode)
   }
   try {
-    const res = await axios.get(`${PROVINCES_BASE_URL}/p/${provinceCode}?depth=2`)
+    const res = await axios.get(`${PROVINCES_BASE_URL}/p/${provinceCode}?depth=3`)
     const districts = res.data?.districts || []
-    districtsCache.set(provinceCode, districts)
-    return districts
+    const allWards = []
+    districts.forEach(d => {
+      (d.wards || []).forEach(w => {
+        allWards.push({
+          code: w.code,
+          name: w.name,
+          districtName: d.name
+        })
+      })
+    })
+    // Sắp xếp tiếng Việt theo tên phường xã
+    allWards.sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+    provinceWardsCache.set(provinceCode, allWards)
+    return allWards
   } catch (error) {
-    console.error(`Lỗi khi tải danh sách quận huyện cho tỉnh ${provinceCode}:`, error)
+    console.error(`Lỗi khi tải danh sách phường xã cho tỉnh ${provinceCode}:`, error)
     return []
   }
 }
 
-export async function getWards(districtCode) {
-  if (!districtCode) return []
-  if (wardsCache.has(districtCode)) {
-    return wardsCache.get(districtCode)
-  }
-  try {
-    const res = await axios.get(`${PROVINCES_BASE_URL}/d/${districtCode}?depth=2`)
-    const wards = res.data?.wards || []
-    wardsCache.set(districtCode, wards)
-    return wards
-  } catch (error) {
-    console.error(`Lỗi khi tải danh sách phường xã cho huyện ${districtCode}:`, error)
-    return []
-  }
-}
-
-// Khớp địa chỉ dạng chuỗi (từ CCCD) với cấu trúc Tỉnh - Huyện - Xã
+// Khớp địa chỉ dạng chuỗi (từ CCCD) với cấu trúc 2 cấp Tỉnh / Thành phố - Phường / Xã
 export async function matchAddressHierarchy(fullAddressString) {
   if (!fullAddressString || typeof fullAddressString !== 'string') {
-    return { provinceCode: null, districtCode: null, wardCode: null, specificAddress: '' }
+    return { provinceCode: null, provinceName: '', wardCode: null, wardName: '', specificAddress: '' }
   }
 
   const provinces = await getProvinces()
@@ -65,10 +62,10 @@ export async function matchAddressHierarchy(fullAddressString) {
 
   const parts = fullAddressString.split(',').map(p => p.trim()).filter(Boolean)
   if (parts.length === 0) {
-    return { provinceCode: null, districtCode: null, wardCode: null, specificAddress: fullAddressString }
+    return { provinceCode: null, provinceName: '', wardCode: null, wardName: '', specificAddress: fullAddressString }
   }
 
-  // 1. Tìm tỉnh / thành phố (thường ở cuối)
+  // 1. Tìm Tỉnh / Thành phố (thường ở cuối chuỗi)
   let foundProvince = null
   let provPartIndex = -1
 
@@ -86,61 +83,37 @@ export async function matchAddressHierarchy(fullAddressString) {
   }
 
   if (!foundProvince) {
-    return { provinceCode: null, districtCode: null, wardCode: null, specificAddress: fullAddressString }
+    return { provinceCode: null, provinceName: '', wardCode: null, wardName: '', specificAddress: fullAddressString }
   }
 
-  // 2. Tìm quận / huyện trong tỉnh đó
-  const districts = await getDistricts(foundProvince.code)
-  let foundDistrict = null
-  let distPartIndex = -1
+  // 2. Tìm Phường / Xã trực tiếp trong Tỉnh đó
+  const wards = await getWardsByProvince(foundProvince.code)
+  let foundWard = null
+  let wardPartIndex = -1
 
   for (let i = provPartIndex - 1; i >= 0; i--) {
     const partClean = cleanStr(parts[i])
-    const match = districts.find(d => {
-      const dClean = cleanStr(d.name)
-      return dClean === partClean || d.name.toLowerCase().includes(partClean) || parts[i].toLowerCase().includes(dClean)
+    const match = wards.find(w => {
+      const wClean = cleanStr(w.name)
+      return wClean === partClean || w.name.toLowerCase().includes(partClean) || parts[i].toLowerCase().includes(wClean)
     })
     if (match) {
-      foundDistrict = match
-      distPartIndex = i
+      foundWard = match
+      wardPartIndex = i
       break
     }
   }
 
-  // 3. Tìm phường / xã trong huyện đó
-  let foundWard = null
-  let wardPartIndex = -1
-
-  if (foundDistrict) {
-    const wards = await getWards(foundDistrict.code)
-    for (let i = distPartIndex - 1; i >= 0; i--) {
-      const partClean = cleanStr(parts[i])
-      const match = wards.find(w => {
-        const wClean = cleanStr(w.name)
-        return wClean === partClean || w.name.toLowerCase().includes(partClean) || parts[i].toLowerCase().includes(wClean)
-      })
-      if (match) {
-        foundWard = match
-        wardPartIndex = i
-        break
-      }
-    }
-  }
-
-  // 4. Địa chỉ cụ thể là các phần còn lại trước phường/xã (hoặc trước huyện/tỉnh)
-  const cutoffIndex = wardPartIndex !== -1 ? wardPartIndex : (distPartIndex !== -1 ? distPartIndex : provPartIndex)
+  // 3. Địa chỉ cụ thể là các phần còn lại trước phường/xã (hoặc trước tỉnh)
+  const cutoffIndex = wardPartIndex !== -1 ? wardPartIndex : provPartIndex
   const specificParts = parts.slice(0, cutoffIndex)
   const specificAddress = specificParts.length > 0 ? specificParts.join(', ') : fullAddressString
 
   return {
-    provinceCode: foundProvince ? foundProvince.code : null,
-    provinceName: foundProvince ? foundProvince.name : '',
-    districtCode: foundDistrict ? foundDistrict.code : null,
-    districtName: foundDistrict ? foundDistrict.name : '',
+    provinceCode: foundProvince.code,
+    provinceName: foundProvince.name,
     wardCode: foundWard ? foundWard.code : null,
     wardName: foundWard ? foundWard.name : '',
     specificAddress
   }
 }
-
-

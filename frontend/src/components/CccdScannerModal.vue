@@ -33,14 +33,6 @@
         >
           📁 Tải ảnh thẻ CCCD
         </button>
-        <button
-          type="button"
-          class="scan-tab-btn"
-          :class="{ active: activeTab === 'barcode' }"
-          @click="switchTab('barcode')"
-        >
-          ⚡ Máy quét cầm tay / Nhập chuỗi
-        </button>
       </div>
 
       <!-- Modal Body -->
@@ -108,34 +100,6 @@
           </div>
         </div>
 
-        <!-- TAB 3: MÁY QUÉT CẦM TAY / NHẬP CHUỖI -->
-        <div v-show="activeTab === 'barcode'" class="tab-panel barcode-panel">
-          <div class="barcode-input-card">
-            <label class="barcode-label">Dữ liệu từ máy quét mã vạch (Barcode Scanner) hoặc dán chuỗi CCCD:</label>
-            <textarea
-              ref="barcodeInputRef"
-              v-model="barcodeInputText"
-              rows="4"
-              class="barcode-textarea"
-              placeholder="001099012345||Nguyễn Văn An|15081999|Nam|Số 15 Ngõ 86 Cầu Giấy, Phường Dịch Vọng, Cầu Giấy, Hà Nội|10052021"
-              @keydown.enter.prevent="processBarcodeText"
-            ></textarea>
-            <div class="barcode-actions">
-              <button
-                type="button"
-                class="btn-submit-barcode"
-                :disabled="!barcodeInputText.trim()"
-                @click="processBarcodeText"
-              >
-                Trích xuất thông tin
-              </button>
-            </div>
-          </div>
-          <div class="scan-instruction">
-            <span>💡 <strong>Hướng dẫn:</strong> Cắm máy quét mã QR 2D vào cổng USB máy tính, nhấp vào ô nhập trên và bóp cò quét mã QR trên CCCD. Máy quét sẽ tự động bắn chuỗi và nhấn Enter.</span>
-          </div>
-        </div>
-
         <!-- Thông báo lỗi khi quét không thành công -->
         <div v-if="scanErrorMessage" class="scan-alert-error">
           {{ scanErrorMessage }}
@@ -165,8 +129,6 @@ const scanErrorMessage = ref('')
 
 const filePreview = ref('')
 const isProcessingFile = ref(false)
-const barcodeInputText = ref('')
-const barcodeInputRef = ref(null)
 
 let html5QrCode = null
 
@@ -335,12 +297,6 @@ async function switchTab(tab) {
     await initCamera()
   } else {
     await stopCamera()
-    if (tab === 'barcode') {
-      await nextTick()
-      if (barcodeInputRef.value) {
-        barcodeInputRef.value.focus()
-      }
-    }
   }
 }
 
@@ -672,64 +628,6 @@ onBeforeUnmount(() => {
   color: #496883;
   font-size: 0.9rem;
   font-weight: 600;
-}
-
-/* Barcode Scanner Panel */
-.barcode-input-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.barcode-label {
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: #445660;
-}
-
-.barcode-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0.85rem;
-  border: 1px solid #d2dadf;
-  border-radius: 8px;
-  font-family: monospace;
-  font-size: 0.88rem;
-  outline: none;
-  background-color: #fcfbf8;
-  color: #2b3941;
-  resize: vertical;
-}
-
-.barcode-textarea:focus {
-  border-color: #496883;
-  background-color: #ffffff;
-}
-
-.barcode-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.btn-submit-barcode {
-  padding: 0.55rem 1.4rem;
-  background-color: #496883;
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.btn-submit-barcode:hover:not(:disabled) {
-  background-color: #38536b;
-}
-
-.btn-submit-barcode:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* Common Instructions & Errors */

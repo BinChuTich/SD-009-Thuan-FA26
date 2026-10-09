@@ -27,7 +27,7 @@
 
         <div class="form-field">
           <select v-model="filters.role" @change="applyFilters">
-            <option value="">Tất cả vai trò</option>
+            <option value="">Tất cả chức vụ</option>
             <option v-for="role in roles" :key="role.id" :value="String(role.id)">
               {{ role.tenVaiTro }}
             </option>
@@ -72,23 +72,22 @@
               <th style="width: 65px; text-align: center">Ảnh</th>
               <th style="width: 110px">Mã NV</th>
               <th style="width: 160px">Họ tên</th>
-              <th style="width: 180px">Email</th>
-              <th style="width: 85px">Giới tính</th>
               <th style="width: 120px">SĐT</th>
+              <th style="width: 180px">Email</th>
               <th>Địa chỉ</th>
-              <th style="width: 120px">Vai trò</th>
+              <th style="width: 120px">Chức vụ</th>
               <th style="width: 120px; text-align: center">Trạng thái</th>
               <th style="width: 100px; text-align: center">Hành động</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="11" style="text-align: center; padding: 2.5rem; color: #8a969b;">
+              <td colspan="10" style="text-align: center; padding: 2.5rem; color: #8a969b;">
                 Đang tải dữ liệu nhân viên...
               </td>
             </tr>
             <tr v-else-if="employees.length === 0">
-              <td colspan="11" style="text-align: center; padding: 2.5rem; color: #8a969b;">
+              <td colspan="10" style="text-align: center; padding: 2.5rem; color: #8a969b;">
                 Không tìm thấy nhân viên nào phù hợp.
               </td>
             </tr>
@@ -104,9 +103,8 @@
               </td>
               <td class="font-bold text-blue">{{ item.code }}</td>
               <td class="font-medium text-dark">{{ item.fullName }}</td>
-              <td class="text-email" :title="item.email">{{ item.email || '-' }}</td>
-              <td>{{ item.gender }}</td>
               <td class="text-dark">{{ item.phone || '-' }}</td>
+              <td class="text-email" :title="item.email">{{ item.email || '-' }}</td>
               <td class="text-address">{{ item.address || '-' }}</td>
               <td>
                 <span class="role-text" :class="{'role-admin': item.role === 'Quản trị viên'}">

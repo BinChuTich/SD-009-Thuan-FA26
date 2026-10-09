@@ -185,7 +185,7 @@ public class KhachHangService {
         addr.setIdKhachHang(customer);
         addr.setMaDiaChi("DC" + customerId + "_" + (System.currentTimeMillis() % 10000));
         addr.setThanhPho(dto.thanhPho().trim());
-        addr.setHuyen(dto.huyen().trim());
+        addr.setHuyen(dto.huyen() != null ? dto.huyen().trim() : "");
         addr.setPhuong(dto.phuong().trim());
         addr.setDiaChiCuThe(dto.diaChiCuThe().trim());
         addr.setMacDinh(setAsDefault);
@@ -213,7 +213,7 @@ public class KhachHangService {
         }
 
         addr.setThanhPho(dto.thanhPho().trim());
-        addr.setHuyen(dto.huyen().trim());
+        addr.setHuyen(dto.huyen() != null ? dto.huyen().trim() : "");
         addr.setPhuong(dto.phuong().trim());
         addr.setDiaChiCuThe(dto.diaChiCuThe().trim());
         return toAddressDto(addressRepo.save(addr));
@@ -249,7 +249,6 @@ public class KhachHangService {
     private void validateAddressDto(DiaChiKhachHangDto dto) {
         if (dto == null) throw new IllegalArgumentException("Thông tin địa chỉ không được để trống");
         if (blankToNull(dto.thanhPho()) == null) throw new IllegalArgumentException("Tỉnh / Thành phố không được để trống");
-        if (blankToNull(dto.huyen()) == null) throw new IllegalArgumentException("Quận / Huyện không được để trống");
         if (blankToNull(dto.phuong()) == null) throw new IllegalArgumentException("Phường / Xã không được để trống");
         if (blankToNull(dto.diaChiCuThe()) == null) throw new IllegalArgumentException("Địa chỉ cụ thể không được để trống");
     }
@@ -290,9 +289,6 @@ public class KhachHangService {
         }
         if (blankToNull(req.thanhPho()) == null) {
             throw new IllegalArgumentException("Tỉnh / Thành phố không được để trống");
-        }
-        if (blankToNull(req.huyen()) == null) {
-            throw new IllegalArgumentException("Quận / Huyện không được để trống");
         }
         if (blankToNull(req.phuong()) == null) {
             throw new IllegalArgumentException("Phường / Xã không được để trống");
@@ -343,7 +339,7 @@ public class KhachHangService {
         address.setIdKhachHang(customer);
         address.setMaDiaChi("DC" + customer.getId());
         if (blankToNull(req.thanhPho()) != null) address.setThanhPho(blankToNull(req.thanhPho()));
-        if (blankToNull(req.huyen()) != null) address.setHuyen(blankToNull(req.huyen()));
+        address.setHuyen(blankToNull(req.huyen()) != null ? req.huyen().trim() : "");
         if (blankToNull(req.phuong()) != null) address.setPhuong(blankToNull(req.phuong()));
         if (blankToNull(req.diaChiCuThe()) != null) address.setDiaChiCuThe(blankToNull(req.diaChiCuThe()));
         address.setMacDinh(true);

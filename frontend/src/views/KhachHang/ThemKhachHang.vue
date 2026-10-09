@@ -147,29 +147,12 @@
                 <span v-if="errors.thanhPho" class="error-inline-msg">{{ errors.thanhPho }}</span>
               </div>
 
-              <!-- Quận / Huyện -->
-              <div class="form-field">
-                <label>Quận / Huyện <span class="required">*</span></label>
-                <select
-                  v-model="selectedDistrictCode"
-                  :disabled="!selectedProvinceCode"
-                  :class="{ 'has-error': errors.huyen }"
-                  @change="onDistrictChange"
-                >
-                  <option value="">-- Chọn Quận / Huyện --</option>
-                  <option v-for="d in districtsList" :key="d.code" :value="d.code">
-                    {{ d.name }}
-                  </option>
-                </select>
-                <span v-if="errors.huyen" class="error-inline-msg">{{ errors.huyen }}</span>
-              </div>
-
               <!-- Phường / Xã -->
               <div class="form-field">
                 <label>Phường / Xã <span class="required">*</span></label>
                 <select
                   v-model="selectedWardCode"
-                  :disabled="!selectedDistrictCode"
+                  :disabled="!selectedProvinceCode"
                   :class="{ 'has-error': errors.phuong }"
                   @change="onWardChange"
                 >
@@ -216,7 +199,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
-import { getProvinces, getDistricts, getWards } from '@/services/provincesApi.js'
+import { getProvinces, getWardsByProvince } from '@/services/provincesApi.js'
 
 const router = useRouter()
 const saving = ref(false)
@@ -224,13 +207,11 @@ const selectedFile = ref(null)
 const avatarPreview = ref('')
 const maxDate = new Date().toISOString().split('T')[0]
 
-// Danh mục hành chính
+// Danh mục hành chính (2 cấp)
 const provincesList = ref([])
-const districtsList = ref([])
 const wardsList = ref([])
 
 const selectedProvinceCode = ref('')
-const selectedDistrictCode = ref('')
 const selectedWardCode = ref('')
 
 const form = reactive({
@@ -253,7 +234,6 @@ const errors = reactive({
   soDienThoai: '',
   ngaySinh: '',
   thanhPho: '',
-  huyen: '',
   phuong: '',
   diaChiCuThe: ''
 })
@@ -265,31 +245,15 @@ async function loadProvinces() {
 async function onProvinceChange() {
   const p = provincesList.value.find(item => item.code === selectedProvinceCode.value)
   form.thanhPho = p ? p.name : ''
-  selectedDistrictCode.value = ''
   selectedWardCode.value = ''
   form.huyen = ''
   form.phuong = ''
-  districtsList.value = []
   wardsList.value = []
 
   validateField('thanhPho')
 
   if (selectedProvinceCode.value) {
-    districtsList.value = await getDistricts(selectedProvinceCode.value)
-  }
-}
-
-async function onDistrictChange() {
-  const d = districtsList.value.find(item => item.code === selectedDistrictCode.value)
-  form.huyen = d ? d.name : ''
-  selectedWardCode.value = ''
-  form.phuong = ''
-  wardsList.value = []
-
-  validateField('huyen')
-
-  if (selectedDistrictCode.value) {
-    wardsList.value = await getWards(selectedDistrictCode.value)
+    wardsList.value = await getWardsByProvince(selectedProvinceCode.value)
   }
 }
 
@@ -399,7 +363,6 @@ function validateAll() {
   validateField('soDienThoai')
   validateField('ngaySinh')
   validateField('thanhPho')
-  validateField('huyen')
   validateField('phuong')
   validateField('diaChiCuThe')
 

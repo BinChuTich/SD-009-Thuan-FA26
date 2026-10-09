@@ -148,15 +148,15 @@
                 <span v-if="errors.ngaySinh" class="error-inline-msg">{{ errors.ngaySinh }}</span>
               </div>
 
-              <!-- Vai trò -->
+              <!-- Chức vụ -->
               <div class="form-field">
-                <label>Vai trò <span class="required">*</span></label>
+                <label>Chức vụ <span class="required">*</span></label>
                 <select
                   v-model="form.idVaiTro"
                   :class="{ 'has-error': errors.idVaiTro }"
                   @change="validateField('idVaiTro')"
                 >
-                  <option value="">-- Chọn vai trò --</option>
+                  <option value="">-- Chọn chức vụ --</option>
                   <option v-for="r in roles" :key="r.id" :value="r.id">
                     {{ r.tenVaiTro }}
                   </option>
@@ -175,33 +175,7 @@
             </div>
           </div>
 
-          <!-- Phần 2: Tài khoản hệ thống (Cố định, không thể thay đổi) -->
-          <div class="section-card">
-            <h4 class="section-title">Tài khoản hệ thống</h4>
-            <div class="form-grid">
-              <div class="form-field">
-                <label>Tên tài khoản <span class="tag-hint">(Không thể thay đổi)</span></label>
-                <input
-                  v-model="form.tenTaiKhoan"
-                  type="text"
-                  class="input-disabled"
-                  disabled
-                />
-              </div>
-
-              <div class="form-field">
-                <label>Mật khẩu <span class="tag-hint">(Cấp qua email)</span></label>
-                <input
-                  type="text"
-                  value="•••••••• (Do hệ thống cấp qua mail)"
-                  class="input-disabled"
-                  disabled
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- Phần 3: Thông tin địa chỉ (API mới) -->
+          <!-- Phần 2: Thông tin địa chỉ -->
           <div class="section-card">
             <h4 class="section-title">Thông tin địa chỉ</h4>
             <div class="form-grid">
@@ -221,27 +195,12 @@
                 <span v-if="errors.queQuan" class="error-inline-msg">{{ errors.queQuan }}</span>
               </div>
 
-              <!-- Quận / Huyện -->
-              <div class="form-field">
-                <label>Quận / Huyện</label>
-                <select
-                  v-model="selectedDistrictCode"
-                  :disabled="!selectedProvinceCode"
-                  @change="onDistrictChange"
-                >
-                  <option value="">-- Chọn Quận / Huyện --</option>
-                  <option v-for="d in districtsList" :key="d.code" :value="d.code">
-                    {{ d.name }}
-                  </option>
-                </select>
-              </div>
-
               <!-- Phường / Xã -->
               <div class="form-field">
                 <label>Phường / Xã <span class="required">*</span></label>
                 <select
                   v-model="selectedWardCode"
-                  :disabled="!selectedDistrictCode"
+                  :disabled="!selectedProvinceCode"
                   :class="{ 'has-error': errors.phuong }"
                   @change="onWardChange"
                 >
@@ -285,7 +244,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
-import { getProvinces, getDistricts, getWards, matchAddressHierarchy } from '@/services/provincesApi.js'
+import { getProvinces, getWardsByProvince, matchAddressHierarchy } from '@/services/provincesApi.js'
 import CccdScannerModal from '@/components/CccdScannerModal.vue'
 
 const route = useRoute()
@@ -300,12 +259,10 @@ const selectedFile = ref(null)
 const avatarPreview = ref('')
 const maxDate = new Date().toISOString().split('T')[0]
 
-// Provinces
+// Provinces (2 cấp: Tỉnh/Thành phố & Phường/Xã)
 const provincesList = ref([])
-const districtsList = ref([])
 const wardsList = ref([])
 const selectedProvinceCode = ref('')
-const selectedDistrictCode = ref('')
 const selectedWardCode = ref('')
 
 const form = reactive({
@@ -337,26 +294,14 @@ const errors = reactive({
 async function onProvinceChange() {
   const p = provincesList.value.find(item => item.code === selectedProvinceCode.value)
   form.queQuan = p ? p.name : ''
-  selectedDistrictCode.value = ''
   selectedWardCode.value = ''
   form.phuong = ''
-  districtsList.value = []
   wardsList.value = []
 
   validateField('queQuan')
 
   if (selectedProvinceCode.value) {
-    districtsList.value = await getDistricts(selectedProvinceCode.value)
-  }
-}
-
-async function onDistrictChange() {
-  selectedWardCode.value = ''
-  form.phuong = ''
-  wardsList.value = []
-
-  if (selectedDistrictCode.value) {
-    wardsList.value = await getWards(selectedDistrictCode.value)
+    wardsList.value = await getWardsByProvince(selectedProvinceCode.value)
   }
 }
 
@@ -387,23 +332,18 @@ async function onCccdScanned(data) {
     form.gioiTinh = data.gender
   }
 
-  // 4. Khớp và Điền Địa chỉ thông minh
+  // 4. Khớp và Điền Địa chỉ thông minh (2 cấp)
   if (data.fullAddress) {
     try {
       const matched = await matchAddressHierarchy(data.fullAddress)
       if (matched.provinceCode) {
         selectedProvinceCode.value = matched.provinceCode
         form.queQuan = matched.provinceName
-        districtsList.value = await getDistricts(matched.provinceCode)
+        wardsList.value = await getWardsByProvince(matched.provinceCode)
 
-        if (matched.districtCode) {
-          selectedDistrictCode.value = matched.districtCode
-          wardsList.value = await getWards(matched.districtCode)
-
-          if (matched.wardCode) {
-            selectedWardCode.value = matched.wardCode
-            form.phuong = matched.wardName
-          }
+        if (matched.wardCode) {
+          selectedWardCode.value = matched.wardCode
+          form.phuong = matched.wardName
         }
       }
       form.diaChiCuThe = matched.specificAddress || data.fullAddress
@@ -559,23 +499,16 @@ async function loadEmployee() {
       )
       if (matchP) {
         selectedProvinceCode.value = matchP.code
-        districtsList.value = await getDistricts(matchP.code)
+        wardsList.value = await getWardsByProvince(matchP.code)
 
         if (form.phuong) {
-          // Tìm trong các huyện thuộc tỉnh
-          for (const d of districtsList.value) {
-            const wards = await getWards(d.code)
-            const matchW = wards.find(w =>
-              w.name.toLowerCase() === form.phuong.toLowerCase() ||
-              w.name.toLowerCase().includes(form.phuong.toLowerCase()) ||
-              form.phuong.toLowerCase().includes(w.name.toLowerCase())
-            )
-            if (matchW) {
-              selectedDistrictCode.value = d.code
-              wardsList.value = wards
-              selectedWardCode.value = matchW.code
-              break
-            }
+          const matchW = wardsList.value.find(w =>
+            w.name.toLowerCase() === form.phuong.toLowerCase() ||
+            w.name.toLowerCase().includes(form.phuong.toLowerCase()) ||
+            form.phuong.toLowerCase().includes(w.name.toLowerCase())
+          )
+          if (matchW) {
+            selectedWardCode.value = matchW.code
           }
         }
       }

@@ -60,25 +60,23 @@
           <thead>
             <tr>
               <th style="width: 50px; text-align: center;">STT</th>
-              <th style="width: 65px; text-align: center;">Ảnh</th>
-              <th style="width: 110px;">Mã KH</th>
-              <th style="width: 160px;">Họ tên</th>
-              <th style="width: 180px;">Email</th>
-              <th style="width: 85px;">Giới tính</th>
+              <th style="width: 110px;">Mã</th>
+              <th style="width: 170px;">Tên</th>
               <th style="width: 120px;">SĐT</th>
+              <th style="width: 90px;">Giới tính</th>
               <th>Địa chỉ</th>
-              <th style="width: 120px; text-align: center;">Trạng thái</th>
-              <th style="width: 130px; text-align: center;">Hành động</th>
+              <th style="width: 130px; text-align: center;">Trạng thái</th>
+              <th style="width: 120px; text-align: center;">Hành động</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="10" style="text-align: center; padding: 2.5rem; color: #8a969b;">
+              <td colspan="8" style="text-align: center; padding: 2.5rem; color: #8a969b;">
                 Đang tải dữ liệu khách hàng...
               </td>
             </tr>
             <tr v-else-if="!items.length">
-              <td colspan="10" style="text-align: center; padding: 2.5rem; color: #8a969b;">
+              <td colspan="8" style="text-align: center; padding: 2.5rem; color: #8a969b;">
                 Không tìm thấy khách hàng nào phù hợp.
               </td>
             </tr>
@@ -86,23 +84,10 @@
               <td style="text-align: center;" class="text-muted">
                 {{ page * size + index + 1 }}
               </td>
-              <td style="text-align: center;">
-                <div class="avatar-cell">
-                  <img
-                    v-if="item.anhKhachHang"
-                    :src="item.anhKhachHang.startsWith('http') ? item.anhKhachHang : `http://localhost:8080${item.anhKhachHang}`"
-                    class="avatar-img"
-                    alt="avatar"
-                    @error="item.anhKhachHang = ''"
-                  />
-                  <div v-else class="avatar-placeholder">{{ initialsOf(item.tenKhachHang) }}</div>
-                </div>
-              </td>
               <td class="font-bold text-blue">{{ item.maKhachHang }}</td>
               <td class="font-medium text-dark">{{ item.tenKhachHang }}</td>
-              <td class="text-email" :title="item.email">{{ item.email || '-' }}</td>
-              <td>{{ genderText(item.gioiTinh) }}</td>
               <td class="text-dark">{{ item.soDienThoai || '-' }}</td>
+              <td>{{ genderText(item.gioiTinh) }}</td>
               <td class="text-address">{{ formatAddress(item) || '-' }}</td>
               <td style="text-align: center;">
                 <span
@@ -220,24 +205,10 @@
                 </div>
 
                 <div class="addr-field">
-                  <label>Quận / Huyện <span class="required">*</span></label>
-                  <select
-                    v-model="addrDistrictCode"
-                    :disabled="!addrProvinceCode"
-                    @change="onAddrDistrictChange"
-                  >
-                    <option value="">-- Chọn Quận / Huyện --</option>
-                    <option v-for="d in addrDistrictsList" :key="d.code" :value="d.code">
-                      {{ d.name }}
-                    </option>
-                  </select>
-                </div>
-
-                <div class="addr-field">
                   <label>Phường / Xã <span class="required">*</span></label>
                   <select
                     v-model="addrWardCode"
-                    :disabled="!addrDistrictCode"
+                    :disabled="!addrProvinceCode"
                     @change="onAddrWardChange"
                   >
                     <option value="">-- Chọn Phường / Xã --</option>
@@ -294,7 +265,7 @@
                     <span class="addr-code">{{ addr.maDiaChi }}</span>
                   </div>
                   <div class="addr-card-detail">
-                    <strong>{{ addr.diaChiCuThe }}</strong>, {{ addr.phuong }}, {{ addr.huyen }}, {{ addr.thanhPho }}
+                    <strong>{{ addr.diaChiCuThe }}</strong>, {{ [addr.phuong, addr.huyen, addr.thanhPho].filter(Boolean).join(', ') }}
                   </div>
                 </div>
 
@@ -334,7 +305,7 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
-import { getProvinces, getDistricts, getWards } from '@/services/provincesApi.js'
+import { getProvinces, getWardsByProvince } from '@/services/provincesApi.js'
 
 const router = useRouter()
 const filters = ref({ keyword: '', status: '' })
@@ -355,12 +326,10 @@ const showAddressForm = ref(false)
 const editingAddressId = ref(null)
 const savingAddress = ref(false)
 
-// Provinces for Address Form
+// Provinces for Address Form (2 cấp)
 const provincesList = ref([])
-const addrDistrictsList = ref([])
 const addrWardsList = ref([])
 const addrProvinceCode = ref('')
-const addrDistrictCode = ref('')
 const addrWardCode = ref('')
 
 const addrForm = reactive({
@@ -515,19 +484,17 @@ function openAddAddressForm() {
   addrForm.diaChiCuThe = ''
   addrForm.macDinh = customerAddresses.value.length === 0
   addrProvinceCode.value = ''
-  addrDistrictCode.value = ''
   addrWardCode.value = ''
-  addrDistrictsList.value = []
   addrWardsList.value = []
   showAddressForm.value = true
 }
 
 async function editAddress(addr) {
   editingAddressId.value = addr.id
-  addrForm.thanhPho = addr.thanhPho
-  addrForm.huyen = addr.huyen
-  addrForm.phuong = addr.phuong
-  addrForm.diaChiCuThe = addr.diaChiCuThe
+  addrForm.thanhPho = addr.thanhPho || ''
+  addrForm.huyen = addr.huyen || ''
+  addrForm.phuong = addr.phuong || ''
+  addrForm.diaChiCuThe = addr.diaChiCuThe || ''
   addrForm.macDinh = addr.macDinh
   showAddressForm.value = true
 
@@ -535,17 +502,11 @@ async function editAddress(addr) {
   const matchP = provincesList.value.find(p => p.name === addr.thanhPho)
   if (matchP) {
     addrProvinceCode.value = matchP.code
-    addrDistrictsList.value = await getDistricts(matchP.code)
+    addrWardsList.value = await getWardsByProvince(matchP.code)
 
-    const matchD = addrDistrictsList.value.find(d => d.name === addr.huyen)
-    if (matchD) {
-      addrDistrictCode.value = matchD.code
-      addrWardsList.value = await getWards(matchD.code)
-
-      const matchW = addrWardsList.value.find(w => w.name === addr.phuong)
-      if (matchW) {
-        addrWardCode.value = matchW.code
-      }
+    const matchW = addrWardsList.value.find(w => w.name === addr.phuong)
+    if (matchW) {
+      addrWardCode.value = matchW.code
     }
   }
 }
@@ -558,25 +519,12 @@ function cancelAddressForm() {
 async function onAddrProvinceChange() {
   const p = provincesList.value.find(item => item.code === addrProvinceCode.value)
   addrForm.thanhPho = p ? p.name : ''
-  addrDistrictCode.value = ''
   addrWardCode.value = ''
   addrForm.huyen = ''
   addrForm.phuong = ''
-  addrDistrictsList.value = []
   addrWardsList.value = []
   if (addrProvinceCode.value) {
-    addrDistrictsList.value = await getDistricts(addrProvinceCode.value)
-  }
-}
-
-async function onAddrDistrictChange() {
-  const d = addrDistrictsList.value.find(item => item.code === addrDistrictCode.value)
-  addrForm.huyen = d ? d.name : ''
-  addrWardCode.value = ''
-  addrForm.phuong = ''
-  addrWardsList.value = []
-  if (addrDistrictCode.value) {
-    addrWardsList.value = await getWards(addrDistrictCode.value)
+    addrWardsList.value = await getWardsByProvince(addrProvinceCode.value)
   }
 }
 
@@ -589,9 +537,6 @@ async function saveAddress() {
   if (!addrForm.thanhPho || !addrForm.thanhPho.trim()) {
     return showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng chọn Tỉnh / Thành phố!', type: 'warning' })
   }
-  if (!addrForm.huyen || !addrForm.huyen.trim()) {
-    return showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng chọn Quận / Huyện!', type: 'warning' })
-  }
   if (!addrForm.phuong || !addrForm.phuong.trim()) {
     return showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng chọn Phường / Xã!', type: 'warning' })
   }
@@ -603,7 +548,7 @@ async function saveAddress() {
   try {
     const payload = {
       thanhPho: addrForm.thanhPho.trim(),
-      huyen: addrForm.huyen.trim(),
+      huyen: addrForm.huyen ? addrForm.huyen.trim() : '',
       phuong: addrForm.phuong.trim(),
       diaChiCuThe: addrForm.diaChiCuThe.trim(),
       macDinh: addrForm.macDinh
@@ -1144,8 +1089,8 @@ onMounted(() => {
 
 .address-form-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.9rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
 }
 
 .addr-field {
@@ -1155,7 +1100,7 @@ onMounted(() => {
 }
 
 .addr-field.full-width {
-  grid-column: span 3;
+  grid-column: span 2;
 }
 
 .addr-field label {

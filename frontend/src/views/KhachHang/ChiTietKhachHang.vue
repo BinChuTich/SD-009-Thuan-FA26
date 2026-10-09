@@ -161,29 +161,12 @@
                 <span v-if="errors.thanhPho" class="error-inline-msg">{{ errors.thanhPho }}</span>
               </div>
 
-              <!-- Quận / Huyện -->
-              <div class="form-field">
-                <label>Quận / Huyện <span class="required">*</span></label>
-                <select
-                  v-model="selectedDistrictCode"
-                  :disabled="!selectedProvinceCode"
-                  :class="{ 'has-error': errors.huyen }"
-                  @change="onDistrictChange"
-                >
-                  <option value="">-- Chọn Quận / Huyện --</option>
-                  <option v-for="d in districtsList" :key="d.code" :value="d.code">
-                    {{ d.name }}
-                  </option>
-                </select>
-                <span v-if="errors.huyen" class="error-inline-msg">{{ errors.huyen }}</span>
-              </div>
-
               <!-- Phường / Xã -->
               <div class="form-field">
                 <label>Phường / Xã <span class="required">*</span></label>
                 <select
                   v-model="selectedWardCode"
-                  :disabled="!selectedDistrictCode"
+                  :disabled="!selectedProvinceCode"
                   :class="{ 'has-error': errors.phuong }"
                   @change="onWardChange"
                 >
@@ -230,7 +213,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
-import { getProvinces, getDistricts, getWards } from '@/services/provincesApi.js'
+import { getProvinces, getWardsByProvince } from '@/services/provincesApi.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -242,13 +225,11 @@ const selectedFile = ref(null)
 const avatarPreview = ref('')
 const maxDate = new Date().toISOString().split('T')[0]
 
-// Danh mục hành chính
+// Danh mục hành chính (2 cấp: Tỉnh/Thành phố & Phường/Xã)
 const provincesList = ref([])
-const districtsList = ref([])
 const wardsList = ref([])
 
 const selectedProvinceCode = ref('')
-const selectedDistrictCode = ref('')
 const selectedWardCode = ref('')
 
 const form = reactive({
@@ -272,7 +253,6 @@ const errors = reactive({
   soDienThoai: '',
   ngaySinh: '',
   thanhPho: '',
-  huyen: '',
   phuong: '',
   diaChiCuThe: ''
 })
@@ -280,31 +260,15 @@ const errors = reactive({
 async function onProvinceChange() {
   const p = provincesList.value.find(item => item.code === selectedProvinceCode.value)
   form.thanhPho = p ? p.name : ''
-  selectedDistrictCode.value = ''
   selectedWardCode.value = ''
   form.huyen = ''
   form.phuong = ''
-  districtsList.value = []
   wardsList.value = []
 
   validateField('thanhPho')
 
   if (selectedProvinceCode.value) {
-    districtsList.value = await getDistricts(selectedProvinceCode.value)
-  }
-}
-
-async function onDistrictChange() {
-  const d = districtsList.value.find(item => item.code === selectedDistrictCode.value)
-  form.huyen = d ? d.name : ''
-  selectedWardCode.value = ''
-  form.phuong = ''
-  wardsList.value = []
-
-  validateField('huyen')
-
-  if (selectedDistrictCode.value) {
-    wardsList.value = await getWards(selectedDistrictCode.value)
+    wardsList.value = await getWardsByProvince(selectedProvinceCode.value)
   }
 }
 
@@ -382,14 +346,6 @@ function validateField(fieldName) {
     }
   }
 
-  if (fieldName === 'huyen') {
-    if (!form.huyen || !form.huyen.trim()) {
-      errors.huyen = 'Vui lòng chọn Quận / Huyện!'
-    } else {
-      errors.huyen = ''
-    }
-  }
-
   if (fieldName === 'phuong') {
     if (!form.phuong || !form.phuong.trim()) {
       errors.phuong = 'Vui lòng chọn Phường / Xã!'
@@ -413,7 +369,6 @@ function validateAll() {
   validateField('soDienThoai')
   validateField('ngaySinh')
   validateField('thanhPho')
-  validateField('huyen')
   validateField('phuong')
   validateField('diaChiCuThe')
 
@@ -446,7 +401,7 @@ async function loadCustomer() {
         : `http://localhost:8080${data.anhKhachHang}`
     }
 
-    // Khớp danh mục hành chính từ địa chỉ đã lưu
+    // Khớp danh mục hành chính 2 cấp từ địa chỉ đã lưu
     if (form.thanhPho) {
       const matchP = provincesList.value.find(p =>
         p.name.toLowerCase() === form.thanhPho.toLowerCase() ||
@@ -455,28 +410,16 @@ async function loadCustomer() {
       )
       if (matchP) {
         selectedProvinceCode.value = matchP.code
-        districtsList.value = await getDistricts(matchP.code)
+        wardsList.value = await getWardsByProvince(matchP.code)
 
-        if (form.huyen) {
-          const matchD = districtsList.value.find(d =>
-            d.name.toLowerCase() === form.huyen.toLowerCase() ||
-            d.name.toLowerCase().includes(form.huyen.toLowerCase()) ||
-            form.huyen.toLowerCase().includes(d.name.toLowerCase())
+        if (form.phuong) {
+          const matchW = wardsList.value.find(w =>
+            w.name.toLowerCase() === form.phuong.toLowerCase() ||
+            w.name.toLowerCase().includes(form.phuong.toLowerCase()) ||
+            form.phuong.toLowerCase().includes(w.name.toLowerCase())
           )
-          if (matchD) {
-            selectedDistrictCode.value = matchD.code
-            wardsList.value = await getWards(matchD.code)
-
-            if (form.phuong) {
-              const matchW = wardsList.value.find(w =>
-                w.name.toLowerCase() === form.phuong.toLowerCase() ||
-                w.name.toLowerCase().includes(form.phuong.toLowerCase()) ||
-                form.phuong.toLowerCase().includes(w.name.toLowerCase())
-              )
-              if (matchW) {
-                selectedWardCode.value = matchW.code
-              }
-            }
+          if (matchW) {
+            selectedWardCode.value = matchW.code
           }
         }
       }
