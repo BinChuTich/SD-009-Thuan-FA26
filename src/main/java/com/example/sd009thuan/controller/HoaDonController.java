@@ -1,5 +1,6 @@
 package com.example.sd009thuan.controller;
 
+import com.example.sd009thuan.entity.ChiTietHoaDon;
 import com.example.sd009thuan.entity.HoaDon;
 import com.example.sd009thuan.service.HoaDonService;
 import org.springframework.http.ResponseEntity;
@@ -41,6 +42,18 @@ public class HoaDonController {
         return hoaDonService.getByMaHoaDon(maHoaDon)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    // Lấy danh sách sản phẩm chi tiết của hóa đơn theo ID
+    @GetMapping("/{id}/chi-tiet")
+    public ResponseEntity<List<ChiTietHoaDon>> getChiTietByHoaDonId(@PathVariable Long id) {
+        return ResponseEntity.ok(hoaDonService.getChiTietByHoaDonId(id));
+    }
+
+    // Lấy danh sách sản phẩm chi tiết của hóa đơn theo Mã hóa đơn
+    @GetMapping("/code/{maHoaDon}/chi-tiet")
+    public ResponseEntity<List<ChiTietHoaDon>> getChiTietByMaHoaDon(@PathVariable String maHoaDon) {
+        return ResponseEntity.ok(hoaDonService.getChiTietByMaHoaDon(maHoaDon));
     }
 
     // Tạo hóa đơn mới

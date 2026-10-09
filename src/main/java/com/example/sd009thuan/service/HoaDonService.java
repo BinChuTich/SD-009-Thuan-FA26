@@ -1,6 +1,8 @@
 package com.example.sd009thuan.service;
 
+import com.example.sd009thuan.entity.ChiTietHoaDon;
 import com.example.sd009thuan.entity.HoaDon;
+import com.example.sd009thuan.repository.ChiTietHoaDonRepository;
 import com.example.sd009thuan.repository.HoaDonRepository;
 import org.springframework.stereotype.Service;
 
@@ -13,9 +15,15 @@ import java.util.Optional;
 public class HoaDonService {
 
     private final HoaDonRepository hoaDonRepository;
+    private final ChiTietHoaDonRepository chiTietHoaDonRepository;
 
-    public HoaDonService(HoaDonRepository hoaDonRepository) {
+    // Tiêm cả HoaDonRepository và ChiTietHoaDonRepository qua constructor
+    public HoaDonService(
+            HoaDonRepository hoaDonRepository,
+            ChiTietHoaDonRepository chiTietHoaDonRepository
+    ) {
         this.hoaDonRepository = hoaDonRepository;
+        this.chiTietHoaDonRepository = chiTietHoaDonRepository;
     }
 
     // Lấy danh sách tất cả hóa đơn
@@ -27,10 +35,18 @@ public class HoaDonService {
     public Optional<HoaDon> getById(Long id) {
         return hoaDonRepository.findById(id);
     }
-
-    // Lấy hóa đơn theo mã hóa đơn
+    // Lấy hóa đơn theo mã hóa đơn (hàm trả về Optional<HoaDon> đang bị thiếu)
     public Optional<HoaDon> getByMaHoaDon(String maHoaDon) {
         return hoaDonRepository.findByMaHoaDon(maHoaDon);
+    }
+    // Lấy danh sách sản phẩm chi tiết theo ID hóa đơn
+    public List<ChiTietHoaDon> getChiTietByHoaDonId(Long idHoaDon) {
+        return chiTietHoaDonRepository.findByIdHoaDon_Id(idHoaDon);
+    }
+
+    // Lấy danh sách sản phẩm chi tiết theo Mã hóa đơn (HD001, HD002, ...)
+    public List<ChiTietHoaDon> getChiTietByMaHoaDon(String maHoaDon) {
+        return chiTietHoaDonRepository.findByIdHoaDon_MaHoaDon(maHoaDon);
     }
 
     // Tạo hóa đơn mới

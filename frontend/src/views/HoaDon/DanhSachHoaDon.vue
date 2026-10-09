@@ -207,13 +207,121 @@ onMounted(() => {
   document.addEventListener('visibilitychange', refreshHoaDonWhenVisible)
 })
 
+// Chức năng Chỉnh sửa trạng thái hóa đơn trực tiếp
+const showStatusModal = ref(false)
+const selectedInvoice = ref(null)
+const targetStatus = ref(1)
+const statusNote = ref('')
+const updatingStatus = ref(false)
+
+const toast = ref({
+  show: false,
+  message: '',
+  type: 'success'
+})
+let toastTimer = null
+
+const showToast = (message, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { show: true, message, type }
+  toastTimer = setTimeout(() => {
+    toast.value.show = false
+    toastTimer = null
+  }, 2800)
+}
+
+const statusOptions = [
+  { value: 1, label: 'Chờ Xác Nhận', desc: 'Đơn hàng mới tạo, đang chờ xác nhận từ cửa hàng', color: '#d97706', bg: '#fff4e5' },
+  { value: 2, label: 'Đã Xác Nhận', desc: 'Đơn hàng đã được xác nhận, chuẩn bị đóng gói hàng', color: '#0369a1', bg: '#e0f2fe' },
+  { value: 3, label: 'Chờ Vận Chuyển', desc: 'Hàng đã đóng gói xong, đang chờ bàn giao vận chuyển', color: '#8a3ee6', bg: '#f5edff' },
+  { value: 4, label: 'Vận Chuyển', desc: 'Shipper / bên vận chuyển đang giao hàng tới khách', color: '#00838f', bg: '#e0f7fa' },
+  { value: 5, label: 'Đã Hoàn Thành', desc: 'Đơn hàng đã giao thành công và hoàn tất toàn bộ', color: '#1b7a37', bg: '#e6f6ec' },
+  { value: 6, label: 'Hủy', desc: 'Hủy đơn hàng và ngừng tiến trình xử lý', color: '#be2626', bg: '#fee6e6' }
+]
+
+const openStatusModal = (item) => {
+  selectedInvoice.value = item
+  targetStatus.value = Number(item.status) || 1
+  statusNote.value = ''
+  showStatusModal.value = true
+}
+
+const saveStatusChange = async () => {
+  if (!selectedInvoice.value || updatingStatus.value) return
+  const id = selectedInvoice.value.id
+  const code = selectedInvoice.value.code
+  const newStatus = Number(targetStatus.value)
+
+  if (!newStatus || newStatus < 1 || newStatus > 6) {
+    showToast('Vui lòng chọn trạng thái hợp lệ!', 'warning')
+    return
+  }
+
+  updatingStatus.value = true
+  try {
+    let success = false
+    try {
+      if (id) {
+        await api.put(`/api/hoa-don/${id}/trang-thai`, {
+          trangThai: newStatus,
+          ghiChu: statusNote.value.trim() || undefined
+        })
+        success = true
+      }
+    } catch {
+      success = false
+    }
+
+    if (!success && code) {
+      try {
+        await api.put(`/api/hoa-don/code/${encodeURIComponent(code)}/trang-thai`, {
+          trangThai: newStatus,
+          ghiChu: statusNote.value.trim() || undefined
+        })
+        success = true
+      } catch {
+        success = false
+      }
+    }
+
+    if (success) {
+      showToast(`Đã cập nhật trạng thái đơn ${code} thành "${getStatusText(newStatus)}"!`)
+      showStatusModal.value = false
+      // Cập nhật ngay trong list hiện tại
+      const found = invoiceList.value.find(i => i.id === id || i.code === code)
+      if (found) {
+        found.status = newStatus
+      }
+      await loadHoaDon()
+    } else {
+      showToast('Cập nhật trạng thái thất bại. Vui lòng thử lại!', 'warning')
+    }
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Cập nhật trạng thái thất bại!', 'warning')
+  } finally {
+    updatingStatus.value = false
+  }
+}
+
 onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', refreshHoaDonWhenVisible)
+  if (toastTimer) {
+    clearTimeout(toastTimer)
+    toastTimer = null
+  }
 })
 </script>
 
 <template>
   <div class="hoa-don-container">
+    <!-- Toast Popup Thông Báo -->
+    <transition name="toast-fade">
+      <div v-if="toast.show" class="toast-popup" :class="toast.type">
+        <span class="toast-icon">✓</span>
+        <span class="toast-text">{{ toast.message }}</span>
+      </div>
+    </transition>
+
     <!-- TIÊU ĐỀ CHÍNH -->
     <div class="page-breadcrumb">
       <span class="crumb-parent">Hóa đơn</span>
@@ -379,16 +487,28 @@ onBeforeUnmount(() => {
                 </span>
             </td>
             <td class="text-center">
-              <button
-                  class="btn-action-view"
-                  title="Xem chi tiết"
-                  @click="xemChiTiet(item.code)"
-              >
-                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              </button>
+              <div class="action-btn-group">
+                <button
+                    class="btn-action-view"
+                    title="Xem chi tiết"
+                    @click="xemChiTiet(item.code)"
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </button>
+                <button
+                    class="btn-action-edit-status"
+                    title="Chỉnh sửa trạng thái"
+                    @click="openStatusModal(item)"
+                >
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                </button>
+              </div>
             </td>
           </tr>
           </tbody>
@@ -429,6 +549,100 @@ onBeforeUnmount(() => {
               ›
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL CHỈNH SỬA TRẠNG THÁI HÓA ĐƠN -->
+    <div v-if="showStatusModal" class="modal-backdrop" @click.self="showStatusModal = false">
+      <div class="modal-container modal-edit-status">
+        <div class="modal-header">
+          <div>
+            <h3 class="modal-title">Chỉnh Sửa Trạng Thái Hóa Đơn</h3>
+            <p v-if="selectedInvoice" class="modal-subtitle">
+              Mã: <strong>{{ selectedInvoice.code }}</strong> — Khách hàng: <strong>{{ selectedInvoice.customerName }}</strong>
+            </p>
+          </div>
+          <button class="btn-close-modal" type="button" @click="showStatusModal = false">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="form-group-modal">
+            <label class="modal-label">Trạng thái hiện tại:</label>
+            <div>
+              <span v-if="selectedInvoice" class="badge-status" :class="getStatusClass(selectedInvoice.status)">
+                {{ getStatusText(selectedInvoice.status) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="form-group-modal mt-14">
+            <label class="modal-label">Chọn trạng thái mới <span class="text-danger">*</span></label>
+            <div class="status-options-grid">
+              <label
+                  v-for="st in statusOptions"
+                  :key="st.value"
+                  class="status-radio-card"
+                  :class="{ active: targetStatus === st.value }"
+                  :style="{ borderColor: targetStatus === st.value ? st.color : '#e2d8cd' }"
+              >
+                <input
+                    type="radio"
+                    name="listStatusRadio"
+                    :value="st.value"
+                    v-model="targetStatus"
+                    class="radio-hidden"
+                />
+                <div
+                    class="radio-circle"
+                    :style="{
+                      borderColor: st.color,
+                      backgroundColor: targetStatus === st.value ? st.color : 'transparent'
+                    }"
+                >
+                  <span v-if="targetStatus === st.value" class="radio-dot"></span>
+                </div>
+                <div class="status-card-content">
+                  <div class="status-card-header">
+                    <span
+                        class="status-card-badge"
+                        :style="{ color: st.color, backgroundColor: st.bg }"
+                    >
+                      {{ st.label }}
+                    </span>
+                    <span v-if="selectedInvoice && selectedInvoice.status === st.value" class="current-label">
+                      (Hiện tại)
+                    </span>
+                  </div>
+                  <p class="status-card-desc">{{ st.desc }}</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group-modal mt-14">
+            <label class="modal-label">Ghi chú cập nhật (Tùy chọn)</label>
+            <textarea
+                v-model="statusNote"
+                rows="2"
+                class="modal-textarea"
+                placeholder="Nhập ghi chú thay đổi trạng thái nếu có..."
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-modal-cancel" type="button" @click="showStatusModal = false">
+            Hủy bỏ
+          </button>
+          <button
+              class="btn-modal-save"
+              type="button"
+              :disabled="updatingStatus"
+              @click="saveStatusChange"
+          >
+            {{ updatingStatus ? 'Đang lưu...' : '✓ Lưu Thay Đổi' }}
+          </button>
         </div>
       </div>
     </div>
@@ -841,6 +1055,318 @@ onBeforeUnmount(() => {
 
 .state-message.error {
   color: #c53030;
+}
+
+/* TOAST POPUP */
+.toast-popup {
+  position: fixed;
+  top: 24px;
+  right: 28px;
+  background-color: #36536b;
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  z-index: 9999;
+  border: 1px solid #4a6880;
+}
+
+.toast-popup.warning {
+  background-color: #d97706;
+  border-color: #b45309;
+}
+
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: all 0.25s ease;
+}
+
+.toast-fade-enter-from,
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* ACTION BUTTONS */
+.action-btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+
+.btn-action-edit-status {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d5c8b8;
+  background: #ffffff;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #d97706;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-action-edit-status:hover {
+  background-color: #fff9f2;
+  border-color: #d97706;
+  color: #b45309;
+}
+
+/* MODAL CHỈNH SỬA TRẠNG THÁI */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(30, 41, 59, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+
+.modal-container {
+  background-color: #ffffff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 580px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  animation: modalIn 0.2s ease-out;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 20px;
+  border-bottom: 1px solid #ebd9c8;
+  background-color: #faf7f0;
+}
+
+.modal-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #274053;
+  margin: 0;
+}
+
+.modal-subtitle {
+  font-size: 0.82rem;
+  color: #636b72;
+  margin: 4px 0 0 0;
+}
+
+.btn-close-modal {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  color: #8c969e;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.btn-close-modal:hover {
+  color: #222222;
+  background-color: #eee4d8;
+}
+
+.modal-body {
+  padding: 20px;
+  max-height: 75vh;
+  overflow-y: auto;
+}
+
+.form-group-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.modal-label {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #2e3a40;
+}
+
+.mt-14 {
+  margin-top: 14px;
+}
+
+.text-danger {
+  color: #dc2626;
+}
+
+.status-options-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.status-radio-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1.5px solid #ded5c7;
+  border-radius: 8px;
+  background-color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.status-radio-card:hover {
+  background-color: #fdfaf7;
+}
+
+.status-radio-card.active {
+  background-color: #fbf7f2;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.radio-hidden {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.radio-circle {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 3px;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.radio-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #ffffff;
+}
+
+.status-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.status-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-card-badge {
+  padding: 2px 9px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.current-label {
+  font-size: 0.75rem;
+  color: #8c969e;
+  font-weight: 500;
+}
+
+.status-card-desc {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #636b72;
+  line-height: 1.35;
+}
+
+.modal-textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid #d4c5b3;
+  border-radius: 7px;
+  font-size: 0.86rem;
+  font-family: inherit;
+  color: #333333;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.modal-textarea:focus {
+  outline: none;
+  border-color: #3e5c76;
+  box-shadow: 0 0 0 3px rgba(62, 92, 118, 0.12);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid #ebd9c8;
+  background-color: #faf7f0;
+}
+
+.btn-modal-cancel {
+  padding: 8px 16px;
+  border: 1.5px solid #d4c5b3;
+  background-color: #ffffff;
+  color: #555e65;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-modal-cancel:hover {
+  background-color: #f5ece2;
+}
+
+.btn-modal-save {
+  padding: 8px 20px;
+  border: none;
+  background-color: #3e5c76;
+  color: #ffffff;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-modal-save:hover:not(:disabled) {
+  background-color: #2b4357;
+}
+
+.btn-modal-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 @media (max-width: 1024px) {

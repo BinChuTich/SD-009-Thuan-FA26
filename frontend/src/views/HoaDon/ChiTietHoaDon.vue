@@ -186,6 +186,17 @@ const applyOrderStatus = (statusNumber) => {
     return
   }
 
+  if (validStatus === 5) {
+    invoiceData.value.currentStepIndex = 5
+    invoiceData.value.steps = invoiceData.value.steps.map(step => ({
+      ...step,
+      done: true,
+      active: step.id === 5,
+      pending: false
+    }))
+    return
+  }
+
   invoiceData.value.currentStepIndex = validStatus
   invoiceData.value.steps = invoiceData.value.steps.map(step => ({
     ...step,
@@ -195,29 +206,31 @@ const applyOrderStatus = (statusNumber) => {
   }))
 }
 
+// Bóc tách dữ liệu sản phẩm chi tiết
 const mapInvoiceItem = (item, index) => {
   const raw = item || {}
-  const variant = raw['chiTietSanPham'] || raw['bienTheSanPham'] || {}
-  const product = raw['sanPham'] || variant['sanPham'] || {}
-  const color = raw['mauSac'] || variant['mauSac'] || {}
-  const size = raw['kichCo'] || variant['kichCo'] || {}
+  // Nhận diện linh hoạt trường liên kết: idChiTietSanPham hoặc chiTietSanPham
+  const variant = raw['idChiTietSanPham'] || raw['chiTietSanPham'] || raw['bienTheSanPham'] || {}
+  const product = variant['sanPham'] || variant['idSanPham'] || raw['sanPham'] || {}
+  const color = variant['mauSac'] || variant['idMauSac'] || raw['mauSac'] || {}
+  const size = variant['kichCo'] || variant['idKichCo'] || raw['kichCo'] || {}
 
   const quantity = getNumber(raw['soLuong'], raw['quantity'], 1)
-  const price = getNumber(raw['donGia'], raw['giaBan'], raw['price'], 0)
+  const price = getNumber(raw['donGia'], raw['giaBan'], variant['giaBan'], raw['price'], 0)
   const total = getNumber(raw['thanhTien'], raw['total'], quantity * price)
 
   const colorText = typeof color === 'string'
       ? color
-      : getString(color['tenMau'], color['tenMauSac'], raw['tenMauSac'], raw['mauSac'], '---')
+      : getString(color['tenMauSac'], color['tenMau'], raw['tenMauSac'], '---')
 
   const sizeText = typeof size === 'string'
       ? size
-      : getString(size['tenKichCo'], size['ten'], raw['tenKichCo'], raw['kichCo'], '---')
+      : getString(size['tenKichCo'], size['ten'], raw['tenKichCo'], '---')
 
   return {
     id: raw['id'] || (index + 1),
-    code: getString(raw['maSanPham'], raw['maSp'], product['maSanPham'], product['ma'], `SP0${index + 1}`),
-    name: getString(raw['tenSanPham'], product['tenSanPham'], product['ten'], raw['name'], 'Áo phông'),
+    code: getString(product['maSanPham'], variant['maChiTietSanPham'], raw['maHoaDonChiTiet'], raw['maSp'], `SP0${index + 1}`),
+    name: getString(product['tenSanPham'], raw['tenSanPham'], product['ten'], raw['name'], 'Sản phẩm'),
     color: colorText || '---',
     size: sizeText || '---',
     quantity,
@@ -281,10 +294,30 @@ const loadDetail = async (identifier) => {
       note: getString(data['ghiChu'], data['note'], '---')
     }
 
-    const rawList = data['chiTietHoaDon'] || data['chiTietHoaDons'] || data['danhSachChiTiet'] || data['items'] || []
+    // 1. Lấy danh sách sản phẩm có sẵn trong hóa đơn cha
+    let rawList = data['chiTietHoaDon'] || data['chiTietHoaDons'] || data['danhSachChiTiet'] || data['items'] || []
+
+    // 2. Nếu hóa đơn cha chưa kèm chi tiết, tự động gọi API con vừa bổ sung ở backend
+    if (!Array.isArray(rawList) || rawList.length === 0) {
+      try {
+        let itemsRes = null
+        if (resolvedId) {
+          itemsRes = await api.get(`/api/hoa-don/${resolvedId}/chi-tiet`)
+        } else {
+          itemsRes = await api.get(`/api/hoa-don/code/${encodeURIComponent(queryParam)}/chi-tiet`)
+        }
+        if (itemsRes && Array.isArray(itemsRes.data)) {
+          rawList = itemsRes.data
+        }
+      } catch (e) {
+        console.warn('Không gọi được API chi tiết sản phẩm riêng:', e)
+      }
+    }
+
     const detailList = Array.isArray(rawList) ? rawList : []
     invoiceData.value.items = detailList.map(mapInvoiceItem)
 
+    // Tự động tính toán tổng tiền
     const calcSum = invoiceData.value.items.reduce((sum, it) => sum + it.total, 0)
     const productTotal = getNumber(data['tongTienHang'], data['tienHang'], calcSum)
     const shippingFee = getNumber(data['phiShip'], data['phiVanChuyen'], 0)
@@ -353,94 +386,6 @@ watch(
     { immediate: true, deep: true }
 )
 
-const handleNextStatus = async () => {
-  const currentStatus = Number(invoiceData.value.status)
-  if (updatingStatus.value || loading.value) return
-
-  const target = invoiceId.value || invoiceData.value.id || invoiceCode.value || getRouteParam()
-  if (!target) {
-    showToast('Không tìm thấy thông tin hóa đơn!', 'warning')
-    return
-  }
-
-  const nextStatus = currentStatus + 1
-  updatingStatus.value = true
-
-  const stepActions = {
-    2: 'Xác nhận đơn hàng',
-    3: 'Chuyển sang chờ vận chuyển',
-    4: 'Đang vận chuyển',
-    5: 'Hoàn thành đơn hàng'
-  }
-
-  const nowTime = new Date()
-
-  try {
-    await api.put(`/api/hoa-don/${encodeURIComponent(target)}/trang-thai`, {
-      trangThai: nextStatus
-    })
-
-    // Ghi nhận thời gian trực tiếp vào stepper timeline
-    if (invoiceData.value.steps[nextStatus - 1]) {
-      invoiceData.value.steps[nextStatus - 1].time = formatDateTime(nowTime)
-    }
-
-    orderLogs.value.unshift({
-      id: Date.now(),
-      action: stepActions[nextStatus] || 'Cập nhật trạng thái',
-      hanhDong: stepActions[nextStatus] || 'Cập nhật trạng thái',
-      thoiGian: nowTime,
-      nguoiThucHien: 'Nhân viên',
-      ghiChu: nextStatus === 5 ? 'Đơn hàng hoàn tất và thanh toán thành công' : 'Thao tác cập nhật trạng thái đơn',
-      isDone: true
-    })
-
-    showToast('Cập nhật trạng thái thành công!')
-    await loadDetail(invoiceCode.value || target)
-  } catch (error) {
-    console.warn('Lỗi PUT body, thử các phương thức dự phòng...', error)
-
-    let success = false
-    try {
-      await api.put(`/api/hoa-don/${encodeURIComponent(target)}/trang-thai?trangThai=${nextStatus}`)
-      success = true
-    } catch {
-      try {
-        await api.put(`/api/hoa-don/code/${encodeURIComponent(invoiceCode.value)}/trang-thai`, {
-          trangThai: nextStatus
-        })
-        success = true
-      } catch {
-        success = false
-      }
-    }
-
-    if (success) {
-      if (invoiceData.value.steps[nextStatus - 1]) {
-        invoiceData.value.steps[nextStatus - 1].time = formatDateTime(nowTime)
-      }
-      orderLogs.value.unshift({
-        id: Date.now(),
-        action: stepActions[nextStatus] || 'Cập nhật trạng thái',
-        hanhDong: stepActions[nextStatus] || 'Cập nhật trạng thái',
-        thoiGian: nowTime,
-        nguoiThucHien: 'Nhân viên',
-        ghiChu: nextStatus === 5 ? 'Đơn hàng hoàn tất và thanh toán thành công' : 'Thao tác cập nhật trạng thái đơn',
-        isDone: true
-      })
-      showToast('Cập nhật trạng thái thành công!')
-      await loadDetail(invoiceCode.value || target)
-    } else {
-      showToast(
-          error.response?.data?.message || 'Cập nhật trạng thái thất bại. Vui lòng thử lại!',
-          'warning'
-      )
-    }
-  } finally {
-    updatingStatus.value = false
-  }
-}
-
 const handlePrint = () => {
   window.print()
 }
@@ -491,10 +436,11 @@ onBeforeUnmount(() => {
             <div class="header-title-box">
               <h3 class="card-title">Trạng Thái Đơn Hàng</h3>
             </div>
-            <span class="badge-status-top">{{ invoiceData.statusBadge }}</span>
+            <!-- Chỉ hiển thị badge trạng thái -->
+            <span class="badge-status-top" :class="'badge-status-' + invoiceData.status">{{ invoiceData.statusBadge }}</span>
           </div>
 
-          <div class="stepper-container">
+          <div class="stepper-container" :class="{ 'stepper-cancelled': invoiceData.status === 6 }">
             <div
                 v-for="(step, idx) in invoiceData.steps"
                 :key="step.id"
@@ -530,28 +476,14 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <!-- Nhóm nút hành động ở góc dưới khung trạng thái -->
+          <!-- Nhóm nút hành động: CHỈ CÒN DUY NHẤT NÚT LỊCH SỬ THAO TÁC -->
           <div class="action-status-footer">
-            <button class="btn-outline-history" @click="showHistoryModal = true">
+            <button class="btn-outline-history" type="button" @click="showHistoryModal = true">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"></circle>
                 <polyline points="12 6 12 12 16 14"></polyline>
               </svg>
               Lịch Sử Thao Tác
-            </button>
-
-            <button
-                v-if="invoiceData.currentStepIndex < 5"
-                class="btn-action-status"
-                :disabled="updatingStatus"
-                @click="handleNextStatus"
-            >
-              {{ updatingStatus ? 'Đang cập nhật...' : (
-                invoiceData.currentStepIndex === 1 ? '✓ Xác nhận đơn hàng' :
-                    invoiceData.currentStepIndex === 2 ? '✓ Chuyển vận chuyển' :
-                        invoiceData.currentStepIndex === 3 ? '✓ Giao hàng' :
-                            '✓ Xác nhận hoàn thành'
-            ) }}
             </button>
           </div>
         </div>
@@ -924,6 +856,13 @@ onBeforeUnmount(() => {
   border: 1px solid #f9e2c4;
 }
 
+.badge-status-1 { background-color: #fff4e5; color: #d97706; }
+.badge-status-2 { background-color: #e0f2fe; color: #0369a1; }
+.badge-status-3 { background-color: #f5edff; color: #8a3ee6; }
+.badge-status-4 { background-color: #e0f7fa; color: #00838f; }
+.badge-status-5 { background-color: #e6f6ec; color: #1b7a37; }
+.badge-status-6 { background-color: #fee6e6; color: #be2626; }
+
 .stepper-container {
   display: flex;
   justify-content: space-between;
@@ -1008,11 +947,15 @@ onBeforeUnmount(() => {
   color: #999999 !important;
 }
 
+.stepper-cancelled {
+  opacity: 0.55;
+  filter: grayscale(0.5);
+}
+
 .action-status-footer {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 12px;
   border-top: 1px dashed #ebd9c8;
   padding-top: 14px;
 }
@@ -1025,7 +968,7 @@ onBeforeUnmount(() => {
   background-color: #ffffff;
   color: #3e5c76;
   border: 1px solid #ebd9c8;
-  padding: 8px 14px;
+  padding: 8px 16px;
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 600;
@@ -1036,27 +979,6 @@ onBeforeUnmount(() => {
 .btn-outline-history:hover {
   background-color: #f7f3ed;
   border-color: #3e5c76;
-}
-
-.btn-action-status {
-  background-color: #36536b;
-  color: #ffffff;
-  border: none;
-  padding: 8px 18px;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.btn-action-status:hover {
-  opacity: 0.9;
-}
-
-.btn-action-status:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .info-dual-grid {

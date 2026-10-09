@@ -1,5 +1,7 @@
 package com.example.sd009thuan.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -14,20 +16,25 @@ import java.math.BigDecimal;
 @Setter
 @Entity
 @Table(name = "chi_tiet_hoa_don")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class ChiTietHoaDon {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Long id;
 
+    // THÊM @JsonIgnore ĐỂ CHẶN JACKSON ĐỌC PROXY HÓA ĐƠN
+    @JsonIgnore
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_hoa_don", nullable = false)
     private HoaDon idHoaDon;
 
+    // Bổ sung @JsonIgnoreProperties cho biến thể sản phẩm
     @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "id_chi_tiet_san_pham", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private ChiTietSanPham idChiTietSanPham;
 
     @Size(max = 50)
@@ -58,5 +65,4 @@ public class ChiTietHoaDon {
     @ColumnDefault("1")
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
-
 }
