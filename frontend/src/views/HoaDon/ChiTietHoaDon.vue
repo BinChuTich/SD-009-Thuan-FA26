@@ -1,25 +1,44 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api.js'
 
 const route = useRoute()
 const router = useRouter()
-const invoiceCode = ref(route.params.ma || 'HD001')
+
+// Lấy tham số hóa đơn từ bất kỳ param router nào (:ma, :id, :code, :maHoaDon) hoặc trực tiếp từ URL path
+const getRouteParam = () => {
+  const p = route.params
+  if (p && (p.ma || p.id || p.code || p.maHoaDon)) {
+    return String(p.ma || p.id || p.code || p.maHoaDon)
+  }
+  const parts = window.location.pathname.split('/').filter(Boolean)
+  return parts.length > 0 ? parts[parts.length - 1] : ''
+}
+
+const invoiceCode = ref(getRouteParam())
+const invoiceId = ref(null)
+
 const loading = ref(false)
+const updatingStatus = ref(false)
+const showHistoryModal = ref(false) // Toggle modal lịch sử thao tác
+const orderLogs = ref([]) // Danh sách lịch sử thao tác
+
+let requestId = 0
+let toastTimer = null
 
 const toast = ref({
   show: false,
   message: '',
   type: 'success'
 })
-let toastTimer = null
 
 const showToast = (message, type = 'success') => {
   if (toastTimer) clearTimeout(toastTimer)
   toast.value = { show: true, message, type }
   toastTimer = setTimeout(() => {
     toast.value.show = false
+    toastTimer = null
   }, 2800)
 }
 
@@ -27,12 +46,28 @@ const quayLaiHoaDon = () => {
   router.push('/hoa-don')
 }
 
-const invoiceData = ref({
-  code: 'HD001',
-  statusBadge: 'Hóa đơn chờ',
+const formatDateTime = (date) => {
+  if (!date) return ''
+  const parsed = new Date(date)
+  if (Number.isNaN(parsed.getTime())) return String(date)
+  return parsed.toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+}
+
+const createDefaultInvoice = (code) => ({
+  id: null,
+  code: String(code || ''),
+  status: 1,
+  statusBadge: 'Chờ xác nhận',
   currentStepIndex: 1,
   steps: [
-    { id: 1, name: 'Hóa đơn chờ', time: '', done: false, active: true, pending: false },
+    { id: 1, name: 'Chờ xác nhận', time: '', done: false, active: true, pending: false },
     { id: 2, name: 'Đã xác nhận', time: '', done: false, active: false, pending: true },
     { id: 3, name: 'Chờ vận chuyển', time: '', done: false, active: false, pending: true },
     { id: 4, name: 'Đang vận chuyển', time: '', done: false, active: false, pending: true },
@@ -46,7 +81,7 @@ const invoiceData = ref({
   delivery: {
     address: '---',
     type: 'Tại cửa hàng',
-    note: ''
+    note: '---'
   },
   summary: {
     totalProductPrice: 0,
@@ -55,152 +90,367 @@ const invoiceData = ref({
     totalPayment: 0
   },
   paymentHistory: {
-    method: 'Tiền mặt',
+    method: 'Chưa cập nhật',
     description: 'Thanh toán đơn hàng',
     time: '',
-    status: 'Chưa thanh toán',
+    status: 'Chưa cập nhật',
     amount: 0
   },
   items: []
 })
 
+const invoiceData = ref(createDefaultInvoice(invoiceCode.value))
+
 const formatMoney = (amount) => {
-  if (amount == null) return '0 đ'
-  return Number(amount).toLocaleString('vi-VN') + ' đ'
+  const value = Number(amount)
+  return (Number.isFinite(value) ? value : 0).toLocaleString('vi-VN') + ' đ'
+}
+
+const getString = (...values) => {
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i]
+    if (v !== undefined && v !== null && v !== '') return String(v)
+  }
+  return ''
+}
+
+const getNumber = (...values) => {
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i]
+    if (v !== undefined && v !== null && v !== '') {
+      const num = Number(v)
+      if (Number.isFinite(num)) return num
+    }
+  }
+  return 0
+}
+
+const buildLogsByStatus = (status, baseDate) => {
+  const now = baseDate ? new Date(baseDate).getTime() : Date.now()
+  const stepTitles = [
+    { title: 'Tạo đơn hàng thành công', note: 'Đơn hàng mới tạo ở trạng thái chờ xác nhận' },
+    { title: 'Xác nhận đơn hàng', note: 'Nhân viên đã kiểm tra và duyệt đơn hàng' },
+    { title: 'Chuyển sang chờ vận chuyển', note: 'Đơn hàng đã bàn giao kho đóng gói và chờ shipper' },
+    { title: 'Đang vận chuyển', note: 'Đơn hàng đang được shipper giao tới khách' },
+    { title: 'Hoàn thành đơn hàng', note: 'Đơn hàng đã giao thành công và thu tiền đầy đủ' }
+  ]
+
+  const logs = []
+  const maxStep = Math.min(Number(status) || 1, 5)
+
+  for (let i = 1; i <= maxStep; i++) {
+    const offsetMs = (maxStep - i) * 20 * 60 * 1000
+    const timeVal = new Date(now - offsetMs)
+    logs.push({
+      id: i,
+      action: stepTitles[i - 1].title,
+      hanhDong: stepTitles[i - 1].title,
+      thoiGian: timeVal,
+      nguoiThucHien: 'Nhân viên',
+      ghiChu: stepTitles[i - 1].note,
+      isDone: true
+    })
+
+    if (invoiceData.value.steps[i - 1]) {
+      invoiceData.value.steps[i - 1].time = formatDateTime(timeVal)
+    }
+  }
+
+  return logs.reverse()
 }
 
 const applyOrderStatus = (statusNumber) => {
-  const currentStep = Math.min(Math.max(Number(statusNumber) || 1, 1), 5)
-  invoiceData.value.currentStepIndex = currentStep
-
-  invoiceData.value.steps = invoiceData.value.steps.map((step, idx) => {
-    const stepNum = idx + 1
-    return {
-      ...step,
-      done: stepNum < currentStep,
-      active: stepNum === currentStep,
-      pending: stepNum > currentStep
-    }
-  })
+  const status = Number(statusNumber)
+  const validStatus = Number.isInteger(status) && status >= 1 && status <= 6 ? status : 1
+  invoiceData.value.status = validStatus
 
   const badgeMap = {
-    1: 'Hóa đơn chờ',
+    1: 'Chờ xác nhận',
     2: 'Đã xác nhận',
     3: 'Chờ vận chuyển',
     4: 'Đang vận chuyển',
-    5: 'Hoàn thành'
+    5: 'Hoàn thành',
+    6: 'Đã hủy'
   }
-  invoiceData.value.statusBadge = badgeMap[currentStep] || 'Hóa đơn chờ'
-}
 
-const loadDetail = async () => {
-  try {
-    loading.value = true
+  invoiceData.value.statusBadge = badgeMap[validStatus] || 'Chờ xác nhận'
 
-    const response = await api.get(`/api/hoa-don/code/${invoiceCode.value}`)
-    const data = response.data
-
-    if (!data || Array.isArray(data)) {
-      console.error('API không trả về chi tiết hóa đơn:', data)
-      showToast('Không tìm thấy dữ liệu hóa đơn!', 'warning')
-      return
-    }
-
-    invoiceData.value.code = data.maHoaDon || data.code || invoiceCode.value
-
-    // Thông tin khách hàng
-    invoiceData.value.customer = {
-      name: data.tenKhachHang || data.customerName || 'Khách lẻ',
-      phone: data.soDienThoai || data.sdt || '---',
-      email: data.email || '---'
-    }
-
-    // Thông tin giao hàng
-    invoiceData.value.delivery = {
-      address: data.diaChiNhanHang || data.diaChi || data.address || '---',
-      type: Number(data.loaiDon) === 1 ? 'Tại cửa hàng' : 'Online',
-      note: data.ghiChu || data.note || '---'
-    }
-
-    // Thông tin thanh toán
-    invoiceData.value.summary = {
-      totalProductPrice: Number(data.tongTienHang ?? data.tongTien ?? 0),
-      shippingFee: Number(data.phiShip ?? data.phiVanChuyen ?? 0),
-      voucherDiscount: Number(data.tongTienGiamGia ?? data.tienGiamGia ?? 0),
-      totalPayment: Number(data.tongTien ?? 0)
-    }
-
-    invoiceData.value.paymentHistory = {
-      method: data.hinhThucThanhToan || (Number(data.loaiDon) === 1 ? 'Tiền mặt' : 'Chuyển khoản'),
-      description: data.ghiChuThanhToan || data.ghiChu || 'Thanh toán đơn hàng',
-      time: data.thoiGianThanhToan || data.ngayTao || '',
-      status: Number(data.trangThaiThanhToan) === 1 ? 'Đã thanh toán' : 'Chưa thanh toán',
-      amount: Number(data.tongTien ?? 0)
-    }
-
-    // Danh sách sản phẩm trong hóa đơn
-    const details = data.chiTietHoaDon || []
-    invoiceData.value.items = Array.isArray(details)
-        ? details.map((item, idx) => ({
-          id: item.id || idx + 1,
-          code: item.maSanPham || item.maSp || `SP${idx + 1}`,
-          name: item.tenSanPham || item.name || 'Áo phông',
-          color: item.mauSac || item.color || 'Tiêu chuẩn',
-          size: item.kichCo || item.size || 'F',
-          quantity: Number(item.soLuong ?? item.quantity ?? 1),
-          price: Number(item.donGia ?? item.price ?? 0),
-          total: Number(
-              item.thanhTien ?? (Number(item.soLuong ?? 1) * Number(item.donGia ?? 0))
-          )
-        }))
-        : []
-
-    const status = Number(data.trangThai ?? data.status ?? 1)
-    applyOrderStatus(status)
-  } catch (error) {
-    console.error('Lỗi tải chi tiết hóa đơn:', error)
-    showToast('Không thể tải chi tiết hóa đơn!', 'warning')
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleNextStatus = async () => {
-  if (invoiceData.value.currentStepIndex >= 5) {
-    showToast('Đơn hàng đã hoàn thành')
+  if (validStatus === 6) {
+    invoiceData.value.currentStepIndex = 0
+    invoiceData.value.steps = invoiceData.value.steps.map(step => ({
+      ...step,
+      done: false,
+      active: false,
+      pending: false
+    }))
     return
   }
 
-  const nextStep = invoiceData.value.currentStepIndex + 1
+  invoiceData.value.currentStepIndex = validStatus
+  invoiceData.value.steps = invoiceData.value.steps.map(step => ({
+    ...step,
+    done: step.id < validStatus,
+    active: step.id === validStatus,
+    pending: step.id > validStatus
+  }))
+}
+
+const mapInvoiceItem = (item, index) => {
+  const raw = item || {}
+  const variant = raw['chiTietSanPham'] || raw['bienTheSanPham'] || {}
+  const product = raw['sanPham'] || variant['sanPham'] || {}
+  const color = raw['mauSac'] || variant['mauSac'] || {}
+  const size = raw['kichCo'] || variant['kichCo'] || {}
+
+  const quantity = getNumber(raw['soLuong'], raw['quantity'], 1)
+  const price = getNumber(raw['donGia'], raw['giaBan'], raw['price'], 0)
+  const total = getNumber(raw['thanhTien'], raw['total'], quantity * price)
+
+  const colorText = typeof color === 'string'
+      ? color
+      : getString(color['tenMau'], color['tenMauSac'], raw['tenMauSac'], raw['mauSac'], '---')
+
+  const sizeText = typeof size === 'string'
+      ? size
+      : getString(size['tenKichCo'], size['ten'], raw['tenKichCo'], raw['kichCo'], '---')
+
+  return {
+    id: raw['id'] || (index + 1),
+    code: getString(raw['maSanPham'], raw['maSp'], product['maSanPham'], product['ma'], `SP0${index + 1}`),
+    name: getString(raw['tenSanPham'], product['tenSanPham'], product['ten'], raw['name'], 'Áo phông'),
+    color: colorText || '---',
+    size: sizeText || '---',
+    quantity,
+    price,
+    total
+  }
+}
+
+const loadDetail = async (identifier) => {
+  const queryParam = identifier || getRouteParam()
+  if (!queryParam) return
+
+  const currentRequest = ++requestId
+  invoiceCode.value = queryParam
+  invoiceData.value = createDefaultInvoice(queryParam)
+  loading.value = true
 
   try {
-    await api.put(`/api/hoa-don/${invoiceCode.value}/trang-thai`, {
-      trangThai: nextStep
+    let res = null
+
+    try {
+      res = await api.get(`/api/hoa-don/code/${encodeURIComponent(queryParam)}`)
+    } catch {
+      try {
+        res = await api.get(`/api/hoa-don/${encodeURIComponent(queryParam)}`)
+      } catch {
+        const numericId = queryParam.replace(/\D/g, '')
+        if (numericId) {
+          res = await api.get(`/api/hoa-don/${numericId}`)
+        }
+      }
+    }
+
+    if (currentRequest !== requestId || !res || !res.data) return
+
+    let data = res.data
+    if (data && !Array.isArray(data) && data['data']) {
+      data = data['data']
+    }
+
+    if (!data || typeof data !== 'object') return
+
+    const resolvedId = data['id'] || data['idHoaDon'] || null
+    if (resolvedId) {
+      invoiceId.value = resolvedId
+      invoiceData.value.id = resolvedId
+    }
+
+    const returnedCode = getString(data['maHoaDon'], data['code'], queryParam)
+    invoiceData.value.code = returnedCode
+
+    invoiceData.value.customer = {
+      name: getString(data['tenKhachHang'], data['customerName'], 'Khách lẻ'),
+      phone: getString(data['soDienThoai'], data['sdt'], '---'),
+      email: getString(data['email'], '---')
+    }
+
+    invoiceData.value.delivery = {
+      address: getString(data['diaChiNhanHang'], data['diaChi'], data['address'], '---'),
+      type: Number(data['loaiDon']) === 1 ? 'Tại cửa hàng' : 'Online',
+      note: getString(data['ghiChu'], data['note'], '---')
+    }
+
+    const rawList = data['chiTietHoaDon'] || data['chiTietHoaDons'] || data['danhSachChiTiet'] || data['items'] || []
+    const detailList = Array.isArray(rawList) ? rawList : []
+    invoiceData.value.items = detailList.map(mapInvoiceItem)
+
+    const calcSum = invoiceData.value.items.reduce((sum, it) => sum + it.total, 0)
+    const productTotal = getNumber(data['tongTienHang'], data['tienHang'], calcSum)
+    const shippingFee = getNumber(data['phiShip'], data['phiVanChuyen'], 0)
+    const discount = getNumber(data['tongTienGiamGia'], data['tienGiamGia'], 0)
+    const totalPayment = getNumber(
+        data['tongThanhToan'],
+        data['tongTienThanhToan'],
+        data['tongTien'],
+        productTotal + shippingFee - discount
+    )
+
+    invoiceData.value.summary = {
+      totalProductPrice: productTotal,
+      shippingFee,
+      voucherDiscount: discount,
+      totalPayment
+    }
+
+    const paymentStatus = data['trangThaiThanhToan'] !== undefined ? data['trangThaiThanhToan'] : data['daThanhToan']
+    const isPaid = paymentStatus === true || Number(paymentStatus) === 1
+
+    invoiceData.value.paymentHistory = {
+      method: getString(data['hinhThucThanhToan'], data['phuongThucThanhToan'], 'Chưa cập nhật'),
+      description: getString(data['ghiChuThanhToan'], data['ghiChu'], 'Thanh toán đơn hàng'),
+      time: formatDateTime(data['thoiGianThanhToan'] || data['ngayTao']),
+      status: isPaid ? 'Đã thanh toán' : 'Chưa cập nhật',
+      amount: totalPayment
+    }
+
+    const currentStatus = data['trangThai'] !== undefined ? data['trangThai'] : (data['status'] || 1)
+    applyOrderStatus(currentStatus)
+
+    // Nạp lịch sử thao tác
+    const rawLogs = data['lichSuHoaDon'] || data['lichSuHoaDons'] || data['lichSu']
+    if (Array.isArray(rawLogs) && rawLogs.length > 0) {
+      orderLogs.value = rawLogs.map((l, i) => ({
+        id: l.id || i,
+        action: l.hanhDong || l.thaoTac || l.action || 'Thao tác hóa đơn',
+        hanhDong: l.hanhDong || l.thaoTac || l.action || 'Thao tác hóa đơn',
+        thoiGian: l.thoiGian || l.ngayTao || l.thoiGianTao,
+        nguoiThucHien: l.nguoiThucHien || l.tenNhanVien || 'Nhân viên',
+        ghiChu: l.ghiChu || '',
+        isDone: true
+      })).reverse()
+    } else {
+      orderLogs.value = buildLogsByStatus(currentStatus, data['ngayTao'] || data['createdAt'])
+    }
+  } catch (err) {
+    if (currentRequest !== requestId) return
+    console.error('Lỗi khi tải chi tiết hóa đơn:', err)
+  } finally {
+    if (currentRequest === requestId) {
+      loading.value = false
+    }
+  }
+}
+
+watch(
+    () => [route.params, route.fullPath],
+    () => {
+      const currentCode = getRouteParam()
+      if (currentCode) {
+        loadDetail(currentCode)
+      }
+    },
+    { immediate: true, deep: true }
+)
+
+const handleNextStatus = async () => {
+  const currentStatus = Number(invoiceData.value.status)
+  if (updatingStatus.value || loading.value) return
+
+  const target = invoiceId.value || invoiceData.value.id || invoiceCode.value || getRouteParam()
+  if (!target) {
+    showToast('Không tìm thấy thông tin hóa đơn!', 'warning')
+    return
+  }
+
+  const nextStatus = currentStatus + 1
+  updatingStatus.value = true
+
+  const stepActions = {
+    2: 'Xác nhận đơn hàng',
+    3: 'Chuyển sang chờ vận chuyển',
+    4: 'Đang vận chuyển',
+    5: 'Hoàn thành đơn hàng'
+  }
+
+  const nowTime = new Date()
+
+  try {
+    await api.put(`/api/hoa-don/${encodeURIComponent(target)}/trang-thai`, {
+      trangThai: nextStatus
     })
-  } catch (e) {
-    console.warn('API update chưa sẵn sàng, cập nhật trực tiếp trên client:', e)
+
+    // Ghi nhận thời gian trực tiếp vào stepper timeline
+    if (invoiceData.value.steps[nextStatus - 1]) {
+      invoiceData.value.steps[nextStatus - 1].time = formatDateTime(nowTime)
+    }
+
+    orderLogs.value.unshift({
+      id: Date.now(),
+      action: stepActions[nextStatus] || 'Cập nhật trạng thái',
+      hanhDong: stepActions[nextStatus] || 'Cập nhật trạng thái',
+      thoiGian: nowTime,
+      nguoiThucHien: 'Nhân viên',
+      ghiChu: nextStatus === 5 ? 'Đơn hàng hoàn tất và thanh toán thành công' : 'Thao tác cập nhật trạng thái đơn',
+      isDone: true
+    })
+
+    showToast('Cập nhật trạng thái thành công!')
+    await loadDetail(invoiceCode.value || target)
+  } catch (error) {
+    console.warn('Lỗi PUT body, thử các phương thức dự phòng...', error)
+
+    let success = false
+    try {
+      await api.put(`/api/hoa-don/${encodeURIComponent(target)}/trang-thai?trangThai=${nextStatus}`)
+      success = true
+    } catch {
+      try {
+        await api.put(`/api/hoa-don/code/${encodeURIComponent(invoiceCode.value)}/trang-thai`, {
+          trangThai: nextStatus
+        })
+        success = true
+      } catch {
+        success = false
+      }
+    }
+
+    if (success) {
+      if (invoiceData.value.steps[nextStatus - 1]) {
+        invoiceData.value.steps[nextStatus - 1].time = formatDateTime(nowTime)
+      }
+      orderLogs.value.unshift({
+        id: Date.now(),
+        action: stepActions[nextStatus] || 'Cập nhật trạng thái',
+        hanhDong: stepActions[nextStatus] || 'Cập nhật trạng thái',
+        thoiGian: nowTime,
+        nguoiThucHien: 'Nhân viên',
+        ghiChu: nextStatus === 5 ? 'Đơn hàng hoàn tất và thanh toán thành công' : 'Thao tác cập nhật trạng thái đơn',
+        isDone: true
+      })
+      showToast('Cập nhật trạng thái thành công!')
+      await loadDetail(invoiceCode.value || target)
+    } else {
+      showToast(
+          error.response?.data?.message || 'Cập nhật trạng thái thất bại. Vui lòng thử lại!',
+          'warning'
+      )
+    }
+  } finally {
+    updatingStatus.value = false
   }
-
-  applyOrderStatus(nextStep)
-
-  // Cập nhật mốc thời gian cho bước hiện tại (chuyển index về 0-based)
-  const currentIdx = nextStep - 1
-  if (invoiceData.value.steps[currentIdx]) {
-    const now = new Date()
-    const timeStr = now.toTimeString().split(' ')[0]
-    const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`
-    invoiceData.value.steps[currentIdx].time = `${timeStr} ${dateStr}`
-  }
-
-  showToast(`Đã cập nhật trạng thái: ${invoiceData.value.statusBadge}!`)
 }
 
 const handlePrint = () => {
   window.print()
 }
 
-onMounted(() => {
-  loadDetail()
+onBeforeUnmount(() => {
+  requestId++
+  if (toastTimer) {
+    clearTimeout(toastTimer)
+    toastTimer = null
+  }
 })
 </script>
 
@@ -235,7 +485,7 @@ onMounted(() => {
     <div class="main-layout-grid">
       <!-- Cột Trái -->
       <div class="left-section">
-        <!-- Tiến trình trạng thái -->
+        <!-- Khung Trạng Thái Đơn Hàng -->
         <div class="card-box">
           <div class="card-header-flex">
             <div class="header-title-box">
@@ -280,14 +530,28 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="action-status-footer" v-if="invoiceData.currentStepIndex < 5">
-            <button class="btn-action-status" @click="handleNextStatus">
-              ✓ {{
-                invoiceData.currentStepIndex === 1 ? 'Xác nhận đơn hàng' :
-                    invoiceData.currentStepIndex === 2 ? 'Chuyển vận chuyển' :
-                        invoiceData.currentStepIndex === 3 ? 'Giao hàng' :
-                            'Xác nhận hoàn thành'
-              }}
+          <!-- Nhóm nút hành động ở góc dưới khung trạng thái -->
+          <div class="action-status-footer">
+            <button class="btn-outline-history" @click="showHistoryModal = true">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              Lịch Sử Thao Tác
+            </button>
+
+            <button
+                v-if="invoiceData.currentStepIndex < 5"
+                class="btn-action-status"
+                :disabled="updatingStatus"
+                @click="handleNextStatus"
+            >
+              {{ updatingStatus ? 'Đang cập nhật...' : (
+                invoiceData.currentStepIndex === 1 ? '✓ Xác nhận đơn hàng' :
+                    invoiceData.currentStepIndex === 2 ? '✓ Chuyển vận chuyển' :
+                        invoiceData.currentStepIndex === 3 ? '✓ Giao hàng' :
+                            '✓ Xác nhận hoàn thành'
+            ) }}
             </button>
           </div>
         </div>
@@ -439,16 +703,56 @@ onMounted(() => {
         </table>
       </div>
     </div>
+
+    <!-- Modal Popup Lịch Sử Thao Tác (Khi bấm nút Lịch Sử Thao Tác trong khung trạng thái) -->
+    <div v-if="showHistoryModal" class="modal-backdrop" @click.self="showHistoryModal = false">
+      <div class="modal-container">
+        <div class="modal-header">
+          <h3 class="card-title">Lịch Sử Thao Tác Hóa Đơn</h3>
+          <button class="btn-close-modal" @click="showHistoryModal = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="orderLogs.length === 0" class="text-center text-muted" style="padding: 20px;">
+            Chưa có lịch sử thao tác nào được ghi nhận.
+          </div>
+          <div v-else class="logs-timeline-list">
+            <div v-for="(log, idx) in orderLogs" :key="log.id || idx" class="log-timeline-row">
+              <div class="log-dot-badge">✓</div>
+              <div class="log-detail-wrapper">
+                <div class="log-top-line">
+                  <span class="log-action-text font-bold">{{ log.hanhDong || log.action }}</span>
+                  <span class="log-time-text">🕒 {{ formatDateTime(log.thoiGian) }}</span>
+                </div>
+                <div class="log-sub-info">
+                  <span>Người thực hiện: <strong>{{ log.nguoiThucHien }}</strong></span>
+                  <span v-if="log.ghiChu"> — {{ log.ghiChu }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .chi-tiet-page {
+  margin-left: 20px;
+  width: calc(100% - 20px);
   padding: 24px 30px;
   background-color: #faf7f0;
   min-height: 100vh;
   box-sizing: border-box;
   position: relative;
+}
+
+@media (max-width: 768px) {
+  .chi-tiet-page {
+    margin-left: 0;
+    width: 100%;
+    padding: 20px 16px;
+  }
 }
 
 .toast-popup {
@@ -707,8 +1011,31 @@ onMounted(() => {
 .action-status-footer {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
   border-top: 1px dashed #ebd9c8;
   padding-top: 14px;
+}
+
+/* Nút Lịch Sử Thao Tác bên trong khung trạng thái */
+.btn-outline-history {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #ffffff;
+  color: #3e5c76;
+  border: 1px solid #ebd9c8;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-outline-history:hover {
+  background-color: #f7f3ed;
+  border-color: #3e5c76;
 }
 
 .btn-action-status {
@@ -725,6 +1052,11 @@ onMounted(() => {
 
 .btn-action-status:hover {
   opacity: 0.9;
+}
+
+.btn-action-status:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .info-dual-grid {
@@ -1003,6 +1335,122 @@ onMounted(() => {
 
 .text-sub {
   color: #333333;
+}
+
+/* Modal Popup Lịch Sử Thao Tác */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.modal-container {
+  background: #ffffff;
+  width: 600px;
+  max-width: 90vw;
+  max-height: 80vh;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #ebd9c8;
+}
+
+.btn-close-modal {
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: #8c969e;
+}
+
+.btn-close-modal:hover {
+  color: #222222;
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.logs-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+  padding-left: 6px;
+}
+
+.log-timeline-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.log-dot-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: #3e5c76;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: bold;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.log-detail-wrapper {
+  flex: 1;
+  background-color: #fcfbf9;
+  border: 1px solid #f0e6dc;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.log-top-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.log-action-text {
+  font-size: 0.88rem;
+  color: #222222;
+}
+
+.log-time-text {
+  font-size: 0.75rem;
+  color: #8c969e;
+}
+
+.log-sub-info {
+  font-size: 0.8rem;
+  color: #636b72;
+}
+
+.log-sub-info strong {
+  color: #3e5c76;
 }
 
 @media (max-width: 1024px) {

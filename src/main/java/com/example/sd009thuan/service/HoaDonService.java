@@ -18,24 +18,29 @@ public class HoaDonService {
         this.hoaDonRepository = hoaDonRepository;
     }
 
+    // Lấy danh sách tất cả hóa đơn
     public List<HoaDon> getAll() {
         return hoaDonRepository.findAll();
     }
 
+    // Lấy hóa đơn theo ID
     public Optional<HoaDon> getById(Long id) {
         return hoaDonRepository.findById(id);
     }
 
+    // Lấy hóa đơn theo mã hóa đơn
     public Optional<HoaDon> getByMaHoaDon(String maHoaDon) {
         return hoaDonRepository.findByMaHoaDon(maHoaDon);
     }
 
+    // Tạo hóa đơn mới
     public HoaDon create(HoaDon hoaDon) {
 
-        // Tự sinh mã HD001, HD002... nếu chưa có
-        if (hoaDon.getMaHoaDon() == null || hoaDon.getMaHoaDon().trim().isEmpty()) {
-            long count = hoaDonRepository.count() + 1;
+        // Tự sinh mã hóa đơn HD001, HD002... nếu chưa có
+        if (hoaDon.getMaHoaDon() == null
+            || hoaDon.getMaHoaDon().trim().isEmpty()) {
 
+            long count = hoaDonRepository.count() + 1;
             String maHoaDon = String.format("HD%03d", count);
 
             while (hoaDonRepository.findByMaHoaDon(maHoaDon).isPresent()) {
@@ -46,19 +51,22 @@ public class HoaDonService {
             hoaDon.setMaHoaDon(maHoaDon);
         }
 
-        // Gán giá trị mặc định ban đầu
+        // Thiết lập ngày tạo mặc định
         if (hoaDon.getNgayTao() == null) {
             hoaDon.setNgayTao(Instant.now());
         }
 
+        // Thiết lập trạng thái hóa đơn mặc định
         if (hoaDon.getTrangThai() == null) {
             hoaDon.setTrangThai(1); // 1: Chờ xác nhận
         }
 
+        // Thiết lập trạng thái thanh toán mặc định
         if (hoaDon.getTrangThaiThanhToan() == null) {
             hoaDon.setTrangThaiThanhToan(0); // 0: Chưa thanh toán
         }
 
+        // Thiết lập các giá trị tiền mặc định
         if (hoaDon.getPhiVanChuyen() == null) {
             hoaDon.setPhiVanChuyen(BigDecimal.ZERO);
         }
@@ -73,14 +81,14 @@ public class HoaDonService {
 
         return hoaDonRepository.save(hoaDon);
     }
+
+    // Cập nhật thông tin hóa đơn
     public HoaDon update(Long id, HoaDon hoaDonMoi) {
 
         HoaDon hoaDonCu = hoaDonRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Không tìm thấy hóa đơn có ID: " + id
-                        )
-                );
+                .orElseThrow(() -> new RuntimeException(
+                        "Không tìm thấy hóa đơn có ID: " + id
+                ));
 
         if (hoaDonMoi.getMaHoaDon() != null) {
             hoaDonCu.setMaHoaDon(hoaDonMoi.getMaHoaDon());
@@ -119,21 +127,15 @@ public class HoaDonService {
         }
 
         if (hoaDonMoi.getNguoiTao() != null) {
-            hoaDonCu.setNguoiTao(
-                    hoaDonMoi.getNguoiTao()
-            );
+            hoaDonCu.setNguoiTao(hoaDonMoi.getNguoiTao());
         }
 
         if (hoaDonMoi.getNguoiCapNhat() != null) {
-            hoaDonCu.setNguoiCapNhat(
-                    hoaDonMoi.getNguoiCapNhat()
-            );
+            hoaDonCu.setNguoiCapNhat(hoaDonMoi.getNguoiCapNhat());
         }
 
         if (hoaDonMoi.getTrangThai() != null) {
-            hoaDonCu.setTrangThai(
-                    hoaDonMoi.getTrangThai()
-            );
+            hoaDonCu.setTrangThai(hoaDonMoi.getTrangThai());
         }
 
         if (hoaDonMoi.getTrangThaiThanhToan() != null) {
@@ -143,9 +145,7 @@ public class HoaDonService {
         }
 
         if (hoaDonMoi.getGhiChu() != null) {
-            hoaDonCu.setGhiChu(
-                    hoaDonMoi.getGhiChu()
-            );
+            hoaDonCu.setGhiChu(hoaDonMoi.getGhiChu());
         }
 
         hoaDonCu.setNgayCapNhat(Instant.now());
@@ -153,44 +153,77 @@ public class HoaDonService {
         return hoaDonRepository.save(hoaDonCu);
     }
 
-    // Cập nhật nhanh trạng thái đơn hàng
+    // Cập nhật nhanh trạng thái hóa đơn theo ID
     public HoaDon updateTrangThai(Long id, Integer trangThai) {
+        return updateTrangThai(id, trangThai, null);
+    }
+
+    // Cập nhật trạng thái hóa đơn và ghi chú theo ID
+    public HoaDon updateTrangThai(
+            Long id,
+            Integer trangThai,
+            String ghiChu
+    ) {
 
         HoaDon hoaDon = hoaDonRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Không tìm thấy hóa đơn có ID: " + id
-                        )
-                );
+                .orElseThrow(() -> new RuntimeException(
+                        "Không tìm thấy hóa đơn có ID: " + id
+                ));
 
         hoaDon.setTrangThai(trangThai);
+
+        if (ghiChu != null && !ghiChu.trim().isEmpty()) {
+            hoaDon.setGhiChu(ghiChu.trim());
+        }
+
+        hoaDon.setNgayCapNhat(Instant.now());
+
+        return hoaDonRepository.save(hoaDon);
+    }
+
+    // Cập nhật trạng thái hóa đơn theo mã hóa đơn
+    public HoaDon updateTrangThaiByMa(
+            String maHoaDon,
+            Integer trangThai,
+            String ghiChu
+    ) {
+
+        HoaDon hoaDon = hoaDonRepository.findByMaHoaDon(maHoaDon)
+                .orElseThrow(() -> new RuntimeException(
+                        "Không tìm thấy hóa đơn có mã: " + maHoaDon
+                ));
+
+        hoaDon.setTrangThai(trangThai);
+
+        if (ghiChu != null && !ghiChu.trim().isEmpty()) {
+            hoaDon.setGhiChu(ghiChu.trim());
+        }
+
         hoaDon.setNgayCapNhat(Instant.now());
 
         return hoaDonRepository.save(hoaDon);
     }
 
     // Cập nhật trạng thái thanh toán
-    // 0 = Chưa thanh toán
-    // 1 = Đã thanh toán
+    // 0: Chưa thanh toán
+    // 1: Đã thanh toán
     public HoaDon updateTrangThaiThanhToan(
             Long id,
             Integer trangThaiThanhToan
     ) {
 
         HoaDon hoaDon = hoaDonRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Không tìm thấy hóa đơn có ID: " + id
-                        )
-                );
+                .orElseThrow(() -> new RuntimeException(
+                        "Không tìm thấy hóa đơn có ID: " + id
+                ));
 
         if (trangThaiThanhToan == null
             || trangThaiThanhToan < 0
             || trangThaiThanhToan > 1) {
 
             throw new RuntimeException(
-                    "Trạng thái thanh toán không hợp lệ. " +
-                    "Phải là 0 hoặc 1."
+                    "Trạng thái thanh toán không hợp lệ. "
+                    + "Phải là 0 hoặc 1."
             );
         }
 
@@ -200,6 +233,7 @@ public class HoaDonService {
         return hoaDonRepository.save(hoaDon);
     }
 
+    // Xóa hóa đơn theo ID
     public void delete(Long id) {
 
         if (!hoaDonRepository.existsById(id)) {

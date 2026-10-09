@@ -1,18 +1,20 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
-
 const router = useRouter()
 
-const xemChiTiet = (id) => {
-  router.push(`/hoa-don/${id}`)
-}
+const xemChiTiet = (maHoaDon) => {
+  if (!maHoaDon) {
+    console.error('Không tìm thấy mã hóa đơn')
+    return
+  }
 
+  router.push(`/hoa-don/${encodeURIComponent(maHoaDon)}`)
+}
 const exportExcel = () => {
   alert('Đang xuất danh sách hóa đơn ra file Excel...')
 }
-
 const currentTab = ref('Tất Cả')
 const statusTabs = [
   'Tất Cả',
@@ -34,14 +36,12 @@ const filters = ref({
 const invoiceList = ref([])
 const loading = ref(false)
 const errorMessage = ref('')
-
 const currentPage = ref(1)
 const pageSize = ref(5)
 
 const resetPage = () => {
   currentPage.value = 1
 }
-
 const formatMoney = (money) => {
   if (money == null) return '0đ'
   return Number(money).toLocaleString('vi-VN') + 'đ'
@@ -100,8 +100,24 @@ const loadHoaDon = async () => {
   try {
     loading.value = true
     errorMessage.value = ''
+
     const response = await api.get('/api/hoa-don')
-    invoiceList.value = response.data.map((item) => ({
+    const result = response.data
+
+    // Hỗ trợ API trả về mảng trực tiếp hoặc bọc trong content/data.
+    const dataList = Array.isArray(result)
+        ? result
+        : Array.isArray(result?.content)
+            ? result.content
+            : Array.isArray(result?.data)
+                ? result.data
+                : null
+
+    if (!dataList) {
+      throw new Error('API không trả về danh sách hóa đơn hợp lệ.')
+    }
+
+    invoiceList.value = dataList.map((item) => ({
       id: item.id,
       code: item.maHoaDon,
       customerName: item.tenKhachHang || 'Khách lẻ',
@@ -116,10 +132,11 @@ const loadHoaDon = async () => {
       paymentStatus: Number(item.trangThaiThanhToan ?? 0),
       note: item.ghiChu || ''
     }))
+
     currentPage.value = 1
   } catch (error) {
     console.error('Lỗi lấy danh sách hóa đơn:', error)
-    errorMessage.value = 'Không thể tải dữ liệu hóa đơn.'
+    errorMessage.value = 'Không thể tải dữ liệu hóa đơn. Vui lòng thử lại.'
   } finally {
     loading.value = false
   }
@@ -178,8 +195,20 @@ const changePage = (page) => {
   currentPage.value = page
 }
 
+// Tải dữ liệu khi mở trang và làm mới khi quay lại tab trình duyệt.
+const refreshHoaDonWhenVisible = () => {
+  if (document.visibilityState === 'visible') {
+    loadHoaDon()
+  }
+}
+
 onMounted(() => {
   loadHoaDon()
+  document.addEventListener('visibilitychange', refreshHoaDonWhenVisible)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', refreshHoaDonWhenVisible)
 })
 </script>
 
@@ -246,14 +275,33 @@ onMounted(() => {
       <!-- HEADER KHUNG BẢNG -->
       <div class="table-card-header">
         <h3 class="card-heading">Danh sách hóa đơn</h3>
-        <button class="btn-export" @click="exportExcel">
-          <svg class="icon-export" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          Xuất Excel
-        </button>
+        <div class="header-actions">
+          <button
+              class="btn-refresh"
+              type="button"
+              :disabled="loading"
+              @click="loadHoaDon"
+          >
+            {{ loading ? 'Đang tải...' : '↻ Làm mới' }}
+          </button>
+
+          <button class="btn-export" type="button" @click="exportExcel">
+            <svg
+                class="icon-export"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Xuất Excel
+          </button>
+        </div>
       </div>
 
       <!-- TABS TRẠNG THÁI -->
@@ -447,6 +495,35 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-refresh {
+  height: 35px;
+  padding: 0 14px;
+  border: 1.5px solid #c8d6df;
+  border-radius: 8px;
+  background: #edf4f7;
+  color: #3e5c76;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-refresh:hover:not(:disabled) {
+  background: #dfeaf0;
+  border-color: #9eb6c5;
+}
+
+.btn-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-export {
@@ -785,6 +862,11 @@ onMounted(() => {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
   }
 
   .pagination-section {
