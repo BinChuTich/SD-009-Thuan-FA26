@@ -156,6 +156,20 @@ const switchToEditFromDetail = () => {
   openEditModal(item)
 }
 
+const blockInvalidIntegerKeys = (e) => {
+  if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) {
+    e.preventDefault()
+  }
+}
+
+const handleIntegerPaste = (e) => {
+  const pasteData = e.clipboardData?.getData('text') || ''
+  if (!/^\d+$/.test(pasteData.trim())) {
+    e.preventDefault()
+    showToast('Chỉ được dán số nguyên dương!', 'warning')
+  }
+}
+
 const handleSaveVariant = async () => {
   editModal.value.errors = {}
   const data = editModal.value.data
@@ -184,8 +198,8 @@ const handleSaveVariant = async () => {
     return
   }
   const gb = Number(data.giaBan)
-  if (isNaN(gb) || gb < 0 || gb > 1000000000) {
-    editModal.value.errors.giaBan = 'Giá bán phải từ 0 đến 1,000,000,000 VNĐ'
+  if (isNaN(gb) || !Number.isInteger(gb) || gb < 0 || gb > 1000000000) {
+    editModal.value.errors.giaBan = 'Giá bán phải là số nguyên từ 0 đến 1,000,000,000 VNĐ'
     return
   }
 
@@ -900,10 +914,13 @@ watch(() => route.query.sanPhamId, async (newId) => {
                 <input
                     type="number"
                     min="0"
-                    step="1000"
+                    max="1000000000"
+                    step="1"
                     v-model.number="editModal.data.giaBan"
                     class="field-input-control field-price-focus"
                     placeholder="0"
+                    @keydown="blockInvalidIntegerKeys"
+                    @paste="handleIntegerPaste"
                 />
                 <span class="err-text" v-if="editModal.errors.giaBan">{{ editModal.errors.giaBan }}</span>
               </div>

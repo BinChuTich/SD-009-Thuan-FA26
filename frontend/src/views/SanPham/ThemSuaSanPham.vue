@@ -482,10 +482,14 @@
               <input
                   type="number"
                   min="0"
-                  step="1000"
+                  max="1000000000"
+                  step="1"
                   v-model.number="bulkPrice"
                   class="form-input bulk-input"
                   placeholder="0"
+                  @keydown="blockInvalidIntegerKeys"
+                  @paste="handleIntegerPaste"
+                  @blur="onBlurPrice('bulk')"
               />
             </div>
 
@@ -552,11 +556,15 @@
                   <input
                       type="number"
                       min="0"
-                      step="1000"
+                      max="1000000000"
+                      step="1"
                       v-model.number="vItem.giaBan"
                       class="form-input cell-input"
                       placeholder="0"
                       required
+                      @keydown="blockInvalidIntegerKeys"
+                      @paste="handleIntegerPaste"
+                      @blur="onBlurPrice(vItem)"
                   />
                 </td>
                 <td style="text-align: center;">
@@ -1153,8 +1161,12 @@ const generateVariants = () => {
           maHex: color.maHex,
           idKichCo: size.id,
           tenKichCo: size.tenKichCo,
-          soLuong: bulkQty.value ?? 0,
-          giaBan: bulkPrice.value ?? 0,
+          soLuong: (bulkQty.value !== '' && bulkQty.value !== null && bulkQty.value !== undefined)
+            ? Math.floor(Number(bulkQty.value))
+            : 0,
+          giaBan: (bulkPrice.value !== '' && bulkPrice.value !== null && bulkPrice.value !== undefined)
+            ? Math.floor(Number(bulkPrice.value))
+            : 0,
           trangThai: 1,
           selected: true
         })
@@ -1225,6 +1237,37 @@ const toggleSelectAllVariants = () => {
   variantsList.value.forEach(v => v.selected = selectAllVariants.value)
 }
 
+// Chặn các phím số âm, số thập phân và ký tự lạ (chỉ cho phép nhập số nguyên không âm)
+const blockInvalidIntegerKeys = (e) => {
+  if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) {
+    e.preventDefault()
+  }
+}
+
+// Chặn dán nội dung không phải số nguyên dương
+const handleIntegerPaste = (e) => {
+  const pasteData = e.clipboardData?.getData('text') || ''
+  if (!/^\d+$/.test(pasteData.trim())) {
+    e.preventDefault()
+    showToast('Chỉ được dán số nguyên dương!', 'warning')
+  }
+}
+
+// Chuẩn hóa về số nguyên khi rời ô nhập giá bán (blur)
+const onBlurPrice = (target) => {
+  if (target === 'bulk') {
+    if (bulkPrice.value !== '' && bulkPrice.value !== null && bulkPrice.value !== undefined) {
+      const num = Math.floor(Number(bulkPrice.value))
+      bulkPrice.value = isNaN(num) || num < 0 ? 0 : Math.min(num, 1000000000)
+    }
+  } else if (target && typeof target === 'object') {
+    if (target.giaBan !== '' && target.giaBan !== null && target.giaBan !== undefined) {
+      const num = Math.floor(Number(target.giaBan))
+      target.giaBan = isNaN(num) || num < 0 ? 0 : Math.min(num, 1000000000)
+    }
+  }
+}
+
 // Áp dụng số lượng & giá bán mặc định hàng loạt
 const applyBulkValues = () => {
   if (bulkQty.value !== null && bulkQty.value !== undefined && bulkQty.value !== '') {
@@ -1236,8 +1279,8 @@ const applyBulkValues = () => {
   }
   if (bulkPrice.value !== null && bulkPrice.value !== undefined && bulkPrice.value !== '') {
     const gb = Number(bulkPrice.value)
-    if (isNaN(gb) || gb < 0 || gb > 1000000000) {
-      showToast('Giá bán áp dụng phải từ 0 đến 1,000,000,000 VNĐ!', 'error')
+    if (isNaN(gb) || !Number.isInteger(gb) || gb < 0 || gb > 1000000000) {
+      showToast('Giá bán áp dụng phải là số nguyên từ 0 đến 1,000,000,000 VNĐ!', 'error')
       return
     }
   }
@@ -1377,8 +1420,8 @@ const openSaveConfirm = () => {
       return
     }
     const gb = Number(v.giaBan)
-    if (isNaN(gb) || gb < 0 || gb > 1000000000) {
-      showToast(`Giá bán biến thể (${label}) phải từ 0 đến 1,000,000,000 VNĐ!`, 'error')
+    if (isNaN(gb) || !Number.isInteger(gb) || gb < 0 || gb > 1000000000) {
+      showToast(`Giá bán biến thể (${label}) phải là số nguyên từ 0 đến 1,000,000,000 VNĐ!`, 'error')
       return
     }
   }
