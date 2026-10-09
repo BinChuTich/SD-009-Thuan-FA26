@@ -10,24 +10,12 @@
     <!-- Bộ lọc -->
     <div class="content-card filter-card">
       <div class="card-header-filter">
-        <div class="filter-icon-box">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
-          </svg>
-        </div>
-        <div class="filter-title-wrap">
-          <h3 class="filter-title">Bộ lọc tìm kiếm</h3>
-        </div>
+        <h3 class="filter-title">Bộ lọc tìm kiếm</h3>
       </div>
 
       <div class="filter-inputs-grid">
         <div class="form-field search-field">
           <div class="input-inner">
-            <span class="prefix-icon">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-              </svg>
-            </span>
             <input
               v-model="filters.keyword"
               type="text"
@@ -57,13 +45,13 @@
 
       <div class="filter-actions">
         <button class="btn btn-reset" @click="resetFilters">
-          <span class="btn-icon">↺</span> Đặt lại bộ lọc
+          Đặt lại bộ lọc
         </button>
         <button class="btn btn-export" @click="exportExcel" :disabled="loading">
-          <span class="btn-icon">📥</span> Xuất Excel
+          Xuất Excel
         </button>
         <button class="btn btn-primary" @click="goToCreate">
-          <span>+</span> Thêm nhân viên
+          + Thêm nhân viên
         </button>
       </div>
     </div>
@@ -72,7 +60,6 @@
     <div class="content-card table-card">
       <div class="table-header-row">
         <div class="table-title-wrap">
-          <span class="header-icon">👥</span>
           <h3 class="table-title">Danh sách nhân viên</h3>
         </div>
       </div>
@@ -133,17 +120,18 @@
               </td>
               <td style="text-align: center">
                 <div class="action-buttons">
-                  <button
+                  <label
                     v-if="item.role !== 'Quản trị viên'"
-                    class="btn-circle-action btn-power"
-                    :title="item.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'"
-                    @click="toggleStatus(item)"
+                    class="switch-toggle"
+                    :title="item.status === 'active' ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)'"
                   >
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-                      <line x1="12" y1="2" x2="12" y2="12"></line>
-                    </svg>
-                  </button>
+                    <input
+                      type="checkbox"
+                      :checked="item.status === 'active'"
+                      @click.prevent="toggleStatus(item)"
+                    />
+                    <span class="slider-round"></span>
+                  </label>
                   <button
                     class="btn-circle-action btn-edit"
                     title="Chỉnh sửa nhân viên"
@@ -315,8 +303,10 @@ async function toggleStatus(item) {
 
   try {
     await api.patch(`/api/nhan-vien/${item.id}/toggle-status`)
+    item.status = isLocking ? 'inactive' : 'active'
+    item.statusText = isLocking ? 'Ngừng hoạt động' : 'Hoạt động'
+    item.trangThai = isLocking ? 0 : 1
     showToast(`${isLocking ? 'Khóa' : 'Mở khóa'} nhân viên thành công!`, 'success')
-    await loadEmployees()
   } catch (e) {
     showAlert({
       title: 'Thao tác thất bại',
@@ -683,13 +673,59 @@ onMounted(async () => {
   gap: 0.5rem;
 }
 
+/* Switch Toggle */
+.switch-toggle {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  cursor: pointer;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.switch-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider-round {
+  position: absolute;
+  inset: 0;
+  background-color: #d1d5db;
+  border-radius: 22px;
+  transition: all 0.25s ease;
+}
+
+.slider-round::before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: all 0.25s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.switch-toggle input:checked + .slider-round {
+  background-color: #2e9f65;
+}
+
+.switch-toggle input:checked + .slider-round::before {
+  transform: translateX(16px);
+}
+
 .btn-circle-action {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 6px;
-  border: 1px solid var(--line, #e9e5db);
-  background-color: #ffffff;
-  color: #556268;
+  border: 1px solid #d8e2e8;
+  background-color: #f7f5ee;
+  color: #496883;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -701,25 +737,10 @@ onMounted(async () => {
   display: block;
 }
 
-.btn-power:hover {
-  border-color: #e09f3e;
-  background-color: #fff8eb;
-  color: #b57a1b;
-  transform: scale(1.08);
-}
-
 .btn-edit:hover {
+  background-color: #496883;
+  color: #ffffff;
   border-color: #496883;
-  background-color: #eef4f8;
-  color: #38536b;
-  transform: scale(1.08);
-}
-
-.btn-view:hover {
-  border-color: #627d98;
-  background-color: #f1f5f9;
-  color: #243b53;
-  transform: scale(1.08);
 }
 
 .pagination-row {

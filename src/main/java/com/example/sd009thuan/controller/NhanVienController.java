@@ -53,6 +53,12 @@ public class NhanVienController {
         return ResponseEntity.ok(Map.of("code", service.nextCode()));
     }
 
+    @GetMapping("/preview-code")
+    public ResponseEntity<Map<String, String>> previewCode(@RequestParam(required = false) String name) {
+        String code = service.generateEmployeeCode(name != null ? name : "Nhan Vien");
+        return ResponseEntity.ok(Map.of("code", code));
+    }
+
     @GetMapping({"/export-excel", "/export"})
     public ResponseEntity<byte[]> exportExcel(
             @RequestParam(required = false) String keyword,

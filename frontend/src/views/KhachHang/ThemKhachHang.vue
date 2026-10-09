@@ -1,8 +1,8 @@
 <template>
   <div class="customer-page-wrapper">
     <!-- Header -->
-    <div class="breadcrumb-header">
-      <div class="breadcrumb-left">
+    <div class="page-top-header">
+      <div class="header-left">
         <button class="btn-back" @click="goBack">
           <span>←</span> Quay lại danh sách
         </button>
@@ -18,7 +18,7 @@
           <div class="avatar-card">
             <h4 class="card-subtitle">Ảnh đại diện</h4>
             <div class="avatar-integrated-wrapper">
-              <label class="avatar-uploader-box" title="Nhấp để chọn hoặc đổi ảnh đại diện">
+              <label class="avatar-uploader-box" title="Nhấp để chọn ảnh đại diện">
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/jpg,image/webp"
@@ -27,11 +27,10 @@
                 />
                 <img v-if="avatarPreview" :src="avatarPreview" class="avatar-preview-img" alt="avatar" />
                 <div v-else class="avatar-empty-placeholder">
-                  <div class="avatar-placeholder-icon">📷</div>
                   <span class="avatar-placeholder-text">Chọn ảnh</span>
                 </div>
                 <div class="avatar-hover-overlay">
-                  <span>📷 Đổi ảnh</span>
+                  <span>Đổi ảnh</span>
                 </div>
               </label>
               <button v-if="avatarPreview" type="button" class="btn-remove-avatar-link" @click="removeAvatar">
@@ -45,9 +44,7 @@
         <div class="form-fields-panel">
           <!-- Phần 1: Thông tin khách hàng -->
           <div class="section-card">
-            <h4 class="section-title">
-              <span class="section-icon">👤</span> Thông tin khách hàng
-            </h4>
+            <h4 class="section-title">Thông tin khách hàng</h4>
             <div class="form-grid">
               <!-- Mã khách hàng (TỰ SINH - KHÓA) -->
               <div class="form-field">
@@ -68,8 +65,10 @@
                   v-model="form.tenKhachHang"
                   type="text"
                   placeholder="Nhập họ và tên khách hàng..."
-                  @input="onCustomerNameChange"
+                  :class="{ 'has-error': errors.tenKhachHang }"
+                  @input="validateField('tenKhachHang')"
                 />
+                <span v-if="errors.tenKhachHang" class="error-inline-msg">{{ errors.tenKhachHang }}</span>
               </div>
 
               <!-- Email -->
@@ -79,93 +78,107 @@
                   v-model="form.email"
                   type="email"
                   placeholder="example@gmail.com"
+                  :class="{ 'has-error': errors.email }"
+                  @input="validateField('email')"
                 />
+                <span v-if="errors.email" class="error-inline-msg">{{ errors.email }}</span>
               </div>
 
-              <!-- Giới tính -->
+              <!-- Số điện thoại -->
+              <div class="form-field">
+                <label>Số điện thoại <span class="required">*</span></label>
+                <input
+                  v-model="form.soDienThoai"
+                  type="text"
+                  placeholder="VD: 0987654321 (10 - 11 số)"
+                  :class="{ 'has-error': errors.soDienThoai }"
+                  @input="validateField('soDienThoai')"
+                />
+                <span v-if="errors.soDienThoai" class="error-inline-msg">{{ errors.soDienThoai }}</span>
+              </div>
+
+              <!-- Giới tính (Radio) -->
               <div class="form-field">
                 <label>Giới tính</label>
-                <select v-model="form.gioiTinh">
-                  <option :value="true">Nam</option>
-                  <option :value="false">Nữ</option>
-                </select>
+                <div class="gender-radio-group">
+                  <label class="radio-label">
+                    <input type="radio" :value="true" v-model="form.gioiTinh" />
+                    <span>Nam</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" :value="false" v-model="form.gioiTinh" />
+                    <span>Nữ</span>
+                  </label>
+                </div>
               </div>
 
               <!-- Ngày sinh -->
               <div class="form-field">
-                <label>Ngày sinh</label>
+                <label>Ngày sinh <span class="sub-hint">(Từ 15 tuổi trở lên)</span></label>
                 <input
                   v-model="form.ngaySinh"
                   type="date"
                   :max="maxDate"
+                  :class="{ 'has-error': errors.ngaySinh }"
+                  @change="validateField('ngaySinh')"
                 />
-              </div>
-
-              <!-- Trạng thái -->
-              <div class="form-field">
-                <label>Trạng thái</label>
-                <select v-model="form.trangThai">
-                  <option :value="1">Hoạt động</option>
-                  <option :value="0">Ngừng hoạt động</option>
-                </select>
+                <span v-if="errors.ngaySinh" class="error-inline-msg">{{ errors.ngaySinh }}</span>
               </div>
             </div>
           </div>
 
           <!-- Phần 2: Địa chỉ nhận hàng -->
           <div class="section-card">
-            <h4 class="section-title">
-              <span class="section-icon">📍</span> Địa chỉ nhận hàng
-            </h4>
+            <h4 class="section-title">Địa chỉ nhận hàng</h4>
             <div class="form-grid">
-              <!-- Họ tên người nhận -->
-              <div class="form-field">
-                <label>Họ tên người nhận <span class="required">*</span></label>
-                <input
-                  v-model="form.nguoiNhan"
-                  type="text"
-                  placeholder="Nhập họ tên người nhận..."
-                />
-              </div>
-
-              <!-- Số điện thoại người nhận -->
-              <div class="form-field">
-                <label>Số điện thoại người nhận <span class="required">*</span></label>
-                <input
-                  v-model="form.soDienThoaiNhan"
-                  type="text"
-                  placeholder="VD: 0987654321 (10 - 11 số)"
-                />
-              </div>
-
               <!-- Tỉnh / Thành phố -->
               <div class="form-field">
                 <label>Tỉnh / Thành phố <span class="required">*</span></label>
-                <input
-                  v-model="form.thanhPho"
-                  type="text"
-                  placeholder="VD: Hà Nội, TP.HCM..."
-                />
+                <select
+                  v-model="selectedProvinceCode"
+                  :class="{ 'has-error': errors.thanhPho }"
+                  @change="onProvinceChange"
+                >
+                  <option value="">-- Chọn Tỉnh / Thành phố --</option>
+                  <option v-for="p in provincesList" :key="p.code" :value="p.code">
+                    {{ p.name }}
+                  </option>
+                </select>
+                <span v-if="errors.thanhPho" class="error-inline-msg">{{ errors.thanhPho }}</span>
               </div>
 
               <!-- Quận / Huyện -->
               <div class="form-field">
                 <label>Quận / Huyện <span class="required">*</span></label>
-                <input
-                  v-model="form.huyen"
-                  type="text"
-                  placeholder="VD: Cầu Giấy, Đống Đa..."
-                />
+                <select
+                  v-model="selectedDistrictCode"
+                  :disabled="!selectedProvinceCode"
+                  :class="{ 'has-error': errors.huyen }"
+                  @change="onDistrictChange"
+                >
+                  <option value="">-- Chọn Quận / Huyện --</option>
+                  <option v-for="d in districtsList" :key="d.code" :value="d.code">
+                    {{ d.name }}
+                  </option>
+                </select>
+                <span v-if="errors.huyen" class="error-inline-msg">{{ errors.huyen }}</span>
               </div>
 
               <!-- Phường / Xã -->
               <div class="form-field">
                 <label>Phường / Xã <span class="required">*</span></label>
-                <input
-                  v-model="form.phuong"
-                  type="text"
-                  placeholder="VD: Dịch Vọng Hậu..."
-                />
+                <select
+                  v-model="selectedWardCode"
+                  :disabled="!selectedDistrictCode"
+                  :class="{ 'has-error': errors.phuong }"
+                  @change="onWardChange"
+                >
+                  <option value="">-- Chọn Phường / Xã --</option>
+                  <option v-for="w in wardsList" :key="w.code" :value="w.code">
+                    {{ w.name }}
+                  </option>
+                </select>
+                <span v-if="errors.phuong" class="error-inline-msg">{{ errors.phuong }}</span>
               </div>
 
               <!-- Địa chỉ cụ thể -->
@@ -174,8 +187,11 @@
                 <input
                   v-model="form.diaChiCuThe"
                   type="text"
-                  placeholder="Số nhà, ngõ, tên đường..."
+                  placeholder="Số nhà, ngõ, ngách, tên đường..."
+                  :class="{ 'has-error': errors.diaChiCuThe }"
+                  @input="validateField('diaChiCuThe')"
                 />
+                <span v-if="errors.diaChiCuThe" class="error-inline-msg">{{ errors.diaChiCuThe }}</span>
               </div>
             </div>
           </div>
@@ -186,7 +202,7 @@
               Hủy bỏ
             </button>
             <button class="btn btn-primary" :disabled="saving" @click="handleSubmit">
-              {{ saving ? 'Đang lưu...' : '💾 Thêm khách hàng' }}
+              {{ saving ? 'Đang lưu...' : 'Thêm khách hàng' }}
             </button>
           </div>
         </div>
@@ -200,6 +216,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
+import { getProvinces, getDistricts, getWards } from '@/services/provincesApi.js'
 
 const router = useRouter()
 const saving = ref(false)
@@ -207,26 +224,186 @@ const selectedFile = ref(null)
 const avatarPreview = ref('')
 const maxDate = new Date().toISOString().split('T')[0]
 
+// Danh mục hành chính
+const provincesList = ref([])
+const districtsList = ref([])
+const wardsList = ref([])
+
+const selectedProvinceCode = ref('')
+const selectedDistrictCode = ref('')
+const selectedWardCode = ref('')
+
 const form = reactive({
   maKhachHang: '',
   tenKhachHang: '',
   email: '',
+  soDienThoai: '',
   gioiTinh: true,
   ngaySinh: '',
-  trangThai: 1,
-  // Địa chỉ nhận hàng
-  nguoiNhan: '',
-  soDienThoaiNhan: '',
+  trangThai: 1, // Mặc định hoạt động, không cần chọn trên form
   thanhPho: '',
   huyen: '',
   phuong: '',
   diaChiCuThe: ''
 })
 
-function onCustomerNameChange() {
-  if (!form.nguoiNhan || form.nguoiNhan.trim() === '') {
-    form.nguoiNhan = form.tenKhachHang
+const errors = reactive({
+  tenKhachHang: '',
+  email: '',
+  soDienThoai: '',
+  ngaySinh: '',
+  thanhPho: '',
+  huyen: '',
+  phuong: '',
+  diaChiCuThe: ''
+})
+
+async function loadProvinces() {
+  provincesList.value = await getProvinces()
+}
+
+async function onProvinceChange() {
+  const p = provincesList.value.find(item => item.code === selectedProvinceCode.value)
+  form.thanhPho = p ? p.name : ''
+  selectedDistrictCode.value = ''
+  selectedWardCode.value = ''
+  form.huyen = ''
+  form.phuong = ''
+  districtsList.value = []
+  wardsList.value = []
+
+  validateField('thanhPho')
+
+  if (selectedProvinceCode.value) {
+    districtsList.value = await getDistricts(selectedProvinceCode.value)
   }
+}
+
+async function onDistrictChange() {
+  const d = districtsList.value.find(item => item.code === selectedDistrictCode.value)
+  form.huyen = d ? d.name : ''
+  selectedWardCode.value = ''
+  form.phuong = ''
+  wardsList.value = []
+
+  validateField('huyen')
+
+  if (selectedDistrictCode.value) {
+    wardsList.value = await getWards(selectedDistrictCode.value)
+  }
+}
+
+function onWardChange() {
+  const w = wardsList.value.find(item => item.code === selectedWardCode.value)
+  form.phuong = w ? w.name : ''
+  validateField('phuong')
+}
+
+function validateField(fieldName) {
+  if (fieldName === 'tenKhachHang') {
+    if (!form.tenKhachHang || !form.tenKhachHang.trim()) {
+      errors.tenKhachHang = 'Họ và tên khách hàng không được để trống!'
+    } else {
+      errors.tenKhachHang = ''
+    }
+  }
+
+  if (fieldName === 'email') {
+    const val = form.email ? form.email.trim() : ''
+    if (!val) {
+      errors.email = 'Email khách hàng không được để trống!'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+      errors.email = 'Định dạng email không hợp lệ (VD: example@gmail.com)!'
+    } else {
+      errors.email = ''
+    }
+  }
+
+  if (fieldName === 'soDienThoai') {
+    const val = form.soDienThoai ? form.soDienThoai.trim() : ''
+    if (!val) {
+      errors.soDienThoai = 'Số điện thoại không được để trống!'
+    } else if (!/^\d+$/.test(val)) {
+      errors.soDienThoai = 'Số điện thoại chỉ được chứa các chữ số!'
+    } else if (!val.startsWith('0')) {
+      errors.soDienThoai = 'Số điện thoại phải bắt đầu bằng số 0!'
+    } else if (val.length < 10) {
+      errors.soDienThoai = `Số điện thoại không được dưới 10 số (hiện tại có ${val.length} số)!`
+    } else if (val.length > 11) {
+      errors.soDienThoai = `Số điện thoại không được trên 11 số (hiện tại có ${val.length} số)!`
+    } else {
+      errors.soDienThoai = ''
+    }
+  }
+
+  if (fieldName === 'ngaySinh') {
+    if (form.ngaySinh) {
+      const bDate = new Date(form.ngaySinh)
+      const today = new Date()
+      if (bDate > today) {
+        errors.ngaySinh = 'Ngày sinh không được lớn hơn ngày hiện tại!'
+      } else {
+        // Kiểm tra đủ 15 tuổi
+        let age = today.getFullYear() - bDate.getFullYear()
+        const m = today.getMonth() - bDate.getMonth()
+        if (m < 0 || (m === 0 && today.getDate() < bDate.getDate())) {
+          age--
+        }
+        if (age < 15) {
+          errors.ngaySinh = 'Khách hàng phải từ 15 tuổi trở lên!'
+        } else {
+          errors.ngaySinh = ''
+        }
+      }
+    } else {
+      errors.ngaySinh = ''
+    }
+  }
+
+  if (fieldName === 'thanhPho') {
+    if (!form.thanhPho || !form.thanhPho.trim()) {
+      errors.thanhPho = 'Vui lòng chọn Tỉnh / Thành phố!'
+    } else {
+      errors.thanhPho = ''
+    }
+  }
+
+  if (fieldName === 'huyen') {
+    if (!form.huyen || !form.huyen.trim()) {
+      errors.huyen = 'Vui lòng chọn Quận / Huyện!'
+    } else {
+      errors.huyen = ''
+    }
+  }
+
+  if (fieldName === 'phuong') {
+    if (!form.phuong || !form.phuong.trim()) {
+      errors.phuong = 'Vui lòng chọn Phường / Xã!'
+    } else {
+      errors.phuong = ''
+    }
+  }
+
+  if (fieldName === 'diaChiCuThe') {
+    if (!form.diaChiCuThe || !form.diaChiCuThe.trim()) {
+      errors.diaChiCuThe = 'Địa chỉ cụ thể không được để trống!'
+    } else {
+      errors.diaChiCuThe = ''
+    }
+  }
+}
+
+function validateAll() {
+  validateField('tenKhachHang')
+  validateField('email')
+  validateField('soDienThoai')
+  validateField('ngaySinh')
+  validateField('thanhPho')
+  validateField('huyen')
+  validateField('phuong')
+  validateField('diaChiCuThe')
+
+  return !Object.values(errors).some(msg => msg !== '')
 }
 
 async function fetchNextCode() {
@@ -282,123 +459,14 @@ function goBack() {
 }
 
 async function handleSubmit() {
-  // 1. Validate thông tin khách hàng
-  if (!form.tenKhachHang || !form.tenKhachHang.trim()) {
+  if (!validateAll()) {
     return showAlert({
       title: 'Thông tin chưa hợp lệ',
-      message: 'Họ và tên khách hàng không được để trống!',
+      message: 'Vui lòng kiểm tra và hoàn thành các thông tin báo lỗi trên form!',
       type: 'warning'
     })
   }
 
-  const email = form.email ? form.email.trim() : ''
-  if (!email) {
-    return showAlert({
-      title: 'Thông tin chưa hợp lệ',
-      message: 'Email khách hàng không được để trống!',
-      type: 'warning'
-    })
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return showAlert({
-      title: 'Thông tin chưa hợp lệ',
-      message: 'Định dạng email khách hàng không hợp lệ (VD: example@gmail.com)!',
-      type: 'warning'
-    })
-  }
-
-  if (form.ngaySinh) {
-    const bDate = new Date(form.ngaySinh)
-    const today = new Date()
-    today.setHours(23, 59, 59, 999)
-    if (bDate > today) {
-      return showAlert({
-        title: 'Thông tin chưa hợp lệ',
-        message: 'Ngày sinh không được lớn hơn ngày hiện tại!',
-        type: 'warning'
-      })
-    }
-  }
-
-  // 2. Validate toàn bộ địa chỉ nhận hàng
-  if (!form.nguoiNhan || !form.nguoiNhan.trim()) {
-    return showAlert({
-      title: 'Thông tin chưa hợp lệ',
-      message: 'Họ tên người nhận không được để trống!',
-      type: 'warning'
-    })
-  }
-
-  const phone = form.soDienThoaiNhan ? form.soDienThoaiNhan.trim() : ''
-  if (!phone) {
-    return showAlert({
-      title: 'Thông tin chưa hợp lệ',
-      message: 'Số điện thoại người nhận không được để trống!',
-      type: 'warning'
-    })
-  }
-  if (!/^\d+$/.test(phone)) {
-    return showAlert({
-      title: 'Thông tin chưa hợp lệ',
-      message: 'Số điện thoại chỉ được chứa các chữ số!',
-      type: 'warning'
-    })
-  }
-  if (!phone.startsWith('0')) {
-    return showAlert({
-      title: 'Thông tin chưa hợp lệ',
-      message: 'Số điện thoại phải bắt đầu bằng số 0!',
-      type: 'warning'
-    })
-  }
-  if (phone.length < 10) {
-    return showAlert({
-      title: 'Thông tin chưa hợp lệ',
-      message: 'Số điện thoại không được dưới 10 số (hiện tại có ' + phone.length + ' số)!',
-      type: 'warning'
-    })
-  }
-  if (phone.length > 11) {
-    return showAlert({
-      title: 'Thông tin chưa hợp lệ',
-      message: 'Số điện thoại không được trên 11 số (hiện tại có ' + phone.length + ' số)!',
-      type: 'warning'
-    })
-  }
-
-  if (!form.thanhPho || !form.thanhPho.trim()) {
-    return showAlert({
-      title: 'Thông tin chưa hợp lệ',
-      message: 'Tỉnh / Thành phố nhận hàng không được để trống!',
-      type: 'warning'
-    })
-  }
-
-  if (!form.huyen || !form.huyen.trim()) {
-    return showAlert({
-      title: 'Thông tin chưa hợp lệ',
-      message: 'Quận / Huyện nhận hàng không được để trống!',
-      type: 'warning'
-    })
-  }
-
-  if (!form.phuong || !form.phuong.trim()) {
-    return showAlert({
-      title: 'Thông tin chưa hợp lệ',
-      message: 'Phường / Xã nhận hàng không được để trống!',
-      type: 'warning'
-    })
-  }
-
-  if (!form.diaChiCuThe || !form.diaChiCuThe.trim()) {
-    return showAlert({
-      title: 'Thông tin chưa hợp lệ',
-      message: 'Địa chỉ cụ thể nhận hàng không được để trống!',
-      type: 'warning'
-    })
-  }
-
-  // Xác nhận lưu thông qua popup ở CHÍNH GIỮA TRANG
   const confirmed = await showConfirm({
     title: 'Xác nhận tạo mới khách hàng',
     message: `Bạn có chắc chắn muốn thêm khách hàng "${form.tenKhachHang.trim()}" vào hệ thống không?`,
@@ -414,13 +482,11 @@ async function handleSubmit() {
     const payload = {
       maKhachHang: form.maKhachHang,
       tenKhachHang: form.tenKhachHang.trim(),
-      email: email,
+      email: form.email.trim(),
+      soDienThoai: form.soDienThoai.trim(),
       gioiTinh: form.gioiTinh,
       ngaySinh: form.ngaySinh || undefined,
-      trangThai: form.trangThai,
-      nguoiNhan: form.nguoiNhan.trim(),
-      soDienThoaiNhan: phone,
-      soDienThoai: phone,
+      trangThai: 1,
       thanhPho: form.thanhPho.trim(),
       huyen: form.huyen.trim(),
       phuong: form.phuong.trim(),
@@ -456,43 +522,47 @@ async function handleSubmit() {
 
 onMounted(() => {
   fetchNextCode()
+  loadProvinces()
 })
 </script>
 
 <style scoped>
 .customer-page-wrapper {
-  padding: 1.5rem 1.75rem 3rem;
+  padding: 1.8rem 2.2rem 3.5rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);
   box-sizing: border-box;
 }
 
-.breadcrumb-header {
+.page-top-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  max-width: 1250px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.breadcrumb-left {
+.header-left {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1.2rem;
 }
 
 .btn-back {
   background: #ffffff;
   border: 1px solid var(--line, #e9e5db);
-  padding: 0.5rem 1rem;
+  padding: 0.55rem 1.1rem;
   border-radius: 8px;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-weight: 600;
   color: #496883;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
   transition: all 0.2s;
 }
 
@@ -503,23 +573,25 @@ onMounted(() => {
 
 .page-title {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: 1.45rem;
   font-weight: 700;
   color: var(--blue, #496883);
 }
 
 .form-container-card {
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 14px;
   border: 1px solid var(--line, #e9e5db);
-  padding: 1.6rem 1.8rem;
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+  padding: 2.2rem 2.5rem;
+  box-shadow: 0 2px 8px rgba(65, 60, 50, 0.03);
+  max-width: 1250px;
+  margin: 0 auto;
 }
 
 .form-layout-grid {
   display: grid;
   grid-template-columns: 240px 1fr;
-  gap: 1.8rem;
+  gap: 2.5rem;
   align-items: start;
 }
 
@@ -528,12 +600,12 @@ onMounted(() => {
   background: #faf8f4;
   border: 1px dashed #d6d0c4;
   border-radius: 12px;
-  padding: 1.5rem 1rem;
+  padding: 1.6rem 1rem;
   text-align: center;
 }
 
 .card-subtitle {
-  margin: 0 0 1.1rem;
+  margin: 0 0 1.2rem;
   font-size: 1rem;
   font-weight: 700;
   color: #496883;
@@ -543,12 +615,12 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.8rem;
 }
 
 .avatar-uploader-box {
-  width: 136px;
-  height: 136px;
+  width: 140px;
+  height: 140px;
   border-radius: 50%;
   margin: 0 auto;
   background: #eaf1f5;
@@ -582,17 +654,11 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
   color: #647b8c;
 }
 
-.avatar-placeholder-icon {
-  font-size: 2rem;
-  line-height: 1;
-}
-
 .avatar-placeholder-text {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: #496883;
 }
@@ -605,7 +671,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   font-weight: 600;
   opacity: 0;
   transition: opacity 0.2s ease;
@@ -619,12 +685,11 @@ onMounted(() => {
   background: none;
   border: none;
   color: #c94a4a;
-  font-size: 0.84rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  padding: 0.2rem 0.5rem;
+  padding: 0.2rem 0.6rem;
   border-radius: 4px;
-  transition: background 0.15s;
 }
 
 .btn-remove-avatar-link:hover {
@@ -635,40 +700,33 @@ onMounted(() => {
 .form-fields-panel {
   display: flex;
   flex-direction: column;
-  gap: 1.4rem;
+  gap: 1.8rem;
 }
 
 .section-card {
   border: 1px solid #ece8de;
-  border-radius: 10px;
-  padding: 1.25rem 1.4rem;
+  border-radius: 12px;
+  padding: 1.8rem 2rem;
   background-color: #ffffff;
 }
 
 .section-title {
-  margin: 0 0 1.2rem;
-  font-size: 1.05rem;
+  margin: 0 0 1.4rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: #384952;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.section-icon {
-  font-size: 1.1rem;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1rem 1.4rem;
+  gap: 1.4rem 1.8rem;
 }
 
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 .form-field.full-width {
@@ -676,12 +734,12 @@ onMounted(() => {
 }
 
 .form-field label {
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: #414d55;
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.4rem;
 }
 
 .required {
@@ -690,18 +748,24 @@ onMounted(() => {
 }
 
 .tag-auto {
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   color: #647b8c;
+  font-weight: normal;
+}
+
+.sub-hint {
+  font-size: 0.78rem;
+  color: #8c979d;
   font-weight: normal;
 }
 
 .form-field input,
 .form-field select {
-  height: 2.6rem;
+  height: 2.85rem;
   border: 1px solid var(--line, #dfdcd3);
   border-radius: 8px;
-  padding: 0 0.85rem;
-  font-size: 0.92rem;
+  padding: 0 0.95rem;
+  font-size: 0.95rem;
   color: #2b383e;
   background-color: #ffffff;
   outline: none;
@@ -715,6 +779,24 @@ onMounted(() => {
   box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
 }
 
+.form-field input.has-error,
+.form-field select.has-error {
+  border-color: #e53e3e !important;
+  background-color: #fffaf9;
+}
+
+.form-field input.has-error:focus,
+.form-field select.has-error:focus {
+  box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.15) !important;
+}
+
+.error-inline-msg {
+  font-size: 0.82rem;
+  color: #e53e3e;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
 .input-disabled {
   background-color: #f1ede4 !important;
   color: #7b868b !important;
@@ -722,18 +804,44 @@ onMounted(() => {
   font-weight: 600;
 }
 
+/* Radio Group */
+.gender-radio-group {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  height: 2.85rem;
+}
+
+.radio-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: #384952;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.radio-label input[type='radio'] {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: #496883;
+  cursor: pointer;
+  margin: 0;
+}
+
 .form-actions-bar {
   display: flex;
   justify-content: flex-end;
-  gap: 0.9rem;
-  padding-top: 0.5rem;
+  gap: 1rem;
+  padding-top: 0.8rem;
 }
 
 .btn {
-  height: 2.7rem;
-  padding: 0 1.6rem;
+  height: 2.85rem;
+  padding: 0 1.8rem;
   border-radius: 8px;
-  font-size: 0.95rem;
+  font-size: 0.98rem;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;

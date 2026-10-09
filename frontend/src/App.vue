@@ -138,9 +138,15 @@ const toggleMenu = (menu) => {
     <main class="main-content">
       <header class="top-header">
         <div class="header-right">
-          <span>Quản trị viên</span>
-          <span class="divider">|</span>
-          <a href="#">Xem website</a>
+          <div class="user-profile-badge">
+            <div class="user-avatar-circle" title="Tài khoản: Quản trị viên">
+              <span class="user-initials">AD</span>
+            </div>
+            <div class="user-info-text">
+              <span class="user-name">Quản trị viên</span>
+              <span class="user-role-label">Hệ thống</span>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -542,19 +548,55 @@ const toggleMenu = (menu) => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 9px;
-  font-size: 0.85rem !important;
-  color: #6c7477;
 }
 
-.header-right a {
-  color: #496883;
+.user-profile-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 4px 6px;
+  border-radius: 30px;
+  background-color: #faf8f5;
+  border: 1px solid #e9e5db;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.user-profile-badge:hover {
+  background-color: #f1ede4;
+  border-color: #496883;
+}
+
+.user-avatar-circle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #496883, #2f4557);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 700;
-  text-decoration: none;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.25);
 }
 
-.divider {
-  color: #d6d0c3;
+.user-info-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.user-name {
+  font-weight: 700;
+  color: #3b4950;
+  font-size: 0.86rem;
+}
+
+.user-role-label {
+  font-size: 0.72rem;
+  color: #839199;
 }
 
 .page-body {

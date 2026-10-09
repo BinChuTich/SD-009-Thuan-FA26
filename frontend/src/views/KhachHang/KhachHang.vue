@@ -10,24 +10,12 @@
     <!-- Khung Bộ lọc -->
     <div class="content-card filter-card">
       <div class="card-header-filter">
-        <div class="filter-icon-box">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
-          </svg>
-        </div>
-        <div class="filter-title-wrap">
-          <h3 class="filter-title">Bộ lọc tìm kiếm</h3>
-        </div>
+        <h3 class="filter-title">Bộ lọc tìm kiếm</h3>
       </div>
 
       <div class="filter-inputs-grid">
         <div class="form-field search-field">
           <div class="input-inner">
-            <span class="prefix-icon">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-              </svg>
-            </span>
             <input
               v-model="filters.keyword"
               type="text"
@@ -48,13 +36,13 @@
 
       <div class="filter-actions">
         <button class="btn btn-reset" @click="resetFilters">
-          <span class="btn-icon">↺</span> Đặt lại bộ lọc
+          Đặt lại bộ lọc
         </button>
         <button class="btn btn-export" :disabled="exporting" @click="exportExcel">
-          <span class="btn-icon">📥</span> {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
+          {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
         </button>
         <button class="btn btn-primary" @click="goToCreate">
-          <span>+</span> Thêm khách hàng
+          + Thêm khách hàng
         </button>
       </div>
     </div>
@@ -63,7 +51,6 @@
     <div class="content-card table-card">
       <div class="table-header-row">
         <div class="table-title-wrap">
-          <span class="header-icon">👥</span>
           <h3 class="table-title">Danh sách khách hàng</h3>
         </div>
       </div>
@@ -81,7 +68,7 @@
               <th style="width: 120px;">SĐT</th>
               <th>Địa chỉ</th>
               <th style="width: 120px; text-align: center;">Trạng thái</th>
-              <th style="width: 100px; text-align: center;">Hành động</th>
+              <th style="width: 130px; text-align: center;">Hành động</th>
             </tr>
           </thead>
           <tbody>
@@ -127,16 +114,20 @@
               </td>
               <td style="text-align: center;">
                 <div class="action-buttons">
-                  <button
-                    class="btn-circle-action btn-power"
-                    :title="item.trangThai === 1 ? 'Khóa tài khoản' : 'Mở khóa tài khoản'"
-                    @click="toggleStatus(item)"
+                  <!-- Switch Bật / Tắt trạng thái -->
+                  <label
+                    class="switch-toggle"
+                    :title="item.trangThai === 1 ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)'"
                   >
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-                      <line x1="12" y1="2" x2="12" y2="12"></line>
-                    </svg>
-                  </button>
+                    <input
+                      type="checkbox"
+                      :checked="item.trangThai === 1"
+                      @click.prevent="toggleStatus(item)"
+                    />
+                    <span class="slider-round"></span>
+                  </label>
+
+                  <!-- Nút Chỉnh sửa thông tin -->
                   <button
                     class="btn-circle-action btn-edit"
                     title="Chỉnh sửa khách hàng"
@@ -145,6 +136,18 @@
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                  </button>
+
+                  <!-- Nút Quản lý nhiều địa chỉ & Đặt địa chỉ mặc định -->
+                  <button
+                    class="btn-circle-action btn-address"
+                    title="Quản lý địa chỉ giao hàng"
+                    @click="openAddressModal(item)"
+                  >
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                      <circle cx="12" cy="10" r="3"></circle>
                     </svg>
                   </button>
                 </div>
@@ -173,14 +176,165 @@
         </div>
       </div>
     </div>
+
+    <!-- MODAL QUẢN LÝ ĐỊA CHỈ KHÁCH HÀNG -->
+    <Teleport to="body">
+      <div v-if="addressModalVisible" class="modal-backdrop" @click.self="closeAddressModal">
+        <div class="modal-card animate-pop">
+          <div class="modal-header">
+            <h3 class="modal-title">
+              Quản lý địa chỉ: {{ currentCustomer?.tenKhachHang }} ({{ currentCustomer?.maKhachHang }})
+            </h3>
+            <button class="modal-close-btn" @click="closeAddressModal">✕</button>
+          </div>
+
+          <div class="modal-body">
+            <!-- Thanh tác vụ trên: nút Thêm địa chỉ mới -->
+            <div class="address-actions-bar">
+              <span class="address-count-text">
+                Tổng cộng: {{ customerAddresses.length }} địa chỉ
+              </span>
+              <button
+                v-if="!showAddressForm"
+                class="btn btn-sm btn-primary"
+                @click="openAddAddressForm"
+              >
+                + Thêm địa chỉ mới
+              </button>
+            </div>
+
+            <!-- FORM THÊM / SỬA ĐỊA CHỈ (sử dụng API hành chính mới) -->
+            <div v-if="showAddressForm" class="address-form-box">
+              <h4 class="form-box-title">
+                {{ editingAddressId ? 'Chỉnh sửa địa chỉ' : 'Thêm địa chỉ mới' }}
+              </h4>
+              <div class="address-form-grid">
+                <div class="addr-field">
+                  <label>Tỉnh / Thành phố <span class="required">*</span></label>
+                  <select v-model="addrProvinceCode" @change="onAddrProvinceChange">
+                    <option value="">-- Chọn Tỉnh / Thành phố --</option>
+                    <option v-for="p in provincesList" :key="p.code" :value="p.code">
+                      {{ p.name }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="addr-field">
+                  <label>Quận / Huyện <span class="required">*</span></label>
+                  <select
+                    v-model="addrDistrictCode"
+                    :disabled="!addrProvinceCode"
+                    @change="onAddrDistrictChange"
+                  >
+                    <option value="">-- Chọn Quận / Huyện --</option>
+                    <option v-for="d in addrDistrictsList" :key="d.code" :value="d.code">
+                      {{ d.name }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="addr-field">
+                  <label>Phường / Xã <span class="required">*</span></label>
+                  <select
+                    v-model="addrWardCode"
+                    :disabled="!addrDistrictCode"
+                    @change="onAddrWardChange"
+                  >
+                    <option value="">-- Chọn Phường / Xã --</option>
+                    <option v-for="w in addrWardsList" :key="w.code" :value="w.code">
+                      {{ w.name }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="addr-field full-width">
+                  <label>Địa chỉ cụ thể <span class="required">*</span></label>
+                  <input
+                    v-model="addrForm.diaChiCuThe"
+                    type="text"
+                    placeholder="Số nhà, ngõ, tên đường..."
+                  />
+                </div>
+
+                <div class="addr-field full-width">
+                  <label class="checkbox-label">
+                    <input type="checkbox" v-model="addrForm.macDinh" />
+                    <span>Đặt làm địa chỉ mặc định</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="addr-form-actions">
+                <button class="btn btn-sm btn-secondary" @click="cancelAddressForm">
+                  Hủy
+                </button>
+                <button class="btn btn-sm btn-primary" :disabled="savingAddress" @click="saveAddress">
+                  {{ savingAddress ? 'Đang lưu...' : 'Lưu địa chỉ' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- DANH SÁCH ĐỊA CHỈ HIỆN CÓ -->
+            <div class="address-list-container">
+              <div v-if="loadingAddresses" class="addr-loading">
+                Đang tải danh sách địa chỉ...
+              </div>
+              <div v-else-if="!customerAddresses.length" class="addr-empty">
+                Khách hàng chưa có địa chỉ nào. Nhấn "+ Thêm địa chỉ mới" để tạo.
+              </div>
+              <div
+                v-for="addr in customerAddresses"
+                :key="addr.id"
+                class="address-item-card"
+                :class="{ 'is-default': addr.macDinh }"
+              >
+                <div class="addr-card-main">
+                  <div class="addr-card-header">
+                    <span v-if="addr.macDinh" class="badge-default-addr">Mặc định</span>
+                    <span class="addr-code">{{ addr.maDiaChi }}</span>
+                  </div>
+                  <div class="addr-card-detail">
+                    <strong>{{ addr.diaChiCuThe }}</strong>, {{ addr.phuong }}, {{ addr.huyen }}, {{ addr.thanhPho }}
+                  </div>
+                </div>
+
+                <div class="addr-card-actions">
+                  <button
+                    v-if="!addr.macDinh"
+                    class="btn-text-action btn-set-default"
+                    @click="setAsDefault(addr.id)"
+                  >
+                    Đặt làm mặc định
+                  </button>
+                  <button
+                    class="btn-text-action btn-edit-addr"
+                    @click="editAddress(addr)"
+                  >
+                    Sửa
+                  </button>
+                  <button
+                    v-if="!addr.macDinh"
+                    class="btn-text-action btn-del-addr"
+                    @click="deleteAddress(addr.id)"
+                  >
+                    Xóa
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
+import { getProvinces, getDistricts, getWards } from '@/services/provincesApi.js'
 
 const router = useRouter()
 const filters = ref({ keyword: '', status: '' })
@@ -191,6 +345,31 @@ const totalElements = ref(0)
 const totalPages = ref(0)
 const loading = ref(false)
 const exporting = ref(false)
+
+// Address Modal State
+const addressModalVisible = ref(false)
+const currentCustomer = ref(null)
+const customerAddresses = ref([])
+const loadingAddresses = ref(false)
+const showAddressForm = ref(false)
+const editingAddressId = ref(null)
+const savingAddress = ref(false)
+
+// Provinces for Address Form
+const provincesList = ref([])
+const addrDistrictsList = ref([])
+const addrWardsList = ref([])
+const addrProvinceCode = ref('')
+const addrDistrictCode = ref('')
+const addrWardCode = ref('')
+
+const addrForm = reactive({
+  thanhPho: '',
+  huyen: '',
+  phuong: '',
+  diaChiCuThe: '',
+  macDinh: false
+})
 
 const pageNumbers = computed(() => {
   const total = totalPages.value
@@ -272,25 +451,219 @@ function goToEdit(id) {
 
 async function toggleStatus(item) {
   const isLocking = item.trangThai === 1
-  const actionText = isLocking ? 'khóa tài khoản' : 'mở khóa tài khoản'
+  const actionText = isLocking ? 'khóa' : 'mở khóa'
 
   const confirmed = await showConfirm({
     title: isLocking ? 'Xác nhận khóa tài khoản' : 'Xác nhận mở khóa tài khoản',
-    message: `Bạn có chắc chắn muốn ${actionText} của khách hàng "${item.tenKhachHang}" (${item.maKhachHang}) không?`,
+    message: `Bạn có chắc chắn muốn ${actionText} khách hàng "${item.tenKhachHang}" (${item.maKhachHang}) không?`,
     type: isLocking ? 'warning' : 'question',
-    confirmText: isLocking ? 'Khóa tài khoản' : 'Mở khóa'
+    confirmText: isLocking ? 'Khóa' : 'Mở khóa'
   })
 
-  if (!confirmed) return
+  if (!confirmed) {
+    // Re-render switch position
+    item.trangThai = item.trangThai === 1 ? 1 : 0
+    return
+  }
 
   try {
     await api.patch(`/api/khach-hang/${item.id}/toggle-status`)
+    item.trangThai = item.trangThai === 1 ? 0 : 1
     showToast(`${isLocking ? 'Khóa' : 'Mở khóa'} khách hàng thành công!`, 'success')
-    await loadCustomers()
   } catch (e) {
     showAlert({
       title: 'Thao tác thất bại',
       message: e?.response?.data?.message || 'Không thể thay đổi trạng thái khách hàng.',
+      type: 'error'
+    })
+  }
+}
+
+// ADDRESS MANAGEMENT MODAL METHODS
+async function openAddressModal(item) {
+  currentCustomer.value = item
+  addressModalVisible.value = true
+  showAddressForm.value = false
+  editingAddressId.value = null
+  provincesList.value = await getProvinces()
+  await loadCustomerAddresses()
+}
+
+function closeAddressModal() {
+  addressModalVisible.value = false
+  currentCustomer.value = null
+}
+
+async function loadCustomerAddresses() {
+  if (!currentCustomer.value) return
+  loadingAddresses.value = true
+  try {
+    const res = await api.get(`/api/khach-hang/${currentCustomer.value.id}/dia-chi`)
+    customerAddresses.value = res.data || []
+  } catch (e) {
+    console.error('Lỗi tải danh sách địa chỉ:', e)
+  } finally {
+    loadingAddresses.value = false
+  }
+}
+
+function openAddAddressForm() {
+  editingAddressId.value = null
+  addrForm.thanhPho = ''
+  addrForm.huyen = ''
+  addrForm.phuong = ''
+  addrForm.diaChiCuThe = ''
+  addrForm.macDinh = customerAddresses.value.length === 0
+  addrProvinceCode.value = ''
+  addrDistrictCode.value = ''
+  addrWardCode.value = ''
+  addrDistrictsList.value = []
+  addrWardsList.value = []
+  showAddressForm.value = true
+}
+
+async function editAddress(addr) {
+  editingAddressId.value = addr.id
+  addrForm.thanhPho = addr.thanhPho
+  addrForm.huyen = addr.huyen
+  addrForm.phuong = addr.phuong
+  addrForm.diaChiCuThe = addr.diaChiCuThe
+  addrForm.macDinh = addr.macDinh
+  showAddressForm.value = true
+
+  // Match province
+  const matchP = provincesList.value.find(p => p.name === addr.thanhPho)
+  if (matchP) {
+    addrProvinceCode.value = matchP.code
+    addrDistrictsList.value = await getDistricts(matchP.code)
+
+    const matchD = addrDistrictsList.value.find(d => d.name === addr.huyen)
+    if (matchD) {
+      addrDistrictCode.value = matchD.code
+      addrWardsList.value = await getWards(matchD.code)
+
+      const matchW = addrWardsList.value.find(w => w.name === addr.phuong)
+      if (matchW) {
+        addrWardCode.value = matchW.code
+      }
+    }
+  }
+}
+
+function cancelAddressForm() {
+  showAddressForm.value = false
+  editingAddressId.value = null
+}
+
+async function onAddrProvinceChange() {
+  const p = provincesList.value.find(item => item.code === addrProvinceCode.value)
+  addrForm.thanhPho = p ? p.name : ''
+  addrDistrictCode.value = ''
+  addrWardCode.value = ''
+  addrForm.huyen = ''
+  addrForm.phuong = ''
+  addrDistrictsList.value = []
+  addrWardsList.value = []
+  if (addrProvinceCode.value) {
+    addrDistrictsList.value = await getDistricts(addrProvinceCode.value)
+  }
+}
+
+async function onAddrDistrictChange() {
+  const d = addrDistrictsList.value.find(item => item.code === addrDistrictCode.value)
+  addrForm.huyen = d ? d.name : ''
+  addrWardCode.value = ''
+  addrForm.phuong = ''
+  addrWardsList.value = []
+  if (addrDistrictCode.value) {
+    addrWardsList.value = await getWards(addrDistrictCode.value)
+  }
+}
+
+function onAddrWardChange() {
+  const w = addrWardsList.value.find(item => item.code === addrWardCode.value)
+  addrForm.phuong = w ? w.name : ''
+}
+
+async function saveAddress() {
+  if (!addrForm.thanhPho || !addrForm.thanhPho.trim()) {
+    return showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng chọn Tỉnh / Thành phố!', type: 'warning' })
+  }
+  if (!addrForm.huyen || !addrForm.huyen.trim()) {
+    return showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng chọn Quận / Huyện!', type: 'warning' })
+  }
+  if (!addrForm.phuong || !addrForm.phuong.trim()) {
+    return showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng chọn Phường / Xã!', type: 'warning' })
+  }
+  if (!addrForm.diaChiCuThe || !addrForm.diaChiCuThe.trim()) {
+    return showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng nhập địa chỉ cụ thể!', type: 'warning' })
+  }
+
+  savingAddress.value = true
+  try {
+    const payload = {
+      thanhPho: addrForm.thanhPho.trim(),
+      huyen: addrForm.huyen.trim(),
+      phuong: addrForm.phuong.trim(),
+      diaChiCuThe: addrForm.diaChiCuThe.trim(),
+      macDinh: addrForm.macDinh
+    }
+
+    if (editingAddressId.value) {
+      await api.put(`/api/khach-hang/${currentCustomer.value.id}/dia-chi/${editingAddressId.value}`, payload)
+      showToast('Cập nhật địa chỉ thành công!', 'success')
+    } else {
+      await api.post(`/api/khach-hang/${currentCustomer.value.id}/dia-chi`, payload)
+      showToast('Thêm địa chỉ thành công!', 'success')
+    }
+
+    showAddressForm.value = false
+    await loadCustomerAddresses()
+    await loadCustomers() // cập nhật lại địa chỉ hiển thị trên bảng
+  } catch (e) {
+    showAlert({
+      title: 'Lỗi lưu địa chỉ',
+      message: e?.response?.data?.message || 'Không thể lưu địa chỉ khách hàng.',
+      type: 'error'
+    })
+  } finally {
+    savingAddress.value = false
+  }
+}
+
+async function setAsDefault(addressId) {
+  try {
+    await api.put(`/api/khach-hang/${currentCustomer.value.id}/dia-chi/${addressId}/mac-dinh`)
+    showToast('Đã đặt làm địa chỉ mặc định!', 'success')
+    await loadCustomerAddresses()
+    await loadCustomers()
+  } catch (e) {
+    showAlert({
+      title: 'Lỗi',
+      message: e?.response?.data?.message || 'Không thể đặt địa chỉ mặc định.',
+      type: 'error'
+    })
+  }
+}
+
+async function deleteAddress(addressId) {
+  const confirmed = await showConfirm({
+    title: 'Xác nhận xóa địa chỉ',
+    message: 'Bạn có chắc chắn muốn xóa địa chỉ này khỏi danh sách không?',
+    type: 'danger',
+    confirmText: 'Xóa địa chỉ'
+  })
+  if (!confirmed) return
+
+  try {
+    await api.delete(`/api/khach-hang/${currentCustomer.value.id}/dia-chi/${addressId}`)
+    showToast('Đã xóa địa chỉ thành công!', 'success')
+    await loadCustomerAddresses()
+    await loadCustomers()
+  } catch (e) {
+    showAlert({
+      title: 'Không thể xóa',
+      message: e?.response?.data?.message || 'Có lỗi xảy ra khi xóa địa chỉ.',
       type: 'error'
     })
   }
@@ -329,7 +702,7 @@ onMounted(() => {
 
 <style scoped>
 .customer-page-wrapper {
-  padding: 1.25rem 1.75rem 2.5rem;
+  padding: 1.5rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);
@@ -337,46 +710,27 @@ onMounted(() => {
 }
 
 .breadcrumb-header {
-  margin-bottom: 1.2rem;
+  margin-bottom: 1.3rem;
 }
 
 .page-title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: var(--blue, #496883);
 }
 
 .content-card {
   background: #ffffff;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid var(--line, #e9e5db);
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
-  padding: 1.4rem 1.6rem;
-  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 4px rgba(65, 60, 50, 0.03);
+  padding: 1.5rem 1.8rem;
+  margin-bottom: 1.4rem;
 }
 
 .card-header-filter {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
   margin-bottom: 1.2rem;
-}
-
-.filter-icon-box {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background-color: #f7eee1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #b18b52;
-  flex-shrink: 0;
-}
-
-.filter-icon-box svg {
-  display: block;
 }
 
 .filter-title {
@@ -384,7 +738,6 @@ onMounted(() => {
   font-weight: 700;
   margin: 0;
   color: #43545c;
-  line-height: 1;
 }
 
 .filter-inputs-grid {
@@ -407,31 +760,10 @@ onMounted(() => {
   width: 100%;
 }
 
-.prefix-icon {
-  position: absolute;
-  left: 0.85rem;
-  top: 50%;
-  transform: translateY(-50%);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  color: #9aa0a0;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.prefix-icon svg {
-  display: block;
-  width: 18px;
-  height: 18px;
-}
-
 .form-field input,
 .form-field select {
   width: 100%;
-  height: 2.6rem;
+  height: 2.7rem;
   border: 1px solid var(--line, #e9e5db);
   border-radius: 8px;
   padding: 0 0.95rem;
@@ -443,117 +775,111 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
-.search-field input {
-  padding-left: 2.5rem;
-}
-
 .form-field input:focus,
 .form-field select:focus {
-  border-color: var(--blue, #496883);
+  border-color: #496883;
   background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
 }
 
 .filter-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 0.8rem;
   align-items: center;
-  gap: 0.75rem;
-  border-top: 1px dashed #efeae0;
-  padding-top: 1.1rem;
 }
 
 .btn {
-  height: 2.5rem;
-  padding: 0 1.35rem;
+  height: 2.6rem;
+  padding: 0 1.25rem;
   border-radius: 8px;
   font-size: 0.92rem;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   transition: all 0.2s;
+  border: none;
+}
+
+.btn-sm {
+  height: 2.2rem;
+  padding: 0 0.9rem;
+  font-size: 0.85rem;
 }
 
 .btn-reset {
-  border: 1px solid #dfd5c2;
-  background-color: #fff8eb;
-  color: #957b48;
+  background-color: #f4efe6;
+  color: #6d6352;
+  border: 1px solid #e2dacd;
 }
 .btn-reset:hover {
-  background-color: #faeed7;
+  background-color: #ebe3d6;
 }
 
 .btn-export {
-  background-color: #edf5ef;
-  color: #558764;
-  border: 1px solid #d2e5d6;
+  background-color: #eaf1f4;
+  color: #3f5d75;
+  border: 1px solid #d0dfe6;
 }
 .btn-export:hover {
-  background-color: #deede1;
+  background-color: #dde7ec;
 }
 
 .btn-primary {
-  background-color: var(--blue, #496883);
-  border: none;
+  background-color: #496883;
   color: #ffffff;
 }
 .btn-primary:hover {
   background-color: #38536b;
 }
 
+.btn-secondary {
+  background-color: #f0ece3;
+  color: #555e62;
+  border: 1px solid #dbd4c5;
+}
+
 .table-header-row {
-  margin-bottom: 1.1rem;
-}
-
-.table-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-}
-
-.header-icon {
-  font-size: 1.15rem;
+  margin-bottom: 1.2rem;
 }
 
 .table-title {
-  font-size: 1.05rem;
-  font-weight: 700;
   margin: 0;
-  color: #3c4d55;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #384952;
 }
 
 .table-responsive {
+  width: 100%;
   overflow-x: auto;
 }
 
 .custom-table {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 0.95rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.92rem;
 }
 
 .custom-table th {
-  background-color: #faf9f6;
-  color: #6f7c82;
+  background-color: #faf8f4;
+  color: #496883;
   font-weight: 700;
-  padding: 0.95rem 1rem;
+  padding: 0.85rem 0.9rem;
+  border-bottom: 2px solid #e9e5db;
   text-align: left;
-  border-bottom: 1px solid #efede7;
-  font-size: 0.95rem;
   white-space: nowrap;
 }
 
 .custom-table td {
-  padding: 1.05rem 1rem;
-  border-bottom: 1px solid #f2f0eb;
-  color: #4b585e;
+  padding: 0.85rem 0.9rem;
+  border-bottom: 1px solid #f0ede6;
+  color: #3d4a50;
   vertical-align: middle;
-}
-
-.custom-table tr:hover td {
-  background-color: #fcfbf8;
 }
 
 .avatar-cell {
@@ -562,138 +888,146 @@ onMounted(() => {
   align-items: center;
 }
 
-.avatar-placeholder {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background-color: #eaf1f5;
-  color: var(--blue, #496883);
-  font-size: 0.85rem;
-  font-weight: 700;
-  display: grid;
-  place-items: center;
-}
-
 .avatar-img {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   object-fit: cover;
-  border: 1px solid #d8e2e6;
+  border: 1px solid #e0dad0;
 }
 
-.font-bold {
+.avatar-placeholder {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #eaf1f5;
+  color: #496883;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 700;
+  font-size: 0.8rem;
+  border: 1px solid #d4e1e8;
 }
 
-.font-medium {
-  font-weight: 600;
-}
-
-.text-blue {
-  color: var(--blue, #496883);
-  font-family: monospace, sans-serif;
-  letter-spacing: 0.4px;
-}
-
-.text-dark {
-  color: #2b383e;
-}
-
-.text-email {
-  color: #556268;
-  max-width: 190px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.text-address {
-  color: #556268;
-  line-height: 1.45;
-  max-width: 320px;
-}
-
-.text-muted {
-  color: #9aa0a0;
-}
+.text-blue { color: #496883; }
+.text-dark { color: #222b30; }
+.text-muted { color: #88959c; }
+.font-bold { font-weight: 700; }
+.font-medium { font-weight: 600; }
 
 .badge-status {
   display: inline-block;
-  font-size: 0.82rem;
-  font-weight: 700;
-  padding: 0.35rem 0.85rem;
-  border-radius: 14px;
-  white-space: nowrap;
+  padding: 0.28rem 0.65rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
-
 .status-active {
-  background-color: #edf6ef;
-  color: #4c8a5a;
+  background-color: #e6f6ee;
+  color: #1b7a4b;
 }
-
 .status-inactive {
-  background-color: #f7eeee;
-  color: #a65d5d;
+  background-color: #faecec;
+  color: #b53838;
 }
 
 .action-buttons {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
+}
+
+/* SWITCH TOGGLE */
+.switch-toggle {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.switch-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider-round {
+  position: absolute;
+  inset: 0;
+  background-color: #d1d5db;
+  border-radius: 22px;
+  transition: all 0.25s ease;
+}
+
+.slider-round::before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: all 0.25s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.switch-toggle input:checked + .slider-round {
+  background-color: #2e9f65;
+}
+
+.switch-toggle input:checked + .slider-round::before {
+  transform: translateX(16px);
 }
 
 .btn-circle-action {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 6px;
-  border: 1px solid var(--line, #e9e5db);
-  background-color: #ffffff;
-  color: #556268;
+  border: 1px solid transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
+  background-color: #f7f5ee;
 }
 
-.btn-circle-action svg {
-  display: block;
+.btn-edit {
+  color: #496883;
+  border-color: #d8e2e8;
 }
-
-.btn-power:hover {
-  border-color: #e09f3e;
-  background-color: #fff8eb;
-  color: #b57a1b;
-  transform: scale(1.08);
-}
-
 .btn-edit:hover {
-  border-color: #496883;
-  background-color: #eef4f8;
-  color: #38536b;
-  transform: scale(1.08);
+  background-color: #496883;
+  color: #ffffff;
 }
 
-.btn-view:hover {
-  border-color: #627d98;
-  background-color: #f1f5f9;
-  color: #243b53;
-  transform: scale(1.08);
+.btn-address {
+  color: #9c6c22;
+  border-color: #ecd9b8;
+  background-color: #fff9ed;
+}
+.btn-address:hover {
+  background-color: #b37e28;
+  color: #ffffff;
 }
 
 .pagination-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
-  padding-top: 1.1rem;
+  margin-top: 1.4rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f0ede6;
 }
 
 .pagination-info {
-  color: #7c878b;
   font-size: 0.88rem;
+  color: #7b888f;
 }
 
 .pagination-buttons {
@@ -702,30 +1036,269 @@ onMounted(() => {
 }
 
 .page-btn {
-  min-width: 34px;
-  height: 34px;
-  border: 1px solid var(--line, #e9e5db);
-  background: #fff;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 0.5rem;
+  border: 1px solid #e4dfd5;
+  background-color: #ffffff;
   color: #496883;
-  border-radius: 7px;
-  cursor: pointer;
+  border-radius: 6px;
+  font-size: 0.88rem;
   font-weight: 600;
+  cursor: pointer;
 }
-
 .page-btn.active {
-  background: #496883;
-  color: #fff;
+  background-color: #496883;
+  color: #ffffff;
   border-color: #496883;
 }
-
 .page-btn:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-@media (max-width: 768px) {
-  .filter-inputs-grid {
-    grid-template-columns: 1fr;
-  }
+/* MODAL STYLES */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(30, 41, 48, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1.5rem;
+}
+
+.modal-card {
+  background-color: #ffffff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 680px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.2rem 1.6rem;
+  border-bottom: 1px solid #eee9e0;
+  background-color: #faf8f4;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #496883;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: #8c979d;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+}
+.modal-close-btn:hover {
+  color: #c94a4a;
+}
+
+.modal-body {
+  padding: 1.5rem 1.6rem;
+  overflow-y: auto;
+}
+
+.address-actions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.2rem;
+}
+
+.address-count-text {
+  font-size: 0.9rem;
+  color: #647b8c;
+  font-weight: 600;
+}
+
+.address-form-box {
+  background-color: #faf8f5;
+  border: 1px solid #e8e2d5;
+  border-radius: 10px;
+  padding: 1.25rem 1.4rem;
+  margin-bottom: 1.4rem;
+}
+
+.form-box-title {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #384952;
+}
+
+.address-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.9rem;
+}
+
+.addr-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.addr-field.full-width {
+  grid-column: span 3;
+}
+
+.addr-field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #414d55;
+}
+
+.addr-field input,
+.addr-field select {
+  height: 2.5rem;
+  border: 1px solid #d9d4c7;
+  border-radius: 6px;
+  padding: 0 0.8rem;
+  font-size: 0.9rem;
+  background-color: #ffffff;
+  outline: none;
+}
+.addr-field input:focus,
+.addr-field select:focus {
+  border-color: #496883;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+  font-weight: 600;
+  color: #384952;
+}
+
+.checkbox-label input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #496883;
+}
+
+.addr-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.address-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.address-item-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.2rem;
+  border: 1px solid #ebe5d8;
+  border-radius: 10px;
+  background-color: #ffffff;
+  transition: all 0.2s;
+}
+
+.address-item-card.is-default {
+  border-color: #496883;
+  background-color: #f7fafc;
+}
+
+.addr-card-main {
+  flex: 1;
+}
+
+.addr-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.35rem;
+}
+
+.badge-default-addr {
+  background-color: #eaf1f5;
+  color: #496883;
+  border: 1px solid #496883;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+}
+
+.addr-code {
+  font-size: 0.82rem;
+  color: #7b8b93;
+}
+
+.addr-card-detail {
+  font-size: 0.92rem;
+  color: #333d42;
+  line-height: 1.4;
+}
+
+.addr-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-text-action {
+  background: none;
+  border: none;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.btn-set-default {
+  color: #496883;
+}
+.btn-set-default:hover {
+  background-color: #eaf1f4;
+}
+
+.btn-edit-addr {
+  color: #8c713b;
+}
+.btn-edit-addr:hover {
+  background-color: #fcf4e6;
+}
+
+.btn-del-addr {
+  color: #c94a4a;
+}
+.btn-del-addr:hover {
+  background-color: #fde8e8;
+}
+
+.addr-loading,
+.addr-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #88969c;
+  font-size: 0.92rem;
 }
 </style>

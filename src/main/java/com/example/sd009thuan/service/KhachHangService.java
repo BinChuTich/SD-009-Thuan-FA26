@@ -1,5 +1,6 @@
 package com.example.sd009thuan.service;
 
+import com.example.sd009thuan.dto.DiaChiKhachHangDto;
 import com.example.sd009thuan.dto.KhachHangRequest;
 import com.example.sd009thuan.dto.KhachHangResponse;
 import com.example.sd009thuan.entity.DiaChiKhachHang;
@@ -13,10 +14,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.Period;
 import java.util.List;
 import java.util.Optional;
 
@@ -56,7 +58,7 @@ public class KhachHangService {
         x.setTenKhachHang(req.tenKhachHang().trim());
         x.setEmail(blankToNull(req.email()));
         x.setMatKhau(blankToNull(req.matKhau()) != null ? req.matKhau() : "123456");
-        String phone = blankToNull(req.soDienThoaiNhan()) != null ? req.soDienThoaiNhan() : req.soDienThoai();
+        String phone = blankToNull(req.soDienThoai()) != null ? req.soDienThoai() : req.soDienThoaiNhan();
         x.setSoDienThoai(blankToNull(phone));
         String imageUrl = fileStorageService.storeCustomerImage(file);
         x.setAnhKhachHang(imageUrl != null ? imageUrl : blankToNull(req.anhKhachHang()));
@@ -97,8 +99,8 @@ public class KhachHangService {
             x.setEmail(blankToNull(req.email()));
         }
         if (blankToNull(req.matKhau()) != null) x.setMatKhau(req.matKhau());
-        if (req.soDienThoaiNhan() != null || req.soDienThoai() != null) {
-            String phone = req.soDienThoaiNhan() != null ? req.soDienThoaiNhan() : req.soDienThoai();
+        if (req.soDienThoai() != null || req.soDienThoaiNhan() != null) {
+            String phone = req.soDienThoai() != null ? req.soDienThoai() : req.soDienThoaiNhan();
             validateSoDienThoai(phone);
             x.setSoDienThoai(blankToNull(phone));
         }
@@ -110,7 +112,15 @@ public class KhachHangService {
         } else if (blankToNull(req.anhKhachHang()) != null) {
             x.setAnhKhachHang(blankToNull(req.anhKhachHang()));
         }
-        if (req.ngaySinh() != null) x.setNgaySinh(req.ngaySinh());
+        if (req.ngaySinh() != null) {
+            if (req.ngaySinh().isAfter(LocalDate.now())) {
+                throw new IllegalArgumentException("Ngày sinh không được lớn hơn ngày hiện tại");
+            }
+            if (Period.between(req.ngaySinh(), LocalDate.now()).getYears() < 15) {
+                throw new IllegalArgumentException("Khách hàng phải từ 15 tuổi trở lên");
+            }
+            x.setNgaySinh(req.ngaySinh());
+        }
         if (req.gioiTinh() != null) x.setGioiTinh(req.gioiTinh());
         if (req.trangThai() != null) x.setTrangThai(req.trangThai());
         x.setNgayCapNhat(Instant.now());
@@ -149,6 +159,115 @@ public class KhachHangService {
                 .stream().map(this::toResponse).toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<DiaChiKhachHangDto> getAddresses(Long customerId) {
+        find(customerId);
+        return addressRepo.findByIdKhachHangIdAndTrangThaiOrderByMacDinhDescIdDesc(customerId, 1)
+                .stream().map(this::toAddressDto).toList();
+    }
+
+    @Transactional
+    public DiaChiKhachHangDto addAddress(Long customerId, DiaChiKhachHangDto dto) {
+        KhachHang customer = find(customerId);
+        validateAddressDto(dto);
+        List<DiaChiKhachHang> existing = addressRepo.findByIdKhachHangIdAndTrangThaiOrderByMacDinhDescIdDesc(customerId, 1);
+        boolean isFirst = existing.isEmpty();
+        boolean setAsDefault = isFirst || Boolean.TRUE.equals(dto.macDinh());
+
+        if (setAsDefault) {
+            existing.forEach(a -> {
+                a.setMacDinh(false);
+                addressRepo.save(a);
+            });
+        }
+
+        DiaChiKhachHang addr = new DiaChiKhachHang();
+        addr.setIdKhachHang(customer);
+        addr.setMaDiaChi("DC" + customerId + "_" + (System.currentTimeMillis() % 10000));
+        addr.setThanhPho(dto.thanhPho().trim());
+        addr.setHuyen(dto.huyen().trim());
+        addr.setPhuong(dto.phuong().trim());
+        addr.setDiaChiCuThe(dto.diaChiCuThe().trim());
+        addr.setMacDinh(setAsDefault);
+        addr.setTrangThai(1);
+        return toAddressDto(addressRepo.save(addr));
+    }
+
+    @Transactional
+    public DiaChiKhachHangDto updateAddress(Long customerId, Long addressId, DiaChiKhachHangDto dto) {
+        find(customerId);
+        validateAddressDto(dto);
+        DiaChiKhachHang addr = addressRepo.findById(addressId)
+                .filter(a -> a.getIdKhachHang().getId().equals(customerId))
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy địa chỉ của khách hàng"));
+
+        if (Boolean.TRUE.equals(dto.macDinh())) {
+            List<DiaChiKhachHang> existing = addressRepo.findByIdKhachHangIdAndTrangThaiOrderByMacDinhDescIdDesc(customerId, 1);
+            existing.forEach(a -> {
+                if (!a.getId().equals(addressId)) {
+                    a.setMacDinh(false);
+                    addressRepo.save(a);
+                }
+            });
+            addr.setMacDinh(true);
+        }
+
+        addr.setThanhPho(dto.thanhPho().trim());
+        addr.setHuyen(dto.huyen().trim());
+        addr.setPhuong(dto.phuong().trim());
+        addr.setDiaChiCuThe(dto.diaChiCuThe().trim());
+        return toAddressDto(addressRepo.save(addr));
+    }
+
+    @Transactional
+    public void setDefaultAddress(Long customerId, Long addressId) {
+        find(customerId);
+        DiaChiKhachHang target = addressRepo.findById(addressId)
+                .filter(a -> a.getIdKhachHang().getId().equals(customerId))
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy địa chỉ của khách hàng"));
+
+        List<DiaChiKhachHang> existing = addressRepo.findByIdKhachHangIdAndTrangThaiOrderByMacDinhDescIdDesc(customerId, 1);
+        existing.forEach(a -> {
+            a.setMacDinh(a.getId().equals(addressId));
+            addressRepo.save(a);
+        });
+    }
+
+    @Transactional
+    public void deleteAddress(Long customerId, Long addressId) {
+        find(customerId);
+        DiaChiKhachHang addr = addressRepo.findById(addressId)
+                .filter(a -> a.getIdKhachHang().getId().equals(customerId))
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy địa chỉ"));
+        if (Boolean.TRUE.equals(addr.getMacDinh())) {
+            throw new IllegalArgumentException("Không thể xóa địa chỉ đang được đặt làm mặc định");
+        }
+        addr.setTrangThai(0);
+        addressRepo.save(addr);
+    }
+
+    private void validateAddressDto(DiaChiKhachHangDto dto) {
+        if (dto == null) throw new IllegalArgumentException("Thông tin địa chỉ không được để trống");
+        if (blankToNull(dto.thanhPho()) == null) throw new IllegalArgumentException("Tỉnh / Thành phố không được để trống");
+        if (blankToNull(dto.huyen()) == null) throw new IllegalArgumentException("Quận / Huyện không được để trống");
+        if (blankToNull(dto.phuong()) == null) throw new IllegalArgumentException("Phường / Xã không được để trống");
+        if (blankToNull(dto.diaChiCuThe()) == null) throw new IllegalArgumentException("Địa chỉ cụ thể không được để trống");
+    }
+
+    private DiaChiKhachHangDto toAddressDto(DiaChiKhachHang a) {
+        return new DiaChiKhachHangDto(
+                a.getId(),
+                a.getIdKhachHang().getId(),
+                a.getMaDiaChi(),
+                a.getThanhPho(),
+                a.getHuyen(),
+                a.getPhuong(),
+                a.getDiaChiCuThe(),
+                a.getMacDinh(),
+                a.getTrangThai()
+        );
+    }
+
     private void validateRequired(KhachHangRequest req) {
         if (blankToNull(req.tenKhachHang()) == null) {
             throw new IllegalArgumentException("Họ tên khách hàng không được để trống");
@@ -159,22 +278,27 @@ public class KhachHangService {
         if (!req.email().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
             throw new IllegalArgumentException("Email khách hàng không đúng định dạng");
         }
-        if (blankToNull(req.nguoiNhan()) == null) {
-            throw new IllegalArgumentException("Họ tên người nhận không được để trống");
+        String phone = blankToNull(req.soDienThoai()) != null ? req.soDienThoai() : req.soDienThoaiNhan();
+        validateSoDienThoai(phone);
+        if (req.ngaySinh() != null) {
+            if (req.ngaySinh().isAfter(LocalDate.now())) {
+                throw new IllegalArgumentException("Ngày sinh không được lớn hơn ngày hiện tại");
+            }
+            if (Period.between(req.ngaySinh(), LocalDate.now()).getYears() < 15) {
+                throw new IllegalArgumentException("Khách hàng phải từ 15 tuổi trở lên");
+            }
         }
-        String phoneNhan = blankToNull(req.soDienThoaiNhan()) != null ? req.soDienThoaiNhan() : req.soDienThoai();
-        validateSoDienThoai(phoneNhan);
         if (blankToNull(req.thanhPho()) == null) {
-            throw new IllegalArgumentException("Tỉnh / Thành phố nhận hàng không được để trống");
+            throw new IllegalArgumentException("Tỉnh / Thành phố không được để trống");
         }
         if (blankToNull(req.huyen()) == null) {
-            throw new IllegalArgumentException("Quận / Huyện nhận hàng không được để trống");
+            throw new IllegalArgumentException("Quận / Huyện không được để trống");
         }
         if (blankToNull(req.phuong()) == null) {
-            throw new IllegalArgumentException("Phường / Xã nhận hàng không được để trống");
+            throw new IllegalArgumentException("Phường / Xã không được để trống");
         }
         if (blankToNull(req.diaChiCuThe()) == null) {
-            throw new IllegalArgumentException("Địa chỉ cụ thể nhận hàng không được để trống");
+            throw new IllegalArgumentException("Địa chỉ cụ thể không được để trống");
         }
     }
 
@@ -187,14 +311,6 @@ public class KhachHangService {
             if (exists) throw new IllegalArgumentException("Mã khách hàng đã tồn tại");
         }
 
-        String account = blankToNull(req.taiKhoan());
-        if (account != null) {
-            boolean exists = currentId == null
-                    ? repo.existsByTaiKhoanIgnoreCase(account)
-                    : repo.existsByTaiKhoanIgnoreCaseAndIdNot(account, currentId);
-            if (exists) throw new IllegalArgumentException("Tài khoản khách hàng đã tồn tại");
-        }
-
         String email = blankToNull(req.email());
         if (email != null) {
             boolean exists = currentId == null
@@ -203,8 +319,13 @@ public class KhachHangService {
             if (exists) throw new IllegalArgumentException("Email khách hàng đã tồn tại");
         }
 
-        if (req.ngaySinh() != null && req.ngaySinh().isAfter(java.time.LocalDate.now())) {
-            throw new IllegalArgumentException("Ngày sinh không được lớn hơn ngày hiện tại");
+        if (req.ngaySinh() != null) {
+            if (req.ngaySinh().isAfter(LocalDate.now())) {
+                throw new IllegalArgumentException("Ngày sinh không được lớn hơn ngày hiện tại");
+            }
+            if (Period.between(req.ngaySinh(), LocalDate.now()).getYears() < 15) {
+                throw new IllegalArgumentException("Khách hàng phải từ 15 tuổi trở lên");
+            }
         }
     }
 
@@ -214,13 +335,13 @@ public class KhachHangService {
     }
 
     private void saveDefaultAddress(KhachHang customer, KhachHangRequest req) {
+        if (blankToNull(req.thanhPho()) == null && blankToNull(req.diaChiCuThe()) == null) {
+            return;
+        }
         Optional<DiaChiKhachHang> old = addressRepo.findFirstByIdKhachHangIdAndMacDinhTrueAndTrangThai(customer.getId(), 1);
         DiaChiKhachHang address = old.orElseGet(DiaChiKhachHang::new);
         address.setIdKhachHang(customer);
         address.setMaDiaChi("DC" + customer.getId());
-        if (blankToNull(req.nguoiNhan()) != null) address.setTenNguoiNhan(blankToNull(req.nguoiNhan()));
-        String phoneNhan = blankToNull(req.soDienThoaiNhan()) != null ? req.soDienThoaiNhan() : req.soDienThoai();
-        if (phoneNhan != null) address.setSoDienThoaiNhan(blankToNull(phoneNhan));
         if (blankToNull(req.thanhPho()) != null) address.setThanhPho(blankToNull(req.thanhPho()));
         if (blankToNull(req.huyen()) != null) address.setHuyen(blankToNull(req.huyen()));
         if (blankToNull(req.phuong()) != null) address.setPhuong(blankToNull(req.phuong()));
@@ -272,4 +393,3 @@ public class KhachHangService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 }
-

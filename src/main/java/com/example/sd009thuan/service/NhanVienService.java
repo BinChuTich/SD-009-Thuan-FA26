@@ -17,17 +17,20 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Random;
 
 @Service
 public class NhanVienService {
     private final NhanVienRepository repo;
     private final VaiTroRepository roleRepo;
     private final FileStorageService fileStorageService;
+    private final EmailService emailService;
 
-    public NhanVienService(NhanVienRepository repo, VaiTroRepository roleRepo, FileStorageService fileStorageService) {
+    public NhanVienService(NhanVienRepository repo, VaiTroRepository roleRepo, FileStorageService fileStorageService, EmailService emailService) {
         this.repo = repo;
         this.roleRepo = roleRepo;
         this.fileStorageService = fileStorageService;
+        this.emailService = emailService;
     }
 
     @Transactional(readOnly = true)
@@ -68,7 +71,7 @@ public class NhanVienService {
             throw new IllegalArgumentException("Nhân viên phải từ đủ 18 tuổi trở lên");
         }
         if (blank(req.queQuan()) == null) {
-            throw new IllegalArgumentException("Tỉnh / Thành phố (Quê quán) không được để trống");
+            throw new IllegalArgumentException("Tỉnh / Thành phố không được để trống");
         }
         if (blank(req.phuong()) == null) {
             throw new IllegalArgumentException("Phường / Xã không được để trống");
@@ -90,12 +93,18 @@ public class NhanVienService {
 
         NhanVien x = new NhanVien();
         x.setIdVaiTro(role);
-        String code = blank(req.maNhanVien()) == null ? nextCode() : req.maNhanVien().trim();
+
+        // Mã nhân viên: tên viết tắt tự sinh theo họ tên + số cộng thêm 1 so với mã đã tồn tại
+        String code = generateEmployeeCode(req.tenNhanVien());
         x.setMaNhanVien(code);
-        String account = blank(req.tenTaiKhoan());
-        x.setTenTaiKhoan(account != null ? account : code.toLowerCase());
+
+        // Tên tài khoản và mật khẩu do hệ thống cấp qua email, không thể thay đổi
+        String account = code.toLowerCase();
+        x.setTenTaiKhoan(account);
+        String generatedPassword = generateRandomPassword();
+        x.setMatKhau(generatedPassword);
+
         x.setTenNhanVien(req.tenNhanVien().trim());
-        x.setMatKhau(blank(req.matKhau()) == null ? "123456" : req.matKhau());
         x.setEmail(blank(req.email()));
         x.setSoDienThoai(blank(req.soDienThoai()));
         String imageUrl = fileStorageService.storeEmployeeImage(file);
@@ -108,7 +117,12 @@ public class NhanVienService {
         x.setTrangThai(req.trangThai() == null ? 1 : req.trangThai());
         x.setNgayTao(Instant.now());
         x.setNguoiTao("admin");
-        return toResponse(repo.save(x));
+        x = repo.save(x);
+
+        // Gửi email thông tin tài khoản cho nhân viên
+        emailService.sendAccountInfoEmail(x.getEmail(), x.getTenNhanVien(), code, account, generatedPassword);
+
+        return toResponse(x);
     }
 
     @Transactional
@@ -119,10 +133,8 @@ public class NhanVienService {
             VaiTro role = roleRepo.findById(req.idVaiTro()).orElseThrow(() -> new EntityNotFoundException("Không tìm thấy vai trò"));
             x.setIdVaiTro(role);
         }
-        if (blank(req.maNhanVien()) != null) x.setMaNhanVien(req.maNhanVien().trim());
-        if (blank(req.tenTaiKhoan()) != null) x.setTenTaiKhoan(req.tenTaiKhoan().trim());
+        // Mã nhân viên, tên tài khoản, mật khẩu do hệ thống cấp, KHÔNG THỂ THAY ĐỔI
         if (blank(req.tenNhanVien()) != null) x.setTenNhanVien(req.tenNhanVien().trim());
-        if (blank(req.matKhau()) != null) x.setMatKhau(req.matKhau());
         if (blank(req.email()) != null) {
             if (!req.email().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
                 throw new IllegalArgumentException("Email nhân viên không đúng định dạng");
@@ -185,20 +197,67 @@ public class NhanVienService {
     }
 
     private void validateUnique(NhanVienRequest req, Long currentId) {
-        String code = blank(req.maNhanVien());
-        if (code != null) repo.findAll().stream().filter(x -> code.equalsIgnoreCase(x.getMaNhanVien()) && !x.getId().equals(currentId)).findAny()
-                .ifPresent(x -> { throw new IllegalArgumentException("Mã nhân viên đã tồn tại"); });
-        String account = blank(req.tenTaiKhoan());
-        if (account != null) repo.findAll().stream().filter(x -> account.equalsIgnoreCase(x.getTenTaiKhoan()) && !x.getId().equals(currentId)).findAny()
-                .ifPresent(x -> { throw new IllegalArgumentException("Tên tài khoản đã tồn tại"); });
         String email = blank(req.email());
         if (email != null) repo.findAll().stream().filter(x -> email.equalsIgnoreCase(x.getEmail()) && !x.getId().equals(currentId)).findAny()
                 .ifPresent(x -> { throw new IllegalArgumentException("Email đã tồn tại"); });
     }
 
+    public static String removeAccents(String text) {
+        if (text == null) return "";
+        String normalized = java.text.Normalizer.normalize(text.trim(), java.text.Normalizer.Form.NFD);
+        String pattern = "\\p{InCombiningDiacriticalMarks}+";
+        String withoutAccents = normalized.replaceAll(pattern, "");
+        return withoutAccents.replace("đ", "d").replace("Đ", "d");
+    }
+
+    public static String generateEmployeePrefix(String fullName) {
+        if (fullName == null || fullName.isBlank()) return "nv";
+        String clean = removeAccents(fullName.toLowerCase()).replaceAll("[^a-z\\s]", " ").trim();
+        String[] parts = clean.split("\\s+");
+        if (parts.length == 0 || parts[0].isEmpty()) return "nv";
+        if (parts.length == 1) return parts[0];
+
+        String firstName = parts[parts.length - 1];
+        StringBuilder initials = new StringBuilder();
+        for (int i = 0; i < parts.length - 1; i++) {
+            if (!parts[i].isEmpty()) {
+                initials.append(parts[i].charAt(0));
+            }
+        }
+        return firstName + initials.toString();
+    }
+
+    public String generateEmployeeCode(String fullName) {
+        String prefix = generateEmployeePrefix(fullName);
+        List<NhanVien> all = repo.findAll();
+        int maxIndex = 0;
+        for (NhanVien nv : all) {
+            String code = nv.getMaNhanVien();
+            if (code != null) {
+                String lower = code.toLowerCase().trim();
+                if (lower.startsWith(prefix)) {
+                    String numPart = lower.substring(prefix.length());
+                    if (numPart.matches("\\d+")) {
+                        try {
+                            int val = Integer.parseInt(numPart);
+                            if (val > maxIndex) {
+                                maxIndex = val;
+                            }
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
+        }
+        return prefix + (maxIndex + 1);
+    }
+
+    private String generateRandomPassword() {
+        int randomNum = 100000 + new Random().nextInt(900000);
+        return "NV@" + randomNum;
+    }
+
     public String nextCode() {
-        long next = repo.findTopByOrderByIdDesc().map(x -> x.getId() + 1).orElse(1L);
-        return String.format("NV%03d", next);
+        return generateEmployeeCode("Nhan Vien");
     }
 
     private NhanVien find(Long id) {
