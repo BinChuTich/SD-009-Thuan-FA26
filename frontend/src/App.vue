@@ -557,14 +557,15 @@ const pageTitle = computed(() => {
 
 .top-header {
   background-color: #ffffff;
-  border-radius: 12px;
+  border-radius: 14px;
   border: 1px solid #e5e7eb;
-  padding: 16px 24px;
+  padding: 22px 32px;
+  min-height: 82px;
   margin: 20px 2.2rem 20px 2.2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 1px 4px rgba(65, 60, 50, 0.03);
+  box-shadow: 0 2px 8px rgba(65, 60, 50, 0.04);
   box-sizing: border-box;
 }
 
@@ -575,9 +576,10 @@ const pageTitle = computed(() => {
 
 .header-page-title {
   margin: 0;
-  font-size: 1.45rem;
-  font-weight: 700;
-  color: #3b4950;
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #2e3e48;
+  letter-spacing: -0.3px;
   line-height: 1.2;
 }
 
@@ -589,9 +591,9 @@ const pageTitle = computed(() => {
 .user-profile-badge {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 4px 10px 4px 6px;
-  border-radius: 30px;
+  gap: 12px;
+  padding: 6px 16px 6px 8px;
+  border-radius: 36px;
   background-color: #faf8f5;
   border: 1px solid #e9e5db;
   cursor: pointer;
@@ -601,11 +603,13 @@ const pageTitle = computed(() => {
 .user-profile-badge:hover {
   background-color: #f1ede4;
   border-color: #496883;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
 .user-avatar-circle {
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: linear-gradient(135deg, #496883, #2f4557);
   color: #ffffff;
@@ -613,26 +617,27 @@ const pageTitle = computed(() => {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 1.05rem;
   letter-spacing: 0.5px;
-  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.25);
+  box-shadow: 0 2px 8px rgba(73, 104, 131, 0.3);
 }
 
 .user-info-text {
   display: flex;
   flex-direction: column;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
 .user-name {
   font-weight: 700;
-  color: #3b4950;
-  font-size: 0.86rem;
+  color: #2e3e48;
+  font-size: 0.98rem;
 }
 
 .user-role-label {
-  font-size: 0.72rem;
-  color: #839199;
+  font-size: 0.8rem;
+  color: #7b888f;
+  font-weight: 500;
 }
 
 .page-body {
