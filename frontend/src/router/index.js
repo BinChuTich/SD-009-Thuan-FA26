@@ -35,6 +35,7 @@ import CoAo from '../views/ThuocTinh/CoAo.vue'
 import TayAo from '../views/ThuocTinh/TayAo.vue'
 import MauSac from '../views/ThuocTinh/MauSac.vue'
 import KichCo from '../views/ThuocTinh/KichCo.vue'
+import HoaTiet from '../views/ThuocTinh/HoaTiet.vue'
 
 const routes = [
     // Thống kê
@@ -93,52 +94,64 @@ const routes = [
     },
 
     // =========================
-    // THUỘC TÍNH SẢN PHẨM
+    // THUỘC TÍNH SẢN PHẨM (MENU CON)
     // =========================
     {
         path: '/thuoc-tinh',
-        name: 'ThuocTinh',
-        component: ThuocTinh
+        redirect: '/thuong-hieu'
     },
     {
         path: '/danh-sach-thuoc-tinh',
-        redirect: '/thuoc-tinh'
-    },
-    {
-        path: '/chat-lieu',
-        redirect: '/thuoc-tinh?tab=chat-lieu'
-    },
-    {
-        path: '/mau-sac',
-        redirect: '/thuoc-tinh?tab=mau-sac'
-    },
-    {
-        path: '/kich-co',
-        redirect: '/thuoc-tinh?tab=kich-co'
-    },
-    {
-        path: '/danh-muc',
-        redirect: '/thuoc-tinh?tab=danh-muc'
+        redirect: '/thuong-hieu'
     },
     {
         path: '/thuong-hieu',
-        redirect: '/thuoc-tinh?tab=thuong-hieu'
+        name: 'ThuongHieu',
+        component: ThuongHieu
+    },
+    {
+        path: '/danh-muc',
+        name: 'DanhMuc',
+        component: DanhMuc
+    },
+    {
+        path: '/chat-lieu',
+        name: 'ChatLieu',
+        component: ChatLieu
     },
     {
         path: '/xuat-xu',
-        redirect: '/thuoc-tinh?tab=xuat-xu'
+        name: 'XuatXu',
+        component: XuatXu
+    },
+    {
+        path: '/kieu-dang',
+        redirect: '/xuat-xu'
     },
     {
         path: '/co-ao',
-        redirect: '/thuoc-tinh?tab=co-ao'
+        name: 'CoAo',
+        component: CoAo
     },
     {
         path: '/tay-ao',
-        redirect: '/thuoc-tinh?tab=tay-ao'
+        name: 'TayAo',
+        component: TayAo
     },
     {
         path: '/hoa-tiet',
-        redirect: '/thuoc-tinh?tab=hoa-tiet'
+        name: 'HoaTiet',
+        component: HoaTiet
+    },
+    {
+        path: '/mau-sac',
+        name: 'MauSac',
+        component: MauSac
+    },
+    {
+        path: '/kich-co',
+        name: 'KichCo',
+        component: KichCo
     },
 
     // Giảm giá

@@ -89,15 +89,58 @@ const toggleMenu = (menu) => {
           </div>
         </div>
 
-        <!-- 5. Danh Sách Thuộc Tính -->
-        <router-link to="/thuoc-tinh" class="menu-item" active-class="active">
-          <span class="menu-icon">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M4 6h16V4H4c-1.1 0-2 .9-2 2v11H0v3h14v-3H4V6zm19 2h-6c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V9c0-.55-.45-1-1-1zm-1 9h-4v-7h4v7z"/>
-            </svg>
-          </span>
-          <span class="menu-text">Danh sách thuộc tính</span>
-        </router-link>
+        <!-- 5. Thuộc tính (Dropdown menu con) -->
+        <div class="menu-group">
+          <div class="menu-item has-sub" @click="toggleMenu('thuocTinh')">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+              </svg>
+            </span>
+            <span class="menu-text">Thuộc tính</span>
+            <span class="arrow-icon" :class="{ open: openMenus.thuocTinh }">⌄</span>
+          </div>
+
+          <!-- Menu con của Thuộc tính -->
+          <div class="submenu-tree" v-show="openMenus.thuocTinh">
+            <router-link to="/thuong-hieu" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Thương hiệu</span>
+            </router-link>
+            <router-link to="/danh-muc" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Danh mục</span>
+            </router-link>
+            <router-link to="/chat-lieu" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Chất liệu</span>
+            </router-link>
+            <router-link to="/xuat-xu" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Xuất xứ</span>
+            </router-link>
+            <router-link to="/co-ao" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Cổ áo</span>
+            </router-link>
+            <router-link to="/tay-ao" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Tay áo</span>
+            </router-link>
+            <router-link to="/hoa-tiet" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Họa tiết</span>
+            </router-link>
+            <router-link to="/mau-sac" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Màu sắc</span>
+            </router-link>
+            <router-link to="/kich-co" class="tree-item" active-class="active">
+              <span class="tree-branch">└─</span>
+              <span>Kích cỡ</span>
+            </router-link>
+          </div>
+        </div>
 
         <!-- 6. Quản lý khách hàng (2 người) -->
         <router-link to="/khach-hang" class="menu-item" active-class="active">

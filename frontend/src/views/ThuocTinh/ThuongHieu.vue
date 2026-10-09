@@ -1,11 +1,11 @@
-<script setup>
-
-</script>
-
 <template>
-
+  <AttributeManager
+      attrType="thuong-hieu"
+      title="Thương hiệu"
+      codePrefix="TH"
+  />
 </template>
 
-<style scoped>
-
-</style>
+<script setup>
+import AttributeManager from './AttributeManager.vue'
+</script>

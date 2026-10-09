@@ -1,8 +1,8 @@
 <template>
   <AttributeManager
-      attrType="danh-muc"
-      title="Danh mục"
-      codePrefix="DM"
+      attrType="hoa-tiet"
+      title="Họa tiết"
+      codePrefix="HT"
   />
 </template>
 

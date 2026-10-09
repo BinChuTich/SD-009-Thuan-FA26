@@ -1,11 +1,12 @@
-<script setup>
-
-</script>
-
 <template>
-
+  <AttributeManager
+      attrType="mau-sac"
+      title="Màu sắc"
+      codePrefix="MS"
+      :hasColor="true"
+  />
 </template>
 
-<style scoped>
-
-</style>
+<script setup>
+import AttributeManager from './AttributeManager.vue'
+</script>
