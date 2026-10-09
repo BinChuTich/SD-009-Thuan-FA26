@@ -508,6 +508,14 @@
             </div>
             <div class="group-header-right">
               <span class="size-summary">{{ group.sizesSummary }}</span>
+              <button
+                  type="button"
+                  class="btn-delete-group"
+                  @click="openDeleteColorGroupConfirm(group)"
+                  title="Xóa toàn bộ biến thể màu này"
+              >
+                ✕ Xóa màu {{ group.color.tenMauSac }}
+              </button>
             </div>
           </div>
 
@@ -579,7 +587,7 @@
       </div>
 
       <!-- 5. Khối 4: Ảnh sản phẩm chi tiết theo màu sắc -->
-      <div v-if="selectedColors.length > 0" class="form-card mt-3 color-images-container">
+      <div v-if="activeColorsForImages.length > 0" class="form-card mt-3 color-images-container">
         <div class="images-header-wrap">
           <h4 class="card-section-title">Ảnh sản phẩm chi tiết</h4>
           <p class="card-section-subtitle">
@@ -589,7 +597,7 @@
 
         <div class="color-images-grid">
           <div
-              v-for="color in selectedColors"
+              v-for="color in activeColorsForImages"
               :key="color.id"
               class="color-image-card"
           >
@@ -769,7 +777,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../../api'
 
@@ -1092,18 +1100,27 @@ const toggleSize = (size) => {
 
 const removeColor = (id) => {
   selectedColors.value = selectedColors.value.filter(c => c.id !== id)
+  // Xóa toàn bộ biến thể của màu này trong variantsList
+  variantsList.value = variantsList.value.filter(v => v.idMauSac !== id)
+  // Xóa ảnh tương ứng của màu này
+  delete colorImages.value[id]
 }
 
 const removeSize = (id) => {
   selectedSizes.value = selectedSizes.value.filter(s => s.id !== id)
+  // Xóa toàn bộ biến thể của kích cỡ này trong variantsList
+  variantsList.value = variantsList.value.filter(v => v.idKichCo !== id)
 }
 
 const clearAllColors = () => {
   selectedColors.value = []
+  variantsList.value = []
+  colorImages.value = {}
 }
 
 const clearAllSizes = () => {
   selectedSizes.value = []
+  variantsList.value = []
 }
 
 // Đóng dropdown khi click bên ngoài
@@ -1174,6 +1191,34 @@ const groupedVariants = computed(() => {
   return groups
 })
 
+// Danh sách màu sắc thực tế hiển thị cho khối ảnh sản phẩm chi tiết
+const activeColorsForImages = computed(() => {
+  if (variantsList.value.length > 0) {
+    const colorMap = new Map()
+    variantsList.value.forEach(v => {
+      if (v.idMauSac && !colorMap.has(v.idMauSac)) {
+        colorMap.set(v.idMauSac, {
+          id: v.idMauSac,
+          tenMauSac: v.tenMauSac,
+          maHex: v.maHex
+        })
+      }
+    })
+    return Array.from(colorMap.values())
+  }
+  return selectedColors.value
+})
+
+// Tự động xóa ảnh và dọn dẹp khi một màu không còn biến thể nào
+watch(activeColorsForImages, (newColors) => {
+  const validIds = new Set(newColors.map(c => String(c.id)))
+  Object.keys(colorImages.value).forEach(colorId => {
+    if (!validIds.has(String(colorId))) {
+      delete colorImages.value[colorId]
+    }
+  })
+}, { deep: true })
+
 // Kiểm tra group đã chọn hết chưa
 const isGroupAllSelected = (group) => {
   return group.items.length > 0 && group.items.every(i => i.selected)
@@ -1221,7 +1266,7 @@ const applyBulkValues = () => {
   showToast(`Đã áp dụng cho ${count} biến thể được chọn!`, 'success')
 }
 
-// Xóa 1 biến thể với xác nhận
+// Xóa 1 biến thể với xác nhận (tự động xóa ảnh và nhóm màu nếu không còn biến thể nào của màu đó)
 const openDeleteVariantConfirm = (item) => {
   openConfirm({
     title: 'Xác nhận xóa biến thể',
@@ -1229,8 +1274,35 @@ const openDeleteVariantConfirm = (item) => {
     type: 'danger',
     confirmText: 'Xóa biến thể',
     onConfirm: () => {
+      const colorId = item.idMauSac
       variantsList.value = variantsList.value.filter(v => v.key !== item.key)
+
+      // Kiểm tra xem màu này còn biến thể nào trong variantsList không
+      const remainingOfColor = variantsList.value.filter(v => v.idMauSac === colorId)
+      if (remainingOfColor.length === 0) {
+        // Tự động xóa ảnh của màu này nếu màu không còn biến thể nào
+        delete colorImages.value[colorId]
+        // Bỏ chọn màu này khỏi selectedColors để đồng bộ cả ở dropdown & tags
+        selectedColors.value = selectedColors.value.filter(c => c.id !== colorId)
+      }
       showToast('Đã xóa biến thể khỏi danh sách!')
+    }
+  })
+}
+
+// Xóa toàn bộ biến thể của 1 nhóm màu
+const openDeleteColorGroupConfirm = (group) => {
+  openConfirm({
+    title: 'Xác nhận xóa nhóm màu',
+    message: `Bạn có muốn xóa tất cả biến thể và ảnh của màu "${group.color.tenMauSac}" không?`,
+    type: 'danger',
+    confirmText: 'Xóa nhóm màu',
+    onConfirm: () => {
+      const colorId = group.color.id
+      variantsList.value = variantsList.value.filter(v => v.idMauSac !== colorId)
+      delete colorImages.value[colorId]
+      selectedColors.value = selectedColors.value.filter(c => c.id !== colorId)
+      showToast(`Đã xóa toàn bộ biến thể và ảnh của màu "${group.color.tenMauSac}"!`)
     }
   })
 }
@@ -1351,8 +1423,11 @@ const openSaveConfirm = () => {
 const submitForm = async () => {
   submitting.value = true
   try {
-    // Thu thập danh sách ảnh từ các màu
-    const imageList = Object.values(colorImages.value).filter(img => !!img)
+    // Thu thập danh sách ảnh từ các màu thực sự còn tồn tại
+    const activeColorIds = new Set(activeColorsForImages.value.map(c => String(c.id)))
+    const imageList = Object.entries(colorImages.value)
+      .filter(([cId, img]) => activeColorIds.has(String(cId)) && !!img)
+      .map(([_, img]) => img)
 
     const payload = {
       maSanPham: form.value.maSanPham?.trim() || undefined,
@@ -2326,6 +2401,32 @@ onMounted(async () => {
 .color-group-title {
   font-size: 0.95rem;
   color: #1e293b;
+}
+
+.group-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-delete-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background-color: #ffffff;
+  border: 1px solid #fecaca;
+  color: #ef4444;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-delete-group:hover {
+  background-color: #fef2f2;
+  border-color: #ef4444;
 }
 
 .size-summary {
