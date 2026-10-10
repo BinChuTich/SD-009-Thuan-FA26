@@ -480,17 +480,16 @@
             <div class="bulk-field">
               <label>Giá bán mặc định <span class="text-danger">*</span></label>
               <input
-                  type="text"
-                  inputmode="numeric"
-                  :value="formatNumberWithDots(bulkPrice)"
+                  type="number"
+                  min="0"
+                  v-model.number="bulkPrice"
                   class="form-input bulk-input"
                   placeholder="0"
-                  @focus="$event.target.select()"
-                  @input="onBulkPriceInput"
                   @keydown="blockInvalidIntegerKeys"
-                  @paste="handleIntegerPaste"
-                  @blur="onBlurPrice('bulk')"
               />
+              <span v-if="bulkPrice && bulkPrice > 0" class="price-preview-tag">
+                👉 {{ formatNumberWithDots(bulkPrice) }} đ
+              </span>
             </div>
 
             <button type="button" class="btn btn-bulk-apply" @click="applyBulkValues">
@@ -554,18 +553,17 @@
                 </td>
                 <td>
                   <input
-                      type="text"
-                      inputmode="numeric"
-                      :value="formatNumberWithDots(vItem.giaBan)"
+                      type="number"
+                      min="0"
+                      v-model.number="vItem.giaBan"
                       class="form-input cell-input"
                       placeholder="0"
                       required
-                      @focus="$event.target.select()"
-                      @input="onVariantPriceInput($event, vItem)"
                       @keydown="blockInvalidIntegerKeys"
-                      @paste="handleIntegerPaste"
-                      @blur="onBlurPrice(vItem)"
                   />
+                  <div v-if="vItem.giaBan && vItem.giaBan > 0" class="cell-price-preview">
+                    👉 {{ formatNumberWithDots(vItem.giaBan) }} đ
+                  </div>
                 </td>
                 <td style="text-align: center;">
                   <button
@@ -1260,97 +1258,6 @@ const formatNumberWithDots = (val) => {
   const clean = String(val).replace(/\D/g, '')
   if (!clean) return ''
   return clean.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-}
-
-// Xử lý nhập giá tiền theo thời gian thực và giữ nguyên vị trí con trỏ chuột
-const handlePriceInput = (e, callback) => {
-  const input = e.target
-  const oldVal = input.value
-  const oldPos = input.selectionEnd || 0
-
-  // Đếm số chữ số trước con trỏ trong chuỗi hiện tại
-  let digitsBeforeCursor = oldVal.slice(0, oldPos).replace(/\D/g, '').length
-
-  // Lấy toàn bộ chữ số
-  let rawDigits = oldVal.replace(/\D/g, '')
-
-  // Xóa số 0 thừa ở đầu nếu người dùng gõ thêm số vào sau số 0 ban đầu (VD: "01" -> "1")
-  if (rawDigits.length > 1 && rawDigits.startsWith('0')) {
-    rawDigits = rawDigits.replace(/^0+/, '') || '0'
-    if (digitsBeforeCursor > rawDigits.length) {
-      digitsBeforeCursor = rawDigits.length
-    }
-  }
-
-  if (!rawDigits) {
-    callback('')
-    input.value = ''
-    return
-  }
-
-  // Giới hạn tối đa 1 tỷ (1,000,000,000 VNĐ)
-  let num = parseInt(rawDigits, 10)
-  if (num > 1000000000) {
-    num = 1000000000
-    rawDigits = '1000000000'
-  }
-
-  callback(num)
-
-  // Format chuỗi có dấu chấm phân cách
-  const formatted = rawDigits.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-  input.value = formatted
-
-  // Định vị lại con trỏ chuột đúng vị trí sau chữ số tương ứng
-  let newPos = formatted.length
-  if (digitsBeforeCursor === 0) {
-    newPos = 0
-  } else {
-    let digitCount = 0
-    for (let i = 0; i < formatted.length; i++) {
-      if (/\d/.test(formatted[i])) {
-        digitCount++
-        if (digitCount === digitsBeforeCursor) {
-          newPos = i + 1
-          break
-        }
-      }
-    }
-  }
-
-  if (newPos > formatted.length) newPos = formatted.length
-  input.setSelectionRange(newPos, newPos)
-}
-
-const onBulkPriceInput = (e) => {
-  handlePriceInput(e, (val) => {
-    bulkPrice.value = val === '' ? '' : val
-  })
-}
-
-const onVariantPriceInput = (e, item) => {
-  handlePriceInput(e, (val) => {
-    item.giaBan = val === '' ? '' : val
-  })
-}
-
-// Chuẩn hóa về số nguyên khi rời ô nhập giá bán (blur)
-const onBlurPrice = (target) => {
-  if (target === 'bulk') {
-    if (bulkPrice.value === '' || bulkPrice.value === null || bulkPrice.value === undefined) {
-      bulkPrice.value = 0
-    } else {
-      const num = Math.floor(Number(bulkPrice.value))
-      bulkPrice.value = isNaN(num) || num < 0 ? 0 : Math.min(num, 1000000000)
-    }
-  } else if (target && typeof target === 'object') {
-    if (target.giaBan === '' || target.giaBan === null || target.giaBan === undefined) {
-      target.giaBan = 0
-    } else {
-      const num = Math.floor(Number(target.giaBan))
-      target.giaBan = isNaN(num) || num < 0 ? 0 : Math.min(num, 1000000000)
-    }
-  }
 }
 
 // Áp dụng số lượng & giá bán mặc định hàng loạt
@@ -2454,6 +2361,30 @@ onMounted(async () => {
 .bulk-input {
   width: 160px;
   padding: 0.5rem 0.75rem;
+}
+
+.price-preview-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #059669;
+  background: #ecfdf5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-top: 3px;
+  width: fit-content;
+}
+
+.cell-price-preview {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #059669;
+  background: #ecfdf5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-top: 4px;
+  width: fit-content;
 }
 
 .btn-bulk-apply {

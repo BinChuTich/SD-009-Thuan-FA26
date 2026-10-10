@@ -180,72 +180,6 @@ const formatNumberWithDots = (val) => {
   return clean.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
 }
 
-// Xử lý nhập giá tiền theo thời gian thực và giữ nguyên vị trí con trỏ chuột
-const handlePriceInput = (e, callback) => {
-  const input = e.target
-  const oldVal = input.value
-  const oldPos = input.selectionEnd || 0
-
-  // Đếm số chữ số trước con trỏ trong chuỗi hiện tại
-  let digitsBeforeCursor = oldVal.slice(0, oldPos).replace(/\D/g, '').length
-
-  // Lấy toàn bộ chữ số
-  let rawDigits = oldVal.replace(/\D/g, '')
-
-  // Xóa số 0 thừa ở đầu nếu người dùng gõ thêm số vào sau số 0 ban đầu (VD: "01" -> "1")
-  if (rawDigits.length > 1 && rawDigits.startsWith('0')) {
-    rawDigits = rawDigits.replace(/^0+/, '') || '0'
-    if (digitsBeforeCursor > rawDigits.length) {
-      digitsBeforeCursor = rawDigits.length
-    }
-  }
-
-  if (!rawDigits) {
-    callback('')
-    input.value = ''
-    return
-  }
-
-  // Giới hạn tối đa 1 tỷ (1,000,000,000 VNĐ)
-  let num = parseInt(rawDigits, 10)
-  if (num > 1000000000) {
-    num = 1000000000
-    rawDigits = '1000000000'
-  }
-
-  callback(num)
-
-  // Format chuỗi có dấu chấm phân cách
-  const formatted = rawDigits.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-  input.value = formatted
-
-  // Định vị lại con trỏ chuột đúng vị trí sau chữ số tương ứng
-  let newPos = formatted.length
-  if (digitsBeforeCursor === 0) {
-    newPos = 0
-  } else {
-    let digitCount = 0
-    for (let i = 0; i < formatted.length; i++) {
-      if (/\d/.test(formatted[i])) {
-        digitCount++
-        if (digitCount === digitsBeforeCursor) {
-          newPos = i + 1
-          break
-        }
-      }
-    }
-  }
-
-  if (newPos > formatted.length) newPos = formatted.length
-  input.setSelectionRange(newPos, newPos)
-}
-
-const onModalPriceInput = (e) => {
-  handlePriceInput(e, (val) => {
-    editModal.value.data.giaBan = val === '' ? '' : val
-  })
-}
-
 const handleSaveVariant = async () => {
   editModal.value.errors = {}
   const data = editModal.value.data
@@ -994,16 +928,16 @@ watch(() => route.query.sanPhamId, async (newId) => {
               <div class="variant-field-group">
                 <label class="field-label-text">GIÁ BÁN <span class="req-star">*</span></label>
                 <input
-                    type="text"
-                    inputmode="numeric"
-                    :value="formatNumberWithDots(editModal.data.giaBan)"
+                    type="number"
+                    min="0"
+                    v-model.number="editModal.data.giaBan"
                     class="field-input-control field-price-focus"
                     placeholder="0"
-                    @focus="$event.target.select()"
-                    @input="onModalPriceInput"
                     @keydown="blockInvalidIntegerKeys"
-                    @paste="handleIntegerPaste"
                 />
+                <div v-if="editModal.data.giaBan && editModal.data.giaBan > 0" class="modal-price-preview">
+                  👉 {{ formatNumberWithDots(editModal.data.giaBan) }} đ
+                </div>
                 <span class="err-text" v-if="editModal.errors.giaBan">{{ editModal.errors.giaBan }}</span>
               </div>
 
@@ -2360,6 +2294,17 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
 .field-select-control {
   cursor: pointer;
+}
+
+.modal-price-preview {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #059669;
+  background: #ecfdf5;
+  padding: 3px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  width: fit-content;
 }
 
 .btn-save-variant-action {
