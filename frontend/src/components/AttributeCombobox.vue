@@ -50,22 +50,6 @@
     <!-- Dropdown danh sách gợi ý & Thêm mới -->
     <transition name="dropdown-anim">
       <div v-if="isOpen" class="combobox-dropdown" @click.stop>
-        <!-- Hàng thêm mới khi nhập từ khóa chưa có trong danh mục -->
-        <div
-          v-if="canAddNew"
-          class="combobox-add-action"
-          :class="{ 'is-highlighted': highlightedIndex === -1 }"
-          @click="createNew(searchQuery)"
-        >
-          <div class="add-action-left">
-            <span class="add-plus-badge">+</span>
-            <span class="add-action-text">
-              Thêm mới <strong>"{{ searchQuery.trim() }}"</strong>
-            </span>
-          </div>
-          <span class="add-enter-hint">Nhấn Enter ↵</span>
-        </div>
-
         <!-- Danh sách các mục đã lọc -->
         <div class="combobox-options-list" ref="listRef">
           <div
@@ -83,7 +67,7 @@
             <span v-if="item.id === modelValue" class="option-check">✓</span>
           </div>
 
-          <div v-if="filteredItems.length === 0 && !canAddNew" class="combobox-empty-state">
+          <div v-if="filteredItems.length === 0" class="combobox-empty-state">
             Không tìm thấy {{ (label || 'thuộc tính').toLowerCase() }} phù hợp
           </div>
         </div>
@@ -180,12 +164,6 @@ const exactMatchedItem = computed(() => {
     const name = String(item[props.nameKey] || '').trim().toLowerCase()
     return name === q
   })
-})
-
-// Điều kiện hiển thị dòng "+ Thêm mới"
-const canAddNew = computed(() => {
-  const q = searchQuery.value.trim()
-  return q.length > 0 && !exactMatchedItem.value && !loading.value
 })
 
 const toggleDropdown = () => {
@@ -318,13 +296,11 @@ const navigateOptions = (direction) => {
   }
 
   const maxIndex = filteredItems.value.length - 1
-  const minIndex = canAddNew.value ? -1 : 0
-
-  if (maxIndex < minIndex) return
+  if (maxIndex < 0) return
 
   let next = highlightedIndex.value + direction
-  if (next < minIndex) next = maxIndex
-  if (next > maxIndex) next = minIndex
+  if (next < 0) next = maxIndex
+  if (next > maxIndex) next = 0
 
   highlightedIndex.value = next
 }
@@ -465,68 +441,6 @@ onBeforeUnmount(() => {
   max-height: 280px;
   display: flex;
   flex-direction: column;
-}
-
-/* Hàng Thêm mới */
-.combobox-add-action {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.65rem 0.85rem;
-  background-color: #f0fdf4;
-  border-bottom: 1px solid #bbf7d0;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.combobox-add-action:hover,
-.combobox-add-action.is-highlighted {
-  background-color: #dcfce7;
-}
-
-.add-action-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.88rem;
-  color: #15803d;
-  min-width: 0;
-}
-
-.add-plus-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  background: #22c55e;
-  color: #ffffff;
-  border-radius: 50%;
-  font-weight: 700;
-  font-size: 13px;
-  flex-shrink: 0;
-}
-
-.add-action-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.add-action-text strong {
-  color: #14532d;
-}
-
-.add-enter-hint {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #16a34a;
-  background: #ffffff;
-  padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid #86efac;
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 
 /* Options list */
