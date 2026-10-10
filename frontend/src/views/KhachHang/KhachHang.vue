@@ -208,7 +208,7 @@
                   >
                     <option value="">-- Chọn Phường / Xã --</option>
                     <option v-for="w in addrWardsList" :key="w.code" :value="w.code">
-                      {{ w.displayName || w.name }}
+                      {{ w.name }}
                     </option>
                   </select>
                 </div>
@@ -300,7 +300,7 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
-import { getProvinces, getWardsByProvince } from '@/services/provincesApi.js'
+import { getProvinces, getWardsByProvince, lookupLegacyWard } from '@/services/provincesApi.js'
 
 const router = useRouter()
 const filters = ref({ keyword: '', status: '' })
@@ -508,23 +508,31 @@ async function editAddress(addr) {
     addrProvinceCode.value = matchP.code
     addrWardsList.value = await getWardsByProvince(matchP.code)
 
-    const matchW = addrWardsList.value.find(w =>
+    let matchW = addrWardsList.value.find(w =>
       w.name.toLowerCase() === (addr.phuong || '').toLowerCase() ||
       cleanStr(w.name) === cleanStr(addr.phuong) ||
       w.name.toLowerCase().includes(cleanStr(addr.phuong)) ||
       (addr.phuong || '').toLowerCase().includes(cleanStr(w.name))
     )
+    if (!matchW && addr.phuong) {
+      const legWard = await lookupLegacyWard(addr.phuong, matchP.code)
+      if (legWard) {
+        matchW = addrWardsList.value.find(w => w.code === legWard.code)
+      }
+    }
+
     if (matchW) {
       addrWardCode.value = matchW.code
+      addrForm.phuong = matchW.name
     } else if (addr.phuong) {
-      addrWardsList.value.unshift({ code: -1, name: addr.phuong, displayName: addr.phuong })
+      addrWardsList.value.unshift({ code: -1, name: addr.phuong })
       addrWardCode.value = -1
     }
   } else if (addr.thanhPho) {
-    provincesList.value.unshift({ code: -1, name: addr.thanhPho, displayName: addr.thanhPho })
+    provincesList.value.unshift({ code: -1, name: addr.thanhPho })
     addrProvinceCode.value = -1
     if (addr.phuong) {
-      addrWardsList.value = [{ code: -1, name: addr.phuong, displayName: addr.phuong }]
+      addrWardsList.value = [{ code: -1, name: addr.phuong }]
       addrWardCode.value = -1
     }
   }

@@ -206,7 +206,7 @@
                 >
                   <option value="">-- Chọn Phường / Xã --</option>
                   <option v-for="w in wardsList" :key="w.code" :value="w.code">
-                    {{ w.displayName || w.name }}
+                    {{ w.name }}
                   </option>
                 </select>
                 <span v-if="errors.phuong" class="error-inline-msg">{{ errors.phuong }}</span>
@@ -244,7 +244,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
-import { getProvinces, getWardsByProvince, matchAddressHierarchy } from '@/services/provincesApi.js'
+import { getProvinces, getWardsByProvince, matchAddressHierarchy, lookupLegacyWard } from '@/services/provincesApi.js'
 import CccdScannerModal from '@/components/CccdScannerModal.vue'
 
 const route = useRoute()
@@ -510,24 +510,31 @@ async function loadEmployee() {
         wardsList.value = await getWardsByProvince(matchP.code)
 
         if (form.phuong) {
-          const matchW = wardsList.value.find(w =>
+          let matchW = wardsList.value.find(w =>
             w.name.toLowerCase() === form.phuong.toLowerCase() ||
             cleanStr(w.name) === cleanStr(form.phuong) ||
             w.name.toLowerCase().includes(cleanStr(form.phuong)) ||
             form.phuong.toLowerCase().includes(cleanStr(w.name))
           )
+          if (!matchW && form.phuong) {
+            const legWard = await lookupLegacyWard(form.phuong, matchP.code)
+            if (legWard) {
+              matchW = wardsList.value.find(w => w.code === legWard.code)
+            }
+          }
           if (matchW) {
             selectedWardCode.value = matchW.code
+            form.phuong = matchW.name
           } else {
-            wardsList.value.unshift({ code: -1, name: form.phuong, displayName: form.phuong })
+            wardsList.value.unshift({ code: -1, name: form.phuong })
             selectedWardCode.value = -1
           }
         }
       } else {
-        provincesList.value.unshift({ code: -1, name: form.queQuan, displayName: form.queQuan })
+        provincesList.value.unshift({ code: -1, name: form.queQuan })
         selectedProvinceCode.value = -1
         if (form.phuong) {
-          wardsList.value = [{ code: -1, name: form.phuong, displayName: form.phuong }]
+          wardsList.value = [{ code: -1, name: form.phuong }]
           selectedWardCode.value = -1
         }
       }
