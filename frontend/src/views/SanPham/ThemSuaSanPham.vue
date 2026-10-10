@@ -56,41 +56,31 @@
           <!-- Thương hiệu -->
           <div class="form-item">
             <label class="item-label">Thương hiệu <span class="text-danger">*</span></label>
-            <div class="select-with-btn">
-              <select v-model="form.idThuongHieu" class="form-select" required>
-                <option value="">-- Chọn thương hiệu --</option>
-                <option v-for="item in attributes.thuongHieu" :key="item.id" :value="item.id">
-                  {{ item.tenThuongHieu }}
-                </option>
-              </select>
-              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('thuong-hieu')" title="Thêm thương hiệu mới">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                <span>Thêm mới</span>
-              </button>
-            </div>
+            <AttributeCombobox
+              v-model="form.idThuongHieu"
+              :items="attributes.thuongHieu"
+              name-key="tenThuongHieu"
+              type="thuong-hieu"
+              label="Thương hiệu"
+              placeholder="-- Chọn hoặc nhập thương hiệu --"
+              @created="onAttributeCreated('thuongHieu', $event)"
+              @toast="showToast($event.message, $event.type)"
+            />
           </div>
 
           <!-- Danh mục -->
           <div class="form-item">
             <label class="item-label">Danh mục <span class="text-danger">*</span></label>
-            <div class="select-with-btn">
-              <select v-model="form.idDanhMuc" class="form-select" required>
-                <option value="">-- Chọn danh mục --</option>
-                <option v-for="item in attributes.danhMuc" :key="item.id" :value="item.id">
-                  {{ item.tenDanhMuc }}
-                </option>
-              </select>
-              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('danh-muc')" title="Thêm danh mục mới">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                <span>Thêm mới</span>
-              </button>
-            </div>
+            <AttributeCombobox
+              v-model="form.idDanhMuc"
+              :items="attributes.danhMuc"
+              name-key="tenDanhMuc"
+              type="danh-muc"
+              label="Danh mục"
+              placeholder="-- Chọn hoặc nhập danh mục --"
+              @created="onAttributeCreated('danhMuc', $event)"
+              @toast="showToast($event.message, $event.type)"
+            />
           </div>
         </div>
 
@@ -98,41 +88,31 @@
           <!-- Xuất xứ -->
           <div class="form-item">
             <label class="item-label">Xuất xứ <span class="text-danger">*</span></label>
-            <div class="select-with-btn">
-              <select v-model="form.idXuatXu" class="form-select" required>
-                <option value="">-- Chọn xuất xứ --</option>
-                <option v-for="item in attributes.xuatXu" :key="item.id" :value="item.id">
-                  {{ item.tenXuatXu }}
-                </option>
-              </select>
-              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('xuat-xu')" title="Thêm xuất xứ mới">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                <span>Thêm mới</span>
-              </button>
-            </div>
+            <AttributeCombobox
+              v-model="form.idXuatXu"
+              :items="attributes.xuatXu"
+              name-key="tenXuatXu"
+              type="xuat-xu"
+              label="Xuất xứ"
+              placeholder="-- Chọn hoặc nhập xuất xứ --"
+              @created="onAttributeCreated('xuatXu', $event)"
+              @toast="showToast($event.message, $event.type)"
+            />
           </div>
 
           <!-- Chất liệu -->
           <div class="form-item">
             <label class="item-label">Chất liệu <span class="text-danger">*</span></label>
-            <div class="select-with-btn">
-              <select v-model="form.idChatLieu" class="form-select" required>
-                <option value="">-- Chọn chất liệu --</option>
-                <option v-for="item in attributes.chatLieu" :key="item.id" :value="item.id">
-                  {{ item.tenChatLieu }}
-                </option>
-              </select>
-              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('chat-lieu')" title="Thêm chất liệu mới">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                <span>Thêm mới</span>
-              </button>
-            </div>
+            <AttributeCombobox
+              v-model="form.idChatLieu"
+              :items="attributes.chatLieu"
+              name-key="tenChatLieu"
+              type="chat-lieu"
+              label="Chất liệu"
+              placeholder="-- Chọn hoặc nhập chất liệu --"
+              @created="onAttributeCreated('chatLieu', $event)"
+              @toast="showToast($event.message, $event.type)"
+            />
           </div>
         </div>
 
@@ -140,41 +120,31 @@
           <!-- Cổ áo -->
           <div class="form-item">
             <label class="item-label">Cổ áo <span class="text-danger">*</span></label>
-            <div class="select-with-btn">
-              <select v-model="form.idCoAo" class="form-select" required>
-                <option value="">-- Chọn cổ áo --</option>
-                <option v-for="item in attributes.coAo" :key="item.id" :value="item.id">
-                  {{ item.tenCoAo }}
-                </option>
-              </select>
-              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('co-ao')" title="Thêm cổ áo mới">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                <span>Thêm mới</span>
-              </button>
-            </div>
+            <AttributeCombobox
+              v-model="form.idCoAo"
+              :items="attributes.coAo"
+              name-key="tenCoAo"
+              type="co-ao"
+              label="Cổ áo"
+              placeholder="-- Chọn hoặc nhập cổ áo --"
+              @created="onAttributeCreated('coAo', $event)"
+              @toast="showToast($event.message, $event.type)"
+            />
           </div>
 
           <!-- Tay áo -->
           <div class="form-item">
             <label class="item-label">Tay áo <span class="text-danger">*</span></label>
-            <div class="select-with-btn">
-              <select v-model="form.idTayAo" class="form-select" required>
-                <option value="">-- Chọn tay áo --</option>
-                <option v-for="item in attributes.tayAo" :key="item.id" :value="item.id">
-                  {{ item.tenTayAo }}
-                </option>
-              </select>
-              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('tay-ao')" title="Thêm tay áo mới">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                <span>Thêm mới</span>
-              </button>
-            </div>
+            <AttributeCombobox
+              v-model="form.idTayAo"
+              :items="attributes.tayAo"
+              name-key="tenTayAo"
+              type="tay-ao"
+              label="Tay áo"
+              placeholder="-- Chọn hoặc nhập tay áo --"
+              @created="onAttributeCreated('tayAo', $event)"
+              @toast="showToast($event.message, $event.type)"
+            />
           </div>
         </div>
 
@@ -182,21 +152,16 @@
           <!-- Họa tiết -->
           <div class="form-item">
             <label class="item-label">Họa tiết <span class="text-danger">*</span></label>
-            <div class="select-with-btn">
-              <select v-model="form.idHoaTiet" class="form-select" required>
-                <option value="">-- Chọn họa tiết --</option>
-                <option v-for="item in attributes.hoaTiet" :key="item.id" :value="item.id">
-                  {{ item.tenHoaTiet }}
-                </option>
-              </select>
-              <button type="button" class="btn btn-add-attr-inline" @click="openQuickAddModal('hoa-tiet')" title="Thêm họa tiết mới">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                <span>Thêm mới</span>
-              </button>
-            </div>
+            <AttributeCombobox
+              v-model="form.idHoaTiet"
+              :items="attributes.hoaTiet"
+              name-key="tenHoaTiet"
+              type="hoa-tiet"
+              label="Họa tiết"
+              placeholder="-- Chọn hoặc nhập họa tiết --"
+              @created="onAttributeCreated('hoaTiet', $event)"
+              @toast="showToast($event.message, $event.type)"
+            />
           </div>
 
           <!-- Trạng thái -->
@@ -780,6 +745,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../../api'
+import AttributeCombobox from '../../components/AttributeCombobox.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -1066,6 +1032,14 @@ const submitQuickAttr = async () => {
   } finally {
     quickAttrModal.value.loading = false
   }
+}
+
+// Xử lý khi tạo mới thuộc tính từ AttributeCombobox
+const onAttributeCreated = (listKey, createdItem) => {
+  if (!attributes.value[listKey]) {
+    attributes.value[listKey] = []
+  }
+  attributes.value[listKey].push(createdItem)
 }
 
 const toggleColorDropdown = () => {
@@ -1444,8 +1418,32 @@ const openSaveConfirm = () => {
     }
   }
 
-  if (form.value.moTa && form.value.moTa.length > 2000) {
-    showToast('Mô tả sản phẩm không được vượt quá 2000 ký tự!', 'error')
+  if (!form.value.idThuongHieu) {
+    showToast('Vui lòng chọn hoặc thêm thương hiệu!', 'error')
+    return
+  }
+  if (!form.value.idDanhMuc) {
+    showToast('Vui lòng chọn hoặc thêm danh mục!', 'error')
+    return
+  }
+  if (!form.value.idXuatXu) {
+    showToast('Vui lòng chọn hoặc thêm xuất xứ!', 'error')
+    return
+  }
+  if (!form.value.idChatLieu) {
+    showToast('Vui lòng chọn hoặc thêm chất liệu!', 'error')
+    return
+  }
+  if (!form.value.idCoAo) {
+    showToast('Vui lòng chọn hoặc thêm cổ áo!', 'error')
+    return
+  }
+  if (!form.value.idTayAo) {
+    showToast('Vui lòng chọn hoặc thêm tay áo!', 'error')
+    return
+  }
+  if (!form.value.idHoaTiet) {
+    showToast('Vui lòng chọn hoặc thêm họa tiết!', 'error')
     return
   }
 
