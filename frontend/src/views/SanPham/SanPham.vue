@@ -628,8 +628,12 @@ const formatDate = (val) => {
 
 const formatImageUrl = (url) => {
   if (!url) return ''
-  if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) return url
-  return `http://localhost:8080${url.startsWith('/') ? '' : '/'}${url}`
+  let cleanUrl = url
+  if (cleanUrl.includes('|')) {
+    cleanUrl = cleanUrl.split('|')[1]
+  }
+  if (cleanUrl.startsWith('data:') || cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) return cleanUrl
+  return `http://localhost:8080${cleanUrl.startsWith('/') ? '' : '/'}${cleanUrl}`
 }
 
 const onImgError = (e) => {
