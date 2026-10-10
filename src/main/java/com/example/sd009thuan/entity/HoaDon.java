@@ -1,6 +1,8 @@
 package com.example.sd009thuan.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -12,10 +14,12 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
+
 @Getter
 @Setter
 @Entity
 @Table(name = "hoa_don")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class HoaDon {
 
     @Id
@@ -24,21 +28,21 @@ public class HoaDon {
     private Long id;
 
     // Nhân viên tạo hóa đơn
-    @JsonIgnore
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_nhan_vien")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private NhanVien idNhanVien;
 
     // Khách hàng
-    @JsonIgnore
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_khach_hang")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private KhachHang idKhachHang;
 
     // Phiếu giảm giá
-    @JsonIgnore
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_phieu_giam_gia")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private PhieuGiamGia idPhieuGiamGia;
 
     // Mã hóa đơn
@@ -172,4 +176,47 @@ public class HoaDon {
     @JsonIgnore
     @OneToMany(mappedBy = "idHoaDon")
     private Set<LichSuHoaDon> lichSuHoaDons = new LinkedHashSet<>();
+
+    // Các trường tiện ích lấy trực tiếp từ bảng khóa ngoại
+    @JsonProperty("tenNhanVien")
+    public String getTenNhanVien() {
+        if (idNhanVien != null) {
+            if (idNhanVien.getTenNhanVien() != null && !idNhanVien.getTenNhanVien().trim().isEmpty()) {
+                return idNhanVien.getTenNhanVien();
+            }
+            if (idNhanVien.getTenTaiKhoan() != null && !idNhanVien.getTenTaiKhoan().trim().isEmpty()) {
+                return idNhanVien.getTenTaiKhoan();
+            }
+        }
+        return null;
+    }
+
+    @JsonProperty("maNhanVien")
+    public String getMaNhanVien() {
+        return idNhanVien != null ? idNhanVien.getMaNhanVien() : null;
+    }
+
+    @JsonProperty("tenKhachHangHienThi")
+    public String getTenKhachHangHienThi() {
+        if (idKhachHang != null && idKhachHang.getTenKhachHang() != null && !idKhachHang.getTenKhachHang().trim().isEmpty()) {
+            return idKhachHang.getTenKhachHang();
+        }
+        if (tenKhachHang != null && !tenKhachHang.trim().isEmpty()) {
+            return tenKhachHang;
+        }
+        return "Khách lẻ";
+    }
+
+    @JsonProperty("soDienThoaiHienThi")
+    public String getSoDienThoaiHienThi() {
+        if (idKhachHang != null && idKhachHang.getSoDienThoai() != null && !idKhachHang.getSoDienThoai().trim().isEmpty()) {
+            return idKhachHang.getSoDienThoai();
+        }
+        return soDienThoaiKhachHang;
+    }
+
+    @JsonProperty("tenPhieuGiamGia")
+    public String getTenPhieuGiamGia() {
+        return idPhieuGiamGia != null ? idPhieuGiamGia.getTenPhieuGiamGia() : null;
+    }
 }

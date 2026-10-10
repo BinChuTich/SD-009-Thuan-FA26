@@ -14,6 +14,7 @@ import java.time.Instant;
 @Setter
 @Entity
 @Table(name = "lich_su_hoa_don")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class LichSuHoaDon {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,9 +26,7 @@ public class LichSuHoaDon {
     @JoinColumn(name = "id_hoa_don", nullable = false)
     private HoaDon idHoaDon;
 
-    @Size(max = 255)
-    @Nationalized
-    @Column(name = "hanh_dong")
+    @Transient
     private String hanhDong;
 
     @NotNull
@@ -51,4 +50,10 @@ public class LichSuHoaDon {
     @Column(name = "ghi_chu")
     private String ghiChu;
 
+    public String getHanhDong() {
+        if (hanhDong != null && !hanhDong.trim().isEmpty()) {
+            return hanhDong;
+        }
+        return ghiChu != null && !ghiChu.trim().isEmpty() ? ghiChu : "Thao tác đơn hàng";
+    }
 }

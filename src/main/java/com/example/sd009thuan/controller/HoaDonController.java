@@ -56,6 +56,30 @@ public class HoaDonController {
         return ResponseEntity.ok(hoaDonService.getChiTietByMaHoaDon(maHoaDon));
     }
 
+    // Lấy lịch sử hóa đơn theo ID
+    @GetMapping("/{id}/lich-su")
+    public ResponseEntity<List<com.example.sd009thuan.entity.LichSuHoaDon>> getLichSuByHoaDonId(@PathVariable Long id) {
+        return ResponseEntity.ok(hoaDonService.getLichSuByHoaDonId(id));
+    }
+
+    // Lấy lịch sử hóa đơn theo Mã hóa đơn
+    @GetMapping("/code/{maHoaDon}/lich-su")
+    public ResponseEntity<List<com.example.sd009thuan.entity.LichSuHoaDon>> getLichSuByMaHoaDon(@PathVariable String maHoaDon) {
+        return ResponseEntity.ok(hoaDonService.getLichSuByMaHoaDon(maHoaDon));
+    }
+
+    // Lấy hình thức thanh toán theo ID hóa đơn
+    @GetMapping("/{id}/thanh-toan")
+    public ResponseEntity<List<com.example.sd009thuan.entity.HinhThucThanhToan>> getThanhToanByHoaDonId(@PathVariable Long id) {
+        return ResponseEntity.ok(hoaDonService.getThanhToanByHoaDonId(id));
+    }
+
+    // Lấy hình thức thanh toán theo Mã hóa đơn
+    @GetMapping("/code/{maHoaDon}/thanh-toan")
+    public ResponseEntity<List<com.example.sd009thuan.entity.HinhThucThanhToan>> getThanhToanByMaHoaDon(@PathVariable String maHoaDon) {
+        return ResponseEntity.ok(hoaDonService.getThanhToanByMaHoaDon(maHoaDon));
+    }
+
     // Tạo hóa đơn mới
     @PostMapping
     public ResponseEntity<HoaDon> create(@RequestBody HoaDon hoaDon) {

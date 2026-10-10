@@ -79,46 +79,120 @@ const finalTotalPayment = computed(() => {
   return Math.max(0, hang + ship - giam)
 })
 
-const xacNhanDon = async () => {
+// Toast thông báo
+const toast = ref({
+  show: false,
+  message: '',
+  type: 'success'
+})
+let toastTimer = null
+
+const showToast = (message, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { show: true, message, type }
+  toastTimer = setTimeout(() => {
+    toast.value.show = false
+    toastTimer = null
+  }, 2800)
+}
+
+// Modal Xác Nhận Tùy Chỉnh (không dùng alert / confirm trình duyệt)
+const confirmModal = ref({
+  show: false,
+  title: 'Xác Nhận Thao Tác',
+  message: '',
+  subText: '',
+  confirmText: 'Đồng ý',
+  cancelText: 'Hủy bỏ',
+  type: 'primary',
+  onConfirm: null
+})
+
+const openConfirmModal = ({
+  title = 'Xác Nhận Thao Tác',
+  message = '',
+  subText = '',
+  confirmText = 'Đồng ý',
+  cancelText = 'Hủy bỏ',
+  type = 'primary',
+  onConfirm = null
+}) => {
+  confirmModal.value = {
+    show: true,
+    title,
+    message,
+    subText,
+    confirmText,
+    cancelText,
+    type,
+    onConfirm
+  }
+}
+
+const closeConfirmModal = () => {
+  confirmModal.value.show = false
+}
+
+const handleConfirmAccept = async () => {
+  const cb = confirmModal.value.onConfirm
+  confirmModal.value.show = false
+  if (cb) {
+    await cb()
+  }
+}
+
+const xacNhanDon = () => {
   if (!hoaDon.value) return
   const status = nextStatus.value
   if (!status) return
 
-  const confirmed = window.confirm(
-      `Bạn có chắc muốn chuyển đơn hàng sang "${getStatusText(status)}"?`
-  )
-  if (!confirmed) return
-
-  try {
-    saving.value = true
-    await api.put(`/api/hoa-don/${hoaDon.value.id}`, { trangThai: status })
-    hoaDon.value.trangThai = status
-    alert(`Đã chuyển đơn hàng sang "${getStatusText(status)}"!`)
-  } catch (error) {
-    console.error('Lỗi cập nhật trạng thái:', error)
-    alert(error.response?.data?.message || 'Không thể cập nhật trạng thái đơn hàng!')
-  } finally {
-    saving.value = false
-  }
+  openConfirmModal({
+    title: 'Xác Nhận Trạng Thái Đơn Hàng',
+    message: `Bạn có chắc muốn chuyển đơn hàng sang "${getStatusText(status)}"?`,
+    subText: 'Thao tác này sẽ lưu trạng thái mới vào cơ sở dữ liệu.',
+    confirmText: 'Đồng ý',
+    cancelText: 'Hủy bỏ',
+    type: 'primary',
+    onConfirm: async () => {
+      try {
+        saving.value = true
+        await api.put(`/api/hoa-don/${hoaDon.value.id}`, { trangThai: status })
+        hoaDon.value.trangThai = status
+        showToast(`Đã chuyển đơn hàng sang "${getStatusText(status)}"!`)
+      } catch (error) {
+        console.error('Lỗi cập nhật trạng thái:', error)
+        showToast(error.response?.data?.message || 'Không thể cập nhật trạng thái đơn hàng!', 'warning')
+      } finally {
+        saving.value = false
+      }
+    }
+  })
 }
 
-const thanhToan = async () => {
+const thanhToan = () => {
   if (!hoaDon.value || isPaid.value) return
 
-  const confirmed = window.confirm('Bạn có chắc hóa đơn này đã được thanh toán?')
-  if (!confirmed) return
-
-  try {
-    paying.value = true
-    await api.put(`/api/hoa-don/${hoaDon.value.id}`, { trangThaiThanhToan: 1 })
-    hoaDon.value.trangThaiThanhToan = 1
-    alert('Thanh toán thành công!')
-  } catch (error) {
-    console.error('Lỗi cập nhật thanh toán:', error)
-    alert(error.response?.data?.message || 'Không thể cập nhật trạng thái thanh toán!')
-  } finally {
-    paying.value = false
-  }
+  openConfirmModal({
+    title: 'Xác Nhận Thanh Toán',
+    message: 'Bạn có chắc hóa đơn này đã được hoàn tất thanh toán?',
+    subText: 'Hóa đơn sẽ được chuyển sang trạng thái "Đã thanh toán".',
+    confirmText: 'Xác nhận thanh toán',
+    cancelText: 'Hủy bỏ',
+    type: 'primary',
+    onConfirm: async () => {
+      try {
+        paying.value = true
+        await api.put(`/api/hoa-don/${hoaDon.value.id}`, { trangThaiThanhToan: 1 })
+        hoaDon.value.trangThaiThanhToan = 1
+        showToast('Thanh toán hóa đơn thành công!')
+      } catch (error) {
+        console.error('Lỗi cập nhật thanh toán:', error)
+        showToast(error.response?.data?.message || 'Không thể cập nhật trạng thái thanh toán!', 'warning')
+      } finally {
+        paying.value = false
+      }
+    }
+  })
 }
 
 const quayLai = () => {
@@ -292,6 +366,62 @@ onMounted(() => {
         </button>
       </div>
     </div>
+
+    <!-- Toast Popup Thông Báo -->
+    <transition name="toast-fade">
+      <div v-if="toast.show" class="toast-popup" :class="toast.type">
+        <span class="toast-icon">{{ toast.type === 'warning' ? '⚠' : '✓' }}</span>
+        <span class="toast-text">{{ toast.message }}</span>
+      </div>
+    </transition>
+
+    <!-- Modal Xác Nhận Thao Tác (Thay thế confirm của localhost) -->
+    <transition name="modal-fade">
+      <div v-if="confirmModal.show" class="modal-backdrop" @click.self="closeConfirmModal">
+        <div class="modal-container modal-confirm-box">
+          <div class="modal-header confirm-header">
+            <div class="confirm-title-group">
+              <span class="confirm-icon-badge" :class="confirmModal.type">
+                <svg v-if="confirmModal.type === 'danger'" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <svg v-else viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M12 16v-4"></path>
+                  <path d="M12 8h.01"></path>
+                </svg>
+              </span>
+              <div>
+                <h3 class="modal-title-custom">{{ confirmModal.title }}</h3>
+              </div>
+            </div>
+            <button class="btn-close-modal" type="button" @click="closeConfirmModal">✕</button>
+          </div>
+
+          <div class="modal-body confirm-body">
+            <p class="confirm-main-message">{{ confirmModal.message }}</p>
+            <p v-if="confirmModal.subText" class="confirm-sub-message">{{ confirmModal.subText }}</p>
+          </div>
+
+          <div class="modal-footer confirm-footer">
+            <button class="btn-modal-cancel" type="button" @click="closeConfirmModal">
+              {{ confirmModal.cancelText }}
+            </button>
+            <button
+                class="btn-confirm-accept"
+                :class="confirmModal.type"
+                type="button"
+                :disabled="saving || paying"
+                @click="handleConfirmAccept"
+            >
+              {{ (saving || paying) ? 'Đang xử lý...' : confirmModal.confirmText }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -636,5 +766,236 @@ button:disabled {
   .action-buttons {
     flex-wrap: wrap;
   }
+}
+
+/* Toast popup */
+.toast-popup {
+  position: fixed;
+  top: 24px;
+  right: 28px;
+  background-color: #36536b;
+  color: #ffffff;
+  padding: 11px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  z-index: 9999;
+  border: 1px solid #4a6880;
+}
+
+.toast-popup.warning {
+  background-color: #d97706;
+  border-color: #b45309;
+}
+
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.toast-fade-enter-from,
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-12px);
+}
+
+/* Custom Confirm Modal Styling */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9998;
+}
+
+.modal-confirm-box {
+  max-width: 480px;
+  width: 90%;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+  animation: modalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  background: #ffffff;
+}
+
+@keyframes modalPop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.confirm-header {
+  padding: 18px 24px 14px 24px;
+  border-bottom: 1px solid #f1e7dc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.confirm-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-title-custom {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #2b353b;
+  margin: 0;
+}
+
+.btn-close-modal {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: none;
+  background: #f1ede4;
+  color: #666;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-close-modal:hover {
+  background: #e2dbce;
+  color: #333;
+}
+
+.confirm-icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.confirm-icon-badge.primary {
+  background: #e8f1f5;
+  color: #3e5c76;
+}
+
+.confirm-icon-badge.warning {
+  background: #fff4e5;
+  color: #d97706;
+}
+
+.confirm-icon-badge.danger {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.confirm-body {
+  padding: 22px 24px 14px 24px;
+}
+
+.confirm-main-message {
+  font-size: 1rem;
+  color: #2b353b;
+  font-weight: 600;
+  line-height: 1.55;
+  margin: 0 0 8px 0;
+}
+
+.confirm-sub-message {
+  font-size: 0.85rem;
+  color: #6c757d;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.confirm-footer {
+  padding: 14px 24px 20px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #f8f3ed;
+  background: #fdfbf7;
+}
+
+.btn-modal-cancel {
+  height: 38px;
+  padding: 0 16px;
+  background: #ffffff;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-modal-cancel:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.btn-confirm-accept {
+  height: 38px;
+  padding: 0 20px;
+  border-radius: 7px;
+  border: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-confirm-accept.primary {
+  background-color: #3e5c76;
+  box-shadow: 0 2px 6px rgba(62, 92, 118, 0.25);
+}
+
+.btn-confirm-accept.primary:hover:not(:disabled) {
+  background-color: #2b4257;
+}
+
+.btn-confirm-accept.danger {
+  background-color: #dc2626;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+}
+
+.btn-confirm-accept.danger:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+.btn-confirm-accept:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
 }
 </style>

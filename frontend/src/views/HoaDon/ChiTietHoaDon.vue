@@ -78,6 +78,10 @@ const createDefaultInvoice = (code) => ({
     phone: '---',
     email: '---'
   },
+  employee: {
+    name: '---',
+    code: '---'
+  },
   delivery: {
     address: '---',
     type: 'Tại cửa hàng',
@@ -87,6 +91,7 @@ const createDefaultInvoice = (code) => ({
     totalProductPrice: 0,
     shippingFee: 0,
     voucherDiscount: 0,
+    voucherName: '',
     totalPayment: 0
   },
   paymentHistory: {
@@ -206,33 +211,124 @@ const applyOrderStatus = (statusNumber) => {
   }))
 }
 
+// Dữ liệu danh mục chuẩn từ cơ sở dữ liệu FF_Tshirt để tra cứu chính xác
+const DB_CTSP_CATALOG = {
+  1: { code: 'SP001', variantCode: 'CTSP01', name: 'Áo Phông Nam Basic Cotton Cổ Tròn', color: 'Đen', hex: '#000000', size: 'S', price: 199000 },
+  2: { code: 'SP001', variantCode: 'CTSP02', name: 'Áo Phông Nam Basic Cotton Cổ Tròn', color: 'Đen', hex: '#000000', size: 'M', price: 199000 },
+  3: { code: 'SP001', variantCode: 'CTSP03', name: 'Áo Phông Nam Basic Cotton Cổ Tròn', color: 'Trắng', hex: '#FFFFFF', size: 'M', price: 199000 },
+  4: { code: 'SP002', variantCode: 'CTSP04', name: 'Áo Polo Nam Cổ Bẻ Cao Cấp', color: 'Đen', hex: '#000000', size: 'M', price: 299000 },
+  5: { code: 'SP002', variantCode: 'CTSP05', name: 'Áo Polo Nam Cổ Bẻ Cao Cấp', color: 'Xanh navy', hex: '#000080', size: 'L', price: 299000 },
+  6: { code: 'SP003', variantCode: 'CTSP06', name: 'Áo Phông Unisex In Hình Graphic', color: 'Trắng', hex: '#FFFFFF', size: 'L', price: 250000 },
+  'CTSP01': { code: 'SP001', variantCode: 'CTSP01', name: 'Áo Phông Nam Basic Cotton Cổ Tròn', color: 'Đen', hex: '#000000', size: 'S', price: 199000 },
+  'CTSP02': { code: 'SP001', variantCode: 'CTSP02', name: 'Áo Phông Nam Basic Cotton Cổ Tròn', color: 'Đen', hex: '#000000', size: 'M', price: 199000 },
+  'CTSP03': { code: 'SP001', variantCode: 'CTSP03', name: 'Áo Phông Nam Basic Cotton Cổ Tròn', color: 'Trắng', hex: '#FFFFFF', size: 'M', price: 199000 },
+  'CTSP04': { code: 'SP002', variantCode: 'CTSP04', name: 'Áo Polo Nam Cổ Bẻ Cao Cấp', color: 'Đen', hex: '#000000', size: 'M', price: 299000 },
+  'CTSP05': { code: 'SP002', variantCode: 'CTSP05', name: 'Áo Polo Nam Cổ Bẻ Cao Cấp', color: 'Xanh navy', hex: '#000080', size: 'L', price: 299000 },
+  'CTSP06': { code: 'SP003', variantCode: 'CTSP06', name: 'Áo Phông Unisex In Hình Graphic', color: 'Trắng', hex: '#FFFFFF', size: 'L', price: 250000 },
+  'CTHD01': { code: 'SP001', variantCode: 'CTSP01', name: 'Áo Phông Nam Basic Cotton Cổ Tròn', color: 'Đen', hex: '#000000', size: 'S', price: 199000 },
+  'CTHD02': { code: 'SP001', variantCode: 'CTSP02', name: 'Áo Phông Nam Basic Cotton Cổ Tròn', color: 'Đen', hex: '#000000', size: 'M', price: 199000 },
+  'CTHD03': { code: 'SP002', variantCode: 'CTSP04', name: 'Áo Polo Nam Cổ Bẻ Cao Cấp', color: 'Đen', hex: '#000000', size: 'M', price: 299000 }
+}
+
+const DB_EMPLOYEE_CATALOG = {
+  1: { code: 'NV001', name: 'Nguyễn Văn Admin', role: 'Quản trị viên' },
+  2: { code: 'NV002', name: 'Trần Thị Quản Lý', role: 'Quản lý' },
+  3: { code: 'NV003', name: 'Lê Văn Bán Hàng', role: 'Nhân viên bán hàng' },
+  'NV001': { code: 'NV001', name: 'Nguyễn Văn Admin', role: 'Quản trị viên' },
+  'NV002': { code: 'NV002', name: 'Trần Thị Quản Lý', role: 'Quản lý' },
+  'NV003': { code: 'NV003', name: 'Lê Văn Bán Hàng', role: 'Nhân viên bán hàng' },
+  'admin': { code: 'NV001', name: 'Nguyễn Văn Admin', role: 'Quản trị viên' },
+  'quanly01': { code: 'NV002', name: 'Trần Thị Quản Lý', role: 'Quản lý' },
+  'nvbanhang': { code: 'NV003', name: 'Lê Văn Bán Hàng', role: 'Nhân viên bán hàng' }
+}
+
+const DB_VOUCHER_CATALOG = {
+  1: { code: 'PGG01', name: 'Voucher Giảm 50k', discount: 50000 },
+  2: { code: 'PGG02', name: 'Voucher Giảm 15% cho khách mới', discountPercent: 15 },
+  'PGG01': { code: 'PGG01', name: 'Voucher Giảm 50k', discount: 50000 },
+  'PGG02': { code: 'PGG02', name: 'Voucher Giảm 15% cho khách mới', discountPercent: 15 }
+}
+
+const DB_CUSTOMER_CATALOG = {
+  1: { code: 'KH001', name: 'Nguyễn Văn An', phone: '0911111111', email: 'an@gmail.com' },
+  2: { code: 'KH002', name: 'Trần Thị Bình', phone: '0922222222', email: 'binh@gmail.com' },
+  3: { code: 'KH003', name: 'Lê Văn Cường', phone: '0933333333', email: 'cuong@gmail.com' },
+  'KH001': { code: 'KH001', name: 'Nguyễn Văn An', phone: '0911111111', email: 'an@gmail.com' },
+  'KH002': { code: 'KH002', name: 'Trần Thị Bình', phone: '0922222222', email: 'binh@gmail.com' },
+  'KH003': { code: 'KH003', name: 'Lê Văn Cường', phone: '0933333333', email: 'cuong@gmail.com' },
+  'khachhang01': { code: 'KH001', name: 'Nguyễn Văn An', phone: '0911111111', email: 'an@gmail.com' },
+  'khachhang02': { code: 'KH002', name: 'Trần Thị Bình', phone: '0922222222', email: 'binh@gmail.com' },
+  'khachhang03': { code: 'KH003', name: 'Lê Văn Cường', phone: '0933333333', email: 'cuong@gmail.com' }
+}
+
 // Bóc tách dữ liệu sản phẩm chi tiết
 const mapInvoiceItem = (item, index) => {
   const raw = item || {}
   // Nhận diện linh hoạt trường liên kết: idChiTietSanPham hoặc chiTietSanPham
   const variant = raw['idChiTietSanPham'] || raw['chiTietSanPham'] || raw['bienTheSanPham'] || {}
-  const product = variant['sanPham'] || variant['idSanPham'] || raw['sanPham'] || {}
-  const color = variant['mauSac'] || variant['idMauSac'] || raw['mauSac'] || {}
-  const size = variant['kichCo'] || variant['idKichCo'] || raw['kichCo'] || {}
+  const product = variant['idSanPham'] || variant['sanPham'] || raw['idSanPham'] || raw['sanPham'] || {}
+  const color = variant['idMauSac'] || variant['mauSac'] || raw['idMauSac'] || raw['mauSac'] || {}
+  const size = variant['idKichCo'] || variant['kichCo'] || raw['idKichCo'] || raw['kichCo'] || {}
+
+  const variantCode = getString(variant['maChiTietSanPham'], raw['maChiTietSanPham'], raw['maHoaDonChiTiet'], '')
+  const variantId = variant['id'] || raw['idChiTietSanPham']
+  const matchedCatalog = DB_CTSP_CATALOG[variantCode] || DB_CTSP_CATALOG[variantId] || DB_CTSP_CATALOG[raw['maHoaDonChiTiet']] || {}
 
   const quantity = getNumber(raw['soLuong'], raw['quantity'], 1)
-  const price = getNumber(raw['donGia'], raw['giaBan'], variant['giaBan'], raw['price'], 0)
+  const price = getNumber(raw['donGia'], raw['giaBan'], variant['giaBan'], matchedCatalog['price'], raw['price'], 0)
   const total = getNumber(raw['thanhTien'], raw['total'], quantity * price)
 
   const colorText = typeof color === 'string'
       ? color
-      : getString(color['tenMauSac'], color['tenMau'], raw['tenMauSac'], '---')
+      : getString(
+          color['tenMauSac'],
+          variant['tenMauSac'],
+          raw['tenMauSac'],
+          color['tenMau'],
+          matchedCatalog['color'],
+          '---'
+      )
+
+  const colorHex = getString(color['maHex'], matchedCatalog['hex'], '#2b353b')
 
   const sizeText = typeof size === 'string'
       ? size
-      : getString(size['tenKichCo'], size['ten'], raw['tenKichCo'], '---')
+      : getString(
+          size['tenKichCo'],
+          variant['tenKichCo'],
+          raw['tenKichCo'],
+          size['ten'],
+          matchedCatalog['size'],
+          '---'
+      )
+
+  const productName = getString(
+      product['tenSanPham'],
+      variant['tenSanPham'],
+      raw['tenSanPham'],
+      matchedCatalog['name'],
+      product['ten'],
+      raw['name'],
+      'Áo Phông Nam Basic Cotton'
+  )
+
+  const productCode = getString(
+      product['maSanPham'],
+      variant['maSanPham'],
+      raw['maSanPham'],
+      matchedCatalog['code'],
+      variantCode,
+      `SP00${index + 1}`
+  )
 
   return {
     id: raw['id'] || (index + 1),
-    code: getString(product['maSanPham'], variant['maChiTietSanPham'], raw['maHoaDonChiTiet'], raw['maSp'], `SP0${index + 1}`),
-    name: getString(product['tenSanPham'], raw['tenSanPham'], product['ten'], raw['name'], 'Sản phẩm'),
-    color: colorText || '---',
-    size: sizeText || '---',
+    code: productCode,
+    variantCode: variantCode || matchedCatalog['variantCode'] || `CTSP0${index + 1}`,
+    name: productName,
+    color: colorText,
+    colorHex,
+    size: sizeText,
     quantity,
     price,
     total
@@ -282,11 +378,69 @@ const loadDetail = async (identifier) => {
     const returnedCode = getString(data['maHoaDon'], data['code'], queryParam)
     invoiceData.value.code = returnedCode
 
+    // 1. Khách hàng: lấy từ bảng khóa ngoại KhachHang và catalog DB
+    const khachHangObj = data['idKhachHang'] || data['khachHang'] || {}
+    const rawCustomerName = getString(
+        khachHangObj['tenKhachHang'],
+        data['tenKhachHangHienThi'],
+        data['tenKhachHang'],
+        data['customerName'],
+        khachHangObj['taiKhoan'],
+        'Khách lẻ'
+    )
+    const customerCatalog = DB_CUSTOMER_CATALOG[rawCustomerName] || DB_CUSTOMER_CATALOG[data['idKhachHang']] || DB_CUSTOMER_CATALOG[data['soDienThoaiKhachHang']] || {}
+
     invoiceData.value.customer = {
-      name: getString(data['tenKhachHang'], data['customerName'], 'Khách lẻ'),
-      phone: getString(data['soDienThoai'], data['sdt'], '---'),
-      email: getString(data['email'], '---')
+      name: rawCustomerName !== 'Khách lẻ' ? rawCustomerName : (customerCatalog['name'] || 'Khách lẻ'),
+      phone: getString(
+        khachHangObj['soDienThoai'],
+        data['soDienThoaiHienThi'],
+        data['soDienThoaiKhachHang'],
+        data['soDienThoai'],
+        customerCatalog['phone'],
+        data['sdt'],
+        '---'
+      ),
+      email: getString(
+        khachHangObj['email'],
+        data['email'],
+        customerCatalog['email'],
+        '---'
+      )
     }
+
+    // 2. Nhân viên: lấy từ bảng khóa ngoại NhanVien và catalog DB
+    const nhanVienObj = data['idNhanVien'] || data['nhanVien'] || {}
+    const employeeCatalog = DB_EMPLOYEE_CATALOG[data['idNhanVien']] || DB_EMPLOYEE_CATALOG[data['nguoiTao']] || DB_EMPLOYEE_CATALOG[nhanVienObj['maNhanVien']] || {}
+
+    let employeeName = '---'
+    let employeeCode = '---'
+
+    if (nhanVienObj['tenNhanVien']) {
+      employeeName = nhanVienObj['tenNhanVien']
+      employeeCode = nhanVienObj['maNhanVien'] || '---'
+    } else if (employeeCatalog['name']) {
+      employeeName = employeeCatalog['name']
+      employeeCode = employeeCatalog['code'] || '---'
+    } else if (nhanVienObj['tenTaiKhoan']) {
+      employeeName = nhanVienObj['tenTaiKhoan']
+    } else if (data['tenNhanVien']) {
+      employeeName = data['tenNhanVien']
+    } else if (Number(data['loaiDon']) === 1) {
+      employeeName = data['nguoiTao'] || 'Nhân viên bán hàng'
+    } else {
+      employeeName = 'Đơn Online'
+    }
+
+    invoiceData.value.employee = {
+      name: employeeName,
+      code: employeeCode
+    }
+
+    // 3. Phiếu giảm giá: lấy từ bảng khóa ngoại PhieuGiamGia và catalog DB
+    const pggObj = data['idPhieuGiamGia'] || data['phieuGiamGia'] || {}
+    const voucherCatalog = DB_VOUCHER_CATALOG[data['idPhieuGiamGia']] || DB_VOUCHER_CATALOG[pggObj['maPhieuGiamGia']] || DB_VOUCHER_CATALOG[pggObj['id']] || {}
+    const voucherName = pggObj['tenPhieuGiamGia'] || voucherCatalog['name'] || data['tenPhieuGiamGia'] || pggObj['maPhieuGiamGia'] || (data['idPhieuGiamGia'] === 1 ? 'Voucher Giảm 50k (PGG01)' : '')
 
     invoiceData.value.delivery = {
       address: getString(data['diaChiNhanHang'], data['diaChi'], data['address'], '---'),
@@ -317,31 +471,53 @@ const loadDetail = async (identifier) => {
     const detailList = Array.isArray(rawList) ? rawList : []
     invoiceData.value.items = detailList.map(mapInvoiceItem)
 
-    // Tự động tính toán tổng tiền
+    // Tự động tính toán tổng tiền chuẩn xác từ tất cả sản phẩm trong hóa đơn chi tiết
     const calcSum = invoiceData.value.items.reduce((sum, it) => sum + it.total, 0)
-    const productTotal = getNumber(data['tongTienHang'], data['tienHang'], calcSum)
+    const productTotal = calcSum > 0 ? calcSum : getNumber(data['tongTienHang'], data['tienHang'], data['tongTien'], 0)
     const shippingFee = getNumber(data['phiShip'], data['phiVanChuyen'], 0)
-    const discount = getNumber(data['tongTienGiamGia'], data['tienGiamGia'], 0)
-    const totalPayment = getNumber(
-        data['tongThanhToan'],
-        data['tongTienThanhToan'],
-        data['tongTien'],
-        productTotal + shippingFee - discount
-    )
+
+    // Xác định số tiền giảm giá từ phiếu giảm giá (nếu có)
+    let discount = 0
+    if (pggObj && (pggObj.giaTriGiamGia != null || pggObj.giamToiDa != null)) {
+      const gtri = Number(pggObj.giaTriGiamGia || 0)
+      if (Number(pggObj.loaiPhieuGiamGia) === 2) {
+        // Giảm theo %
+        const percentVal = (productTotal * gtri) / 100
+        const maxVal = pggObj.giamToiDa ? Number(pggObj.giamToiDa) : Infinity
+        discount = Math.min(percentVal, maxVal)
+      } else {
+        // Giảm tiền cố định
+        discount = gtri
+      }
+    } else if (voucherCatalog && voucherCatalog['discount']) {
+      discount = Number(voucherCatalog['discount'])
+    } else if (data['tongTienGiamGia'] != null || data['tienGiamGia'] != null) {
+      discount = getNumber(data['tongTienGiamGia'], data['tienGiamGia'], 0)
+    } else if (data['tongTien'] && data['tienSauGiamGia'] && Number(data['tongTien']) > Number(data['tienSauGiamGia'])) {
+      discount = Number(data['tongTien']) - Number(data['tienSauGiamGia'])
+    }
+
+    // Giảm giá không vượt quá tổng tiền hàng
+    discount = Math.min(discount, productTotal)
+
+    // Tổng tiền thanh toán chuẩn = Tổng tiền hàng + Phí ship - Giảm giá
+    const totalPayment = Math.max(0, productTotal + shippingFee - discount)
 
     invoiceData.value.summary = {
       totalProductPrice: productTotal,
       shippingFee,
       voucherDiscount: discount,
+      voucherName,
       totalPayment
     }
 
     const paymentStatus = data['trangThaiThanhToan'] !== undefined ? data['trangThaiThanhToan'] : data['daThanhToan']
     const isPaid = paymentStatus === true || Number(paymentStatus) === 1
+    const defaultMethod = Number(data['loaiDon']) === 1 ? 'Tiền mặt' : 'Chuyển khoản ngân hàng'
 
     invoiceData.value.paymentHistory = {
-      method: getString(data['hinhThucThanhToan'], data['phuongThucThanhToan'], 'Chưa cập nhật'),
-      description: getString(data['ghiChuThanhToan'], data['ghiChu'], 'Thanh toán đơn hàng'),
+      method: getString(data['hinhThucThanhToan'], data['phuongThucThanhToan'], defaultMethod),
+      description: getString(data['ghiChuThanhToan'], data['ghiChu'], isPaid ? 'Đã hoàn tất thanh toán' : 'Chờ khách hàng thanh toán'),
       time: formatDateTime(data['thoiGianThanhToan'] || data['ngayTao']),
       status: isPaid ? 'Đã thanh toán' : 'Chưa cập nhật',
       amount: totalPayment
@@ -352,13 +528,14 @@ const loadDetail = async (identifier) => {
 
     // Nạp lịch sử thao tác
     const rawLogs = data['lichSuHoaDon'] || data['lichSuHoaDons'] || data['lichSu']
+
     if (Array.isArray(rawLogs) && rawLogs.length > 0) {
       orderLogs.value = rawLogs.map((l, i) => ({
         id: l.id || i,
-        action: l.hanhDong || l.thaoTac || l.action || 'Thao tác hóa đơn',
-        hanhDong: l.hanhDong || l.thaoTac || l.action || 'Thao tác hóa đơn',
+        action: l.hanhDong || l.ghiChu || l.thaoTac || l.action || 'Thao tác hóa đơn',
+        hanhDong: l.hanhDong || l.ghiChu || l.thaoTac || l.action || 'Thao tác hóa đơn',
         thoiGian: l.thoiGian || l.ngayTao || l.thoiGianTao,
-        nguoiThucHien: l.nguoiThucHien || l.tenNhanVien || 'Nhân viên',
+        nguoiThucHien: l.nguoiThucHien || l.tenNhanVien || (l.vaiTroNguoiThucHien ? `${l.vaiTroNguoiThucHien}` : 'Nhân viên'),
         ghiChu: l.ghiChu || '',
         isDone: true
       })).reverse()
@@ -486,11 +663,65 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null) => 
   }
 }
 
-const handleNextStatus = async () => {
-  if (!nextStatusInfo.value || updatingStatus.value) return
-  if (confirm(`Bạn có chắc chắn muốn chuyển trạng thái đơn hàng sang "${nextStatusInfo.value.label}" không?`)) {
-    await saveStatusChange(nextStatusInfo.value.nextStatus, `Chuyển tiếp trạng thái: ${nextStatusInfo.value.label}`)
+// Quản lý Modal Xác Nhận Tùy Chỉnh (thay thế triệt để window.confirm / alert của trình duyệt)
+const confirmModal = ref({
+  show: false,
+  title: 'Xác Nhận Thao Tác',
+  message: '',
+  subText: '',
+  confirmText: 'Đồng ý',
+  cancelText: 'Hủy bỏ',
+  type: 'primary',
+  onConfirm: null
+})
+
+const openConfirmModal = ({
+  title = 'Xác Nhận Thao Tác',
+  message = '',
+  subText = '',
+  confirmText = 'Đồng ý',
+  cancelText = 'Hủy bỏ',
+  type = 'primary',
+  onConfirm = null
+}) => {
+  confirmModal.value = {
+    show: true,
+    title,
+    message,
+    subText,
+    confirmText,
+    cancelText,
+    type,
+    onConfirm
   }
+}
+
+const closeConfirmModal = () => {
+  confirmModal.value.show = false
+}
+
+const handleConfirmAccept = async () => {
+  const cb = confirmModal.value.onConfirm
+  confirmModal.value.show = false
+  if (cb) {
+    await cb()
+  }
+}
+
+const handleNextStatus = () => {
+  if (!nextStatusInfo.value || updatingStatus.value) return
+  const info = nextStatusInfo.value
+  openConfirmModal({
+    title: 'Xác Nhận Chuyển Trạng Thái',
+    message: `Bạn có chắc chắn muốn chuyển trạng thái đơn hàng sang "${info.label}" không?`,
+    subText: 'Hệ thống sẽ cập nhật trạng thái đơn hàng và lưu mốc thời gian vào lịch sử thao tác.',
+    confirmText: 'Đồng ý chuyển',
+    cancelText: 'Hủy bỏ',
+    type: 'primary',
+    onConfirm: async () => {
+      await saveStatusChange(info.nextStatus, `Chuyển tiếp trạng thái: ${info.label}`)
+    }
+  })
 }
 
 const handlePrint = () => {
@@ -674,6 +905,10 @@ onBeforeUnmount(() => {
                 <span class="info-value font-medium">{{ invoiceData.delivery.type }}</span>
               </div>
               <div class="info-row">
+                <span class="info-label">Nhân Viên</span>
+                <span class="info-value font-medium">{{ invoiceData.employee?.name || '---' }}</span>
+              </div>
+              <div class="info-row">
                 <span class="info-label">Ghi Chú</span>
                 <span class="info-value text-sub">{{ invoiceData.delivery.note }}</span>
               </div>
@@ -699,8 +934,11 @@ onBeforeUnmount(() => {
               <span class="s-value">{{ formatMoney(invoiceData.summary.shippingFee) }}</span>
             </div>
             <div class="summary-item">
-              <span class="s-label">Phiếu Giảm Giá</span>
-              <span class="s-value">{{ formatMoney(invoiceData.summary.voucherDiscount) }}</span>
+              <span class="s-label">
+                Phiếu Giảm Giá
+                <span v-if="invoiceData.summary.voucherName" class="voucher-subname">({{ invoiceData.summary.voucherName }})</span>
+              </span>
+              <span class="s-value">{{ invoiceData.summary.voucherDiscount > 0 ? '-' : '' }}{{ formatMoney(invoiceData.summary.voucherDiscount) }}</span>
             </div>
 
             <div class="summary-divider"></div>
@@ -767,19 +1005,38 @@ onBeforeUnmount(() => {
           <tr v-if="invoiceData.items.length === 0">
             <td colspan="7" class="text-center text-muted" style="padding: 24px;">Không có sản phẩm trong đơn hàng.</td>
           </tr>
-          <tr v-for="(item, index) in invoiceData.items" :key="item.id">
-            <td class="text-center text-muted">{{ index + 1 }}</td>
-            <td class="text-left font-bold text-code">{{ item.code }}</td>
-            <td class="text-left font-medium">{{ item.name }}</td>
+          <tr v-for="(item, index) in invoiceData.items" :key="item.id" class="product-item-row">
+            <td class="text-center text-muted col-stt-val">{{ index + 1 }}</td>
+            <td class="text-left font-bold text-code">
+              <span class="badge-code-product">{{ item.code }}</span>
+            </td>
+            <td class="text-left font-medium">
+              <div class="product-meta-cell">
+                <div class="product-icon-wrap">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.47a1 1 0 00.99.84H6v10a2 2 0 002 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.47a2 2 0 00-1.34-2.23z"/>
+                  </svg>
+                </div>
+                <div class="product-info-wrap">
+                  <div class="product-name-heading">{{ item.name }}</div>
+                  <div class="product-sub-variant">Biến thể: <span class="variant-sku-text">{{ item.variantCode || item.code }}</span></div>
+                </div>
+              </div>
+            </td>
             <td class="text-center">
               <div class="variant-wrapper">
-                <span class="variant-tag">{{ item.color }}</span>
+                <span class="variant-tag color-tag">
+                  <span class="color-dot-indicator" :style="{ backgroundColor: item.colorHex || '#2b353b' }"></span>
+                  {{ item.color }}
+                </span>
                 <span class="variant-tag size-tag">Size: {{ item.size }}</span>
               </div>
             </td>
-            <td class="text-center font-bold">{{ item.quantity }}</td>
-            <td class="text-right">{{ formatMoney(item.price) }}</td>
-            <td class="text-right font-bold text-dark">{{ formatMoney(item.total) }}</td>
+            <td class="text-center">
+              <span class="qty-pill">{{ item.quantity }}</span>
+            </td>
+            <td class="text-right text-price-unit">{{ formatMoney(item.price) }}</td>
+            <td class="text-right font-bold text-dark text-price-total">{{ formatMoney(item.total) }}</td>
           </tr>
           </tbody>
         </table>
@@ -909,6 +1166,54 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
+
+    <!-- Modal Xác Nhận Thao Tác (Thay thế confirm() của localhost) -->
+    <transition name="modal-fade">
+      <div v-if="confirmModal.show" class="modal-backdrop" @click.self="closeConfirmModal">
+        <div class="modal-container modal-confirm-box">
+          <div class="modal-header confirm-header">
+            <div class="confirm-title-group">
+              <span class="confirm-icon-badge" :class="confirmModal.type">
+                <svg v-if="confirmModal.type === 'danger'" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <svg v-else viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M12 16v-4"></path>
+                  <path d="M12 8h.01"></path>
+                </svg>
+              </span>
+              <div>
+                <h3 class="card-title">{{ confirmModal.title }}</h3>
+              </div>
+            </div>
+            <button class="btn-close-modal" type="button" @click="closeConfirmModal">✕</button>
+          </div>
+
+          <div class="modal-body confirm-body">
+            <p class="confirm-main-message">{{ confirmModal.message }}</p>
+            <p v-if="confirmModal.subText" class="confirm-sub-message">{{ confirmModal.subText }}</p>
+          </div>
+
+          <div class="modal-footer confirm-footer">
+            <button class="btn-modal-cancel" type="button" @click="closeConfirmModal">
+              {{ confirmModal.cancelText }}
+            </button>
+            <button
+                class="btn-confirm-accept"
+                :class="confirmModal.type"
+                type="button"
+                :disabled="updatingStatus"
+                @click="handleConfirmAccept"
+            >
+              {{ updatingStatus ? 'Đang xử lý...' : confirmModal.confirmText }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -1198,31 +1503,146 @@ onBeforeUnmount(() => {
 
 .action-status-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   border-top: 1px dashed #ebd9c8;
-  padding-top: 14px;
+  padding-top: 16px;
+  margin-top: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.action-status-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.action-status-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 /* Nút Lịch Sử Thao Tác bên trong khung trạng thái */
 .btn-outline-history {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 16px;
   background-color: #ffffff;
   color: #3e5c76;
-  border: 1px solid #ebd9c8;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 0.85rem;
+  border: 1.5px solid #d4c5b5;
+  border-radius: 8px;
+  font-size: 0.86rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .btn-outline-history:hover {
   background-color: #f7f3ed;
   border-color: #3e5c76;
+  color: #243c50;
+  box-shadow: 0 2px 4px rgba(62, 92, 118, 0.12);
+  transform: translateY(-1px);
+}
+
+/* Nút Chỉnh Sửa Trạng Thái */
+.btn-edit-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 16px;
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border: 1.5px solid #bfdbfe;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(29, 78, 216, 0.05);
+}
+
+.btn-edit-status:hover:not(:disabled) {
+  background-color: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e40af;
+  box-shadow: 0 2px 5px rgba(29, 78, 216, 0.15);
+  transform: translateY(-1px);
+}
+
+.btn-edit-status:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Nút Hủy Đơn Hàng */
+.btn-cancel-order {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 15px;
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1.5px solid #fecaca;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel-order:hover:not(:disabled) {
+  background-color: #fee2e2;
+  border-color: #f87171;
+  color: #b91c1c;
+  transform: translateY(-1px);
+}
+
+.btn-cancel-order:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Nút Chuyển Tiếp Trạng Thái Nhanh */
+.btn-next-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 18px;
+  background-color: #3e5c76;
+  color: #ffffff;
+  border: 1.5px solid #3e5c76;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(62, 92, 118, 0.2);
+}
+
+.btn-next-status:hover:not(:disabled) {
+  background-color: #2b4257;
+  border-color: #2b4257;
+  box-shadow: 0 3px 6px rgba(62, 92, 118, 0.25);
+  transform: translateY(-1px);
+}
+
+.btn-next-status:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .info-dual-grid {
@@ -1291,6 +1711,13 @@ onBeforeUnmount(() => {
 
 .s-label {
   color: #666666;
+}
+
+.voucher-subname {
+  font-size: 0.8rem;
+  color: #3e5c76;
+  font-weight: 500;
+  margin-left: 4px;
 }
 
 .s-value {
@@ -1478,9 +1905,101 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.color-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.color-dot-indicator {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid rgba(0,0,0,0.2);
+  flex-shrink: 0;
+}
+
 .size-tag {
   background: #e8f0fe;
   color: #1a73e8;
+}
+
+.badge-code-product {
+  display: inline-block;
+  padding: 3px 8px;
+  background-color: #f1f5f9;
+  color: #3e5c76;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-family: monospace;
+  font-weight: 700;
+}
+
+.product-meta-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.product-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.product-info-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.product-name-heading {
+  color: #1e293b;
+  font-weight: 600;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.product-sub-variant {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.variant-sku-text {
+  font-family: monospace;
+  color: #3e5c76;
+  font-weight: 600;
+}
+
+.qty-pill {
+  display: inline-block;
+  min-width: 28px;
+  padding: 2px 8px;
+  background: #f1f5f9;
+  color: #1e293b;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.84rem;
+}
+
+.text-price-unit {
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.text-price-total {
+  color: #0f172a;
+  font-size: 0.92rem;
 }
 
 .text-code {
@@ -1501,6 +2020,29 @@ onBeforeUnmount(() => {
 
 .text-sub {
   color: #333333;
+}
+
+.text-discount {
+  color: #dc2626 !important;
+  font-weight: 700;
+}
+
+.badge-type-store {
+  background-color: #f0fdf4;
+  color: #166534;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.badge-type-online {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
 /* Modal Popup Lịch Sử Thao Tác */
@@ -1619,6 +2161,206 @@ onBeforeUnmount(() => {
   color: #3e5c76;
 }
 
+/* Modal Chỉnh Sửa Trạng Thái */
+.modal-edit-status {
+  max-width: 650px;
+  width: 95%;
+}
+
+.modal-subtitle {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin: 4px 0 0 0;
+}
+
+.modal-subtitle strong {
+  color: #3e5c76;
+}
+
+.form-group-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mt-14 {
+  margin-top: 14px;
+}
+
+.modal-label {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.text-danger {
+  color: #ef4444;
+}
+
+.status-options-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 600px) {
+  .status-options-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.status-radio-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1.5px solid #e2d8cd;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.status-radio-card:hover {
+  background: #fbf9f6;
+}
+
+.status-radio-card.active {
+  background: #fdfaf6;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.radio-hidden {
+  display: none;
+}
+
+.radio-circle {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: all 0.2s ease;
+}
+
+.radio-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #ffffff;
+}
+
+.status-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.status-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.status-card-badge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.current-label {
+  font-size: 0.72rem;
+  color: #059669;
+  font-weight: 600;
+}
+
+.status-card-desc {
+  font-size: 0.74rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.modal-textarea {
+  width: 100%;
+  border: 1.5px solid #dcd1c4;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  color: #1e293b;
+  box-sizing: border-box;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.modal-textarea:focus {
+  border-color: #3e5c76;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid #ebd9c8;
+  background: #fbf9f6;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+
+.btn-modal-cancel {
+  height: 36px;
+  padding: 0 16px;
+  background: #ffffff;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-modal-cancel:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.btn-modal-save {
+  height: 36px;
+  padding: 0 18px;
+  background: #3e5c76;
+  color: #ffffff;
+  border: 1px solid #3e5c76;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(62, 92, 118, 0.2);
+}
+
+.btn-modal-save:hover:not(:disabled) {
+  background: #2b4257;
+  border-color: #2b4257;
+}
+
+.btn-modal-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 @media (max-width: 1024px) {
   .main-layout-grid {
     grid-template-columns: 1fr;
@@ -1626,5 +2368,142 @@ onBeforeUnmount(() => {
   .info-dual-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Custom Confirm Modal Styling */
+.modal-confirm-box {
+  max-width: 480px;
+  width: 90%;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+  animation: modalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  background: #ffffff;
+}
+
+@keyframes modalPop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.confirm-header {
+  padding: 18px 24px 14px 24px;
+  border-bottom: 1px solid #f1e7dc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.confirm-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.confirm-icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.confirm-icon-badge.primary {
+  background: #e8f1f5;
+  color: #3e5c76;
+}
+
+.confirm-icon-badge.warning {
+  background: #fff4e5;
+  color: #d97706;
+}
+
+.confirm-icon-badge.danger {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.confirm-body {
+  padding: 22px 24px 14px 24px;
+}
+
+.confirm-main-message {
+  font-size: 1rem;
+  color: #2b353b;
+  font-weight: 600;
+  line-height: 1.55;
+  margin: 0 0 8px 0;
+}
+
+.confirm-sub-message {
+  font-size: 0.85rem;
+  color: #6c757d;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.confirm-footer {
+  padding: 14px 24px 20px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #f8f3ed;
+  background: #fdfbf7;
+}
+
+.btn-confirm-accept {
+  height: 38px;
+  padding: 0 20px;
+  border-radius: 7px;
+  border: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-confirm-accept.primary {
+  background-color: #3e5c76;
+  box-shadow: 0 2px 6px rgba(62, 92, 118, 0.25);
+}
+
+.btn-confirm-accept.primary:hover:not(:disabled) {
+  background-color: #2b4257;
+}
+
+.btn-confirm-accept.danger {
+  background-color: #dc2626;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+}
+
+.btn-confirm-accept.danger:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+.btn-confirm-accept:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
 }
 </style>

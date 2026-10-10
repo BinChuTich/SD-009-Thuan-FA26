@@ -1,5 +1,6 @@
 package com.example.sd009thuan.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -18,6 +19,7 @@ import java.time.Instant;
 @Setter
 @Entity
 @Table(name = "phieu_giam_gia")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class PhieuGiamGia {
     @Id
     @Column(name = "id", nullable = false)

@@ -65,4 +65,29 @@ public class ChiTietHoaDon {
     @ColumnDefault("1")
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("tenSanPham")
+    public String getTenSanPham() {
+        return idChiTietSanPham != null ? idChiTietSanPham.getTenSanPham() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("maSanPham")
+    public String getMaSanPham() {
+        return idChiTietSanPham != null ? idChiTietSanPham.getMaSanPham() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("maChiTietSanPham")
+    public String getMaChiTietSanPham() {
+        return idChiTietSanPham != null ? idChiTietSanPham.getMaChiTietSanPham() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("tenKichCo")
+    public String getTenKichCo() {
+        return idChiTietSanPham != null ? idChiTietSanPham.getTenKichCo() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("tenMauSac")
+    public String getTenMauSac() {
+        return idChiTietSanPham != null ? idChiTietSanPham.getTenMauSac() : null;
+    }
 }
