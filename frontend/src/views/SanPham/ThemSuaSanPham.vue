@@ -10,9 +10,6 @@
       </div>
 
       <button type="button" class="btn btn-back-top" @click="handleBack">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display: inline-block; vertical-align: middle; margin-right: 4px;">
-          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-        </svg>
         Quay lại danh sách
       </button>
     </div>
