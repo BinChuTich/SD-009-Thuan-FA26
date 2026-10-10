@@ -30,7 +30,14 @@
          VIEW 1: MÀN HÌNH DANH SÁCH ĐỢT GIẢM GIÁ
     ======================================================== -->
     <div v-if="currentView === 'list'" class="view-list">
-      <!-- 1. Khung Bộ lọc (Chuẩn ảnh mẫu) -->
+      <!-- 1. Thanh tiêu đề trên cùng góc trái -->
+      <div class="breadcrumb-header">
+        <div class="breadcrumb-left">
+          <span class="breadcrumb-text">Quản lý giảm giá <span class="slash">/</span> <b>Đợt giảm giá</b></span>
+        </div>
+      </div>
+
+      <!-- 2. Khung Bộ lọc (Chuẩn ảnh mẫu) -->
       <div class="content-card filter-card-custom">
         <div class="card-header-filter">
           <div class="filter-icon-box">
@@ -303,6 +310,8 @@
           </svg>
         </button>
         <div class="video-breadcrumb-text">
+          <span class="crumb-link" @click="backToList">Quản lý giảm giá</span>
+          <span class="crumb-sep">/</span>
           <span class="crumb-link" @click="backToList">Đợt giảm giá</span>
           <span class="crumb-sep">/</span>
           <span class="crumb-current">{{ isEditing ? 'Chi tiết đợt giảm giá' : 'Thêm đợt giảm giá' }}</span>
@@ -402,6 +411,7 @@
               </div>
             </div>
 
+
             <!-- Mô tả -->
             <div class="video-form-group">
               <label class="video-form-label">Mô tả</label>
@@ -413,7 +423,7 @@
               ></textarea>
             </div>
 
-            <!-- Nút Tạo đợt giảm giá (hồng đỏ) -->
+            <!-- Nút Tạo đợt giảm giá -->
             <div class="video-form-actions">
               <button class="btn-video-submit" @click="onSaveClick" :disabled="submitting">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1665,7 +1675,7 @@ const openCreateView = () => {
 }
 
 // Chuyển sang màn hình chỉnh sửa
-const openEditView = (item) => {
+const openEditView = async (item) => {
   isEditing.value = true
   const pad = n => String(n).padStart(2, '0')
   const toDateOnly = val => {
@@ -1685,8 +1695,22 @@ const openEditView = (item) => {
     giamToiDa: null,
     ngayBatDau: toDateOnly(item.ngayBatDau),
     ngayKetThuc: item.ngayKetThuc ? toDateOnly(item.ngayKetThuc) : '',
-    moTa: '',
+    moTa: item.moTa || '',
     trangThai: item.trangThai != null ? item.trangThai : 1
+  }
+
+  // Lấy chi tiết mới nhất từ API để đảm bảo nhận đầy đủ mô tả từ database
+  try {
+    const res = await api.get(`/api/dot-giam-gia/${item.id}`)
+    if (res.data) {
+      if (res.data.moTa !== undefined && res.data.moTa !== null) {
+        formData.value.moTa = res.data.moTa
+      }
+      if (res.data.tenDotGiamGia) formData.value.tenDotGiamGia = res.data.tenDotGiamGia
+      if (res.data.maDotGiamGia) formData.value.maDotGiamGia = res.data.maDotGiamGia
+    }
+  } catch (e) {
+    console.warn('Lỗi khi tải chi tiết đợt giảm giá:', e)
   }
 
   productSourceList.value.forEach(p => {
@@ -1778,6 +1802,7 @@ const doSubmitAPI = async () => {
       giamToiDa: isPercent ? (formData.value.giamToiDa || null) : null,
       ngayBatDau: new Date(formData.value.ngayBatDau).toISOString(),
       ngayKetThuc: formData.value.ngayKetThuc ? new Date(formData.value.ngayKetThuc).toISOString() : null,
+      moTa: formData.value.moTa?.trim() || null,
       trangThai: formData.value.trangThai
     }
 

@@ -47,6 +47,10 @@ public class DotGiamGia {
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
 
+    @Nationalized
+    @Column(name = "mo_ta")
+    private String moTa;
+
     @Transient
     private Integer loaiGiamGia = 1; // 1: Giảm theo %, 2: Giảm bằng tiền
 
