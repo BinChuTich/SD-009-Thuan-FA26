@@ -386,6 +386,113 @@ watch(
     { immediate: true, deep: true }
 )
 
+// Quản lý Chỉnh sửa trạng thái hóa đơn
+const showStatusModal = ref(false)
+const targetStatus = ref(1)
+const statusNote = ref('')
+
+const statusOptions = [
+  { value: 1, label: 'Chờ Xác Nhận', desc: 'Đơn hàng mới tạo, đang chờ xác nhận từ cửa hàng', color: '#d97706', bg: '#fff4e5' },
+  { value: 2, label: 'Đã Xác Nhận', desc: 'Đơn hàng đã được xác nhận, chuẩn bị đóng gói hàng', color: '#0369a1', bg: '#e0f2fe' },
+  { value: 3, label: 'Chờ Vận Chuyển', desc: 'Hàng đã đóng gói xong, đang chờ bàn giao vận chuyển', color: '#8a3ee6', bg: '#f5edff' },
+  { value: 4, label: 'Đang Vận Chuyển', desc: 'Shipper / bên vận chuyển đang giao hàng tới khách', color: '#00838f', bg: '#e0f7fa' },
+  { value: 5, label: 'Hoàn Thành', desc: 'Đơn hàng đã giao thành công và hoàn tất toàn bộ', color: '#1b7a37', bg: '#e6f6ec' },
+  { value: 6, label: 'Đã Hủy', desc: 'Hủy đơn hàng và ngừng tiến trình xử lý', color: '#be2626', bg: '#fee6e6' }
+]
+
+const openStatusModal = () => {
+  targetStatus.value = Number(invoiceData.value.status) || 1
+  statusNote.value = ''
+  showStatusModal.value = true
+}
+
+const openCancelModal = () => {
+  targetStatus.value = 6
+  statusNote.value = 'Khách hàng yêu cầu hủy đơn'
+  showStatusModal.value = true
+}
+
+const nextStatusInfo = computed(() => {
+  const cur = Number(invoiceData.value.status)
+  switch (cur) {
+    case 1:
+      return { nextStatus: 2, label: 'Xác Nhận Đơn Hàng' }
+    case 2:
+      return { nextStatus: 3, label: 'Chờ Vận Chuyển' }
+    case 3:
+      return { nextStatus: 4, label: 'Giao Vận Chuyển' }
+    case 4:
+      return { nextStatus: 5, label: 'Hoàn Thành Đơn' }
+    default:
+      return null
+  }
+})
+
+const saveStatusChange = async (newStatusOverride = null, customNote = null) => {
+  const newStatus = Number(newStatusOverride !== null ? newStatusOverride : targetStatus.value)
+  const note = customNote !== null ? customNote : statusNote.value.trim()
+  const id = invoiceId.value || invoiceData.value.id
+  const code = invoiceCode.value || invoiceData.value.code
+
+  if (!newStatus || newStatus < 1 || newStatus > 6) {
+    showToast('Vui lòng chọn trạng thái hợp lệ!', 'warning')
+    return
+  }
+
+  updatingStatus.value = true
+  try {
+    let success = false
+
+    // 1. Cố gắng cập nhật qua ID
+    if (id) {
+      try {
+        await api.put(`/api/hoa-don/${id}/trang-thai`, {
+          trangThai: newStatus,
+          ghiChu: note || undefined
+        })
+        success = true
+      } catch (err) {
+        console.warn('Cập nhật theo ID thất bại, sẽ thử cập nhật theo mã:', err)
+      }
+    }
+
+    // 2. Nếu chưa thành công hoặc không có ID, cập nhật qua mã hóa đơn
+    if (!success && code) {
+      try {
+        await api.put(`/api/hoa-don/code/${encodeURIComponent(code)}/trang-thai`, {
+          trangThai: newStatus,
+          ghiChu: note || undefined
+        })
+        success = true
+      } catch (err) {
+        console.error('Cập nhật theo mã thất bại:', err)
+      }
+    }
+
+    if (success) {
+      const option = statusOptions.find(o => o.value === newStatus)
+      showToast(`Đã cập nhật trạng thái hóa đơn thành "${option ? option.label : newStatus}"!`)
+      showStatusModal.value = false
+      if (code) {
+        await loadDetail(code)
+      }
+    } else {
+      showToast('Cập nhật trạng thái thất bại. Vui lòng thử lại!', 'warning')
+    }
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Cập nhật trạng thái thất bại!', 'warning')
+  } finally {
+    updatingStatus.value = false
+  }
+}
+
+const handleNextStatus = async () => {
+  if (!nextStatusInfo.value || updatingStatus.value) return
+  if (confirm(`Bạn có chắc chắn muốn chuyển trạng thái đơn hàng sang "${nextStatusInfo.value.label}" không?`)) {
+    await saveStatusChange(nextStatusInfo.value.nextStatus, `Chuyển tiếp trạng thái: ${nextStatusInfo.value.label}`)
+  }
+}
+
 const handlePrint = () => {
   window.print()
 }
@@ -476,15 +583,58 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <!-- Nhóm nút hành động: CHỈ CÒN DUY NHẤT NÚT LỊCH SỬ THAO TÁC -->
+          <!-- Nhóm nút hành động quản lý trạng thái -->
           <div class="action-status-footer">
-            <button class="btn-outline-history" type="button" @click="showHistoryModal = true">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-              Lịch Sử Thao Tác
-            </button>
+            <div class="action-status-left">
+              <button class="btn-outline-history" type="button" @click="showHistoryModal = true">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                Lịch Sử Thao Tác
+              </button>
+            </div>
+
+            <div class="action-status-right">
+              <!-- Nút Hủy Đơn Hàng (nếu đơn chưa hoàn thành và chưa hủy) -->
+              <button
+                  v-if="invoiceData.status !== 5 && invoiceData.status !== 6"
+                  class="btn-cancel-order"
+                  type="button"
+                  :disabled="updatingStatus"
+                  @click="openCancelModal"
+              >
+                ✕ Hủy Đơn Hàng
+              </button>
+
+              <!-- Nút Chỉnh Sửa Trạng Thái (Mở modal chọn trong 6 trạng thái) -->
+              <button
+                  class="btn-edit-status"
+                  type="button"
+                  :disabled="updatingStatus"
+                  @click="openStatusModal"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+                Chỉnh Sửa Trạng Thái
+              </button>
+
+              <!-- Nút Chuyển Tiếp Trạng Thái Nhanh (nếu còn bước tiếp theo) -->
+              <button
+                  v-if="nextStatusInfo"
+                  class="btn-next-status"
+                  type="button"
+                  :disabled="updatingStatus"
+                  @click="handleNextStatus"
+              >
+                {{ updatingStatus ? 'Đang xử lý...' : nextStatusInfo.label }}
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -662,6 +812,100 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Chỉnh Sửa Trạng Thái Hóa Đơn -->
+    <div v-if="showStatusModal" class="modal-backdrop" @click.self="showStatusModal = false">
+      <div class="modal-container modal-edit-status">
+        <div class="modal-header">
+          <div>
+            <h3 class="card-title">Chỉnh Sửa Trạng Thái Hóa Đơn</h3>
+            <p class="modal-subtitle">
+              Mã: <strong>{{ invoiceData.code }}</strong> — Khách hàng: <strong>{{ invoiceData.customer.name }}</strong>
+            </p>
+          </div>
+          <button class="btn-close-modal" type="button" @click="showStatusModal = false">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="form-group-modal">
+            <label class="modal-label">Trạng thái hiện tại:</label>
+            <div>
+              <span class="badge-status-top" :class="'badge-status-' + invoiceData.status">
+                {{ invoiceData.statusBadge }}
+              </span>
+            </div>
+          </div>
+
+          <div class="form-group-modal mt-14">
+            <label class="modal-label">Chọn trạng thái mới <span class="text-danger">*</span></label>
+            <div class="status-options-grid">
+              <label
+                  v-for="st in statusOptions"
+                  :key="st.value"
+                  class="status-radio-card"
+                  :class="{ active: targetStatus === st.value }"
+                  :style="{ borderColor: targetStatus === st.value ? st.color : '#e2d8cd' }"
+              >
+                <input
+                    type="radio"
+                    name="detailStatusRadio"
+                    :value="st.value"
+                    v-model="targetStatus"
+                    class="radio-hidden"
+                />
+                <div
+                    class="radio-circle"
+                    :style="{
+                      borderColor: st.color,
+                      backgroundColor: targetStatus === st.value ? st.color : 'transparent'
+                    }"
+                >
+                  <span v-if="targetStatus === st.value" class="radio-dot"></span>
+                </div>
+                <div class="status-card-content">
+                  <div class="status-card-header">
+                    <span
+                        class="status-card-badge"
+                        :style="{ color: st.color, backgroundColor: st.bg }"
+                    >
+                      {{ st.label }}
+                    </span>
+                    <span v-if="invoiceData.status === st.value" class="current-label">
+                      (Hiện tại)
+                    </span>
+                  </div>
+                  <p class="status-card-desc">{{ st.desc }}</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group-modal mt-14">
+            <label class="modal-label">Ghi chú cập nhật (Tùy chọn)</label>
+            <textarea
+                v-model="statusNote"
+                rows="2"
+                class="modal-textarea"
+                placeholder="Nhập ghi chú thay đổi trạng thái nếu có..."
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-modal-cancel" type="button" @click="showStatusModal = false">
+            Hủy bỏ
+          </button>
+          <button
+              class="btn-modal-save"
+              type="button"
+              :disabled="updatingStatus"
+              @click="saveStatusChange(null, null)"
+          >
+            {{ updatingStatus ? 'Đang lưu...' : '✓ Lưu Thay Đổi' }}
+          </button>
         </div>
       </div>
     </div>
