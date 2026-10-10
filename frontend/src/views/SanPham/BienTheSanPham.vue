@@ -184,34 +184,58 @@ const formatNumberWithDots = (val) => {
 const handlePriceInput = (e, callback) => {
   const input = e.target
   const oldVal = input.value
-  const oldPos = input.selectionStart || 0
-  const digitsBeforeCursor = oldVal.slice(0, oldPos).replace(/\D/g, '').length
+  const oldPos = input.selectionEnd || 0
 
-  const raw = oldVal.replace(/\D/g, '')
-  if (!raw) {
+  // Đếm số chữ số trước con trỏ trong chuỗi hiện tại
+  let digitsBeforeCursor = oldVal.slice(0, oldPos).replace(/\D/g, '').length
+
+  // Lấy toàn bộ chữ số
+  let rawDigits = oldVal.replace(/\D/g, '')
+
+  // Xóa số 0 thừa ở đầu nếu người dùng gõ thêm số vào sau số 0 ban đầu (VD: "01" -> "1")
+  if (rawDigits.length > 1 && rawDigits.startsWith('0')) {
+    rawDigits = rawDigits.replace(/^0+/, '') || '0'
+    if (digitsBeforeCursor > rawDigits.length) {
+      digitsBeforeCursor = rawDigits.length
+    }
+  }
+
+  if (!rawDigits) {
     callback('')
     input.value = ''
     return
   }
 
-  const num = Math.min(parseInt(raw, 10), 1000000000)
+  // Giới hạn tối đa 1 tỷ (1,000,000,000 VNĐ)
+  let num = parseInt(rawDigits, 10)
+  if (num > 1000000000) {
+    num = 1000000000
+    rawDigits = '1000000000'
+  }
+
   callback(num)
-  const formatted = formatNumberWithDots(num)
+
+  // Format chuỗi có dấu chấm phân cách
+  const formatted = rawDigits.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
   input.value = formatted
 
-  // Định vị lại con trỏ chuột đúng vị trí tương ứng
-  let newPos = 0
-  let digitCount = 0
-  for (let i = 0; i < formatted.length; i++) {
-    if (/\d/.test(formatted[i])) {
-      digitCount++
-    }
-    if (digitCount === digitsBeforeCursor) {
-      newPos = i + 1
-      break
+  // Định vị lại con trỏ chuột đúng vị trí sau chữ số tương ứng
+  let newPos = formatted.length
+  if (digitsBeforeCursor === 0) {
+    newPos = 0
+  } else {
+    let digitCount = 0
+    for (let i = 0; i < formatted.length; i++) {
+      if (/\d/.test(formatted[i])) {
+        digitCount++
+        if (digitCount === digitsBeforeCursor) {
+          newPos = i + 1
+          break
+        }
+      }
     }
   }
-  if (digitsBeforeCursor === 0) newPos = 0
+
   if (newPos > formatted.length) newPos = formatted.length
   input.setSelectionRange(newPos, newPos)
 }
