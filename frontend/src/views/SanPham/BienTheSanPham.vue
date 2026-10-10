@@ -162,7 +162,6 @@ const blockInvalidIntegerKeys = (e) => {
   }
 }
 
-// Chặn dán nội dung không phải số nguyên dương (cho phép dấu chấm/phẩy phân cách hàng nghìn khi copy paste)
 const handleIntegerPaste = (e) => {
   const pasteData = e.clipboardData?.getData('text') || ''
   const clean = pasteData.replace(/[.,\s]/g, '')
@@ -172,12 +171,45 @@ const handleIntegerPaste = (e) => {
   }
 }
 
-// Format số nguyên có dấu chấm phân cách hàng nghìn (VD: 100000 -> "100.000", 10000 -> "10.000")
+// Format số nguyên có dấu chấm phân cách hàng nghìn (VD: 10000 -> "10.000", 100000 -> "100.000")
 const formatNumberWithDots = (val) => {
   if (val === null || val === undefined || val === '') return ''
   const clean = String(val).replace(/\D/g, '')
   if (!clean) return ''
   return clean.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+// Xử lý nhập giá tiền hiển thị liền có dấu chấm mà không bị lỗi bộ gõ tiếng Việt Telex
+const handlePriceInput = (e, callback) => {
+  const input = e.target
+  const val = input.value
+  const raw = val.replace(/\D/g, '')
+
+  if (!raw) {
+    callback('')
+    if (input.value !== '') input.value = ''
+    return
+  }
+
+  let num = parseInt(raw, 10)
+  if (num > 1000000000) num = 1000000000
+  callback(num)
+
+  const formatted = formatNumberWithDots(num)
+
+  // Chỉ can thiệp DOM và con trỏ chuột khi chuỗi hiển thị có thay đổi (chèn/bớt dấu chấm)
+  if (input.value !== formatted) {
+    const cursorFromRight = val.length - (input.selectionEnd || val.length)
+    input.value = formatted
+    const newPos = Math.max(0, formatted.length - cursorFromRight)
+    input.setSelectionRange(newPos, newPos)
+  }
+}
+
+const onModalPriceInput = (e) => {
+  handlePriceInput(e, (val) => {
+    editModal.value.data.giaBan = val === '' ? '' : val
+  })
 }
 
 const handleSaveVariant = async () => {
@@ -928,16 +960,16 @@ watch(() => route.query.sanPhamId, async (newId) => {
               <div class="variant-field-group">
                 <label class="field-label-text">GIÁ BÁN <span class="req-star">*</span></label>
                 <input
-                    type="number"
-                    min="0"
-                    v-model.number="editModal.data.giaBan"
+                    type="text"
+                    inputmode="numeric"
+                    :value="formatNumberWithDots(editModal.data.giaBan)"
                     class="field-input-control field-price-focus"
                     placeholder="0"
+                    @focus="$event.target.select()"
+                    @input="onModalPriceInput"
                     @keydown="blockInvalidIntegerKeys"
+                    @paste="handleIntegerPaste"
                 />
-                <div v-if="editModal.data.giaBan && editModal.data.giaBan > 0" class="modal-price-preview">
-                  👉 {{ formatNumberWithDots(editModal.data.giaBan) }} đ
-                </div>
                 <span class="err-text" v-if="editModal.errors.giaBan">{{ editModal.errors.giaBan }}</span>
               </div>
 
@@ -2294,17 +2326,6 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
 .field-select-control {
   cursor: pointer;
-}
-
-.modal-price-preview {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #059669;
-  background: #ecfdf5;
-  padding: 3px 8px;
-  border-radius: 4px;
-  display: inline-block;
-  width: fit-content;
 }
 
 .btn-save-variant-action {
