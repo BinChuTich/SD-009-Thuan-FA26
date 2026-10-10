@@ -1492,7 +1492,7 @@ const submitForm = async () => {
     const activeColorIds = new Set(activeColorsForImages.value.map(c => String(c.id)))
     const imageList = Object.entries(colorImages.value)
       .filter(([cId, img]) => activeColorIds.has(String(cId)) && !!img)
-      .map(([_, img]) => img)
+      .map(([cId, img]) => `${cId}|${img}`)
 
     const payload = {
       maSanPham: form.value.maSanPham?.trim() || undefined,
@@ -1626,9 +1626,13 @@ const loadProductDetails = async (id) => {
         selectedSizes.value = Array.from(sizeMap.values())
 
         if (p.hinhAnhs && p.hinhAnhs.length > 0) {
-          selectedColors.value.forEach((color, idx) => {
-            if (p.hinhAnhs[idx]) {
-              colorImages.value[color.id] = p.hinhAnhs[idx]
+          colorImages.value = {}
+          p.hinhAnhs.forEach(item => {
+            if (item && item.includes('|')) {
+              const [cId, url] = item.split('|', 2)
+              colorImages.value[cId] = url
+            } else if (item && selectedColors.value.length === 1) {
+              colorImages.value[selectedColors.value[0].id] = item
             }
           })
         }

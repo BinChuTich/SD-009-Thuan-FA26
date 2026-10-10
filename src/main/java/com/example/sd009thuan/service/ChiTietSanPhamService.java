@@ -224,10 +224,16 @@ public class ChiTietSanPhamService {
 
     private ChiTietSanPhamResponse convertToResponse(ChiTietSanPham ct) {
         String anhDaiDien = null;
-        if (ct.getIdSanPham() != null) {
+        if (ct.getIdSanPham() != null && ct.getIdMauSac() != null) {
             List<HinhAnh> imgs = hinhAnhRepository.findByIdSanPham_Id(ct.getIdSanPham().getId());
             if (imgs != null && !imgs.isEmpty()) {
-                anhDaiDien = imgs.get(0).getDuongDan();
+                String targetTen = "COLOR_" + ct.getIdMauSac().getId();
+                for (HinhAnh img : imgs) {
+                    if (targetTen.equals(img.getTenAnh())) {
+                        anhDaiDien = img.getDuongDan();
+                        break;
+                    }
+                }
             }
         }
 

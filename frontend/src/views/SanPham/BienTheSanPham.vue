@@ -117,7 +117,7 @@ const openEditModal = (item) => {
     idMauSac: item.idMauSac,
     tenMauSac: item.tenMauSac,
     maHex: item.maHex,
-    anhDaiDien: item.anhDaiDien || currentProduct.value?.anhDaiDien,
+    anhDaiDien: item.anhDaiDien || null,
     soLuong: item.soLuong,
     giaBan: item.giaBan,
     trangThai: item.trangThai
@@ -141,7 +141,7 @@ const openDetailModal = (item) => {
     ...item,
     tenSanPham: item.tenSanPham || currentProduct.value?.tenSanPham,
     maSanPham: item.maSanPham || currentProduct.value?.maSanPham,
-    anhDaiDien: item.anhDaiDien || currentProduct.value?.anhDaiDien
+    anhDaiDien: item.anhDaiDien || null
   }
   detailModal.value.show = true
 }
@@ -521,7 +521,7 @@ const formatPrice = (price) => {
 }
 
 const formatImageUrl = (url) => {
-  if (!url) return ''
+  if (!url) return defaultImage
   if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) return url
   return `http://localhost:8080${url.startsWith('/') ? '' : '/'}${url}`
 }
@@ -748,7 +748,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
             <td style="text-align: center;">
               <div class="thumb-img-box">
                 <img
-                    :src="formatImageUrl(item.anhDaiDien || currentProduct?.anhDaiDien)"
+                    :src="formatImageUrl(item.anhDaiDien)"
                     @error="onImgError"
                     alt="Variant thumbnail"
                 />
@@ -915,7 +915,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
           <div class="left-variant-preview">
             <div class="large-img-card">
               <img
-                  :src="formatImageUrl(editModal.data.anhDaiDien || currentProduct?.anhDaiDien)"
+                  :src="formatImageUrl(editModal.data.anhDaiDien)"
                   @error="onImgError"
                   alt="Variant big preview"
                   class="preview-img-tag"
@@ -1020,7 +1020,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
           <div class="left-variant-preview">
             <div class="large-img-card">
               <img
-                  :src="formatImageUrl(detailModal.data.anhDaiDien || currentProduct?.anhDaiDien)"
+                  :src="formatImageUrl(detailModal.data.anhDaiDien)"
                   @error="onImgError"
                   alt="Variant preview"
                   class="preview-img-tag"

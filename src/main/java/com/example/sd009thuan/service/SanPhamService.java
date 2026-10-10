@@ -185,12 +185,22 @@ public class SanPhamService {
         SanPham saved = sanPhamRepository.save(sp);
 
         if (req.getHinhAnhs() != null && !req.getHinhAnhs().isEmpty()) {
-            for (String url : req.getHinhAnhs()) {
-                String processedUrl = processImage(url);
+            for (String rawItem : req.getHinhAnhs()) {
+                if (rawItem == null || rawItem.trim().isEmpty()) continue;
+                String item = rawItem.trim();
+                Long colorId = null;
+                if (item.contains("|")) {
+                    String[] parts = item.split("\\|", 2);
+                    try {
+                        colorId = Long.parseLong(parts[0].trim());
+                    } catch (Exception ignored) {}
+                    item = parts[1].trim();
+                }
+                String processedUrl = processImage(item);
                 if (processedUrl != null && !processedUrl.trim().isEmpty()) {
                     HinhAnh ha = new HinhAnh();
                     ha.setIdSanPham(saved);
-                    ha.setTenAnh(saved.getTenSanPham());
+                    ha.setTenAnh(colorId != null ? "COLOR_" + colorId : saved.getTenSanPham());
                     ha.setDuongDan(processedUrl.trim());
                     ha.setTrangThai(1);
                     hinhAnhRepository.save(ha);
@@ -276,12 +286,22 @@ public class SanPhamService {
         if (req.getHinhAnhs() != null) {
             List<HinhAnh> oldImages = hinhAnhRepository.findByIdSanPham_Id(id);
             hinhAnhRepository.deleteAll(oldImages);
-            for (String url : req.getHinhAnhs()) {
-                String processedUrl = processImage(url);
+            for (String rawItem : req.getHinhAnhs()) {
+                if (rawItem == null || rawItem.trim().isEmpty()) continue;
+                String item = rawItem.trim();
+                Long colorId = null;
+                if (item.contains("|")) {
+                    String[] parts = item.split("\\|", 2);
+                    try {
+                        colorId = Long.parseLong(parts[0].trim());
+                    } catch (Exception ignored) {}
+                    item = parts[1].trim();
+                }
+                String processedUrl = processImage(item);
                 if (processedUrl != null && !processedUrl.trim().isEmpty()) {
                     HinhAnh ha = new HinhAnh();
                     ha.setIdSanPham(updated);
-                    ha.setTenAnh(updated.getTenSanPham());
+                    ha.setTenAnh(colorId != null ? "COLOR_" + colorId : updated.getTenSanPham());
                     ha.setDuongDan(processedUrl.trim());
                     ha.setTrangThai(1);
                     hinhAnhRepository.save(ha);
@@ -505,7 +525,12 @@ public class SanPhamService {
 
         List<HinhAnh> images = hinhAnhRepository.findByIdSanPham_Id(sp.getId());
         String anhDaiDien = !images.isEmpty() ? images.get(0).getDuongDan() : null;
-        List<String> hinhAnhs = images.stream().map(HinhAnh::getDuongDan).toList();
+        List<String> hinhAnhs = images.stream().map(ha -> {
+            if (ha.getTenAnh() != null && ha.getTenAnh().startsWith("COLOR_")) {
+                return ha.getTenAnh().substring(6) + "|" + ha.getDuongDan();
+            }
+            return ha.getDuongDan();
+        }).toList();
 
         return SanPhamResponse.builder()
                 .id(sp.getId())
