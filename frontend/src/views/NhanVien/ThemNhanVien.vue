@@ -235,7 +235,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
@@ -280,26 +280,74 @@ const errors = reactive({
   phuong: ''
 })
 
+function removeVietnameseTones(str) {
+  if (!str) return ''
+  str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a')
+  str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e')
+  str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i')
+  str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o')
+  str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u')
+  str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y')
+  str = str.replace(/đ/g, 'd')
+  str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, 'a')
+  str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, 'e')
+  str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, 'i')
+  str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, 'o')
+  str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, 'u')
+  str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, 'y')
+  str = str.replace(/Đ/g, 'd')
+  str = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return str.toLowerCase().replace(/[^a-z\s]/g, ' ').trim()
+}
+
+function generateEmployeePrefixClient(fullName) {
+  if (!fullName || !fullName.trim()) return ''
+  const clean = removeVietnameseTones(fullName)
+  const parts = clean.split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return ''
+  if (parts.length === 1) return parts[0]
+  const firstName = parts[parts.length - 1]
+  let initials = ''
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (parts[i].length > 0) {
+      initials += parts[i][0]
+    }
+  }
+  return `${firstName}${initials}`
+}
+
 let nameDebounceTimer = null
-function onNameInput() {
-  validateField('tenNhanVien')
+watch(() => form.tenNhanVien, (newVal) => {
+  if (!newVal || !newVal.trim()) {
+    form.maNhanVien = ''
+    return
+  }
+  // 1. Tự sinh mã tức thì trên client (VD: Nguyễn Thị Vân Anh -> anhntv1)
+  const prefix = generateEmployeePrefixClient(newVal)
+  if (prefix) {
+    if (!form.maNhanVien || !form.maNhanVien.toLowerCase().startsWith(prefix)) {
+      form.maNhanVien = prefix + '1'
+    }
+  }
+
+  // 2. Tra cứu database để lấy số thứ tự tiếp theo chính xác (+1 so với đã lưu)
   clearTimeout(nameDebounceTimer)
   nameDebounceTimer = setTimeout(async () => {
-    if (!form.tenNhanVien || !form.tenNhanVien.trim()) {
-      form.maNhanVien = ''
-      return
-    }
     try {
       const res = await api.get('/api/nhan-vien/preview-code', {
-        params: { name: form.tenNhanVien.trim() }
+        params: { name: newVal.trim() }
       })
       if (res.data?.code) {
         form.maNhanVien = res.data.code
       }
     } catch (e) {
-      console.error('Lỗi sinh mã nhân viên:', e)
+      console.warn('Lỗi kiểm tra mã nhân viên từ server:', e)
     }
-  }, 300)
+  }, 150)
+})
+
+function onNameInput() {
+  validateField('tenNhanVien')
 }
 
 async function loadProvinces() {

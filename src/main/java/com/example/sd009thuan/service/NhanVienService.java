@@ -283,7 +283,12 @@ public class NhanVienService {
                 }
             }
         }
-        return prefix + (maxIndex + 1);
+        String candidate = prefix + (maxIndex + 1);
+        while (repo.existsByMaNhanVienIgnoreCase(candidate)) {
+            maxIndex++;
+            candidate = prefix + (maxIndex + 1);
+        }
+        return candidate;
     }
 
     private String generateRandomPassword() {
