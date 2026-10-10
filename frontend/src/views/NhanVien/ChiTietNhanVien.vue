@@ -206,7 +206,7 @@
                 >
                   <option value="">-- Chọn Phường / Xã --</option>
                   <option v-for="w in wardsList" :key="w.code" :value="w.code">
-                    {{ w.name }}
+                    {{ w.displayName || w.name }}
                   </option>
                 </select>
                 <span v-if="errors.phuong" class="error-inline-msg">{{ errors.phuong }}</span>
@@ -495,10 +495,15 @@ async function loadEmployee() {
 
     // Khớp danh mục hành chính từ địa chỉ quê quán đã lưu
     if (form.queQuan) {
+      const cleanStr = (s) => (s || '').toLowerCase()
+        .replace(/^(tỉnh|thành phố|tp\.|tp|quận|huyện|thị xã|tx\.|tx|phường|xã|thị trấn|tt\.|tt)\s+/gi, '')
+        .trim()
+
       const matchP = provincesList.value.find(p =>
         p.name.toLowerCase() === form.queQuan.toLowerCase() ||
-        p.name.toLowerCase().includes(form.queQuan.toLowerCase()) ||
-        form.queQuan.toLowerCase().includes(p.name.toLowerCase())
+        cleanStr(p.name) === cleanStr(form.queQuan) ||
+        p.name.toLowerCase().includes(cleanStr(form.queQuan)) ||
+        form.queQuan.toLowerCase().includes(cleanStr(p.name))
       )
       if (matchP) {
         selectedProvinceCode.value = matchP.code
@@ -507,12 +512,23 @@ async function loadEmployee() {
         if (form.phuong) {
           const matchW = wardsList.value.find(w =>
             w.name.toLowerCase() === form.phuong.toLowerCase() ||
-            w.name.toLowerCase().includes(form.phuong.toLowerCase()) ||
-            form.phuong.toLowerCase().includes(w.name.toLowerCase())
+            cleanStr(w.name) === cleanStr(form.phuong) ||
+            w.name.toLowerCase().includes(cleanStr(form.phuong)) ||
+            form.phuong.toLowerCase().includes(cleanStr(w.name))
           )
           if (matchW) {
             selectedWardCode.value = matchW.code
+          } else {
+            wardsList.value.unshift({ code: -1, name: form.phuong, displayName: form.phuong })
+            selectedWardCode.value = -1
           }
+        }
+      } else {
+        provincesList.value.unshift({ code: -1, name: form.queQuan, displayName: form.queQuan })
+        selectedProvinceCode.value = -1
+        if (form.phuong) {
+          wardsList.value = [{ code: -1, name: form.phuong, displayName: form.phuong }]
+          selectedWardCode.value = -1
         }
       }
     }

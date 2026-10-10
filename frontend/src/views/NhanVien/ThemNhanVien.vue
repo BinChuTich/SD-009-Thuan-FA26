@@ -201,7 +201,7 @@
                 >
                   <option value="">-- Chọn Phường / Xã --</option>
                   <option v-for="w in wardsList" :key="w.code" :value="w.code">
-                    {{ w.name }}
+                    {{ w.displayName || w.name }}
                   </option>
                 </select>
                 <span v-if="errors.phuong" class="error-inline-msg">{{ errors.phuong }}</span>

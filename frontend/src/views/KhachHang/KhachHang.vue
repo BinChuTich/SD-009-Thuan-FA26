@@ -208,7 +208,7 @@
                   >
                     <option value="">-- Chọn Phường / Xã --</option>
                     <option v-for="w in addrWardsList" :key="w.code" :value="w.code">
-                      {{ w.name }}
+                      {{ w.displayName || w.name }}
                     </option>
                   </select>
                 </div>
@@ -493,15 +493,39 @@ async function editAddress(addr) {
   addrForm.macDinh = addr.macDinh
   showAddressForm.value = true
 
+  const cleanStr = (s) => (s || '').toLowerCase()
+    .replace(/^(tỉnh|thành phố|tp\.|tp|quận|huyện|thị xã|tx\.|tx|phường|xã|thị trấn|tt\.|tt)\s+/gi, '')
+    .trim()
+
   // Match province
-  const matchP = provincesList.value.find(p => p.name === addr.thanhPho)
+  const matchP = provincesList.value.find(p =>
+    p.name.toLowerCase() === (addr.thanhPho || '').toLowerCase() ||
+    cleanStr(p.name) === cleanStr(addr.thanhPho) ||
+    p.name.toLowerCase().includes(cleanStr(addr.thanhPho)) ||
+    (addr.thanhPho || '').toLowerCase().includes(cleanStr(p.name))
+  )
   if (matchP) {
     addrProvinceCode.value = matchP.code
     addrWardsList.value = await getWardsByProvince(matchP.code)
 
-    const matchW = addrWardsList.value.find(w => w.name === addr.phuong)
+    const matchW = addrWardsList.value.find(w =>
+      w.name.toLowerCase() === (addr.phuong || '').toLowerCase() ||
+      cleanStr(w.name) === cleanStr(addr.phuong) ||
+      w.name.toLowerCase().includes(cleanStr(addr.phuong)) ||
+      (addr.phuong || '').toLowerCase().includes(cleanStr(w.name))
+    )
     if (matchW) {
       addrWardCode.value = matchW.code
+    } else if (addr.phuong) {
+      addrWardsList.value.unshift({ code: -1, name: addr.phuong, displayName: addr.phuong })
+      addrWardCode.value = -1
+    }
+  } else if (addr.thanhPho) {
+    provincesList.value.unshift({ code: -1, name: addr.thanhPho, displayName: addr.thanhPho })
+    addrProvinceCode.value = -1
+    if (addr.phuong) {
+      addrWardsList.value = [{ code: -1, name: addr.phuong, displayName: addr.phuong }]
+      addrWardCode.value = -1
     }
   }
 }
@@ -526,6 +550,9 @@ async function onAddrProvinceChange() {
 function onAddrWardChange() {
   const w = addrWardsList.value.find(item => item.code === addrWardCode.value)
   addrForm.phuong = w ? w.name : ''
+  if (w && w.districtName) {
+    addrForm.huyen = w.districtName
+  }
 }
 
 async function saveAddress() {

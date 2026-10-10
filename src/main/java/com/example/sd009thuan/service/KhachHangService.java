@@ -352,7 +352,10 @@ public class KhachHangService {
     }
 
     private KhachHangResponse toResponse(KhachHang x) {
-        DiaChiKhachHang a = addressRepo.findFirstByIdKhachHangIdAndMacDinhTrueAndTrangThai(x.getId(), 1).orElse(null);
+        DiaChiKhachHang a = addressRepo.findFirstByIdKhachHangIdAndMacDinhTrueAndTrangThai(x.getId(), 1)
+                .or(() -> addressRepo.findByIdKhachHangIdAndTrangThaiOrderByMacDinhDescIdDesc(x.getId(), 1).stream().findFirst())
+                .or(() -> addressRepo.findByIdKhachHangIdOrderByMacDinhDescIdDesc(x.getId()).stream().findFirst())
+                .orElse(null);
         String account = x.getTaiKhoan();
         if (account == null || account.isBlank()) {
             account = x.getMaKhachHang() != null ? x.getMaKhachHang().toLowerCase() : "-";

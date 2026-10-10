@@ -158,7 +158,7 @@
                 >
                   <option value="">-- Chọn Phường / Xã --</option>
                   <option v-for="w in wardsList" :key="w.code" :value="w.code">
-                    {{ w.name }}
+                    {{ w.displayName || w.name }}
                   </option>
                 </select>
                 <span v-if="errors.phuong" class="error-inline-msg">{{ errors.phuong }}</span>
@@ -260,6 +260,9 @@ async function onProvinceChange() {
 function onWardChange() {
   const w = wardsList.value.find(item => item.code === selectedWardCode.value)
   form.phuong = w ? w.name : ''
+  if (w && w.districtName) {
+    form.huyen = w.districtName
+  }
   validateField('phuong')
 }
 
@@ -329,14 +332,6 @@ function validateField(fieldName) {
       errors.thanhPho = 'Vui lòng chọn Tỉnh / Thành phố!'
     } else {
       errors.thanhPho = ''
-    }
-  }
-
-  if (fieldName === 'huyen') {
-    if (!form.huyen || !form.huyen.trim()) {
-      errors.huyen = 'Vui lòng chọn Quận / Huyện!'
-    } else {
-      errors.huyen = ''
     }
   }
 

@@ -172,7 +172,7 @@
                 >
                   <option value="">-- Chọn Phường / Xã --</option>
                   <option v-for="w in wardsList" :key="w.code" :value="w.code">
-                    {{ w.name }}
+                    {{ w.displayName || w.name }}
                   </option>
                 </select>
                 <span v-if="errors.phuong" class="error-inline-msg">{{ errors.phuong }}</span>
@@ -275,6 +275,9 @@ async function onProvinceChange() {
 function onWardChange() {
   const w = wardsList.value.find(item => item.code === selectedWardCode.value)
   form.phuong = w ? w.name : ''
+  if (w && w.districtName) {
+    form.huyen = w.districtName
+  }
   validateField('phuong')
 }
 
@@ -403,10 +406,15 @@ async function loadCustomer() {
 
     // Khớp danh mục hành chính 2 cấp từ địa chỉ đã lưu
     if (form.thanhPho) {
+      const cleanStr = (s) => (s || '').toLowerCase()
+        .replace(/^(tỉnh|thành phố|tp\.|tp|quận|huyện|thị xã|tx\.|tx|phường|xã|thị trấn|tt\.|tt)\s+/gi, '')
+        .trim()
+
       const matchP = provincesList.value.find(p =>
         p.name.toLowerCase() === form.thanhPho.toLowerCase() ||
-        p.name.toLowerCase().includes(form.thanhPho.toLowerCase()) ||
-        form.thanhPho.toLowerCase().includes(p.name.toLowerCase())
+        cleanStr(p.name) === cleanStr(form.thanhPho) ||
+        p.name.toLowerCase().includes(cleanStr(form.thanhPho)) ||
+        form.thanhPho.toLowerCase().includes(cleanStr(p.name))
       )
       if (matchP) {
         selectedProvinceCode.value = matchP.code
@@ -415,12 +423,23 @@ async function loadCustomer() {
         if (form.phuong) {
           const matchW = wardsList.value.find(w =>
             w.name.toLowerCase() === form.phuong.toLowerCase() ||
-            w.name.toLowerCase().includes(form.phuong.toLowerCase()) ||
-            form.phuong.toLowerCase().includes(w.name.toLowerCase())
+            cleanStr(w.name) === cleanStr(form.phuong) ||
+            w.name.toLowerCase().includes(cleanStr(form.phuong)) ||
+            form.phuong.toLowerCase().includes(cleanStr(w.name))
           )
           if (matchW) {
             selectedWardCode.value = matchW.code
+          } else {
+            wardsList.value.unshift({ code: -1, name: form.phuong, displayName: form.phuong })
+            selectedWardCode.value = -1
           }
+        }
+      } else {
+        provincesList.value.unshift({ code: -1, name: form.thanhPho, displayName: form.thanhPho })
+        selectedProvinceCode.value = -1
+        if (form.phuong) {
+          wardsList.value = [{ code: -1, name: form.phuong, displayName: form.phuong }]
+          selectedWardCode.value = -1
         }
       }
     }

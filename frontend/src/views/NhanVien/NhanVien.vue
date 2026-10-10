@@ -185,7 +185,7 @@ const pageNumbers = computed(() => {
 
 function mapEmployee(x) {
   const gender = x.gioiTinh === true ? 'Nam' : x.gioiTinh === false ? 'Nữ' : '-'
-  const address = [x.queQuan, x.phuong, x.diaChiCuThe].filter(Boolean).join(', ')
+  const address = [x.diaChiCuThe, x.phuong, x.queQuan].filter(Boolean).join(', ')
   const avatar = x.anhNhanVien
     ? (x.anhNhanVien.startsWith('http') ? x.anhNhanVien : `http://localhost:8080${x.anhNhanVien}`)
     : ''
