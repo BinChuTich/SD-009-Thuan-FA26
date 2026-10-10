@@ -162,12 +162,64 @@ const blockInvalidIntegerKeys = (e) => {
   }
 }
 
+// Chặn dán nội dung không phải số nguyên dương (cho phép dấu chấm/phẩy phân cách hàng nghìn khi copy paste)
 const handleIntegerPaste = (e) => {
   const pasteData = e.clipboardData?.getData('text') || ''
-  if (!/^\d+$/.test(pasteData.trim())) {
+  const clean = pasteData.replace(/[.,\s]/g, '')
+  if (!/^\d+$/.test(clean.trim())) {
     e.preventDefault()
     showToast('Chỉ được dán số nguyên dương!', 'warning')
   }
+}
+
+// Format số nguyên có dấu chấm phân cách hàng nghìn (VD: 100000 -> "100.000", 10000 -> "10.000")
+const formatNumberWithDots = (val) => {
+  if (val === null || val === undefined || val === '') return ''
+  const clean = String(val).replace(/\D/g, '')
+  if (!clean) return ''
+  return clean.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+// Xử lý nhập giá tiền theo thời gian thực và giữ nguyên vị trí con trỏ chuột
+const handlePriceInput = (e, callback) => {
+  const input = e.target
+  const oldVal = input.value
+  const oldPos = input.selectionStart || 0
+  const digitsBeforeCursor = oldVal.slice(0, oldPos).replace(/\D/g, '').length
+
+  const raw = oldVal.replace(/\D/g, '')
+  if (!raw) {
+    callback('')
+    input.value = ''
+    return
+  }
+
+  const num = Math.min(parseInt(raw, 10), 1000000000)
+  callback(num)
+  const formatted = formatNumberWithDots(num)
+  input.value = formatted
+
+  // Định vị lại con trỏ chuột đúng vị trí tương ứng
+  let newPos = 0
+  let digitCount = 0
+  for (let i = 0; i < formatted.length; i++) {
+    if (/\d/.test(formatted[i])) {
+      digitCount++
+    }
+    if (digitCount === digitsBeforeCursor) {
+      newPos = i + 1
+      break
+    }
+  }
+  if (digitsBeforeCursor === 0) newPos = 0
+  if (newPos > formatted.length) newPos = formatted.length
+  input.setSelectionRange(newPos, newPos)
+}
+
+const onModalPriceInput = (e) => {
+  handlePriceInput(e, (val) => {
+    editModal.value.data.giaBan = val === '' ? '' : val
+  })
 }
 
 const handleSaveVariant = async () => {
@@ -918,13 +970,13 @@ watch(() => route.query.sanPhamId, async (newId) => {
               <div class="variant-field-group">
                 <label class="field-label-text">GIÁ BÁN <span class="req-star">*</span></label>
                 <input
-                    type="number"
-                    min="0"
-                    max="1000000000"
-                    step="1"
-                    v-model.number="editModal.data.giaBan"
+                    type="text"
+                    inputmode="numeric"
+                    :value="formatNumberWithDots(editModal.data.giaBan)"
                     class="field-input-control field-price-focus"
                     placeholder="0"
+                    @focus="$event.target.select()"
+                    @input="onModalPriceInput"
                     @keydown="blockInvalidIntegerKeys"
                     @paste="handleIntegerPaste"
                 />
