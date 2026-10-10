@@ -89,9 +89,6 @@
         <button class="btn btn-reset" @click="resetFilters">
           Đặt lại bộ lọc
         </button>
-        <button class="btn btn-export">
-          Xuất Excel
-        </button>
         <button class="btn btn-primary" @click="openCreateModal">
           Tạo phiếu mới
         </button>
@@ -279,48 +276,6 @@
             <b class="text-success">Kích hoạt lại</b> phiếu giảm giá
             <b class="text-blue">[{{ voucherToToggle?.code }}]</b> để áp dụng cho khách hàng không?
           </p>
-
-          <!-- Bảng tóm tắt thông số phiếu chuẩn bị đổi trạng thái -->
-          <div class="confirm-summary-panel">
-            <div class="summary-line">
-              <span class="s-label">Mã phiếu:</span>
-              <span class="s-val font-bold text-blue">{{ voucherToToggle?.code }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Tên phiếu:</span>
-              <span class="s-val font-medium">{{ voucherToToggle?.name }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Mức giảm:</span>
-              <span class="s-val font-bold text-highlight">{{ voucherToToggle?.discountValue }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Thời hạn:</span>
-              <span class="s-val">{{ voucherToToggle?.startDate }} ➔ {{ voucherToToggle?.endDate }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Trạng thái hiện tại:</span>
-              <span :class="['badge-status-sm', 'status-' + voucherToToggle?.statusCode]">
-                {{ voucherToToggle?.status }}
-              </span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Trạng thái mới:</span>
-              <span :class="['badge-status-sm', voucherToToggle?.rawTrangThai !== 0 ? 'status-inactive' : 'status-active']">
-                {{ voucherToToggle?.rawTrangThai !== 0 ? 'Ngừng hoạt động' : 'Đang hoạt động' }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Lời nhắc lưu ý -->
-          <div class="confirm-note-box" :class="{ 'note-warning': voucherToToggle?.rawTrangThai !== 0, 'note-info': voucherToToggle?.rawTrangThai === 0 }">
-            <span v-if="voucherToToggle?.rawTrangThai !== 0">
-              <b>Lưu ý:</b> Khi ngừng hoạt động, khách hàng sẽ tạm thời không thể áp dụng mã giảm giá này khi thanh toán.
-            </span>
-            <span v-else>
-              <b>Lưu ý:</b> Phiếu giảm giá sẽ có hiệu lực sử dụng ngay lập tức cho các đơn hàng thỏa mãn điều kiện.
-            </span>
-          </div>
         </div>
 
         <div class="confirm-modal-footer">
@@ -332,7 +287,6 @@
               @click="confirmToggleStatus"
               :disabled="togglingStatus"
           >
-            <span v-if="togglingStatus" class="spin">🔄</span>
             {{ togglingStatus ? 'Đang cập nhật...' : (voucherToToggle?.rawTrangThai !== 0 ? 'Ngừng hoạt động' : 'Kích hoạt phiếu') }}
           </button>
         </div>
@@ -1120,7 +1074,7 @@ const openCreateModal = () => {
   background: #ffffff;
   border-radius: 14px;
   width: 90%;
-  max-width: 520px;
+  max-width: 460px;
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
   overflow: hidden;
   animation: popIn 0.2s ease-out;

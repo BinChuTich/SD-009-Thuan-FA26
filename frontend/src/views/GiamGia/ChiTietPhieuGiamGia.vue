@@ -61,7 +61,7 @@
                   :class="{ 'input-error': errors.tenPhieuGiamGia }"
               />
               <div v-if="errors.tenPhieuGiamGia" class="field-error-msg">
-                <span class="err-icon">ⓘ</span> {{ errors.tenPhieuGiamGia }}
+                {{ errors.tenPhieuGiamGia }}
               </div>
             </div>
           </div>
@@ -87,7 +87,7 @@
                 Số lượng tự động khóa = <b>{{ selectedCustomerIds.length }}</b> lượt (theo số khách được chọn)
               </div>
               <div v-if="errors.soLuongSuDung" class="field-error-msg">
-                <span class="err-icon">ⓘ</span> {{ errors.soLuongSuDung }}
+                {{ errors.soLuongSuDung }}
               </div>
             </div>
 
@@ -107,7 +107,7 @@
                 <span class="input-addon">đ</span>
               </div>
               <div v-if="errors.hoaDonToiThieu" class="field-error-msg">
-                <span class="err-icon">ⓘ</span> {{ errors.hoaDonToiThieu }}
+                {{ errors.hoaDonToiThieu }}
               </div>
             </div>
           </div>
@@ -138,6 +138,7 @@
                     placeholder="Nhập từ 1 - 100%"
                     class="form-control"
                     :class="{ 'input-error': errors.giaTriGiamGia }"
+                    @input="validateGiaTriGiamGiaRealtime"
                 />
                 <input
                     v-else
@@ -152,7 +153,7 @@
                 <span class="input-addon">{{ form.loaiPhieuGiamGia === 1 ? '%' : 'đ' }}</span>
               </div>
               <div v-if="errors.giaTriGiamGia" class="field-error-msg">
-                <span class="err-icon">ⓘ</span> {{ errors.giaTriGiamGia }}
+                {{ errors.giaTriGiamGia }}
               </div>
             </div>
           </div>
@@ -175,7 +176,7 @@
               <span class="input-addon">đ</span>
             </div>
             <div v-if="errors.giamToiDa" class="field-error-msg">
-              <span class="err-icon">ⓘ</span> {{ errors.giamToiDa }}
+              {{ errors.giamToiDa }}
             </div>
           </div>
 
@@ -191,7 +192,7 @@
                   :class="{ 'input-error': errors.ngayBatDau }"
               />
               <div v-if="errors.ngayBatDau" class="field-error-msg">
-                <span class="err-icon">ⓘ</span> {{ errors.ngayBatDau }}
+                {{ errors.ngayBatDau }}
               </div>
               <div v-else class="field-status-preview">
                 Trạng thái dự kiến:
@@ -210,7 +211,7 @@
                   :class="{ 'input-error': errors.ngayKetThuc }"
               />
               <div v-if="errors.ngayKetThuc" class="field-error-msg">
-                <span class="err-icon">ⓘ</span> {{ errors.ngayKetThuc }}
+                {{ errors.ngayKetThuc }}
               </div>
             </div>
           </div>
@@ -344,7 +345,7 @@
             </div>
 
             <div v-if="errors.customers" class="field-error-msg mt-3">
-              <span class="err-icon">ⓘ</span> {{ errors.customers }}
+              {{ errors.customers }}
             </div>
           </div>
         </div>
@@ -621,6 +622,56 @@ const calculatedStatusMeta = computed(() => {
   return { text: 'Đang diễn ra', class: 'text-success font-bold' }
 })
 
+// Validate mức giảm giá theo thời gian thực (hiện chữ đỏ ngay khi nhập sai)
+const validateGiaTriGiamGiaRealtime = () => {
+  if (!form.value) return
+  const raw = form.value.giaTriGiamGia
+  if (raw === null || raw === '' || raw === undefined) {
+    if (errors.value.giaTriGiamGia && (errors.value.giaTriGiamGia.includes('vượt quá') || errors.value.giaTriGiamGia.includes('khoảng'))) {
+      delete errors.value.giaTriGiamGia
+    }
+    return
+  }
+  const val = Number(raw)
+  if (isNaN(val)) return
+
+  if (form.value.loaiPhieuGiamGia === 1) {
+    if (val > 100) {
+      errors.value.giaTriGiamGia = 'Mức giảm (%) không được vượt quá 100%.'
+    } else if (val < 1) {
+      errors.value.giaTriGiamGia = 'Mức giảm (%) phải từ 1% trở lên.'
+    } else {
+      if (errors.value.giaTriGiamGia) {
+        delete errors.value.giaTriGiamGia
+      }
+    }
+  } else if (form.value.loaiPhieuGiamGia === 2) {
+    if (val < 1000) {
+      errors.value.giaTriGiamGia = 'Mức giảm tiền mặt trực tiếp phải từ 1.000 đ trở lên.'
+    } else if (form.value.hoaDonToiThieu && val > Number(form.value.hoaDonToiThieu)) {
+      errors.value.giaTriGiamGia = 'Mức giảm tiền mặt không được lớn hơn đơn hàng tối thiểu.'
+    } else {
+      if (errors.value.giaTriGiamGia) {
+        delete errors.value.giaTriGiamGia
+      }
+    }
+  }
+}
+
+// Validate giảm tối đa theo thời gian thực
+const validateGiamToiDaRealtime = () => {
+  if (!form.value) return
+  if (form.value.loaiPhieuGiamGia === 1) {
+    if (form.value.giamToiDa && form.value.hoaDonToiThieu) {
+      if (Number(form.value.giamToiDa) >= Number(form.value.hoaDonToiThieu)) {
+        errors.value.giamToiDa = 'Giảm tối đa phải nhỏ hơn đơn hàng tối thiểu.'
+      } else if (errors.value.giamToiDa === 'Giảm tối đa phải nhỏ hơn đơn hàng tối thiểu.') {
+        delete errors.value.giamToiDa
+      }
+    }
+  }
+}
+
 // Xử lý khi người dùng nhập vào các ô tiền tệ: chỉ cho phép số, format trực tiếp trong ô
 const onMoneyInput = (field, event) => {
   if (!form.value) return
@@ -639,6 +690,13 @@ const onMoneyInput = (field, event) => {
   if (errors.value[field]) {
     delete errors.value[field]
   }
+  if (field === 'giaTriGiamGia') {
+    validateGiaTriGiamGiaRealtime()
+  }
+  if (field === 'hoaDonToiThieu' || field === 'giamToiDa') {
+    validateGiamToiDaRealtime()
+    validateGiaTriGiamGiaRealtime()
+  }
 }
 
 // Khi blur ra ngoài: nếu số > 0 và < 1000 thì tự động nhân 1000 (VD: 15 -> 15.000, 700 -> 700.000)
@@ -653,6 +711,9 @@ const onMoneyBlur = (field) => {
       displayMoney.value[field] = num.toLocaleString('vi-VN')
     }
   }
+
+  validateGiamToiDaRealtime()
+  validateGiaTriGiamGiaRealtime()
 }
 
 const normalizeMoneyInputs = () => {
@@ -675,23 +736,32 @@ watch(() => form.value?.loaiPhieuGiamGia, (newVal) => {
       onMoneyBlur('giaTriGiamGia')
     }
   } else if (form.value && newVal === 1) {
-    if (form.value.giaTriGiamGia && form.value.giaTriGiamGia > 100) {
-      form.value.giaTriGiamGia = null
-    }
     displayMoney.value.giaTriGiamGia = ''
     if (form.value.giamToiDa != null && form.value.giamToiDa !== '') {
       onMoneyBlur('giamToiDa')
     }
   }
   if (errors.value.giaTriGiamGia) delete errors.value.giaTriGiamGia
+  validateGiaTriGiamGiaRealtime()
 })
 
 // Tự động xóa chữ đỏ lỗi khi người dùng gõ nhập lại
 watch(() => form.value?.tenPhieuGiamGia, (v) => { if (v && errors.value.tenPhieuGiamGia) delete errors.value.tenPhieuGiamGia })
 watch(() => form.value?.soLuongSuDung, (v) => { if (v && errors.value.soLuongSuDung) delete errors.value.soLuongSuDung })
-watch(() => form.value?.hoaDonToiThieu, (v) => { if (v && errors.value.hoaDonToiThieu) delete errors.value.hoaDonToiThieu })
-watch(() => form.value?.giaTriGiamGia, (v) => { if (v && errors.value.giaTriGiamGia) delete errors.value.giaTriGiamGia })
-watch(() => form.value?.giamToiDa, (v) => { if (v && errors.value.giamToiDa) delete errors.value.giamToiDa })
+watch(() => form.value?.hoaDonToiThieu, (val) => {
+  if (val && errors.value.hoaDonToiThieu) delete errors.value.hoaDonToiThieu
+  validateGiaTriGiamGiaRealtime()
+  validateGiamToiDaRealtime()
+})
+watch(() => form.value?.giaTriGiamGia, () => {
+  validateGiaTriGiamGiaRealtime()
+})
+watch(() => form.value?.giamToiDa, (val) => {
+  if (val && errors.value.giamToiDa && errors.value.giamToiDa !== 'Giảm tối đa phải nhỏ hơn đơn hàng tối thiểu.') {
+    delete errors.value.giamToiDa
+  }
+  validateGiamToiDaRealtime()
+})
 watch(() => form.value?.ngayBatDauStr, (v) => { if (v && errors.value.ngayBatDau) delete errors.value.ngayBatDau })
 watch(() => form.value?.ngayKetThucStr, () => { if (errors.value.ngayKetThuc) delete errors.value.ngayKetThuc })
 
@@ -735,8 +805,10 @@ const validateForm = () => {
     if (isNaN(val) || val <= 0) {
       errs.giaTriGiamGia = 'Mức giảm giá phải lớn hơn 0.'
     } else if (form.value.loaiPhieuGiamGia === 1) {
-      if (val < 1 || val > 100) {
-        errs.giaTriGiamGia = 'Mức giảm (%) phải nằm trong khoảng từ 1% đến 100%.'
+      if (val > 100) {
+        errs.giaTriGiamGia = 'Mức giảm (%) không được vượt quá 100%.'
+      } else if (val < 1) {
+        errs.giaTriGiamGia = 'Mức giảm (%) phải từ 1% trở lên.'
       }
     } else if (form.value.loaiPhieuGiamGia === 2) {
       if (val < 1000) {
@@ -755,6 +827,8 @@ const validateForm = () => {
       const maxVal = Number(form.value.giamToiDa)
       if (isNaN(maxVal) || maxVal < 1000) {
         errs.giamToiDa = 'Mức giảm tối đa phải từ 1.000 đ trở lên.'
+      } else if (form.value.hoaDonToiThieu && maxVal >= Number(form.value.hoaDonToiThieu)) {
+        errs.giamToiDa = 'Giảm tối đa phải nhỏ hơn đơn hàng tối thiểu.'
       }
     }
   }
@@ -961,33 +1035,35 @@ onMounted(async () => {
 }
 
 .main-page-title {
-  font-size: 1.45rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--blue, #496883);
   margin: 0;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.4rem;
+  line-height: 1.4;
 }
 
 .code-highlight {
   color: #2563eb;
-  font-size: 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 700;
 }
 
 .btn-back-pill {
-  padding: 0.55rem 1.25rem;
+  padding: 0.35rem 0.9rem;
   border-radius: 20px;
   border: 1px solid #d2d6dc;
   background-color: #ffffff;
   color: #4b5563;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 
 .btn-back-pill:hover {

@@ -108,6 +108,9 @@ public class PhieuGiamGiaService {
             if (dto.getGiamToiDa().compareTo(new BigDecimal("1000")) < 0) {
                 throw new IllegalArgumentException("Mức giảm tối đa phải tối thiểu từ 1.000 VNĐ!");
             }
+            if (dto.getHoaDonToiThieu() != null && dto.getGiamToiDa().compareTo(dto.getHoaDonToiThieu()) >= 0) {
+                throw new IllegalArgumentException("Mức giảm tối đa phải nhỏ hơn giá trị đơn hàng tối thiểu!");
+            }
         }
 
         // 5. Hóa đơn tối thiểu
@@ -322,6 +325,7 @@ public class PhieuGiamGiaService {
             PhieuGiamGia phieu = optional.get();
             // Nếu đã quá hạn thì không bật lại được
             Instant now = Instant.now();
+            boolean isDeactivating = false;
             if (phieu.getNgayKetThuc() != null && now.isAfter(phieu.getNgayKetThuc())) {
                 phieu.setTrangThai(0);
             } else {
@@ -329,12 +333,25 @@ public class PhieuGiamGiaService {
                 // Nếu đang ngừng hoạt động (0) -> Kích hoạt lại theo thời gian thực (1: Đang diễn ra, hoặc 2: Sắp diễn ra)
                 if (phieu.getTrangThai() != null && phieu.getTrangThai() != 0) {
                     phieu.setTrangThai(0);
+                    isDeactivating = true;
                 } else {
                     int newStatus = tinhTrangThaiTheoThoiGian(phieu.getNgayBatDau(), phieu.getNgayKetThuc());
                     phieu.setTrangThai(newStatus);
                 }
             }
             PhieuGiamGia saved = phieuGiamGiaRepository.save(phieu);
+
+            // Nếu vừa chuyển sang ngừng hoạt động -> gửi email thông báo cho khách hàng sở hữu voucher
+            if (isDeactivating) {
+                List<KhachHangPhieuGiamGia> currentLinks = khachHangPhieuGiamGiaRepository.findByIdPhieuGiamGia_Id(id);
+                for (KhachHangPhieuGiamGia link : currentLinks) {
+                    KhachHang kh = link.getIdKhachHang();
+                    if (kh != null && kh.getEmail() != null && !kh.getEmail().trim().isEmpty()) {
+                        emailService.sendVoucherDeactivatedEmail(kh, saved);
+                    }
+                }
+            }
+
             return convertToDTO(saved);
         }
         return null;
