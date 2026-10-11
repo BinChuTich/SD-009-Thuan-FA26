@@ -137,9 +137,14 @@ const toggleMenu = (menu) => {
     <main class="main-content">
       <header class="top-header">
         <div class="header-right">
-          <span>Quản trị viên</span>
-          <span class="divider">|</span>
-          <a href="#">Xem website</a>
+          <div class="admin-badge">
+            <div class="admin-avatar">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+            </div>
+            <span class="admin-name">Admin</span>
+          </div>
         </div>
       </header>
 
@@ -456,9 +461,9 @@ const toggleMenu = (menu) => {
 }
 
 .top-header {
-  height: 2.4rem !important;
+  height: 3.5rem !important;
   background-color: transparent;
-  padding: 0 20px;
+  padding: 0 28px;
   display: flex;
   justify-content: flex-end;
   align-items: center;
@@ -468,23 +473,48 @@ const toggleMenu = (menu) => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.78rem !important;
-  color: #7b8387;
-  padding: 3px 10px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(220, 215, 205, 0.6);
 }
 
-.header-right a {
-  color: #496883;
-  font-weight: 600;
-  text-decoration: none;
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 16px 5px 6px;
+  border-radius: 30px;
+  background: #ffffff;
+  border: 1.5px solid #e3ded2;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.divider {
-  color: #d6d0c3;
+.admin-badge:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #d1c9b8;
+}
+
+.admin-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #496883;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.admin-avatar svg {
+  width: 20px;
+  height: 20px;
+}
+
+.admin-name {
+  font-size: 0.95rem !important;
+  font-weight: 700;
+  color: #3e5c76;
+  letter-spacing: 0.3px;
 }
 
 .page-body {
