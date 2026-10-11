@@ -84,6 +84,7 @@ public class DotGiamGiaService {
         cu.setPhanTramGiam(moi.getPhanTramGiam());
         cu.setNgayBatDau(moi.getNgayBatDau());
         cu.setNgayKetThuc(moi.getNgayKetThuc());
+        cu.setMoTa(moi.getMoTa());
         if (moi.getTrangThai() != null) {
             cu.setTrangThai(moi.getTrangThai());
         }
