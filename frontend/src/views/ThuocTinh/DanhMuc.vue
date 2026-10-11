@@ -1,11 +1,11 @@
-<script setup>
-
-</script>
-
 <template>
-
+  <AttributeManager
+      attrType="danh-muc"
+      title="Danh mục"
+      codePrefix="DM"
+  />
 </template>
 
-<style scoped>
-
-</style>
+<script setup>
+import AttributeManager from './AttributeManager.vue'
+</script>

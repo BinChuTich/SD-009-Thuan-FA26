@@ -1,11 +1,11 @@
-<script setup>
-
-</script>
-
 <template>
-
+  <AttributeManager
+      attrType="kich-co"
+      title="Kích cỡ"
+      codePrefix="KC"
+  />
 </template>
 
-<style scoped>
-
-</style>
+<script setup>
+import AttributeManager from './AttributeManager.vue'
+</script>

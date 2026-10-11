@@ -1,11 +1,11 @@
-<script setup>
-
-</script>
-
 <template>
-
+  <AttributeManager
+      attrType="tay-ao"
+      title="Tay áo"
+      codePrefix="TA"
+  />
 </template>
 
-<style scoped>
-
-</style>
+<script setup>
+import AttributeManager from './AttributeManager.vue'
+</script>

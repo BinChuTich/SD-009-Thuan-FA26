@@ -117,7 +117,7 @@ const openEditModal = (item) => {
     idMauSac: item.idMauSac,
     tenMauSac: item.tenMauSac,
     maHex: item.maHex,
-    anhDaiDien: item.anhDaiDien || currentProduct.value?.anhDaiDien,
+    anhDaiDien: item.anhDaiDien || null,
     soLuong: item.soLuong,
     giaBan: item.giaBan,
     trangThai: item.trangThai
@@ -141,7 +141,7 @@ const openDetailModal = (item) => {
     ...item,
     tenSanPham: item.tenSanPham || currentProduct.value?.tenSanPham,
     maSanPham: item.maSanPham || currentProduct.value?.maSanPham,
-    anhDaiDien: item.anhDaiDien || currentProduct.value?.anhDaiDien
+    anhDaiDien: item.anhDaiDien || null
   }
   detailModal.value.show = true
 }
@@ -154,6 +154,62 @@ const switchToEditFromDetail = () => {
   const item = { ...detailModal.value.data }
   closeDetailModal()
   openEditModal(item)
+}
+
+const blockInvalidIntegerKeys = (e) => {
+  if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) {
+    e.preventDefault()
+  }
+}
+
+const handleIntegerPaste = (e) => {
+  const pasteData = e.clipboardData?.getData('text') || ''
+  const clean = pasteData.replace(/[.,\s]/g, '')
+  if (!/^\d+$/.test(clean.trim())) {
+    e.preventDefault()
+    showToast('Chỉ được dán số nguyên dương!', 'warning')
+  }
+}
+
+// Format số nguyên có dấu chấm phân cách hàng nghìn (VD: 10000 -> "10.000", 100000 -> "100.000")
+const formatNumberWithDots = (val) => {
+  if (val === null || val === undefined || val === '') return ''
+  const clean = String(val).replace(/\D/g, '')
+  if (!clean) return ''
+  return clean.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+// Xử lý nhập giá tiền hiển thị liền có dấu chấm mà không bị lỗi bộ gõ tiếng Việt Telex
+const handlePriceInput = (e, callback) => {
+  const input = e.target
+  const val = input.value
+  const raw = val.replace(/\D/g, '')
+
+  if (!raw) {
+    callback('')
+    if (input.value !== '') input.value = ''
+    return
+  }
+
+  let num = parseInt(raw, 10)
+  if (num > 1000000000) num = 1000000000
+  callback(num)
+
+  const formatted = formatNumberWithDots(num)
+
+  // Chỉ can thiệp DOM và con trỏ chuột khi chuỗi hiển thị có thay đổi (chèn/bớt dấu chấm)
+  if (input.value !== formatted) {
+    const cursorFromRight = val.length - (input.selectionEnd || val.length)
+    input.value = formatted
+    const newPos = Math.max(0, formatted.length - cursorFromRight)
+    input.setSelectionRange(newPos, newPos)
+  }
+}
+
+const onModalPriceInput = (e) => {
+  handlePriceInput(e, (val) => {
+    editModal.value.data.giaBan = val === '' ? '' : val
+  })
 }
 
 const handleSaveVariant = async () => {
@@ -184,8 +240,8 @@ const handleSaveVariant = async () => {
     return
   }
   const gb = Number(data.giaBan)
-  if (isNaN(gb) || gb < 0 || gb > 1000000000) {
-    editModal.value.errors.giaBan = 'Giá bán phải từ 0 đến 1,000,000,000 VNĐ'
+  if (isNaN(gb) || !Number.isInteger(gb) || gb < 0 || gb > 1000000000) {
+    editModal.value.errors.giaBan = 'Giá bán phải là số nguyên từ 0 đến 1,000,000,000 VNĐ'
     return
   }
 
@@ -465,9 +521,14 @@ const formatPrice = (price) => {
 }
 
 const formatImageUrl = (url) => {
-  if (!url) return ''
-  if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) return url
-  return `http://localhost:8080${url.startsWith('/') ? '' : '/'}${url}`
+  if (!url) return defaultImage
+  let cleanUrl = url
+  if (cleanUrl.includes('|')) {
+    cleanUrl = cleanUrl.split('|')[1]
+  }
+  if (!cleanUrl) return defaultImage
+  if (cleanUrl.startsWith('data:') || cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) return cleanUrl
+  return `http://localhost:8080${cleanUrl.startsWith('/') ? '' : '/'}${cleanUrl}`
 }
 
 const onImgError = (e) => {
@@ -542,9 +603,6 @@ watch(() => route.query.sanPhamId, async (newId) => {
         </div>
 
         <button class="btn-back-link" @click="goToProductList" title="Quay lại danh sách sản phẩm">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
           Danh sách sản phẩm
         </button>
       </div>
@@ -575,30 +633,14 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
           <div class="filter-buttons-right">
             <button class="btn-outline-gold" @click="resetFilters" title="Đặt lại bộ lọc">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="23 4 23 10 17 10"></polyline>
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-              </svg>
               Đặt lại bộ lọc
             </button>
 
             <button class="btn-outline-qr" @click="openQrModal" title="Tải / Xem mã QR biến thể">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
               Tải QR
             </button>
 
             <button class="btn-outline-excel" @click="handleExportExcel" :disabled="exporting" title="Xuất danh sách ra file Excel">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-                <polyline points="10 9 9 9 8 9"></polyline>
-              </svg>
               {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
             </button>
           </div>
@@ -692,7 +734,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
             <td style="text-align: center;">
               <div class="thumb-img-box">
                 <img
-                    :src="formatImageUrl(item.anhDaiDien || currentProduct?.anhDaiDien)"
+                    :src="formatImageUrl(item.anhDaiDien)"
                     @error="onImgError"
                     alt="Variant thumbnail"
                 />
@@ -859,7 +901,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
           <div class="left-variant-preview">
             <div class="large-img-card">
               <img
-                  :src="formatImageUrl(editModal.data.anhDaiDien || currentProduct?.anhDaiDien)"
+                  :src="formatImageUrl(editModal.data.anhDaiDien)"
                   @error="onImgError"
                   alt="Variant big preview"
                   class="preview-img-tag"
@@ -904,12 +946,15 @@ watch(() => route.query.sanPhamId, async (newId) => {
               <div class="variant-field-group">
                 <label class="field-label-text">GIÁ BÁN <span class="req-star">*</span></label>
                 <input
-                    type="number"
-                    min="0"
-                    step="1000"
-                    v-model.number="editModal.data.giaBan"
+                    type="text"
+                    inputmode="numeric"
+                    :value="formatNumberWithDots(editModal.data.giaBan)"
                     class="field-input-control field-price-focus"
                     placeholder="0"
+                    @focus="$event.target.select()"
+                    @input="onModalPriceInput"
+                    @keydown="blockInvalidIntegerKeys"
+                    @paste="handleIntegerPaste"
                 />
                 <span class="err-text" v-if="editModal.errors.giaBan">{{ editModal.errors.giaBan }}</span>
               </div>
@@ -961,7 +1006,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
           <div class="left-variant-preview">
             <div class="large-img-card">
               <img
-                  :src="formatImageUrl(detailModal.data.anhDaiDien || currentProduct?.anhDaiDien)"
+                  :src="formatImageUrl(detailModal.data.anhDaiDien)"
                   @error="onImgError"
                   alt="Variant preview"
                   class="preview-img-tag"
@@ -1016,10 +1061,6 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
             <div class="detail-actions-footer">
               <button class="btn-detail-edit" @click="switchToEditFromDetail">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                </svg>
                 Chỉnh sửa biến thể
               </button>
               <button class="btn-detail-close" @click="closeDetailModal">Đóng</button>

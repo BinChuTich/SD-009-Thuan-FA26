@@ -1,11 +1,11 @@
-<script setup>
-
-</script>
-
 <template>
-
+  <AttributeManager
+      attrType="co-ao"
+      title="Cổ áo"
+      codePrefix="CA"
+  />
 </template>
 
-<style scoped>
-
-</style>
+<script setup>
+import AttributeManager from './AttributeManager.vue'
+</script>

@@ -102,8 +102,8 @@ public class ChiTietSanPhamService {
         if (req.getSoLuong() == null || req.getSoLuong() < 0 || req.getSoLuong() > 999999) {
             throw new IllegalArgumentException("Số lượng biến thể phải là số nguyên từ 0 đến 999,999!");
         }
-        if (req.getGiaBan() == null || req.getGiaBan().compareTo(BigDecimal.ZERO) < 0 || req.getGiaBan().compareTo(new BigDecimal("1000000000")) > 0) {
-            throw new IllegalArgumentException("Đơn giá biến thể phải từ 0 đến 1,000,000,000 VNĐ!");
+        if (req.getGiaBan() == null || req.getGiaBan().compareTo(BigDecimal.ZERO) < 0 || req.getGiaBan().compareTo(new BigDecimal("1000000000")) > 0 || req.getGiaBan().remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
+            throw new IllegalArgumentException("Đơn giá biến thể phải là số nguyên từ 0 đến 1,000,000,000 VNĐ!");
         }
 
         SanPham sp = sanPhamRepository.findById(req.getIdSanPham())
@@ -145,8 +145,8 @@ public class ChiTietSanPhamService {
         if (req.getSoLuong() == null || req.getSoLuong() < 0 || req.getSoLuong() > 999999) {
             throw new IllegalArgumentException("Số lượng biến thể phải là số nguyên từ 0 đến 999,999!");
         }
-        if (req.getGiaBan() == null || req.getGiaBan().compareTo(BigDecimal.ZERO) < 0 || req.getGiaBan().compareTo(new BigDecimal("1000000000")) > 0) {
-            throw new IllegalArgumentException("Đơn giá biến thể phải từ 0 đến 1,000,000,000 VNĐ!");
+        if (req.getGiaBan() == null || req.getGiaBan().compareTo(BigDecimal.ZERO) < 0 || req.getGiaBan().compareTo(new BigDecimal("1000000000")) > 0 || req.getGiaBan().remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
+            throw new IllegalArgumentException("Đơn giá biến thể phải là số nguyên từ 0 đến 1,000,000,000 VNĐ!");
         }
 
         ChiTietSanPham ct = chiTietSanPhamRepository.findById(id)
@@ -224,10 +224,16 @@ public class ChiTietSanPhamService {
 
     private ChiTietSanPhamResponse convertToResponse(ChiTietSanPham ct) {
         String anhDaiDien = null;
-        if (ct.getIdSanPham() != null) {
+        if (ct.getIdSanPham() != null && ct.getIdMauSac() != null) {
             List<HinhAnh> imgs = hinhAnhRepository.findByIdSanPham_Id(ct.getIdSanPham().getId());
             if (imgs != null && !imgs.isEmpty()) {
-                anhDaiDien = imgs.get(0).getDuongDan();
+                String targetTen = "COLOR_" + ct.getIdMauSac().getId();
+                for (HinhAnh img : imgs) {
+                    if (targetTen.equals(img.getTenAnh())) {
+                        anhDaiDien = img.getDuongDan();
+                        break;
+                    }
+                }
             }
         }
 
