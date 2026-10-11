@@ -1,33 +1,14 @@
 <template>
   <div class="employee-page-wrapper">
-    <!-- Header -->
-    <div class="breadcrumb-header">
-      <div class="breadcrumb-left">
-        <h2 class="page-title">Quản lý nhân viên</h2>
-      </div>
-    </div>
-
     <!-- Bộ lọc -->
     <div class="content-card filter-card">
       <div class="card-header-filter">
-        <div class="filter-icon-box">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
-          </svg>
-        </div>
-        <div class="filter-title-wrap">
-          <h3 class="filter-title">Bộ lọc tìm kiếm</h3>
-        </div>
+        <h3 class="filter-title">Bộ lọc tìm kiếm</h3>
       </div>
 
       <div class="filter-inputs-grid">
         <div class="form-field search-field">
           <div class="input-inner">
-            <span class="prefix-icon">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-              </svg>
-            </span>
             <input
               v-model="filters.keyword"
               type="text"
@@ -39,7 +20,7 @@
 
         <div class="form-field">
           <select v-model="filters.role" @change="applyFilters">
-            <option value="">Tất cả vai trò</option>
+            <option value="">Tất cả chức vụ</option>
             <option v-for="role in roles" :key="role.id" :value="String(role.id)">
               {{ role.tenVaiTro }}
             </option>
@@ -57,13 +38,13 @@
 
       <div class="filter-actions">
         <button class="btn btn-reset" @click="resetFilters">
-          <span class="btn-icon">↺</span> Đặt lại bộ lọc
+          Đặt lại bộ lọc
         </button>
         <button class="btn btn-export" @click="exportExcel" :disabled="loading">
-          <span class="btn-icon">📥</span> Xuất Excel
+          Xuất Excel
         </button>
         <button class="btn btn-primary" @click="goToCreate">
-          <span>+</span> Thêm nhân viên
+          + Thêm nhân viên
         </button>
       </div>
     </div>
@@ -72,7 +53,6 @@
     <div class="content-card table-card">
       <div class="table-header-row">
         <div class="table-title-wrap">
-          <span class="header-icon">👥</span>
           <h3 class="table-title">Danh sách nhân viên</h3>
         </div>
       </div>
@@ -82,26 +62,25 @@
           <thead>
             <tr>
               <th style="width: 50px; text-align: center">STT</th>
-              <th style="width: 65px; text-align: center">Ảnh</th>
-              <th style="width: 110px">Mã NV</th>
-              <th style="width: 160px">Họ tên</th>
-              <th style="width: 180px">Email</th>
-              <th style="width: 85px">Giới tính</th>
+              <th style="width: 65px; text-align: center">ẢNH</th>
+              <th style="width: 110px">MÃ NV</th>
+              <th style="width: 160px">HỌ TÊN</th>
               <th style="width: 120px">SĐT</th>
-              <th>Địa chỉ</th>
-              <th style="width: 120px">Vai trò</th>
-              <th style="width: 120px; text-align: center">Trạng thái</th>
-              <th style="width: 100px; text-align: center">Hành động</th>
+              <th style="width: 180px">EMAIL</th>
+              <th>ĐỊA CHỈ</th>
+              <th style="width: 120px">CHỨC VỤ</th>
+              <th style="width: 120px; text-align: center">TRẠNG THÁI</th>
+              <th style="width: 100px; text-align: center">HÀNH ĐỘNG</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="11" style="text-align: center; padding: 2.5rem; color: #8a969b;">
+              <td colspan="10" style="text-align: center; padding: 2.5rem; color: #8a969b;">
                 Đang tải dữ liệu nhân viên...
               </td>
             </tr>
             <tr v-else-if="employees.length === 0">
-              <td colspan="11" style="text-align: center; padding: 2.5rem; color: #8a969b;">
+              <td colspan="10" style="text-align: center; padding: 2.5rem; color: #8a969b;">
                 Không tìm thấy nhân viên nào phù hợp.
               </td>
             </tr>
@@ -117,9 +96,8 @@
               </td>
               <td class="font-bold text-blue">{{ item.code }}</td>
               <td class="font-medium text-dark">{{ item.fullName }}</td>
-              <td class="text-email" :title="item.email">{{ item.email || '-' }}</td>
-              <td>{{ item.gender }}</td>
               <td class="text-dark">{{ item.phone || '-' }}</td>
+              <td class="text-email" :title="item.email">{{ item.email || '-' }}</td>
               <td class="text-address">{{ item.address || '-' }}</td>
               <td>
                 <span class="role-text" :class="{'role-admin': item.role === 'Quản trị viên'}">
@@ -133,17 +111,18 @@
               </td>
               <td style="text-align: center">
                 <div class="action-buttons">
-                  <button
+                  <label
                     v-if="item.role !== 'Quản trị viên'"
-                    class="btn-circle-action btn-power"
-                    :title="item.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'"
-                    @click="toggleStatus(item)"
+                    class="switch-toggle"
+                    :title="item.status === 'active' ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)'"
                   >
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-                      <line x1="12" y1="2" x2="12" y2="12"></line>
-                    </svg>
-                  </button>
+                    <input
+                      type="checkbox"
+                      :checked="item.status === 'active'"
+                      @click.prevent="toggleStatus(item)"
+                    />
+                    <span class="slider-round"></span>
+                  </label>
                   <button
                     class="btn-circle-action btn-edit"
                     title="Chỉnh sửa nhân viên"
@@ -206,7 +185,7 @@ const pageNumbers = computed(() => {
 
 function mapEmployee(x) {
   const gender = x.gioiTinh === true ? 'Nam' : x.gioiTinh === false ? 'Nữ' : '-'
-  const address = [x.queQuan, x.phuong, x.diaChiCuThe].filter(Boolean).join(', ')
+  const address = [x.diaChiCuThe, x.phuong, x.queQuan].filter(Boolean).join(', ')
   const avatar = x.anhNhanVien
     ? (x.anhNhanVien.startsWith('http') ? x.anhNhanVien : `http://localhost:8080${x.anhNhanVien}`)
     : ''
@@ -234,7 +213,10 @@ function getInitials(name) {
 async function loadRoles() {
   try {
     const res = await api.get('/api/nhan-vien/vai-tro')
-    roles.value = res.data
+    roles.value = (res.data || []).filter(r =>
+      r.maVaiTro === 'ADMIN' || r.maVaiTro === 'NV' ||
+      r.tenVaiTro === 'Quản trị viên' || r.tenVaiTro === 'Nhân viên'
+    )
   } catch (e) {
     showAlert({
       title: 'Lỗi tải danh mục vai trò',
@@ -315,8 +297,10 @@ async function toggleStatus(item) {
 
   try {
     await api.patch(`/api/nhan-vien/${item.id}/toggle-status`)
+    item.status = isLocking ? 'inactive' : 'active'
+    item.statusText = isLocking ? 'Ngừng hoạt động' : 'Hoạt động'
+    item.trangThai = isLocking ? 0 : 1
     showToast(`${isLocking ? 'Khóa' : 'Mở khóa'} nhân viên thành công!`, 'success')
-    await loadEmployees()
   } catch (e) {
     showAlert({
       title: 'Thao tác thất bại',
@@ -358,22 +342,11 @@ onMounted(async () => {
 
 <style scoped>
 .employee-page-wrapper {
-  padding: 1.25rem 1.75rem 2.5rem;
+  padding: 0 2.2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);
   box-sizing: border-box;
-}
-
-.breadcrumb-header {
-  margin-bottom: 1.2rem;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--blue, #496883);
 }
 
 .content-card {
@@ -524,12 +497,19 @@ onMounted(async () => {
 }
 
 .btn-primary {
-  background-color: var(--blue, #496883);
-  border: none;
+  background-color: #3b596a;
+  border: 1px solid #324b5a;
+  border-radius: 9999px;
   color: #ffffff;
+  padding: 0 1.4rem;
+  box-shadow: 0 2px 6px rgba(59, 89, 106, 0.25);
+  transition: all 0.2s ease;
 }
 .btn-primary:hover {
-  background-color: #38536b;
+  background-color: #2c4350;
+  border-color: #243742;
+  box-shadow: 0 4px 10px rgba(59, 89, 106, 0.35);
+  transform: translateY(-1px);
 }
 
 .table-header-row {
@@ -564,13 +544,15 @@ onMounted(async () => {
 }
 
 .custom-table th {
-  background-color: #faf9f6;
-  color: #6f7c82;
+  background-color: #faf8f5;
+  color: #4a5568;
   font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
   padding: 0.95rem 1rem;
   text-align: left;
-  border-bottom: 1px solid #efede7;
-  font-size: 0.95rem;
+  border-bottom: 2px solid #e9e5db;
   white-space: nowrap;
 }
 
@@ -603,8 +585,8 @@ onMounted(async () => {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background-color: #eaf1f5;
-  color: var(--blue, #496883);
+  background-color: #f0e6dc;
+  color: #8c6a46;
   font-size: 0.85rem;
   font-weight: 700;
   display: grid;
@@ -620,7 +602,7 @@ onMounted(async () => {
 }
 
 .text-blue {
-  color: var(--blue, #496883);
+  color: #8c6a46;
   font-family: monospace, sans-serif;
   letter-spacing: 0.4px;
 }
@@ -654,26 +636,29 @@ onMounted(async () => {
 
 .role-admin {
   font-weight: 700;
-  color: var(--blue, #496883);
+  color: #8c6a46;
 }
 
 .badge-status {
   display: inline-block;
-  font-size: 0.82rem;
-  font-weight: 700;
-  padding: 0.35rem 0.85rem;
-  border-radius: 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.32rem 0.85rem;
+  border-radius: 9999px;
   white-space: nowrap;
+  letter-spacing: 0.2px;
 }
 
 .status-active {
-  background-color: #edf6ef;
-  color: #4c8a5a;
+  background-color: #eaf5ed;
+  color: #247541;
+  border: 1px solid #bce1c7;
 }
 
 .status-inactive {
-  background-color: #f7eeee;
-  color: #a65d5d;
+  background-color: #f7edeb;
+  color: #b34a3b;
+  border: 1px solid #ecc9c3;
 }
 
 .action-buttons {
@@ -683,13 +668,59 @@ onMounted(async () => {
   gap: 0.5rem;
 }
 
+/* Switch Toggle */
+.switch-toggle {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  cursor: pointer;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.switch-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider-round {
+  position: absolute;
+  inset: 0;
+  background-color: #d1d5db;
+  border-radius: 22px;
+  transition: all 0.25s ease;
+}
+
+.slider-round::before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: all 0.25s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.switch-toggle input:checked + .slider-round {
+  background-color: #b38e6e;
+}
+
+.switch-toggle input:checked + .slider-round::before {
+  transform: translateX(16px);
+}
+
 .btn-circle-action {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 6px;
-  border: 1px solid var(--line, #e9e5db);
-  background-color: #ffffff;
-  color: #556268;
+  border: 1px solid #d8e2e8;
+  background-color: #f7f5ee;
+  color: #496883;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -701,25 +732,10 @@ onMounted(async () => {
   display: block;
 }
 
-.btn-power:hover {
-  border-color: #e09f3e;
-  background-color: #fff8eb;
-  color: #b57a1b;
-  transform: scale(1.08);
-}
-
 .btn-edit:hover {
+  background-color: #496883;
+  color: #ffffff;
   border-color: #496883;
-  background-color: #eef4f8;
-  color: #38536b;
-  transform: scale(1.08);
-}
-
-.btn-view:hover {
-  border-color: #627d98;
-  background-color: #f1f5f9;
-  color: #243b53;
-  transform: scale(1.08);
 }
 
 .pagination-row {

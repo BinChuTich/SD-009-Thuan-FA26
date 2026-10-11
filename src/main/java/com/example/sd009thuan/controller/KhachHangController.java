@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -97,6 +98,42 @@ public class KhachHangController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         service.deactivate(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/dia-chi")
+    public List<com.example.sd009thuan.dto.DiaChiKhachHangDto> getAddresses(@PathVariable Long id) {
+        return service.getAddresses(id);
+    }
+
+    @PostMapping("/{id}/dia-chi")
+    public ResponseEntity<com.example.sd009thuan.dto.DiaChiKhachHangDto> addAddress(
+            @PathVariable Long id,
+            @RequestBody com.example.sd009thuan.dto.DiaChiKhachHangDto dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.addAddress(id, dto));
+    }
+
+    @PutMapping("/{id}/dia-chi/{addressId}")
+    public com.example.sd009thuan.dto.DiaChiKhachHangDto updateAddress(
+            @PathVariable Long id,
+            @PathVariable Long addressId,
+            @RequestBody com.example.sd009thuan.dto.DiaChiKhachHangDto dto) {
+        return service.updateAddress(id, addressId, dto);
+    }
+
+    @PutMapping("/{id}/dia-chi/{addressId}/mac-dinh")
+    public ResponseEntity<Void> setDefaultAddress(
+            @PathVariable Long id,
+            @PathVariable Long addressId) {
+        service.setDefaultAddress(id, addressId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}/dia-chi/{addressId}")
+    public ResponseEntity<Void> deleteAddress(
+            @PathVariable Long id,
+            @PathVariable Long addressId) {
+        service.deleteAddress(id, addressId);
         return ResponseEntity.noContent().build();
     }
 }
