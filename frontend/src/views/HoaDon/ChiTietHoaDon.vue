@@ -763,7 +763,7 @@ onBeforeUnmount(() => {
         </button>
 
         <div class="page-breadcrumb">
-          <router-link to="/hoa-don" class="crumb-parent">Quản lý đơn hàng</router-link>
+          <router-link to="/hoa-don" class="crumb-parent">Quản lý hóa đơn</router-link>
           <span class="crumb-separator">/</span>
           <span class="crumb-current">Chi tiết hóa đơn: {{ invoiceData.code }}</span>
         </div>

@@ -588,7 +588,7 @@ onBeforeUnmount(() => {
 
     <!-- TIÊU ĐỀ CHÍNH -->
     <div class="page-breadcrumb">
-      <router-link to="/hoa-don" class="crumb-parent">Quản lý đơn hàng</router-link>
+      <router-link to="/hoa-don" class="crumb-parent">Quản lý hóa đơn</router-link>
       <span class="crumb-separator">/</span>
       <span class="crumb-current">Danh sách hóa đơn</span>
     </div>

@@ -582,43 +582,29 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
-  max-width: 1250px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 1.2rem;
+  margin-bottom: 1.25rem;
+  width: 100%;
 }
 
 .btn-back {
-  background: #ffffff;
-  border: 1px solid var(--line, #e9e5db);
-  padding: 0.55rem 1.1rem;
-  border-radius: 8px;
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: #496883;
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  transition: all 0.2s;
+  gap: 0.5rem;
+  background: #ffffff;
+  border: 1px solid #d2d6dc;
+  padding: 0.45rem 1rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .btn-back:hover {
-  background-color: #eaf1f4;
-  border-color: #496883;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 1.45rem;
-  font-weight: 700;
-  color: var(--blue, #496883);
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+  color: #111827;
 }
 
 .loading-card {
@@ -626,41 +612,48 @@ onMounted(() => {
   text-align: center;
   color: #7d8b91;
   font-size: 1.05rem;
-  max-width: 1250px;
-  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+  width: 100%;
 }
 
 .form-container-card {
-  background: #ffffff;
-  border-radius: 14px;
-  border: 1px solid var(--line, #e9e5db);
-  padding: 2.2rem 2.5rem;
-  box-shadow: 0 2px 8px rgba(65, 60, 50, 0.03);
-  max-width: 1250px;
-  margin: 0 auto;
+  background: transparent;
+  border: none;
+  padding: 0;
+  box-shadow: none;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
 }
 
 .form-layout-grid {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 2.5rem;
+  grid-template-columns: 280px 1fr;
+  gap: 1.5rem;
   align-items: start;
+  width: 100%;
 }
 
 /* Avatar Panel */
 .avatar-card {
-  background: #faf8f4;
-  border: 1px dashed #d6d0c4;
+  background: #ffffff;
+  border: 1px solid var(--line, #e9e5db);
   border-radius: 12px;
-  padding: 1.6rem 1rem;
+  padding: 1.6rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
   text-align: center;
 }
 
 .card-subtitle {
-  margin: 0 0 1.2rem;
-  font-size: 1rem;
+  margin: 0 0 1.25rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  color: #496883;
+  color: #2c3e50;
+  border-bottom: 1px solid #f0eee6;
+  padding-bottom: 0.75rem;
 }
 
 .avatar-integrated-wrapper {
@@ -752,21 +745,24 @@ onMounted(() => {
 .form-fields-panel {
   display: flex;
   flex-direction: column;
-  gap: 1.8rem;
+  gap: 1.25rem;
 }
 
 .section-card {
-  border: 1px solid #ece8de;
+  border: 1px solid var(--line, #e9e5db);
   border-radius: 12px;
-  padding: 1.8rem 2rem;
+  padding: 1.5rem 1.85rem;
   background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
 }
 
 .section-title {
-  margin: 0 0 1.4rem;
-  font-size: 1.15rem;
+  margin: 0 0 1.25rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  color: #384952;
+  color: #2c3e50;
+  border-bottom: 1px solid #f0eee6;
+  padding-bottom: 0.75rem;
 }
 
 .form-grid {
@@ -877,18 +873,22 @@ onMounted(() => {
 }
 
 .form-actions-bar {
+  background: #ffffff;
+  border: 1px solid var(--line, #e9e5db);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
-  padding-top: 0.8rem;
+  gap: 0.85rem;
 }
 
 .btn {
-  height: 2.85rem;
-  padding: 0 1.8rem;
+  height: 2.65rem;
+  padding: 0 1.6rem;
   border-radius: 8px;
-  font-size: 0.98rem;
-  font-weight: 700;
+  font-size: 0.92rem;
+  font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -899,20 +899,25 @@ onMounted(() => {
 }
 
 .btn-secondary {
-  border: 1px solid #dfd5c2;
-  background-color: #fff8eb;
-  color: #957b48;
+  border: 1px solid #d1d5db;
+  background-color: #ffffff;
+  color: #4b5563;
 }
 .btn-secondary:hover {
-  background-color: #faeed7;
+  background-color: #f3f4f6;
+  color: #111827;
 }
 
 .btn-primary {
-  background-color: #3b596a;
+  background-color: #496883;
   color: #ffffff;
 }
-.btn-primary:hover {
-  background-color: #2c4350;
+.btn-primary:hover:not(:disabled) {
+  background-color: #3b546b;
+}
+.btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 @media (max-width: 900px) {
