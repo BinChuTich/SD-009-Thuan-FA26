@@ -456,26 +456,30 @@ const toggleMenu = (menu) => {
 }
 
 .top-header {
-  height: 3.2rem !important;
-  background-color: #ffffff;
-  padding: 0 24px;
+  height: 2.4rem !important;
+  background-color: transparent;
+  padding: 0 20px;
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  border-bottom: 1px solid #e9e5db;
+  border-bottom: none;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 9px;
-  font-size: 0.85rem !important;
-  color: #6c7477;
+  gap: 8px;
+  font-size: 0.78rem !important;
+  color: #7b8387;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(220, 215, 205, 0.6);
 }
 
 .header-right a {
   color: #496883;
-  font-weight: 700;
+  font-weight: 600;
   text-decoration: none;
 }
 

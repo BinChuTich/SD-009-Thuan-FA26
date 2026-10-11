@@ -27,4 +27,10 @@ public interface ChiTietHoaDonRepository extends JpaRepository<ChiTietHoaDon, Lo
            "LEFT JOIN FETCH ct.idMauSac " +
            "WHERE c.idHoaDon.maHoaDon = :maHoaDon")
     List<ChiTietHoaDon> findByIdHoaDon_MaHoaDon(@Param("maHoaDon") String maHoaDon);
+
+    @Query("SELECT c FROM ChiTietHoaDon c WHERE c.idHoaDon.id = :idHoaDon")
+    List<ChiTietHoaDon> findByHoaDonIdSimple(@Param("idHoaDon") Long idHoaDon);
+
+    @Query("SELECT c FROM ChiTietHoaDon c WHERE c.idHoaDon.maHoaDon = :maHoaDon")
+    List<ChiTietHoaDon> findByHoaDonMaSimple(@Param("maHoaDon") String maHoaDon);
 }

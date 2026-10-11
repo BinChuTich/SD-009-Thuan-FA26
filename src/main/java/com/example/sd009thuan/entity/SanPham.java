@@ -30,14 +30,17 @@ public class SanPham {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_chat_lieu")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private ChatLieu idChatLieu;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_co_ao")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private CoAo idCoAo;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_tay_ao")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private TayAo idTayAo;
 
     @Size(max = 50)
@@ -80,18 +83,22 @@ public class SanPham {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_xuat_xu")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private XuatXu idXuatXu;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_thuong_hieu")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private ThuongHieu idThuongHieu;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_danh_muc")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private DanhMuc idDanhMuc;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_hoa_tiet")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private HoaTiet idHoaTiet;
 
     @PrePersist

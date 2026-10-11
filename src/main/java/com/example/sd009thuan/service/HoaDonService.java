@@ -9,6 +9,7 @@ import com.example.sd009thuan.repository.HinhThucThanhToanRepository;
 import com.example.sd009thuan.repository.HoaDonRepository;
 import com.example.sd009thuan.repository.LichSuHoaDonRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@Transactional(readOnly = true)
 public class HoaDonService {
 
     private final HoaDonRepository hoaDonRepository;
@@ -127,12 +129,22 @@ public class HoaDonService {
 
     // Lấy danh sách sản phẩm chi tiết theo ID hóa đơn
     public List<ChiTietHoaDon> getChiTietByHoaDonId(Long idHoaDon) {
-        return chiTietHoaDonRepository.findByIdHoaDon_Id(idHoaDon);
+        if (idHoaDon == null) return List.of();
+        try {
+            return chiTietHoaDonRepository.findByIdHoaDon_Id(idHoaDon);
+        } catch (Exception e) {
+            return chiTietHoaDonRepository.findByHoaDonIdSimple(idHoaDon);
+        }
     }
 
     // Lấy danh sách sản phẩm chi tiết theo Mã hóa đơn (HD001, HD002, ...)
     public List<ChiTietHoaDon> getChiTietByMaHoaDon(String maHoaDon) {
-        return chiTietHoaDonRepository.findByIdHoaDon_MaHoaDon(maHoaDon);
+        if (maHoaDon == null || maHoaDon.trim().isEmpty()) return List.of();
+        try {
+            return chiTietHoaDonRepository.findByIdHoaDon_MaHoaDon(maHoaDon.trim());
+        } catch (Exception e) {
+            return chiTietHoaDonRepository.findByHoaDonMaSimple(maHoaDon.trim());
+        }
     }
 
     // Lấy lịch sử thao tác hóa đơn theo ID
@@ -156,6 +168,7 @@ public class HoaDonService {
     }
 
     // Tạo hóa đơn mới
+    @Transactional
     public HoaDon create(HoaDon hoaDon) {
 
         // Tự sinh mã hóa đơn HD001, HD002... nếu chưa có
@@ -205,6 +218,7 @@ public class HoaDonService {
     }
 
     // Cập nhật thông tin hóa đơn
+    @Transactional
     public HoaDon update(Long id, HoaDon hoaDonMoi) {
 
         HoaDon hoaDonCu = hoaDonRepository.findById(id)
@@ -281,6 +295,7 @@ public class HoaDonService {
     }
 
     // Cập nhật trạng thái hóa đơn và ghi chú theo ID
+    @Transactional
     public HoaDon updateTrangThai(
             Long id,
             Integer trangThai,
@@ -317,6 +332,7 @@ public class HoaDonService {
     }
 
     // Cập nhật trạng thái hóa đơn theo mã hóa đơn
+    @Transactional
     public HoaDon updateTrangThaiByMa(
             String maHoaDon,
             Integer trangThai,
@@ -355,6 +371,7 @@ public class HoaDonService {
     // Cập nhật trạng thái thanh toán
     // 0: Chưa thanh toán
     // 1: Đã thanh toán
+    @Transactional
     public HoaDon updateTrangThaiThanhToan(
             Long id,
             Integer trangThaiThanhToan
@@ -382,6 +399,7 @@ public class HoaDonService {
     }
 
     // Xóa hóa đơn theo ID
+    @Transactional
     public void delete(Long id) {
 
         if (!hoaDonRepository.existsById(id)) {

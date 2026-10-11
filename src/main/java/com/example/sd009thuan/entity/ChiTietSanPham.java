@@ -29,14 +29,17 @@ public class ChiTietSanPham {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_san_pham", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "idChatLieu", "idCoAo", "idTayAo", "idXuatXu", "idThuongHieu", "idDanhMuc", "idHoaTiet"})
     private SanPham idSanPham;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_kich_co", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private KichCo idKichCo;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_mau_sac", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private MauSac idMauSac;
 
     @Size(max = 50)
