@@ -163,7 +163,7 @@
           <!-- Trạng thái -->
           <div class="form-item">
             <label class="item-label">Trạng thái <span class="text-danger">*</span></label>
-            <select v-model="form.trangThai" class="form-select" required>
+            <select v-model.number="form.trangThai" class="form-select" required>
               <option :value="1">Đang kinh doanh</option>
               <option :value="0">Ngừng kinh doanh</option>
             </select>
@@ -1656,11 +1656,45 @@ const fetchAttributes = async () => {
   }
 }
 
+// Đặt lại form về mặc định khi Thêm sản phẩm
+const resetFormToAdd = () => {
+  form.value = {
+    maSanPham: '',
+    tenSanPham: '',
+    idThuongHieu: '',
+    idDanhMuc: '',
+    idXuatXu: '',
+    idChatLieu: '',
+    idCoAo: '',
+    idTayAo: '',
+    idHoaTiet: '',
+    trangThai: 1, // Mặc định Đang kinh doanh
+    moTa: ''
+  }
+  selectedColors.value = []
+  selectedSizes.value = []
+  variantsList.value = []
+  colorImages.value = {}
+  bulkQty.value = 0
+  bulkPrice.value = 0
+}
+
 onMounted(async () => {
   document.addEventListener('click', closeAllDropdowns)
   await fetchAttributes()
   if (isEdit.value && productId.value) {
     await loadProductDetails(productId.value)
+  } else {
+    resetFormToAdd()
+  }
+})
+
+// Tự động chuyển đổi hoặc đặt lại form khi điều hướng giữa Thêm và Sửa
+watch(() => route.params.id, async (newId) => {
+  if (newId) {
+    await loadProductDetails(newId)
+  } else {
+    resetFormToAdd()
   }
 })
 </script>
