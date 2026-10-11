@@ -770,38 +770,39 @@ watch(() => route.query.tab, (newTab) => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background-color: var(--blue, #496883);
+  background-color: #3b596a;
   color: #ffffff;
-  border: 1px solid var(--blue, #496883);
-  padding: 0.65rem 1.25rem;
-  border-radius: 8px;
+  border: 1px solid #324b5a;
+  padding: 0.6rem 1.4rem;
+  border-radius: 9999px;
   font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 4px rgba(73, 104, 131, 0.2);
+  box-shadow: 0 2px 6px rgba(59, 89, 106, 0.25);
 }
 
 .btn-create-attr:hover {
-  background-color: #385167;
-  border-color: #385167;
-  box-shadow: 0 4px 8px rgba(73, 104, 131, 0.3);
+  background-color: #2c4350;
+  border-color: #243742;
+  box-shadow: 0 4px 10px rgba(59, 89, 106, 0.35);
+  transform: translateY(-1px);
 }
 
 /* Card chính */
 .attr-card-container {
   background-color: #ffffff;
-  border-radius: 14px;
-  border: 1px solid #e9e5db;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
   overflow: hidden;
 }
 
 /* Thanh Tabs */
 .tabs-scroll-wrapper {
   overflow-x: auto;
-  border-bottom: 1px solid #e2e8f0;
-  background-color: #fafaf9;
+  border-bottom: 1px solid var(--line, #e9e5db);
+  background-color: #faf8f5;
 }
 
 .attr-tabs-nav {
@@ -819,7 +820,7 @@ watch(() => route.query.tab, (newTab) => {
   border: 1px solid transparent;
   border-bottom: none;
   background: transparent;
-  color: #64748b;
+  color: #5d6a70;
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
@@ -828,15 +829,15 @@ watch(() => route.query.tab, (newTab) => {
 }
 
 .attr-tab-btn:hover {
-  color: var(--blue, #496883);
-  background-color: #f1f5f9;
+  color: #496883;
+  background-color: #f4f6f5;
 }
 
 .attr-tab-btn.active {
   background-color: #ffffff;
-  color: var(--blue, #496883);
-  font-weight: 800;
-  border-color: #e2e8f0;
+  color: #355d74;
+  font-weight: 700;
+  border-color: var(--line, #e9e5db);
   border-bottom: 2px solid #ffffff;
   margin-bottom: -1px;
 }
@@ -851,13 +852,13 @@ watch(() => route.query.tab, (newTab) => {
   border-radius: 10px;
   font-size: 0.72rem;
   font-weight: 700;
-  background-color: #e2e8f0;
-  color: #475569;
+  background-color: #e9e5db;
+  color: #5d6a70;
 }
 
 .attr-tab-btn.active .tab-count-badge {
-  background-color: #dbeafe;
-  color: #0284c7;
+  background-color: #e7f0f4;
+  color: #355d74;
 }
 
 /* Toolbar */
@@ -868,7 +869,8 @@ watch(() => route.query.tab, (newTab) => {
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--line, #e9e5db);
+  background-color: #ffffff;
 }
 
 .search-box {
@@ -889,18 +891,19 @@ watch(() => route.query.tab, (newTab) => {
   width: 100%;
   height: 38px;
   padding: 0 32px 0 34px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--line, #e9e5db);
   border-radius: 8px;
   font-size: 0.88rem;
-  color: #1e293b;
+  color: var(--text, #3d4a50);
   outline: none;
-  background-color: #ffffff;
+  background-color: #fcfbf8;
   transition: all 0.2s;
 }
 
 .search-input:focus {
   border-color: var(--blue, #496883);
-  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.12);
 }
 
 .clear-search-btn {
@@ -924,13 +927,18 @@ watch(() => route.query.tab, (newTab) => {
 .select-filter {
   height: 38px;
   padding: 0 10px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--line, #e9e5db);
   border-radius: 8px;
   font-size: 0.88rem;
-  color: #1e293b;
-  background-color: #ffffff;
+  color: var(--text, #3d4a50);
+  background-color: #fcfbf8;
   outline: none;
   cursor: pointer;
+}
+
+.select-filter:focus {
+  border-color: var(--blue, #496883);
+  background-color: #ffffff;
 }
 
 .btn-refresh {
@@ -939,10 +947,10 @@ watch(() => route.query.tab, (newTab) => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background-color: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfd5c2;
+  background-color: #fff8eb;
   border-radius: 8px;
-  color: #475569;
+  color: #957b48;
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
@@ -950,9 +958,7 @@ watch(() => route.query.tab, (newTab) => {
 }
 
 .btn-refresh:hover {
-  background-color: #f8fafc;
-  border-color: var(--blue, #496883);
-  color: var(--blue, #496883);
+  background-color: #faeed7;
 }
 
 /* Table */
@@ -967,26 +973,26 @@ watch(() => route.query.tab, (newTab) => {
 }
 
 .data-table th {
-  background-color: #f8fafc;
-  padding: 0.85rem 1rem;
-  font-size: 0.8rem;
+  background-color: #faf8f5;
+  padding: 0.95rem 1rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  color: #475569;
+  color: #4a5568;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 2px solid #e9e5db;
 }
 
 .data-table td {
-  padding: 0.85rem 1rem;
-  border-bottom: 1px solid #f1f5f9;
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid #f2f0eb;
   font-size: 0.9rem;
-  color: #1e293b;
+  color: #4b585e;
   vertical-align: middle;
 }
 
 .data-table tr:hover td {
-  background-color: #fbfcfe;
+  background-color: #fcfbf8;
 }
 
 .table-empty-cell {
@@ -999,18 +1005,19 @@ watch(() => route.query.tab, (newTab) => {
 .attr-code-pill {
   display: inline-block;
   padding: 3px 8px;
-  background-color: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  background-color: #f7f5ef;
+  border: 1px solid #e9e5db;
   border-radius: 5px;
-  font-family: monospace;
+  font-family: monospace, sans-serif;
   font-weight: 700;
-  color: var(--blue, #496883);
+  color: #8c6a46;
   font-size: 0.85rem;
+  letter-spacing: 0.4px;
 }
 
 .attr-name-text {
   font-weight: 700;
-  color: #0f172a;
+  color: #2b383e;
 }
 
 .color-badge-preview {
@@ -1044,15 +1051,15 @@ watch(() => route.query.tab, (newTab) => {
 }
 
 .chip-active {
-  background-color: #ecfdf5;
-  color: #059669;
-  border: 1px solid #a7f3d0;
+  background-color: #eaf5ed;
+  color: #247541;
+  border: 1px solid #bce1c7;
 }
 
 .chip-inactive {
-  background-color: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
+  background-color: #f7edeb;
+  color: #b34a3b;
+  border: 1px solid #ecc9c3;
 }
 
 /* Nút hành động */
@@ -1077,15 +1084,15 @@ watch(() => route.query.tab, (newTab) => {
 }
 
 .btn-power {
-  color: #dc2626;
-  background-color: #fff1f2;
-  border-color: #ffe4e6;
+  color: #b34a3b;
+  background-color: #f7edeb;
+  border-color: #ecc9c3;
 }
 
 .btn-power.is-active {
-  color: #059669;
-  background-color: #ecfdf5;
-  border-color: #a7f3d0;
+  color: #247541;
+  background-color: #eaf5ed;
+  border-color: #bce1c7;
 }
 
 .btn-power:hover {
@@ -1093,25 +1100,28 @@ watch(() => route.query.tab, (newTab) => {
 }
 
 .btn-edit {
-  color: var(--blue, #496883);
-  background-color: #f0f7fa;
-  border-color: #dbeafe;
+  color: #496883;
+  background-color: #f7f5ee;
+  border-color: #d8e2e8;
 }
 
 .btn-edit:hover {
-  background-color: #e0f2fe;
-  color: #0284c7;
+  background-color: #496883;
+  color: #ffffff;
+  border-color: #496883;
   transform: scale(1.1);
 }
 
 .btn-delete {
-  color: #dc2626;
-  background-color: #fef2f2;
-  border-color: #fee2e2;
+  color: #b34a3b;
+  background-color: #f7edeb;
+  border-color: #ecc9c3;
 }
 
 .btn-delete:hover {
-  background-color: #fee2e2;
+  background-color: #b34a3b;
+  color: #ffffff;
+  border-color: #b34a3b;
   transform: scale(1.1);
 }
 
@@ -1141,10 +1151,10 @@ watch(() => route.query.tab, (newTab) => {
   min-width: 32px;
   height: 32px;
   padding: 0 6px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--line, #e9e5db);
   background-color: #ffffff;
   border-radius: 6px;
-  color: #475569;
+  color: #496883;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -1154,7 +1164,6 @@ watch(() => route.query.tab, (newTab) => {
 .page-btn:hover:not(:disabled) {
   border-color: var(--blue, #496883);
   color: var(--blue, #496883);
-  background-color: #f8fafc;
 }
 
 .page-btn.active {
@@ -1324,31 +1333,32 @@ watch(() => route.query.tab, (newTab) => {
   justify-content: flex-end;
   gap: 0.75rem;
   padding: 1rem 1.5rem;
-  border-top: 1px solid #f1f5f9;
-  background-color: #f8fafc;
+  border-top: 1px solid #efeae0;
+  background-color: #faf8f5;
 }
 
 .btn-cancel {
   height: 2.4rem;
   padding: 0 1.2rem;
-  background-color: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfd5c2;
+  background-color: #fff8eb;
   border-radius: 8px;
-  color: #475569;
+  color: #957b48;
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
 .btn-cancel:hover {
-  background-color: #f1f5f9;
+  background-color: #faeed7;
 }
 
 .btn-submit {
   height: 2.4rem;
   padding: 0 1.25rem;
-  background-color: var(--blue, #496883);
-  border: 1px solid var(--blue, #496883);
+  background-color: #3b596a;
+  border: 1px solid #324b5a;
   border-radius: 8px;
   color: #ffffff;
   font-size: 0.88rem;
@@ -1361,7 +1371,8 @@ watch(() => route.query.tab, (newTab) => {
 }
 
 .btn-submit:hover {
-  background-color: #385167;
+  background-color: #2c4350;
+  border-color: #243742;
 }
 
 .btn-submit.btn-danger {

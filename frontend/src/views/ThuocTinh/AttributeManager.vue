@@ -871,29 +871,38 @@ onMounted(() => {
 
 /* Nút Làm mới */
 .btn-refresh {
-  background-color: #d2a764;
-  color: #ffffff;
+  border: 1px solid #dfd5c2;
+  background-color: #fff8eb;
+  color: #957b48;
 }
 .btn-refresh:hover {
-  background-color: #be9453;
+  background-color: #faeed7;
 }
 
 /* Nút Xuất Excel */
 .btn-export {
-  background-color: #2e7d32;
-  color: #ffffff;
+  background-color: #edf5ef;
+  color: #558764;
+  border: 1px solid #d2e5d6;
 }
 .btn-export:hover {
-  background-color: #256628;
+  background-color: #deede1;
 }
 
 /* Nút Thêm mới */
 .btn-add {
-  background-color: #edd9b8;
-  color: #4a3e2e;
+  background-color: #3b596a;
+  border: 1px solid #324b5a;
+  border-radius: 9999px;
+  color: #ffffff;
+  padding: 0 1.4rem;
+  box-shadow: 0 2px 6px rgba(59, 89, 106, 0.25);
 }
 .btn-add:hover {
-  background-color: #e4cda7;
+  background-color: #2c4350;
+  border-color: #243742;
+  box-shadow: 0 4px 10px rgba(59, 89, 106, 0.35);
+  transform: translateY(-1px);
 }
 
 /* 2. Cột lọc trạng thái cùng hàng */
@@ -908,8 +917,8 @@ onMounted(() => {
 .filter-select-control {
   width: 100%;
   height: 2.5rem;
-  background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background-color: #fcfbf8;
+  border: 1px solid var(--line, #e9e5db);
   border-radius: 8px;
   padding: 0 0.85rem;
   font-size: 0.92rem;
@@ -937,35 +946,41 @@ onMounted(() => {
 }
 
 .product-table th {
-  background-color: #f8fafc;
-  color: #6c787f;
+  background-color: #faf8f5;
+  color: #4a5568;
   font-weight: 700;
-  padding: 0.9rem 1rem;
+  text-transform: uppercase;
+  padding: 0.95rem 1rem;
   text-align: left;
-  border-bottom: 2px solid #edf1f5;
-  font-size: 0.9rem;
+  border-bottom: 2px solid #e9e5db;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
   white-space: nowrap;
 }
 
 .product-table td {
-  padding: 0.9rem 1rem;
-  border-bottom: 1px solid #f1f4f7;
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid #f2f0eb;
   vertical-align: middle;
-  color: #4a565c;
+  color: #4b585e;
 }
 
 .product-table tr:hover td {
-  background-color: #faf9f5;
+  background-color: #fcfbf8;
 }
 
 .stt-cell {
-  color: #64748b;
-  font-weight: 600;
+  color: #9aa0a0;
+  font-weight: 500;
+  font-size: 0.95rem;
 }
 
 .code-cell {
-  color: #1e293b;
-  font-size: 0.92rem;
+  color: #8c6a46;
+  font-family: monospace, sans-serif;
+  letter-spacing: 0.4px;
+  font-size: 0.88rem;
+  font-weight: 700;
 }
 
 .name-text {
@@ -1003,15 +1018,15 @@ onMounted(() => {
 }
 
 .status-badge.status-active {
-  background-color: #ecfdf5;
-  color: #059669;
-  border: 1px solid #a7f3d0;
+  background-color: #eaf5ed;
+  color: #247541;
+  border: 1px solid #bce1c7;
 }
 
 .status-badge.status-inactive {
-  background-color: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
+  background-color: #f7edeb;
+  color: #b34a3b;
+  border: 1px solid #ecc9c3;
 }
 
 /* Các nút hành động */
@@ -1041,19 +1056,27 @@ onMounted(() => {
 }
 
 .btn-view {
-  color: #0284c7;
+  color: #496883;
+  background-color: #f7f5ee;
+  border-color: #d8e2e8;
 }
 .btn-view:hover {
-  background-color: #e0f2fe;
-  border-color: #0284c7;
+  background-color: #496883;
+  color: #ffffff;
+  border-color: #496883;
+  transform: scale(1.08);
 }
 
 .btn-delete {
-  color: #dc2626;
+  color: #b34a3b;
+  background-color: #f7edeb;
+  border-color: #ecc9c3;
 }
 .btn-delete:hover {
-  background-color: #fef2f2;
-  border-color: #dc2626;
+  background-color: #b34a3b;
+  color: #ffffff;
+  border-color: #b34a3b;
+  transform: scale(1.08);
 }
 
 .empty-state {
@@ -1100,14 +1123,18 @@ onMounted(() => {
 .btn-refresh-sm {
   margin-top: 0.25rem;
   padding: 0.4rem 0.9rem;
-  background-color: #eef3f6;
-  color: #496883;
+  background-color: #fff8eb;
+  color: #957b48;
   font-size: 0.82rem;
   font-weight: 600;
   border-radius: 6px;
-  border: 1px solid #d5e1e8;
+  border: 1px solid #dfd5c2;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
+}
+
+.btn-refresh-sm:hover {
+  background-color: #faeed7;
 }
 
 /* 4. Thanh phân trang tương tự trang sản phẩm */
@@ -1197,9 +1224,9 @@ onMounted(() => {
 }
 
 .pg-box.active {
-  border-color: #d2a764;
+  border-color: #496883;
   color: #ffffff;
-  background-color: #d2a764;
+  background-color: #496883;
 }
 
 /* Modal Form Thêm / Sửa */
@@ -1229,13 +1256,13 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #f0ede6;
+  border-bottom: 1px solid #efeae0;
 }
 
 .modal-title {
   font-size: 1.15rem;
   font-weight: 800;
-  color: #1a1a1a;
+  color: #3c4d55;
   margin: 0;
 }
 
@@ -1327,23 +1354,27 @@ onMounted(() => {
   gap: 0.75rem;
   margin-top: 1.5rem;
   padding-top: 1.25rem;
-  border-top: 1px solid #f0ede6;
+  border-top: 1px solid #efeae0;
+  background-color: #faf8f5;
 }
 
 .btn-secondary {
-  background-color: #f1f4f8;
-  color: #556877;
+  border: 1px solid #dfd5c2;
+  background-color: #fff8eb;
+  color: #957b48;
 }
 .btn-secondary:hover {
-  background-color: #e2e8f0;
+  background-color: #faeed7;
 }
 
 .btn-primary {
-  background-color: #496883;
+  background-color: #3b596a;
+  border: 1px solid #324b5a;
   color: #ffffff;
 }
 .btn-primary:hover:not(:disabled) {
-  background-color: #385269;
+  background-color: #2c4350;
+  border-color: #243742;
 }
 
 /* Modal xác nhận chuyên nghiệp */

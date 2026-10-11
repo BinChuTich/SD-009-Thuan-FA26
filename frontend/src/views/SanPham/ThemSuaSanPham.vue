@@ -1749,20 +1749,24 @@ watch(() => route.params.id, async (newId) => {
 }
 
 .btn-back-top {
-  background-color: #ffffff;
-  color: var(--blue, #496883);
-  border: 1px solid #cbd5e1;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  font-size: 0.88rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #ffffff;
+  border: 1px solid #d2d6dc;
+  padding: 0.45rem 1rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
   font-weight: 600;
+  color: #4b5563;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
 .btn-back-top:hover {
-  background-color: #eaf2f6;
-  border-color: #6e96ad;
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+  color: #111827;
 }
 
 /* Card container */
@@ -1811,7 +1815,7 @@ watch(() => route.params.id, async (newId) => {
   width: 100%;
   box-sizing: border-box;
   padding: 0.65rem 0.85rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--line, #e9e5db);
   border-radius: 8px;
   font-size: 0.9rem;
   color: #1e293b;
@@ -1824,7 +1828,7 @@ watch(() => route.params.id, async (newId) => {
 .form-select:focus,
 .form-textarea:focus {
   border-color: var(--blue, #496883);
-  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.15);
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.12);
 }
 
 /* Select with Add Button */
@@ -2392,20 +2396,22 @@ watch(() => route.params.id, async (newId) => {
 }
 
 .btn-generate {
-  background: linear-gradient(135deg, #496883, #385269);
+  background-color: #3b596a;
+  border: 1px solid #324b5a;
   color: #ffffff;
-  border: none;
   padding: 0.7rem 1.6rem;
   border-radius: 8px;
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(73, 104, 131, 0.25);
+  box-shadow: 0 2px 6px rgba(59, 89, 106, 0.25);
   transition: all 0.2s;
 }
 
 .btn-generate:hover {
-  background: linear-gradient(135deg, #3d5870, #2c4154);
+  background-color: #2c4350;
+  border-color: #243742;
+  box-shadow: 0 4px 10px rgba(59, 89, 106, 0.35);
   transform: translateY(-1px);
 }
 
@@ -2456,9 +2462,9 @@ watch(() => route.params.id, async (newId) => {
 }
 
 .btn-bulk-apply {
-  background-color: #ffffff;
-  color: var(--blue, #496883);
-  border: 1px solid var(--blue, #496883);
+  background-color: #3b596a;
+  color: #ffffff;
+  border: 1px solid #324b5a;
   padding: 0.55rem 1.1rem;
   border-radius: 8px;
   font-weight: 600;
@@ -2468,8 +2474,8 @@ watch(() => route.params.id, async (newId) => {
 }
 
 .btn-bulk-apply:hover {
-  background-color: var(--blue, #496883);
-  color: #ffffff;
+  background-color: #2c4350;
+  border-color: #243742;
 }
 
 .color-variant-group-card {
@@ -2519,23 +2525,27 @@ watch(() => route.params.id, async (newId) => {
 }
 
 .variant-data-table th {
-  background: #ffffff;
+  background: #faf8f5;
   padding: 0.75rem 1rem;
   text-align: left;
-  font-weight: 600;
-  color: #64748b;
-  border-bottom: 1px solid #edf1f4;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #4a5568;
+  border-bottom: 2px solid #e9e5db;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
 }
 
 .variant-data-table td {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f2f0eb;
   vertical-align: middle;
+  color: #4b585e;
 }
 
 .cell-stt {
-  color: #94a3b8;
-  font-weight: 600;
+  color: #9aa0a0;
+  font-weight: 500;
 }
 
 .cell-size {
@@ -2626,19 +2636,20 @@ watch(() => route.params.id, async (newId) => {
 }
 
 .btn-add-img {
-  border: none;
-  background: var(--blue, #496883);
+  border: 1px solid #324b5a;
+  background: #3b596a;
   color: #ffffff;
   border-radius: 6px;
   padding: 0.4rem 0.8rem;
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 .btn-add-img:hover {
-  background: #385269;
+  background: #2c4350;
+  border-color: #243742;
 }
 
 .image-dropzone {
@@ -2715,9 +2726,9 @@ watch(() => route.params.id, async (newId) => {
 }
 
 .btn-cancel-lg {
-  background: #ffffff;
-  color: #475569;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfd5c2;
+  background: #fff8eb;
+  color: #957b48;
   padding: 0.75rem 2rem;
   border-radius: 8px;
   font-size: 0.95rem;
@@ -2727,24 +2738,27 @@ watch(() => route.params.id, async (newId) => {
 }
 
 .btn-cancel-lg:hover {
-  background: #f1f5f9;
+  background: #faeed7;
 }
 
 .btn-save-lg {
-  background: linear-gradient(135deg, #496883, #385269);
+  background-color: #3b596a;
+  border: 1px solid #324b5a;
   color: #ffffff;
-  border: none;
   padding: 0.75rem 2.2rem;
   border-radius: 8px;
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(73, 104, 131, 0.25);
+  box-shadow: 0 2px 6px rgba(59, 89, 106, 0.25);
   transition: all 0.2s;
 }
 
 .btn-save-lg:hover:not(:disabled) {
-  background: linear-gradient(135deg, #3d5870, #2c4154);
+  background-color: #2c4350;
+  border-color: #243742;
+  box-shadow: 0 4px 10px rgba(59, 89, 106, 0.35);
+  transform: translateY(-1px);
 }
 
 .btn-save-lg:disabled {

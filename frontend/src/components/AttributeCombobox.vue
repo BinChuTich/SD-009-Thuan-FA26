@@ -334,7 +334,7 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 40px;
   background-color: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--line, #e9e5db);
   border-radius: 8px;
   padding: 0 0.75rem;
   box-sizing: border-box;
@@ -348,7 +348,7 @@ onBeforeUnmount(() => {
 
 .combobox-control.is-open {
   border-color: var(--blue, #496883);
-  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.15);
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.12);
 }
 
 .combobox-input {
