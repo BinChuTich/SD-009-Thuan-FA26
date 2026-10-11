@@ -36,8 +36,8 @@ public interface ChiTietSanPhamRepository extends JpaRepository<ChiTietSanPham, 
     @Query("SELECT MAX(ct.giaBan) FROM ChiTietSanPham ct WHERE ct.idSanPham.id = :idSanPham AND ct.trangThai = 1")
     BigDecimal findMaxPriceBySanPhamId(@Param("idSanPham") Long idSanPham);
 
-    @Query("SELECT COALESCE(SUM(ct.soLuong), 0) FROM ChiTietSanPham ct WHERE ct.idSanPham.id = :idSanPham AND ct.trangThai = 1")
-    Integer sumSoLuongBySanPhamId(@Param("idSanPham") Long idSanPham);
+    @Query("SELECT SUM(ct.soLuong) FROM ChiTietSanPham ct WHERE ct.idSanPham.id = :idSanPham AND ct.trangThai = 1")
+    Long sumSoLuongBySanPhamId(@Param("idSanPham") Long idSanPham);
 
     @Query("SELECT ct FROM ChiTietSanPham ct WHERE " +
            "(:idSanPham IS NULL OR ct.idSanPham.id = :idSanPham) " +

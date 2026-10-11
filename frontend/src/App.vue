@@ -206,10 +206,7 @@ const pageTitle = computed(() => {
     </aside>
 
     <main class="main-content">
-      <header v-if="pageTitle" class="top-header">
-        <div class="header-left">
-          <h2 class="header-page-title">{{ pageTitle }}</h2>
-        </div>
+      <header class="top-header">
         <div class="header-right">
           <div class="user-profile-badge">
             <div class="user-avatar-circle" title="Tài khoản: Quản trị viên">
@@ -609,31 +606,12 @@ const pageTitle = computed(() => {
 }
 
 .top-header {
-  background-color: #ffffff;
-  border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  padding: 22px 32px;
-  min-height: 82px;
-  margin: 20px 2.2rem 20px 2.2rem;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  box-shadow: 0 2px 8px rgba(65, 60, 50, 0.04);
+  padding: 10px 2.2rem 4px 2.2rem;
+  background: transparent;
   box-sizing: border-box;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-}
-
-.header-page-title {
-  margin: 0;
-  font-size: 1.65rem;
-  font-weight: 800;
-  color: #2e3e48;
-  letter-spacing: -0.3px;
-  line-height: 1.2;
 }
 
 .header-right {
@@ -644,25 +622,26 @@ const pageTitle = computed(() => {
 .user-profile-badge {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 6px 16px 6px 8px;
-  border-radius: 36px;
-  background-color: #faf8f5;
-  border: 1px solid #e9e5db;
+  gap: 8px;
+  padding: 4px 12px 4px 5px;
+  border-radius: 24px;
+  background-color: #ffffff;
+  border: 1px solid #e5e2da;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .user-profile-badge:hover {
-  background-color: #f1ede4;
+  background-color: #f5f2ea;
   border-color: #496883;
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .user-avatar-circle {
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: linear-gradient(135deg, #496883, #2f4557);
   color: #ffffff;
@@ -670,25 +649,25 @@ const pageTitle = computed(() => {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 1.05rem;
-  letter-spacing: 0.5px;
-  box-shadow: 0 2px 8px rgba(73, 104, 131, 0.3);
+  font-size: 0.82rem;
+  letter-spacing: 0.3px;
+  box-shadow: 0 1px 4px rgba(73, 104, 131, 0.25);
 }
 
 .user-info-text {
   display: flex;
   flex-direction: column;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 .user-name {
-  font-weight: 700;
+  font-weight: 600;
   color: #2e3e48;
-  font-size: 0.98rem;
+  font-size: 0.84rem;
 }
 
 .user-role-label {
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   color: #7b888f;
   font-weight: 500;
 }

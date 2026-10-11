@@ -219,4 +219,61 @@ public class HoaDon {
     public String getTenPhieuGiamGia() {
         return idPhieuGiamGia != null ? idPhieuGiamGia.getTenPhieuGiamGia() : null;
     }
+
+    @com.fasterxml.jackson.annotation.JsonSetter("idPhieuGiamGia")
+    public void setJsonPhieuGiamGia(Object obj) {
+        if (obj == null) {
+            this.idPhieuGiamGia = null;
+        } else if (obj instanceof PhieuGiamGia p) {
+            this.idPhieuGiamGia = p;
+        } else if (obj instanceof Number num) {
+            PhieuGiamGia p = new PhieuGiamGia();
+            p.setId(num.longValue());
+            this.idPhieuGiamGia = p;
+        } else if (obj instanceof java.util.Map<?, ?> map && map.get("id") != null) {
+            try {
+                PhieuGiamGia p = new PhieuGiamGia();
+                p.setId(Long.valueOf(map.get("id").toString()));
+                this.idPhieuGiamGia = p;
+            } catch (Exception ignored) {}
+        }
+    }
+
+    @com.fasterxml.jackson.annotation.JsonSetter("idKhachHang")
+    public void setJsonKhachHang(Object obj) {
+        if (obj == null) {
+            this.idKhachHang = null;
+        } else if (obj instanceof KhachHang kh) {
+            this.idKhachHang = kh;
+        } else if (obj instanceof Number num) {
+            KhachHang kh = new KhachHang();
+            kh.setId(num.longValue());
+            this.idKhachHang = kh;
+        } else if (obj instanceof java.util.Map<?, ?> map && map.get("id") != null) {
+            try {
+                KhachHang kh = new KhachHang();
+                kh.setId(Long.valueOf(map.get("id").toString()));
+                this.idKhachHang = kh;
+            } catch (Exception ignored) {}
+        }
+    }
+
+    @com.fasterxml.jackson.annotation.JsonSetter("idNhanVien")
+    public void setJsonNhanVien(Object obj) {
+        if (obj == null) {
+            this.idNhanVien = null;
+        } else if (obj instanceof NhanVien nv) {
+            this.idNhanVien = nv;
+        } else if (obj instanceof Number num) {
+            NhanVien nv = new NhanVien();
+            nv.setId(num.longValue());
+            this.idNhanVien = nv;
+        } else if (obj instanceof java.util.Map<?, ?> map && map.get("id") != null) {
+            try {
+                NhanVien nv = new NhanVien();
+                nv.setId(Long.valueOf(map.get("id").toString()));
+                this.idNhanVien = nv;
+            } catch (Exception ignored) {}
+        }
+    }
 }

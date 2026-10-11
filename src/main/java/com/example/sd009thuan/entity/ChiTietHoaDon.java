@@ -2,10 +2,13 @@ package com.example.sd009thuan.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Nationalized;
@@ -14,6 +17,8 @@ import java.math.BigDecimal;
 
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "chi_tiet_hoa_don")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
@@ -66,28 +71,40 @@ public class ChiTietHoaDon {
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
 
-    @com.fasterxml.jackson.annotation.JsonProperty("tenSanPham")
+    @JsonProperty("tenSanPham")
     public String getTenSanPham() {
-        return idChiTietSanPham != null ? idChiTietSanPham.getTenSanPham() : null;
+        if (idChiTietSanPham != null && idChiTietSanPham.getIdSanPham() != null) {
+            return idChiTietSanPham.getIdSanPham().getTenSanPham();
+        }
+        return null;
     }
 
-    @com.fasterxml.jackson.annotation.JsonProperty("maSanPham")
+    @JsonProperty("maSanPham")
     public String getMaSanPham() {
-        return idChiTietSanPham != null ? idChiTietSanPham.getMaSanPham() : null;
+        if (idChiTietSanPham != null && idChiTietSanPham.getIdSanPham() != null) {
+            return idChiTietSanPham.getIdSanPham().getMaSanPham();
+        }
+        return null;
     }
 
-    @com.fasterxml.jackson.annotation.JsonProperty("maChiTietSanPham")
+    @JsonProperty("maChiTietSanPham")
     public String getMaChiTietSanPham() {
         return idChiTietSanPham != null ? idChiTietSanPham.getMaChiTietSanPham() : null;
     }
 
-    @com.fasterxml.jackson.annotation.JsonProperty("tenKichCo")
+    @JsonProperty("tenKichCo")
     public String getTenKichCo() {
-        return idChiTietSanPham != null ? idChiTietSanPham.getTenKichCo() : null;
+        if (idChiTietSanPham != null && idChiTietSanPham.getIdKichCo() != null) {
+            return idChiTietSanPham.getIdKichCo().getTenKichCo();
+        }
+        return null;
     }
 
-    @com.fasterxml.jackson.annotation.JsonProperty("tenMauSac")
+    @JsonProperty("tenMauSac")
     public String getTenMauSac() {
-        return idChiTietSanPham != null ? idChiTietSanPham.getTenMauSac() : null;
+        if (idChiTietSanPham != null && idChiTietSanPham.getIdMauSac() != null) {
+            return idChiTietSanPham.getIdMauSac().getTenMauSac();
+        }
+        return null;
     }
 }

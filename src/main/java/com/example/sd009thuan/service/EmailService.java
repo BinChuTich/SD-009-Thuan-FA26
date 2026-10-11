@@ -335,4 +335,73 @@ public class EmailService {
             System.err.println("==> [EmailService Lỗi] Không thể gửi email ngừng hoạt động tới " + kh.getEmail() + ": " + e.getMessage());
         }
     }
+
+    /**
+     * Gửi email thông tin tài khoản và mật khẩu cho nhân viên mới
+     */
+    @Async
+    public void sendAccountInfoEmail(String toEmail, String employeeName, String code, String account, String password) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            return;
+        }
+        try {
+            if (mailSender == null) {
+                System.out.println("==> [EmailService Mock] Đã gửi thông tin tài khoản nhân viên " + code + " tới " + toEmail);
+                return;
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(toEmail);
+            helper.setSubject("[FF T-Shirt] Cung cấp thông tin tài khoản nhân viên mới - " + code);
+
+            String html = """
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
+                    <h2 style="margin: 0 0 14px 0; text-align: center; color: #4a3427; font-size: 20px; font-weight: 700;">
+                        Chào mừng %s,
+                    </h2>
+                    <p style="margin: 0 0 24px 0; text-align: center; color: #555555; font-size: 14px; line-height: 1.6;">
+                        Chào mừng bạn đã gia nhập đội ngũ <b>FF T-Shirt</b>. Dưới đây là thông tin tài khoản làm việc của bạn:
+                    </p>
+
+                    <div style="background-color: #faf7f2; border: 1px solid #f0eae1; border-left: 4px solid #8c6d58; border-radius: 8px; padding: 20px 24px; margin: 0 0 24px 0; text-align: left;">
+                        <div style="margin-bottom: 12px; font-size: 14px; color: #333333;">
+                            <span style="font-weight: 700; color: #4a3427;">Mã nhân viên:</span>
+                            <span style="display: inline-block; background-color: #f1ebe5; color: #4a3427; font-weight: 700; font-size: 14px; padding: 3px 12px; border-radius: 4px; letter-spacing: 0.5px; margin-left: 6px;">%s</span>
+                        </div>
+                        <div style="margin-bottom: 12px; font-size: 14px; color: #333333;">
+                            <span style="font-weight: 700; color: #4a3427;">Tên tài khoản:</span>
+                            <span style="font-weight: 600; color: #1e3a8a; margin-left: 6px;">%s</span>
+                        </div>
+                        <div style="margin-bottom: 10px; font-size: 14px; color: #333333;">
+                            <span style="font-weight: 700; color: #4a3427;">Mật khẩu tạm thời:</span>
+                            <span style="font-weight: 700; color: #b91c1c; font-size: 15px; margin-left: 6px; letter-spacing: 1px;">%s</span>
+                        </div>
+                        <div style="font-size: 13px; color: #666666; line-height: 1.5; margin-top: 14px; border-top: 1px dashed #d5cbc1; padding-top: 10px;">
+                            <i>Lưu ý: Vì lý do bảo mật, vui lòng đăng nhập và đổi mật khẩu trong lần đầu tiên sử dụng hệ thống.</i>
+                        </div>
+                    </div>
+
+                    <div style="text-align: center; margin: 0 0 10px 0;">
+                        <a href="http://localhost:5173" style="display: inline-block; background-color: #7b5943; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 11px 34px; border-radius: 24px; box-shadow: 0 2px 6px rgba(123,89,67,0.25);">
+                            Đăng nhập hệ thống
+                        </a>
+                    </div>
+                </div>
+            """.formatted(
+                    employeeName != null ? employeeName : "Bạn",
+                    code,
+                    account,
+                    password
+            );
+
+            helper.setText(html, true);
+            System.out.println("==> [EmailService] Đang gửi thông tin tài khoản nhân viên tới: " + toEmail);
+            mailSender.send(message);
+            System.out.println("==> [EmailService] Đã gửi thông tin tài khoản nhân viên THÀNH CÔNG tới: " + toEmail);
+        } catch (Exception e) {
+            System.err.println("==> [EmailService Lỗi] Không thể gửi email tài khoản tới " + toEmail + ": " + e.getMessage());
+        }
+    }
 }

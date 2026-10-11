@@ -238,6 +238,8 @@ const handleCheckout = async () => {
       soDienThoaiKhachHang: currentInvoice.value.customerPhone || '',
       diaChiNhanHang: currentInvoice.value.isDelivery ? currentInvoice.value.deliveryAddress : 'Bán tại quầy',
       tongTien: totalAmount.value,
+      phiVanChuyen: 0,
+      tienSauGiamGia: totalAmount.value,
       tongTienGiamGia: 0,
       phiShip: 0,
       trangThai: currentInvoice.value.isDelivery ? 1 : 5,

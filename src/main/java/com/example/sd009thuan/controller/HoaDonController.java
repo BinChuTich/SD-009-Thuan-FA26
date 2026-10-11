@@ -11,7 +11,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/hoa-don")
-@CrossOrigin("*")
+@CrossOrigin(origins = "*")
 public class HoaDonController {
 
     private final HoaDonService hoaDonService;

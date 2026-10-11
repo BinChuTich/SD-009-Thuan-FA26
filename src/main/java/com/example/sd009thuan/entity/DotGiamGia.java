@@ -13,10 +13,13 @@ import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 @Getter
 @Setter
 @Entity
 @Table(name = "dot_giam_gia")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class DotGiamGia {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -47,8 +50,7 @@ public class DotGiamGia {
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
 
-    @Nationalized
-    @Column(name = "mo_ta")
+    @Transient
     private String moTa;
 
     @Transient

@@ -15,8 +15,12 @@ const loadHoaDon = async () => {
   try {
     loading.value = true
     errorMessage.value = ''
-    const response = await api.get(`/api/hoa-don/code/${maHoaDon}`)
-    hoaDon.value = response.data
+    const response = await api.get(`/api/hoa-don/code/${encodeURIComponent(maHoaDon)}`)
+    let res = response?.data
+    if (res && !Array.isArray(res) && res.data) {
+      res = res.data
+    }
+    hoaDon.value = res
   } catch (error) {
     console.error('Lỗi tải hóa đơn:', error)
     errorMessage.value = 'Không thể tải thông tin hóa đơn.'

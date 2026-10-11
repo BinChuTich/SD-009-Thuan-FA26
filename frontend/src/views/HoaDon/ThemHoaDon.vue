@@ -413,7 +413,7 @@ const themHoaDon = async () => {
 
       idPhieuGiamGia:
           form.value.idPhieuGiamGia
-              ? Number(form.value.idPhieuGiamGia)
+              ? { id: Number(form.value.idPhieuGiamGia) }
               : null,
 
       ghiChu:

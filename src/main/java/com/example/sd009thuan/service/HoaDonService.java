@@ -197,8 +197,8 @@ public class HoaDonService {
             hoaDon.setTongTien(BigDecimal.ZERO);
         }
 
-        if (hoaDon.getTienSauGiamGia() == null) {
-            hoaDon.setTienSauGiamGia(BigDecimal.ZERO);
+        if (hoaDon.getTienSauGiamGia() == null || (BigDecimal.ZERO.compareTo(hoaDon.getTienSauGiamGia()) == 0 && hoaDon.getTongTien().compareTo(BigDecimal.ZERO) > 0)) {
+            hoaDon.setTienSauGiamGia(hoaDon.getTongTien());
         }
 
         return hoaDonRepository.save(hoaDon);

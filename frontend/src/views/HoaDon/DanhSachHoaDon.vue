@@ -251,160 +251,215 @@ const getPaymentClass = (status) => {
   return Number(status) === 1 ? 'payment-paid' : 'payment-unpaid'
 }
 
+const extractInvoiceArray = (resData) => {
+  if (!resData) return []
+  let raw = resData
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw)
+    } catch {
+      return []
+    }
+  }
+  if (Array.isArray(raw)) return raw
+  if (Array.isArray(raw?.content)) return raw.content
+  if (Array.isArray(raw?.data)) return raw.data
+  if (Array.isArray(raw?.data?.content)) return raw.data.content
+  if (Array.isArray(raw?.items)) return raw.items
+  if (Array.isArray(raw?.list)) return raw.list
+  if (Array.isArray(raw?.records)) return raw.records
+  if (Array.isArray(raw?.result)) return raw.result
+  if (Array.isArray(raw?.hoaDons)) return raw.hoaDons
+  if (typeof raw === 'object' && raw !== null) {
+    const values = Object.values(raw)
+    if (values.length > 0 && values.every(v => v && typeof v === 'object' && (v.id != null || v.maHoaDon != null))) {
+      return values
+    }
+  }
+  return []
+}
+
 const loadHoaDon = async () => {
   try {
     loading.value = true
     errorMessage.value = ''
 
-    const response = await api.get('/api/hoa-don')
-    const result = response.data
+    let result = null
+    try {
+      const response = await api.get('/api/hoa-don')
+      result = response?.data
+    } catch (httpError) {
+      console.error('Lỗi kết nối máy chủ API /api/hoa-don:', httpError)
+      errorMessage.value = 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra dịch vụ backend.'
+      invoiceList.value = []
+      return
+    }
 
-    // Hỗ trợ API trả về mảng trực tiếp hoặc bọc trong content/data.
-    const dataList = Array.isArray(result)
-        ? result
-        : Array.isArray(result?.content)
-            ? result.content
-            : Array.isArray(result?.data)
-                ? result.data
-                : null
+    const dataList = extractInvoiceArray(result)
 
-    if (!dataList) {
-      throw new Error('API không trả về danh sách hóa đơn hợp lệ.')
+    if (!dataList || dataList.length === 0) {
+      invoiceList.value = []
+      currentPage.value = 1
+      return
     }
 
     const invoicePromises = dataList.map(async (item) => {
-      // 1. Tên khách hàng: ưu tiên lấy từ bảng khóa ngoại KhachHang
-      const khachHangObj = item.idKhachHang || item.khachHang
-      const customerName = khachHangObj?.tenKhachHang
-          || item.tenKhachHangHienThi
-          || item.tenKhachHang
-          || (khachHangObj?.taiKhoan ? khachHangObj.taiKhoan : 'Khách lẻ')
+      if (!item || typeof item !== 'object') return null
 
-      // 2. Tên nhân viên: ưu tiên lấy từ bảng khóa ngoại NhanVien
-      const nhanVienObj = item.idNhanVien || item.nhanVien
-      const empCatalog = {
-        'nvbanhang': 'Lê Văn Bán Hàng',
-        'quanly01': 'Trần Thị Quản Lý',
-        'admin': 'Nguyễn Văn Admin',
-        3: 'Lê Văn Bán Hàng',
-        2: 'Trần Thị Quản Lý',
-        1: 'Nguyễn Văn Admin'
-      }
+      try {
+        // 1. Tên khách hàng: ưu tiên lấy từ bảng khóa ngoại KhachHang
+        const khachHangObj = item.idKhachHang || item.khachHang
+        const customerName = khachHangObj?.tenKhachHang
+            || item.tenKhachHangHienThi
+            || item.tenKhachHang
+            || (khachHangObj?.taiKhoan ? khachHangObj.taiKhoan : 'Khách lẻ')
 
-      let employeeName = '---'
-      if (nhanVienObj?.tenNhanVien) {
-        employeeName = nhanVienObj.tenNhanVien
-      } else if (empCatalog[item.idNhanVien]) {
-        employeeName = empCatalog[item.idNhanVien]
-      } else if (empCatalog[item.nguoiTao]) {
-        employeeName = empCatalog[item.nguoiTao]
-      } else if (nhanVienObj?.tenTaiKhoan) {
-        employeeName = nhanVienObj.tenTaiKhoan
-      } else if (item.tenNhanVien) {
-        employeeName = item.tenNhanVien
-      } else if (item.maNhanVien) {
-        employeeName = item.maNhanVien
-      } else if (Number(item.loaiDon) === 1) {
-        // Đơn tại quầy: lấy người tạo nếu có
-        employeeName = item.nguoiTao || 'Nhân viên bán hàng'
-      } else {
-        // Đơn online không có nhân viên phụ trách
-        employeeName = 'Đơn Online'
-      }
+        // 2. Tên nhân viên: ưu tiên lấy từ bảng khóa ngoại NhanVien
+        const nhanVienObj = item.idNhanVien || item.nhanVien
+        const empCatalog = {
+          'nvbanhang': 'Lê Văn Bán Hàng',
+          'quanly01': 'Trần Thị Quản Lý',
+          'admin': 'Nguyễn Văn Admin',
+          3: 'Lê Văn Bán Hàng',
+          2: 'Trần Thị Quản Lý',
+          1: 'Nguyễn Văn Admin'
+        }
 
-      // 3. Phiếu giảm giá (khóa ngoại PhieuGiamGia)
-      const pggObj = item.idPhieuGiamGia || item.phieuGiamGia
-      const vCatalog = {
-        1: 'Voucher Giảm 50k (PGG01)',
-        2: 'Voucher Giảm 15% cho khách mới (PGG02)',
-        'PGG01': 'Voucher Giảm 50k',
-        'PGG02': 'Voucher Giảm 15% cho khách mới'
-      }
-      const voucherName = pggObj?.tenPhieuGiamGia || vCatalog[item.idPhieuGiamGia] || item.tenPhieuGiamGia || pggObj?.maPhieuGiamGia || ''
+        let employeeName = '---'
+        if (nhanVienObj?.tenNhanVien) {
+          employeeName = nhanVienObj.tenNhanVien
+        } else if (empCatalog[item.idNhanVien]) {
+          employeeName = empCatalog[item.idNhanVien]
+        } else if (empCatalog[item.nguoiTao]) {
+          employeeName = empCatalog[item.nguoiTao]
+        } else if (nhanVienObj?.tenTaiKhoan) {
+          employeeName = nhanVienObj.tenTaiKhoan
+        } else if (item.tenNhanVien) {
+          employeeName = item.tenNhanVien
+        } else if (item.maNhanVien) {
+          employeeName = item.maNhanVien
+        } else if (Number(item.loaiDon) === 1) {
+          // Đơn tại quầy: lấy người tạo nếu có
+          employeeName = item.nguoiTao || 'Nhân viên bán hàng'
+        } else {
+          // Đơn online không có nhân viên phụ trách
+          employeeName = 'Đơn Online'
+        }
 
-      // 4. Lấy chi tiết hóa đơn để tính toán chuẩn xác từ danh sách sản phẩm thực tế
-      let details = item.chiTietHoaDon || item.chiTietHoaDons || item.danhSachChiTiet || []
-      if ((!Array.isArray(details) || details.length === 0) && (item.id || item.maHoaDon)) {
-        try {
-          const detailRes = item.id
-            ? await api.get(`/api/hoa-don/${item.id}/chi-tiet`)
-            : await api.get(`/api/hoa-don/code/${encodeURIComponent(item.maHoaDon)}/chi-tiet`)
-          if (Array.isArray(detailRes?.data) && detailRes.data.length > 0) {
-            details = detailRes.data
+        // 3. Phiếu giảm giá (khóa ngoại PhieuGiamGia)
+        const pggObj = item.idPhieuGiamGia || item.phieuGiamGia
+        const vCatalog = {
+          1: 'Voucher Giảm 50k (PGG01)',
+          2: 'Voucher Giảm 15% cho khách mới (PGG02)',
+          'PGG01': 'Voucher Giảm 50k',
+          'PGG02': 'Voucher Giảm 15% cho khách mới'
+        }
+        const voucherName = pggObj?.tenPhieuGiamGia || vCatalog[item.idPhieuGiamGia] || item.tenPhieuGiamGia || pggObj?.maPhieuGiamGia || ''
+
+        // 4. Lấy chi tiết hóa đơn để tính toán chuẩn xác từ danh sách sản phẩm thực tế
+        let details = item.chiTietHoaDon || item.chiTietHoaDons || item.danhSachChiTiet || []
+        if ((!Array.isArray(details) || details.length === 0) && (item.id || item.maHoaDon)) {
+          try {
+            const detailRes = item.id
+              ? await api.get(`/api/hoa-don/${item.id}/chi-tiet`)
+              : await api.get(`/api/hoa-don/code/${encodeURIComponent(item.maHoaDon)}/chi-tiet`)
+            if (Array.isArray(detailRes?.data) && detailRes.data.length > 0) {
+              details = detailRes.data
+            }
+          } catch (e) {
+            // Bỏ qua lỗi gọi chi tiết phụ
           }
-        } catch (e) {
-          // Bỏ qua lỗi gọi chi tiết phụ
         }
-      }
 
-      // Tính tổng tiền hàng từ danh sách sản phẩm
-      let calcProductTotal = 0
-      if (Array.isArray(details) && details.length > 0) {
-        calcProductTotal = details.reduce((sum, d) => {
-          const qty = Number(d.soLuong ?? d.quantity ?? 1)
-          const price = Number(d.donGia ?? d.giaBan ?? d.price ?? 0)
-          const lineTotal = Number(d.thanhTien ?? (qty * price))
-          return sum + lineTotal
-        }, 0)
-      }
-
-      const productTotal = calcProductTotal > 0
-        ? calcProductTotal
-        : Number(item.tongTienHang ?? item.tienHang ?? item.tongTien ?? 0)
-
-      // Khấu trừ voucher giảm giá
-      let discount = 0
-      if (pggObj && (pggObj.giaTriGiamGia != null || pggObj.giamToiDa != null)) {
-        const gtri = Number(pggObj.giaTriGiamGia || 0)
-        if (Number(pggObj.loaiPhieuGiamGia) === 2) {
-          const percentVal = (productTotal * gtri) / 100
-          const maxVal = pggObj.giamToiDa ? Number(pggObj.giamToiDa) : Infinity
-          discount = Math.min(percentVal, maxVal)
-        } else {
-          discount = gtri
+        // Tính tổng tiền hàng từ danh sách sản phẩm
+        let calcProductTotal = 0
+        if (Array.isArray(details) && details.length > 0) {
+          calcProductTotal = details.reduce((sum, d) => {
+            const qty = Number(d.soLuong ?? d.quantity ?? 1)
+            const price = Number(d.donGia ?? d.giaBan ?? d.price ?? 0)
+            const lineTotal = Number(d.thanhTien ?? (qty * price))
+            return sum + lineTotal
+          }, 0)
         }
-      } else if (item.idPhieuGiamGia === 1 || pggObj?.maPhieuGiamGia === 'PGG01') {
-        discount = 50000
-      } else if (item.tongTienGiamGia != null || item.tienGiamGia != null) {
-        discount = Number(item.tongTienGiamGia ?? item.tienGiamGia ?? 0)
-      } else if (item.tongTien && item.tienSauGiamGia && Number(item.tongTien) > Number(item.tienSauGiamGia)) {
-        discount = Number(item.tongTien) - Number(item.tienSauGiamGia)
-      }
 
-      discount = Math.min(discount, productTotal)
-      const shippingFee = Number(item.phiVanChuyen ?? item.phiShip ?? 0)
+        const productTotal = calcProductTotal > 0
+          ? calcProductTotal
+          : Number(item.tongTienHang ?? item.tienHang ?? item.tongTien ?? 0)
 
-      let computedTotal = Math.max(0, productTotal + shippingFee - discount)
-
-      // Đảm bảo HD001 đồng bộ đúng 547.000đ khi database lưu giá trị 2 sản phẩm cũ (348.000đ)
-      if (computedTotal <= 0 || (item.maHoaDon === 'HD001' && computedTotal === 348000)) {
-        if (item.maHoaDon === 'HD001') {
-          computedTotal = 547000
-        } else {
-          computedTotal = Number((item.tienSauGiamGia != null && Number(item.tienSauGiamGia) > 0) ? item.tienSauGiamGia : (item.tongTien != null ? item.tongTien : 0))
+        // Khấu trừ voucher giảm giá
+        let discount = 0
+        if (pggObj && (pggObj.giaTriGiamGia != null || pggObj.giamToiDa != null)) {
+          const gtri = Number(pggObj.giaTriGiamGia || 0)
+          if (Number(pggObj.loaiPhieuGiamGia) === 2) {
+            const percentVal = (productTotal * gtri) / 100
+            const maxVal = pggObj.giamToiDa ? Number(pggObj.giamToiDa) : Infinity
+            discount = Math.min(percentVal, maxVal)
+          } else {
+            discount = gtri
+          }
+        } else if (item.idPhieuGiamGia === 1 || pggObj?.maPhieuGiamGia === 'PGG01') {
+          discount = 50000
+        } else if (item.tongTienGiamGia != null || item.tienGiamGia != null) {
+          discount = Number(item.tongTienGiamGia ?? item.tienGiamGia ?? 0)
+        } else if (item.tongTien && item.tienSauGiamGia && Number(item.tongTien) > Number(item.tienSauGiamGia)) {
+          discount = Number(item.tongTien) - Number(item.tienSauGiamGia)
         }
-      }
 
-      return {
-        id: item.id,
-        code: item.maHoaDon,
-        customerName,
-        customerPhone: khachHangObj?.soDienThoai || item.soDienThoaiHienThi || item.soDienThoaiKhachHang || '',
-        address: item.diaChiNhanHang || '',
-        employeeName,
-        voucherName,
-        totalPrice: computedTotal,
-        createTime: formatTime(item.ngayTao),
-        createDate: formatDate(item.ngayTao),
-        rawDate: item.ngayTao,
-        type: Number(item.loaiDon) === 1 ? 'Tại cửa hàng' : 'Online',
-        status: Number(item.trangThai),
-        paymentStatus: Number(item.trangThaiThanhToan ?? 0),
-        note: item.ghiChu || ''
+        discount = Math.min(discount, productTotal)
+        const shippingFee = Number(item.phiVanChuyen ?? item.phiShip ?? 0)
+
+        let computedTotal = Math.max(0, productTotal + shippingFee - discount)
+
+        // Đảm bảo HD001 đồng bộ đúng 547.000đ khi database lưu giá trị 2 sản phẩm cũ (348.000đ)
+        if (computedTotal <= 0 || (item.maHoaDon === 'HD001' && computedTotal === 348000)) {
+          if (item.maHoaDon === 'HD001') {
+            computedTotal = 547000
+          } else {
+            computedTotal = Number((item.tienSauGiamGia != null && Number(item.tienSauGiamGia) > 0) ? item.tienSauGiamGia : (item.tongTien != null ? item.tongTien : 0))
+          }
+        }
+
+        return {
+          id: item.id,
+          code: item.maHoaDon,
+          customerName,
+          customerPhone: khachHangObj?.soDienThoai || item.soDienThoaiHienThi || item.soDienThoaiKhachHang || '',
+          address: item.diaChiNhanHang || '',
+          employeeName,
+          voucherName,
+          totalPrice: computedTotal,
+          createTime: formatTime(item.ngayTao),
+          createDate: formatDate(item.ngayTao),
+          rawDate: item.ngayTao,
+          type: Number(item.loaiDon) === 1 ? 'Tại cửa hàng' : 'Online',
+          status: Number(item.trangThai),
+          paymentStatus: Number(item.trangThaiThanhToan ?? 0),
+          note: item.ghiChu || ''
+        }
+      } catch (itemErr) {
+        console.warn('Lỗi xử lý hóa đơn item:', item, itemErr)
+        return {
+          id: item.id,
+          code: item.maHoaDon || `HD${item.id || ''}`,
+          customerName: item.tenKhachHang || 'Khách lẻ',
+          customerPhone: item.soDienThoaiKhachHang || '',
+          address: item.diaChiNhanHang || '',
+          employeeName: '---',
+          voucherName: '',
+          totalPrice: Number(item.tongTien || 0),
+          createTime: formatTime(item.ngayTao),
+          createDate: formatDate(item.ngayTao),
+          rawDate: item.ngayTao,
+          type: Number(item.loaiDon) === 1 ? 'Tại cửa hàng' : 'Online',
+          status: Number(item.trangThai || 1),
+          paymentStatus: Number(item.trangThaiThanhToan ?? 0),
+          note: item.ghiChu || ''
+        }
       }
     })
 
-    invoiceList.value = await Promise.all(invoicePromises)
+    const resolvedInvoices = await Promise.all(invoicePromises)
+    invoiceList.value = resolvedInvoices.filter(Boolean)
 
     currentPage.value = 1
   } catch (error) {

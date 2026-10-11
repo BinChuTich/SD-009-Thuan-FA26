@@ -5,7 +5,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Nationalized;
@@ -15,6 +17,8 @@ import java.time.LocalDate;
 
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "khach_hang")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
@@ -81,4 +85,6 @@ public class KhachHang {
     @Column(name = "nguoi_cap_nhat", length = 100)
     private String nguoiCapNhat;
 
+    @Transient
+    private String anhKhachHang;
 }

@@ -68,12 +68,12 @@ public class KhachHangController {
     public ResponseEntity<KhachHangResponse> createMultipart(
             @RequestPart("data") KhachHangRequest req,
             @RequestPart(value = "file", required = false) MultipartFile file) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req));
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, file));
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<KhachHangResponse> createJson(@RequestBody KhachHangRequest req) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req));
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, null));
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -81,7 +81,7 @@ public class KhachHangController {
             @PathVariable Long id,
             @RequestPart("data") KhachHangRequest req,
             @RequestPart(value = "file", required = false) MultipartFile file) {
-        return service.update(id, req);
+        return service.update(id, req, file);
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)

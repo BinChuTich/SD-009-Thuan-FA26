@@ -1,5 +1,7 @@
 package com.example.sd009thuan.entity;
-import com.example.sd009thuan.entity.HoaDon;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -15,12 +17,14 @@ import java.time.Instant;
 @Setter
 @Entity
 @Table(name = "lich_su_thanh_toan")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class LichSuThanhToan {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Long id;
 
+    @JsonIgnore
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_hoa_don", nullable = false)

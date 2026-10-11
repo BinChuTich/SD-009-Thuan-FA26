@@ -467,7 +467,9 @@ const fetchProducts = async () => {
   try {
     const params = {
       page: filters.value.page,
-      size: filters.value.size
+      size: filters.value.size,
+      sortBy: 'id',
+      sortDir: 'desc'
     }
     if (filters.value.keyword?.trim()) params.keyword = filters.value.keyword.trim()
     if (filters.value.idThuongHieu) params.idThuongHieu = filters.value.idThuongHieu
@@ -490,8 +492,8 @@ const fetchProducts = async () => {
       }
     }
   } catch (err) {
-    console.error('Lỗi tải sản phẩm:', err)
-    showToast('Lỗi khi tải danh sách sản phẩm!', 'error')
+    console.error('Lỗi tải sản phẩm:', err.response?.data || err)
+    showToast(err.response?.data?.message || 'Lỗi khi tải danh sách sản phẩm!', 'error')
   } finally {
     loading.value = false
   }

@@ -75,12 +75,12 @@ const routes = [
     {
         path: '/hoa-don/them',
         name: 'ThemHoaDon',
-        component: () => import('@/views/hoaDon/ThemHoaDon.vue')
+        component: ThemHoaDon
     },
     {
         path: '/hoa-don/:maHoaDon/xac-nhan',
         name: 'XacNhanDonHang',
-        component: () => import('@/views/hoaDon/XacNhanDonHang.vue')
+        component: () => import('@/views/HoaDon/XacNhanDonHang.vue')
     },
     {
         path: '/hoa-don/:maHoaDon',
