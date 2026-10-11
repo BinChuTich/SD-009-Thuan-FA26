@@ -1,30 +1,39 @@
 package com.example.sd009thuan.entity;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
+
 import java.math.BigDecimal;
 import java.time.Instant;
+
 @Getter
 @Setter
 @Entity
 @Table(name = "hinh_thuc_thanh_toan")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class HinhThucThanhToan {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Long id;
 
+    @JsonIgnore
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_hoa_don", nullable = false)
     private HoaDon idHoaDon;
 
     @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "id_phuong_thuc", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private PhuongThucThanhToan idPhuongThuc;
 
     @NotNull
@@ -45,4 +54,9 @@ public class HinhThucThanhToan {
     @ColumnDefault("1")
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
+
+    @JsonProperty("tenPhuongThuc")
+    public String getTenPhuongThuc() {
+        return idPhuongThuc != null ? idPhuongThuc.getTenPhuongThuc() : null;
+    }
 }

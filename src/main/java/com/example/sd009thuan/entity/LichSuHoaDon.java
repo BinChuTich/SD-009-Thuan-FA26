@@ -1,6 +1,5 @@
-package com.example.sd009thuan;
+package com.example.sd009thuan.entity;
 
-import com.example.sd009thuan.entity.HoaDon;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -15,6 +14,7 @@ import java.time.Instant;
 @Setter
 @Entity
 @Table(name = "lich_su_hoa_don")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class LichSuHoaDon {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,18 +26,13 @@ public class LichSuHoaDon {
     @JoinColumn(name = "id_hoa_don", nullable = false)
     private HoaDon idHoaDon;
 
-    @Column(name = "trang_thai")
-    private Integer trangThai;
+    @Transient
+    private String hanhDong;
 
     @NotNull
     @ColumnDefault("getdate()")
     @Column(name = "thoi_gian", nullable = false)
     private Instant thoiGian;
-
-    @Nationalized
-    @Lob
-    @Column(name = "ghi_chu")
-    private String ghiChu;
 
     @Size(max = 100)
     @Nationalized
@@ -48,6 +43,17 @@ public class LichSuHoaDon {
     @Nationalized
     @Column(name = "vai_tro_nguoi_thuc_hien", length = 100)
     private String vaiTroNguoiThucHien;
+    @Column(name = "trang_thai")
+    private Integer trangThai;
+    @Nationalized
+    @Lob
+    @Column(name = "ghi_chu")
+    private String ghiChu;
 
-
+    public String getHanhDong() {
+        if (hanhDong != null && !hanhDong.trim().isEmpty()) {
+            return hanhDong;
+        }
+        return ghiChu != null && !ghiChu.trim().isEmpty() ? ghiChu : "Thao tác đơn hàng";
+    }
 }
