@@ -12,8 +12,163 @@ const xemChiTiet = (maHoaDon) => {
 
   router.push(`/hoa-don/${encodeURIComponent(maHoaDon)}`)
 }
+const exporting = ref(false)
+
+const escapeHtml = (str) => {
+  if (str == null) return ''
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 const exportExcel = () => {
-  showToast('Đang xuất danh sách hóa đơn ra file Excel...')
+  try {
+    exporting.value = true
+    const listToExport = filteredInvoiceList.value.length > 0 ? filteredInvoiceList.value : invoiceList.value
+
+    if (!listToExport || listToExport.length === 0) {
+      showToast('Không có dữ liệu hóa đơn để xuất Excel!', 'warning')
+      return
+    }
+
+    const now = new Date()
+    const nowStr = now.toLocaleDateString('vi-VN') + ' ' + now.toLocaleTimeString('vi-VN')
+    const fileTimestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`
+
+    const totalSum = listToExport.reduce((acc, it) => acc + (Number(it.totalPrice) || 0), 0)
+
+    const rowsHtml = listToExport.map((item, index) => {
+      const priceVal = Number(item.totalPrice || 0)
+      return `
+        <tr>
+          <td style="text-align: center; mso-number-format:'\\@';">${index + 1}</td>
+          <td style="text-align: center; font-weight: bold; mso-number-format:'\\@';">${escapeHtml(item.code)}</td>
+          <td>${escapeHtml(item.customerName)}</td>
+          <td style="text-align: center; mso-number-format:'\\@';">${escapeHtml(item.customerPhone || '---')}</td>
+          <td>${escapeHtml(item.address || 'Tại cửa hàng')}</td>
+          <td>${escapeHtml(item.employeeName || '---')}</td>
+          <td>${escapeHtml(item.voucherName || '---')}</td>
+          <td style="text-align: right; font-weight: bold; mso-number-format:'\\#\\,\\#\\#0';">${priceVal}</td>
+          <td style="text-align: center;">${escapeHtml(item.type)}</td>
+          <td style="text-align: center; mso-number-format:'\\@';">${escapeHtml(item.createTime)} ${escapeHtml(item.createDate)}</td>
+          <td style="text-align: center;">${escapeHtml(getStatusText(item.status))}</td>
+          <td style="text-align: center;">${escapeHtml(getPaymentText(item.paymentStatus))}</td>
+          <td>${escapeHtml(item.note || '')}</td>
+        </tr>
+      `
+    }).join('')
+
+    const excelTemplate = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Danh Sách Hóa Đơn</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          table { border-collapse: collapse; width: 100%; font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #2b353b; }
+          .sheet-title { font-size: 18px; font-weight: bold; color: #3e5c76; text-align: center; height: 38px; vertical-align: middle; }
+          .sheet-meta { font-size: 12px; color: #666666; height: 24px; vertical-align: middle; }
+          th {
+            background-color: #3e5c76;
+            color: #ffffff;
+            font-weight: bold;
+            border: 1px solid #2b4257;
+            padding: 10px 8px;
+            text-align: center;
+            height: 32px;
+            vertical-align: middle;
+          }
+          td {
+            border: 1px solid #d5c8b8;
+            padding: 8px 10px;
+            vertical-align: middle;
+          }
+          .total-row {
+            background-color: #f7ebe1;
+            font-weight: bold;
+            height: 34px;
+          }
+        </style>
+      </head>
+      <body>
+        <table>
+          <tr>
+            <td colspan="13" class="sheet-title">DANH SÁCH HÓA ĐƠN BÁN HÀNG</td>
+          </tr>
+          <tr>
+            <td colspan="13" class="sheet-meta">
+              Thời gian xuất: <strong>${nowStr}</strong> &nbsp;|&nbsp;
+              Số lượng: <strong>${listToExport.length}</strong> hóa đơn &nbsp;|&nbsp;
+              Trạng thái lọc: <strong>${currentTab.value}</strong>
+            </td>
+          </tr>
+          <tr></tr>
+          <thead>
+            <tr>
+              <th style="width: 50px;">STT</th>
+              <th style="width: 120px;">Mã Hóa Đơn</th>
+              <th style="width: 180px;">Tên Khách Hàng</th>
+              <th style="width: 130px;">Số Điện Thoại</th>
+              <th style="width: 220px;">Địa Chỉ Nhận Hàng</th>
+              <th style="width: 170px;">Nhân Viên Phụ Trách</th>
+              <th style="width: 200px;">Phiếu Giảm Giá</th>
+              <th style="width: 150px;">Tổng Tiền (VNĐ)</th>
+              <th style="width: 120px;">Loại Đơn</th>
+              <th style="width: 170px;">Thời Gian Tạo</th>
+              <th style="width: 150px;">Trạng Thái Đơn</th>
+              <th style="width: 140px;">Thanh Toán</th>
+              <th style="width: 220px;">Ghi Chú</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+            <tr class="total-row">
+              <td colspan="7" style="text-align: right; padding-right: 15px;">TỔNG CỘNG DOANH THU:</td>
+              <td style="text-align: right; font-weight: bold; mso-number-format:'\\#\\,\\#\\#0';">${totalSum}</td>
+              <td colspan="5"></td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `
+
+    // Đính kèm UTF-8 BOM để Excel tự động nhận diện ký tự tiếng Việt có dấu chuẩn 100%
+    const blob = new Blob(['\uFEFF' + excelTemplate], {
+      type: 'application/vnd.ms-excel;charset=utf-8'
+    })
+
+    const downloadLink = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    downloadLink.href = url
+    downloadLink.download = `Danh_Sach_Hoa_Don_${fileTimestamp}.xls`
+    document.body.appendChild(downloadLink)
+    downloadLink.click()
+    document.body.removeChild(downloadLink)
+    URL.revokeObjectURL(url)
+
+    showToast(`Đã xuất thành công ${listToExport.length} hóa đơn ra file Excel!`)
+  } catch (err) {
+    console.error('Lỗi khi xuất file Excel:', err)
+    showToast('Xuất file Excel thất bại, vui lòng thử lại!', 'warning')
+  } finally {
+    exporting.value = false
+  }
 }
 const currentTab = ref('Tất Cả')
 const statusTabs = [
@@ -442,7 +597,7 @@ onBeforeUnmount(() => {
           {{ loading ? 'Đang tải...' : '↻ Làm mới' }}
         </button>
 
-        <button class="btn-export" type="button" @click="exportExcel">
+        <button class="btn-export" type="button" :disabled="loading || exporting" @click="exportExcel">
           <svg
               class="icon-export"
               viewBox="0 0 24 24"
@@ -456,7 +611,7 @@ onBeforeUnmount(() => {
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
-          Xuất Excel
+          {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
         </button>
       </div>
     </div>
@@ -717,10 +872,16 @@ onBeforeUnmount(() => {
   transition: all 0.2s ease;
 }
 
-.btn-export:hover {
+.btn-export:hover:not(:disabled) {
   background-color: #f2decb;
   border-color: #cca47f;
   transform: translateY(-1px);
+}
+
+.btn-export:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .icon-export {

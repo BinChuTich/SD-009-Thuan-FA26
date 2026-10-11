@@ -725,7 +725,13 @@ const handleNextStatus = () => {
 }
 
 const handlePrint = () => {
+  const originalTitle = document.title
+  // Đặt tên trang để khi chọn "Lưu dưới dạng PDF" (Save as PDF), trình duyệt tự đặt tên tệp là Hoa_Don_HDxxx.pdf
+  document.title = `Hoa_Don_${invoiceData.value.code || 'FF_Tshirt'}`
   window.print()
+  setTimeout(() => {
+    document.title = originalTitle
+  }, 1200)
 }
 
 onBeforeUnmount(() => {
@@ -975,7 +981,12 @@ onBeforeUnmount(() => {
               ✓ {{ invoiceData.paymentHistory.status }}
             </button>
             <button class="btn-print-invoice" @click="handlePrint">
-              In Hóa Đơn
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <rect x="6" y="14" width="12" height="8"></rect>
+              </svg>
+              In Hóa Đơn (PDF)
             </button>
           </div>
         </div>
@@ -1214,10 +1225,169 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </transition>
+
+    <!-- ============================================ -->
+    <!-- ============================================ -->
+    <!-- MẪU IN HÓA ĐƠN CHUẨN A4 DÀNH CHO XUẤT FILE PDF -->
+    <!-- ============================================ -->
+    <div class="printable-invoice">
+      <!-- Header Cửa Hàng & Tiêu Đề Hóa Đơn -->
+      <div class="print-header-top">
+        <div class="print-store-brand">
+          <div class="print-brand-name">FF T-SHIRT FASHION</div>
+          <div class="print-store-sub">Hệ thống thời trang áo phông cao cấp</div>
+          <div class="print-store-meta">📍 Địa chỉ: 123 Đường Cầu Giấy, Quan Hoa, Cầu Giấy, Hà Nội</div>
+          <div class="print-store-meta">☎ Hotline: 0988.888.888 | 🌐 Website: fftshirt.vn</div>
+        </div>
+        <div class="print-invoice-title-block">
+          <h1 class="print-main-title">HÓA ĐƠN BÁN HÀNG</h1>
+          <div class="print-meta-pill">Mã HĐ: <strong>{{ invoiceData.code }}</strong></div>
+          <div class="print-meta-date">Ngày lập: {{ invoiceData.paymentHistory?.time || (invoiceData.createTime + ' ' + invoiceData.createDate) }}</div>
+        </div>
+      </div>
+
+      <div class="print-divider-line-main"></div>
+
+      <!-- Thông Tin Khách Hàng & Đơn Hàng -->
+      <div class="print-info-grid">
+        <div class="print-info-col">
+          <div class="print-col-heading">THÔNG TIN KHÁCH HÀNG</div>
+          <div class="print-row-item">
+            <span class="p-label">Khách hàng:</span>
+            <span class="p-val font-bold">{{ invoiceData.customer.name }}</span>
+          </div>
+          <div class="print-row-item">
+            <span class="p-label">Số điện thoại:</span>
+            <span class="p-val">{{ invoiceData.customer.phone || '---' }}</span>
+          </div>
+          <div class="print-row-item">
+            <span class="p-label">Email:</span>
+            <span class="p-val">{{ invoiceData.customer.email || '---' }}</span>
+          </div>
+        </div>
+
+        <div class="print-info-col">
+          <div class="print-col-heading">THÔNG TIN ĐƠN HÀNG</div>
+          <div class="print-row-item">
+            <span class="p-label">Hình thức mua:</span>
+            <span class="p-val font-bold">{{ invoiceData.delivery.type || 'Tại cửa hàng' }}</span>
+          </div>
+          <div class="print-row-item" v-if="invoiceData.delivery.address && invoiceData.delivery.type !== 'Tại cửa hàng'">
+            <span class="p-label">Địa chỉ nhận:</span>
+            <span class="p-val">{{ invoiceData.delivery.address }}</span>
+          </div>
+          <div class="print-row-item">
+            <span class="p-label">Thu ngân / NV:</span>
+            <span class="p-val">{{ invoiceData.employee?.name || 'Nhân viên bán hàng' }}</span>
+          </div>
+          <div class="print-row-item" v-if="invoiceData.delivery.note">
+            <span class="p-label">Ghi chú:</span>
+            <span class="p-val">{{ invoiceData.delivery.note }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bảng Sản Phẩm -->
+      <table class="print-table">
+        <thead>
+          <tr>
+            <th style="width: 45px;" class="text-center">STT</th>
+            <th style="width: 95px;" class="text-center">Mã SP</th>
+            <th>Tên Sản Phẩm</th>
+            <th style="width: 140px;" class="text-center">Phân Loại (Màu/Size)</th>
+            <th style="width: 55px;" class="text-center">SL</th>
+            <th style="width: 120px;" class="text-right">Đơn Giá</th>
+            <th style="width: 130px;" class="text-right">Thành Tiền</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(it, idx) in invoiceData.items" :key="it.id || idx">
+            <td class="text-center">{{ idx + 1 }}</td>
+            <td class="text-center font-bold">{{ it.code }}</td>
+            <td>
+              <div class="print-prod-name">{{ it.name }}</div>
+            </td>
+            <td class="text-center">{{ it.color }} / {{ it.size }}</td>
+            <td class="text-center font-bold">{{ it.quantity }}</td>
+            <td class="text-right">{{ formatMoney(it.price) }}</td>
+            <td class="text-right font-bold">{{ formatMoney(it.total) }}</td>
+          </tr>
+          <tr v-if="!invoiceData.items || invoiceData.items.length === 0">
+            <td colspan="7" class="text-center" style="padding: 16px; color: #64748b;">Không có sản phẩm nào trong hóa đơn</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Thanh Toán & Tổng Tiền -->
+      <div class="print-summary-box">
+        <div class="print-payment-method-box">
+          <div class="p-method-title">PHƯƠNG THỨC THANH TOÁN</div>
+          <div class="p-method-item">
+            <span>Phương thức:</span>
+            <strong>{{ invoiceData.paymentHistory.method }}</strong>
+          </div>
+          <div class="p-method-item">
+            <span>Trạng thái:</span>
+            <strong class="text-paid">{{ invoiceData.paymentHistory.status }}</strong>
+          </div>
+          <div class="p-method-item">
+            <span>Hình thức mua:</span>
+            <strong>{{ invoiceData.delivery.type || 'Tại cửa hàng' }}</strong>
+          </div>
+        </div>
+
+        <div class="print-total-calc-box">
+          <div class="print-calc-line">
+            <span>Tổng tiền hàng:</span>
+            <span>{{ formatMoney(invoiceData.summary.totalProductPrice) }}</span>
+          </div>
+          <div v-if="invoiceData.summary.shippingFee > 0" class="print-calc-line">
+            <span>Phí vận chuyển:</span>
+            <span>{{ formatMoney(invoiceData.summary.shippingFee) }}</span>
+          </div>
+          <div v-if="invoiceData.summary.voucherDiscount > 0" class="print-calc-line discount">
+            <span>Voucher giảm giá <template v-if="invoiceData.summary.voucherName">({{ invoiceData.summary.voucherName }})</template>:</span>
+            <span>-{{ formatMoney(invoiceData.summary.voucherDiscount) }}</span>
+          </div>
+          <div class="print-divider-line"></div>
+          <div class="print-calc-line final-line">
+            <span>TỔNG TIỀN THANH TOÁN:</span>
+            <span class="final-price">{{ formatMoney(invoiceData.summary.totalPayment) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chữ Ký Xác Nhận -->
+      <div class="print-signatures-row">
+        <div class="sig-block">
+          <div class="sig-role">Người Mua Hàng</div>
+          <div class="sig-note">(Ký, ghi rõ họ tên)</div>
+          <div class="sig-blank-space"></div>
+          <div class="sig-name">{{ invoiceData.customer.name }}</div>
+        </div>
+        <div class="sig-block">
+          <div class="sig-role">Người Bán Hàng / Thu Ngân</div>
+          <div class="sig-note">(Ký, ghi rõ họ tên)</div>
+          <div class="sig-blank-space"></div>
+          <div class="sig-name">{{ invoiceData.employee?.name || 'Nhân viên bán hàng' }}</div>
+        </div>
+      </div>
+
+      <!-- Lời Cảm Ơn & Chân Trang -->
+      <div class="print-footer-section">
+        <div class="print-thanks">Cảm ơn quý khách đã tin tưởng và mua sắm tại FF T-Shirt!</div>
+        <div class="print-policy">Quý khách vui lòng kiểm tra hàng khi nhận. Hỗ trợ đổi size/màu trong vòng 7 ngày kèm hóa đơn này.</div>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
+/* Ẩn mẫu in hóa đơn trên màn hình giao diện web */
+.printable-invoice {
+  display: none;
+}
+
 .chi-tiet-page {
   margin-left: 20px;
   width: calc(100% - 20px);
@@ -1830,14 +2000,23 @@ onBeforeUnmount(() => {
 
 .btn-print-invoice {
   width: 100%;
-  height: 36px;
+  height: 38px;
   background-color: #36536b;
   color: #ffffff;
   border: none;
   border-radius: 6px;
-  font-size: 0.85rem;
+  font-size: 0.86rem;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-print-invoice:hover {
+  background-color: #263c4f;
+  box-shadow: 0 2px 6px rgba(54, 83, 107, 0.25);
 }
 
 .table-responsive {
@@ -2505,5 +2684,393 @@ onBeforeUnmount(() => {
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
+}
+</style>
+
+<!-- ======================================================== -->
+<!-- ĐỊNH DẠNG IN HÓA ĐƠN CHUẨN A4 XUẤT RA FILE PDF BẰNG BROWSER PRINT -->
+<!-- ======================================================== -->
+<style>
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm 15mm 15mm;
+  }
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 1. Ẩn TOÀN BỘ mọi thành phần trong body */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* 2. Ẩn triệt để bằng display: none tất cả layout giao diện web của ứng dụng */
+  aside,
+  .sidebar,
+  header,
+  .top-header,
+  .top-nav-bar,
+  .main-layout-grid,
+  .left-section,
+  .right-section,
+  .invoice-items-card,
+  .card-box,
+  .modal-backdrop,
+  .modal-container,
+  .toast-popup,
+  .action-status-footer,
+  .stepper-container,
+  .payment-action-box,
+  .chi-tiet-page > :not(.printable-invoice) {
+    display: none !important;
+  }
+
+  /* 3. Reset các container cha để không chiếm chỗ */
+  .app-shell,
+  .main-content,
+  .page-body,
+  .chi-tiet-page {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    display: block !important;
+  }
+
+  /* 4. CHỈ HIỂN THỊ DUY NHẤT vùng Hóa Đơn Bán Hàng (.printable-invoice) */
+  .printable-invoice,
+  .printable-invoice * {
+    visibility: visible !important;
+  }
+
+  .printable-invoice {
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Header Hóa Đơn Bán Hàng */
+  .print-header-top {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    padding-bottom: 8px !important;
+  }
+
+  .print-store-brand {
+    flex: 1 !important;
+  }
+
+  .print-brand-name {
+    font-size: 20px !important;
+    font-weight: 800 !important;
+    color: #3e5c76 !important;
+    letter-spacing: 0.5px !important;
+    text-transform: uppercase !important;
+    margin-bottom: 2px !important;
+  }
+
+  .print-store-sub {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: #c59b27 !important;
+    margin-bottom: 4px !important;
+    text-transform: uppercase !important;
+  }
+
+  .print-store-meta {
+    font-size: 11.5px !important;
+    color: #4b5563 !important;
+    line-height: 1.4 !important;
+  }
+
+  .print-invoice-title-block {
+    text-align: right !important;
+    flex-shrink: 0 !important;
+  }
+
+  .print-main-title {
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    color: #1e293b !important;
+    margin: 0 0 4px 0 !important;
+    letter-spacing: 0.8px !important;
+  }
+
+  .print-meta-pill {
+    font-size: 13px !important;
+    color: #3e5c76 !important;
+    font-weight: 600 !important;
+    margin-bottom: 2px !important;
+  }
+
+  .print-meta-date {
+    font-size: 11.5px !important;
+    color: #64748b !important;
+  }
+
+  .print-divider-line-main {
+    height: 2.5px !important;
+    background: #3e5c76 !important;
+    margin: 8px 0 16px 0 !important;
+  }
+
+  /* Thông tin khách hàng & Đơn hàng */
+  .print-info-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 16px !important;
+    margin-bottom: 16px !important;
+    background-color: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    padding: 10px 14px !important;
+  }
+
+  .print-col-heading {
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    color: #3e5c76 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    margin-bottom: 6px !important;
+    padding-bottom: 3px !important;
+    border-bottom: 1px dashed #cbd5e1 !important;
+  }
+
+  .print-row-item {
+    font-size: 12px !important;
+    margin-bottom: 4px !important;
+    display: flex !important;
+    gap: 6px !important;
+  }
+
+  .p-label {
+    color: #64748b !important;
+    min-width: 100px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .p-val {
+    color: #0f172a !important;
+    word-break: break-word !important;
+  }
+
+  .p-val.font-bold {
+    font-weight: 700 !important;
+  }
+
+  /* Bảng sản phẩm */
+  .print-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-bottom: 16px !important;
+    font-size: 12px !important;
+  }
+
+  .print-table th {
+    background-color: #f1f5f9 !important;
+    color: #1e293b !important;
+    font-weight: 700 !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 7px 8px !important;
+    text-transform: uppercase !important;
+    font-size: 11px !important;
+  }
+
+  .print-table td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 7px 8px !important;
+    vertical-align: middle !important;
+    color: #1e293b !important;
+  }
+
+  .print-prod-name {
+    font-weight: 600 !important;
+    color: #0f172a !important;
+  }
+
+  .print-table .text-center {
+    text-align: center !important;
+  }
+
+  .print-table .text-right {
+    text-align: right !important;
+  }
+
+  .print-table .font-bold {
+    font-weight: 700 !important;
+  }
+
+  .print-table tr {
+    page-break-inside: avoid !important;
+  }
+
+  /* Thanh toán & Tổng tiền */
+  .print-summary-box {
+    display: grid !important;
+    grid-template-columns: 1fr 1.3fr !important;
+    gap: 16px !important;
+    margin-bottom: 20px !important;
+    page-break-inside: avoid !important;
+  }
+
+  .print-payment-method-box {
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    padding: 10px 12px !important;
+    background-color: #fafafa !important;
+  }
+
+  .p-method-title {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #3e5c76 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    margin-bottom: 6px !important;
+    padding-bottom: 3px !important;
+    border-bottom: 1px dashed #cbd5e1 !important;
+  }
+
+  .p-method-item {
+    font-size: 12px !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    margin-bottom: 4px !important;
+    color: #475569 !important;
+  }
+
+  .p-method-item strong {
+    color: #0f172a !important;
+  }
+
+  .text-paid {
+    color: #15803d !important;
+  }
+
+  .print-total-calc-box {
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    padding: 10px 14px !important;
+    background-color: #ffffff !important;
+  }
+
+  .print-calc-line {
+    font-size: 12px !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    margin-bottom: 5px !important;
+    color: #334155 !important;
+  }
+
+  .print-calc-line.discount {
+    color: #b91c1c !important;
+    font-weight: 600 !important;
+  }
+
+  .print-divider-line {
+    height: 1px !important;
+    background: #cbd5e1 !important;
+    margin: 6px 0 !important;
+  }
+
+  .print-calc-line.final-line {
+    font-size: 13.5px !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    margin-top: 4px !important;
+    margin-bottom: 0 !important;
+    align-items: center !important;
+  }
+
+  .final-price {
+    font-size: 15.5px !important;
+    color: #b91c1c !important;
+    font-weight: 800 !important;
+  }
+
+  /* Chữ ký */
+  .print-signatures-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 40px !important;
+    text-align: center !important;
+    margin-top: 8px !important;
+    margin-bottom: 24px !important;
+    page-break-inside: avoid !important;
+  }
+
+  .sig-block {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+
+  .sig-role {
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+    color: #1e293b !important;
+    text-transform: uppercase !important;
+  }
+
+  .sig-note {
+    font-size: 10.5px !important;
+    color: #64748b !important;
+    font-style: italic !important;
+    margin-top: 2px !important;
+  }
+
+  .sig-blank-space {
+    height: 50px !important;
+  }
+
+  .sig-name {
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+  }
+
+  /* Lời cảm ơn chân trang */
+  .print-footer-section {
+    text-align: center !important;
+    border-top: 1px dashed #cbd5e1 !important;
+    padding-top: 10px !important;
+    page-break-inside: avoid !important;
+  }
+
+  .print-thanks {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: #3e5c76 !important;
+    margin-bottom: 2px !important;
+  }
+
+  .print-policy {
+    font-size: 10.5px !important;
+    color: #64748b !important;
+    font-style: italic !important;
+  }
 }
 </style>
