@@ -1,5 +1,8 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
 const openMenus = ref({
   sanPham: true,
   thuocTinh: true,
@@ -9,6 +12,11 @@ const openMenus = ref({
 const toggleMenu = (menu) => {
   openMenus.value[menu] = !openMenus.value[menu]
 }
+
+const isThuocTinhActive = computed(() => {
+  const path = route.path
+  return ['thuoc-tinh', 'thuong-hieu', 'danh-muc', 'chat-lieu', 'xuat-xu', 'co-ao', 'tay-ao', 'hoa-tiet', 'mau-sac', 'kich-co'].some(p => path.includes(p))
+})
 </script>
 
 <template>
@@ -83,9 +91,59 @@ const toggleMenu = (menu) => {
               <span>Sản phẩm</span>
             </router-link>
             <router-link to="/bien-the-san-pham" class="tree-item" active-class="active">
-              <span class="tree-branch">└─</span>
+              <span class="tree-branch">├─</span>
               <span>Biến thể sản phẩm</span>
             </router-link>
+
+            <!-- Nhánh lồng cấp 3: Quản lý thuộc tính -->
+            <div
+              class="tree-item has-sub-nested"
+              :class="{ active: isThuocTinhActive }"
+              @click="toggleMenu('thuocTinh')"
+            >
+              <span class="tree-branch">└─</span>
+              <span class="nested-title">Quản lý thuộc tính</span>
+              <span class="arrow-icon-sub" :class="{ open: openMenus.thuocTinh }">⌄</span>
+            </div>
+
+            <div class="submenu-sub-tree" v-show="openMenus.thuocTinh">
+              <router-link to="/thuong-hieu" class="tree-sub-item" active-class="active">
+                <span class="tree-branch">├─</span>
+                <span>Thương hiệu</span>
+              </router-link>
+              <router-link to="/danh-muc" class="tree-sub-item" active-class="active">
+                <span class="tree-branch">├─</span>
+                <span>Danh mục</span>
+              </router-link>
+              <router-link to="/chat-lieu" class="tree-sub-item" active-class="active">
+                <span class="tree-branch">├─</span>
+                <span>Chất liệu</span>
+              </router-link>
+              <router-link to="/xuat-xu" class="tree-sub-item" active-class="active">
+                <span class="tree-branch">├─</span>
+                <span>Xuất xứ</span>
+              </router-link>
+              <router-link to="/co-ao" class="tree-sub-item" active-class="active">
+                <span class="tree-branch">├─</span>
+                <span>Cổ áo</span>
+              </router-link>
+              <router-link to="/tay-ao" class="tree-sub-item" active-class="active">
+                <span class="tree-branch">├─</span>
+                <span>Tay áo</span>
+              </router-link>
+              <router-link to="/hoa-tiet" class="tree-sub-item" active-class="active">
+                <span class="tree-branch">├─</span>
+                <span>Họa tiết</span>
+              </router-link>
+              <router-link to="/mau-sac" class="tree-sub-item" active-class="active">
+                <span class="tree-branch">├─</span>
+                <span>Màu sắc</span>
+              </router-link>
+              <router-link to="/kich-co" class="tree-sub-item" active-class="active">
+                <span class="tree-branch">└─</span>
+                <span>Kích cỡ</span>
+              </router-link>
+            </div>
           </div>
         </div>
 
@@ -395,16 +453,23 @@ const toggleMenu = (menu) => {
   user-select: none;
 }
 
+.has-sub-nested.active {
+  background-color: #f0f4f7;
+  color: #496883;
+  font-weight: 700;
+}
+
 .nested-title {
   flex: 1;
   white-space: nowrap;
 }
 
 .arrow-icon-sub {
-  font-size: 8.5px;
+  font-size: 11px;
   color: #8a9292;
   margin-left: auto;
   transition: transform 0.2s ease;
+  padding-right: 4px;
 }
 
 .arrow-icon-sub.open {
@@ -423,9 +488,9 @@ const toggleMenu = (menu) => {
 .tree-sub-item {
   display: flex !important;
   align-items: center;
-  height: 26px;
-  padding: 0 6px;
-  font-size: 8.5px;
+  height: 28px;
+  padding: 0 8px;
+  font-size: 0.8rem !important;
   color: #647074;
   text-decoration: none;
   border-radius: 4px;
