@@ -10,12 +10,8 @@
     <!-- 2. Khung Bộ lọc (Tone màu ấm FF T-shirt) -->
     <div class="content-card filter-card">
       <div class="card-header-filter">
-        <div class="filter-icon-box">
-          <span class="filter-icon">🌪️</span>
-        </div>
         <div class="filter-title-wrap">
           <h3 class="filter-title">Bộ lọc</h3>
-          <p class="filter-subtitle">Tra cứu nhanh dữ liệu.</p>
         </div>
       </div>
 
@@ -25,7 +21,6 @@
         <div class="form-field">
           <label>Tìm kiếm</label>
           <div class="input-inner">
-            <span class="prefix-icon">🔍</span>
             <input
                 type="text"
                 v-model="filters.keyword"
@@ -81,8 +76,9 @@
           <label>Trạng thái</label>
           <select v-model="filters.trangThai">
             <option value="">Tất cả trạng thái</option>
-            <option value="active">Đang hoạt động</option>
-            <option value="expired">Đã hết hạn</option>
+            <option value="active">Đang diễn ra</option>
+            <option value="upcoming">Sắp diễn ra</option>
+            <option value="expired">Đã kết thúc / Hết hạn</option>
             <option value="inactive">Ngừng hoạt động</option>
           </select>
         </div>
@@ -91,13 +87,10 @@
       <!-- Cụm nút thao tác bên dưới bên phải -->
       <div class="filter-actions">
         <button class="btn btn-reset" @click="resetFilters">
-          <span class="btn-icon">↺</span> Đặt lại bộ lọc
-        </button>
-        <button class="btn btn-export">
-          <span class="btn-icon">📥</span> Xuất Excel
+          Đặt lại bộ lọc
         </button>
         <button class="btn btn-primary" @click="openCreateModal">
-          <span>+</span> Tạo phiếu mới
+          Tạo phiếu mới
         </button>
       </div>
     </div>
@@ -172,11 +165,11 @@
                 <button
                     class="btn-action-status"
                     :class="{
-                      'status-on': item.rawTrangThai === 1 && !item.isExpired,
+                      'status-on': item.rawTrangThai !== 0 && !item.isExpired,
                       'status-off': item.rawTrangThai === 0 && !item.isExpired,
                       'status-disabled': item.isExpired
                     }"
-                    :title="item.isExpired ? 'Phiếu đã hết hạn - Không thể đổi trạng thái' : (item.rawTrangThai === 1 ? 'Đổi trạng thái: Đang hoạt động (Bấm để ngừng hoạt động)' : 'Đổi trạng thái: Ngừng hoạt động (Bấm để kích hoạt lại)')"
+                    :title="item.isExpired ? 'Phiếu đã hết hạn - Không thể đổi trạng thái' : (item.rawTrangThai !== 0 ? 'Đổi trạng thái: Đang hoạt động (Bấm để ngừng hoạt động)' : 'Đổi trạng thái: Ngừng hoạt động (Bấm để kích hoạt lại)')"
                     :disabled="item.isExpired"
                     @click="openToggleStatusModal(item)"
                 >
@@ -208,15 +201,6 @@
 
       <!-- 4. Thanh phân trang dưới cùng bảng -->
       <div class="pagination-footer" v-if="filteredList.length > 0">
-        <div class="pagination-left">
-          <select v-model.number="pageSize" class="page-size-select" title="Số dòng mỗi trang">
-            <option :value="5">5</option>
-            <option :value="10">10</option>
-            <option :value="20">20</option>
-            <option :value="50">50</option>
-          </select>
-        </div>
-
         <div class="pagination-controls">
           <button
               class="pg-btn"
@@ -269,24 +253,20 @@
     <!-- 4. POPUP MODAL XÁC NHẬN ĐỔI TRẠNG THÁI HOẠT ĐỘNG (CHUẨN ĐẸP NHƯ BÊN CẬP NHẬT) -->
     <div v-if="showToggleConfirmModal" class="modal-overlay" @click.self="closeToggleConfirmModal">
       <div class="modal-box confirm-modal-box">
-        <div class="confirm-modal-header" :class="{ 'header-danger': voucherToToggle?.rawTrangThai === 1 }">
-          <div class="confirm-warning-icon">
-            <span v-if="voucherToToggle?.rawTrangThai === 1">⚠️</span>
-            <span v-else>⚡</span>
-          </div>
+        <div class="confirm-modal-header" :class="{ 'header-danger': voucherToToggle?.rawTrangThai !== 0 }">
           <div class="confirm-title-wrap">
             <h3 class="confirm-title">
-              {{ voucherToToggle?.rawTrangThai === 1 ? 'Xác nhận ngừng hoạt động' : 'Xác nhận kích hoạt phiếu' }}
+              {{ voucherToToggle?.rawTrangThai !== 0 ? 'Xác nhận ngừng hoạt động' : 'Xác nhận kích hoạt phiếu' }}
             </h3>
             <p class="confirm-subtitle">
-              {{ voucherToToggle?.rawTrangThai === 1 ? 'Tạm ngưng hiệu lực của phiếu giảm giá' : 'Kích hoạt phiếu giảm giá vào hoạt động' }}
+              {{ voucherToToggle?.rawTrangThai !== 0 ? 'Tạm ngưng hiệu lực của phiếu giảm giá' : 'Kích hoạt phiếu giảm giá vào hoạt động' }}
             </p>
           </div>
           <button class="modal-close-btn" @click="closeToggleConfirmModal">✕</button>
         </div>
 
         <div class="confirm-modal-body">
-          <p class="confirm-message-text" v-if="voucherToToggle?.rawTrangThai === 1">
+          <p class="confirm-message-text" v-if="voucherToToggle?.rawTrangThai !== 0">
             Bạn có chắc chắn muốn chuyển phiếu giảm giá
             <b class="text-blue">[{{ voucherToToggle?.code }}]</b> sang trạng thái
             <b class="text-danger">Ngừng hoạt động</b> không?
@@ -296,48 +276,6 @@
             <b class="text-success">Kích hoạt lại</b> phiếu giảm giá
             <b class="text-blue">[{{ voucherToToggle?.code }}]</b> để áp dụng cho khách hàng không?
           </p>
-
-          <!-- Bảng tóm tắt thông số phiếu chuẩn bị đổi trạng thái -->
-          <div class="confirm-summary-panel">
-            <div class="summary-line">
-              <span class="s-label">Mã phiếu:</span>
-              <span class="s-val font-bold text-blue">{{ voucherToToggle?.code }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Tên phiếu:</span>
-              <span class="s-val font-medium">{{ voucherToToggle?.name }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Mức giảm:</span>
-              <span class="s-val font-bold text-highlight">{{ voucherToToggle?.discountValue }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Thời hạn:</span>
-              <span class="s-val">{{ voucherToToggle?.startDate }} ➔ {{ voucherToToggle?.endDate }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Trạng thái hiện tại:</span>
-              <span :class="['badge-status-sm', 'status-' + voucherToToggle?.statusCode]">
-                {{ voucherToToggle?.status }}
-              </span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Trạng thái mới:</span>
-              <span :class="['badge-status-sm', voucherToToggle?.rawTrangThai === 1 ? 'status-inactive' : 'status-active']">
-                {{ voucherToToggle?.rawTrangThai === 1 ? 'Ngừng hoạt động' : 'Đang hoạt động' }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Lời nhắc lưu ý -->
-          <div class="confirm-note-box" :class="{ 'note-warning': voucherToToggle?.rawTrangThai === 1, 'note-info': voucherToToggle?.rawTrangThai === 0 }">
-            <span v-if="voucherToToggle?.rawTrangThai === 1">
-              ⚠️ <b>Lưu ý:</b> Khi ngừng hoạt động, khách hàng sẽ tạm thời không thể áp dụng mã giảm giá này khi thanh toán.
-            </span>
-            <span v-else>
-              💡 <b>Lưu ý:</b> Phiếu giảm giá sẽ có hiệu lực sử dụng ngay lập tức cho các đơn hàng thỏa mãn điều kiện.
-            </span>
-          </div>
         </div>
 
         <div class="confirm-modal-footer">
@@ -345,13 +283,11 @@
             Hủy bỏ
           </button>
           <button
-              :class="['btn', voucherToToggle?.rawTrangThai === 1 ? 'btn-confirm-deactivate' : 'btn-save-confirm']"
+              :class="['btn', voucherToToggle?.rawTrangThai !== 0 ? 'btn-confirm-deactivate' : 'btn-save-confirm']"
               @click="confirmToggleStatus"
               :disabled="togglingStatus"
           >
-            <span v-if="togglingStatus" class="spin">🔄</span>
-            <span v-else>✔</span>
-            {{ togglingStatus ? 'Đang cập nhật...' : (voucherToToggle?.rawTrangThai === 1 ? 'Ngừng hoạt động' : 'Kích hoạt phiếu') }}
+            {{ togglingStatus ? 'Đang cập nhật...' : (voucherToToggle?.rawTrangThai !== 0 ? 'Ngừng hoạt động' : 'Kích hoạt phiếu') }}
           </button>
         </div>
       </div>
@@ -359,7 +295,6 @@
 
     <!-- 5. TOAST THÔNG BÁO THÀNH CÔNG -->
     <div v-if="showSuccessToast" class="toast-success">
-      <div class="toast-icon">✅</div>
       <div class="toast-text">
         <b>Thành công!</b>
         <p>{{ toastMessage }}</p>
@@ -433,20 +368,20 @@ const fetchVouchers = async () => {
       const isExpired = endDateObj ? endDateObj < now : false
       const isUpcoming = startDateObj ? startDateObj > now : false
 
-      let statusText = 'Đang hoạt động'
+      let statusText = 'Đang diễn ra'
       let statusCode = 'active'
 
       if (isExpired) {
-        statusText = 'Đã hết hạn'
+        statusText = 'Đã kết thúc'
         statusCode = 'expired'
       } else if (item.trangThai === 0) {
         statusText = 'Ngừng hoạt động'
         statusCode = 'inactive'
-      } else if (isUpcoming) {
+      } else if (isUpcoming || item.trangThai === 2) {
         statusText = 'Sắp diễn ra'
         statusCode = 'upcoming'
       } else {
-        statusText = 'Đang hoạt động'
+        statusText = 'Đang diễn ra'
         statusCode = 'active'
       }
 
@@ -597,19 +532,19 @@ const openToggleStatusModal = (item) => {
   showToggleConfirmModal.value = true
 }
 
-
+// Đóng modal xác nhận
 const closeToggleConfirmModal = () => {
   if (togglingStatus.value) return
   showToggleConfirmModal.value = false
   voucherToToggle.value = null
 }
 
-
+// Xác nhận đổi trạng thái qua API Backend
 const confirmToggleStatus = async () => {
   if (!voucherToToggle.value) return
   togglingStatus.value = true
   const item = voucherToToggle.value
-  const newStatusText = item.rawTrangThai === 1 ? 'Ngừng hoạt động' : 'Đang hoạt động'
+  const newStatusText = item.rawTrangThai !== 0 ? 'Ngừng hoạt động' : 'Đang hoạt động'
 
   try {
     await api.put(`/api/phieu-giam-gia/${item.id}/toggle-status`)
@@ -643,7 +578,7 @@ const openCreateModal = () => {
 
 <style scoped>
 .voucher-page-wrapper {
-  padding: 1.25rem 1.75rem 2.5rem;
+  padding: 1.5rem 2.5rem 2.5rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   font-family: var(--system-font, sans-serif);
@@ -652,7 +587,8 @@ const openCreateModal = () => {
 }
 
 .breadcrumb-header {
-  margin-bottom: 1.2rem;
+  margin-bottom: 1.25rem;
+  padding: 0.2rem 0;
 }
 
 .breadcrumb-left {
@@ -1138,7 +1074,7 @@ const openCreateModal = () => {
   background: #ffffff;
   border-radius: 14px;
   width: 90%;
-  max-width: 520px;
+  max-width: 460px;
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
   overflow: hidden;
   animation: popIn 0.2s ease-out;
@@ -1372,7 +1308,7 @@ const openCreateModal = () => {
 /* Phân trang dưới cùng bảng */
 .pagination-footer {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   padding: 1.1rem 1.25rem 0.5rem;
   margin-top: 0.5rem;

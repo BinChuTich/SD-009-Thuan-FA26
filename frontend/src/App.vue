@@ -600,8 +600,8 @@ const pageTitle = computed(() => {
 
 /* Nội dung chính */
 .main-content {
-  margin-left: 200px;
-  width: calc(100% - 200px);
+  margin-left: 14rem;
+  width: calc(100% - 14rem);
   min-height: 100vh;
   background-color: #f7f5ef;
   display: flex;

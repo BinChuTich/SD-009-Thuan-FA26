@@ -1,28 +1,16 @@
 <template>
   <div class="voucher-detail-wrapper">
-    <!-- 1. Thanh tiêu đề Breadcrumb & Nút quay lại -->
-    <div class="breadcrumb-header">
-      <div class="breadcrumb-left">
-        <button class="btn-back" @click="goBack" title="Quay lại danh sách">←</button>
-        <span class="breadcrumb-text">
-          Quản lý giảm giá <span class="slash">/</span>
-          <router-link to="/phieu-giam-gia" class="breadcrumb-link">Phiếu giảm giá</router-link>
-          <span class="slash">/</span>
-          <b>Chi tiết phiếu</b>
-        </span>
+    <!-- 1. Thanh tiêu đề trên cùng & Nút quay lại -->
+    <div class="page-top-header">
+      <div class="top-title-wrap">
+        <h2 class="main-page-title">
+          Cập nhật phiếu giảm giá
+          <span v-if="form" class="code-highlight">[{{ form.maPhieuGiamGia }}]</span>
+        </h2>
       </div>
-
-      <!-- Cụm nút hành động phía trên bên phải -->
-      <div class="header-actions">
-        <button class="btn btn-secondary" @click="goBack">
-          <span>✕</span> Hủy bỏ
-        </button>
-        <button class="btn btn-primary" @click="openConfirmModal" :disabled="loading || saving">
-          <span v-if="saving" class="spin">🔄</span>
-          <span v-else>💾</span>
-          Lưu thay đổi
-        </button>
-      </div>
+      <button class="btn-back-pill" @click="goBack" title="Quay lại danh sách phiếu giảm giá">
+        ← Quay lại danh sách
+      </button>
     </div>
 
     <!-- Trạng thái Đang nạp dữ liệu từ Backend -->
@@ -33,339 +21,354 @@
 
     <!-- Trạng thái Lỗi / Không tìm thấy -->
     <div v-else-if="errorMessage" class="content-card status-msg-card error-card">
-      <div class="error-icon">⚠️</div>
       <div class="error-text">{{ errorMessage }}</div>
       <button class="btn btn-primary" @click="fetchVoucherDetail">Thử lại</button>
     </div>
 
-    <!-- 2. Form chi tiết phiếu giảm giá -->
-    <div v-else-if="form" class="detail-content-layout">
-      <!-- Cột trái: Card tóm tắt tổng quan & Hình thức khách hàng -->
-      <div class="left-summary-column">
-        <!-- Card tổng quan nhanh -->
-        <div class="content-card summary-card">
-          <div class="card-icon-header">
-            <div class="icon-avatar">🎟️</div>
-            <div class="card-title-group">
-              <span class="voucher-code-badge">{{ form.maPhieuGiamGia }}</span>
-              <h3 class="voucher-name-preview">{{ form.tenPhieuGiamGia || 'Chưa đặt tên phiếu' }}</h3>
-            </div>
-          </div>
-
-          <div class="divider"></div>
-
-          <div class="summary-info-list">
-            <div class="info-row">
-              <span class="info-label">Hình thức:</span>
-              <span :class="['badge-form', form.hinhThuc === 'Công khai' ? 'badge-public' : 'badge-personal']">
-                ● {{ form.hinhThuc || 'Công khai' }}
-              </span>
-            </div>
-
-            <div class="info-row">
-              <span class="info-label">Trạng thái:</span>
-              <span :class="['badge-status', currentStatusMeta.badgeClass]">
-                {{ currentStatusMeta.text }}
-              </span>
-            </div>
-
-            <div class="info-row">
-              <span class="info-label">Mức giảm:</span>
-              <span class="info-value font-bold text-highlight">
-                {{ form.loaiPhieuGiamGia === 1 ? form.giaTriGiamGia + '%' : formatMoney(form.giaTriGiamGia) }}
-              </span>
-            </div>
-
-            <div class="info-row">
-              <span class="info-label">Số lượt sử dụng:</span>
-              <span class="info-value font-medium">{{ (form.soLuongSuDung && form.soLuongSuDung > 0) ? form.soLuongSuDung + ' lượt' : 'Không giới hạn' }}</span>
-            </div>
-
-            <div class="info-row">
-              <span class="info-label">Thời gian:</span>
-              <span class="info-value text-xs text-muted-dark">
-                {{ form.ngayBatDauStr ? formatDateTimeDisplay(form.ngayBatDauStr) : '---' }} ➔ {{ form.ngayKetThucStr ? formatDateTimeDisplay(form.ngayKetThucStr) : 'Vô hạn' }}
-              </span>
-            </div>
-          </div>
+    <!-- 2. Form nội dung: Bố cục dạng phẳng đồng bộ hoàn toàn với Tạo mới -->
+    <form v-else-if="form" @submit.prevent="openConfirmModal" class="form-content-container">
+      <!-- KHỐI 1: THÔNG TIN CHUNG (CARD 1) -->
+      <div class="content-card form-section-card">
+        <div class="card-section-header">
+          <h3 class="section-title">Thông tin chung</h3>
         </div>
 
-        <!-- Card Thông tin khách hàng áp dụng (nếu là hình thức Cá nhân) -->
-        <div v-if="form.hinhThuc === 'Cá nhân'" class="content-card customers-card">
-          <div class="section-card-header">
-            <div class="section-icon-box gold-soft-bg">
-              <span>👥</span>
-            </div>
-            <div>
-              <h4 class="section-title">Khách hàng áp dụng</h4>
-              <p class="section-subtitle">{{ (form.danhSachKhachHang || []).length }} khách hàng được nhận riêng</p>
-            </div>
-          </div>
-
-          <div class="customers-list-box">
-            <div
-                v-for="(kh, idx) in form.danhSachKhachHang"
-                :key="idx"
-                class="customer-tag-item"
-            >
-              <span class="cust-icon">👤</span>
-              <span class="cust-name">{{ kh }}</span>
-            </div>
-            <div v-if="!form.danhSachKhachHang || form.danhSachKhachHang.length === 0" class="text-muted text-sm">
-              Chưa có khách hàng liên kết cụ thể trong database.
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Cột phải: Khối form chỉnh sửa các trường dữ liệu -->
-      <div class="right-form-column">
-        <!-- Khối 1: Thông tin cơ bản phiếu -->
-        <div class="content-card form-section-card">
-          <div class="section-card-header">
-            <div class="section-icon-box blue-soft-bg">
-              <span>📝</span>
-            </div>
-            <div>
-              <h4 class="section-title">Thông tin cơ bản</h4>
-              <p class="section-subtitle">Mã phiếu, tên gọi và trạng thái hoạt động</p>
-            </div>
-          </div>
-
+        <div class="section-body">
+          <!-- Hàng 1 (2 Cột): Mã phiếu (Cố định) & Tên phiếu giảm giá -->
           <div class="form-grid-2">
-            <!-- Mã phiếu (Chỉ đọc - không cho phép sửa mã định danh) -->
+            <!-- Mã phiếu giảm giá (Chỉ đọc) -->
             <div class="form-field">
-              <label>Mã phiếu giảm giá <span class="badge-lock">🔒 Cố định</span></label>
+              <label class="field-label">
+                Mã phiếu giảm giá
+                <span class="badge-lock">Cố định</span>
+              </label>
               <input
                   type="text"
                   v-model="form.maPhieuGiamGia"
                   disabled
-                  class="input-disabled"
+                  class="form-control input-disabled"
               />
             </div>
 
             <!-- Tên phiếu giảm giá -->
             <div class="form-field">
-              <label>Tên phiếu giảm giá <span class="required">*</span></label>
+              <label class="field-label">Tên phiếu giảm giá <span class="required">*</span></label>
               <input
                   type="text"
                   v-model="form.tenPhieuGiamGia"
                   placeholder="Nhập tên phiếu giảm giá..."
+                  class="form-control"
                   :class="{ 'input-error': errors.tenPhieuGiamGia }"
               />
-              <span v-if="errors.tenPhieuGiamGia" class="error-msg">{{ errors.tenPhieuGiamGia }}</span>
-            </div>
-
-            <!-- Trạng thái hoạt động -->
-            <div class="form-field">
-              <label>Trạng thái hoạt động <span class="required">*</span></label>
-              <select v-model.number="form.trangThai">
-                <option :value="1">Đang hoạt động (Bật)</option>
-                <option :value="0">Ngừng hoạt động (Tắt)</option>
-              </select>
-            </div>
-
-            <!-- Hình thức (Hiển thị) -->
-            <div class="form-field">
-              <label>Hình thức phiếu</label>
-              <input
-                  type="text"
-                  :value="form.hinhThuc || 'Công khai'"
-                  disabled
-                  class="input-disabled"
-              />
-            </div>
-          </div>
-        </div>
-
-        <!-- Khối 2: Cấu hình giá trị và điều kiện giảm -->
-        <div class="content-card form-section-card">
-          <div class="section-card-header">
-            <div class="section-icon-box gold-soft-bg">
-              <span>💰</span>
-            </div>
-            <div>
-              <h4 class="section-title">Giá trị & Điều kiện áp dụng</h4>
-              <p class="section-subtitle">Loại giảm giá, mức giảm, giá trị đơn tối thiểu</p>
+              <div v-if="errors.tenPhieuGiamGia" class="field-error-msg">
+                {{ errors.tenPhieuGiamGia }}
+              </div>
             </div>
           </div>
 
+          <!-- Hàng 2 (2 Cột): Số lượng & Đơn hàng tối thiểu -->
           <div class="form-grid-2">
-            <!-- Loại giảm giá -->
+            <!-- Cột trái: Số lượng -->
             <div class="form-field">
-              <label>Loại giảm giá <span class="required">*</span></label>
-              <select v-model.number="form.loaiPhieuGiamGia">
-                <option :value="1">Giảm theo phần trăm (%)</option>
-                <option :value="2">Giảm tiền mặt trực tiếp (VNĐ)</option>
-              </select>
-            </div>
-
-            <!-- Giá trị giảm -->
-            <div class="form-field">
-              <label>
-                Mức giảm
-                <span class="required">*</span>
-                <span class="unit-tag">({{ form.loaiPhieuGiamGia === 1 ? '%' : 'VNĐ' }})</span>
-              </label>
-              <div class="input-with-addon">
-                <input
-                    type="number"
-                    v-model.number="form.giaTriGiamGia"
-                    :min="form.loaiPhieuGiamGia === 1 ? 1 : 1000"
-                    :max="form.loaiPhieuGiamGia === 1 ? 100 : 999999999"
-                    :placeholder="form.loaiPhieuGiamGia === 1 ? 'Nhập từ 1 - 100%' : 'VD: 12 -> 12.000 đ'"
-                    @blur="handleMoneyBlur('giaTriGiamGia')"
-                    :class="{ 'input-error': errors.giaTriGiamGia }"
-                />
-                <span class="input-addon">{{ form.loaiPhieuGiamGia === 1 ? '%' : 'đ' }}</span>
-              </div>
-              <span v-if="form.loaiPhieuGiamGia === 2 && form.giaTriGiamGia" class="field-hint text-blue font-medium">
-                ≈ {{ formatMoney(form.giaTriGiamGia) }}
-              </span>
-              <span v-if="errors.giaTriGiamGia" class="error-msg">{{ errors.giaTriGiamGia }}</span>
-            </div>
-
-            <!-- Giảm tối đa (chỉ có ý nghĩa khi giảm theo %) -->
-            <div class="form-field">
-              <label>
-                Giảm tối đa (VNĐ)
-                <span v-if="form.loaiPhieuGiamGia === 2" class="field-optional">(Không bắt buộc với tiền mặt)</span>
-              </label>
-              <div class="input-with-addon">
-                <input
-                    type="number"
-                    v-model.number="form.giamToiDa"
-                    min="1000"
-                    :disabled="form.loaiPhieuGiamGia === 2"
-                    :placeholder="form.loaiPhieuGiamGia === 2 ? 'Không áp dụng' : 'VD: 50 -> 50.000 đ'"
-                    @blur="handleMoneyBlur('giamToiDa')"
-                    :class="{ 'input-error': errors.giamToiDa }"
-                />
-                <span class="input-addon">đ</span>
-              </div>
-              <span v-if="form.loaiPhieuGiamGia === 1 && form.giamToiDa" class="field-hint text-blue font-medium">
-                ≈ {{ formatMoney(form.giamToiDa) }}
-              </span>
-              <span v-if="errors.giamToiDa" class="error-msg">{{ errors.giamToiDa }}</span>
-            </div>
-
-            <!-- Đơn hàng tối thiểu -->
-            <div class="form-field">
-              <label>Hóa đơn tối thiểu (VNĐ) <span class="required">*</span></label>
-              <div class="input-with-addon">
-                <input
-                    type="number"
-                    v-model.number="form.hoaDonToiThieu"
-                    min="0"
-                    placeholder="VD: 700 -> 700.000 đ"
-                    @blur="handleMoneyBlur('hoaDonToiThieu')"
-                    :class="{ 'input-error': errors.hoaDonToiThieu }"
-                />
-                <span class="input-addon">đ</span>
-              </div>
-              <span v-if="form.hoaDonToiThieu" class="field-hint text-blue font-medium">
-                ≈ {{ formatMoney(form.hoaDonToiThieu) }}
-              </span>
-              <span v-if="errors.hoaDonToiThieu" class="error-msg">{{ errors.hoaDonToiThieu }}</span>
-            </div>
-
-            <!-- Số lượng sử dụng -->
-            <div class="form-field full-width">
-              <label>
-                Số lượt sử dụng
-                <span class="field-hint-inline">(Để trống = Không giới hạn)</span>
+              <label class="field-label">
+                Số lượng <span class="required">*</span>
+                <span v-if="isPersonalVoucher" class="field-badge-inline">Tự động theo số khách</span>
               </label>
               <input
                   type="number"
                   v-model.number="form.soLuongSuDung"
+                  :disabled="isPersonalVoucher"
                   min="1"
-                  placeholder="Để trống = Không giới hạn số lượt dùng..."
-                  :class="{ 'input-error': errors.soLuongSuDung }"
+                  :placeholder="isPersonalVoucher ? 'Khóa tự động = số khách hàng' : 'Nhập số lượng phiếu phát hành...'"
+                  class="form-control"
+                  :class="{ 'input-error': errors.soLuongSuDung, 'input-locked': isPersonalVoucher }"
               />
-              <span class="field-hint" v-if="!form.soLuongSuDung">
-                💡 Không nhập số lượng = Áp dụng <b>Không giới hạn</b> số lượt sử dụng.
-              </span>
-              <span v-if="errors.soLuongSuDung" class="error-msg">{{ errors.soLuongSuDung }}</span>
+              <div v-if="isPersonalVoucher" class="field-hint-inline text-muted mt-1">
+                Số lượng tự động khóa = <b>{{ selectedCustomerIds.length }}</b> lượt (theo số khách được chọn)
+              </div>
+              <div v-if="errors.soLuongSuDung" class="field-error-msg">
+                {{ errors.soLuongSuDung }}
+              </div>
             </div>
-          </div>
-        </div>
 
-        <!-- Khối 3: Thời gian áp dụng -->
-        <div class="content-card form-section-card">
-          <div class="section-card-header">
-            <div class="section-icon-box green-soft-bg">
-              <span>📅</span>
-            </div>
-            <div>
-              <h4 class="section-title">Thời gian hiệu lực</h4>
-              <p class="section-subtitle">Ngày bắt đầu và ngày kết thúc chương trình</p>
-            </div>
-          </div>
-
-          <div class="form-grid-2">
-            <!-- Thời gian bắt đầu -->
+            <!-- Cột phải: Đơn hàng tối thiểu -->
             <div class="form-field">
-              <label>Thời gian bắt đầu <span class="required">*</span></label>
+              <label class="field-label">Đơn hàng tối thiểu <span class="required">*</span></label>
+              <div class="input-with-addon">
+                <input
+                    type="text"
+                    :value="displayMoney.hoaDonToiThieu"
+                    placeholder="VD: 100.000"
+                    @input="onMoneyInput('hoaDonToiThieu', $event)"
+                    @blur="onMoneyBlur('hoaDonToiThieu')"
+                    class="form-control"
+                    :class="{ 'input-error': errors.hoaDonToiThieu }"
+                />
+                <span class="input-addon">đ</span>
+              </div>
+              <div v-if="errors.hoaDonToiThieu" class="field-error-msg">
+                {{ errors.hoaDonToiThieu }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Hàng 3 (2 Cột): Loại giảm & Giá trị giảm -->
+          <div class="form-grid-2">
+            <!-- Cột trái: Loại giảm -->
+            <div class="form-field">
+              <label class="field-label">Loại giảm <span class="required">*</span></label>
+              <select v-model.number="form.loaiPhieuGiamGia" class="form-control form-select">
+                <option :value="1">Giảm theo %</option>
+                <option :value="2">Giảm tiền mặt trực tiếp</option>
+              </select>
+            </div>
+
+            <!-- Cột phải: Giá trị giảm -->
+            <div class="form-field">
+              <label class="field-label">
+                Giá trị giảm <span class="required">*</span>
+              </label>
+              <div class="input-with-addon">
+                <input
+                    v-if="form.loaiPhieuGiamGia === 1"
+                    type="number"
+                    v-model.number="form.giaTriGiamGia"
+                    min="1"
+                    max="100"
+                    placeholder="Nhập từ 1 - 100%"
+                    class="form-control"
+                    :class="{ 'input-error': errors.giaTriGiamGia }"
+                    @input="validateGiaTriGiamGiaRealtime"
+                />
+                <input
+                    v-else
+                    type="text"
+                    :value="displayMoney.giaTriGiamGia"
+                    placeholder="VD: 20.000"
+                    @input="onMoneyInput('giaTriGiamGia', $event)"
+                    @blur="onMoneyBlur('giaTriGiamGia')"
+                    class="form-control"
+                    :class="{ 'input-error': errors.giaTriGiamGia }"
+                />
+                <span class="input-addon">{{ form.loaiPhieuGiamGia === 1 ? '%' : 'đ' }}</span>
+              </div>
+              <div v-if="errors.giaTriGiamGia" class="field-error-msg">
+                {{ errors.giaTriGiamGia }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Hàng 4: Giảm tối đa (VNĐ) - Bắt buộc khi giảm theo % -->
+          <div class="form-field full-width" v-if="form.loaiPhieuGiamGia === 1">
+            <label class="field-label">
+              Giảm tối đa (VNĐ) <span class="required">*</span>
+            </label>
+            <div class="input-with-addon">
+              <input
+                  type="text"
+                  :value="displayMoney.giamToiDa"
+                  placeholder="VD: 50.000"
+                  @input="onMoneyInput('giamToiDa', $event)"
+                  @blur="onMoneyBlur('giamToiDa')"
+                  class="form-control"
+                  :class="{ 'input-error': errors.giamToiDa }"
+              />
+              <span class="input-addon">đ</span>
+            </div>
+            <div v-if="errors.giamToiDa" class="field-error-msg">
+              {{ errors.giamToiDa }}
+            </div>
+          </div>
+
+          <!-- Hàng 5 (2 Cột): Ngày bắt đầu & Ngày kết thúc -->
+          <div class="form-grid-2">
+            <!-- Ngày bắt đầu -->
+            <div class="form-field">
+              <label class="field-label">Ngày bắt đầu <span class="required">*</span></label>
               <input
                   type="datetime-local"
                   v-model="form.ngayBatDauStr"
+                  class="form-control"
                   :class="{ 'input-error': errors.ngayBatDau }"
               />
-              <span v-if="errors.ngayBatDau" class="error-msg">{{ errors.ngayBatDau }}</span>
+              <div v-if="errors.ngayBatDau" class="field-error-msg">
+                {{ errors.ngayBatDau }}
+              </div>
+              <div v-else class="field-status-preview">
+                Trạng thái dự kiến:
+                <b :class="calculatedStatusMeta.class">{{ calculatedStatusMeta.text }}</b>
+              </div>
             </div>
 
-            <!-- Thời gian kết thúc -->
+            <!-- Ngày kết thúc -->
             <div class="form-field">
-              <div class="field-label-row">
-                <label>
-                  Thời gian kết thúc
-                  <span class="field-hint-inline">(Để trống = Vô hạn)</span>
-                </label>
-                <button
-                    v-if="form.ngayKetThucStr"
-                    type="button"
-                    class="btn-clear-date"
-                    @click="form.ngayKetThucStr = ''"
-                    title="Bấm để không giới hạn thời gian kết thúc"
-                >
-                  ✕ Đặt vô hạn
-                </button>
-              </div>
+              <label class="field-label">Ngày kết thúc <span class="required">*</span></label>
               <input
                   type="datetime-local"
                   v-model="form.ngayKetThucStr"
                   :min="form.ngayBatDauStr || ''"
+                  class="form-control"
                   :class="{ 'input-error': errors.ngayKetThuc }"
               />
-              <span class="field-hint" v-if="!form.ngayKetThucStr">
-                💡 Không chọn thời gian kết thúc = Áp dụng <b>Vô hạn</b>.
-              </span>
-              <span v-if="errors.ngayKetThuc" class="error-msg">{{ errors.ngayKetThuc }}</span>
+              <div v-if="errors.ngayKetThuc" class="field-error-msg">
+                {{ errors.ngayKetThuc }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Hàng 6 (Full width): Mô tả phiếu giảm giá (Không bắt buộc) -->
+          <div class="form-field full-width">
+            <label class="field-label">
+              Mô tả phiếu giảm giá <span class="field-hint-inline">(Không bắt buộc)</span>
+            </label>
+            <textarea
+                v-model="form.moTa"
+                rows="3"
+                placeholder="Nhập ghi chú hoặc mô tả..."
+                class="form-control form-textarea"
+            ></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- KHỐI 2: ĐỐI TƯỢNG ÁP DỤNG (CARD 2) -->
+      <div class="content-card form-section-card">
+        <div class="card-section-header">
+          <h3 class="section-title">Đối tượng áp dụng</h3>
+        </div>
+
+        <div class="section-body">
+          <div class="target-info-row">
+            <span class="target-label">Hình thức phát hành:</span>
+            <span :class="['badge-form', isPersonalVoucher ? 'badge-personal' : 'badge-public']">
+              ● {{ isPersonalVoucher ? 'Cá nhân' : 'Công khai' }}
+            </span>
+          </div>
+
+          <!-- Bảng Khách hàng áp dụng (Nếu là hình thức Cá nhân) -->
+          <div v-if="isPersonalVoucher" class="customers-assign-panel">
+            <div class="customers-panel-header">
+              <h4 class="customers-panel-title">Danh sách khách hàng nhận phiếu</h4>
+              <div class="customers-count-badge">
+                Đã chọn <b>{{ selectedCustomerIds.length }}</b> khách hàng
+              </div>
+            </div>
+
+            <!-- Ô tìm kiếm & Bộ lọc Giới tính, Tháng sinh -->
+            <div class="customers-filter-bar">
+              <div class="cust-filter-item flex-search">
+                <input
+                    type="text"
+                    v-model="custSearchKeyword"
+                    placeholder="Tìm theo mã, tên, SĐT, email..."
+                    class="form-control cust-search-input"
+                />
+              </div>
+
+              <div class="cust-filter-item">
+                <select v-model="custScopeFilter" class="form-control form-select-sm font-bold text-blue">
+                  <option value="selected">Khách hàng đang áp dụng</option>
+                  <option value="all">Tất cả khách hàng</option>
+                </select>
+              </div>
+
+              <div class="cust-filter-item">
+                <select v-model="custGenderFilter" class="form-control form-select-sm">
+                  <option value="">Tất cả giới tính</option>
+                  <option value="female">Nữ</option>
+                  <option value="male">Nam</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Bảng dữ liệu khách hàng -->
+            <div class="customers-table-wrapper">
+              <table class="cust-table">
+                <thead>
+                <tr>
+                  <th style="width: 45px; text-align: center;">
+                    <input
+                        type="checkbox"
+                        :checked="isAllVisibleSelected"
+                        @change="toggleSelectAllVisible"
+                        title="Chọn tất cả danh sách đang hiển thị"
+                    />
+                  </th>
+                  <th style="width: 100px;">Mã KH</th>
+                  <th>Họ và tên</th>
+                  <th style="width: 85px; text-align: center;">Giới tính</th>
+                  <th style="width: 105px;">Ngày sinh</th>
+                  <th style="width: 120px;">Số điện thoại</th>
+                  <th>Email</th>
+                  <th style="width: 95px; text-align: center;">Tổng đơn</th>
+                  <th style="width: 130px;">Mua gần nhất</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-if="filteredCustomerList.length === 0">
+                  <td colspan="9" class="table-empty-cell">
+                    Không tìm thấy khách hàng nào khớp với điều kiện lọc.
+                  </td>
+                </tr>
+                <tr
+                    v-else
+                    v-for="kh in filteredCustomerList"
+                    :key="kh.id"
+                    :class="{ 'row-selected': selectedCustomerIds.includes(kh.id) }"
+                    @click="toggleCustomerSelect(kh.id)"
+                    class="cust-row"
+                >
+                  <td style="text-align: center;" @click.stop>
+                    <input
+                        type="checkbox"
+                        :checked="selectedCustomerIds.includes(kh.id)"
+                        @change="toggleCustomerSelect(kh.id)"
+                    />
+                  </td>
+                  <td class="font-bold text-blue">{{ kh.maKhachHang || ('KH' + kh.id) }}</td>
+                  <td class="font-bold text-dark">{{ kh.tenKhachHang }}</td>
+                  <td style="text-align: center;">
+                    <span :class="['badge-gender', kh.gioiTinh === false ? 'gender-female' : 'gender-male']">
+                      {{ kh.gioiTinh === false ? 'Nữ' : 'Nam' }}
+                    </span>
+                  </td>
+                  <td class="text-muted-dark">{{ kh.ngaySinh ? formatDateDisplay(kh.ngaySinh) : '---' }}</td>
+                  <td class="font-medium text-dark">{{ kh.soDienThoai || '---' }}</td>
+                  <td class="text-muted-dark">{{ kh.email || '---' }}</td>
+                  <td style="text-align: center;">
+                    <span class="badge-order-count">{{ kh.tongDonMua || 0 }} đơn</span>
+                  </td>
+                  <td class="text-muted-dark">{{ kh.ngayMuaGanNhat ? formatDateTimeDisplay(kh.ngayMuaGanNhat) : 'Chưa mua' }}</td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div v-if="errors.customers" class="field-error-msg mt-3">
+              {{ errors.customers }}
             </div>
           </div>
         </div>
-
-        <!-- Cụm nút thao tác dưới chân trang -->
-        <div class="form-submit-bar">
-          <button class="btn btn-secondary" @click="goBack">
-            <span>←</span> Quay lại danh sách
-          </button>
-          <button class="btn btn-primary" @click="openConfirmModal" :disabled="saving">
-            <span v-if="saving" class="spin">🔄</span>
-            <span v-else>💾</span>
-            Cập nhật phiếu giảm giá
-          </button>
-        </div>
       </div>
-    </div>
 
-    <!-- 3. POPUP MODAL XÁC NHẬN CẬP NHẬT DATABASE ĐẸP MẮT -->
+      <!-- CỤM NÚT THAO TÁC SUBMIT DƯỚI CÙNG -->
+      <div class="form-submit-footer">
+        <button type="button" class="btn btn-secondary" @click="goBack">
+          Hủy bỏ
+        </button>
+        <button type="submit" class="btn btn-primary" :disabled="saving">
+          <span v-if="saving" class="spin">🔄</span>
+          {{ saving ? 'Đang cập nhật...' : 'Cập nhật phiếu giảm giá' }}
+        </button>
+      </div>
+    </form>
+
+    <!-- 3. POPUP MODAL XÁC NHẬN CẬP NHẬT DATABASE -->
     <div v-if="showConfirmModal" class="modal-overlay" @click.self="closeConfirmModal">
       <div class="modal-box confirm-modal-box">
         <div class="confirm-modal-header">
-          <div class="confirm-warning-icon">⚠️</div>
           <div class="confirm-title-wrap">
-            <h3 class="confirm-title">Xác nhận cập nhật</h3>
+            <h3 class="confirm-title">Xác nhận cập nhật phiếu giảm giá</h3>
           </div>
           <button class="modal-close-btn" @click="closeConfirmModal">✕</button>
         </div>
@@ -375,32 +378,6 @@
             Bạn có chắc chắn muốn lưu các thay đổi cho phiếu giảm giá
             <b class="text-blue">[{{ form.maPhieuGiamGia }}]</b> không?
           </p>
-
-          <!-- Bảng tóm tắt các thông số sắp cập nhật -->
-          <div class="confirm-summary-panel">
-            <div class="summary-line">
-              <span class="s-label">Tên phiếu:</span>
-              <span class="s-val font-medium">{{ form.tenPhieuGiamGia }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Mức giảm:</span>
-              <span class="s-val font-bold text-highlight">
-                {{ form.loaiPhieuGiamGia === 1 ? form.giaTriGiamGia + '%' : formatMoney(form.giaTriGiamGia) }}
-              </span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Thời hạn:</span>
-              <span class="s-val">{{ formatDateTimeDisplay(form.ngayBatDauStr) }} ➔ {{ formatDateTimeDisplay(form.ngayKetThucStr) }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Lượt sử dụng:</span>
-              <span class="s-val">{{ (form.soLuongSuDung && form.soLuongSuDung > 0) ? form.soLuongSuDung + ' lượt' : 'Không giới hạn' }}</span>
-            </div>
-            <div class="summary-line">
-              <span class="s-label">Trạng thái:</span>
-              <span class="s-val font-medium">{{ form.trangThai === 1 ? 'Đang hoạt động' : 'Ngừng hoạt động' }}</span>
-            </div>
-          </div>
         </div>
 
         <div class="confirm-modal-footer">
@@ -409,48 +386,14 @@
           </button>
           <button class="btn btn-primary btn-save-confirm" @click="submitUpdate" :disabled="saving">
             <span v-if="saving" class="spin">🔄</span>
-            <span v-else>✔</span>
             {{ saving ? 'Đang cập nhật...' : 'Xác nhận' }}
           </button>
         </div>
       </div>
     </div>
 
-    <!-- 4. POPUP MODAL CẢNH BÁO LỖI NHẬP LIỆU (THAY THẾ ALERT XẤU CỦA TRÌNH DUYỆT) -->
-    <div v-if="showErrorModal" class="modal-overlay" @click.self="showErrorModal = false">
-      <div class="modal-box error-modal-box">
-        <div class="error-modal-header">
-          <div class="error-warning-icon">⚠️</div>
-          <div class="error-title-wrap">
-            <h3 class="error-title">Thông tin chưa hợp lệ</h3>
-            <p class="error-subtitle">Vui lòng kiểm tra lại các trường dữ liệu dưới đây</p>
-          </div>
-          <button class="modal-close-btn" @click="showErrorModal = false">✕</button>
-        </div>
-
-        <div class="error-modal-body">
-          <div class="error-list-panel">
-            <div v-for="(msg, field) in errors" :key="field" class="error-item-line">
-              <span class="error-bullet">❌</span>
-              <span class="error-text-content">{{ msg }}</span>
-            </div>
-          </div>
-          <div class="error-hint-panel">
-            💡 <span>Gợi ý: Nếu chọn <b>Giảm theo phần trăm (%)</b>, mức giảm phải nằm trong khoảng từ <b>1% đến 100%</b>.</span>
-          </div>
-        </div>
-
-        <div class="error-modal-footer">
-          <button class="btn btn-primary btn-error-close" @click="showErrorModal = false">
-            Xác nhận
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 5. THÔNG BÁO THÀNH CÔNG (TOAST NOTIFICATION) -->
+    <!-- 4. THÔNG BÁO THÀNH CÔNG (TOAST NOTIFICATION) -->
     <div v-if="showSuccessToast" class="toast-success">
-      <div class="toast-icon">✅</div>
       <div class="toast-text">
         <b>Thành công!</b>
         <p>Đã cập nhật thông tin phiếu giảm giá vào cơ sở dữ liệu.</p>
@@ -470,33 +413,44 @@ const route = useRoute()
 
 const voucherId = route.params.id
 
-
 const loading = ref(false)
 const saving = ref(false)
 const errorMessage = ref('')
 const showConfirmModal = ref(false)
-const showErrorModal = ref(false)
 const showSuccessToast = ref(false)
 
-
 const form = ref(null)
-
-
 const errors = ref({})
 
+// Giá trị hiển thị định dạng tiền tệ có dấu chấm phân cách hàng nghìn trực tiếp trong ô input
+const displayMoney = ref({
+  hoaDonToiThieu: '',
+  giaTriGiamGia: '',
+  giamToiDa: ''
+})
 
+const formatNumberString = (val) => {
+  if (val == null || val === '') return ''
+  const num = Number(val)
+  if (isNaN(num)) return ''
+  return num.toLocaleString('vi-VN')
+}
+
+// Formatters
 const formatMoney = (val) => {
   if (val == null || val === '') return '0 đ'
-  return Number(val).toLocaleString('vi-VN') + ' đ'
+  return `${Number(val).toLocaleString('vi-VN')} đ`
 }
 
 const formatDateDisplay = (dateStr) => {
-  if (!dateStr) return '-'
-  const parts = dateStr.split('-')
-  if (parts.length === 3) {
-    return `${parts[2]}/${parts[1]}/${parts[0]}`
+  if (!dateStr) return '---'
+  try {
+    const parts = dateStr.split('-')
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`
+    return dateStr
+  } catch (e) {
+    return dateStr
   }
-  return dateStr
 }
 
 const formatDateTimeDisplay = (dtStr) => {
@@ -542,7 +496,43 @@ const dateTimeInputToIso = (dtStr) => {
   }
 }
 
+const customerList = ref([])
+const custSearchKeyword = ref('')
+const custScopeFilter = ref('selected')
+const custGenderFilter = ref('')
+const selectedCustomerIds = ref([])
 
+// Xác định phiếu giảm giá là Cá nhân hay Công khai một cách chuẩn xác, bất chấp encoding
+const isPersonalVoucher = computed(() => {
+  if (!form.value) return false
+  if (selectedCustomerIds.value.length > 0) return true
+  if (form.value.danhSachKhachHang && form.value.danhSachKhachHang.length > 0) return true
+  if (form.value.soKhachHang && form.value.soKhachHang > 0) return true
+  const ht = (form.value.hinhThuc || '').toLowerCase()
+  return ht.includes('nhân') || ht.includes('nhan') || ht.includes('cá') || ht.includes('ca')
+})
+
+// Nạp danh sách tất cả khách hàng từ Backend
+const fetchCustomers = async () => {
+  try {
+    const res = await api.get('/api/phieu-giam-gia/khach-hang')
+    customerList.value = res.data || []
+
+    // Khớp danh sách ID khách hàng nếu trước đó chưa có ID mà có danh sách tên
+    if (selectedCustomerIds.value.length === 0 && form.value?.danhSachKhachHang?.length > 0) {
+      const matchedIds = customerList.value
+        .filter(c => form.value.danhSachKhachHang.includes(c.tenKhachHang))
+        .map(c => Number(c.id))
+      if (matchedIds.length > 0) {
+        selectedCustomerIds.value = matchedIds
+      }
+    }
+  } catch (err) {
+    console.error('Không thể nạp danh sách khách hàng:', err)
+  }
+}
+
+// Nạp chi tiết phiếu từ Backend
 const fetchVoucherDetail = async () => {
   if (!voucherId) {
     errorMessage.value = 'Không tìm thấy ID phiếu giảm giá!'
@@ -572,10 +562,35 @@ const fetchVoucherDetail = async () => {
       soLuongSuDung: data.soLuongSuDung ?? 0,
       ngayBatDauStr: isoToDateTimeInput(data.ngayBatDau),
       ngayKetThucStr: isoToDateTimeInput(data.ngayKetThuc),
+      moTa: '',
       trangThai: data.trangThai ?? 1,
       hinhThuc: data.hinhThuc || (data.soKhachHang > 0 ? 'Cá nhân' : 'Công khai'),
       soKhachHang: data.soKhachHang || 0,
       danhSachKhachHang: data.danhSachKhachHang || []
+    }
+
+    // Nạp danh sách ID khách hàng được gán
+    if (data.idKhachHangList && Array.isArray(data.idKhachHangList) && data.idKhachHangList.length > 0) {
+      selectedCustomerIds.value = data.idKhachHangList.map(id => Number(id))
+    } else if (data.danhSachKhachHang && Array.isArray(data.danhSachKhachHang) && data.danhSachKhachHang.length > 0 && customerList.value.length > 0) {
+      // Khớp theo tên khách hàng nếu idKhachHangList chưa có
+      selectedCustomerIds.value = customerList.value
+        .filter(c => data.danhSachKhachHang.includes(c.tenKhachHang))
+        .map(c => Number(c.id))
+    } else {
+      selectedCustomerIds.value = []
+    }
+
+    if (selectedCustomerIds.value.length > 0) {
+      custScopeFilter.value = 'selected'
+    } else {
+      custScopeFilter.value = 'all'
+    }
+
+    displayMoney.value = {
+      hoaDonToiThieu: form.value.hoaDonToiThieu ? formatNumberString(form.value.hoaDonToiThieu) : '',
+      giaTriGiamGia: (form.value.loaiPhieuGiamGia === 2 && form.value.giaTriGiamGia) ? formatNumberString(form.value.giaTriGiamGia) : '',
+      giamToiDa: form.value.giamToiDa ? formatNumberString(form.value.giamToiDa) : ''
     }
   } catch (err) {
     console.error('Lỗi khi nạp chi tiết phiếu giảm giá:', err)
@@ -585,152 +600,360 @@ const fetchVoucherDetail = async () => {
   }
 }
 
-const currentStatusMeta = computed(() => {
-  if (!form.value) return { text: 'Không xác định', badgeClass: 'status-inactive' }
+// Tự động tính toán trạng thái theo Ngày bắt đầu và Ngày kết thúc
+const calculatedStatusMeta = computed(() => {
+  if (!form.value || !form.value.ngayBatDauStr) {
+    return { text: 'Không xác định', class: 'text-muted' }
+  }
 
   const now = new Date()
   const endObj = form.value.ngayKetThucStr ? new Date(form.value.ngayKetThucStr) : null
   const startObj = form.value.ngayBatDauStr ? new Date(form.value.ngayBatDauStr) : null
 
   if (endObj && endObj < now) {
-    return { text: 'Đã hết hạn', badgeClass: 'status-expired' }
+    return { text: 'Đã kết thúc', class: 'text-danger font-bold' }
   }
   if (form.value.trangThai === 0) {
-    return { text: 'Ngừng hoạt động', badgeClass: 'status-inactive' }
+    return { text: 'Ngừng hoạt động', class: 'text-muted font-bold' }
   }
   if (startObj && startObj > now) {
-    return { text: 'Sắp diễn ra', badgeClass: 'status-upcoming' }
+    return { text: 'Sắp diễn ra', class: 'text-warning font-bold' }
   }
-  return { text: 'Đang hoạt động', badgeClass: 'status-active' }
+  return { text: 'Đang diễn ra', class: 'text-success font-bold' }
 })
 
-const autoAppendThreeZeros = (field) => {
+// Validate mức giảm giá theo thời gian thực (hiện chữ đỏ ngay khi nhập sai)
+const validateGiaTriGiamGiaRealtime = () => {
   if (!form.value) return
-  const val = form.value[field]
-  if (val != null && val !== '') {
-    const num = Number(val)
-    if (!isNaN(num) && num > 0 && num < 1000) {
-      form.value[field] = Math.round(num * 1000)
+  const raw = form.value.giaTriGiamGia
+  if (raw === null || raw === '' || raw === undefined) {
+    if (errors.value.giaTriGiamGia && (errors.value.giaTriGiamGia.includes('vượt quá') || errors.value.giaTriGiamGia.includes('khoảng'))) {
+      delete errors.value.giaTriGiamGia
+    }
+    return
+  }
+  const val = Number(raw)
+  if (isNaN(val)) return
+
+  if (form.value.loaiPhieuGiamGia === 1) {
+    if (val > 100) {
+      errors.value.giaTriGiamGia = 'Mức giảm (%) không được vượt quá 100%.'
+    } else if (val < 1) {
+      errors.value.giaTriGiamGia = 'Mức giảm (%) phải từ 1% trở lên.'
+    } else {
+      if (errors.value.giaTriGiamGia) {
+        delete errors.value.giaTriGiamGia
+      }
+    }
+  } else if (form.value.loaiPhieuGiamGia === 2) {
+    if (val < 1000) {
+      errors.value.giaTriGiamGia = 'Mức giảm tiền mặt trực tiếp phải từ 1.000 đ trở lên.'
+    } else if (form.value.hoaDonToiThieu && val > Number(form.value.hoaDonToiThieu)) {
+      errors.value.giaTriGiamGia = 'Mức giảm tiền mặt không được lớn hơn đơn hàng tối thiểu.'
+    } else {
+      if (errors.value.giaTriGiamGia) {
+        delete errors.value.giaTriGiamGia
+      }
     }
   }
 }
 
-const handleMoneyBlur = (field) => {
+// Validate giảm tối đa theo thời gian thực
+const validateGiamToiDaRealtime = () => {
   if (!form.value) return
-  if (field === 'giaTriGiamGia' && form.value.loaiPhieuGiamGia !== 2) {
-    return
+  if (form.value.loaiPhieuGiamGia === 1) {
+    if (form.value.giamToiDa && form.value.hoaDonToiThieu) {
+      if (Number(form.value.giamToiDa) >= Number(form.value.hoaDonToiThieu)) {
+        errors.value.giamToiDa = 'Giảm tối đa phải nhỏ hơn đơn hàng tối thiểu.'
+      } else if (errors.value.giamToiDa === 'Giảm tối đa phải nhỏ hơn đơn hàng tối thiểu.') {
+        delete errors.value.giamToiDa
+      }
+    }
   }
-  if (field === 'giamToiDa' && form.value.loaiPhieuGiamGia !== 1) {
-    return
+}
+
+// Xử lý khi người dùng nhập vào các ô tiền tệ: chỉ cho phép số, format trực tiếp trong ô
+const onMoneyInput = (field, event) => {
+  if (!form.value) return
+  const raw = event.target.value.replace(/\D/g, '')
+  if (!raw) {
+    form.value[field] = null
+    displayMoney.value[field] = ''
+    event.target.value = ''
+  } else {
+    const trimmed = raw.slice(0, 12)
+    const num = parseInt(trimmed, 10)
+    form.value[field] = num
+    displayMoney.value[field] = num.toLocaleString('vi-VN')
+    event.target.value = displayMoney.value[field]
   }
-  autoAppendThreeZeros(field)
+  if (errors.value[field]) {
+    delete errors.value[field]
+  }
+  if (field === 'giaTriGiamGia') {
+    validateGiaTriGiamGiaRealtime()
+  }
+  if (field === 'hoaDonToiThieu' || field === 'giamToiDa') {
+    validateGiamToiDaRealtime()
+    validateGiaTriGiamGiaRealtime()
+  }
+}
+
+// Khi blur ra ngoài: nếu số > 0 và < 1000 thì tự động nhân 1000 (VD: 15 -> 15.000, 700 -> 700.000)
+const onMoneyBlur = (field) => {
+  if (!form.value) return
+  const val = form.value[field]
+  if (val != null && val !== '') {
+    let num = Number(val)
+    if (!isNaN(num) && num > 0 && num < 1000) {
+      num = Math.round(num * 1000)
+      form.value[field] = num
+      displayMoney.value[field] = num.toLocaleString('vi-VN')
+    }
+  }
+
+  validateGiamToiDaRealtime()
+  validateGiaTriGiamGiaRealtime()
 }
 
 const normalizeMoneyInputs = () => {
   if (!form.value) return
+  onMoneyBlur('hoaDonToiThieu')
   if (form.value.loaiPhieuGiamGia === 2) {
-    autoAppendThreeZeros('giaTriGiamGia')
+    onMoneyBlur('giaTriGiamGia')
   }
-  autoAppendThreeZeros('hoaDonToiThieu')
   if (form.value.loaiPhieuGiamGia === 1) {
-    autoAppendThreeZeros('giamToiDa')
+    onMoneyBlur('giamToiDa')
   }
 }
 
 watch(() => form.value?.loaiPhieuGiamGia, (newVal) => {
   if (form.value && newVal === 2) {
     form.value.giamToiDa = null
+    displayMoney.value.giamToiDa = ''
     if (errors.value.giamToiDa) delete errors.value.giamToiDa
     if (form.value.giaTriGiamGia != null && form.value.giaTriGiamGia !== '') {
-      autoAppendThreeZeros('giaTriGiamGia')
+      onMoneyBlur('giaTriGiamGia')
     }
   } else if (form.value && newVal === 1) {
-    if (form.value.giaTriGiamGia && form.value.giaTriGiamGia > 100) {
-      form.value.giaTriGiamGia = null
+    displayMoney.value.giaTriGiamGia = ''
+    if (form.value.giamToiDa != null && form.value.giamToiDa !== '') {
+      onMoneyBlur('giamToiDa')
     }
   }
   if (errors.value.giaTriGiamGia) delete errors.value.giaTriGiamGia
+  validateGiaTriGiamGiaRealtime()
 })
 
+// Tự động xóa chữ đỏ lỗi khi người dùng gõ nhập lại
+watch(() => form.value?.tenPhieuGiamGia, (v) => { if (v && errors.value.tenPhieuGiamGia) delete errors.value.tenPhieuGiamGia })
+watch(() => form.value?.soLuongSuDung, (v) => { if (v && errors.value.soLuongSuDung) delete errors.value.soLuongSuDung })
+watch(() => form.value?.hoaDonToiThieu, (val) => {
+  if (val && errors.value.hoaDonToiThieu) delete errors.value.hoaDonToiThieu
+  validateGiaTriGiamGiaRealtime()
+  validateGiamToiDaRealtime()
+})
+watch(() => form.value?.giaTriGiamGia, () => {
+  validateGiaTriGiamGiaRealtime()
+})
+watch(() => form.value?.giamToiDa, (val) => {
+  if (val && errors.value.giamToiDa && errors.value.giamToiDa !== 'Giảm tối đa phải nhỏ hơn đơn hàng tối thiểu.') {
+    delete errors.value.giamToiDa
+  }
+  validateGiamToiDaRealtime()
+})
+watch(() => form.value?.ngayBatDauStr, (v) => { if (v && errors.value.ngayBatDau) delete errors.value.ngayBatDau })
+watch(() => form.value?.ngayKetThucStr, () => { if (errors.value.ngayKetThuc) delete errors.value.ngayKetThuc })
+
 const validateForm = () => {
+  if (!form.value) return false
   normalizeMoneyInputs()
-  errors.value = {}
+  const errs = {}
 
   // 1. Tên phiếu giảm giá
   if (!form.value.tenPhieuGiamGia || !form.value.tenPhieuGiamGia.trim()) {
-    errors.value.tenPhieuGiamGia = 'Vui lòng nhập tên phiếu giảm giá!'
-  } else if (form.value.tenPhieuGiamGia.trim().length > 255) {
-    errors.value.tenPhieuGiamGia = 'Tên phiếu giảm giá không được vượt quá 255 ký tự!'
+    errs.tenPhieuGiamGia = 'Vui lòng nhập tên phiếu giảm giá.'
+  } else if (form.value.tenPhieuGiamGia.trim().length < 3) {
+    errs.tenPhieuGiamGia = 'Tên phiếu giảm giá phải có tối thiểu 3 ký tự.'
   }
 
-  // 2. Mức giảm giá
-  if (form.value.giaTriGiamGia === null || form.value.giaTriGiamGia === undefined || form.value.giaTriGiamGia === '') {
-    errors.value.giaTriGiamGia = 'Vui lòng nhập mức giảm giá!'
+  // 2. Số lượng sử dụng (Bắt buộc tối thiểu 1)
+  if (form.value.soLuongSuDung == null || form.value.soLuongSuDung === '') {
+    errs.soLuongSuDung = 'Vui lòng nhập số lượng phiếu phát hành.'
+  } else {
+    const qty = Number(form.value.soLuongSuDung)
+    if (isNaN(qty) || !Number.isInteger(qty) || qty <= 0) {
+      errs.soLuongSuDung = 'Số lượng sử dụng phải là số nguyên dương lớn hơn 0.'
+    }
+  }
+
+  // 3. Đơn hàng tối thiểu (>= 1.000 đ)
+  if (form.value.hoaDonToiThieu == null || form.value.hoaDonToiThieu === '') {
+    errs.hoaDonToiThieu = 'Vui lòng nhập giá trị đơn hàng tối thiểu.'
+  } else {
+    const minBill = Number(form.value.hoaDonToiThieu)
+    if (isNaN(minBill) || minBill < 1000) {
+      errs.hoaDonToiThieu = 'Đơn hàng tối thiểu phải từ 1.000 đ trở lên.'
+    }
+  }
+
+  // 4. Mức giảm giá
+  if (form.value.giaTriGiamGia == null || form.value.giaTriGiamGia === '') {
+    errs.giaTriGiamGia = 'Vui lòng nhập mức giảm giá.'
   } else {
     const val = Number(form.value.giaTriGiamGia)
     if (isNaN(val) || val <= 0) {
-      errors.value.giaTriGiamGia = 'Mức giảm giá phải lớn hơn 0!'
+      errs.giaTriGiamGia = 'Mức giảm giá phải lớn hơn 0.'
     } else if (form.value.loaiPhieuGiamGia === 1) {
-      if (val < 1 || val > 100) {
-        errors.value.giaTriGiamGia = 'Mức giảm theo phần trăm phải từ 1% đến 100%!'
+      if (val > 100) {
+        errs.giaTriGiamGia = 'Mức giảm (%) không được vượt quá 100%.'
+      } else if (val < 1) {
+        errs.giaTriGiamGia = 'Mức giảm (%) phải từ 1% trở lên.'
       }
     } else if (form.value.loaiPhieuGiamGia === 2) {
       if (val < 1000) {
-        errors.value.giaTriGiamGia = 'Mức giảm tiền mặt phải tối thiểu từ 1.000 đ!'
-      } else if (form.value.hoaDonToiThieu !== null && form.value.hoaDonToiThieu !== '' && val > Number(form.value.hoaDonToiThieu)) {
-        errors.value.giaTriGiamGia = 'Mức giảm tiền mặt không được lớn hơn hóa đơn tối thiểu!'
+        errs.giaTriGiamGia = 'Mức giảm tiền mặt trực tiếp phải từ 1.000 đ trở lên.'
+      } else if (form.value.hoaDonToiThieu && val > Number(form.value.hoaDonToiThieu)) {
+        errs.giaTriGiamGia = 'Mức giảm tiền mặt không được lớn hơn đơn hàng tối thiểu.'
       }
     }
   }
 
-  // 3. Giảm tối đa (nếu là loại %)
-  if (form.value.loaiPhieuGiamGia === 1 && form.value.giamToiDa !== null && form.value.giamToiDa !== undefined && form.value.giamToiDa !== '') {
-    const maxVal = Number(form.value.giamToiDa)
-    if (isNaN(maxVal) || maxVal < 1000) {
-      errors.value.giamToiDa = 'Mức giảm tối đa phải tối thiểu từ 1.000 đ!'
-    }
-  }
-
-  // 4. Hóa đơn tối thiểu
-  if (form.value.hoaDonToiThieu === null || form.value.hoaDonToiThieu === undefined || form.value.hoaDonToiThieu === '') {
-    errors.value.hoaDonToiThieu = 'Vui lòng nhập giá trị hóa đơn tối thiểu!'
-  } else {
-    const minBill = Number(form.value.hoaDonToiThieu)
-    if (isNaN(minBill) || minBill < 0) {
-      errors.value.hoaDonToiThieu = 'Hóa đơn tối thiểu không được nhỏ hơn 0!'
-    } else if (minBill > 0 && minBill < 1000) {
-      errors.value.hoaDonToiThieu = 'Hóa đơn tối thiểu phải từ 1.000 đ trở lên (hoặc bằng 0)!'
-    }
-  }
-
-  // 5. Số lượng sử dụng (Tùy chọn: để trống là không giới hạn)
-  if (form.value.soLuongSuDung !== null && form.value.soLuongSuDung !== undefined && form.value.soLuongSuDung !== '') {
-    const qty = Number(form.value.soLuongSuDung)
-    if (isNaN(qty) || !Number.isInteger(qty) || qty <= 0) {
-      errors.value.soLuongSuDung = 'Số lượt sử dụng phải là số nguyên lớn hơn 0!'
+  // 5. Giảm tối đa (Bắt buộc khi giảm theo %)
+  if (form.value.loaiPhieuGiamGia === 1) {
+    if (form.value.giamToiDa == null || form.value.giamToiDa === '') {
+      errs.giamToiDa = 'Vui lòng nhập mức giảm tối đa.'
+    } else {
+      const maxVal = Number(form.value.giamToiDa)
+      if (isNaN(maxVal) || maxVal < 1000) {
+        errs.giamToiDa = 'Mức giảm tối đa phải từ 1.000 đ trở lên.'
+      } else if (form.value.hoaDonToiThieu && maxVal >= Number(form.value.hoaDonToiThieu)) {
+        errs.giamToiDa = 'Giảm tối đa phải nhỏ hơn đơn hàng tối thiểu.'
+      }
     }
   }
 
   // 6. Thời gian bắt đầu
   if (!form.value.ngayBatDauStr) {
-    errors.value.ngayBatDau = 'Vui lòng chọn thời gian bắt đầu!'
+    errs.ngayBatDau = 'Vui lòng chọn thời gian bắt đầu.'
   }
 
-  // 7. Thời gian kết thúc (Nếu để trống thì là vô hạn, không validate)
-  if (form.value.ngayKetThucStr) {
-    if (form.value.ngayBatDauStr && new Date(form.value.ngayKetThucStr) < new Date(form.value.ngayBatDauStr)) {
-      errors.value.ngayKetThuc = 'Thời gian kết thúc phải diễn ra sau hoặc cùng thời điểm với thời gian bắt đầu!'
+  // 7. Thời gian kết thúc (Bắt buộc và phải sau thời gian bắt đầu)
+  if (!form.value.ngayKetThucStr) {
+    errs.ngayKetThuc = 'Vui lòng chọn thời gian kết thúc.'
+  } else if (form.value.ngayBatDauStr) {
+    const startDate = new Date(form.value.ngayBatDauStr)
+    const endDate = new Date(form.value.ngayKetThucStr)
+    if (endDate <= startDate) {
+      errs.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu.'
     }
   }
 
-  return Object.keys(errors.value).length === 0
+  // 8. Nếu là hình thức Cá nhân thì phải chọn khách hàng
+  if (form.value.hinhThuc === 'Cá nhân' && selectedCustomerIds.value.length === 0) {
+    errs.customers = 'Vui lòng chọn ít nhất 1 khách hàng nhận phiếu giảm giá cá nhân.'
+  }
+
+  errors.value = errs
+  return Object.keys(errs).length === 0
+}
+
+const filteredCustomerList = computed(() => {
+  const list = customerList.value.filter(kh => {
+    // 0. Lọc phạm vi: Tất cả hay Chỉ khách đang áp dụng phiếu
+    if (custScopeFilter.value === 'selected' && !selectedCustomerIds.value.includes(kh.id)) {
+      return false
+    }
+
+    // 1. Lọc từ khóa
+    if (custSearchKeyword.value.trim()) {
+      const kw = custSearchKeyword.value.toLowerCase().trim()
+      const match = (kh.tenKhachHang && kh.tenKhachHang.toLowerCase().includes(kw)) ||
+          (kh.soDienThoai && kh.soDienThoai.toLowerCase().includes(kw)) ||
+          (kh.maKhachHang && kh.maKhachHang.toLowerCase().includes(kw)) ||
+          (kh.email && kh.email.toLowerCase().includes(kw))
+      if (!match) return false
+    }
+
+    // 2. Lọc theo Giới tính (phục vụ sự kiện 8/3 chỉ gửi cho nữ)
+    if (custGenderFilter.value) {
+      if (custGenderFilter.value === 'female' && kh.gioiTinh !== false) return false
+      if (custGenderFilter.value === 'male' && kh.gioiTinh !== true) return false
+    }
+
+    return true
+  })
+
+  // Ưu tiên hiển thị khách hàng đang được áp dụng phiếu lên hàng đầu
+  return list.sort((a, b) => {
+    const aSel = selectedCustomerIds.value.includes(a.id) ? 1 : 0
+    const bSel = selectedCustomerIds.value.includes(b.id) ? 1 : 0
+    if (bSel !== aSel) return bSel - aSel
+    return (a.tenKhachHang || '').localeCompare(b.tenKhachHang || '', 'vi')
+  })
+})
+
+// Tự động đồng bộ số lượng phiếu theo số khách hàng được chọn khi là Cá nhân
+watch([() => form.value?.hinhThuc, () => selectedCustomerIds.value.length], ([hinhThuc, count]) => {
+  if (form.value && hinhThuc === 'Cá nhân') {
+    form.value.soLuongSuDung = count
+    if (count > 0 && errors.value.soLuongSuDung) delete errors.value.soLuongSuDung
+    if (count > 0 && errors.value.customers) delete errors.value.customers
+  }
+})
+
+const toggleCustomerSelect = (id) => {
+  const idx = selectedCustomerIds.value.indexOf(id)
+  if (idx > -1) {
+    selectedCustomerIds.value.splice(idx, 1)
+  } else {
+    selectedCustomerIds.value.push(id)
+  }
+}
+
+const isAllVisibleSelected = computed(() => {
+  if (filteredCustomerList.value.length === 0) return false
+  return filteredCustomerList.value.every(kh => selectedCustomerIds.value.includes(kh.id))
+})
+
+const toggleSelectAllVisible = () => {
+  if (isAllVisibleSelected.value) {
+    const visibleIds = filteredCustomerList.value.map(kh => kh.id)
+    selectedCustomerIds.value = selectedCustomerIds.value.filter(id => !visibleIds.includes(id))
+  } else {
+    filteredCustomerList.value.forEach(kh => {
+      if (!selectedCustomerIds.value.includes(kh.id)) {
+        selectedCustomerIds.value.push(kh.id)
+      }
+    })
+  }
+}
+
+const selectAllVisibleCustomers = () => {
+  filteredCustomerList.value.forEach(kh => {
+    if (!selectedCustomerIds.value.includes(kh.id)) {
+      selectedCustomerIds.value.push(kh.id)
+    }
+  })
+}
+
+const clearSelectedCustomers = () => {
+  selectedCustomerIds.value = []
 }
 
 const openConfirmModal = () => {
+  // Chỉ kiểm tra validate: nếu có lỗi thì hiện chữ đỏ ở dưới ô input và cuộn tới ô đó, không hiện popup modal lỗi
   if (!validateForm()) {
-    showErrorModal.value = true
+    setTimeout(() => {
+      const firstErrEl = document.querySelector('.input-error')
+      if (firstErrEl) {
+        firstErrEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        firstErrEl.focus()
+      }
+    }, 50)
     return
   }
+  // Nếu hợp lệ toàn bộ thì hiển thị Popup modal xác nhận cập nhật
   showConfirmModal.value = true
 }
 
@@ -739,20 +962,23 @@ const closeConfirmModal = () => {
 }
 
 const submitUpdate = async () => {
+  if (saving.value || !form.value) return
   saving.value = true
 
   const payload = {
     id: form.value.id,
     maPhieuGiamGia: form.value.maPhieuGiamGia,
     tenPhieuGiamGia: form.value.tenPhieuGiamGia.trim(),
+    hinhThuc: isPersonalVoucher.value ? 'Cá nhân' : 'Công khai',
     loaiPhieuGiamGia: form.value.loaiPhieuGiamGia,
-    giaTriGiamGia: form.value.giaTriGiamGia,
+    giaTriGiamGia: Number(form.value.giaTriGiamGia),
     giamToiDa: form.value.loaiPhieuGiamGia === 1 && form.value.giamToiDa ? Number(form.value.giamToiDa) : null,
     hoaDonToiThieu: form.value.hoaDonToiThieu != null ? Number(form.value.hoaDonToiThieu) : 0,
-    soLuongSuDung: (form.value.soLuongSuDung && Number(form.value.soLuongSuDung) > 0) ? Number(form.value.soLuongSuDung) : 0,
+    soLuongSuDung: Number(form.value.soLuongSuDung),
     ngayBatDau: dateTimeInputToIso(form.value.ngayBatDauStr),
     ngayKetThuc: dateTimeInputToIso(form.value.ngayKetThucStr),
-    trangThai: form.value.trangThai
+    trangThai: 1, // Luôn duy trì kích hoạt, backend và frontend tự tính hiển thị
+    idKhachHangList: isPersonalVoucher.value ? selectedCustomerIds.value.map(id => Number(id)) : []
   }
 
   try {
@@ -771,13 +997,10 @@ const submitUpdate = async () => {
         msg = err.response.data
       } else if (err.response.data.message) {
         msg = err.response.data.message
-      } else if (err.response.data.error) {
-        msg = err.response.data.error
       }
-    } else if (err.message) {
-      msg = err.message
     }
     alert(msg)
+    showConfirmModal.value = false
   } finally {
     saving.value = false
   }
@@ -787,14 +1010,15 @@ const goBack = () => {
   router.push('/phieu-giam-gia')
 }
 
-onMounted(() => {
-  fetchVoucherDetail()
+onMounted(async () => {
+  await Promise.all([fetchCustomers(), fetchVoucherDetail()])
 })
 </script>
 
 <style scoped>
+/* Khung tổng thể bao ngoài căn lề chuẩn hệ thống */
 .voucher-detail-wrapper {
-  padding: 1.25rem 1.75rem 2.5rem;
+  padding: 1.5rem 2.5rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   font-family: var(--system-font, sans-serif);
@@ -802,307 +1026,115 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
-/* 1. Header Breadcrumb & Actions */
-.breadcrumb-header {
+/* 1. Header trên cùng */
+.page-top-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.25rem;
-  flex-wrap: wrap;
-  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
-.breadcrumb-left {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+.main-page-title {
   font-size: 0.95rem;
-}
-
-.btn-back {
-  background-color: #ffffff;
-  border: 1px solid var(--line, #e9e5db);
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  font-size: 1.1rem;
-  cursor: pointer;
-  color: #496883;
-  transition: all 0.2s;
-}
-
-.btn-back:hover {
-  background-color: #eaf1f4;
-  border-color: #496883;
-  transform: translateX(-2px);
-}
-
-.breadcrumb-text {
-  color: #6c777d;
-}
-
-.breadcrumb-link {
-  color: #496883;
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.breadcrumb-link:hover {
-  text-decoration: underline;
-}
-
-.slash {
-  margin: 0 0.35rem;
-  color: #c4beaf;
-}
-
-.header-actions {
+  font-weight: 700;
+  color: var(--blue, #496883);
+  margin: 0;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.4rem;
+  line-height: 1.4;
 }
 
-/* Nút bấm chung */
-.btn {
-  height: 2.5rem;
-  padding: 0 1.35rem;
-  border-radius: 8px;
-  font-size: 0.92rem;
+.code-highlight {
+  color: #2563eb;
+  font-size: 0.95rem;
   font-weight: 700;
+}
+
+.btn-back-pill {
+  padding: 0.35rem 0.9rem;
+  border-radius: 20px;
+  border: 1px solid #d2d6dc;
+  background-color: #ffffff;
+  color: #4b5563;
+  font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  transition: all 0.2s;
+  gap: 0.35rem;
 }
 
-.btn-secondary {
-  border: 1px solid #dfd5c2;
-  background-color: #fff8eb;
-  color: #957b48;
+.btn-back-pill:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+  color: #111827;
 }
 
-.btn-secondary:hover:not(:disabled) {
-  background-color: #faeed7;
-}
-
-.btn-primary {
-  background-color: var(--blue, #496883);
-  border: none;
-  color: #ffffff;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background-color: #38536b;
-}
-
-.btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-/* Loading & Error msg */
+/* Status message */
 .status-msg-card {
-  padding: 3rem;
   text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  font-size: 1rem;
-  color: #60727a;
-}
-
-.error-card {
-  color: #c0392b;
+  padding: 3rem !important;
+  color: #647074;
 }
 
 .spinner {
-  font-size: 2rem;
-  animation: spin 1.5s infinite linear;
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
 }
 
-/* Bố cục 2 cột chính */
-.detail-content-layout {
-  display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 1.4rem;
-  align-items: start;
+.error-card {
+  border-color: #fca5a5 !important;
+  background-color: #fffafb !important;
 }
 
-/* Content card chuẩn FF T-shirt */
+.error-text {
+  color: #dc2626;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+/* 2. Form bố cục phẳng 1 cột các Card xếp dọc */
+.form-content-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Thẻ Card trắng chuẩn */
 .content-card {
   background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid var(--line, #eeebe3);
-  box-shadow: 0 3px 12px rgba(60, 50, 30, 0.04);
-  padding: 1.4rem;
-  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+  padding: 1.5rem 1.85rem;
 }
 
-/* Cột trái */
-.left-summary-column {
+.card-section-header {
+  border-bottom: 1px solid #f0eee6;
+  padding-bottom: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.section-body {
   display: flex;
   flex-direction: column;
   gap: 1.2rem;
 }
 
-.card-icon-header {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-}
-
-.icon-avatar {
-  width: 48px;
-  height: 48px;
-  background-color: #f7eee1;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  font-size: 1.6rem;
-}
-
-.voucher-code-badge {
-  font-family: monospace, sans-serif;
-  font-weight: 700;
-  font-size: 0.88rem;
-  color: #496883;
-  background-color: #eaf1f4;
-  padding: 0.2rem 0.55rem;
-  border-radius: 6px;
-  display: inline-block;
-  margin-bottom: 0.25rem;
-}
-
-.voucher-name-preview {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #2c383e;
-  word-break: break-word;
-}
-
-.divider {
-  height: 1px;
-  background-color: #f1eee7;
-  margin: 1.1rem 0;
-}
-
-.summary-info-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.92rem;
-}
-
-.info-label {
-  color: #7b888e;
-  font-weight: 600;
-}
-
-.info-value {
-  color: #2b383e;
-}
-
-.text-highlight {
-  color: #c0392b;
-  font-size: 1.05rem;
-}
-
-/* Khách hàng cá nhân list */
-.customers-list-box {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  max-height: 220px;
-  overflow-y: auto;
-  margin-top: 0.85rem;
-}
-
-.customer-tag-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background-color: #fbf9f5;
-  border: 1px solid #eeebe3;
-  padding: 0.45rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.88rem;
-  color: #496883;
-  font-weight: 600;
-}
-
-/* Cột phải: Form */
-.right-form-column {
-  display: flex;
-  flex-direction: column;
-  gap: 1.4rem;
-}
-
-.section-card-header {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  margin-bottom: 1.2rem;
-  padding-bottom: 0.85rem;
-  border-bottom: 1px dashed #efeae0;
-}
-
-.section-icon-box {
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  font-size: 1.15rem;
-}
-
-.blue-soft-bg {
-  background-color: #eaf1f4;
-  color: #496883;
-}
-
-.gold-soft-bg {
-  background-color: #fdf3e5;
-  color: #b38536;
-}
-
-.green-soft-bg {
-  background-color: #edf6ef;
-  color: #4c8a5a;
-}
-
-.section-title {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #33444d;
-}
-
-.section-subtitle {
-  margin: 0.15rem 0 0;
-  font-size: 0.85rem;
-  color: #8c9597;
-}
-
+/* Grid 2 cột */
 .form-grid-2 {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.1rem 1.4rem;
-}
-
-.full-width {
-  grid-column: 1 / -1;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
 }
 
 .form-field {
@@ -1111,13 +1143,27 @@ onMounted(() => {
   gap: 0.4rem;
 }
 
-.form-field label {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: #4c5d65;
+.full-width {
+  width: 100%;
+}
+
+.field-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.45rem;
+}
+
+.badge-lock {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #6b7280;
+  background-color: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
 }
 
 .field-label-row {
@@ -1126,373 +1172,537 @@ onMounted(() => {
   align-items: center;
 }
 
-.btn-clear-date {
-  background: none;
-  border: none;
-  color: #c0392b;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.btn-clear-date:hover {
-  background-color: #fde8e8;
-  text-decoration: underline;
+.required {
+  color: #dc2626;
+  margin-left: 2px;
 }
 
 .field-hint-inline {
-  font-size: 0.78rem;
-  color: #8c9597;
-  font-weight: normal;
-}
-
-.required {
-  color: #c0392b;
-}
-
-.unit-tag {
-  color: #8c9597;
-  font-weight: 500;
-}
-
-.field-optional {
-  font-size: 0.78rem;
-  color: #9aa0a0;
+  font-size: 0.8rem;
   font-weight: 400;
+  color: #6b7280;
+  margin-left: 0.35rem;
 }
 
-.badge-lock {
-  font-size: 0.75rem;
-  background-color: #f1eee7;
-  color: #7b888e;
-  padding: 0.1rem 0.4rem;
-  border-radius: 4px;
-  font-weight: 600;
-}
-
-.form-field input,
-.form-field select {
-  height: 2.5rem;
-  padding: 0 0.85rem;
-  border-radius: 8px;
-  border: 1px solid var(--line, #e9e5db);
-  background-color: #faf9f6;
+/* Controls input */
+.form-control {
+  width: 100%;
+  padding: 0.65rem 0.95rem;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
   font-size: 0.92rem;
-  color: #2b383e;
+  color: #1f2937;
+  background-color: #ffffff;
   outline: none;
-  transition: all 0.2s;
   box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.form-field input:focus,
-.form-field select:focus {
+.form-control:focus {
   border-color: #496883;
-  background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.08);
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
 }
 
 .input-disabled {
-  background-color: #f4f2ec !important;
-  color: #7d898f !important;
+  background-color: #f9fafb !important;
+  color: #6b7280 !important;
   cursor: not-allowed;
+  border-color: #e5e7eb !important;
 }
 
-.input-error {
-  border-color: #c0392b !important;
-  background-color: #fff9f9 !important;
+.form-select {
+  cursor: pointer;
 }
 
-.error-msg {
-  font-size: 0.8rem;
-  color: #c0392b;
-  font-weight: 600;
-}
-
-.field-hint {
-  font-size: 0.78rem;
-  color: #9aa0a0;
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
 }
 
 .input-with-addon {
+  position: relative;
   display: flex;
   align-items: center;
 }
 
-.input-with-addon input {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  flex: 1;
+.input-with-addon .form-control {
+  padding-right: 2.5rem;
 }
 
 .input-addon {
-  height: 2.5rem;
-  padding: 0 0.85rem;
-  background-color: #eeebe3;
-  border: 1px solid #e9e5db;
-  border-left: none;
-  border-top-right-radius: 8px;
-  border-bottom-right-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.88rem;
-  color: #60727a;
-  font-weight: 700;
-}
-
-.form-submit-bar {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 0.85rem;
-  padding: 1.1rem 1.4rem;
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid #eeebe3;
-}
-
-/* Badge Hình thức & Trạng thái */
-.badge-form {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.82rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 14px;
+  position: absolute;
+  right: 0.9rem;
+  font-size: 0.9rem;
   font-weight: 600;
+  color: #6b7280;
+  pointer-events: none;
+}
+
+.input-error {
+  border-color: #ef4444 !important;
+  background-color: #fffafb;
+}
+
+/* Báo lỗi chuẩn dưới ô input dạng ⓘ text đỏ */
+.field-error-msg {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #dc2626;
+  font-size: 0.82rem;
+  font-weight: 500;
+  margin-top: 0.2rem;
+}
+
+.err-icon {
+  font-size: 0.88rem;
+  font-style: normal;
+}
+
+.field-hint-text {
+  font-size: 0.82rem;
+  color: #496883;
+  font-weight: 500;
+  margin-top: 0.15rem;
+}
+
+.field-status-preview {
+  font-size: 0.82rem;
+  color: #6b7280;
+  margin-top: 0.15rem;
+}
+
+.btn-clear-date {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.btn-clear-date:hover {
+  text-decoration: underline;
+}
+
+/* Khối đối tượng áp dụng */
+.target-info-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.target-label {
+  font-weight: 600;
+  color: #374151;
+}
+
+.badge-form {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.3rem 0.85rem;
+  border-radius: 12px;
 }
 
 .badge-public {
-  background-color: #fcf3e6;
-  color: #b38536;
+  background-color: #fef3c7;
+  color: #b45309;
 }
 
 .badge-personal {
-  background-color: #eaf1f5;
-  color: #496883;
+  background-color: #e0f2fe;
+  color: #0369a1;
 }
 
-.badge-status {
+.customers-assign-panel {
+  margin-top: 0.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.25rem;
+  background-color: #fdfdfd;
+}
+
+.customers-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+
+.customers-panel-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.customers-count-badge {
+  background-color: #4b5563;
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+}
+
+.input-locked {
+  background-color: #f3f4f6 !important;
+  color: #374151 !important;
+  font-weight: 600;
+  cursor: not-allowed;
+  border-color: #d1d5db;
+}
+
+.field-badge-inline {
+  font-size: 0.72rem;
+  background-color: #e0e7ff;
+  color: #3730a3;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+.customers-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.cust-filter-item.flex-search {
+  flex: 1 1 240px;
+}
+
+.form-select-sm {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.85rem;
+  border-radius: 7px;
+  border: 1px solid #d1d5db;
+  background-color: #ffffff;
+  outline: none;
+}
+
+.badge-gender {
   display: inline-block;
-  font-size: 0.82rem;
-  font-weight: 700;
-  padding: 0.35rem 0.85rem;
-  border-radius: 14px;
-}
-
-.status-active {
-  background-color: #edf6ef;
-  color: #4c8a5a;
-}
-
-.status-inactive {
-  background-color: #f6f6f6;
-  color: #7f8c8d;
-}
-
-.status-expired {
-  background-color: #fdeeee;
-  color: #c0392b;
-  border: 1px solid #fadad7;
-}
-
-.status-upcoming {
-  background-color: #eaf1f8;
-  color: #2980b9;
-  border: 1px solid #d4e6f1;
-}
-
-.font-bold {
-  font-weight: 700;
-}
-
-.font-medium {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
-/* POPUP MODAL XÁC NHẬN (CONFIRMATION DIALOG) */
+.gender-female {
+  background-color: #fce7f3;
+  color: #db2777;
+}
+
+.gender-male {
+  background-color: #e0f2fe;
+  color: #0284c7;
+}
+
+.badge-order-count {
+  background-color: #f3f4f6;
+  color: #374151;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.cust-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.btn-link-action {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-link-action:hover {
+  text-decoration: underline;
+}
+
+.sep-slash {
+  color: #d1d5db;
+}
+
+.customers-table-wrapper {
+  max-height: 380px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.cust-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.cust-table th {
+  background-color: #f9fafb;
+  padding: 0.65rem 0.85rem;
+  font-weight: 600;
+  color: #4b5563;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.cust-table td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.cust-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cust-row:hover {
+  background-color: #f8fafc;
+}
+
+.row-selected {
+  background-color: #eff6ff !important;
+}
+
+.table-empty-cell {
+  text-align: center;
+  padding: 2rem !important;
+  color: #9ca3af;
+}
+
+/* Submit bar dưới cùng */
+.form-submit-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 0.5rem 0 1.5rem;
+}
+
+.btn {
+  padding: 0.65rem 1.6rem;
+  border-radius: 7px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.btn-secondary {
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  color: #4b5563;
+}
+
+.btn-secondary:hover {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+.btn-primary {
+  background-color: #496883;
+  color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #3b546b;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Modals */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(30, 40, 45, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+  background-color: rgba(30, 41, 59, 0.55);
   backdrop-filter: blur(2px);
+  z-index: 999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1.25rem;
 }
 
-.confirm-modal-box {
+.modal-box {
   background: #ffffff;
-  border-radius: 14px;
-  width: 90%;
+  border-radius: 12px;
+  width: 100%;
   max-width: 520px;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   overflow: hidden;
-  animation: popIn 0.2s ease-out;
+  animation: modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes popIn {
-  from { opacity: 0; transform: scale(0.92); }
+@keyframes modalScaleIn {
+  from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
 }
 
 .confirm-modal-header {
-  padding: 1.25rem 1.4rem;
-  background-color: #fff9f0;
-  border-bottom: 1px solid #faedd9;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #f3f4f6;
   display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  position: relative;
-}
-
-.confirm-warning-icon {
-  font-size: 1.8rem;
-}
-
-.confirm-title-wrap {
-  flex: 1;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
 .confirm-title {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 700;
-  color: #8c6328;
+  color: #111827;
 }
 
 .confirm-subtitle {
-  margin: 0.2rem 0 0;
-  font-size: 0.83rem;
-  color: #aa8651;
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: #6b7280;
 }
 
 .modal-close-btn {
-  background: transparent;
+  background: none;
   border: none;
-  font-size: 1.2rem;
-  color: #9aa0a0;
+  font-size: 1.1rem;
+  color: #9ca3af;
   cursor: pointer;
+  padding: 0;
 }
 
 .modal-close-btn:hover {
-  color: #c0392b;
+  color: #374151;
 }
 
 .confirm-modal-body {
-  padding: 1.4rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+}
+
+.confirm-modal-box {
+  max-width: 460px;
 }
 
 .confirm-message-text {
-  margin: 0;
+  margin: 0.25rem 0;
   font-size: 0.95rem;
-  color: #435158;
   line-height: 1.5;
-}
-
-.text-blue {
-  color: #496883;
+  color: #374151;
 }
 
 .confirm-summary-panel {
-  background-color: #faf9f6;
-  border: 1px solid #efeae0;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  padding: 0.9rem 1.1rem;
+  padding: 0.85rem 1.1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.5rem;
+  font-size: 0.88rem;
 }
 
 .summary-line {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.9rem;
 }
 
 .s-label {
-  color: #7b888e;
-  font-weight: 600;
+  color: #6b7280;
 }
 
 .s-val {
-  color: #2b383e;
+  color: #111827;
+}
+
+.confirm-note-box {
+  margin-top: 1rem;
+  padding: 0.75rem 0.95rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.note-info {
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
 }
 
 .confirm-modal-footer {
-  padding: 1rem 1.4rem;
-  border-top: 1px solid #eeebe3;
+  padding: 1rem 1.5rem;
+  background-color: #f9fafb;
+  border-top: 1px solid #f3f4f6;
   display: flex;
   justify-content: flex-end;
-  align-items: center;
   gap: 0.75rem;
-  background-color: #faf9f6;
 }
 
-.btn-save-confirm {
-  background-color: #4c8a5a;
-}
-
-.btn-save-confirm:hover:not(:disabled) {
-  background-color: #3b7047;
-}
-
-/* Toast thông báo */
+/* Toast */
 .toast-success {
   position: fixed;
   bottom: 2rem;
   right: 2rem;
   background-color: #ffffff;
-  border-left: 5px solid #4c8a5a;
+  border-left: 4px solid #10b981;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   padding: 1rem 1.25rem;
   display: flex;
   align-items: center;
-  gap: 0.85rem;
-  z-index: 2000;
-  animation: slideUp 0.3s ease-out;
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.toast-icon {
-  font-size: 1.5rem;
+  gap: 1rem;
+  z-index: 1000;
 }
 
 .toast-text b {
+  color: #065f46;
+  display: block;
   font-size: 0.95rem;
-  color: #2b383e;
 }
 
 .toast-text p {
-  margin: 0.2rem 0 0;
+  margin: 2px 0 0;
+  color: #4b5563;
   font-size: 0.85rem;
-  color: #65757d;
 }
 
 .toast-close {
-  background: transparent;
+  background: none;
   border: none;
-  font-size: 1.1rem;
-  color: #9aa0a0;
+  color: #9ca3af;
   cursor: pointer;
-  margin-left: 0.5rem;
+  font-size: 1rem;
 }
+
+/* Typography Helpers */
+.text-blue { color: #2563eb; }
+.text-danger { color: #dc2626; }
+.text-success { color: #16a34a; }
+.text-warning { color: #d97706; }
+.text-highlight { color: #b45309; }
+.font-bold { font-weight: 700; }
+.font-medium { font-weight: 600; }
 
 .spin {
   display: inline-block;
@@ -1504,118 +1714,10 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* POPUP MODAL CẢNH BÁO LỖI NHẬP LIỆU ĐẸP MẮT */
-.error-modal-box {
-  background: #ffffff;
-  border-radius: 14px;
-  width: 90%;
-  max-width: 480px;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.22);
-  overflow: hidden;
-  animation: popIn 0.2s ease-out;
-  border: 1px solid #f9d6d5;
-}
-
-.error-modal-header {
-  padding: 1.15rem 1.35rem;
-  background-color: #fff4f4;
-  border-bottom: 1px solid #fcdcdc;
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-}
-
-.error-warning-icon {
-  font-size: 1.8rem;
-}
-
-.error-title-wrap {
-  flex: 1;
-}
-
-.error-title {
-  margin: 0;
-  font-size: 1.08rem;
-  font-weight: 700;
-  color: #c0392b;
-}
-
-.error-subtitle {
-  margin: 0.2rem 0 0;
-  font-size: 0.82rem;
-  color: #9c4b44;
-}
-
-.error-modal-body {
-  padding: 1.25rem 1.4rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-}
-
-.error-list-panel {
-  background-color: #fdf7f7;
-  border: 1px solid #f6dede;
-  border-radius: 8px;
-  padding: 0.85rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  max-height: 220px;
-  overflow-y: auto;
-}
-
-.error-item-line {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  font-size: 0.88rem;
-  color: #b03a2e;
-  line-height: 1.4;
-}
-
-.error-bullet {
-  font-size: 0.85rem;
-  margin-top: 1px;
-}
-
-.error-text-content {
-  font-weight: 600;
-}
-
-.error-hint-panel {
-  background-color: #fdfbee;
-  border: 1px solid #f5edcf;
-  border-radius: 8px;
-  padding: 0.65rem 0.9rem;
-  font-size: 0.82rem;
-  color: #8c7634;
-  line-height: 1.4;
-}
-
-.error-modal-footer {
-  padding: 0.9rem 1.4rem;
-  border-top: 1px solid #f5efea;
-  display: flex;
-  justify-content: flex-end;
-  background-color: #faf9f6;
-}
-
-.btn-error-close {
-  background-color: #c0392b;
-  color: #ffffff;
-  padding: 0.55rem 1.25rem;
-}
-
-.btn-error-close:hover {
-  background-color: #a93226;
-}
-
 @media (max-width: 992px) {
-  .detail-content-layout {
-    grid-template-columns: 1fr;
+  .voucher-detail-wrapper {
+    padding: 1rem 1.25rem 2rem;
   }
-
   .form-grid-2 {
     grid-template-columns: 1fr;
   }
