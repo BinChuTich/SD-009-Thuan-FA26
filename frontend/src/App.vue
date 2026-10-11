@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import GlobalDialog from '@/components/GlobalDialog.vue'
 
 const route = useRoute()
 const openMenus = ref({
@@ -210,6 +211,7 @@ const isThuocTinhActive = computed(() => {
         <router-view />
       </div>
     </main>
+    <GlobalDialog />
   </div>
 </template>
 

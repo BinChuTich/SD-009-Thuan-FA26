@@ -119,7 +119,7 @@
 
               <!-- Ngày sinh -->
               <div class="form-field">
-                <label>Ngày sinh <span class="sub-hint">(Từ 15 tuổi trở lên)</span></label>
+                <label>Ngày sinh <span class="required">*</span></label>
                 <input
                   v-model="form.ngaySinh"
                   type="date"
@@ -319,25 +319,16 @@ function validateField(fieldName) {
   }
 
   if (fieldName === 'ngaySinh') {
-    if (form.ngaySinh) {
+    if (!form.ngaySinh) {
+      errors.ngaySinh = 'Ngày sinh khách hàng không được để trống!'
+    } else {
       const bDate = new Date(form.ngaySinh)
       const today = new Date()
       if (bDate > today) {
         errors.ngaySinh = 'Ngày sinh không được lớn hơn ngày hiện tại!'
       } else {
-        let age = today.getFullYear() - bDate.getFullYear()
-        const m = today.getMonth() - bDate.getMonth()
-        if (m < 0 || (m === 0 && today.getDate() < bDate.getDate())) {
-          age--
-        }
-        if (age < 15) {
-          errors.ngaySinh = 'Khách hàng phải từ 15 tuổi trở lên!'
-        } else {
-          errors.ngaySinh = ''
-        }
+        errors.ngaySinh = ''
       }
-    } else {
-      errors.ngaySinh = ''
     }
   }
 

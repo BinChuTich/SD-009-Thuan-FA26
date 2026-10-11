@@ -205,6 +205,7 @@ public class NhanVienService {
         x.setTrangThai(x.getTrangThai() != null && x.getTrangThai() == 1 ? 0 : 1);
         x.setNgayCapNhat(Instant.now());
         x.setNguoiCapNhat("admin");
+        repo.save(x);
     }
 
     @Transactional
@@ -213,6 +214,7 @@ public class NhanVienService {
         x.setTrangThai(0);
         x.setNgayCapNhat(Instant.now());
         x.setNguoiCapNhat("admin");
+        repo.save(x);
     }
 
     @Transactional(readOnly = true)

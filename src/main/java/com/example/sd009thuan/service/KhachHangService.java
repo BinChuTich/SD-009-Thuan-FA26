@@ -116,9 +116,6 @@ public class KhachHangService {
             if (req.ngaySinh().isAfter(LocalDate.now())) {
                 throw new IllegalArgumentException("Ngày sinh không được lớn hơn ngày hiện tại");
             }
-            if (Period.between(req.ngaySinh(), LocalDate.now()).getYears() < 15) {
-                throw new IllegalArgumentException("Khách hàng phải từ 15 tuổi trở lên");
-            }
             x.setNgaySinh(req.ngaySinh());
         }
         if (req.gioiTinh() != null) x.setGioiTinh(req.gioiTinh());
@@ -141,6 +138,7 @@ public class KhachHangService {
         x.setTrangThai(x.getTrangThai() != null && x.getTrangThai() == 1 ? 0 : 1);
         x.setNgayCapNhat(Instant.now());
         x.setNguoiCapNhat("admin");
+        repo.save(x);
     }
 
     @Transactional
@@ -149,6 +147,7 @@ public class KhachHangService {
         x.setTrangThai(0);
         x.setNgayCapNhat(Instant.now());
         x.setNguoiCapNhat("admin");
+        repo.save(x);
     }
 
     @Transactional(readOnly = true)
@@ -279,13 +278,11 @@ public class KhachHangService {
         }
         String phone = blankToNull(req.soDienThoai()) != null ? req.soDienThoai() : req.soDienThoaiNhan();
         validateSoDienThoai(phone);
-        if (req.ngaySinh() != null) {
-            if (req.ngaySinh().isAfter(LocalDate.now())) {
-                throw new IllegalArgumentException("Ngày sinh không được lớn hơn ngày hiện tại");
-            }
-            if (Period.between(req.ngaySinh(), LocalDate.now()).getYears() < 15) {
-                throw new IllegalArgumentException("Khách hàng phải từ 15 tuổi trở lên");
-            }
+        if (req.ngaySinh() == null) {
+            throw new IllegalArgumentException("Ngày sinh khách hàng không được để trống");
+        }
+        if (req.ngaySinh().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Ngày sinh không được lớn hơn ngày hiện tại");
         }
         if (blankToNull(req.thanhPho()) == null) {
             throw new IllegalArgumentException("Tỉnh / Thành phố không được để trống");
@@ -314,20 +311,16 @@ public class KhachHangService {
                     : repo.existsByEmailIgnoreCaseAndIdNot(email, currentId);
             if (exists) throw new IllegalArgumentException("Email khách hàng đã tồn tại");
         }
-
-        if (req.ngaySinh() != null) {
-            if (req.ngaySinh().isAfter(LocalDate.now())) {
-                throw new IllegalArgumentException("Ngày sinh không được lớn hơn ngày hiện tại");
-            }
-            if (Period.between(req.ngaySinh(), LocalDate.now()).getYears() < 15) {
-                throw new IllegalArgumentException("Khách hàng phải từ 15 tuổi trở lên");
-            }
-        }
     }
 
     public String nextCode() {
         long next = repo.findTopByOrderByIdDesc().map(x -> x.getId() + 1).orElse(1L);
-        return String.format("KH%03d", next);
+        String code = String.format("KH%03d", next);
+        while (repo.existsByMaKhachHangIgnoreCase(code)) {
+            next++;
+            code = String.format("KH%03d", next);
+        }
+        return code;
     }
 
     private void saveDefaultAddress(KhachHang customer, KhachHangRequest req) {
