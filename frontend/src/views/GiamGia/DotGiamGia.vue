@@ -105,8 +105,10 @@
             <label class="filter-label">Trạng thái</label>
             <select v-model="filters.trangThai" @change="handleFilterChange" class="filter-select-input">
               <option value="">Tất cả trạng thái</option>
-              <option :value="1">Đang hoạt động</option>
-              <option :value="0">Ngừng hoạt động</option>
+              <option value="ACTIVE">Đang diễn ra</option>
+              <option value="UPCOMING">Sắp diễn ra</option>
+              <option value="ENDED">Đã kết thúc</option>
+              <option value="0">Ngừng hoạt động</option>
             </select>
           </div>
         </div>
@@ -156,8 +158,8 @@
               <th style="width: 13%;">Mã</th>
               <th style="width: 20%;">Tên</th>
               <th style="width: 11%;">Giá trị</th>
-              <th style="width: 15%;">Ngày bắt đầu</th>
-              <th style="width: 15%;">Ngày kết thúc</th>
+              <th style="width: 15%;">Thời gian bắt đầu</th>
+              <th style="width: 15%;">Thời gian kết thúc</th>
               <th style="width: 13%; text-align: center;">Trạng thái</th>
               <th style="width: 8%; text-align: center;">Hành động</th>
             </tr>
@@ -197,19 +199,19 @@
               <td class="font-bold text-dark">
                 {{ formatDiscountVal(item) }}
               </td>
-              <td class="text-date-simple">{{ formatDate(item.ngayBatDau) }}</td>
+              <td class="text-date-simple">{{ formatDateTime(item.ngayBatDau) }}</td>
               <td class="text-date-simple">
-                <span v-if="item.ngayKetThuc">{{ formatDate(item.ngayKetThuc) }}</span>
-                <span v-else class="text-muted-infinity">Vô thời hạn</span>
+                <span v-if="item.ngayKetThuc">{{ formatDateTime(item.ngayKetThuc) }}</span>
+                <span v-else class="text-muted">—</span>
               </td>
 
-              <!-- Trạng thái: Badge pill tròn mượt mà theo ảnh mẫu -->
+              <!-- Trạng thái: Badge pill tròn mượt mà theo trạng thái thực tế -->
               <td style="text-align: center;">
                 <span
                     class="badge-pill-status"
-                    :class="item.trangThai === 1 ? 'status-pill-active' : 'status-pill-inactive'"
+                    :class="getCampaignStatus(item).class"
                 >
-                  {{ item.trangThai === 1 ? 'Đang hoạt động' : 'Ngừng hoạt động' }}
+                  {{ getCampaignStatus(item).text }}
                 </span>
               </td>
 
@@ -217,6 +219,7 @@
               <td style="text-align: center;">
                 <div class="action-buttons-flex">
                   <button
+                      v-if="getCampaignStatus(item).code !== 'ENDED'"
                       class="btn-icon-circle btn-icon-power"
                       :title="item.trangThai === 1 ? 'Chuyển sang Ngừng hoạt động' : 'Chuyển sang Đang hoạt động'"
                       @click="openToggleStatusModal(item)"
@@ -323,26 +326,21 @@
         <!-- CỘT TRÁI: THẺ THÔNG TIN ĐỢT GIẢM -->
         <div class="video-card card-campaign-info">
           <div class="video-card-header">
-            <div class="header-icon-box blue-icon-box">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#304b60" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                <line x1="7" y1="7" x2="7.01" y2="7"></line>
-              </svg>
-            </div>
             <h3 class="video-card-title">Thông tin đợt giảm</h3>
           </div>
 
           <div class="video-form-body">
-            <!-- Mã đợt * -->
+            <!-- Mã đợt (Để trống tự tạo, làm mờ khi để trống) -->
             <div class="video-form-group">
-              <label class="video-form-label">Mã đợt <span class="req">*</span></label>
+              <label class="video-form-label">Mã đợt</label>
               <div class="input-with-action-btn">
                 <input
                   type="text"
                   v-model="formData.maDotGiamGia"
                   :disabled="isEditing"
                   class="video-input"
-                  placeholder="Mã đợt giảm..."
+                  :class="{ 'input-auto-gen-empty': !formData.maDotGiamGia && !isEditing }"
+                  placeholder="Hệ thống tự tạo nếu để trống..."
                 />
                 <button
                   type="button"
@@ -366,49 +364,56 @@
               <input
                 type="text"
                 v-model="formData.tenDotGiamGia"
-                class="video-input"
-                placeholder="VD: ASICS Running Festival"
+                :class="['video-input', { 'input-has-error': errors.tenDotGiamGia }]"
+                placeholder="Nhập tên đợt giảm giá..."
+                @input="clearError('tenDotGiamGia')"
               />
+              <span v-if="errors.tenDotGiamGia" class="field-error-msg">{{ errors.tenDotGiamGia }}</span>
             </div>
 
             <!-- Giá trị giảm (%) * -->
             <div class="video-form-group">
               <label class="video-form-label">Giá trị giảm (%) <span class="req">*</span></label>
-              <div class="input-with-suffix">
+              <div class="input-with-suffix-group" :class="{ 'input-has-error': errors.phanTramGiam }">
                 <input
                   type="number"
                   min="1"
-                  max="100"
                   v-model.number="formData.phanTramGiam"
                   @input="handlePhanTramInput"
-                  class="video-input"
-                  placeholder="20"
+                  class="video-input input-no-spin"
+                  placeholder="Nhập mức giảm..."
                 />
-                <span class="input-suffix">%</span>
+                <span class="input-suffix-addon">%</span>
               </div>
+              <span v-if="errors.phanTramGiam" class="field-error-msg">{{ errors.phanTramGiam }}</span>
             </div>
 
-            <!-- Từ ngày * & Đến ngày * (Hàng 2 cột) -->
-            <div class="video-date-row">
-              <div class="video-form-group">
-                <label class="video-form-label">Từ ngày <span class="req">*</span></label>
-                <input
-                  type="date"
-                  v-model="formData.ngayBatDau"
-                  @change="handleNgayBatDauChange"
-                  class="video-input"
-                />
-              </div>
-              <div class="video-form-group">
-                <label class="video-form-label">Đến ngày <span class="req">*</span></label>
-                <input
-                  type="date"
-                  v-model="formData.ngayKetThuc"
-                  :min="formData.ngayBatDau || undefined"
-                  @change="handleNgayKetThucChange"
-                  class="video-input"
-                />
-              </div>
+            <!-- Thời gian bắt đầu * -->
+            <div class="video-form-group">
+              <label class="video-form-label">Thời gian bắt đầu <span class="req">*</span></label>
+              <input
+                type="datetime-local"
+                v-model="formData.ngayBatDau"
+                :min="minStartDateTime"
+                :class="['video-input', { 'input-has-error': errors.ngayBatDau }]"
+                @change="handleNgayBatDauChange"
+                @input="handleNgayBatDauChange"
+              />
+              <span v-if="errors.ngayBatDau" class="field-error-msg">{{ errors.ngayBatDau }}</span>
+            </div>
+
+            <!-- Thời gian kết thúc * -->
+            <div class="video-form-group">
+              <label class="video-form-label">Thời gian kết thúc <span class="req">*</span></label>
+              <input
+                type="datetime-local"
+                v-model="formData.ngayKetThuc"
+                :min="formData.ngayBatDau || minStartDateTime || undefined"
+                :class="['video-input', { 'input-has-error': errors.ngayKetThuc }]"
+                @change="handleNgayKetThucChange"
+                @input="handleNgayKetThucChange"
+              />
+              <span v-if="errors.ngayKetThuc" class="field-error-msg">{{ errors.ngayKetThuc }}</span>
             </div>
 
 
@@ -425,7 +430,11 @@
 
             <!-- Nút Tạo đợt giảm giá -->
             <div class="video-form-actions">
-              <button class="btn-video-submit" @click="onSaveClick" :disabled="submitting">
+              <button 
+                class="btn-video-submit" 
+                @click="onSaveClick" 
+                :disabled="submitting"
+              >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
                   <polyline points="17 21 17 13 7 13 7 21"></polyline>
@@ -440,17 +449,12 @@
           </div>
         </div>
 
-        <!-- CỘT PHẢI: THẺ CHỌN SẢN PHẨM ÁP DỤNG -->
-        <div class="video-card card-select-products">
-          <div class="video-card-header header-between">
+        <!-- CỘT PHẢI: GỒM 2 THẺ (Chọn sản phẩm áp dụng + Sản phẩm & biến thể đã chọn) -->
+        <div class="video-right-column">
+          <!-- 1. Thẻ chọn sản phẩm áp dụng -->
+          <div class="video-card card-select-products">
+            <div class="video-card-header header-between">
             <div class="header-left-group">
-              <div class="header-icon-box blue-icon-box">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#304b60" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-                  <polyline points="2 17 12 22 22 17"></polyline>
-                  <polyline points="2 12 12 17 22 12"></polyline>
-                </svg>
-              </div>
               <div>
                 <h3 class="video-card-title">Chọn sản phẩm áp dụng</h3>
                 <span class="video-card-subtitle">Đã chọn {{ selectedVariants.length }} biến thể</span>
@@ -576,18 +580,11 @@
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- HÀNG DƯỚI: FULL-WIDTH CARD SẢN PHẨM & BIẾN THỂ ĐÃ CHỌN ÁP DỤNG -->
-      <div class="video-card card-applied-variants">
+        <!-- 2. Thẻ sản phẩm & biến thể đã chọn (được đẩy lên trên vào cột phải) -->
+        <div class="video-card card-applied-variants">
         <div class="video-card-header header-between">
           <div class="header-left-group">
-            <div class="header-icon-box blue-icon-box">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#304b60" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-              </svg>
-            </div>
             <h3 class="video-card-title">Sản phẩm & biến thể đã chọn áp dụng</h3>
           </div>
 
@@ -713,8 +710,10 @@
             >›</button>
           </div>
         </div>
-      </div>
-    </div>
+      </div> <!-- đóng card-applied-variants -->
+        </div> <!-- đóng video-right-column -->
+      </div> <!-- đóng video-top-grid -->
+    </div> <!-- đóng view-form -->
 
     <!-- ========================================================
          MODAL: XÁC NHẬN CẬP NHẬT / TẠO MỚI (Y NHƯ ẢNH MẪU 1)
@@ -813,7 +812,7 @@
             </b> không?
           </p>
 
-          <!-- Bảng tóm tắt thông tin -->
+          <!-- Bảng tóm tắt thông tin tinh gọn -->
           <div class="toggle-info-card">
             <div class="toggle-info-row">
               <span class="toggle-info-label">Mã đợt:</span>
@@ -824,46 +823,9 @@
               <span class="toggle-info-val font-medium text-dark">{{ selectedToggleItem.tenDotGiamGia || '—' }}</span>
             </div>
             <div class="toggle-info-row">
-              <span class="toggle-info-label">Loại giảm:</span>
-              <span class="toggle-info-val font-medium">{{ isCashDiscount(selectedToggleItem) ? 'Giảm bằng tiền mặt (VNĐ)' : 'Giảm theo phần trăm (%)' }}</span>
-            </div>
-            <div class="toggle-info-row">
-              <span class="toggle-info-label">Mức giảm:</span>
-              <span class="toggle-info-val font-bold text-dark">
-                {{ isCashDiscount(selectedToggleItem) ? formatMoney(selectedToggleItem.giaTriGiam || selectedToggleItem.phanTramGiam) : (selectedToggleItem.phanTramGiam != null ? selectedToggleItem.phanTramGiam + '%' : '0%') }}
-              </span>
-            </div>
-            <div v-if="selectedToggleItem.giamToiDa" class="toggle-info-row">
-              <span class="toggle-info-label">Giảm tối đa:</span>
-              <span class="toggle-info-val font-bold text-danger">{{ formatMoney(selectedToggleItem.giamToiDa) }}</span>
-            </div>
-            <div class="toggle-info-row">
-              <span class="toggle-info-label">Thời hạn:</span>
-              <span class="toggle-info-val">{{ formatInputDateDisplay(selectedToggleItem.ngayBatDau) }} ➔ {{ selectedToggleItem.ngayKetThuc ? formatInputDateDisplay(selectedToggleItem.ngayKetThuc) : 'Vô thời hạn' }}</span>
-            </div>
-            <div class="toggle-info-row">
-              <span class="toggle-info-label">Trạng thái hiện tại:</span>
-              <span class="toggle-info-val font-bold" :class="selectedToggleItem.trangThai === 1 ? 'text-green' : 'text-danger'">
-                {{ selectedToggleItem.trangThai === 1 ? 'Đang hoạt động' : 'Ngừng hoạt động' }}
-              </span>
-            </div>
-            <div class="toggle-info-row">
               <span class="toggle-info-label">Trạng thái mới:</span>
               <span class="toggle-info-val font-bold" :class="selectedToggleItem.trangThai === 1 ? 'text-danger' : 'text-green'">
                 {{ selectedToggleItem.trangThai === 1 ? 'Ngừng hoạt động' : 'Đang hoạt động' }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Khung Lưu ý -->
-          <div class="toggle-warning-alert">
-            <div class="alert-content">
-              <span class="alert-tag">Lưu ý:</span>
-              <span v-if="selectedToggleItem.trangThai === 1">
-                Khi ngừng hoạt động, khách hàng sẽ tạm thời không thể áp dụng đợt giảm giá này khi thanh toán.
-              </span>
-              <span v-else>
-                Khi kích hoạt, đợt giảm giá này sẽ được áp dụng cho các sản phẩm theo đúng thời gian quy định.
               </span>
             </div>
           </div>
@@ -933,16 +895,33 @@ const togglingStatus = ref(false)
 
 const formData = ref({
   id: null,
-  maDotGiamGia: 'DGGD5OY17',
+  maDotGiamGia: '',
   tenDotGiamGia: '',
   loaiGiamGia: 1, // 1: Giảm theo %, 2: Giảm theo số tiền (VNĐ)
-  phanTramGiam: 20,
-  giaTriGiam: 50000,
+  phanTramGiam: null,
+  giaTriGiam: null,
   giamToiDa: null,
   ngayBatDau: '',
   ngayKetThuc: '',
   moTa: '',
   trangThai: 1
+})
+
+// Quản lý lỗi validate inline trong form
+const errors = ref({})
+const clearError = (field) => {
+  if (errors.value[field]) {
+    delete errors.value[field]
+  }
+}
+
+
+// Mốc thời gian tối thiểu cho thời gian bắt đầu (không trước hiện tại khi tạo mới)
+const minStartDateTime = computed(() => {
+  if (isEditing.value) return undefined
+  const now = new Date()
+  const pad = n => String(n).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
 })
 
 // Hàm tự sinh mã đợt ngẫu nhiên (nút xoay tròn)
@@ -1207,13 +1186,16 @@ const isCashDiscount = (item) => {
   return false
 }
 
-// Chặn mức giảm phần trăm tối đa không vượt quá 100%
+// Kiểm tra mức giảm phần trăm khi người dùng nhập
 const handlePhanTramInput = () => {
-  if (formData.value.phanTramGiam > 100) {
-    formData.value.phanTramGiam = 100
-    showToast('Mức giảm theo phần trăm tối đa là 100%!', 'info')
-  } else if (formData.value.phanTramGiam < 0) {
-    formData.value.phanTramGiam = 0
+  clearError('phanTramGiam')
+  const val = formData.value.phanTramGiam
+  if (val === null || val === '' || val === undefined) {
+    errors.value.phanTramGiam = 'Mức giảm không được để trống!'
+  } else if (Number(val) > 100) {
+    errors.value.phanTramGiam = 'Mức giảm không được vượt quá 100%!'
+  } else if (Number(val) <= 0) {
+    errors.value.phanTramGiam = 'Mức giảm phải lớn hơn 0%!'
   }
 }
 
@@ -1233,21 +1215,38 @@ const handleGiaTriGiamInput = () => {
   }
 }
 
-// Kiểm tra ngày kết thúc phải sau ngày bắt đầu khi thay đổi ngày
+// Kiểm tra thời gian bắt đầu
 const handleNgayBatDauChange = () => {
-  if (formData.value.ngayBatDau && formData.value.ngayKetThuc) {
-    if (new Date(formData.value.ngayKetThuc) <= new Date(formData.value.ngayBatDau)) {
-      showToast('Ngày kết thúc phải sau ngày bắt đầu!', 'error')
-      formData.value.ngayKetThuc = ''
+  clearError('ngayBatDau')
+  if (!formData.value.ngayBatDau || formData.value.ngayBatDau.trim() === '') {
+    errors.value.ngayBatDau = 'Thời gian bắt đầu không được để trống!'
+    return
+  }
+  if (!isEditing.value) {
+    if (new Date(formData.value.ngayBatDau).getTime() < Date.now() - 60000) {
+      errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
+      return
+    }
+  }
+  if (formData.value.ngayKetThuc) {
+    if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
+      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
+    } else {
+      clearError('ngayKetThuc')
     }
   }
 }
 
+// Kiểm tra thời gian kết thúc (bắt buộc, không cho để trống)
 const handleNgayKetThucChange = () => {
-  if (formData.value.ngayBatDau && formData.value.ngayKetThuc) {
-    if (new Date(formData.value.ngayKetThuc) <= new Date(formData.value.ngayBatDau)) {
-      showToast('Ngày kết thúc phải sau ngày bắt đầu!', 'error')
-      formData.value.ngayKetThuc = ''
+  clearError('ngayKetThuc')
+  if (!formData.value.ngayKetThuc || formData.value.ngayKetThuc.trim() === '') {
+    errors.value.ngayKetThuc = 'Thời gian kết thúc không được để trống!'
+    return
+  }
+  if (formData.value.ngayBatDau) {
+    if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
+      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
     }
   }
 }
@@ -1309,6 +1308,38 @@ const formatDate = (val) => {
   return `${day}/${month}/${year}`
 }
 
+const formatDateTime = (val) => {
+  if (!val) return '—'
+  const date = new Date(val)
+  if (isNaN(date.getTime())) return val
+  const pad = n => String(n).padStart(2, '0')
+  const hours = pad(date.getHours())
+  const minutes = pad(date.getMinutes())
+  const day = pad(date.getDate())
+  const month = pad(date.getMonth() + 1)
+  const year = date.getFullYear()
+  return `${hours}:${minutes} ${day}/${month}/${year}`
+}
+
+// Tính trạng thái thực tế dựa trên mốc thời gian hiện tại
+const getCampaignStatus = (item) => {
+  if (!item) return { code: 'INACTIVE', text: 'Ngừng hoạt động', class: 'status-pill-inactive' }
+  if (item.trangThai === 0) {
+    return { code: 'INACTIVE', text: 'Ngừng hoạt động', class: 'status-pill-inactive' }
+  }
+  const now = Date.now()
+  const start = item.ngayBatDau ? new Date(item.ngayBatDau).getTime() : null
+  const end = item.ngayKetThuc ? new Date(item.ngayKetThuc).getTime() : null
+
+  if (start && now < start) {
+    return { code: 'UPCOMING', text: 'Sắp diễn ra', class: 'status-pill-upcoming' }
+  }
+  if (end && now > end) {
+    return { code: 'ENDED', text: 'Đã kết thúc', class: 'status-pill-ended' }
+  }
+  return { code: 'ACTIVE', text: 'Đang diễn ra', class: 'status-pill-active' }
+}
+
 const formatDiscountVal = (item) => {
   if (!item) return '0%'
   if (isCashDiscount(item)) {
@@ -1349,8 +1380,8 @@ const fetchData = async () => {
     if (filters.value.endDate) {
       params.endDate = filters.value.endDate
     }
-    if (filters.value.trangThai !== '' && filters.value.trangThai !== null) {
-      params.trangThai = Number(filters.value.trangThai)
+    if (filters.value.trangThai === '0' || filters.value.trangThai === 0) {
+      params.trangThai = 0
     }
 
     const response = await api.get('/api/dot-giam-gia', { params })
@@ -1370,6 +1401,13 @@ const fetchData = async () => {
       list = list.filter(item => !isCashDiscount(item))
     } else if (filters.value.loaiGiam === '2') {
       list = list.filter(item => isCashDiscount(item))
+    }
+
+    // Lọc theo trạng thái động (Đang diễn ra, Sắp diễn ra, Đã kết thúc, Ngừng hoạt động)
+    if (filters.value.trangThai === 'ACTIVE' || filters.value.trangThai === 'UPCOMING' || filters.value.trangThai === 'ENDED') {
+      list = list.filter(item => getCampaignStatus(item).code === filters.value.trangThai)
+    } else if (filters.value.trangThai === '0' || filters.value.trangThai === 0) {
+      list = list.filter(item => item.trangThai === 0)
     }
 
     campaigns.value = list
@@ -1630,43 +1668,28 @@ const exportToExcel = async () => {
 
 // Chuyển sang màn hình tạo mới
 const openCreateView = () => {
+  errors.value = {}
   isEditing.value = false
-  generateRandomMa()
-  const today = new Date()
-  const after30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
-  const pad = n => String(n).padStart(2, '0')
-  const formatDateVal = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 
   formData.value = {
     id: null,
-    maDotGiamGia: formData.value.maDotGiamGia || 'DGGD5OY17',
-    tenDotGiamGia: 'ASICS Running Festival',
+    maDotGiamGia: '', // Để trống để làm mờ theo yêu cầu, hệ thống sẽ tự sinh nếu không nhập
+    tenDotGiamGia: '',
     loaiGiamGia: 1, // 1: Giảm theo %, 2: Giảm theo tiền
-    phanTramGiam: 20,
-    giaTriGiam: 50000,
+    phanTramGiam: null,
+    giaTriGiam: null,
     giamToiDa: null,
-    ngayBatDau: formatDateVal(today),
-    ngayKetThuc: formatDateVal(after30Days),
+    ngayBatDau: '',
+    ngayKetThuc: '',
     moTa: '',
     trangThai: 1
   }
 
-  // Mặc định chọn 4 biến thể của ASICS GEL-Kayano 31 chuẩn video
+  // Làm mới hoàn toàn danh sách sản phẩm & biến thể đã chọn
   productSourceList.value.forEach(p => {
-    p.selected = (p.id === 1)
+    p.selected = false
   })
-  const p1 = productSourceList.value[0]
-  selectedVariants.value = p1.variants.map(v => ({
-    id: v.id,
-    spId: p1.id,
-    spMa: p1.ma,
-    spTen: p1.ten,
-    maBienThe: v.maBienThe,
-    mauSac: v.mauSac,
-    kichCo: v.kichCo,
-    gia: v.gia,
-    soLuong: v.soLuong
-  }))
+  selectedVariants.value = []
 
   productCurrentPage.value = 1
   variantCurrentPage.value = 1
@@ -1676,14 +1699,8 @@ const openCreateView = () => {
 
 // Chuyển sang màn hình chỉnh sửa
 const openEditView = async (item) => {
+  errors.value = {}
   isEditing.value = true
-  const pad = n => String(n).padStart(2, '0')
-  const toDateOnly = val => {
-    if (!val) return ''
-    const d = new Date(val)
-    if (isNaN(d.getTime())) return ''
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-  }
 
   formData.value = {
     id: item.id,
@@ -1693,8 +1710,8 @@ const openEditView = async (item) => {
     phanTramGiam: item.phanTramGiam || 20,
     giaTriGiam: 50000,
     giamToiDa: null,
-    ngayBatDau: toDateOnly(item.ngayBatDau),
-    ngayKetThuc: item.ngayKetThuc ? toDateOnly(item.ngayKetThuc) : '',
+    ngayBatDau: toInputDateTime(item.ngayBatDau),
+    ngayKetThuc: item.ngayKetThuc ? toInputDateTime(item.ngayKetThuc) : '',
     moTa: item.moTa || '',
     trangThai: item.trangThai != null ? item.trangThai : 1
   }
@@ -1732,6 +1749,14 @@ const openEditView = async (item) => {
   productCurrentPage.value = 1
   variantCurrentPage.value = 1
   currentView.value = 'form'
+
+  // Kiểm tra nếu ngày kết thúc <= ngày bắt đầu thì báo đỏ ngay dưới ô
+  if (formData.value.ngayBatDau && formData.value.ngayKetThuc) {
+    if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
+      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
+    }
+  }
+
   showToast(`Mở chỉnh sửa đợt "${item.tenDotGiamGia}"!`, 'info')
 }
 
@@ -1741,47 +1766,62 @@ const backToList = () => {
 
 // Bấm nút Lưu / Tạo -> kiểm tra và mở popup xác nhận
 const onSaveClick = () => {
+  errors.value = {}
+
+  let hasError = false
+
+  // 1. Kiểm tra Tên đợt
   if (!formData.value.tenDotGiamGia || formData.value.tenDotGiamGia.trim() === '') {
-    showToast('Vui lòng nhập tên đợt giảm giá!', 'error')
-    return
+    errors.value.tenDotGiamGia = 'Tên đợt giảm giá không được để trống!'
+    hasError = true
   }
 
-  // Validate theo từng loại giảm: Giảm % thì chọn được giảm tối đa, giảm tiền thì không
+  // 2. Kiểm tra Mức giảm
   if (formData.value.loaiGiamGia === 1) {
-    if (!formData.value.phanTramGiam || formData.value.phanTramGiam <= 0) {
-      showToast('Vui lòng nhập mức giảm lớn hơn 0%!', 'error')
-      return
-    }
-    if (formData.value.phanTramGiam > 100) {
-      formData.value.phanTramGiam = 100
-      showToast('Mức giảm theo phần trăm không được vượt quá 100%!', 'error')
-      return
-    }
-    if (formData.value.giamToiDa !== null && formData.value.giamToiDa !== '' && formData.value.giamToiDa !== undefined) {
-      if (Number(formData.value.giamToiDa) <= 0) {
-        showToast('Số tiền giảm tối đa phải lớn hơn 0đ (hoặc để trống nếu không giới hạn)!', 'error')
-        return
-      }
+    if (formData.value.phanTramGiam === null || formData.value.phanTramGiam === '' || formData.value.phanTramGiam === undefined) {
+      errors.value.phanTramGiam = 'Mức giảm không được để trống!'
+      hasError = true
+    } else if (Number(formData.value.phanTramGiam) > 100) {
+      errors.value.phanTramGiam = 'Mức giảm không được vượt quá 100%!'
+      hasError = true
+    } else if (Number(formData.value.phanTramGiam) <= 0) {
+      errors.value.phanTramGiam = 'Mức giảm phải lớn hơn 0%!'
+      hasError = true
     }
   } else {
     formData.value.giamToiDa = null
-    if (!formData.value.giaTriGiam || formData.value.giaTriGiam <= 0) {
-      showToast('Vui lòng nhập số tiền giảm lớn hơn 0đ!', 'error')
-      return
+    if (!formData.value.giaTriGiam || Number(formData.value.giaTriGiam) <= 0) {
+      errors.value.giaTriGiam = 'Vui lòng nhập số tiền giảm lớn hơn 0đ!'
+      hasError = true
     }
   }
 
-  // Kiểm tra yêu cầu nhập ngày bắt đầu
+  // 3. Kiểm tra Thời gian bắt đầu
   if (!formData.value.ngayBatDau || formData.value.ngayBatDau.trim() === '') {
-    showToast('Vui lòng chọn ngày bắt đầu!', 'error')
-    return
-  }
-  // Ngày kết thúc: để trống là vô thời hạn. Nếu có chọn thì phải sau ngày bắt đầu
-  if (formData.value.ngayKetThuc && formData.value.ngayKetThuc.trim() !== '') {
-    if (new Date(formData.value.ngayKetThuc) <= new Date(formData.value.ngayBatDau)) {
-      showToast('Ngày kết thúc phải sau ngày bắt đầu!', 'error')
-      return
+    errors.value.ngayBatDau = 'Thời gian bắt đầu không được để trống!'
+    hasError = true
+  } else if (!isEditing.value) {
+    const startMs = new Date(formData.value.ngayBatDau).getTime()
+    if (startMs < Date.now() - 60000) {
+      errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
+      hasError = true
     }
+  }
+
+  // 4. Kiểm tra Thời gian kết thúc (Bắt buộc, không cho để trống)
+  if (!formData.value.ngayKetThuc || formData.value.ngayKetThuc.trim() === '') {
+    errors.value.ngayKetThuc = 'Thời gian kết thúc không được để trống!'
+    hasError = true
+  } else if (formData.value.ngayBatDau) {
+    if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
+      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
+      hasError = true
+    }
+  }
+
+  if (hasError) {
+    showToast('Vui lòng kiểm tra lại các trường báo đỏ trong form!', 'error')
+    return
   }
 
   showConfirmModal.value = true
@@ -1793,8 +1833,21 @@ const doSubmitAPI = async () => {
     submitting.value = true
     const isPercent = formData.value.loaiGiamGia === 1
     const finalVal = isPercent ? formData.value.phanTramGiam : formData.value.giaTriGiam
+
+    // Tự sinh mã nếu người dùng để trống
+    let finalMa = formData.value.maDotGiamGia?.trim() || ''
+    if (!finalMa) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+      let randomSuffix = ''
+      for (let i = 0; i < 6; i++) {
+        randomSuffix += chars.charAt(Math.floor(Math.random() * chars.length))
+      }
+      finalMa = 'DGG' + randomSuffix
+      formData.value.maDotGiamGia = finalMa
+    }
+
     const payload = {
-      maDotGiamGia: formData.value.maDotGiamGia?.trim() || null,
+      maDotGiamGia: finalMa,
       tenDotGiamGia: formData.value.tenDotGiamGia.trim(),
       phanTramGiam: finalVal,
       loaiGiamGia: formData.value.loaiGiamGia,
@@ -1847,10 +1900,10 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
-/* Toast Notification góc phải trên màn hình */
+/* Toast Notification dưới góc phải màn hình */
 .toast-msg {
   position: fixed;
-  top: 24px;
+  bottom: 24px;
   right: 28px;
   min-width: 320px;
   max-width: 460px;
@@ -1941,11 +1994,11 @@ onMounted(() => {
 }
 .toast-slide-enter-from {
   opacity: 0;
-  transform: translateX(45px);
+  transform: translateY(25px) translateX(35px);
 }
 .toast-slide-leave-to {
   opacity: 0;
-  transform: translateX(45px);
+  transform: translateY(25px) translateX(35px);
 }
 
 /* Header breadcrumb: Tăng khoảng cách lề thoáng đãng */
@@ -2248,10 +2301,37 @@ onMounted(() => {
   color: #10b981;
   border: 1px solid #d1fae5;
 }
+.status-pill-upcoming {
+  background-color: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #dbeafe;
+}
+.status-pill-ended {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
 .status-pill-inactive {
   background-color: #fef2f2;
   color: #ef4444;
   border: 1px solid #fee2e2;
+}
+
+.input-auto-gen-empty {
+  font-style: italic;
+  color: #6b7280;
+  background-color: #f9fafb !important;
+}
+.input-auto-gen-empty::placeholder {
+  font-style: italic;
+  color: #9ca3af;
+}
+.auto-code-hint {
+  font-size: 0.76rem;
+  color: #6b7280;
+  font-style: italic;
+  margin-top: 5px;
+  display: block;
 }
 
 /* Cụm 2 nút hành động (Màu Be & Xanh dương) */
@@ -2966,12 +3046,24 @@ onMounted(() => {
   font-weight: 600;
 }
 
-/* Hàng trên: Grid 2 cột */
+/* Hàng trên: Grid 2 cột (Cột trái rộng hơn, Cột phải hẹp hơn một chút và chứa cả 2 thẻ sản phẩm) */
 .video-top-grid {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 430px 1fr;
   gap: 1.25rem;
   align-items: start;
+}
+
+.card-campaign-info {
+  position: sticky;
+  top: 1rem;
+}
+
+.video-right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
 }
 
 /* Thẻ chung */
@@ -2981,6 +3073,8 @@ onMounted(() => {
   border: 1px solid #edf0f2;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   padding: 1.25rem 1.4rem;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* Header của thẻ */
@@ -3031,12 +3125,14 @@ onMounted(() => {
 .video-form-body {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 .video-form-group {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
   margin-bottom: 1rem;
+  min-width: 0;
 }
 .video-form-label {
   font-size: 0.86rem;
@@ -3073,6 +3169,45 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
+.input-has-error {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+}
+.input-has-error:focus,
+.input-with-suffix-group.input-has-error:focus-within {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+.input-with-suffix-group.input-has-error .video-input {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+}
+.input-with-suffix-group.input-has-error .input-suffix-addon {
+  border-color: #ef4444 !important;
+  background-color: #fee2e2 !important;
+  color: #b91c1c !important;
+}
+.field-error-msg {
+  color: #ef4444;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-top: 4px;
+  display: block;
+}
+.campaign-ended-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #fef2f2;
+  border: 1px solid #fee2e2;
+  color: #b91c1c;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
 .input-with-action-btn {
   display: flex;
   align-items: center;
@@ -3100,6 +3235,52 @@ onMounted(() => {
 .btn-code-refresh:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.input-with-suffix-group {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+.input-with-suffix-group .video-input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
+  flex: 1;
+}
+.input-suffix-addon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1.15rem;
+  background-color: #faf9f6;
+  border: 1px solid #e5e7eb;
+  border-left: 1px solid #ede9de;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  color: #304b60;
+  font-weight: 700;
+  font-size: 0.95rem;
+  user-select: none;
+  transition: all 0.2s;
+}
+.input-with-suffix-group:focus-within .video-input {
+  border-color: #304b60;
+  box-shadow: 0 0 0 3px rgba(48, 75, 96, 0.12);
+}
+.input-with-suffix-group:focus-within .input-suffix-addon {
+  border-color: #304b60;
+  background-color: #f0f7ff;
+}
+
+/* Ẩn hoàn toàn mũi tên tăng giảm mặc định của input type=number */
+.input-no-spin::-webkit-inner-spin-button,
+.input-no-spin::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.input-no-spin {
+  -moz-appearance: textfield;
 }
 
 .input-with-suffix {
@@ -3362,7 +3543,7 @@ onMounted(() => {
 
 /* Thẻ biến thể đã chọn ở dưới */
 .card-applied-variants {
-  margin-top: 0.25rem;
+  margin-top: 0;
 }
 .product-cell-flex {
   display: flex;
@@ -3455,6 +3636,9 @@ onMounted(() => {
 @media (max-width: 1050px) {
   .video-top-grid {
     grid-template-columns: 1fr;
+  }
+  .card-campaign-info {
+    position: static;
   }
   .filter-inputs-grid-4 {
     grid-template-columns: repeat(2, 1fr);
