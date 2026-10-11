@@ -31,5 +31,4 @@ public class KhachHangPhieuGiamGia {
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
 
-//hndbhjed
 }
