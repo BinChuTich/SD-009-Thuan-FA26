@@ -202,7 +202,7 @@
               <td class="text-date-simple">{{ formatDateTime(item.ngayBatDau) }}</td>
               <td class="text-date-simple">
                 <span v-if="item.ngayKetThuc">{{ formatDateTime(item.ngayKetThuc) }}</span>
-                <span v-else class="text-muted-infinity">Vô thời hạn</span>
+                <span v-else class="text-muted">—</span>
               </td>
 
               <!-- Trạng thái: Badge pill tròn mượt mà theo trạng thái thực tế -->
@@ -232,7 +232,7 @@
 
                   <button
                       class="btn-icon-circle btn-icon-eye"
-                      :title="getCampaignStatus(item).code === 'ENDED' ? 'Xem chi tiết (Đã kết thúc)' : 'Xem chi tiết & Chỉnh sửa'"
+                      title="Xem chi tiết & Chỉnh sửa"
                       @click="openEditView(item)"
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -326,12 +326,6 @@
         <!-- CỘT TRÁI: THẺ THÔNG TIN ĐỢT GIẢM -->
         <div class="video-card card-campaign-info">
           <div class="video-card-header">
-            <div class="header-icon-box blue-icon-box">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#304b60" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                <line x1="7" y1="7" x2="7.01" y2="7"></line>
-              </svg>
-            </div>
             <h3 class="video-card-title">Thông tin đợt giảm</h3>
           </div>
 
@@ -364,23 +358,12 @@
               </div>
             </div>
 
-            <!-- Cảnh báo nếu đợt giảm giá đã kết thúc -->
-            <div v-if="isEditing && isCurrentCampaignEnded" class="campaign-ended-banner">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </svg>
-              <span>Đợt giảm giá này đã kết thúc. Không thể chỉnh sửa hoặc thay đổi trạng thái.</span>
-            </div>
-
             <!-- Tên đợt * -->
             <div class="video-form-group">
               <label class="video-form-label">Tên đợt <span class="req">*</span></label>
               <input
                 type="text"
                 v-model="formData.tenDotGiamGia"
-                :disabled="isEditing && isCurrentCampaignEnded"
                 :class="['video-input', { 'input-has-error': errors.tenDotGiamGia }]"
                 placeholder="Nhập tên đợt giảm giá..."
                 @input="clearError('tenDotGiamGia')"
@@ -395,9 +378,7 @@
                 <input
                   type="number"
                   min="1"
-                  max="100"
                   v-model.number="formData.phanTramGiam"
-                  :disabled="isEditing && isCurrentCampaignEnded"
                   @input="handlePhanTramInput"
                   class="video-input input-no-spin"
                   placeholder="Nhập mức giảm..."
@@ -414,9 +395,9 @@
                 type="datetime-local"
                 v-model="formData.ngayBatDau"
                 :min="minStartDateTime"
-                :disabled="isEditing && isCurrentCampaignEnded"
                 :class="['video-input', { 'input-has-error': errors.ngayBatDau }]"
                 @change="handleNgayBatDauChange"
+                @input="handleNgayBatDauChange"
               />
               <span v-if="errors.ngayBatDau" class="field-error-msg">{{ errors.ngayBatDau }}</span>
             </div>
@@ -428,9 +409,9 @@
                 type="datetime-local"
                 v-model="formData.ngayKetThuc"
                 :min="formData.ngayBatDau || minStartDateTime || undefined"
-                :disabled="isEditing && isCurrentCampaignEnded"
                 :class="['video-input', { 'input-has-error': errors.ngayKetThuc }]"
                 @change="handleNgayKetThucChange"
+                @input="handleNgayKetThucChange"
               />
               <span v-if="errors.ngayKetThuc" class="field-error-msg">{{ errors.ngayKetThuc }}</span>
             </div>
@@ -441,7 +422,6 @@
               <label class="video-form-label">Mô tả</label>
               <textarea
                 v-model="formData.moTa"
-                :disabled="isEditing && isCurrentCampaignEnded"
                 class="video-textarea"
                 rows="3"
                 placeholder="Nhập mô tả..."
@@ -453,8 +433,7 @@
               <button 
                 class="btn-video-submit" 
                 @click="onSaveClick" 
-                :disabled="submitting || (isEditing && isCurrentCampaignEnded)"
-                :title="isEditing && isCurrentCampaignEnded ? 'Đợt giảm giá đã kết thúc, không thể chỉnh sửa' : ''"
+                :disabled="submitting"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
@@ -464,7 +443,7 @@
                 <span>{{ isEditing ? 'Cập nhật đợt giảm giá' : 'Tạo đợt giảm giá' }}</span>
               </button>
               <button class="btn-video-cancel" @click="backToList">
-                {{ isEditing && isCurrentCampaignEnded ? 'Quay lại' : 'Hủy' }}
+                Hủy
               </button>
             </div>
           </div>
@@ -476,13 +455,6 @@
           <div class="video-card card-select-products">
             <div class="video-card-header header-between">
             <div class="header-left-group">
-              <div class="header-icon-box blue-icon-box">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#304b60" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-                  <polyline points="2 17 12 22 22 17"></polyline>
-                  <polyline points="2 12 12 17 22 12"></polyline>
-                </svg>
-              </div>
               <div>
                 <h3 class="video-card-title">Chọn sản phẩm áp dụng</h3>
                 <span class="video-card-subtitle">Đã chọn {{ selectedVariants.length }} biến thể</span>
@@ -613,12 +585,6 @@
         <div class="video-card card-applied-variants">
         <div class="video-card-header header-between">
           <div class="header-left-group">
-            <div class="header-icon-box blue-icon-box">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#304b60" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-              </svg>
-            </div>
             <h3 class="video-card-title">Sản phẩm & biến thể đã chọn áp dụng</h3>
           </div>
 
@@ -949,11 +915,6 @@ const clearError = (field) => {
   }
 }
 
-// Kiểm tra đợt giảm giá đang chỉnh sửa đã kết thúc chưa
-const isCurrentCampaignEnded = computed(() => {
-  if (!isEditing.value || !formData.value.ngayKetThuc) return false
-  return new Date(formData.value.ngayKetThuc).getTime() < Date.now()
-})
 
 // Mốc thời gian tối thiểu cho thời gian bắt đầu (không trước hiện tại khi tạo mới)
 const minStartDateTime = computed(() => {
@@ -1225,13 +1186,16 @@ const isCashDiscount = (item) => {
   return false
 }
 
-// Chặn mức giảm phần trăm tối đa không vượt quá 100%
+// Kiểm tra mức giảm phần trăm khi người dùng nhập
 const handlePhanTramInput = () => {
   clearError('phanTramGiam')
-  if (formData.value.phanTramGiam > 100) {
-    formData.value.phanTramGiam = 100
-  } else if (formData.value.phanTramGiam < 0) {
-    formData.value.phanTramGiam = 0
+  const val = formData.value.phanTramGiam
+  if (val === null || val === '' || val === undefined) {
+    errors.value.phanTramGiam = 'Mức giảm không được để trống!'
+  } else if (Number(val) > 100) {
+    errors.value.phanTramGiam = 'Mức giảm không được vượt quá 100%!'
+  } else if (Number(val) <= 0) {
+    errors.value.phanTramGiam = 'Mức giảm phải lớn hơn 0%!'
   }
 }
 
@@ -1254,7 +1218,10 @@ const handleGiaTriGiamInput = () => {
 // Kiểm tra thời gian bắt đầu
 const handleNgayBatDauChange = () => {
   clearError('ngayBatDau')
-  if (!formData.value.ngayBatDau) return
+  if (!formData.value.ngayBatDau || formData.value.ngayBatDau.trim() === '') {
+    errors.value.ngayBatDau = 'Thời gian bắt đầu không được để trống!'
+    return
+  }
   if (!isEditing.value) {
     if (new Date(formData.value.ngayBatDau).getTime() < Date.now() - 60000) {
       errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
@@ -1270,10 +1237,13 @@ const handleNgayBatDauChange = () => {
   }
 }
 
-// Kiểm tra thời gian kết thúc
+// Kiểm tra thời gian kết thúc (bắt buộc, không cho để trống)
 const handleNgayKetThucChange = () => {
   clearError('ngayKetThuc')
-  if (!formData.value.ngayKetThuc) return
+  if (!formData.value.ngayKetThuc || formData.value.ngayKetThuc.trim() === '') {
+    errors.value.ngayKetThuc = 'Thời gian kết thúc không được để trống!'
+    return
+  }
   if (formData.value.ngayBatDau) {
     if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
       errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
@@ -1780,11 +1750,14 @@ const openEditView = async (item) => {
   variantCurrentPage.value = 1
   currentView.value = 'form'
 
-  if (getCampaignStatus(item).code === 'ENDED') {
-    showToast(`Đợt "${item.tenDotGiamGia}" đã kết thúc (chỉ xem, không thể sửa)!`, 'info')
-  } else {
-    showToast(`Mở chỉnh sửa đợt "${item.tenDotGiamGia}"!`, 'info')
+  // Kiểm tra nếu ngày kết thúc <= ngày bắt đầu thì báo đỏ ngay dưới ô
+  if (formData.value.ngayBatDau && formData.value.ngayKetThuc) {
+    if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
+      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
+    }
   }
+
+  showToast(`Mở chỉnh sửa đợt "${item.tenDotGiamGia}"!`, 'info')
 }
 
 const backToList = () => {
@@ -1794,11 +1767,6 @@ const backToList = () => {
 // Bấm nút Lưu / Tạo -> kiểm tra và mở popup xác nhận
 const onSaveClick = () => {
   errors.value = {}
-
-  if (isEditing.value && isCurrentCampaignEnded.value) {
-    showToast('Đợt giảm giá này đã kết thúc, không thể chỉnh sửa!', 'error')
-    return
-  }
 
   let hasError = false
 
@@ -1811,10 +1779,13 @@ const onSaveClick = () => {
   // 2. Kiểm tra Mức giảm
   if (formData.value.loaiGiamGia === 1) {
     if (formData.value.phanTramGiam === null || formData.value.phanTramGiam === '' || formData.value.phanTramGiam === undefined) {
-      errors.value.phanTramGiam = 'Vui lòng nhập mức giảm (%)!'
+      errors.value.phanTramGiam = 'Mức giảm không được để trống!'
       hasError = true
-    } else if (Number(formData.value.phanTramGiam) <= 0 || Number(formData.value.phanTramGiam) > 100) {
-      errors.value.phanTramGiam = 'Mức giảm phải lớn hơn 0% và không vượt quá 100%!'
+    } else if (Number(formData.value.phanTramGiam) > 100) {
+      errors.value.phanTramGiam = 'Mức giảm không được vượt quá 100%!'
+      hasError = true
+    } else if (Number(formData.value.phanTramGiam) <= 0) {
+      errors.value.phanTramGiam = 'Mức giảm phải lớn hơn 0%!'
       hasError = true
     }
   } else {
@@ -1837,13 +1808,14 @@ const onSaveClick = () => {
     }
   }
 
-  // 4. Kiểm tra Thời gian kết thúc
-  if (formData.value.ngayKetThuc && formData.value.ngayKetThuc.trim() !== '') {
-    if (formData.value.ngayBatDau) {
-      if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
-        errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
-        hasError = true
-      }
+  // 4. Kiểm tra Thời gian kết thúc (Bắt buộc, không cho để trống)
+  if (!formData.value.ngayKetThuc || formData.value.ngayKetThuc.trim() === '') {
+    errors.value.ngayKetThuc = 'Thời gian kết thúc không được để trống!'
+    hasError = true
+  } else if (formData.value.ngayBatDau) {
+    if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
+      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
+      hasError = true
     }
   }
 
