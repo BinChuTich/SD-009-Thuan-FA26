@@ -273,11 +273,10 @@ const handleCheckout = async () => {
 <template>
   <div class="pos-page-wrapper">
     <!-- TIÊU ĐỀ TRANG -->
-    <div class="header-breadcrumb">
-      <div class="title-bar">
-        <span class="icon-menu-toggle">☰</span>
-        <h2 class="main-page-title">Bán hàng tại quầy</h2>
-      </div>
+    <div class="page-breadcrumb">
+      <router-link to="/ban-hang" class="crumb-parent">Quản lý bán hàng</router-link>
+      <span class="crumb-separator">/</span>
+      <span class="crumb-current">Bán hàng tại quầy</span>
     </div>
 
     <!-- KHUNG CHÍNH 2 CỘT -->
@@ -540,9 +539,9 @@ const handleCheckout = async () => {
    TỔNG THỂ THEO BẢNG MÀU DỰ ÁN FF T-SHIRT
 ========================================================== */
 .pos-page-wrapper {
-  padding: 18px 24px;
-  background-color: #f7f5ef;
-  min-height: 100vh;
+  padding: 1.25rem 2rem 3rem;
+  background-color: var(--bg, #f7f5ef);
+  min-height: calc(100vh - 48px);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: #3d4a50;
   box-sizing: border-box;

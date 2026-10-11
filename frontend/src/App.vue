@@ -49,7 +49,7 @@ const isThuocTinhActive = computed(() => {
         <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/>
       </svg>
     </span>
-          <span class="menu-text">Tổng quan</span>
+          <span class="menu-text">Thống kê</span>
         </router-link>
 
         <!-- 2. Bán Hàng Tại Quầy -->
@@ -528,7 +528,7 @@ const isThuocTinhActive = computed(() => {
 .top-header {
   height: 3.5rem !important;
   background-color: transparent;
-  padding: 0 28px;
+  padding: 0 2rem;
   display: flex;
   justify-content: flex-end;
   align-items: center;

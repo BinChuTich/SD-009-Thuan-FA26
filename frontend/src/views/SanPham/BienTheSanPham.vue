@@ -578,12 +578,10 @@ watch(() => route.query.sanPhamId, async (newId) => {
     </transition>
 
     <!-- 1. Thanh Breadcrumb đầu trang -->
-    <div class="breadcrumb-nav-bar">
-      <div class="nav-breadcrumbs">
-        <span class="crumb-link" @click="goToProductList">Quản lý sản phẩm</span>
-        <span class="crumb-slash">/</span>
-        <span class="crumb-current">Biến thể sản phẩm</span>
-      </div>
+    <div class="page-breadcrumb">
+      <router-link to="/san-pham" class="crumb-parent">Quản lý sản phẩm</router-link>
+      <span class="crumb-separator">/</span>
+      <span class="crumb-current">Biến thể sản phẩm</span>
     </div>
 
     <!-- Khối thẻ chính bao bọc toàn bộ nội dung -->
@@ -1132,7 +1130,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
 }
 
 .variant-page-container {
-  padding: 1.25rem 1.75rem 2.5rem;
+  padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif;

@@ -2,12 +2,14 @@
   <div class="customer-page-wrapper">
     <!-- Header -->
     <div class="page-top-header">
-      <div class="header-left">
-        <button class="btn-back" @click="goBack">
-          <span>←</span> Quay lại danh sách
-        </button>
-        <h2 class="page-title">Thêm mới khách hàng</h2>
+      <div class="page-breadcrumb">
+        <router-link to="/khach-hang" class="crumb-parent">Quản lý khách hàng</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">Thêm mới khách hàng</span>
       </div>
+      <button class="btn-back" @click="goBack">
+        <span>←</span> Quay lại danh sách
+      </button>
     </div>
 
     <!-- Form Container -->
@@ -486,7 +488,7 @@ onMounted(() => {
 
 <style scoped>
 .customer-page-wrapper {
-  padding: 1.8rem 2.2rem 3.5rem;
+  padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);

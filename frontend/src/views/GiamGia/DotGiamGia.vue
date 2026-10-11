@@ -31,10 +31,10 @@
     ======================================================== -->
     <div v-if="currentView === 'list'" class="view-list">
       <!-- 1. Thanh tiêu đề trên cùng góc trái -->
-      <div class="breadcrumb-header">
-        <div class="breadcrumb-left">
-          <span class="breadcrumb-text">Quản lý giảm giá <span class="slash">/</span> <b>Đợt giảm giá</b></span>
-        </div>
+      <div class="page-breadcrumb">
+        <router-link to="/dot-giam-gia" class="crumb-parent">Quản lý giảm giá</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">Đợt giảm giá</span>
       </div>
 
       <!-- 2. Khung Bộ lọc (Chuẩn ảnh mẫu) -->
@@ -309,11 +309,11 @@
             <polyline points="12 19 5 12 12 5"></polyline>
           </svg>
         </button>
-        <div class="video-breadcrumb-text">
-          <span class="crumb-link" @click="backToList">Quản lý giảm giá</span>
-          <span class="crumb-sep">/</span>
-          <span class="crumb-link" @click="backToList">Đợt giảm giá</span>
-          <span class="crumb-sep">/</span>
+        <div class="page-breadcrumb" style="margin-bottom: 0;">
+          <router-link to="/dot-giam-gia" class="crumb-parent" @click.prevent="backToList">Quản lý giảm giá</router-link>
+          <span class="crumb-separator">/</span>
+          <a class="crumb-parent" @click.prevent="backToList">Đợt giảm giá</a>
+          <span class="crumb-separator">/</span>
           <span class="crumb-current">{{ isEditing ? 'Chi tiết đợt giảm giá' : 'Thêm đợt giảm giá' }}</span>
         </div>
       </div>
@@ -1839,7 +1839,7 @@ onMounted(() => {
 
 <style scoped>
 .dot-giam-gia-wrapper {
-  padding: 2.2rem 3.5rem 5rem;
+  padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   font-family: var(--system-font, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);

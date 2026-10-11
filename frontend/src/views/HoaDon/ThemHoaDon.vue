@@ -3,14 +3,10 @@
 
     <!-- Header -->
     <div class="page-header">
-      <div>
-        <div class="title-row">
-          <span class="title-line"></span>
-          <div>
-            <h2>Thêm hóa đơn</h2>
-            <p>Tạo hóa đơn mới cho khách hàng</p>
-          </div>
-        </div>
+      <div class="page-breadcrumb">
+        <router-link to="/hoa-don" class="crumb-parent">Quản lý đơn hàng</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">Thêm mới hóa đơn</span>
       </div>
 
       <button class="btn-back" @click="quayLai">
@@ -465,9 +461,10 @@ const quayLai = () => {
 }
 
 .add-invoice-page {
-  min-height: 100vh;
-  background: #f7f5ef;
-  padding: 28px 35px 50px;
+  min-height: calc(100vh - 48px);
+  background: var(--bg, #f7f5ef);
+  padding: 1.25rem 2rem 3rem;
+  box-sizing: border-box;
 }
 
 

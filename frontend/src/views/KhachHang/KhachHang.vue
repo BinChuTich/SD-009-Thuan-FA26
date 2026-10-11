@@ -1,5 +1,12 @@
 <template>
   <div class="customer-page-wrapper">
+    <!-- Breadcrumb -->
+    <div class="page-breadcrumb">
+      <router-link to="/khach-hang" class="crumb-parent">Quản lý khách hàng</router-link>
+      <span class="crumb-separator">/</span>
+      <span class="crumb-current">Danh sách khách hàng</span>
+    </div>
+
     <!-- Khung Bộ lọc -->
     <div class="content-card filter-card">
       <div class="card-header-filter">
@@ -677,11 +684,41 @@ onMounted(() => {
 
 <style scoped>
 .customer-page-wrapper {
-  padding: 0 2.2rem 3rem;
+  padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);
   box-sizing: border-box;
+}
+
+.page-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  margin-bottom: 20px;
+}
+
+.crumb-parent {
+  color: #8c969e;
+  font-weight: 400;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.crumb-parent:hover {
+  color: #3e5c76;
+}
+
+.crumb-separator {
+  color: #b0b7bd;
+  font-weight: 300;
+  user-select: none;
+}
+
+.crumb-current {
+  color: #3e5c76;
+  font-weight: 600;
 }
 
 .content-card {

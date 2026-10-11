@@ -391,13 +391,11 @@ watch(() => route.query.tab, (newTab) => {
     <!-- Header trang -->
     <div class="page-top-bar">
       <div class="title-cluster">
-        <div class="breadcrumb-trail">
-          <router-link to="/san-pham" class="bc-link">Quản lý sản phẩm</router-link>
-          <span class="bc-separator">/</span>
-          <span class="bc-current">Danh sách thuộc tính</span>
+        <div class="page-breadcrumb">
+          <router-link to="/thuong-hieu" class="crumb-parent">Quản lý thuộc tính</router-link>
+          <span class="crumb-separator">/</span>
+          <span class="crumb-current">Danh sách thuộc tính</span>
         </div>
-        <h1 class="main-title">Quản Lý Danh Sách Thuộc Tính</h1>
-        <p class="sub-title">Quản lý chi tiết danh mục, màu sắc, kích cỡ, chất liệu và các thuộc tính cấu thành sản phẩm</p>
       </div>
 
       <button class="btn-create-attr" @click="openAddModal">
@@ -704,9 +702,10 @@ watch(() => route.query.tab, (newTab) => {
 
 <style scoped>
 .thuoc-tinh-page {
-  padding: 1.5rem 2rem 3rem;
-  background-color: #f7f5ef;
-  min-height: 100vh;
+  padding: 1.25rem 2rem 3rem;
+  background-color: var(--bg, #f7f5ef);
+  min-height: calc(100vh - 48px);
+  box-sizing: border-box;
 }
 
 /* Header */

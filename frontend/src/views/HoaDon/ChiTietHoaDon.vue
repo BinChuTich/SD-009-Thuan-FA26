@@ -763,7 +763,7 @@ onBeforeUnmount(() => {
         </button>
 
         <div class="page-breadcrumb">
-          <span class="crumb-link" @click="quayLaiHoaDon">Hóa đơn</span>
+          <router-link to="/hoa-don" class="crumb-parent">Quản lý đơn hàng</router-link>
           <span class="crumb-separator">/</span>
           <span class="crumb-current">Chi tiết hóa đơn: {{ invoiceData.code }}</span>
         </div>
@@ -1389,20 +1389,18 @@ onBeforeUnmount(() => {
 }
 
 .chi-tiet-page {
-  margin-left: 20px;
-  width: calc(100% - 20px);
-  padding: 24px 30px;
-  background-color: #faf7f0;
-  min-height: 100vh;
+  width: 100%;
+  padding: 1.25rem 2rem 3rem;
+  background-color: var(--bg, #f7f5ef);
+  min-height: calc(100vh - 48px);
   box-sizing: border-box;
   position: relative;
 }
 
 @media (max-width: 768px) {
   .chi-tiet-page {
-    margin-left: 0;
     width: 100%;
-    padding: 20px 16px;
+    padding: 1rem 1rem 2rem;
   }
 }
 

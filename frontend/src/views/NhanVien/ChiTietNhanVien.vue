@@ -2,15 +2,15 @@
   <div class="employee-page-wrapper">
     <!-- Header -->
     <div class="page-top-header">
-      <div class="header-left">
-        <button class="btn-back" @click="goBack">
-          <span>←</span> Quay lại danh sách
-        </button>
-        <h2 class="page-title">
-          Thông tin nhân viên: {{ form.tenNhanVien || form.maNhanVien }}
-        </h2>
+      <div class="page-breadcrumb">
+        <router-link to="/nhan-vien" class="crumb-parent">Quản lý nhân viên</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">Thông tin nhân viên: {{ form.tenNhanVien || form.maNhanVien }}</span>
       </div>
       <div class="header-right">
+        <button class="btn-back" @click="goBack" style="margin-right: 10px;">
+          <span>←</span> Quay lại danh sách
+        </button>
         <button type="button" class="btn-scan-cccd" @click="showScanModal = true">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="7" height="7"></rect>
@@ -659,7 +659,7 @@ onMounted(() => {
 
 <style scoped>
 .employee-page-wrapper {
-  padding: 1.8rem 2.2rem 3.5rem;
+  padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);

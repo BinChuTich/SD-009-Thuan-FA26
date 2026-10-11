@@ -1,10 +1,10 @@
 <template>
   <div class="voucher-page-wrapper">
     <!-- 1. Thanh tiêu đề trên cùng -->
-    <div class="breadcrumb-header">
-      <div class="breadcrumb-left">
-        <span class="breadcrumb-text">Quản lý giảm giá <span class="slash">/</span> <b>Phiếu giảm giá</b></span>
-      </div>
+    <div class="page-breadcrumb">
+      <router-link to="/phieu-giam-gia" class="crumb-parent">Quản lý giảm giá</router-link>
+      <span class="crumb-separator">/</span>
+      <span class="crumb-current">Phiếu giảm giá</span>
     </div>
 
     <!-- 2. Khung Bộ lọc (Tone màu ấm FF T-shirt) -->
@@ -578,7 +578,7 @@ const openCreateModal = () => {
 
 <style scoped>
 .voucher-page-wrapper {
-  padding: 1.5rem 2.5rem 2.5rem;
+  padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   font-family: var(--system-font, sans-serif);

@@ -357,7 +357,11 @@ onMounted(() => {
   <div class="product-page-container">
     <!-- Tiêu đề trang -->
     <div class="page-header-row">
-      <h2 class="main-page-title">QUẢN LÝ {{ title.toUpperCase() }}</h2>
+      <div class="page-breadcrumb">
+        <router-link to="/thuong-hieu" class="crumb-parent">Quản lý thuộc tính</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">{{ title }}</span>
+      </div>
       <div v-if="toast.show" :class="['toast-notification', toast.type]">
         {{ toast.message }}
       </div>
@@ -725,7 +729,7 @@ onMounted(() => {
 <style scoped>
 /* Vùng hiển thị trang đồng bộ trang sản phẩm */
 .product-page-container {
-  padding: 1.25rem 1.5rem 2.5rem;
+  padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);

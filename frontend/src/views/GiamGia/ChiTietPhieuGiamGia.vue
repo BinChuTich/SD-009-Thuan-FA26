@@ -2,11 +2,10 @@
   <div class="voucher-detail-wrapper">
     <!-- 1. Thanh tiêu đề trên cùng & Nút quay lại -->
     <div class="page-top-header">
-      <div class="top-title-wrap">
-        <h2 class="main-page-title">
-          Cập nhật phiếu giảm giá
-          <span v-if="form" class="code-highlight">[{{ form.maPhieuGiamGia }}]</span>
-        </h2>
+      <div class="page-breadcrumb">
+        <router-link to="/phieu-giam-gia" class="crumb-parent">Quản lý giảm giá</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">Cập nhật phiếu giảm giá <span v-if="form" class="code-highlight">[{{ form.maPhieuGiamGia }}]</span></span>
       </div>
       <button class="btn-back-pill" @click="goBack" title="Quay lại danh sách phiếu giảm giá">
         ← Quay lại danh sách
@@ -1018,7 +1017,7 @@ onMounted(async () => {
 <style scoped>
 /* Khung tổng thể bao ngoài căn lề chuẩn hệ thống */
 .voucher-detail-wrapper {
-  padding: 1.5rem 2.5rem 3rem;
+  padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   font-family: var(--system-font, sans-serif);

@@ -588,7 +588,7 @@ onBeforeUnmount(() => {
 
     <!-- TIÊU ĐỀ CHÍNH -->
     <div class="page-breadcrumb">
-      <span class="crumb-parent">Hóa đơn</span>
+      <router-link to="/hoa-don" class="crumb-parent">Quản lý đơn hàng</router-link>
       <span class="crumb-separator">/</span>
       <span class="crumb-current">Danh sách hóa đơn</span>
     </div>
@@ -812,11 +812,10 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .hoa-don-container {
-  padding: 24px 32px;
-  background-color: #faf7f0;
-  min-height: 100vh;
+  padding: 1.25rem 2rem 3rem;
+  background-color: var(--bg, #f7f5ef);
+  min-height: calc(100vh - 48px);
   box-sizing: border-box;
-  margin-left: 20px;
 }
 
 .page-breadcrumb {

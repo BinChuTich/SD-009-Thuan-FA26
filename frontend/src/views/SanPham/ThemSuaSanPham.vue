@@ -2,11 +2,10 @@
   <div class="product-form-container">
     <!-- 1. Thanh tiêu đề & Điều hướng -->
     <div class="form-header-bar">
-      <div class="breadcrumb-group">
-        <span class="breadcrumb-icon">☰</span>
-        <span class="breadcrumb-root" @click="handleBack">Sản phẩm</span>
-        <span class="breadcrumb-sep">/</span>
-        <span class="breadcrumb-current">{{ isEdit ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm' }}</span>
+      <div class="page-breadcrumb">
+        <router-link to="/san-pham" class="crumb-parent">Quản lý sản phẩm</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">{{ isEdit ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm' }}</span>
       </div>
 
       <button type="button" class="btn btn-back-top" @click="handleBack">
