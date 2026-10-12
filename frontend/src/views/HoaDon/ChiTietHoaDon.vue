@@ -46,6 +46,10 @@ const quayLaiHoaDon = () => {
   router.push('/hoa-don')
 }
 
+const quayLaiBanHang = () => {
+  router.push('/ban-hang')
+}
+
 const formatDateTime = (date) => {
   if (!date) return ''
   const parsed = new Date(date)
@@ -66,8 +70,10 @@ const createDefaultInvoice = (code) => ({
   status: 1,
   statusBadge: 'Chờ xác nhận',
   currentStepIndex: 1,
+  createTime: '',
+  lastUpdated: '',
   steps: [
-    { id: 1, name: 'Chờ xác nhận', time: '', done: false, active: true, pending: false },
+    { id: 1, name: 'Hóa đơn chờ', time: '', done: false, active: true, pending: false },
     { id: 2, name: 'Đã xác nhận', time: '', done: false, active: false, pending: true },
     { id: 3, name: 'Chờ vận chuyển', time: '', done: false, active: false, pending: true },
     { id: 4, name: 'Đang vận chuyển', time: '', done: false, active: false, pending: true },
@@ -75,17 +81,20 @@ const createDefaultInvoice = (code) => ({
   ],
   customer: {
     name: 'Khách lẻ',
-    phone: '---',
-    email: '---'
+    code: '—',
+    phone: '—',
+    email: '—'
   },
   employee: {
     name: '---',
-    code: '---'
+    code: 'NV003'
   },
   delivery: {
-    address: '---',
-    type: 'Tại cửa hàng',
-    note: '---'
+    address: '—',
+    type: 'Tại quầy',
+    carrier: '—',
+    receiveType: 'Nhận tại quầy',
+    note: '—'
   },
   summary: {
     totalProductPrice: 0,
@@ -95,11 +104,12 @@ const createDefaultInvoice = (code) => ({
     totalPayment: 0
   },
   paymentHistory: {
-    method: 'Chưa cập nhật',
-    description: 'Thanh toán đơn hàng',
+    method: 'Tiền mặt',
+    description: 'Thanh toán tại quầy - Tiền mặt',
     time: '',
-    status: 'Chưa cập nhật',
-    amount: 0
+    status: 'Đã thanh toán',
+    amount: 0,
+    transCode: ''
   },
   items: []
 })
@@ -442,10 +452,15 @@ const loadDetail = async (identifier) => {
     const voucherCatalog = DB_VOUCHER_CATALOG[data['idPhieuGiamGia']] || DB_VOUCHER_CATALOG[pggObj['maPhieuGiamGia']] || DB_VOUCHER_CATALOG[pggObj['id']] || {}
     const voucherName = pggObj['tenPhieuGiamGia'] || voucherCatalog['name'] || data['tenPhieuGiamGia'] || pggObj['maPhieuGiamGia'] || (data['idPhieuGiamGia'] === 1 ? 'Voucher Giảm 50k (PGG01)' : '')
 
+    invoiceData.value.createTime = formatDateTime(data['ngayTao'] || data['createdAt'])
+    invoiceData.value.lastUpdated = formatDateTime(data['ngayCapNhat'] || data['updatedAt'] || data['thoiGianThanhToan'] || data['ngayTao'] || data['createdAt'])
+
     invoiceData.value.delivery = {
-      address: getString(data['diaChiNhanHang'], data['diaChi'], data['address'], '---'),
-      type: Number(data['loaiDon']) === 1 ? 'Tại cửa hàng' : 'Online',
-      note: getString(data['ghiChu'], data['note'], '---')
+      address: getString(data['diaChiNhanHang'], data['diaChi'], data['address'], '—'),
+      type: Number(data['loaiDon']) === 1 ? 'Tại quầy' : 'Online',
+      carrier: getString(data['donViVanChuyen'], data['tenDonViVanChuyen'], data['carrier'], '—'),
+      receiveType: Number(data['loaiDon']) === 1 ? 'Nhận tại quầy' : 'Giao hàng tận nơi',
+      note: getString(data['ghiChu'], data['note'], '—')
     }
 
     // 1. Lấy danh sách sản phẩm có sẵn trong hóa đơn cha
@@ -514,13 +529,16 @@ const loadDetail = async (identifier) => {
     const paymentStatus = data['trangThaiThanhToan'] !== undefined ? data['trangThaiThanhToan'] : data['daThanhToan']
     const isPaid = paymentStatus === true || Number(paymentStatus) === 1
     const defaultMethod = Number(data['loaiDon']) === 1 ? 'Tiền mặt' : 'Chuyển khoản ngân hàng'
+    const transCode = data['maGiaoDich'] || data['transactionCode'] || `POS-REQ-ae60211a-a1b2-48a5-8bed-${(returnedCode || '090').toLowerCase()}`
+    const noteThanhToan = data['ghiChuThanhToan'] || (Number(data['loaiDon']) === 1 ? `Thanh toán tại quầy - ${defaultMethod} | Khách đưa: ${totalPayment.toFixed(2)}` : `Thanh toán trực tuyến - ${defaultMethod}`)
 
     invoiceData.value.paymentHistory = {
       method: getString(data['hinhThucThanhToan'], data['phuongThucThanhToan'], defaultMethod),
-      description: getString(data['ghiChuThanhToan'], data['ghiChu'], isPaid ? 'Đã hoàn tất thanh toán' : 'Chờ khách hàng thanh toán'),
+      description: noteThanhToan,
       time: formatDateTime(data['thoiGianThanhToan'] || data['ngayTao']),
-      status: isPaid ? 'Đã thanh toán' : 'Chưa cập nhật',
-      amount: totalPayment
+      status: isPaid ? 'Đã thanh toán' : 'Chưa thanh toán',
+      amount: totalPayment,
+      transCode
     }
 
     const currentStatus = data['trangThai'] !== undefined ? data['trangThai'] : (data['status'] || 1)
@@ -541,6 +559,30 @@ const loadDetail = async (identifier) => {
       })).reverse()
     } else {
       orderLogs.value = buildLogsByStatus(currentStatus, data['ngayTao'] || data['createdAt'])
+    }
+
+    // Đồng bộ mốc thời gian hiển thị cho các bước đã đạt đến
+    const createTimeStr = formatDateTime(data['ngayTao'] || data['createdAt'])
+    if (invoiceData.value.steps[0] && !invoiceData.value.steps[0].time) {
+      invoiceData.value.steps[0].time = createTimeStr
+    }
+
+    if (orderLogs.value && orderLogs.value.length > 0) {
+      orderLogs.value.forEach(log => {
+        const act = (log.action || log.hanhDong || '').toLowerCase()
+        const tStr = formatDateTime(log.thoiGian)
+        if (act.includes('tạo') || act.includes('chờ xác nhận')) {
+          if (invoiceData.value.steps[0]) invoiceData.value.steps[0].time = tStr
+        } else if (act.includes('xác nhận') && !act.includes('chờ')) {
+          if (invoiceData.value.steps[1]) invoiceData.value.steps[1].time = tStr
+        } else if (act.includes('chờ vận chuyển') || act.includes('kho') || act.includes('đóng gói')) {
+          if (invoiceData.value.steps[2]) invoiceData.value.steps[2].time = tStr
+        } else if (act.includes('đang vận chuyển') || act.includes('giao')) {
+          if (invoiceData.value.steps[3]) invoiceData.value.steps[3].time = tStr
+        } else if (act.includes('hoàn thành')) {
+          if (invoiceData.value.steps[4]) invoiceData.value.steps[4].time = tStr
+        }
+      })
     }
   } catch (err) {
     if (currentRequest !== requestId) return
@@ -563,10 +605,18 @@ watch(
     { immediate: true, deep: true }
 )
 
-// Quản lý Chỉnh sửa trạng thái hóa đơn
+// Quản lý Modal "Chỉnh sửa đơn hàng" (Giao diện 2 Tabs)
 const showStatusModal = ref(false)
+const editModalTab = ref('donHang') // 'donHang' | 'khachHang'
 const targetStatus = ref(1)
 const statusNote = ref('')
+
+const editCustomerForm = ref({
+  name: '',
+  phone: '',
+  address: '',
+  note: ''
+})
 
 const statusOptions = [
   { value: 1, label: 'Chờ Xác Nhận', desc: 'Đơn hàng mới tạo, đang chờ xác nhận từ cửa hàng', color: '#d97706', bg: '#fff4e5' },
@@ -577,9 +627,54 @@ const statusOptions = [
   { value: 6, label: 'Đã Hủy', desc: 'Hủy đơn hàng và ngừng tiến trình xử lý', color: '#be2626', bg: '#fee6e6' }
 ]
 
+// Tính toán các trạng thái có thể chuyển tiếp theo đúng quy trình
+const selectableStatusOptions = computed(() => {
+  const cur = Number(invoiceData.value.status) || 1
+  const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
+  const options = []
+
+  const currentOpt = statusOptions.find(o => o.value === cur)
+  if (currentOpt) {
+    options.push({ value: cur, label: `${currentOpt.label} (hiện tại)` })
+  }
+
+  if (isAtStore) {
+    if (cur === 1) {
+      options.push({ value: 5, label: 'Hoàn thành (tiếp theo)' })
+      options.push({ value: 6, label: 'Hủy đơn hàng' })
+    }
+  } else {
+    if (cur === 1) {
+      options.push({ value: 2, label: 'Đã xác nhận (tiếp theo)' })
+      options.push({ value: 6, label: 'Hủy đơn hàng' })
+    } else if (cur === 2) {
+      options.push({ value: 3, label: 'Chờ vận chuyển (tiếp theo)' })
+      options.push({ value: 6, label: 'Hủy đơn hàng' })
+    } else if (cur === 3) {
+      options.push({ value: 4, label: 'Đang vận chuyển (tiếp theo)' })
+      options.push({ value: 6, label: 'Hủy đơn hàng' })
+    } else if (cur === 4) {
+      options.push({ value: 5, label: 'Hoàn thành (tiếp theo)' })
+    }
+  }
+
+  return options
+})
+
+const hasNextStatus = computed(() => {
+  return selectableStatusOptions.value.length > 1
+})
+
 const openStatusModal = () => {
+  editModalTab.value = 'donHang'
   targetStatus.value = Number(invoiceData.value.status) || 1
   statusNote.value = ''
+  editCustomerForm.value = {
+    name: invoiceData.value.customer?.name !== 'Khách lẻ' ? invoiceData.value.customer?.name : '',
+    phone: invoiceData.value.customer?.phone !== '—' && invoiceData.value.customer?.phone !== '---' ? invoiceData.value.customer?.phone : '',
+    address: invoiceData.value.delivery?.address !== '—' && invoiceData.value.delivery?.address !== '---' ? invoiceData.value.delivery?.address : '',
+    note: invoiceData.value.delivery?.note !== '—' && invoiceData.value.delivery?.note !== '---' ? invoiceData.value.delivery?.note : ''
+  }
   showStatusModal.value = true
 }
 
@@ -588,6 +683,184 @@ const openCancelModal = () => {
   statusNote.value = 'Khách hàng yêu cầu hủy đơn'
   showStatusModal.value = true
 }
+
+const handleSaveEditModal = async () => {
+  if (editModalTab.value === 'donHang') {
+    const newStatus = Number(targetStatus.value)
+    if (newStatus === Number(invoiceData.value.status)) {
+      showToast('Trạng thái đơn hàng không thay đổi!')
+      showStatusModal.value = false
+      return
+    }
+    await saveStatusChange(newStatus, `Chuyển trạng thái đơn hàng`)
+  } else {
+    const id = invoiceId.value || invoiceData.value.id
+    if (!id) {
+      showToast('Không tìm thấy ID hóa đơn để cập nhật!', 'warning')
+      return
+    }
+    updatingStatus.value = true
+    try {
+      await api.put(`/api/hoa-don/${id}`, {
+        tenKhachHang: editCustomerForm.value.name,
+        soDienThoaiKhachHang: editCustomerForm.value.phone,
+        diaChiNhanHang: editCustomerForm.value.address,
+        ghiChu: editCustomerForm.value.note
+      })
+      showToast('Đã lưu thông tin khách hàng thành công!')
+      showStatusModal.value = false
+      const code = invoiceCode.value || invoiceData.value.code
+      if (code) {
+        await loadDetail(code)
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Cập nhật thông tin khách hàng thất bại!', 'warning')
+    } finally {
+      updatingStatus.value = false
+    }
+  }
+}
+
+// Quản lý bộ lọc sản phẩm trong hóa đơn chi tiết
+const productFilter = ref({
+  search: '',
+  category: '',
+  color: '',
+  size: '',
+  sort: ''
+})
+
+const availableColors = computed(() => {
+  const set = new Set()
+  invoiceData.value.items.forEach(it => {
+    if (it.color && it.color !== '---' && it.color !== '—') set.add(it.color)
+  })
+  return Array.from(set)
+})
+
+const availableSizes = computed(() => {
+  const set = new Set()
+  invoiceData.value.items.forEach(it => {
+    if (it.size && it.size !== '---' && it.size !== '—') set.add(it.size)
+  })
+  return Array.from(set)
+})
+
+const availableCategories = computed(() => {
+  const set = new Set()
+  invoiceData.value.items.forEach(it => {
+    if (it.name) {
+      if (it.name.toLowerCase().includes('áo phông') || it.name.toLowerCase().includes('t-shirt')) set.add('Áo Phông')
+      else if (it.name.toLowerCase().includes('polo')) set.add('Áo Polo')
+      else if (it.name.toLowerCase().includes('sơ mi')) set.add('Áo Sơ Mi')
+      else set.add('Áo Phông Nam')
+    }
+  })
+  if (set.size === 0) set.add('Áo Phông Nam')
+  return Array.from(set)
+})
+
+const filteredProductItems = computed(() => {
+  let list = [...invoiceData.value.items]
+  if (productFilter.value.search) {
+    const q = productFilter.value.search.trim().toLowerCase()
+    list = list.filter(it =>
+      it.code?.toLowerCase().includes(q) ||
+      it.variantCode?.toLowerCase().includes(q) ||
+      it.name?.toLowerCase().includes(q)
+    )
+  }
+  if (productFilter.value.category) {
+    const cat = productFilter.value.category.toLowerCase()
+    list = list.filter(it => it.name?.toLowerCase().includes(cat))
+  }
+  if (productFilter.value.color) {
+    list = list.filter(it => it.color === productFilter.value.color)
+  }
+  if (productFilter.value.size) {
+    list = list.filter(it => it.size === productFilter.value.size)
+  }
+  if (productFilter.value.sort === 'price-asc') {
+    list.sort((a, b) => a.price - b.price)
+  } else if (productFilter.value.sort === 'price-desc') {
+    list.sort((a, b) => b.price - a.price)
+  } else if (productFilter.value.sort === 'qty-desc') {
+    list.sort((a, b) => b.quantity - a.quantity)
+  }
+  return list
+})
+
+// Chỉ hiển thị các bước trạng thái đã đạt đến ("ấn đến đâu mới hiện trạng thái đến đó")
+const visibleSteps = computed(() => {
+  const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
+  const curStatus = Number(invoiceData.value.status) || 1
+  const createTime = invoiceData.value.createTime || invoiceData.value.steps[0]?.time || ''
+  const finishTime = invoiceData.value.lastUpdated || invoiceData.value.paymentHistory?.time || createTime
+
+  if (isAtStore) {
+    // Đơn tại quầy: Hóa đơn chờ -> Hoàn thành
+    if (curStatus === 6) {
+      return [
+        { id: 1, name: 'Hóa đơn chờ', time: createTime, done: true, active: false, icon: 'hourglass' },
+        { id: 6, name: 'Đã hủy đơn', time: finishTime, done: false, active: true, isCancelled: true, icon: 'cancelled' }
+      ]
+    }
+    if (curStatus === 5) {
+      return [
+        { id: 1, name: 'Hóa đơn chờ', time: createTime, done: true, active: false, icon: 'hourglass' },
+        { id: 2, name: 'Hoàn thành', time: finishTime, done: false, active: true, isCompleted: true, icon: 'flag' }
+      ]
+    }
+    return [
+      { id: 1, name: 'Hóa đơn chờ', time: createTime, done: false, active: true, icon: 'hourglass' }
+    ]
+  }
+
+  // Đơn Online
+  if (curStatus === 6) {
+    const list = []
+    const step1 = invoiceData.value.steps.find(s => s.id === 1) || { id: 1, name: 'Chờ xác nhận', time: createTime }
+    list.push({ ...step1, time: createTime, done: true, active: false, pending: false, icon: 'hourglass' })
+
+    if (orderLogs.value && orderLogs.value.length > 0) {
+      const logTitles = orderLogs.value.map(l => (l.action || l.hanhDong || '').toLowerCase())
+      if (logTitles.some(t => t.includes('xác nhận') && !t.includes('chờ xác nhận'))) {
+        const step2 = invoiceData.value.steps.find(s => s.id === 2) || { id: 2, name: 'Đã xác nhận', time: '' }
+        list.push({ ...step2, done: true, active: false, pending: false, icon: 'check' })
+      }
+      if (logTitles.some(t => t.includes('chờ vận chuyển') || t.includes('bàn giao') || t.includes('đóng gói'))) {
+        const step3 = invoiceData.value.steps.find(s => s.id === 3) || { id: 3, name: 'Chờ vận chuyển', time: '' }
+        list.push({ ...step3, done: true, active: false, pending: false, icon: 'box' })
+      }
+      if (logTitles.some(t => t.includes('đang vận chuyển') || t.includes('giao'))) {
+        const step4 = invoiceData.value.steps.find(s => s.id === 4) || { id: 4, name: 'Đang vận chuyển', time: '' }
+        list.push({ ...step4, done: true, active: false, pending: false, icon: 'truck' })
+      }
+    }
+
+    const cancelLog = orderLogs.value?.find(l => (l.action || l.hanhDong || '').toLowerCase().includes('hủy'))
+    const cancelTime = cancelLog?.thoiGian ? formatDateTime(cancelLog.thoiGian) : (finishTime || '')
+
+    list.push({
+      id: 6,
+      name: 'Đã hủy đơn',
+      time: cancelTime,
+      done: false,
+      active: true,
+      isCancelled: true,
+      icon: 'cancelled'
+    })
+    return list
+  }
+
+  // Online bình thường: chỉ hiện các bước đã hoàn thành hoặc đang ở bước đó
+  return invoiceData.value.steps
+    .filter(s => s.id <= curStatus)
+    .map(s => ({
+      ...s,
+      icon: s.id === 1 ? 'hourglass' : (s.id === 5 ? 'flag' : (s.id === 4 ? 'truck' : (s.id === 3 ? 'box' : 'check')))
+    }))
+})
 
 const nextStatusInfo = computed(() => {
   const cur = Number(invoiceData.value.status)
@@ -753,170 +1026,193 @@ onBeforeUnmount(() => {
       </div>
     </transition>
 
-    <!-- Top Navigation -->
+    <!-- Top Navigation Bar -->
     <div class="top-nav-bar">
-      <div class="breadcrumb-group">
-        <button class="btn-back" @click="quayLaiHoaDon" title="Quay lại danh sách hóa đơn">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-        </button>
+      <div class="breadcrumb-nav">
+        <router-link to="/hoa-don" class="crumb-parent">Hóa đơn</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">Chi tiết hóa đơn</span>
+      </div>
 
-        <div class="page-breadcrumb">
-          <router-link to="/hoa-don" class="crumb-parent">Quản lý hóa đơn</router-link>
-          <span class="crumb-separator">/</span>
-          <span class="crumb-current">Chi tiết hóa đơn: {{ invoiceData.code }}</span>
+      <div class="top-actions-right">
+        <button class="btn-top-nav" type="button" @click="quayLaiBanHang">
+          <span class="nav-arrow">←</span> Quay lại bán hàng tại quầy
+        </button>
+        <button class="btn-top-nav" type="button" @click="quayLaiHoaDon">
+          <span class="nav-arrow">←</span> Danh sách hóa đơn
+        </button>
+      </div>
+    </div>
+
+    <!-- Top Meta Information Card (3 columns x 2 rows gọn gàng, phân cách tinh tế) -->
+    <div class="card-box meta-info-card">
+      <div class="meta-info-grid">
+        <div class="meta-info-col col-1">
+          <div class="meta-row">
+            <span class="meta-label">Mã Đơn Hàng:</span>
+            <span class="meta-value meta-code-blue">{{ invoiceData.code }}</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-label">Cập Nhật Gần Nhất:</span>
+            <span class="meta-value">{{ invoiceData.lastUpdated || invoiceData.createTime || '---' }}</span>
+          </div>
+        </div>
+
+        <div class="meta-info-col col-2">
+          <div class="meta-row">
+            <span class="meta-label">Ngày Tạo:</span>
+            <span class="meta-value">{{ invoiceData.createTime || '---' }}</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-label">Loại đơn:</span>
+            <span class="meta-value">
+              <span class="badge-loai-don">{{ invoiceData.delivery.type || 'Tại quầy' }}</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="meta-info-col col-3">
+          <div class="meta-row">
+            <span class="meta-label">Tạo bởi:</span>
+            <span class="meta-value">{{ invoiceData.employee?.code || invoiceData.employee?.name || 'NV003' }}</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-label">Hình thức nhận:</span>
+            <span class="meta-value">{{ invoiceData.delivery.receiveType || 'Nhận tại quầy' }}</span>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Main Layout Grid -->
+    <!-- Main Layout Grid (Left 1.8fr, Right 1fr) -->
     <div class="main-layout-grid">
       <!-- Cột Trái -->
       <div class="left-section">
-        <!-- Khung Trạng Thái Đơn Hàng -->
-        <div class="card-box">
-          <div class="card-header-flex">
-            <div class="header-title-box">
-              <h3 class="card-title">Trạng Thái Đơn Hàng</h3>
+        <!-- Khung 1: Trạng thái đơn hàng -->
+        <div class="card-box card-order-status">
+          <div class="card-header-styled">
+            <div class="card-title-styled">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+              </svg>
+              Trạng thái đơn hàng
             </div>
-            <!-- Chỉ hiển thị badge trạng thái -->
-            <span class="badge-status-top" :class="'badge-status-' + invoiceData.status">{{ invoiceData.statusBadge }}</span>
           </div>
 
-          <div class="stepper-container" :class="{ 'stepper-cancelled': invoiceData.status === 6 }">
+          <div class="stepper-track-wrap">
+            <div class="stepper-bg-line"></div>
             <div
-                v-for="(step, idx) in invoiceData.steps"
+                v-for="step in visibleSteps"
                 :key="step.id"
-                class="step-node"
+                class="stepper-step-item"
+                :class="{ 'step-item-cancelled': step.isCancelled }"
             >
               <div
-                  v-if="idx > 0"
-                  class="step-line"
-                  :class="{ 'line-active': idx < invoiceData.currentStepIndex }"
-              ></div>
-
-              <div
-                  class="node-circle"
+                  class="step-circle-icon"
                   :class="{
-                  'circle-done': step.done,
-                  'circle-active': step.active,
-                  'circle-pending': step.pending
-                }"
+                    'circle-blue': !step.isCancelled,
+                    'circle-red': step.isCancelled
+                  }"
               >
-                <svg v-if="step.done" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                <svg v-else-if="step.active" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <svg v-if="step.icon === 'hourglass'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
                   <path d="M5 22h14M5 2h14M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" />
                 </svg>
-                <span v-else>{{ step.id }}</span>
+                <svg v-else-if="step.icon === 'flag'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                  <line x1="4" y1="22" x2="4" y2="15"></line>
+                </svg>
+                <svg v-else-if="step.icon === 'truck'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="1" y="3" width="15" height="13"></rect>
+                  <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                  <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                  <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                </svg>
+                <svg v-else-if="step.icon === 'box'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                  <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+                <svg v-else-if="step.icon === 'cancelled'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
               </div>
 
-              <div class="node-text">
-                <span class="node-title" :class="{ 'text-muted': step.pending }">{{ step.name }}</span>
-                <span v-if="step.time" class="node-time">{{ step.time }}</span>
-              </div>
+              <div class="step-item-title" :class="{ 'text-danger': step.isCancelled }">{{ step.name }}</div>
+              <div v-if="step.time" class="step-item-time">{{ step.time }}</div>
             </div>
           </div>
 
-          <!-- Nhóm nút hành động quản lý trạng thái -->
-          <div class="action-status-footer">
-            <div class="action-status-left">
-              <button class="btn-outline-history" type="button" @click="showHistoryModal = true">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
-                Lịch Sử Thao Tác
-              </button>
-            </div>
-
-            <div class="action-status-right">
-              <!-- Nút Hủy Đơn Hàng (nếu đơn chưa hoàn thành và chưa hủy) -->
-              <button
-                  v-if="invoiceData.status !== 5 && invoiceData.status !== 6"
-                  class="btn-cancel-order"
-                  type="button"
-                  :disabled="updatingStatus"
-                  @click="openCancelModal"
-              >
-                ✕ Hủy Đơn Hàng
-              </button>
-
-              <!-- Nút Chỉnh Sửa Trạng Thái (Mở modal chọn trong 6 trạng thái) -->
-              <button
-                  class="btn-edit-status"
-                  type="button"
-                  :disabled="updatingStatus"
-                  @click="openStatusModal"
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                </svg>
-                Chỉnh Sửa Trạng Thái
-              </button>
-
-              <!-- Nút Chuyển Tiếp Trạng Thái Nhanh (nếu còn bước tiếp theo) -->
-              <button
-                  v-if="nextStatusInfo"
-                  class="btn-next-status"
-                  type="button"
-                  :disabled="updatingStatus"
-                  @click="handleNextStatus"
-              >
-                {{ updatingStatus ? 'Đang xử lý...' : nextStatusInfo.label }}
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
-              </button>
-            </div>
+          <div class="stepper-footer-right">
+            <button class="btn-history-outline" type="button" @click="showHistoryModal = true">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              Lịch sử thao tác
+            </button>
           </div>
         </div>
 
-        <!-- Khách hàng & Giao hàng -->
+        <!-- Khung 2: Khách hàng & Giao hàng (Dual Grid) -->
         <div class="info-dual-grid">
-          <div class="card-box sub-card">
-            <div class="card-header-simple">
-              <h3 class="card-title">Thông Tin Khách Hàng</h3>
+          <!-- Thông tin khách hàng -->
+          <div class="card-box sub-info-card">
+            <div class="card-header-styled">
+              <div class="card-title-styled">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                Thông tin khách hàng
+              </div>
             </div>
-            <div class="info-table">
-              <div class="info-row">
-                <span class="info-label">Tên Khách Hàng</span>
-                <span class="info-value font-bold">{{ invoiceData.customer.name }}</span>
+            <div class="info-list">
+              <div class="info-list-row">
+                <span class="info-row-label">Tên khách hàng</span>
+                <span class="info-row-val font-bold">{{ invoiceData.customer.name }}</span>
               </div>
-              <div class="info-row">
-                <span class="info-label">Số Điện Thoại</span>
-                <span class="info-value">{{ invoiceData.customer.phone }}</span>
+              <div class="info-list-row">
+                <span class="info-row-label">Mã khách hàng</span>
+                <span class="info-row-val">{{ invoiceData.customer.code || '—' }}</span>
               </div>
-              <div class="info-row">
-                <span class="info-label">Email</span>
-                <span class="info-value text-sub">{{ invoiceData.customer.email }}</span>
+              <div class="info-list-row">
+                <span class="info-row-label">Số điện thoại</span>
+                <span class="info-row-val">{{ invoiceData.customer.phone || '—' }}</span>
+              </div>
+              <div class="info-list-row">
+                <span class="info-row-label">Email</span>
+                <span class="info-row-val">{{ invoiceData.customer.email || '—' }}</span>
               </div>
             </div>
           </div>
 
-          <div class="card-box sub-card">
-            <div class="card-header-simple">
-              <h3 class="card-title">Thông Tin Giao Hàng</h3>
+          <!-- Thông tin giao hàng -->
+          <div class="card-box sub-info-card">
+            <div class="card-header-styled">
+              <div class="card-title-styled">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
+                  <path d="M12 2a8 8 0 00-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 00-8-8z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+                Thông tin giao hàng
+              </div>
             </div>
-            <div class="info-table">
-              <div class="info-row align-start">
-                <span class="info-label">Địa Chỉ</span>
-                <span class="info-value address-value">{{ invoiceData.delivery.address }}</span>
+            <div class="info-list">
+              <div class="info-list-row">
+                <span class="info-row-label">Địa chỉ giao hàng</span>
+                <span class="info-row-val">{{ invoiceData.delivery.address || '—' }}</span>
               </div>
-              <div class="info-row">
-                <span class="info-label">Loại Đơn</span>
-                <span class="info-value font-medium">{{ invoiceData.delivery.type }}</span>
+              <div class="info-list-row">
+                <span class="info-row-label">Đơn vị vận chuyển</span>
+                <span class="info-row-val">{{ invoiceData.delivery.carrier || '—' }}</span>
               </div>
-              <div class="info-row">
-                <span class="info-label">Nhân Viên</span>
-                <span class="info-value font-medium">{{ invoiceData.employee?.name || '---' }}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Ghi Chú</span>
-                <span class="info-value text-sub">{{ invoiceData.delivery.note }}</span>
+              <div class="info-list-row">
+                <span class="info-row-label">Ghi chú</span>
+                <span class="info-row-val">{{ invoiceData.delivery.note || '—' }}</span>
               </div>
             </div>
           </div>
@@ -925,114 +1221,181 @@ onBeforeUnmount(() => {
 
       <!-- Cột Phải -->
       <div class="right-section">
-        <!-- Tổng tiền hóa đơn -->
-        <div class="card-box">
-          <div class="header-title-box mb-16">
-            <h3 class="card-title">Thanh Toán</h3>
+        <!-- Khung 3: Tổng kết thanh toán -->
+        <div class="card-box summary-card">
+          <div class="card-header-styled">
+            <div class="card-title-styled">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
+                <rect x="2" y="4" width="20" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="2" y1="10" x2="22" y2="10"></line>
+              </svg>
+              Tổng kết thanh toán
+            </div>
           </div>
-          <div class="summary-content">
-            <div class="summary-item">
-              <span class="s-label">Tổng Tiền Hàng</span>
-              <span class="s-value">{{ formatMoney(invoiceData.summary.totalProductPrice) }}</span>
-            </div>
-            <div class="summary-item">
-              <span class="s-label">Phí Vận Chuyển</span>
-              <span class="s-value">{{ formatMoney(invoiceData.summary.shippingFee) }}</span>
-            </div>
-            <div class="summary-item">
-              <span class="s-label">
-                Phiếu Giảm Giá
-                <span v-if="invoiceData.summary.voucherName" class="voucher-subname">({{ invoiceData.summary.voucherName }})</span>
-              </span>
-              <span class="s-value">{{ invoiceData.summary.voucherDiscount > 0 ? '-' : '' }}{{ formatMoney(invoiceData.summary.voucherDiscount) }}</span>
-            </div>
 
+          <div class="summary-body">
+            <div class="summary-line">
+              <span class="s-label">Tổng tiền hàng</span>
+              <span class="s-val">{{ formatMoney(invoiceData.summary.totalProductPrice) }}</span>
+            </div>
+            <div class="summary-line">
+              <span class="s-label">Giảm giá</span>
+              <span class="s-val">{{ invoiceData.summary.voucherDiscount > 0 ? '-' : '- ' }}{{ formatMoney(invoiceData.summary.voucherDiscount) }}</span>
+            </div>
             <div class="summary-divider"></div>
-
-            <div class="summary-total-row">
-              <span class="total-label">Tổng Tiền</span>
-              <span class="total-price-orange">{{ formatMoney(invoiceData.summary.totalPayment) }}</span>
+            <div class="summary-total-line">
+              <span class="total-label-caps">TỔNG TIỀN</span>
+              <span class="total-price-blue">{{ formatMoney(invoiceData.summary.totalPayment) }}</span>
             </div>
           </div>
         </div>
 
-        <!-- Lịch sử thanh toán -->
-        <div class="card-box">
-          <div class="header-title-box mb-16">
-            <h3 class="card-title">Lịch Sử Thanh Toán</h3>
+        <!-- Khung 4: Lịch sử thanh toán -->
+        <div class="card-box payment-card">
+          <div class="card-header-styled">
+            <div class="card-title-styled">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                <line x1="1" y1="10" x2="23" y2="10"></line>
+              </svg>
+              Lịch sử thanh toán
+            </div>
           </div>
 
-          <div class="payment-record-box">
-            <div class="payment-header-row">
-              <span class="pay-method-name">{{ invoiceData.paymentHistory.method }}</span>
-              <span :class="invoiceData.paymentHistory.status === 'Đã thanh toán' ? 'badge-paid-green' : 'badge-unpaid-orange'">
-                {{ invoiceData.paymentHistory.status }}
+          <div class="payment-inner-box">
+            <div class="pay-top-row">
+              <span class="pay-label-sub">Phương thức thanh toán</span>
+              <span class="badge-status-pill" :class="invoiceData.paymentHistory.status === 'Đã thanh toán' ? 'pill-paid' : 'pill-unpaid'">
+                <span class="pill-dot">●</span> {{ invoiceData.paymentHistory.status }}
               </span>
             </div>
-            <div class="pay-desc">{{ invoiceData.paymentHistory.description }}</div>
-            <div class="payment-bottom-row">
-              <span class="pay-time-text">{{ invoiceData.paymentHistory.time }}</span>
+
+            <div class="pay-method-title">{{ invoiceData.paymentHistory.method }}</div>
+
+            <div class="pay-time-trans">
+              <span class="time-clock-icon">🕒</span> {{ invoiceData.paymentHistory.time }} • {{ invoiceData.paymentHistory.transCode }}
+            </div>
+
+            <div class="pay-amount-row">
+              <span class="pay-label-sub">Số tiền</span>
               <span class="pay-amount-bold">{{ formatMoney(invoiceData.paymentHistory.amount) }}</span>
             </div>
+
+            <div class="pay-note-sub">{{ invoiceData.paymentHistory.description }}</div>
           </div>
 
-          <div class="payment-action-box">
-            <button class="btn-paid-status">
-              ✓ {{ invoiceData.paymentHistory.status }}
-            </button>
-            <button class="btn-print-invoice" @click="handlePrint">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+          <div class="payment-actions-col">
+            <button class="btn-blue-action" type="button" @click="handlePrint">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"></path>
                 <rect x="6" y="14" width="12" height="8"></rect>
               </svg>
-              In Hóa Đơn (PDF)
+              In hóa đơn
+            </button>
+
+            <button class="btn-blue-action" type="button" :disabled="updatingStatus" @click="openStatusModal">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              Chỉnh sửa đơn hàng
             </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Bảng danh sách sản phẩm chi tiết -->
-    <div class="card-box invoice-items-card">
-      <div class="header-title-box mb-16">
-        <h3 class="card-title">Hóa Đơn Chi Tiết ({{ invoiceData.items.length }} sản phẩm)</h3>
+    <!-- Khung 5 (Full Width): Danh sách sản phẩm -->
+    <div class="card-box products-card">
+      <div class="card-header-styled">
+        <div class="card-title-styled">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
+            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+          Danh sách sản phẩm
+        </div>
+        <div class="product-count-sub">
+          {{ filteredProductItems.length }}/{{ invoiceData.items.length }} sản phẩm
+        </div>
       </div>
 
+      <!-- Toolbar bộ lọc sản phẩm (5 dropdowns / inputs) -->
+      <div class="product-filters-toolbar">
+        <div class="toolbar-item search-item">
+          <div class="search-input-box">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+                v-model="productFilter.search"
+                type="text"
+                placeholder="Mã SPCT, SKU hoặc tên sản phẩm..."
+                class="form-control-tb input-search"
+            />
+          </div>
+        </div>
+
+        <div class="toolbar-item">
+          <select v-model="productFilter.category" class="form-control-tb">
+            <option value="">Tất cả loại</option>
+            <option v-for="cat in availableCategories" :key="cat" :value="cat">{{ cat }}</option>
+          </select>
+        </div>
+
+        <div class="toolbar-item">
+          <select v-model="productFilter.color" class="form-control-tb">
+            <option value="">Tất cả màu sắc</option>
+            <option v-for="col in availableColors" :key="col" :value="col">{{ col }}</option>
+          </select>
+        </div>
+
+        <div class="toolbar-item">
+          <select v-model="productFilter.size" class="form-control-tb">
+            <option value="">Tất cả kích cỡ</option>
+            <option v-for="s in availableSizes" :key="s" :value="s">{{ s }}</option>
+          </select>
+        </div>
+
+        <div class="toolbar-item">
+          <select v-model="productFilter.sort" class="form-control-tb">
+            <option value="">Mặc định</option>
+            <option value="price-asc">Giá tăng dần</option>
+            <option value="price-desc">Giá giảm dần</option>
+            <option value="qty-desc">Số lượng giảm dần</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Bảng danh sách sản phẩm -->
       <div class="table-responsive">
-        <table class="products-table">
+        <table class="products-table-styled">
           <thead>
           <tr>
-            <th class="col-stt text-center">STT</th>
-            <th class="col-code text-left">Mã SP</th>
+            <th class="col-stt text-center" style="width: 50px;">STT</th>
+            <th class="col-code text-left" style="width: 120px;">Mã SP</th>
             <th class="col-name text-left">Tên Sản Phẩm</th>
-            <th class="col-variant text-center">Phân Loại</th>
-            <th class="col-qty text-center">Số Lượng</th>
-            <th class="col-price text-right">Đơn Giá</th>
-            <th class="col-total text-right">Thành Tiền</th>
+            <th class="col-variant text-center" style="width: 150px;">Phân Loại</th>
+            <th class="col-qty text-center" style="width: 90px;">Số Lượng</th>
+            <th class="col-price text-right" style="width: 130px;">Đơn Giá</th>
+            <th class="col-total text-right" style="width: 140px;">Thành Tiền</th>
           </tr>
           </thead>
           <tbody>
-          <tr v-if="invoiceData.items.length === 0">
-            <td colspan="7" class="text-center text-muted" style="padding: 24px;">Không có sản phẩm trong đơn hàng.</td>
+          <tr v-if="filteredProductItems.length === 0">
+            <td colspan="7" class="text-center text-muted" style="padding: 24px;">Không có sản phẩm nào phù hợp với bộ lọc.</td>
           </tr>
-          <tr v-for="(item, index) in invoiceData.items" :key="item.id" class="product-item-row">
-            <td class="text-center text-muted col-stt-val">{{ index + 1 }}</td>
-            <td class="text-left font-bold text-code">
-              <span class="badge-code-product">{{ item.code }}</span>
-            </td>
+          <tr v-for="(item, index) in filteredProductItems" :key="item.id" class="product-item-row">
+            <td class="text-center text-muted">{{ index + 1 }}</td>
+            <td class="text-left font-bold text-code">{{ item.code }}</td>
             <td class="text-left font-medium">
-              <div class="product-meta-cell">
-                <div class="product-icon-wrap">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.47a1 1 0 00.99.84H6v10a2 2 0 002 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.47a2 2 0 00-1.34-2.23z"/>
-                  </svg>
-                </div>
-                <div class="product-info-wrap">
-                  <div class="product-name-heading">{{ item.name }}</div>
-                  <div class="product-sub-variant">Biến thể: <span class="variant-sku-text">{{ item.variantCode || item.code }}</span></div>
-                </div>
-              </div>
+              <div class="product-name-heading">{{ item.name }}</div>
+              <div class="product-sub-variant">Biến thể: {{ item.variantCode || item.code }}</div>
             </td>
             <td class="text-center">
               <div class="variant-wrapper">
@@ -1043,11 +1406,9 @@ onBeforeUnmount(() => {
                 <span class="variant-tag size-tag">Size: {{ item.size }}</span>
               </div>
             </td>
-            <td class="text-center">
-              <span class="qty-pill">{{ item.quantity }}</span>
-            </td>
-            <td class="text-right text-price-unit">{{ formatMoney(item.price) }}</td>
-            <td class="text-right font-bold text-dark text-price-total">{{ formatMoney(item.total) }}</td>
+            <td class="text-center">{{ item.quantity }}</td>
+            <td class="text-right">{{ formatMoney(item.price) }}</td>
+            <td class="text-right font-bold text-price-total">{{ formatMoney(item.total) }}</td>
           </tr>
           </tbody>
         </table>
@@ -1084,95 +1445,131 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- Modal Chỉnh Sửa Trạng Thái Hóa Đơn -->
+    <!-- Modal Chỉnh Sửa Đơn Hàng (Thiết kế 2 Tab chuẩn theo mẫu giao diện) -->
     <div v-if="showStatusModal" class="modal-backdrop" @click.self="showStatusModal = false">
-      <div class="modal-container modal-edit-status">
-        <div class="modal-header">
-          <div>
-            <h3 class="card-title">Chỉnh Sửa Trạng Thái Hóa Đơn</h3>
-            <p class="modal-subtitle">
-              Mã: <strong>{{ invoiceData.code }}</strong> — Khách hàng: <strong>{{ invoiceData.customer.name }}</strong>
-            </p>
-          </div>
+      <div class="modal-container modal-edit-order">
+        <div class="modal-header modal-header-clean">
+          <h3 class="modal-title-clean">Chỉnh sửa đơn hàng</h3>
           <button class="btn-close-modal" type="button" @click="showStatusModal = false">✕</button>
         </div>
 
-        <div class="modal-body">
-          <div class="form-group-modal">
-            <label class="modal-label">Trạng thái hiện tại:</label>
-            <div>
-              <span class="badge-status-top" :class="'badge-status-' + invoiceData.status">
-                {{ invoiceData.statusBadge }}
-              </span>
-            </div>
-          </div>
+        <!-- Thanh chuyển Tab: Thông tin đơn hàng & Thông tin khách hàng -->
+        <div class="modal-tabs-bar">
+          <button
+              type="button"
+              class="modal-tab-btn"
+              :class="{ active: editModalTab === 'donHang' }"
+              @click="editModalTab = 'donHang'"
+          >
+            Thông tin đơn hàng
+          </button>
+          <button
+              type="button"
+              class="modal-tab-btn"
+              :class="{ active: editModalTab === 'khachHang' }"
+              @click="editModalTab = 'khachHang'"
+          >
+            Thông tin khách hàng
+          </button>
+        </div>
 
-          <div class="form-group-modal mt-14">
-            <label class="modal-label">Chọn trạng thái mới <span class="text-danger">*</span></label>
-            <div class="status-options-grid">
-              <label
-                  v-for="st in statusOptions"
-                  :key="st.value"
-                  class="status-radio-card"
-                  :class="{ active: targetStatus === st.value }"
-                  :style="{ borderColor: targetStatus === st.value ? st.color : '#e2d8cd' }"
-              >
-                <input
-                    type="radio"
-                    name="detailStatusRadio"
-                    :value="st.value"
+        <div class="modal-body modal-body-order">
+          <!-- Tab 1: Thông tin đơn hàng -->
+          <div v-if="editModalTab === 'donHang'" class="tab-donhang-content">
+            <div class="order-meta-cards-row">
+              <div class="meta-mini-card">
+                <span class="mini-card-label">Mã đơn hàng</span>
+                <span class="mini-card-val">{{ invoiceData.code }}</span>
+              </div>
+              <div class="meta-mini-card">
+                <span class="mini-card-label">Ngày tạo</span>
+                <span class="mini-card-val">{{ invoiceData.createTime }}</span>
+              </div>
+            </div>
+
+            <div class="form-group-modal mt-14">
+              <label class="modal-label">Trạng thái</label>
+              <div class="custom-select-wrapper">
+                <select
                     v-model="targetStatus"
-                    class="radio-hidden"
-                />
-                <div
-                    class="radio-circle"
-                    :style="{
-                      borderColor: st.color,
-                      backgroundColor: targetStatus === st.value ? st.color : 'transparent'
-                    }"
+                    class="modal-select-field"
+                    :disabled="!hasNextStatus"
                 >
-                  <span v-if="targetStatus === st.value" class="radio-dot"></span>
-                </div>
-                <div class="status-card-content">
-                  <div class="status-card-header">
-                    <span
-                        class="status-card-badge"
-                        :style="{ color: st.color, backgroundColor: st.bg }"
-                    >
-                      {{ st.label }}
-                    </span>
-                    <span v-if="invoiceData.status === st.value" class="current-label">
-                      (Hiện tại)
-                    </span>
-                  </div>
-                  <p class="status-card-desc">{{ st.desc }}</p>
-                </div>
-              </label>
+                  <option
+                      v-for="st in selectableStatusOptions"
+                      :key="st.value"
+                      :value="st.value"
+                  >
+                    {{ st.label }}
+                  </option>
+                </select>
+              </div>
+              <p class="status-help-text">
+                Chỉ được chuyển sang trạng thái kế tiếp theo đúng quy trình của đơn hàng.
+              </p>
+
+              <div v-if="!hasNextStatus" class="status-alert-box info">
+                <span class="alert-icon">ⓘ</span>
+                <span>Đơn hàng hiện không còn trạng thái kế tiếp để cập nhật.</span>
+              </div>
             </div>
           </div>
 
-          <div class="form-group-modal mt-14">
-            <label class="modal-label">Ghi chú cập nhật (Tùy chọn)</label>
-            <textarea
-                v-model="statusNote"
-                rows="2"
-                class="modal-textarea"
-                placeholder="Nhập ghi chú thay đổi trạng thái nếu có..."
-            ></textarea>
+          <!-- Tab 2: Thông tin khách hàng -->
+          <div v-else class="customer-edit-grid">
+            <div class="form-group-modal">
+              <label class="modal-label">Tên khách hàng</label>
+              <input
+                  type="text"
+                  v-model="editCustomerForm.name"
+                  class="modal-input-field"
+                  placeholder="Nhập tên khách hàng..."
+              />
+            </div>
+
+            <div class="form-group-modal">
+              <label class="modal-label">Số điện thoại</label>
+              <input
+                  type="text"
+                  v-model="editCustomerForm.phone"
+                  class="modal-input-field"
+                  placeholder="Nhập số điện thoại..."
+              />
+            </div>
+
+            <div class="form-group-modal">
+              <label class="modal-label">Địa chỉ nhận hàng</label>
+              <input
+                  type="text"
+                  v-model="editCustomerForm.address"
+                  class="modal-input-field"
+                  placeholder="Nhập địa chỉ nhận hàng..."
+              />
+            </div>
+
+            <div class="form-group-modal">
+              <label class="modal-label">Ghi chú</label>
+              <textarea
+                  v-model="editCustomerForm.note"
+                  rows="3"
+                  class="modal-textarea-field"
+                  placeholder="Nhập ghi chú cho đơn hàng..."
+              ></textarea>
+            </div>
           </div>
         </div>
 
         <div class="modal-footer">
           <button class="btn-modal-cancel" type="button" @click="showStatusModal = false">
-            Hủy bỏ
+            Hủy
           </button>
           <button
               class="btn-modal-save"
               type="button"
               :disabled="updatingStatus"
-              @click="saveStatusChange(null, null)"
+              @click="handleSaveEditModal"
           >
-            {{ updatingStatus ? 'Đang lưu...' : '✓ Lưu Thay Đổi' }}
+            {{ updatingStatus ? 'Đang lưu...' : '✓ Lưu' }}
           </button>
         </div>
       </div>
@@ -1230,84 +1627,78 @@ onBeforeUnmount(() => {
     <!-- ============================================ -->
     <!-- MẪU IN HÓA ĐƠN CHUẨN A4 DÀNH CHO XUẤT FILE PDF -->
     <!-- ============================================ -->
+    <!-- MẪU IN HÓA ĐƠN ĐƠN GIẢN, TINH TẾ, THANH LỊCH (MINIMALIST INVOICE) -->
     <div class="printable-invoice">
-      <!-- Header Cửa Hàng & Tiêu Đề Hóa Đơn -->
+      <!-- Header: Tên Cửa Hàng & Tiêu Đề -->
       <div class="print-header-top">
         <div class="print-store-brand">
           <div class="print-brand-name">FF T-SHIRT FASHION</div>
-          <div class="print-store-sub">Hệ thống thời trang áo phông cao cấp</div>
-          <div class="print-store-meta">📍 Địa chỉ: 123 Đường Cầu Giấy, Quan Hoa, Cầu Giấy, Hà Nội</div>
-          <div class="print-store-meta">☎ Hotline: 0988.888.888 | 🌐 Website: fftshirt.vn</div>
+          <div class="print-store-meta">
+            123 Đường Cầu Giấy, Quan Hoa, Cầu Giấy, Hà Nội<br/>
+            Hotline: 0988.888.888 — Website: fftshirt.vn
+          </div>
         </div>
         <div class="print-invoice-title-block">
           <h1 class="print-main-title">HÓA ĐƠN BÁN HÀNG</h1>
-          <div class="print-meta-pill">Mã HĐ: <strong>{{ invoiceData.code }}</strong></div>
+          <div class="print-meta-code">Mã HĐ: <strong>{{ invoiceData.code }}</strong></div>
           <div class="print-meta-date">Ngày lập: {{ invoiceData.paymentHistory?.time || (invoiceData.createTime + ' ' + invoiceData.createDate) }}</div>
         </div>
       </div>
 
-      <div class="print-divider-line-main"></div>
+      <div class="print-divider"></div>
 
-      <!-- Thông Tin Khách Hàng & Đơn Hàng -->
-      <div class="print-info-grid">
+      <!-- Thông Tin Khách Hàng & Đơn Hàng (2 Cột Tinh Gọn, Không Đóng Hộp Rườm Rà) -->
+      <div class="print-info-row">
         <div class="print-info-col">
-          <div class="print-col-heading">THÔNG TIN KHÁCH HÀNG</div>
-          <div class="print-row-item">
+          <div class="print-data-line">
             <span class="p-label">Khách hàng:</span>
             <span class="p-val font-bold">{{ invoiceData.customer.name }}</span>
           </div>
-          <div class="print-row-item">
-            <span class="p-label">Số điện thoại:</span>
-            <span class="p-val">{{ invoiceData.customer.phone || '---' }}</span>
+          <div class="print-data-line" v-if="invoiceData.customer.phone && invoiceData.customer.phone !== '—' && invoiceData.customer.phone !== '---'">
+            <span class="p-label">Điện thoại:</span>
+            <span class="p-val">{{ invoiceData.customer.phone }}</span>
           </div>
-          <div class="print-row-item">
-            <span class="p-label">Email:</span>
-            <span class="p-val">{{ invoiceData.customer.email || '---' }}</span>
+          <div class="print-data-line" v-if="invoiceData.delivery.address && invoiceData.delivery.type !== 'Tại quầy' && invoiceData.delivery.type !== 'Tại cửa hàng'">
+            <span class="p-label">Địa chỉ nhận:</span>
+            <span class="p-val">{{ invoiceData.delivery.address }}</span>
           </div>
         </div>
 
         <div class="print-info-col">
-          <div class="print-col-heading">THÔNG TIN ĐƠN HÀNG</div>
-          <div class="print-row-item">
-            <span class="p-label">Hình thức mua:</span>
-            <span class="p-val font-bold">{{ invoiceData.delivery.type || 'Tại cửa hàng' }}</span>
+          <div class="print-data-line">
+            <span class="p-label">Hình thức:</span>
+            <span class="p-val font-bold">{{ invoiceData.delivery.type || 'Tại quầy' }}</span>
           </div>
-          <div class="print-row-item" v-if="invoiceData.delivery.address && invoiceData.delivery.type !== 'Tại cửa hàng'">
-            <span class="p-label">Địa chỉ nhận:</span>
-            <span class="p-val">{{ invoiceData.delivery.address }}</span>
-          </div>
-          <div class="print-row-item">
-            <span class="p-label">Thu ngân / NV:</span>
+          <div class="print-data-line">
+            <span class="p-label">Thu ngân:</span>
             <span class="p-val">{{ invoiceData.employee?.name || 'Nhân viên bán hàng' }}</span>
           </div>
-          <div class="print-row-item" v-if="invoiceData.delivery.note">
+          <div class="print-data-line" v-if="invoiceData.delivery.note && invoiceData.delivery.note !== '—' && invoiceData.delivery.note !== '---'">
             <span class="p-label">Ghi chú:</span>
             <span class="p-val">{{ invoiceData.delivery.note }}</span>
           </div>
         </div>
       </div>
 
-      <!-- Bảng Sản Phẩm -->
+      <!-- Bảng Sản Phẩm Đơn Giản, Thanh Lịch -->
       <table class="print-table">
         <thead>
           <tr>
-            <th style="width: 45px;" class="text-center">STT</th>
-            <th style="width: 95px;" class="text-center">Mã SP</th>
-            <th>Tên Sản Phẩm</th>
-            <th style="width: 140px;" class="text-center">Phân Loại (Màu/Size)</th>
-            <th style="width: 55px;" class="text-center">SL</th>
-            <th style="width: 120px;" class="text-right">Đơn Giá</th>
-            <th style="width: 130px;" class="text-right">Thành Tiền</th>
+            <th style="width: 40px;" class="text-center">#</th>
+            <th style="width: 95px;" class="text-left">Mã SP</th>
+            <th class="text-left">Tên sản phẩm</th>
+            <th style="width: 120px;" class="text-center">Phân loại</th>
+            <th style="width: 50px;" class="text-center">SL</th>
+            <th style="width: 110px;" class="text-right">Đơn giá</th>
+            <th style="width: 120px;" class="text-right">Thành tiền</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="(it, idx) in invoiceData.items" :key="it.id || idx">
             <td class="text-center">{{ idx + 1 }}</td>
-            <td class="text-center font-bold">{{ it.code }}</td>
-            <td>
-              <div class="print-prod-name">{{ it.name }}</div>
-            </td>
-            <td class="text-center">{{ it.color }} / {{ it.size }}</td>
+            <td class="text-left">{{ it.code }}</td>
+            <td class="text-left font-medium">{{ it.name }}</td>
+            <td class="text-center text-muted">{{ it.color }} / {{ it.size }}</td>
             <td class="text-center font-bold">{{ it.quantity }}</td>
             <td class="text-right">{{ formatMoney(it.price) }}</td>
             <td class="text-right font-bold">{{ formatMoney(it.total) }}</td>
@@ -1318,41 +1709,36 @@ onBeforeUnmount(() => {
         </tbody>
       </table>
 
-      <!-- Thanh Toán & Tổng Tiền -->
-      <div class="print-summary-box">
-        <div class="print-payment-method-box">
-          <div class="p-method-title">PHƯƠNG THỨC THANH TOÁN</div>
-          <div class="p-method-item">
-            <span>Phương thức:</span>
-            <strong>{{ invoiceData.paymentHistory.method }}</strong>
+      <!-- Khối Thanh Toán & Tổng Tiền Tinh Gọn (Không Đóng Hộp Rườm Rà) -->
+      <div class="print-bottom-summary">
+        <div class="print-payment-info">
+          <div class="print-data-line">
+            <span class="p-label">Thanh toán:</span>
+            <span class="p-val font-bold">{{ invoiceData.paymentHistory.method }}</span>
           </div>
-          <div class="p-method-item">
-            <span>Trạng thái:</span>
-            <strong class="text-paid">{{ invoiceData.paymentHistory.status }}</strong>
-          </div>
-          <div class="p-method-item">
-            <span>Hình thức mua:</span>
-            <strong>{{ invoiceData.delivery.type || 'Tại cửa hàng' }}</strong>
+          <div class="print-data-line">
+            <span class="p-label">Trạng thái:</span>
+            <span class="p-val">{{ invoiceData.paymentHistory.status }}</span>
           </div>
         </div>
 
-        <div class="print-total-calc-box">
-          <div class="print-calc-line">
+        <div class="print-calc-block">
+          <div class="calc-row">
             <span>Tổng tiền hàng:</span>
             <span>{{ formatMoney(invoiceData.summary.totalProductPrice) }}</span>
           </div>
-          <div v-if="invoiceData.summary.shippingFee > 0" class="print-calc-line">
+          <div v-if="invoiceData.summary.voucherDiscount > 0" class="calc-row">
+            <span>Giảm giá:</span>
+            <span>-{{ formatMoney(invoiceData.summary.voucherDiscount) }}</span>
+          </div>
+          <div v-if="invoiceData.summary.shippingFee > 0" class="calc-row">
             <span>Phí vận chuyển:</span>
             <span>{{ formatMoney(invoiceData.summary.shippingFee) }}</span>
           </div>
-          <div v-if="invoiceData.summary.voucherDiscount > 0" class="print-calc-line discount">
-            <span>Voucher giảm giá <template v-if="invoiceData.summary.voucherName">({{ invoiceData.summary.voucherName }})</template>:</span>
-            <span>-{{ formatMoney(invoiceData.summary.voucherDiscount) }}</span>
-          </div>
-          <div class="print-divider-line"></div>
-          <div class="print-calc-line final-line">
-            <span>TỔNG TIỀN THANH TOÁN:</span>
-            <span class="final-price">{{ formatMoney(invoiceData.summary.totalPayment) }}</span>
+          <div class="calc-divider"></div>
+          <div class="calc-row total-row">
+            <span>TỔNG CỘNG:</span>
+            <span class="total-money">{{ formatMoney(invoiceData.summary.totalPayment) }}</span>
           </div>
         </div>
       </div>
@@ -1366,17 +1752,17 @@ onBeforeUnmount(() => {
           <div class="sig-name">{{ invoiceData.customer.name }}</div>
         </div>
         <div class="sig-block">
-          <div class="sig-role">Người Bán Hàng / Thu Ngân</div>
+          <div class="sig-role">Người Bán Hàng</div>
           <div class="sig-note">(Ký, ghi rõ họ tên)</div>
           <div class="sig-blank-space"></div>
           <div class="sig-name">{{ invoiceData.employee?.name || 'Nhân viên bán hàng' }}</div>
         </div>
       </div>
 
-      <!-- Lời Cảm Ơn & Chân Trang -->
+      <!-- Lời Cảm Ơn Chân Trang -->
       <div class="print-footer-section">
         <div class="print-thanks">Cảm ơn quý khách đã tin tưởng và mua sắm tại FF T-Shirt!</div>
-        <div class="print-policy">Quý khách vui lòng kiểm tra hàng khi nhận. Hỗ trợ đổi size/màu trong vòng 7 ngày kèm hóa đơn này.</div>
+        <div class="print-policy">Hỗ trợ đổi trả size/màu trong 7 ngày kèm hóa đơn này. Hotline: 0988.888.888</div>
       </div>
     </div>
   </div>
@@ -1395,20 +1781,22 @@ onBeforeUnmount(() => {
   min-height: calc(100vh - 48px);
   box-sizing: border-box;
   position: relative;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #2b353b;
 }
 
 @media (max-width: 768px) {
   .chi-tiet-page {
-    width: 100%;
     padding: 1rem 1rem 2rem;
   }
 }
 
+/* Toast Notifications */
 .toast-popup {
   position: fixed;
   top: 24px;
   right: 28px;
-  background-color: #36536b;
+  background-color: #3e5c76;
   color: #ffffff;
   padding: 10px 18px;
   border-radius: 8px;
@@ -1419,12 +1807,10 @@ onBeforeUnmount(() => {
   font-size: 0.88rem;
   font-weight: 600;
   z-index: 9999;
-  border: 1px solid #4a6880;
 }
 
 .toast-popup.warning {
   background-color: #d97706;
-  border-color: #b45309;
 }
 
 .toast-icon {
@@ -1449,57 +1835,37 @@ onBeforeUnmount(() => {
   transform: translateY(-10px);
 }
 
+/* 1. Top Navigation Bar */
 .top-nav-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
-.breadcrumb-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.btn-back {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: #3e5c76;
-  display: flex;
-  align-items: center;
-  padding: 4px;
-  border-radius: 6px;
-  transition: all 0.2s;
-}
-
-.btn-back:hover {
-  background-color: #ece4d8;
-  transform: translateX(-2px);
-}
-
-.page-breadcrumb {
+.breadcrumb-nav {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 
-.crumb-link {
-  color: #8c969e;
-  cursor: pointer;
+.crumb-parent {
+  color: #647074;
+  text-decoration: none;
   font-weight: 500;
-  transition: color 0.2s;
+  transition: color 0.15s ease;
 }
 
-.crumb-link:hover {
+.crumb-parent:hover {
   color: #3e5c76;
   text-decoration: underline;
 }
 
 .crumb-separator {
-  color: #b8c0c6;
+  color: #b0b7bd;
 }
 
 .crumb-current {
@@ -1507,514 +1873,575 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
+.top-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-top-nav {
+  background: #ffffff;
+  border: 1.5px solid #d5c8b8;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #3e5c76;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.btn-top-nav:hover {
+  background: #f7f5ef;
+  border-color: #3e5c76;
+  color: #243c50;
+}
+
+.nav-arrow {
+  font-size: 0.88rem;
+}
+
+/* 2. Top Meta Info Card (3 columns - gọn gàng, tinh tế) */
+.meta-info-card {
+  margin-bottom: 16px;
+  padding: 12px 20px;
+  background: #ffffff;
+  border: 1px solid #ebd9c8;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.meta-info-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 1fr;
+  gap: 0;
+}
+
+@media (max-width: 900px) {
+  .meta-info-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+.meta-info-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 24px;
+}
+
+.meta-info-col:not(:last-child) {
+  border-right: 1px solid #ebd9c8;
+}
+
+.meta-info-col:first-child {
+  padding-left: 4px;
+}
+
+.meta-info-col:last-child {
+  padding-right: 4px;
+}
+
+@media (max-width: 900px) {
+  .meta-info-col {
+    padding: 0;
+    border-right: none !important;
+    border-bottom: 1px solid #ebd9c8;
+    padding-bottom: 8px;
+  }
+  .meta-info-col:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.meta-info-col.col-1 .meta-label {
+  width: 135px;
+  flex-shrink: 0;
+}
+
+.meta-info-col.col-2 .meta-label {
+  width: 75px;
+  flex-shrink: 0;
+}
+
+.meta-info-col.col-3 .meta-label {
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.meta-label {
+  color: #78858f;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.meta-value {
+  color: #2b353b;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.meta-code-blue {
+  color: #3e5c76;
+  font-weight: 700;
+  font-size: 0.92rem;
+  letter-spacing: 0.3px;
+}
+
+.badge-loai-don {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  background: #f4efe9;
+  color: #3e5c76;
+  border: 1px solid #e2d8cd;
+}
+
+/* 3. Main Layout Grid (Left 1.8fr, Right 1fr) */
 .main-layout-grid {
   display: grid;
   grid-template-columns: 1.8fr 1fr;
-  gap: 20px;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 1024px) {
+  .main-layout-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .left-section,
 .right-section {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
+/* Card Box General */
 .card-box {
   background: #ffffff;
-  border-radius: 10px;
   border: 1px solid #ebd9c8;
-  padding: 20px 24px;
+  border-radius: 10px;
+  padding: 18px 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
-.card-header-flex {
+.card-header-styled {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
-.header-title-box {
+.card-title-styled {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.card-header-simple {
-  display: flex;
-  align-items: center;
-  min-height: 28px;
-  margin-bottom: 16px;
-}
-
-.card-title {
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #3e5c76;
-  margin: 0;
 }
 
-.mb-16 {
-  margin-bottom: 16px;
+.title-icon {
+  color: #3e5c76;
+  flex-shrink: 0;
 }
 
-.invoice-items-card {
-  margin-top: 20px;
+/* Left Card: Trạng thái đơn hàng (Stepper) */
+.card-order-status {
+  padding-bottom: 14px;
 }
 
-.badge-status-top {
-  background-color: #fdf5ea;
-  color: #c97e27;
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 4px 14px;
-  border-radius: 20px;
-  border: 1px solid #f9e2c4;
-}
-
-.badge-status-1 { background-color: #fff4e5; color: #d97706; }
-.badge-status-2 { background-color: #e0f2fe; color: #0369a1; }
-.badge-status-3 { background-color: #f5edff; color: #8a3ee6; }
-.badge-status-4 { background-color: #e0f7fa; color: #00838f; }
-.badge-status-5 { background-color: #e6f6ec; color: #1b7a37; }
-.badge-status-6 { background-color: #fee6e6; color: #be2626; }
-
-.stepper-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+.stepper-track-wrap {
   position: relative;
-  margin: 10px 10px 24px 10px;
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-start;
+  padding: 16px 20px 10px;
 }
 
-.step-node {
+.stepper-bg-line {
+  position: absolute;
+  top: 35px;
+  left: 20%;
+  right: 20%;
+  height: 3px;
+  background-color: #3e5c76;
+  z-index: 1;
+  border-radius: 2px;
+}
+
+.stepper-step-item {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
-  position: relative;
-  flex: 1;
   text-align: center;
+  min-width: 130px;
 }
 
-.node-circle {
+.step-circle-icon {
   width: 38px;
   height: 38px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 0.9rem;
-  z-index: 2;
   margin-bottom: 8px;
-  background-color: #ffffff;
+  transition: all 0.2s ease;
 }
 
-.circle-done {
+.circle-blue {
   background-color: #3e5c76;
   color: #ffffff;
-  border: 2px solid #3e5c76;
+  box-shadow: 0 0 0 4px #e5edf3;
 }
 
-.circle-active {
-  background-color: #3e5c76;
-  color: #f5af5f;
-  border: 2px solid #3e5c76;
+.circle-red {
+  background-color: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 0 0 4px #fee2e2;
 }
 
-.circle-pending {
-  border: 2px solid #dedede;
-  color: #8c8c8c;
-  background-color: #ffffff;
+.step-item-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2b353b;
+  margin-bottom: 2px;
 }
 
-.step-line {
-  position: absolute;
-  top: 19px;
-  right: 50%;
-  width: 100%;
-  height: 2px;
-  background-color: #e5e5e5;
-  z-index: 1;
-}
-
-.line-active {
-  background-color: #3e5c76;
-}
-
-.node-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.node-title {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #333333;
-}
-
-.node-time {
-  font-size: 0.72rem;
+.step-item-time {
+  font-size: 0.75rem;
   color: #8c969e;
 }
 
-.text-muted {
-  color: #999999 !important;
-}
-
-.stepper-cancelled {
-  opacity: 0.55;
-  filter: grayscale(0.5);
-}
-
-.action-status-footer {
+.stepper-footer-right {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-top: 1px dashed #ebd9c8;
-  padding-top: 16px;
-  margin-top: 16px;
-  gap: 12px;
-  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-top: 14px;
 }
 
-.action-status-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.action-status-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-/* Nút Lịch Sử Thao Tác bên trong khung trạng thái */
-.btn-outline-history {
+.btn-history-outline {
+  background: #ffffff;
+  border: 1.5px solid #d5c8b8;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #3e5c76;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 7px;
-  height: 38px;
-  padding: 0 16px;
-  background-color: #ffffff;
-  color: #3e5c76;
-  border: 1.5px solid #d4c5b5;
-  border-radius: 8px;
-  font-size: 0.86rem;
-  font-weight: 600;
+  gap: 6px;
   cursor: pointer;
-  transition: all 0.2s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
 }
 
-.btn-outline-history:hover {
-  background-color: #f7f3ed;
+.btn-history-outline:hover {
+  background: #f7f5ef;
   border-color: #3e5c76;
   color: #243c50;
-  box-shadow: 0 2px 4px rgba(62, 92, 118, 0.12);
-  transform: translateY(-1px);
 }
 
-/* Nút Chỉnh Sửa Trạng Thái */
-.btn-edit-status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  height: 38px;
-  padding: 0 16px;
-  background-color: #eff6ff;
-  color: #1d4ed8;
-  border: 1.5px solid #bfdbfe;
-  border-radius: 8px;
-  font-size: 0.86rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 2px rgba(29, 78, 216, 0.05);
-}
-
-.btn-edit-status:hover:not(:disabled) {
-  background-color: #dbeafe;
-  border-color: #93c5fd;
-  color: #1e40af;
-  box-shadow: 0 2px 5px rgba(29, 78, 216, 0.15);
-  transform: translateY(-1px);
-}
-
-.btn-edit-status:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Nút Hủy Đơn Hàng */
-.btn-cancel-order {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 38px;
-  padding: 0 15px;
-  background-color: #fef2f2;
-  color: #dc2626;
-  border: 1.5px solid #fecaca;
-  border-radius: 8px;
-  font-size: 0.86rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-cancel-order:hover:not(:disabled) {
-  background-color: #fee2e2;
-  border-color: #f87171;
-  color: #b91c1c;
-  transform: translateY(-1px);
-}
-
-.btn-cancel-order:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Nút Chuyển Tiếp Trạng Thái Nhanh */
-.btn-next-status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  height: 38px;
-  padding: 0 18px;
-  background-color: #3e5c76;
-  color: #ffffff;
-  border: 1.5px solid #3e5c76;
-  border-radius: 8px;
-  font-size: 0.86rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(62, 92, 118, 0.2);
-}
-
-.btn-next-status:hover:not(:disabled) {
-  background-color: #2b4257;
-  border-color: #2b4257;
-  box-shadow: 0 3px 6px rgba(62, 92, 118, 0.25);
-  transform: translateY(-1px);
-}
-
-.btn-next-status:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
+/* Left Row: Thông tin khách hàng & Giao hàng */
 .info-dual-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  align-items: stretch;
+  gap: 16px;
 }
 
-.sub-card {
+@media (max-width: 640px) {
+  .info-dual-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sub-info-card {
+  padding: 16px 18px;
+}
+
+.info-list {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  box-sizing: border-box;
+  gap: 10px;
 }
 
-.info-table {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  flex: 1;
-}
-
-.info-row {
+.info-list-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.88rem;
-  min-height: 24px;
+  font-size: 0.82rem;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #f0e6dc;
 }
 
-.info-row.align-start {
-  align-items: flex-start;
+.info-list-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
-.info-label {
-  color: #636b72;
-  width: 130px;
-  flex-shrink: 0;
+.info-row-label {
+  color: #647074;
 }
 
-.info-value {
+.info-row-val {
   color: #2b353b;
   text-align: right;
-  flex: 1;
-  word-break: break-word;
 }
 
-.address-value {
-  max-width: 250px;
-  line-height: 1.45;
-  font-weight: 500;
+/* Right Card: Tổng kết thanh toán */
+.summary-card {
+  padding: 16px 20px;
 }
 
-.summary-content {
+.summary-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
-.summary-item {
+.summary-line {
   display: flex;
   justify-content: space-between;
-  font-size: 0.86rem;
+  align-items: center;
+  font-size: 0.85rem;
 }
 
 .s-label {
-  color: #666666;
+  color: #647074;
 }
 
-.voucher-subname {
-  font-size: 0.8rem;
-  color: #3e5c76;
-  font-weight: 500;
-  margin-left: 4px;
-}
-
-.s-value {
-  color: #222222;
+.s-val {
+  color: #2b353b;
   font-weight: 600;
 }
 
 .summary-divider {
-  border-top: 1px dashed #ebd9c8;
-  margin: 6px 0;
+  height: 1px;
+  background-color: #ebd9c8;
+  margin: 4px 0;
 }
 
-.summary-total-row {
+.summary-total-line {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding-top: 4px;
 }
 
-.total-label {
-  font-size: 1rem;
+.total-label-caps {
+  font-size: 0.85rem;
   font-weight: 700;
-  color: #222222;
+  color: #2b353b;
+  letter-spacing: 0.5px;
 }
 
-.total-price-orange {
+.total-price-blue {
   font-size: 1.25rem;
-  font-weight: 700;
-  color: #b85d19;
+  font-weight: 800;
+  color: #3e5c76;
 }
 
-.payment-record-box {
-  background-color: #fcfbf9;
+/* Right Card: Lịch sử thanh toán */
+.payment-card {
+  padding: 16px 20px;
+}
+
+.payment-inner-box {
+  background: #fcfbf9;
   border: 1px solid #f0e6dc;
   border-radius: 8px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   margin-bottom: 14px;
 }
 
-.payment-header-row {
+.pay-top-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
-}
-
-.pay-method-name {
-  font-weight: 700;
-  font-size: 0.88rem;
-  color: #222222;
-}
-
-.badge-paid-green {
-  background-color: #eaf8ed;
-  color: #2e7d32;
-  font-size: 0.72rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
-}
-
-.badge-unpaid-orange {
-  background-color: #fff6eb;
-  color: #b75e11;
-  font-size: 0.72rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
-}
-
-.pay-desc {
-  font-size: 0.78rem;
-  color: #777777;
   margin-bottom: 6px;
 }
 
-.payment-bottom-row {
+.pay-label-sub {
+  font-size: 0.78rem;
+  color: #647074;
+}
+
+.badge-status-pill {
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pill-paid {
+  background: #eaf8ed;
+  color: #23783a;
+  border: 1px solid #c2ebd0;
+}
+
+.pill-unpaid {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.pill-dot {
+  font-size: 0.5rem;
+}
+
+.pay-method-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #3e5c76;
+  margin-bottom: 4px;
+}
+
+.pay-time-trans {
+  font-size: 0.75rem;
+  color: #8c969e;
+  margin-bottom: 8px;
+}
+
+.pay-amount-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.pay-time-text {
-  font-size: 0.75rem;
-  color: #888888;
+  margin-bottom: 6px;
 }
 
 .pay-amount-bold {
-  font-weight: 700;
   font-size: 0.95rem;
-  color: #b85d19;
+  font-weight: 700;
+  color: #3e5c76;
 }
 
-.payment-action-box {
+.pay-note-sub {
+  font-size: 0.76rem;
+  color: #647074;
+}
+
+.payment-actions-col {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
-.btn-paid-status {
-  width: 100%;
-  height: 38px;
-  background-color: #edf7ef;
-  color: #2e7d32;
-  border: 1px solid #cce5d0;
-  border-radius: 6px;
-  font-size: 0.86rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.btn-print-invoice {
-  width: 100%;
-  height: 38px;
-  background-color: #36536b;
+.btn-blue-action {
+  background: #3e5c76;
   color: #ffffff;
-  border: none;
-  border-radius: 6px;
+  border: 1px solid #3e5c76;
+  border-radius: 8px;
+  height: 38px;
   font-size: 0.86rem;
   font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(62, 92, 118, 0.25);
+  transition: all 0.15s ease;
 }
 
-.btn-print-invoice:hover {
-  background-color: #263c4f;
-  box-shadow: 0 2px 6px rgba(54, 83, 107, 0.25);
+.btn-blue-action:hover:not(:disabled) {
+  background: #2b4257;
+  border-color: #243742;
+  box-shadow: 0 4px 10px rgba(62, 92, 118, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-blue-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 4. Bottom Card: Danh sách sản phẩm */
+.products-card {
+  padding: 20px;
+}
+
+.product-count-sub {
+  font-size: 0.82rem;
+  color: #647074;
+  font-weight: 600;
+}
+
+.product-filters-toolbar {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 900px) {
+  .product-filters-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+  .toolbar-item.search-item {
+    grid-column: span 2;
+  }
+}
+
+.toolbar-item {
+  width: 100%;
+}
+
+.search-input-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  color: #8c969e;
+  pointer-events: none;
+}
+
+.form-control-tb {
+  height: 36px;
+  border: 1px solid #d5c8b8;
+  border-radius: 7px;
+  padding: 0 10px;
+  font-size: 0.84rem;
+  color: #2b353b;
+  background: #ffffff;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+}
+
+.form-control-tb:focus {
+  border-color: #3e5c76;
+  box-shadow: 0 0 0 2px rgba(62, 92, 118, 0.15);
+}
+
+.input-search {
+  padding-left: 32px;
 }
 
 .table-responsive {
@@ -2022,167 +2449,83 @@ onBeforeUnmount(() => {
   overflow-x: auto;
 }
 
-.products-table {
+.products-table-styled {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 0.88rem;
+  font-size: 0.84rem;
 }
 
-.col-stt     { width: 60px; }
-.col-code    { width: 110px; }
-.col-name    { width: 32%; }
-.col-variant { width: 22%; }
-.col-qty     { width: 90px; }
-.col-price   { width: 15%; }
-.col-total   { width: 15%; }
-
-.products-table th {
-  background-color: #f5efeb;
+.products-table-styled thead th {
+  background: #f5efeb;
+  border-bottom: 2px solid #ebd9c8;
   color: #3e5c76;
   font-weight: 700;
-  padding: 12px 14px;
-  border-bottom: 1px solid #ebd9c8;
-  vertical-align: middle;
+  padding: 11px 12px;
+  font-size: 0.82rem;
+  white-space: nowrap;
 }
 
-.products-table td {
-  padding: 14px 14px;
+.products-table-styled tbody td {
+  padding: 12px;
   border-bottom: 1px solid #f1e7dc;
   color: #333333;
   vertical-align: middle;
 }
 
-.text-left {
-  text-align: left !important;
-}
-
-.text-center {
-  text-align: center !important;
-}
-
-.text-right {
-  text-align: right !important;
-}
-
-.variant-wrapper {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.variant-tag {
-  background: #ede6dd;
-  color: #5d4a38;
-  font-size: 0.75rem;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.color-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #334155;
-}
-
-.color-dot-indicator {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  display: inline-block;
-  border: 1px solid rgba(0,0,0,0.2);
-  flex-shrink: 0;
-}
-
-.size-tag {
-  background: #e8f0fe;
-  color: #1a73e8;
-}
-
-.badge-code-product {
-  display: inline-block;
-  padding: 3px 8px;
-  background-color: #f1f5f9;
-  color: #3e5c76;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-family: monospace;
-  font-weight: 700;
-}
-
-.product-meta-cell {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.product-icon-wrap {
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
-  background: #f1f5f9;
-  color: #475569;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.product-info-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.product-name-heading {
-  color: #1e293b;
-  font-weight: 600;
-  font-size: 0.88rem;
-  line-height: 1.35;
-}
-
-.product-sub-variant {
-  font-size: 0.75rem;
-  color: #64748b;
-}
-
-.variant-sku-text {
-  font-family: monospace;
-  color: #3e5c76;
-  font-weight: 600;
-}
-
-.qty-pill {
-  display: inline-block;
-  min-width: 28px;
-  padding: 2px 8px;
-  background: #f1f5f9;
-  color: #1e293b;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 0.84rem;
-}
-
-.text-price-unit {
-  color: #64748b;
-  font-size: 0.86rem;
-}
-
-.text-price-total {
-  color: #0f172a;
-  font-size: 0.92rem;
+.product-item-row:hover {
+  background: #fcfaf7;
 }
 
 .text-code {
   color: #3e5c76;
+  font-weight: 700;
 }
 
+.product-name-heading {
+  font-weight: 600;
+  color: #2b353b;
+  margin-bottom: 2px;
+}
+
+.product-sub-variant {
+  font-size: 0.74rem;
+  color: #647074;
+}
+
+.variant-wrapper {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.variant-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f7f5ef;
+  border: 1px solid #ebd9c8;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.74rem;
+  color: #3e5c76;
+}
+
+.color-dot-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.text-price-total {
+  color: #3e5c76;
+  font-weight: 700;
+}
+
+/* Utilities */
 .font-bold {
   font-weight: 700;
 }
@@ -2191,35 +2534,24 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 
-.text-dark {
-  color: #222222;
+.text-center {
+  text-align: center;
 }
 
-.text-sub {
-  color: #333333;
+.text-left {
+  text-align: left;
 }
 
-.text-discount {
+.text-right {
+  text-align: right;
+}
+
+.text-muted {
+  color: #8c969e !important;
+}
+
+.text-danger {
   color: #dc2626 !important;
-  font-weight: 700;
-}
-
-.badge-type-store {
-  background-color: #f0fdf4;
-  color: #166534;
-  padding: 2px 10px;
-  border-radius: 4px;
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.badge-type-online {
-  background-color: #eff6ff;
-  color: #1d4ed8;
-  padding: 2px 10px;
-  border-radius: 4px;
-  font-size: 0.82rem;
-  font-weight: 600;
 }
 
 /* Modal Popup Lịch Sử Thao Tác */
@@ -2229,22 +2561,25 @@ onBeforeUnmount(() => {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: rgba(0, 0, 0, 0.45);
+  background-color: rgba(43, 53, 59, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10000;
+  backdrop-filter: blur(2px);
 }
 
 .modal-container {
   background: #ffffff;
   width: 600px;
   max-width: 90vw;
-  max-height: 80vh;
+  max-height: 85vh;
   border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  border: 1px solid #ebd9c8;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .modal-header {
@@ -2253,6 +2588,7 @@ onBeforeUnmount(() => {
   align-items: center;
   padding: 16px 20px;
   border-bottom: 1px solid #ebd9c8;
+  background: #fcfaf7;
 }
 
 .btn-close-modal {
@@ -2260,11 +2596,18 @@ onBeforeUnmount(() => {
   border: none;
   font-size: 1.1rem;
   cursor: pointer;
-  color: #8c969e;
+  color: #647074;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
 }
 
 .btn-close-modal:hover {
-  color: #222222;
+  background: #f0e6dc;
+  color: #3e5c76;
 }
 
 .modal-body {
@@ -2275,12 +2618,18 @@ onBeforeUnmount(() => {
   gap: 14px;
 }
 
+.card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #3e5c76;
+  margin: 0;
+}
+
+/* Modal Lịch Sử Thao Tác */
 .logs-timeline-list {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  position: relative;
-  padding-left: 6px;
+  gap: 12px;
 }
 
 .log-timeline-row {
@@ -2290,8 +2639,8 @@ onBeforeUnmount(() => {
 }
 
 .log-dot-badge {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background-color: #3e5c76;
   color: #ffffff;
@@ -2320,8 +2669,8 @@ onBeforeUnmount(() => {
 }
 
 .log-action-text {
-  font-size: 0.88rem;
-  color: #222222;
+  font-size: 0.85rem;
+  color: #2b353b;
 }
 
 .log-time-text {
@@ -2330,34 +2679,222 @@ onBeforeUnmount(() => {
 }
 
 .log-sub-info {
-  font-size: 0.8rem;
-  color: #636b72;
+  font-size: 0.78rem;
+  color: #647074;
 }
 
-.log-sub-info strong {
+/* Modal Chỉnh Sửa Đơn Hàng (2 Tabs Layout) */
+.modal-edit-order {
+  max-width: 530px;
+  width: 92%;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  background: #ffffff;
+  border: 1px solid #ebd9c8;
+}
+
+.modal-header-clean {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px 14px;
+  background: #ffffff;
+  border-bottom: none;
+}
+
+.modal-title-clean {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #2b353b;
+  margin: 0;
+}
+
+/* Tabs Bar */
+.modal-tabs-bar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 20px;
+  border-bottom: 1px solid #ebe5df;
+  background: #ffffff;
+}
+
+.modal-tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 0 10px 0;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #78858f;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: -1px;
+}
+
+.modal-tab-btn:hover {
   color: #3e5c76;
 }
 
-/* Modal Chỉnh Sửa Trạng Thái */
-.modal-edit-status {
-  max-width: 650px;
-  width: 95%;
+.modal-tab-btn.active {
+  color: #3e5c76;
+  font-weight: 700;
+  border-bottom: 2px solid #3e5c76;
 }
 
-.modal-subtitle {
+.modal-body-order {
+  padding: 18px 20px 22px;
+  background: #ffffff;
+}
+
+/* Tab 1: Đơn Hàng */
+.order-meta-cards-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.meta-mini-card {
+  background: #fbfaf7;
+  border: 1px solid #ebd9c8;
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mini-card-label {
+  font-size: 0.74rem;
+  color: #78858f;
+  font-weight: 500;
+}
+
+.mini-card-val {
+  font-size: 0.95rem;
+  color: #2b353b;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.custom-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.modal-select-field {
+  width: 100%;
+  height: 42px;
+  border: 1px solid #d5c8b8;
+  border-radius: 8px;
+  padding: 0 34px 0 12px;
+  font-size: 0.88rem;
+  color: #2b353b;
+  background-color: #fcfbf9;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233e5c76' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+}
+
+.modal-select-field:focus {
+  border-color: #3e5c76;
+  box-shadow: 0 0 0 2px rgba(62, 92, 118, 0.15);
+}
+
+.modal-select-field:disabled {
+  background-color: #f7f5ef;
+  color: #78858f;
+  cursor: not-allowed;
+  opacity: 0.9;
+}
+
+.status-help-text {
+  font-size: 0.76rem;
+  color: #78858f;
+  margin: 6px 0 12px 0;
+  line-height: 1.4;
+}
+
+.status-alert-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
   font-size: 0.82rem;
-  color: #64748b;
-  margin: 4px 0 0 0;
+  line-height: 1.4;
 }
 
-.modal-subtitle strong {
-  color: #3e5c76;
+.status-alert-box.info {
+  background: #f0f7fb;
+  border: 1px solid #c9e3f3;
+  color: #1e6288;
+}
+
+.alert-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Tab 2: Khách Hàng */
+.customer-edit-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-input-field {
+  width: 100%;
+  height: 38px;
+  border: 1px solid #d5c8b8;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 0.88rem;
+  color: #2b353b;
+  background-color: #ffffff;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.modal-input-field:focus {
+  border-color: #3e5c76;
+  box-shadow: 0 0 0 2px rgba(62, 92, 118, 0.15);
+}
+
+.modal-textarea-field {
+  width: 100%;
+  border: 1px solid #d5c8b8;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.88rem;
+  color: #2b353b;
+  background-color: #ffffff;
+  box-sizing: border-box;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.modal-textarea-field:focus {
+  border-color: #3e5c76;
+  box-shadow: 0 0 0 2px rgba(62, 92, 118, 0.15);
 }
 
 .form-group-modal {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .mt-14 {
@@ -2365,123 +2902,9 @@ onBeforeUnmount(() => {
 }
 
 .modal-label {
-  font-size: 0.86rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: #334155;
-}
-
-.text-danger {
-  color: #ef4444;
-}
-
-.status-options-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-
-@media (max-width: 600px) {
-  .status-options-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.status-radio-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  background: #ffffff;
-  border: 1.5px solid #e2d8cd;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
-}
-
-.status-radio-card:hover {
-  background: #fbf9f6;
-}
-
-.status-radio-card.active {
-  background: #fdfaf6;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-}
-
-.radio-hidden {
-  display: none;
-}
-
-.radio-circle {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid #cbd5e1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-top: 2px;
-  transition: all 0.2s ease;
-}
-
-.radio-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #ffffff;
-}
-
-.status-card-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.status-card-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.status-card-badge {
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 12px;
-}
-
-.current-label {
-  font-size: 0.72rem;
-  color: #059669;
-  font-weight: 600;
-}
-
-.status-card-desc {
-  font-size: 0.74rem;
-  color: #64748b;
-  margin: 0;
-  line-height: 1.35;
-}
-
-.modal-textarea {
-  width: 100%;
-  border: 1.5px solid #dcd1c4;
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 0.85rem;
-  color: #1e293b;
-  box-sizing: border-box;
-  font-family: inherit;
-  resize: vertical;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.modal-textarea:focus {
-  border-color: #3e5c76;
 }
 
 .modal-footer {
@@ -2491,27 +2914,26 @@ onBeforeUnmount(() => {
   gap: 10px;
   padding: 14px 20px;
   border-top: 1px solid #ebd9c8;
-  background: #fbf9f6;
-  border-bottom-left-radius: 10px;
-  border-bottom-right-radius: 10px;
+  background: #fcfaf7;
 }
 
 .btn-modal-cancel {
   height: 36px;
   padding: 0 16px;
   background: #ffffff;
-  color: #64748b;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
+  color: #647074;
+  border: 1.5px solid #d5c8b8;
+  border-radius: 8px;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s ease;
 }
 
 .btn-modal-cancel:hover {
-  background: #f1f5f9;
-  color: #334155;
+  background: #f7f5ef;
+  color: #3e5c76;
+  border-color: #3e5c76;
 }
 
 .btn-modal-save {
@@ -2520,17 +2942,17 @@ onBeforeUnmount(() => {
   background: #3e5c76;
   color: #ffffff;
   border: 1px solid #3e5c76;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 2px 4px rgba(62, 92, 118, 0.2);
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(62, 92, 118, 0.25);
 }
 
 .btn-modal-save:hover:not(:disabled) {
   background: #2b4257;
-  border-color: #2b4257;
+  border-color: #243742;
 }
 
 .btn-modal-save:disabled {
@@ -2538,30 +2960,22 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
 }
 
-@media (max-width: 1024px) {
-  .main-layout-grid {
-    grid-template-columns: 1fr;
-  }
-  .info-dual-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* Custom Confirm Modal Styling */
 .modal-confirm-box {
   max-width: 480px;
   width: 90%;
-  border-radius: 14px;
+  border-radius: 12px;
+  border: 1px solid #ebd9c8;
   overflow: hidden;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
-  animation: modalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   background: #ffffff;
 }
 
 @keyframes modalPop {
   from {
     opacity: 0;
-    transform: scale(0.92) translateY(-10px);
+    transform: scale(0.95) translateY(-8px);
   }
   to {
     opacity: 1;
@@ -2570,11 +2984,12 @@ onBeforeUnmount(() => {
 }
 
 .confirm-header {
-  padding: 18px 24px 14px 24px;
-  border-bottom: 1px solid #f1e7dc;
+  padding: 16px 20px;
+  border-bottom: 1px solid #ebd9c8;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: #fcfaf7;
 }
 
 .confirm-title-group {
@@ -2584,9 +2999,9 @@ onBeforeUnmount(() => {
 }
 
 .confirm-icon-badge {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2594,12 +3009,12 @@ onBeforeUnmount(() => {
 }
 
 .confirm-icon-badge.primary {
-  background: #e8f1f5;
+  background: #eaf1f4;
   color: #3e5c76;
 }
 
 .confirm-icon-badge.warning {
-  background: #fff4e5;
+  background: #fef3c7;
   color: #d97706;
 }
 
@@ -2609,42 +3024,42 @@ onBeforeUnmount(() => {
 }
 
 .confirm-body {
-  padding: 22px 24px 14px 24px;
+  padding: 20px;
 }
 
 .confirm-main-message {
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: #2b353b;
   font-weight: 600;
-  line-height: 1.55;
-  margin: 0 0 8px 0;
+  line-height: 1.5;
+  margin: 0 0 6px 0;
 }
 
 .confirm-sub-message {
-  font-size: 0.85rem;
-  color: #6c757d;
+  font-size: 0.82rem;
+  color: #647074;
   line-height: 1.45;
   margin: 0;
 }
 
 .confirm-footer {
-  padding: 14px 24px 20px 24px;
+  padding: 14px 20px;
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  border-top: 1px solid #f8f3ed;
-  background: #fdfbf7;
+  gap: 10px;
+  border-top: 1px solid #ebd9c8;
+  background: #fcfaf7;
 }
 
 .btn-confirm-accept {
-  height: 38px;
-  padding: 0 20px;
-  border-radius: 7px;
+  height: 36px;
+  padding: 0 18px;
+  border-radius: 8px;
   border: none;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   color: #ffffff;
   display: inline-flex;
   align-items: center;
@@ -2692,7 +3107,7 @@ onBeforeUnmount(() => {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 12mm 15mm 15mm 15mm;
+    margin: 15mm 15mm 15mm 15mm;
   }
 
   html, body {
@@ -2700,17 +3115,17 @@ onBeforeUnmount(() => {
     padding: 0 !important;
     background: #ffffff !important;
     color: #111827 !important;
-    font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* 1. Ẩn TOÀN BỘ mọi thành phần trong body */
+  /* Ẩn TOÀN BỘ mọi thành phần trong body */
   body * {
     visibility: hidden !important;
   }
 
-  /* 2. Ẩn triệt để bằng display: none tất cả layout giao diện web của ứng dụng */
+  /* Ẩn triệt để tất cả layout giao diện web của ứng dụng */
   aside,
   .sidebar,
   header,
@@ -2731,7 +3146,6 @@ onBeforeUnmount(() => {
     display: none !important;
   }
 
-  /* 3. Reset các container cha để không chiếm chỗ */
   .app-shell,
   .main-content,
   .page-body,
@@ -2747,7 +3161,7 @@ onBeforeUnmount(() => {
     display: block !important;
   }
 
-  /* 4. CHỈ HIỂN THỊ DUY NHẤT vùng Hóa Đơn Bán Hàng (.printable-invoice) */
+  /* CHỈ HIỂN THỊ DUY NHẤT vùng Hóa Đơn Bán Hàng */
   .printable-invoice,
   .printable-invoice * {
     visibility: visible !important;
@@ -2768,7 +3182,7 @@ onBeforeUnmount(() => {
     line-height: 1.5 !important;
   }
 
-  /* Header Hóa Đơn Bán Hàng */
+  /* Header Hóa Đơn */
   .print-header-top {
     display: flex !important;
     justify-content: space-between !important;
@@ -2781,26 +3195,17 @@ onBeforeUnmount(() => {
   }
 
   .print-brand-name {
-    font-size: 20px !important;
+    font-size: 18px !important;
     font-weight: 800 !important;
-    color: #3e5c76 !important;
+    color: #111827 !important;
     letter-spacing: 0.5px !important;
-    text-transform: uppercase !important;
     margin-bottom: 2px !important;
-  }
-
-  .print-store-sub {
-    font-size: 12px !important;
-    font-weight: 600 !important;
-    color: #c59b27 !important;
-    margin-bottom: 4px !important;
-    text-transform: uppercase !important;
   }
 
   .print-store-meta {
     font-size: 11.5px !important;
     color: #4b5563 !important;
-    line-height: 1.4 !important;
+    line-height: 1.45 !important;
   }
 
   .print-invoice-title-block {
@@ -2809,108 +3214,102 @@ onBeforeUnmount(() => {
   }
 
   .print-main-title {
-    font-size: 22px !important;
+    font-size: 20px !important;
     font-weight: 800 !important;
-    color: #1e293b !important;
-    margin: 0 0 4px 0 !important;
-    letter-spacing: 0.8px !important;
+    color: #111827 !important;
+    margin: 0 0 3px 0 !important;
+    letter-spacing: 0.5px !important;
   }
 
-  .print-meta-pill {
+  .print-meta-code {
     font-size: 13px !important;
-    color: #3e5c76 !important;
-    font-weight: 600 !important;
+    color: #111827 !important;
     margin-bottom: 2px !important;
   }
 
   .print-meta-date {
     font-size: 11.5px !important;
-    color: #64748b !important;
+    color: #6b7280 !important;
   }
 
-  .print-divider-line-main {
-    height: 2.5px !important;
-    background: #3e5c76 !important;
+  .print-divider {
+    height: 1.5px !important;
+    background: #111827 !important;
     margin: 8px 0 16px 0 !important;
   }
 
-  /* Thông tin khách hàng & Đơn hàng */
-  .print-info-grid {
+  /* Thông tin khách hàng & Đơn hàng (Đơn giản, không đóng hộp rườm rà) */
+  .print-info-row {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
-    gap: 16px !important;
-    margin-bottom: 16px !important;
-    background-color: #f8fafc !important;
-    border: 1px solid #cbd5e1 !important;
-    border-radius: 6px !important;
-    padding: 10px 14px !important;
+    gap: 32px !important;
+    margin-bottom: 20px !important;
   }
 
-  .print-col-heading {
-    font-size: 11.5px !important;
-    font-weight: 700 !important;
-    color: #3e5c76 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-    margin-bottom: 6px !important;
-    padding-bottom: 3px !important;
-    border-bottom: 1px dashed #cbd5e1 !important;
-  }
-
-  .print-row-item {
-    font-size: 12px !important;
-    margin-bottom: 4px !important;
+  .print-info-col {
     display: flex !important;
-    gap: 6px !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+
+  .print-data-line {
+    font-size: 12.5px !important;
+    display: flex !important;
+    gap: 8px !important;
+    line-height: 1.4 !important;
   }
 
   .p-label {
-    color: #64748b !important;
-    min-width: 100px !important;
+    color: #6b7280 !important;
+    min-width: 95px !important;
     flex-shrink: 0 !important;
   }
 
   .p-val {
-    color: #0f172a !important;
-    word-break: break-word !important;
+    color: #111827 !important;
   }
 
   .p-val.font-bold {
-    font-weight: 700 !important;
+    font-weight: 600 !important;
   }
 
-  /* Bảng sản phẩm */
+  /* Bảng sản phẩm tinh giản: Chỉ có đường kẻ ngang, không ô lưới dọc */
   .print-table {
     width: 100% !important;
     border-collapse: collapse !important;
-    margin-bottom: 16px !important;
-    font-size: 12px !important;
+    margin-bottom: 20px !important;
+    font-size: 12.5px !important;
   }
 
   .print-table th {
-    background-color: #f1f5f9 !important;
-    color: #1e293b !important;
+    border-top: 1.5px solid #111827 !important;
+    border-bottom: 1.5px solid #111827 !important;
+    border-left: none !important;
+    border-right: none !important;
+    padding: 8px 6px !important;
+    font-size: 11.5px !important;
     font-weight: 700 !important;
-    border: 1px solid #cbd5e1 !important;
-    padding: 7px 8px !important;
+    color: #111827 !important;
     text-transform: uppercase !important;
-    font-size: 11px !important;
+    background: transparent !important;
   }
 
   .print-table td {
-    border: 1px solid #cbd5e1 !important;
-    padding: 7px 8px !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    padding: 8px 6px !important;
     vertical-align: middle !important;
-    color: #1e293b !important;
-  }
-
-  .print-prod-name {
-    font-weight: 600 !important;
-    color: #0f172a !important;
+    color: #111827 !important;
   }
 
   .print-table .text-center {
     text-align: center !important;
+  }
+
+  .print-table .text-left {
+    text-align: left !important;
   }
 
   .print-table .text-right {
@@ -2921,102 +3320,74 @@ onBeforeUnmount(() => {
     font-weight: 700 !important;
   }
 
+  .print-table .font-medium {
+    font-weight: 500 !important;
+  }
+
+  .print-table .text-muted {
+    color: #6b7280 !important;
+  }
+
   .print-table tr {
     page-break-inside: avoid !important;
   }
 
-  /* Thanh toán & Tổng tiền */
-  .print-summary-box {
-    display: grid !important;
-    grid-template-columns: 1fr 1.3fr !important;
-    gap: 16px !important;
-    margin-bottom: 20px !important;
+  /* Khối tổng kết thanh toán (Gọn gàng, không đóng khung hộp) */
+  .print-bottom-summary {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    margin-bottom: 28px !important;
     page-break-inside: avoid !important;
+    gap: 20px !important;
   }
 
-  .print-payment-method-box {
-    border: 1px solid #cbd5e1 !important;
-    border-radius: 6px !important;
-    padding: 10px 12px !important;
-    background-color: #fafafa !important;
+  .print-payment-info {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
   }
 
-  .p-method-title {
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    color: #3e5c76 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-    margin-bottom: 6px !important;
-    padding-bottom: 3px !important;
-    border-bottom: 1px dashed #cbd5e1 !important;
+  .print-calc-block {
+    width: 290px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
   }
 
-  .p-method-item {
-    font-size: 12px !important;
+  .calc-row {
     display: flex !important;
     justify-content: space-between !important;
-    margin-bottom: 4px !important;
-    color: #475569 !important;
+    font-size: 12.5px !important;
+    color: #374151 !important;
   }
 
-  .p-method-item strong {
-    color: #0f172a !important;
-  }
-
-  .text-paid {
-    color: #15803d !important;
-  }
-
-  .print-total-calc-box {
-    border: 1px solid #cbd5e1 !important;
-    border-radius: 6px !important;
-    padding: 10px 14px !important;
-    background-color: #ffffff !important;
-  }
-
-  .print-calc-line {
-    font-size: 12px !important;
-    display: flex !important;
-    justify-content: space-between !important;
-    margin-bottom: 5px !important;
-    color: #334155 !important;
-  }
-
-  .print-calc-line.discount {
-    color: #b91c1c !important;
-    font-weight: 600 !important;
-  }
-
-  .print-divider-line {
+  .calc-divider {
     height: 1px !important;
-    background: #cbd5e1 !important;
-    margin: 6px 0 !important;
+    background: #111827 !important;
+    margin: 4px 0 !important;
   }
 
-  .print-calc-line.final-line {
-    font-size: 13.5px !important;
+  .calc-row.total-row {
+    font-size: 14px !important;
     font-weight: 800 !important;
-    color: #0f172a !important;
-    margin-top: 4px !important;
-    margin-bottom: 0 !important;
-    align-items: center !important;
+    color: #111827 !important;
+    padding-top: 2px !important;
   }
 
-  .final-price {
-    font-size: 15.5px !important;
-    color: #b91c1c !important;
+  .total-money {
+    font-size: 15px !important;
     font-weight: 800 !important;
+    color: #111827 !important;
   }
 
   /* Chữ ký */
   .print-signatures-row {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
-    gap: 40px !important;
+    gap: 60px !important;
     text-align: center !important;
-    margin-top: 8px !important;
-    margin-bottom: 24px !important;
+    margin-bottom: 28px !important;
     page-break-inside: avoid !important;
   }
 
@@ -3029,46 +3400,45 @@ onBeforeUnmount(() => {
   .sig-role {
     font-size: 12.5px !important;
     font-weight: 700 !important;
-    color: #1e293b !important;
+    color: #111827 !important;
     text-transform: uppercase !important;
   }
 
   .sig-note {
-    font-size: 10.5px !important;
-    color: #64748b !important;
+    font-size: 11px !important;
+    color: #6b7280 !important;
     font-style: italic !important;
     margin-top: 2px !important;
   }
 
   .sig-blank-space {
-    height: 50px !important;
+    height: 55px !important;
   }
 
   .sig-name {
     font-size: 12.5px !important;
-    font-weight: 700 !important;
-    color: #0f172a !important;
+    font-weight: 600 !important;
+    color: #111827 !important;
   }
 
   /* Lời cảm ơn chân trang */
   .print-footer-section {
     text-align: center !important;
-    border-top: 1px dashed #cbd5e1 !important;
-    padding-top: 10px !important;
+    border-top: 1px dashed #d1d5db !important;
+    padding-top: 12px !important;
     page-break-inside: avoid !important;
   }
 
   .print-thanks {
     font-size: 12px !important;
-    font-weight: 700 !important;
-    color: #3e5c76 !important;
-    margin-bottom: 2px !important;
+    font-weight: 600 !important;
+    color: #374151 !important;
+    margin-bottom: 3px !important;
   }
 
   .print-policy {
-    font-size: 10.5px !important;
-    color: #64748b !important;
-    font-style: italic !important;
+    font-size: 11px !important;
+    color: #6b7280 !important;
   }
 }
 </style>

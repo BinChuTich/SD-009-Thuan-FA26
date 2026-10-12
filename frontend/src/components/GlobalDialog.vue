@@ -1,83 +1,35 @@
 <template>
-  <div>
-    <!-- TOAST NOTIFICATIONS -->
-    <div class="global-toast-container">
-      <transition-group name="toast-anim" tag="div" class="toast-list">
-        <div
-          v-for="toast in dialogState.toasts"
-          :key="toast.id"
-          class="toast-item"
-          :class="`toast-${toast.type || 'info'}`"
-        >
-          <div class="toast-icon">
-            <svg v-if="toast.type === 'success'" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-            <svg v-else-if="toast.type === 'error'" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="15" y1="9" x2="9" y2="15"></line>
-              <line x1="9" y1="9" x2="15" y2="15"></line>
-            </svg>
-            <svg v-else-if="toast.type === 'warning'" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-              <line x1="12" y1="9" x2="12" y2="13"></line>
-              <line x1="12" y1="17" x2="12.01" y2="17"></line>
-            </svg>
-            <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="16" x2="12" y2="12"></line>
-              <line x1="12" y1="8" x2="12.01" y2="8"></line>
-            </svg>
-          </div>
-          <div class="toast-content">{{ toast.message }}</div>
-          <button class="toast-close-btn" @click="removeToast(toast.id)" title="Đóng">✕</button>
-        </div>
-      </transition-group>
-    </div>
-
-    <!-- MODAL CONFIRM (Xác nhận hành động) -->
-    <transition name="fade">
+  <Teleport to="body">
+    <!-- CONFIRM DIALOG -->
+    <transition name="dialog-fade">
       <div
         v-if="dialogState.confirm.show"
-        class="dialog-overlay"
+        class="global-dialog-overlay"
         @click.self="handleConfirmChoice(false)"
       >
-        <div class="dialog-box confirm-box">
-          <div class="dialog-header">
-            <div class="dialog-icon-wrapper" :class="`icon-${dialogState.confirm.type || 'question'}`">
-              <svg v-if="dialogState.confirm.type === 'warning' || dialogState.confirm.type === 'danger'" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                <line x1="12" y1="9" x2="12" y2="13"></line>
-                <line x1="12" y1="17" x2="12.01" y2="17"></line>
-              </svg>
-              <svg v-else-if="dialogState.confirm.type === 'success'" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-              </svg>
-              <svg v-else viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                <line x1="12" y1="17" x2="12.01" y2="17"></line>
-              </svg>
-            </div>
-            <h3 class="dialog-title">{{ dialogState.confirm.title || 'Xác nhận thao tác' }}</h3>
+        <div class="global-dialog-box" role="dialog" aria-modal="true">
+          <div class="dialog-icon-circle" :class="dialogState.confirm.type || 'question'">
+            <span v-if="dialogState.confirm.type === 'danger'">✕</span>
+            <span v-else-if="dialogState.confirm.type === 'warning'">!</span>
+            <span v-else-if="dialogState.confirm.type === 'success'">✓</span>
+            <span v-else>?</span>
           </div>
-          <div class="dialog-body">
-            <p class="dialog-message">{{ dialogState.confirm.message }}</p>
-          </div>
-          <div class="dialog-footer">
+
+          <h3 class="dialog-title">{{ dialogState.confirm.title || 'Xác nhận thao tác' }}</h3>
+          <p class="dialog-message">{{ dialogState.confirm.message }}</p>
+
+          <div class="dialog-actions-row">
             <button
               type="button"
-              class="btn-dialog btn-cancel"
+              class="btn-dialog-cancel"
               @click="handleConfirmChoice(false)"
             >
               {{ dialogState.confirm.cancelText || 'Hủy bỏ' }}
             </button>
             <button
               type="button"
-              class="btn-dialog btn-confirm"
-              :class="`btn-${dialogState.confirm.type || 'primary'}`"
+              class="btn-dialog-confirm"
+              :class="dialogState.confirm.type || 'primary'"
               @click="handleConfirmChoice(true)"
             >
               {{ dialogState.confirm.confirmText || 'Xác nhận' }}
@@ -87,40 +39,29 @@
       </div>
     </transition>
 
-    <!-- MODAL ALERT (Cảnh báo / Lỗi / Thông báo) -->
-    <transition name="fade">
+    <!-- ALERT DIALOG -->
+    <transition name="dialog-fade">
       <div
         v-if="dialogState.alert.show"
-        class="dialog-overlay"
+        class="global-dialog-overlay"
         @click.self="handleAlertClose"
       >
-        <div class="dialog-box alert-box">
-          <div class="dialog-header">
-            <div class="dialog-icon-wrapper" :class="`icon-${dialogState.alert.type || 'warning'}`">
-              <svg v-if="dialogState.alert.type === 'error'" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="15" y1="9" x2="9" y2="15"></line>
-                <line x1="9" y1="9" x2="15" y2="15"></line>
-              </svg>
-              <svg v-else-if="dialogState.alert.type === 'success'" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-              </svg>
-              <svg v-else viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                <line x1="12" y1="9" x2="12" y2="13"></line>
-                <line x1="12" y1="17" x2="12.01" y2="17"></line>
-              </svg>
-            </div>
-            <h3 class="dialog-title">{{ dialogState.alert.title || 'Thông báo' }}</h3>
+        <div class="global-dialog-box" role="alertdialog" aria-modal="true">
+          <div class="dialog-icon-circle" :class="dialogState.alert.type || 'warning'">
+            <span v-if="dialogState.alert.type === 'error' || dialogState.alert.type === 'danger'">✕</span>
+            <span v-else-if="dialogState.alert.type === 'warning'">!</span>
+            <span v-else-if="dialogState.alert.type === 'success'">✓</span>
+            <span v-else>i</span>
           </div>
-          <div class="dialog-body">
-            <p class="dialog-message">{{ dialogState.alert.message }}</p>
-          </div>
-          <div class="dialog-footer">
+
+          <h3 class="dialog-title">{{ dialogState.alert.title || 'Thông báo' }}</h3>
+          <p class="dialog-message">{{ dialogState.alert.message }}</p>
+
+          <div class="dialog-actions-row single-action">
             <button
               type="button"
-              class="btn-dialog btn-confirm btn-primary"
+              class="btn-dialog-confirm"
+              :class="dialogState.alert.type === 'error' ? 'danger' : 'primary'"
               @click="handleAlertClose"
             >
               {{ dialogState.alert.btnText || 'Đã hiểu' }}
@@ -129,7 +70,29 @@
         </div>
       </div>
     </transition>
-  </div>
+
+    <!-- TOASTS CONTAINER -->
+    <div class="global-toasts-container">
+      <transition-group name="toast-slide">
+        <div
+          v-for="toast in dialogState.toasts"
+          :key="toast.id"
+          class="global-toast-item"
+          :class="toast.type || 'info'"
+          @click="removeToast(toast.id)"
+        >
+          <span class="toast-bullet-icon">
+            <span v-if="toast.type === 'success'">✓</span>
+            <span v-else-if="toast.type === 'error'">✕</span>
+            <span v-else-if="toast.type === 'warning'">!</span>
+            <span v-else>i</span>
+          </span>
+          <span class="toast-text-msg">{{ toast.message }}</span>
+          <button type="button" class="toast-btn-dismiss" @click.stop="removeToast(toast.id)">&times;</button>
+        </div>
+      </transition-group>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -137,280 +100,278 @@ import { dialogState, handleConfirmChoice, handleAlertClose, removeToast } from 
 </script>
 
 <style scoped>
-/* ==================== TOAST STYLES ==================== */
-.global-toast-container {
-  position: fixed;
-  top: 24px;
-  right: 24px;
-  z-index: 99999;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  pointer-events: none;
-  max-width: 420px;
-}
-
-.toast-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.toast-item {
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 18px;
-  border-radius: 10px;
-  background-color: #ffffff;
-  color: #333333;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  border: 1px solid #ece7df;
-  font-size: 14px;
-  line-height: 1.45;
-}
-
-.toast-success {
-  border-left: 5px solid #16a34a;
-  color: #15803d;
-}
-.toast-success .toast-icon {
-  color: #16a34a;
-}
-
-.toast-error {
-  border-left: 5px solid #dc2626;
-  color: #b91c1c;
-}
-.toast-error .toast-icon {
-  color: #dc2626;
-}
-
-.toast-warning {
-  border-left: 5px solid #d97706;
-  color: #b45309;
-}
-.toast-warning .toast-icon {
-  color: #d97706;
-}
-
-.toast-info {
-  border-left: 5px solid #2563eb;
-  color: #1d4ed8;
-}
-.toast-info .toast-icon {
-  color: #2563eb;
-}
-
-.toast-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.toast-content {
-  flex: 1;
-  font-weight: 500;
-  color: #2e383d;
-}
-
-.toast-close-btn {
-  background: transparent;
-  border: none;
-  font-size: 15px;
-  color: #8c979d;
-  cursor: pointer;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.15s;
-}
-
-.toast-close-btn:hover {
-  color: #2e383d;
-  background-color: #f1ede6;
-}
-
-/* Toast Animations */
-.toast-anim-enter-active,
-.toast-anim-leave-active {
-  transition: all 0.25s ease;
-}
-.toast-anim-enter-from {
-  opacity: 0;
-  transform: translateX(40px);
-}
-.toast-anim-leave-to {
-  opacity: 0;
-  transform: translateX(40px);
-}
-
-/* ==================== DIALOG MODAL STYLES ==================== */
-.dialog-overlay {
+.global-dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(18, 25, 33, 0.55);
+  background-color: rgba(15, 23, 42, 0.55);
   backdrop-filter: blur(3px);
-  z-index: 99990;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  z-index: 99999;
+  padding: 16px;
+  box-sizing: border-box;
 }
 
-.dialog-box {
+.global-dialog-box {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 14px;
   width: 100%;
-  max-width: 460px;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.2);
-  border: 1px solid #ebe5da;
-  overflow: hidden;
-  animation: dialogScaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  display: flex;
-  flex-direction: column;
+  max-width: 440px;
+  padding: 26px 24px 22px;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.22), 0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid #ebd9c8;
+  animation: dialog-pop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes dialogScaleUp {
+@keyframes dialog-pop {
   from {
+    transform: scale(0.92);
     opacity: 0;
-    transform: scale(0.93) translateY(8px);
   }
   to {
+    transform: scale(1);
     opacity: 1;
-    transform: scale(1) translateY(0);
   }
 }
 
-.dialog-header {
-  padding: 1.6rem 1.5rem 0.6rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-.dialog-icon-wrapper {
-  width: 52px;
-  height: 52px;
+.dialog-icon-circle {
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
+  margin: 0 auto 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 0.85rem;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
 }
 
-.icon-question {
-  background-color: #e8f0fe;
-  color: #1a73e8;
+.dialog-icon-circle.question {
+  background-color: #e0f2fe;
+  color: #0284c7;
+  border: 2px solid #bae6fd;
 }
 
-.icon-warning {
+.dialog-icon-circle.warning {
   background-color: #fef3c7;
   color: #d97706;
+  border: 2px solid #fde68a;
 }
 
-.icon-danger {
+.dialog-icon-circle.danger,
+.dialog-icon-circle.error {
   background-color: #fee2e2;
   color: #dc2626;
+  border: 2px solid #fecaca;
 }
 
-.icon-success {
+.dialog-icon-circle.success {
   background-color: #dcfce7;
   color: #16a34a;
-}
-
-.icon-error {
-  background-color: #fee2e2;
-  color: #dc2626;
+  border: 2px solid #bbf7d0;
 }
 
 .dialog-title {
-  margin: 0;
   font-size: 1.15rem;
   font-weight: 700;
-  color: #242e33;
-}
-
-.dialog-body {
-  padding: 0.5rem 1.75rem 1.4rem;
-  text-align: center;
+  color: #1e293b;
+  margin: 0 0 10px;
+  line-height: 1.35;
 }
 
 .dialog-message {
-  margin: 0;
-  font-size: 0.935rem;
-  line-height: 1.55;
-  color: #55626a;
+  font-size: 0.92rem;
+  color: #64748b;
+  margin: 0 0 22px;
+  line-height: 1.5;
+  white-space: pre-line;
 }
 
-.dialog-footer {
-  padding: 1rem 1.5rem 1.4rem;
-  background-color: #faf8f5;
-  border-top: 1px solid #f0eae1;
+.dialog-actions-row {
   display: flex;
-  justify-content: center;
   gap: 12px;
+  justify-content: center;
 }
 
-.btn-dialog {
-  min-width: 110px;
-  padding: 0.6rem 1.25rem;
+.dialog-actions-row.single-action {
+  justify-content: stretch;
+}
+
+.dialog-actions-row.single-action button {
+  width: 100%;
+}
+
+.btn-dialog-cancel {
+  flex: 1;
+  height: 40px;
+  padding: 0 16px;
   border-radius: 8px;
+  border: 1.5px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #475569;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
-  border: 1px solid transparent;
 }
 
-.btn-cancel {
-  background: #ffffff;
-  color: #55626a;
-  border-color: #d8d2c6;
-}
-.btn-cancel:hover {
-  background: #f1ece4;
-  color: #242e33;
+.btn-dialog-cancel:hover {
+  background-color: #f1f5f9;
+  border-color: #94a3b8;
+  color: #1e293b;
 }
 
-.btn-confirm.btn-primary,
-.btn-confirm.btn-question {
-  background: #496883;
+.btn-dialog-confirm {
+  flex: 1;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
   color: #ffffff;
 }
-.btn-confirm.btn-primary:hover,
-.btn-confirm.btn-question:hover {
-  background: #395267;
+
+.btn-dialog-confirm.primary,
+.btn-dialog-confirm.question {
+  background-color: #3e5c76;
 }
 
-.btn-confirm.btn-warning {
-  background: #d97706;
-  color: #ffffff;
-}
-.btn-confirm.btn-warning:hover {
-  background: #b45309;
+.btn-dialog-confirm.primary:hover,
+.btn-dialog-confirm.question:hover {
+  background-color: #2b4257;
 }
 
-.btn-confirm.btn-danger {
-  background: #dc2626;
-  color: #ffffff;
-}
-.btn-confirm.btn-danger:hover {
-  background: #b91c1c;
+.btn-dialog-confirm.warning {
+  background-color: #d97706;
 }
 
-.fade-enter-active,
-.fade-leave-active {
+.btn-dialog-confirm.warning:hover {
+  background-color: #b45309;
+}
+
+.btn-dialog-confirm.danger,
+.btn-dialog-confirm.error {
+  background-color: #dc2626;
+}
+
+.btn-dialog-confirm.danger:hover,
+.btn-dialog-confirm.error:hover {
+  background-color: #b91c1c;
+}
+
+.btn-dialog-confirm.success {
+  background-color: #16a34a;
+}
+
+.btn-dialog-confirm.success:hover {
+  background-color: #15803d;
+}
+
+/* FADE ANIMATION */
+.dialog-fade-enter-active,
+.dialog-fade-leave-active {
   transition: opacity 0.2s ease;
 }
-.fade-enter-from,
-.fade-leave-to {
+
+.dialog-fade-enter-from,
+.dialog-fade-leave-to {
   opacity: 0;
 }
-</style>
 
+/* TOASTS */
+.global-toasts-container {
+  position: fixed;
+  top: 20px;
+  right: 24px;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 420px;
+  pointer-events: none;
+}
+
+.global-toast-item {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.global-toast-item.success {
+  background-color: #065f46;
+  color: #ffffff;
+  border: 1px solid #047857;
+}
+
+.global-toast-item.error {
+  background-color: #991b1b;
+  color: #ffffff;
+  border: 1px solid #b91c1c;
+}
+
+.global-toast-item.warning {
+  background-color: #92400e;
+  color: #ffffff;
+  border: 1px solid #b45309;
+}
+
+.global-toast-item.info {
+  background-color: #1e3a5f;
+  color: #ffffff;
+  border: 1px solid #2b4c7e;
+}
+
+.toast-bullet-icon {
+  font-weight: 800;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.toast-text-msg {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.toast-btn-dismiss {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.toast-btn-dismiss:hover {
+  color: #ffffff;
+}
+
+.toast-slide-enter-active,
+.toast-slide-leave-active {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast-slide-enter-from {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.toast-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+</style>

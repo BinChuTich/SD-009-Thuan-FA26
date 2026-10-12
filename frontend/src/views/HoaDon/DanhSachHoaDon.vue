@@ -181,11 +181,89 @@ const statusTabs = [
   'Hủy'
 ]
 
+const getTodayString = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const filters = ref({
   code: '',
-  startDate: '',
+  startDate: getTodayString(),
   endDate: '',
-  type: ''
+  type: '',
+  status: '',
+  paymentStatus: ''
+})
+
+const mapStatusToTab = (statusVal) => {
+  if (!statusVal) return 'Tất Cả'
+  const map = {
+    '1': 'Chờ Xác Nhận',
+    '2': 'Đã Xác Nhận',
+    '3': 'Chờ Vận Chuyển',
+    '4': 'Vận Chuyển',
+    '5': 'Đã Hoàn Thành',
+    '6': 'Hủy'
+  }
+  return map[String(statusVal)] || 'Tất Cả'
+}
+
+const mapTabToStatus = (tabName) => {
+  if (!tabName || tabName === 'Tất Cả') return ''
+  const map = {
+    'Chờ Xác Nhận': '1',
+    'Đã Xác Nhận': '2',
+    'Chờ Vận Chuyển': '3',
+    'Vận Chuyển': '4',
+    'Đã Hoàn Thành': '5',
+    'Hủy': '6'
+  }
+  return map[tabName] || ''
+}
+
+const selectTab = (tab) => {
+  currentTab.value = tab
+  filters.value.status = mapTabToStatus(tab)
+  resetPage()
+}
+
+const onStatusComboboxChange = () => {
+  currentTab.value = mapStatusToTab(filters.value.status)
+  resetPage()
+}
+
+const getTabClass = (tab) => {
+  switch (tab) {
+    case 'Chờ Xác Nhận': return 'tab-pending'
+    case 'Đã Xác Nhận': return 'tab-confirmed'
+    case 'Chờ Vận Chuyển': return 'tab-waiting'
+    case 'Vận Chuyển': return 'tab-shipping'
+    case 'Đã Hoàn Thành': return 'tab-completed'
+    case 'Hủy': return 'tab-cancelled'
+    default: return 'tab-all'
+  }
+}
+
+const statusCounts = computed(() => {
+  const counts = {
+    'Tất Cả': invoiceList.value.length,
+    'Chờ Xác Nhận': 0,
+    'Đã Xác Nhận': 0,
+    'Chờ Vận Chuyển': 0,
+    'Vận Chuyển': 0,
+    'Đã Hoàn Thành': 0,
+    'Hủy': 0
+  }
+  invoiceList.value.forEach(item => {
+    const text = getStatusText(item.status)
+    if (counts[text] !== undefined) {
+      counts[text]++
+    }
+  })
+  return counts
 })
 
 const invoiceList = ref([])
@@ -473,14 +551,16 @@ const loadHoaDon = async () => {
 const handleRefresh = async () => {
   filters.value = {
     code: '',
-    startDate: '',
+    startDate: getTodayString(),
     endDate: '',
-    type: ''
+    type: '',
+    status: '',
+    paymentStatus: ''
   }
   currentTab.value = 'Tất Cả'
   currentPage.value = 1
   await loadHoaDon()
-  showToast('Đã làm mới danh sách hóa đơn!')
+  showToast('Đã đặt lại bộ lọc và làm mới dữ liệu!')
 }
 
 const filteredInvoiceList = computed(() => {
@@ -500,24 +580,36 @@ const filteredInvoiceList = computed(() => {
     }
 
     if (filters.value.startDate) {
+      if (!item.rawDate) return false
       const itemDate = new Date(item.rawDate)
-      const startDate = new Date(filters.value.startDate)
+      const [sYear, sMonth, sDay] = filters.value.startDate.split('-').map(Number)
+      const startDate = new Date(sYear, sMonth - 1, sDay, 0, 0, 0, 0)
       itemDate.setHours(0, 0, 0, 0)
-      startDate.setHours(0, 0, 0, 0)
       if (itemDate < startDate) return false
     }
 
     if (filters.value.endDate) {
+      if (!item.rawDate) return false
       const itemDate = new Date(item.rawDate)
-      const endDate = new Date(filters.value.endDate)
+      const [eYear, eMonth, eDay] = filters.value.endDate.split('-').map(Number)
+      const endDate = new Date(eYear, eMonth - 1, eDay, 0, 0, 0, 0)
       itemDate.setHours(0, 0, 0, 0)
-      endDate.setHours(0, 0, 0, 0)
       if (itemDate > endDate) return false
     }
 
-    if (currentTab.value !== 'Tất Cả') {
+    if (filters.value.status) {
+      if (Number(item.status) !== Number(filters.value.status)) {
+        return false
+      }
+    } else if (currentTab.value !== 'Tất Cả') {
       const statusText = getStatusText(item.status)
       if (statusText !== currentTab.value) return false
+    }
+
+    if (filters.value.paymentStatus !== '' && filters.value.paymentStatus !== null && filters.value.paymentStatus !== undefined) {
+      if (Number(item.paymentStatus) !== Number(filters.value.paymentStatus)) {
+        return false
+      }
     }
 
     return true
@@ -595,18 +687,78 @@ onBeforeUnmount(() => {
 
     <!-- KHUNG 1: BỘ LỌC TÌM KIẾM -->
     <div class="card-box filter-card">
+      <div class="card-header-filter">
+        <h3 class="filter-title">Bộ lọc tìm kiếm</h3>
+      </div>
+
       <div class="filter-grid">
-        <div class="form-group">
-          <label>Mã hóa đơn</label>
-          <input
-              v-model="filters.code"
-              @input="resetPage"
-              type="text"
-              placeholder="Tìm theo mã hóa đơn..."
-              class="form-control"
-          />
+        <!-- 1. Tìm kiếm từ khóa -->
+        <div class="form-group search-group">
+          <label>Tìm kiếm</label>
+          <div class="input-with-icon">
+            <span class="icon-prefix">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </span>
+            <input
+                v-model="filters.code"
+                @input="resetPage"
+                type="text"
+                placeholder="Tìm mã HĐ, tên KH, SĐT..."
+                class="form-control input-has-prefix"
+            />
+          </div>
         </div>
 
+        <!-- 2. Loại đơn hàng (Combobox) -->
+        <div class="form-group">
+          <label>Loại đơn hàng</label>
+          <select
+              v-model="filters.type"
+              @change="resetPage"
+              class="form-control select-combobox"
+          >
+            <option value="">Tất cả loại đơn</option>
+            <option value="Tại cửa hàng">Tại cửa hàng</option>
+            <option value="Online">Online</option>
+          </select>
+        </div>
+
+        <!-- 3. Trạng thái đơn hàng (Combobox) -->
+        <div class="form-group">
+          <label>Trạng thái đơn hàng</label>
+          <select
+              v-model="filters.status"
+              @change="onStatusComboboxChange"
+              class="form-control select-combobox"
+          >
+            <option value="">Tất cả trạng thái</option>
+            <option value="1">Chờ xác nhận</option>
+            <option value="2">Đã xác nhận</option>
+            <option value="3">Chờ vận chuyển</option>
+            <option value="4">Vận chuyển</option>
+            <option value="5">Đã hoàn thành</option>
+            <option value="6">Hủy</option>
+          </select>
+        </div>
+
+        <!-- 4. Trạng thái thanh toán (Combobox) -->
+        <div class="form-group">
+          <label>Trạng thái thanh toán</label>
+          <select
+              v-model="filters.paymentStatus"
+              @change="resetPage"
+              class="form-control select-combobox"
+          >
+            <option value="">Tất cả thanh toán</option>
+            <option value="1">Đã thanh toán</option>
+            <option value="0">Chưa thanh toán</option>
+          </select>
+        </div>
+
+        <!-- 5. Từ ngày -->
         <div class="form-group">
           <label>Từ ngày</label>
           <input
@@ -617,6 +769,7 @@ onBeforeUnmount(() => {
           />
         </div>
 
+        <!-- 6. Đến ngày -->
         <div class="form-group">
           <label>Đến ngày</label>
           <input
@@ -626,48 +779,37 @@ onBeforeUnmount(() => {
               class="form-control"
           />
         </div>
-
-        <div class="form-group">
-          <label>Loại đơn hàng</label>
-          <select
-              v-model="filters.type"
-              @change="resetPage"
-              class="form-control"
-          >
-            <option value="">Tất cả</option>
-            <option value="Tại cửa hàng">Tại cửa hàng</option>
-            <option value="Online">Online</option>
-          </select>
-        </div>
       </div>
 
       <!-- DÒNG CUỐI CÙNG: CỤM NÚT THAO TÁC -->
       <div class="filter-actions-bottom">
-        <button
-            class="btn-refresh"
-            type="button"
-            :disabled="loading"
-            @click="handleRefresh"
-        >
-          {{ loading ? 'Đang tải...' : '↻ Làm mới' }}
-        </button>
-
-        <button class="btn-export" type="button" :disabled="loading || exporting" @click="exportExcel">
-          <svg
-              class="icon-export"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+        <div class="actions-right">
+          <button
+              class="btn-refresh"
+              type="button"
+              :disabled="loading"
+              @click="loadHoaDon"
           >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
-        </button>
+            {{ loading ? 'Đang tải...' : '↻ Làm mới' }}
+          </button>
+
+          <button class="btn-export" type="button" :disabled="loading || exporting" @click="exportExcel">
+            <svg
+                class="icon-export"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -678,17 +820,24 @@ onBeforeUnmount(() => {
         <h3 class="card-heading">Danh sách hóa đơn</h3>
       </div>
 
-      <!-- TABS TRẠNG THÁI -->
-      <div class="status-tabs">
-        <button
-            v-for="tab in statusTabs"
-            :key="tab"
-            class="tab-item"
-            :class="{ active: currentTab === tab }"
-            @click="currentTab = tab; resetPage()"
-        >
-          {{ tab }}
-        </button>
+      <!-- TABS TRẠNG THÁI (BUTTONS TRẠNG THÁI) -->
+      <div class="status-tabs-wrapper">
+        <div class="status-tabs">
+          <button
+              v-for="tab in statusTabs"
+              :key="tab"
+              type="button"
+              class="tab-item"
+              :class="[
+                getTabClass(tab),
+                { active: currentTab === tab }
+              ]"
+              @click="selectTab(tab)"
+          >
+            <span class="tab-label">{{ tab }}</span>
+            <span class="tab-badge-count">{{ statusCounts[tab] || 0 }}</span>
+          </button>
+        </div>
       </div>
 
       <!-- LOADING & ERROR -->
@@ -744,11 +893,13 @@ onBeforeUnmount(() => {
             </td>
             <td>
                 <span class="badge-status" :class="getStatusClass(item.status)">
+                  <span class="status-dot"></span>
                   {{ getStatusText(item.status) }}
                 </span>
             </td>
             <td>
                 <span class="badge-payment" :class="getPaymentClass(item.paymentStatus)">
+                  <span class="payment-dot"></span>
                   {{ getPaymentText(item.paymentStatus) }}
                 </span>
             </td>
@@ -871,14 +1022,39 @@ onBeforeUnmount(() => {
   margin-bottom: 16px;
 }
 
+.card-header-filter {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f2eae1;
+}
+
+.filter-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #3e5c76;
+}
+
+.filter-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #3e5c76;
+  margin: 0;
+}
+
 .filter-actions-bottom {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 10px;
   margin-top: 18px;
   padding-top: 16px;
   border-top: 1px dashed #efeae0;
+}
+
+.actions-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .header-actions {
@@ -945,8 +1121,43 @@ onBeforeUnmount(() => {
 
 .filter-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px 20px;
+}
+
+@media (max-width: 992px) {
+  .filter-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.icon-prefix {
+  position: absolute;
+  left: 11px;
+  color: #8c969e;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.input-has-prefix {
+  padding-left: 34px !important;
+}
+
+.select-combobox {
+  cursor: pointer;
 }
 
 .form-group {
@@ -977,33 +1188,78 @@ onBeforeUnmount(() => {
   border-color: #3e5c76;
 }
 
-.status-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 18px;
+.status-tabs-wrapper {
+  margin-bottom: 20px;
   overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.status-tabs {
+  display: inline-flex;
+  gap: 8px;
+  min-width: 100%;
 }
 
 .tab-item {
-  padding: 7px 18px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: #4f5d68;
-  font-size: 0.88rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border-radius: 20px;
+  border: 1.5px solid #e5dcce;
+  background-color: #ffffff;
+  color: #555e65;
+  font-size: 0.86rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.tab-item:hover:not(.active) {
+  background-color: #faf7f2;
+  border-color: #b8ac9c;
+  color: #2b353b;
+  transform: translateY(-1px);
+}
+
+.tab-badge-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  background-color: #f0ebe4;
+  color: #636b72;
   transition: all 0.2s ease;
 }
 
-.tab-item:hover {
-  background: #f4ede4;
+/* Trạng thái Active đồng bộ 1 màu duy nhất (#3e5c76) cho tất cả các Tab khi được chọn */
+.tab-item.active {
+  background-color: #3e5c76 !important;
+  color: #ffffff !important;
+  border-color: #3e5c76 !important;
+  box-shadow: 0 2px 8px rgba(62, 92, 118, 0.25) !important;
 }
 
-.tab-item.active {
-  background: #e8f1f5;
-  color: #3e5c76;
+.tab-item.active:hover {
+  background-color: #2e475d !important;
+  border-color: #2e475d !important;
+  color: #ffffff !important;
+}
+
+.tab-item.active .tab-label {
+  color: #ffffff !important;
+}
+
+.tab-item.active .tab-badge-count {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
 }
 
 .table-responsive {
@@ -1100,11 +1356,13 @@ onBeforeUnmount(() => {
 }
 
 .badge-status {
-  padding: 4px 12px;
+  padding: 4px 10px;
   border-radius: 6px;
   font-size: 0.76rem;
   font-weight: 600;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .status-waiting {
@@ -1147,6 +1405,18 @@ onBeforeUnmount(() => {
   border-radius: 4px;
   font-size: 0.76rem;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot,
+.payment-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+  flex-shrink: 0;
 }
 
 .payment-paid {
