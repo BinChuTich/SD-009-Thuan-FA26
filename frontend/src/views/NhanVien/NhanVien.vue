@@ -117,74 +117,76 @@
                 Đang tải dữ liệu nhân viên...
               </td>
             </tr>
-            <tr v-else-if="employees.length === 0">
+            <tr v-else-if="!employees || employees.length === 0">
               <td colspan="11" style="text-align: center; padding: 2.5rem; color: #8a969b;">
                 Không tìm thấy nhân viên nào phù hợp.
               </td>
             </tr>
-            <tr v-for="(item, index) in employees" v-else :key="item.id" :class="{ 'row-selected': isSelected(item.id) }">
-              <td style="text-align: center">
-                <input
-                  type="checkbox"
-                  class="row-checkbox"
-                  :value="item.id"
-                  :checked="isSelected(item.id)"
-                  :disabled="item.status !== 'active'"
-                  @change="toggleSelect(item)"
-                  :title="item.status !== 'active' ? 'Chỉ nhân viên đang hoạt động mới được chọn gửi mail' : 'Chọn ' + item.fullName"
-                />
-              </td>
-              <td style="text-align: center" class="text-muted">
-                {{ (pagination.page * pagination.size) + index + 1 }}
-              </td>
-              <td style="text-align: center">
-                <div class="avatar-cell">
-                  <img v-if="item.avatar" :src="item.avatar" class="avatar-img" alt="avatar" @error="item.avatar = ''" />
-                  <div v-else class="avatar-placeholder">{{ item.initials }}</div>
-                </div>
-              </td>
-              <td class="font-bold text-blue">{{ item.code }}</td>
-              <td class="font-medium text-dark">{{ item.fullName }}</td>
-              <td class="text-dark">{{ item.phone || '-' }}</td>
-              <td class="text-email" :title="item.email">{{ item.email || '-' }}</td>
-              <td class="text-address">{{ item.address || '-' }}</td>
-              <td>
-                <span class="role-text" :class="{'role-admin': item.role === 'Quản trị viên'}">
-                  {{ item.role || '-' }}
-                </span>
-              </td>
-              <td style="text-align: center">
-                <span class="badge-status" :class="item.status === 'active' ? 'status-active' : 'status-inactive'">
-                  {{ item.statusText }}
-                </span>
-              </td>
-              <td style="text-align: center">
-                <div class="action-buttons">
-                  <label
-                    v-if="item.role !== 'Quản trị viên'"
-                    class="switch-toggle"
-                    :title="item.status === 'active' ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)'"
-                  >
-                    <input
-                      type="checkbox"
-                      :checked="item.status === 'active'"
-                      @click.prevent="toggleStatus(item)"
-                    />
-                    <span class="slider-round"></span>
-                  </label>
-                  <button
-                    class="btn-circle-action btn-edit"
-                    title="Chỉnh sửa nhân viên"
-                    @click="goToEdit(item.id)"
-                  >
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                    </svg>
-                  </button>
-                </div>
-              </td>
-            </tr>
+            <template v-else>
+              <tr v-for="(item, index) in employees" :key="item.id" :class="{ 'row-selected': isSelected(item.id) }">
+                <td style="text-align: center">
+                  <input
+                    type="checkbox"
+                    class="row-checkbox"
+                    :value="item.id"
+                    :checked="isSelected(item.id)"
+                    :disabled="item.status !== 'active'"
+                    @change="toggleSelect(item)"
+                    :title="item.status !== 'active' ? 'Chỉ nhân viên đang hoạt động mới được chọn gửi mail' : 'Chọn ' + item.fullName"
+                  />
+                </td>
+                <td style="text-align: center" class="text-muted">
+                  {{ (pagination.page * pagination.size) + index + 1 }}
+                </td>
+                <td style="text-align: center">
+                  <div class="avatar-cell">
+                    <img v-if="item.avatar" :src="item.avatar" class="avatar-img" alt="avatar" @error="item.avatar = ''" />
+                    <div v-else class="avatar-placeholder">{{ item.initials }}</div>
+                  </div>
+                </td>
+                <td class="font-bold text-blue">{{ item.code }}</td>
+                <td class="font-medium text-dark">{{ item.fullName }}</td>
+                <td class="text-dark">{{ item.phone || '-' }}</td>
+                <td class="text-email" :title="item.email">{{ item.email || '-' }}</td>
+                <td class="text-address">{{ item.address || '-' }}</td>
+                <td>
+                  <span class="role-text" :class="{'role-admin': item.role === 'Quản trị viên'}">
+                    {{ item.role || '-' }}
+                  </span>
+                </td>
+                <td style="text-align: center">
+                  <span class="badge-status" :class="item.status === 'active' ? 'status-active' : 'status-inactive'">
+                    {{ item.statusText }}
+                  </span>
+                </td>
+                <td style="text-align: center">
+                  <div class="action-buttons">
+                    <label
+                      v-if="item.role !== 'Quản trị viên'"
+                      class="switch-toggle"
+                      :title="item.status === 'active' ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)'"
+                    >
+                      <input
+                        type="checkbox"
+                        :checked="item.status === 'active'"
+                        @click.prevent="toggleStatus(item)"
+                      />
+                      <span class="slider-round"></span>
+                    </label>
+                    <button
+                      class="btn-circle-action btn-edit"
+                      title="Chỉnh sửa nhân viên"
+                      @click="goToEdit(item.id)"
+                    >
+                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -433,6 +435,7 @@ const pageNumbers = computed(() => {
 })
 
 function mapEmployee(x) {
+  if (!x) return {}
   const gender = x.gioiTinh === true ? 'Nam' : x.gioiTinh === false ? 'Nữ' : '-'
   const address = [x.diaChiCuThe, x.phuong, x.queQuan].filter(Boolean).join(', ')
   const avatar = x.anhNhanVien
@@ -441,12 +444,12 @@ function mapEmployee(x) {
   return {
     ...x,
     avatar,
-    code: x.maNhanVien,
-    fullName: x.tenNhanVien,
-    phone: x.soDienThoai,
+    code: x.maNhanVien || '-',
+    fullName: x.tenNhanVien || '-',
+    phone: x.soDienThoai || '-',
     gender,
     address,
-    role: x.tenVaiTro,
+    role: x.tenVaiTro || '-',
     status: x.trangThai === 1 ? 'active' : 'inactive',
     statusText: x.trangThai === 1 ? 'Hoạt động' : 'Ngừng hoạt động',
     initials: getInitials(x.tenNhanVien)
@@ -454,24 +457,25 @@ function mapEmployee(x) {
 }
 
 function getInitials(name) {
-  if (!name) return 'FF'
-  const p = name.trim().split(/\s+/)
-  return p.length === 1 ? p[0].slice(0, 2).toUpperCase() : (p[0][0] + p[p.length - 1][0]).toUpperCase()
+  if (!name || typeof name !== 'string') return 'NV'
+  const p = name.trim().split(/\s+/).filter(Boolean)
+  if (p.length === 0) return 'NV'
+  if (p.length === 1) return (p[0].slice(0, 2) || 'NV').toUpperCase()
+  const first = p[0][0] || ''
+  const last = p[p.length - 1][0] || ''
+  return (first + last).toUpperCase() || 'NV'
 }
 
 async function loadRoles() {
   try {
     const res = await api.get('/api/nhan-vien/vai-tro')
-    roles.value = (res.data || []).filter(r =>
+    const rawRoles = Array.isArray(res.data) ? res.data : (res.data?.content || res.data?.value || [])
+    roles.value = rawRoles.filter(r =>
       r.maVaiTro === 'ADMIN' || r.maVaiTro === 'NV' ||
       r.tenVaiTro === 'Quản trị viên' || r.tenVaiTro === 'Nhân viên'
     )
   } catch (e) {
-    showAlert({
-      title: 'Lỗi tải danh mục vai trò',
-      message: e?.response?.data?.message || 'Không thể tải danh sách vai trò từ máy chủ.',
-      type: 'error'
-    })
+    console.error('Lỗi tải vai trò:', e)
   }
 }
 
@@ -486,10 +490,12 @@ async function loadEmployees() {
       trangThai: filters.status === '' ? undefined : filters.status
     }
     const res = await api.get('/api/nhan-vien', { params })
-    employees.value = (res.data.content || []).map(mapEmployee)
-    pagination.totalPages = res.data.totalPages || 0
-    pagination.totalElements = res.data.totalElements || 0
+    const content = res.data?.content || (Array.isArray(res.data) ? res.data : [])
+    employees.value = content.map(mapEmployee)
+    pagination.totalPages = res.data?.totalPages || (content.length > 0 ? 1 : 0)
+    pagination.totalElements = res.data?.totalElements != null ? res.data.totalElements : content.length
   } catch (e) {
+    console.error('Lỗi tải danh sách nhân viên:', e)
     showAlert({
       title: 'Lỗi tải dữ liệu',
       message: e?.response?.data?.message || 'Không thể kết nối đến máy chủ backend.',
