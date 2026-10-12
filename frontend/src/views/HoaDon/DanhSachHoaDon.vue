@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
 const router = useRouter()
@@ -197,6 +197,16 @@ const filters = ref({
   status: '',
   paymentStatus: ''
 })
+
+watch(
+  () => [filters.value.startDate, filters.value.endDate],
+  ([start, end]) => {
+    if (start && end && start > end) {
+      showToast('Ngày bắt đầu không được lớn hơn ngày kết thúc!', 'warning')
+      filters.value.endDate = ''
+    }
+  }
+)
 
 const mapStatusToTab = (statusVal) => {
   if (!statusVal) return 'Tất Cả'
@@ -820,26 +830,6 @@ onBeforeUnmount(() => {
         <h3 class="card-heading">Danh sách hóa đơn</h3>
       </div>
 
-      <!-- TABS TRẠNG THÁI (BUTTONS TRẠNG THÁI) -->
-      <div class="status-tabs-wrapper">
-        <div class="status-tabs">
-          <button
-              v-for="tab in statusTabs"
-              :key="tab"
-              type="button"
-              class="tab-item"
-              :class="[
-                getTabClass(tab),
-                { active: currentTab === tab }
-              ]"
-              @click="selectTab(tab)"
-          >
-            <span class="tab-label">{{ tab }}</span>
-            <span class="tab-badge-count">{{ statusCounts[tab] || 0 }}</span>
-          </button>
-        </div>
-      </div>
-
       <!-- LOADING & ERROR -->
       <div v-if="loading" class="state-message">
         Đang tải dữ liệu hóa đơn...
@@ -1186,80 +1176,6 @@ onBeforeUnmount(() => {
 
 .form-control:focus {
   border-color: #3e5c76;
-}
-
-.status-tabs-wrapper {
-  margin-bottom: 20px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-}
-
-.status-tabs {
-  display: inline-flex;
-  gap: 8px;
-  min-width: 100%;
-}
-
-.tab-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 16px;
-  border-radius: 20px;
-  border: 1.5px solid #e5dcce;
-  background-color: #ffffff;
-  color: #555e65;
-  font-size: 0.86rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-}
-
-.tab-item:hover:not(.active) {
-  background-color: #faf7f2;
-  border-color: #b8ac9c;
-  color: #2b353b;
-  transform: translateY(-1px);
-}
-
-.tab-badge-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 18px;
-  padding: 0 6px;
-  border-radius: 10px;
-  font-size: 0.74rem;
-  font-weight: 700;
-  background-color: #f0ebe4;
-  color: #636b72;
-  transition: all 0.2s ease;
-}
-
-/* Trạng thái Active đồng bộ 1 màu duy nhất (#3e5c76) cho tất cả các Tab khi được chọn */
-.tab-item.active {
-  background-color: #3e5c76 !important;
-  color: #ffffff !important;
-  border-color: #3e5c76 !important;
-  box-shadow: 0 2px 8px rgba(62, 92, 118, 0.25) !important;
-}
-
-.tab-item.active:hover {
-  background-color: #2e475d !important;
-  border-color: #2e475d !important;
-  color: #ffffff !important;
-}
-
-.tab-item.active .tab-label {
-  color: #ffffff !important;
-}
-
-.tab-item.active .tab-badge-count {
-  background-color: rgba(255, 255, 255, 0.25) !important;
-  color: #ffffff !important;
 }
 
 .table-responsive {

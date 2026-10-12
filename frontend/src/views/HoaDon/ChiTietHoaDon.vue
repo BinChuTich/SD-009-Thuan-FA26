@@ -140,8 +140,124 @@ const getNumber = (...values) => {
   return 0
 }
 
-const buildLogsByStatus = (status, baseDate) => {
-  const now = baseDate ? new Date(baseDate).getTime() : Date.now()
+const buildLogsByStatus = (status, baseDate, isAtStore = false, options = {}) => {
+  const statusNum = Number(status) || 1
+  const employeeName = (options.employeeName && options.employeeName !== '---' && options.employeeName !== 'Đơn Online')
+    ? options.employeeName
+    : (invoiceData.value.employee?.name && invoiceData.value.employee?.name !== '---' && invoiceData.value.employee?.name !== 'Đơn Online' ? invoiceData.value.employee.name : 'Nhân viên')
+  const baseTimeMs = baseDate ? new Date(baseDate).getTime() : Date.now()
+  const baseTimeVal = new Date(baseTimeMs)
+
+  if (isAtStore) {
+    // ==========================================
+    // ĐƠN HÀNG TẠI QUẦY (Bán tại quầy / POS)
+    // Quy trình tại quầy chỉ có 2 bước:
+    // 1. Tạo hóa đơn tại quầy
+    // 2. Hoàn thành đơn hàng (hoặc Hủy đơn hàng)
+    // KHÔNG qua các bước shipper / vận chuyển / đóng gói kho
+    // ==========================================
+    const logs = []
+
+    if (statusNum === 6) {
+      // Đã hủy đơn hàng tại quầy
+      let cancelTime = options.finishDate ? new Date(options.finishDate) : null
+      if (!cancelTime || Number.isNaN(cancelTime.getTime())) {
+        cancelTime = new Date(baseTimeMs)
+      }
+      logs.push({
+        id: 2,
+        action: 'Hủy đơn hàng',
+        hanhDong: 'Hủy đơn hàng',
+        thoiGian: cancelTime,
+        nguoiThucHien: employeeName,
+        ghiChu: options.note || 'Hóa đơn tại quầy đã bị hủy bỏ',
+        isDone: true
+      })
+      logs.push({
+        id: 1,
+        action: 'Tạo hóa đơn tại quầy',
+        hanhDong: 'Tạo hóa đơn tại quầy',
+        thoiGian: baseTimeVal,
+        nguoiThucHien: employeeName,
+        ghiChu: 'Hóa đơn được tạo tại quầy thu ngân',
+        isDone: true
+      })
+      return logs
+    }
+
+    if (statusNum === 5) {
+      // Hoàn thành đơn hàng tại quầy (đã thanh toán và nhận hàng)
+      let finishTime = options.finishDate ? new Date(options.finishDate) : null
+      let createTime = baseTimeVal
+
+      if (finishTime && !Number.isNaN(finishTime.getTime()) && finishTime.getTime() > baseTimeMs) {
+        createTime = baseTimeVal
+      } else {
+        finishTime = new Date(baseTimeMs)
+        createTime = new Date(baseTimeMs - 3 * 60 * 1000)
+      }
+
+      logs.push({
+        id: 2,
+        action: 'Hoàn thành đơn hàng',
+        hanhDong: 'Hoàn thành đơn hàng',
+        thoiGian: finishTime,
+        nguoiThucHien: employeeName,
+        ghiChu: 'Khách hàng đã thanh toán và nhận hàng tại quầy thành công',
+        isDone: true
+      })
+      logs.push({
+        id: 1,
+        action: 'Tạo hóa đơn tại quầy',
+        hanhDong: 'Tạo hóa đơn tại quầy',
+        thoiGian: createTime,
+        nguoiThucHien: employeeName,
+        ghiChu: 'Hóa đơn được tạo tại quầy thu ngân',
+        isDone: true
+      })
+      return logs
+    }
+
+    if (statusNum >= 2 && statusNum <= 4) {
+      let updateTime = options.finishDate ? new Date(options.finishDate) : new Date(baseTimeMs)
+      logs.push({
+        id: 2,
+        action: 'Cập nhật trạng thái hóa đơn',
+        hanhDong: 'Cập nhật trạng thái hóa đơn',
+        thoiGian: updateTime,
+        nguoiThucHien: employeeName,
+        ghiChu: options.note || 'Đang xử lý đơn hàng tại quầy',
+        isDone: true
+      })
+      logs.push({
+        id: 1,
+        action: 'Tạo hóa đơn tại quầy',
+        hanhDong: 'Tạo hóa đơn tại quầy',
+        thoiGian: baseTimeVal,
+        nguoiThucHien: employeeName,
+        ghiChu: 'Hóa đơn được tạo tại quầy thu ngân',
+        isDone: true
+      })
+      return logs
+    }
+
+    // Mặc định: status === 1 (Hóa đơn chờ)
+    logs.push({
+      id: 1,
+      action: 'Tạo hóa đơn tại quầy',
+      hanhDong: 'Tạo hóa đơn tại quầy',
+      thoiGian: baseTimeVal,
+      nguoiThucHien: employeeName,
+      ghiChu: 'Hóa đơn được tạo tại quầy thu ngân, đang chờ thanh toán',
+      isDone: true
+    })
+    return logs
+  }
+
+  // ==========================================
+  // ĐƠN HÀNG ONLINE (Giao hàng tận nơi)
+  // Quy trình đầy đủ gồm 5 bước qua shipper / vận chuyển
+  // ==========================================
   const stepTitles = [
     { title: 'Tạo đơn hàng thành công', note: 'Đơn hàng mới tạo ở trạng thái chờ xác nhận' },
     { title: 'Xác nhận đơn hàng', note: 'Nhân viên đã kiểm tra và duyệt đơn hàng' },
@@ -151,17 +267,17 @@ const buildLogsByStatus = (status, baseDate) => {
   ]
 
   const logs = []
-  const maxStep = Math.min(Number(status) || 1, 5)
+  const maxStep = Math.min(statusNum, 5)
 
   for (let i = 1; i <= maxStep; i++) {
     const offsetMs = (maxStep - i) * 20 * 60 * 1000
-    const timeVal = new Date(now - offsetMs)
+    const timeVal = new Date(baseTimeMs - offsetMs)
     logs.push({
       id: i,
       action: stepTitles[i - 1].title,
       hanhDong: stepTitles[i - 1].title,
       thoiGian: timeVal,
-      nguoiThucHien: 'Nhân viên',
+      nguoiThucHien: employeeName,
       ghiChu: stepTitles[i - 1].note,
       isDone: true
     })
@@ -174,13 +290,13 @@ const buildLogsByStatus = (status, baseDate) => {
   return logs.reverse()
 }
 
-const applyOrderStatus = (statusNumber) => {
+const applyOrderStatus = (statusNumber, isAtStore = false) => {
   const status = Number(statusNumber)
   const validStatus = Number.isInteger(status) && status >= 1 && status <= 6 ? status : 1
   invoiceData.value.status = validStatus
 
   const badgeMap = {
-    1: 'Chờ xác nhận',
+    1: isAtStore ? 'Hóa đơn chờ' : 'Chờ xác nhận',
     2: 'Đã xác nhận',
     3: 'Chờ vận chuyển',
     4: 'Đang vận chuyển',
@@ -188,7 +304,7 @@ const applyOrderStatus = (statusNumber) => {
     6: 'Đã hủy'
   }
 
-  invoiceData.value.statusBadge = badgeMap[validStatus] || 'Chờ xác nhận'
+  invoiceData.value.statusBadge = badgeMap[validStatus] || (isAtStore ? 'Hóa đơn chờ' : 'Chờ xác nhận')
 
   if (validStatus === 6) {
     invoiceData.value.currentStepIndex = 0
@@ -542,23 +658,46 @@ const loadDetail = async (identifier) => {
     }
 
     const currentStatus = data['trangThai'] !== undefined ? data['trangThai'] : (data['status'] || 1)
-    applyOrderStatus(currentStatus)
+    const isAtStore = Number(data['loaiDon']) === 1 || data['loaiDon'] === 'Tại quầy' || invoiceData.value.delivery?.type === 'Tại quầy'
+    applyOrderStatus(currentStatus, isAtStore)
 
     // Nạp lịch sử thao tác
     const rawLogs = data['lichSuHoaDon'] || data['lichSuHoaDons'] || data['lichSu']
 
     if (Array.isArray(rawLogs) && rawLogs.length > 0) {
-      orderLogs.value = rawLogs.map((l, i) => ({
+      let mappedLogs = rawLogs.map((l, i) => ({
         id: l.id || i,
         action: l.hanhDong || l.ghiChu || l.thaoTac || l.action || 'Thao tác hóa đơn',
         hanhDong: l.hanhDong || l.ghiChu || l.thaoTac || l.action || 'Thao tác hóa đơn',
         thoiGian: l.thoiGian || l.ngayTao || l.thoiGianTao,
-        nguoiThucHien: l.nguoiThucHien || l.tenNhanVien || (l.vaiTroNguoiThucHien ? `${l.vaiTroNguoiThucHien}` : 'Nhân viên'),
+        nguoiThucHien: l.nguoiThucHien || l.tenNhanVien || (l.vaiTroNguoiThucHien ? `${l.vaiTroNguoiThucHien}` : employeeName),
         ghiChu: l.ghiChu || '',
         isDone: true
-      })).reverse()
+      }))
+
+      if (isAtStore) {
+        // Đối với đơn hàng tại quầy: Loại bỏ bất kỳ mốc lịch sử nào liên quan đến giao hàng/shipper
+        mappedLogs = mappedLogs.filter(l => {
+          const act = (l.action || l.hanhDong || l.ghiChu || '').toLowerCase()
+          return !act.includes('shipper') && !act.includes('vận chuyển') && !act.includes('bàn giao kho') && !act.includes('đóng gói')
+        })
+      }
+
+      if (mappedLogs.length > 0) {
+        orderLogs.value = mappedLogs.reverse()
+      } else {
+        orderLogs.value = buildLogsByStatus(currentStatus, data['ngayTao'] || data['createdAt'], isAtStore, {
+          finishDate: data['thoiGianThanhToan'] || data['ngayCapNhat'] || data['updatedAt'],
+          employeeName,
+          note: data['ghiChu']
+        })
+      }
     } else {
-      orderLogs.value = buildLogsByStatus(currentStatus, data['ngayTao'] || data['createdAt'])
+      orderLogs.value = buildLogsByStatus(currentStatus, data['ngayTao'] || data['createdAt'], isAtStore, {
+        finishDate: data['thoiGianThanhToan'] || data['ngayCapNhat'] || data['updatedAt'],
+        employeeName,
+        note: data['ghiChu']
+      })
     }
 
     // Đồng bộ mốc thời gian hiển thị cho các bước đã đạt đến
@@ -571,8 +710,9 @@ const loadDetail = async (identifier) => {
       orderLogs.value.forEach(log => {
         const act = (log.action || log.hanhDong || '').toLowerCase()
         const tStr = formatDateTime(log.thoiGian)
-        if (act.includes('tạo') || act.includes('chờ xác nhận')) {
+        if (act.includes('tạo') || act.includes('chờ xác nhận') || act.includes('hóa đơn chờ')) {
           if (invoiceData.value.steps[0]) invoiceData.value.steps[0].time = tStr
+          if (!invoiceData.value.createTime) invoiceData.value.createTime = tStr
         } else if (act.includes('xác nhận') && !act.includes('chờ')) {
           if (invoiceData.value.steps[1]) invoiceData.value.steps[1].time = tStr
         } else if (act.includes('chờ vận chuyển') || act.includes('kho') || act.includes('đóng gói')) {
@@ -581,6 +721,7 @@ const loadDetail = async (identifier) => {
           if (invoiceData.value.steps[3]) invoiceData.value.steps[3].time = tStr
         } else if (act.includes('hoàn thành')) {
           if (invoiceData.value.steps[4]) invoiceData.value.steps[4].time = tStr
+          if (!invoiceData.value.lastUpdated) invoiceData.value.lastUpdated = tStr
         }
       })
     }
@@ -617,6 +758,126 @@ const editCustomerForm = ref({
   address: '',
   note: ''
 })
+
+const editErrors = ref({
+  name: '',
+  phone: '',
+  address: '',
+  note: '',
+  statusNote: ''
+})
+
+const clearEditErrors = (field = null) => {
+  if (field) {
+    editErrors.value[field] = ''
+  } else {
+    editErrors.value = {
+      name: '',
+      phone: '',
+      address: '',
+      note: '',
+      statusNote: ''
+    }
+  }
+}
+
+const isOnlineDelivery = computed(() => {
+  return invoiceData.value.delivery?.type !== 'Tại quầy' && Number(invoiceData.value.delivery?.loaiDon) !== 1
+})
+
+const validateCustomerForm = () => {
+  let isValid = true
+  clearEditErrors()
+
+  const nameVal = (editCustomerForm.value.name || '').trim()
+  const phoneVal = (editCustomerForm.value.phone || '').trim()
+  const addressVal = (editCustomerForm.value.address || '').trim()
+  const noteVal = (editCustomerForm.value.note || '').trim()
+
+  // 1. Validate Tên khách hàng
+  if (!nameVal) {
+    editErrors.value.name = 'Họ và tên khách hàng không được để trống'
+    isValid = false
+  } else if (nameVal.length < 2) {
+    editErrors.value.name = 'Tên khách hàng phải có ít nhất 2 ký tự'
+    isValid = false
+  } else if (nameVal.length > 100) {
+    editErrors.value.name = 'Tên khách hàng không được vượt quá 100 ký tự'
+    isValid = false
+  } else if (/[<>{}()[\]$%^*@=+#_~`|\\/?!]/.test(nameVal)) {
+    editErrors.value.name = 'Tên khách hàng không được chứa ký tự đặc biệt'
+    isValid = false
+  }
+
+  // 2. Validate Số điện thoại
+  if (isOnlineDelivery.value && !phoneVal) {
+    editErrors.value.phone = 'Đơn giao hàng trực tuyến bắt buộc phải có số điện thoại'
+    isValid = false
+  } else if (phoneVal) {
+    if (!/^\d+$/.test(phoneVal)) {
+      editErrors.value.phone = 'Số điện thoại chỉ được chứa các chữ số'
+      isValid = false
+    } else if (!phoneVal.startsWith('0')) {
+      editErrors.value.phone = 'Số điện thoại phải bắt đầu bằng số 0'
+      isValid = false
+    } else if (phoneVal.length !== 10) {
+      editErrors.value.phone = `Số điện thoại phải bao gồm đúng 10 chữ số (hiện có ${phoneVal.length} số)`
+      isValid = false
+    } else if (!/^(0[3|5|7|8|9])[0-9]{8}$/.test(phoneVal)) {
+      editErrors.value.phone = 'Đầu số điện thoại không hợp lệ (hợp lệ: 03, 05, 07, 08, 09)'
+      isValid = false
+    }
+  }
+
+  // 3. Validate Địa chỉ nhận hàng
+  if (isOnlineDelivery.value && (!addressVal || addressVal === '—' || addressVal === '---')) {
+    editErrors.value.address = 'Đơn giao hàng trực tuyến bắt buộc phải có địa chỉ nhận hàng'
+    isValid = false
+  } else if (isOnlineDelivery.value && addressVal.length < 5) {
+    editErrors.value.address = 'Địa chỉ nhận hàng quá ngắn (tối thiểu 5 ký tự)'
+    isValid = false
+  } else if (addressVal.length > 255) {
+    editErrors.value.address = 'Địa chỉ nhận hàng không được vượt quá 255 ký tự'
+    isValid = false
+  }
+
+  // 4. Validate Ghi chú
+  if (noteVal.length > 500) {
+    editErrors.value.note = 'Ghi chú không được vượt quá 500 ký tự'
+    isValid = false
+  }
+
+  return isValid
+}
+
+const validateStatusForm = () => {
+  let isValid = true
+  editErrors.value.statusNote = ''
+
+  const newStatus = Number(targetStatus.value)
+  const currentSt = Number(invoiceData.value.status)
+
+  if (newStatus === currentSt) {
+    showToast('Trạng thái đơn hàng không thay đổi!', 'warning')
+    return false
+  }
+
+  if (newStatus === 6) {
+    const reason = (statusNote.value || '').trim()
+    if (!reason) {
+      editErrors.value.statusNote = 'Vui lòng nhập lý do hủy đơn hàng'
+      isValid = false
+    } else if (reason.length < 3) {
+      editErrors.value.statusNote = 'Lý do hủy đơn phải có ít nhất 3 ký tự'
+      isValid = false
+    } else if (reason.length > 255) {
+      editErrors.value.statusNote = 'Lý do hủy đơn không được vượt quá 255 ký tự'
+      isValid = false
+    }
+  }
+
+  return isValid
+}
 
 const statusOptions = [
   { value: 1, label: 'Chờ Xác Nhận', desc: 'Đơn hàng mới tạo, đang chờ xác nhận từ cửa hàng', color: '#d97706', bg: '#fff4e5' },
@@ -669,6 +930,7 @@ const openStatusModal = () => {
   editModalTab.value = 'donHang'
   targetStatus.value = Number(invoiceData.value.status) || 1
   statusNote.value = ''
+  clearEditErrors()
   editCustomerForm.value = {
     name: invoiceData.value.customer?.name !== 'Khách lẻ' ? invoiceData.value.customer?.name : '',
     phone: invoiceData.value.customer?.phone !== '—' && invoiceData.value.customer?.phone !== '---' ? invoiceData.value.customer?.phone : '',
@@ -679,21 +941,28 @@ const openStatusModal = () => {
 }
 
 const openCancelModal = () => {
+  editModalTab.value = 'donHang'
   targetStatus.value = 6
   statusNote.value = 'Khách hàng yêu cầu hủy đơn'
+  clearEditErrors()
   showStatusModal.value = true
 }
 
 const handleSaveEditModal = async () => {
   if (editModalTab.value === 'donHang') {
-    const newStatus = Number(targetStatus.value)
-    if (newStatus === Number(invoiceData.value.status)) {
-      showToast('Trạng thái đơn hàng không thay đổi!')
-      showStatusModal.value = false
+    if (!validateStatusForm()) {
       return
     }
-    await saveStatusChange(newStatus, `Chuyển trạng thái đơn hàng`)
+    const newStatus = Number(targetStatus.value)
+    const noteToSend = newStatus === 6
+      ? statusNote.value.trim()
+      : (statusNote.value.trim() || 'Chuyển trạng thái đơn hàng')
+    await saveStatusChange(newStatus, noteToSend)
   } else {
+    if (!validateCustomerForm()) {
+      showToast('Vui lòng kiểm tra lại các trường thông tin khách hàng!', 'warning')
+      return
+    }
     const id = invoiceId.value || invoiceData.value.id
     if (!id) {
       showToast('Không tìm thấy ID hóa đơn để cập nhật!', 'warning')
@@ -702,10 +971,10 @@ const handleSaveEditModal = async () => {
     updatingStatus.value = true
     try {
       await api.put(`/api/hoa-don/${id}`, {
-        tenKhachHang: editCustomerForm.value.name,
-        soDienThoaiKhachHang: editCustomerForm.value.phone,
-        diaChiNhanHang: editCustomerForm.value.address,
-        ghiChu: editCustomerForm.value.note
+        tenKhachHang: editCustomerForm.value.name.trim(),
+        soDienThoaiKhachHang: editCustomerForm.value.phone.trim() || null,
+        diaChiNhanHang: editCustomerForm.value.address.trim() || null,
+        ghiChu: editCustomerForm.value.note.trim() || null
       })
       showToast('Đã lưu thông tin khách hàng thành công!')
       showStatusModal.value = false
@@ -863,7 +1132,14 @@ const visibleSteps = computed(() => {
 })
 
 const nextStatusInfo = computed(() => {
+  const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
   const cur = Number(invoiceData.value.status)
+  if (isAtStore) {
+    if (cur === 1) {
+      return { nextStatus: 5, label: 'Hoàn Thành Đơn Hàng' }
+    }
+    return null
+  }
   switch (cur) {
     case 1:
       return { nextStatus: 2, label: 'Xác Nhận Đơn Hàng' }
@@ -1488,12 +1764,15 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="form-group-modal mt-14">
-              <label class="modal-label">Trạng thái</label>
+              <label class="modal-label">
+                Trạng thái mới <span class="text-danger">*</span>
+              </label>
               <div class="custom-select-wrapper">
                 <select
                     v-model="targetStatus"
                     class="modal-select-field"
                     :disabled="!hasNextStatus"
+                    @change="editErrors.statusNote = ''"
                 >
                   <option
                       v-for="st in selectableStatusOptions"
@@ -1513,48 +1792,126 @@ onBeforeUnmount(() => {
                 <span>Đơn hàng hiện không còn trạng thái kế tiếp để cập nhật.</span>
               </div>
             </div>
+
+            <!-- Ô nhập lý do hủy bắt buộc khi chọn trạng thái Đã Hủy -->
+            <div v-if="Number(targetStatus) === 6" class="form-group-modal mt-14">
+              <label class="modal-label">
+                Lý do hủy đơn hàng <span class="text-danger">*</span>
+              </label>
+              <textarea
+                  v-model="statusNote"
+                  rows="3"
+                  class="modal-textarea-field"
+                  :class="{ 'has-error': editErrors.statusNote }"
+                  placeholder="Nhập lý do hủy đơn hàng (bắt buộc, tối thiểu 3 ký tự)..."
+                  maxlength="255"
+                  @input="editErrors.statusNote = ''"
+              ></textarea>
+              <div class="char-count-row">
+                <span v-if="editErrors.statusNote" class="field-error-text">
+                  ⚠️ {{ editErrors.statusNote }}
+                </span>
+                <span class="char-counter">{{ (statusNote || '').length }}/255</span>
+              </div>
+            </div>
+
+            <!-- Ghi chú tùy chọn khi chuyển trạng thái khác -->
+            <div v-else-if="Number(targetStatus) !== Number(invoiceData.status)" class="form-group-modal mt-14">
+              <label class="modal-label">
+                Ghi chú thao tác <span class="text-optional">(tùy chọn)</span>
+              </label>
+              <textarea
+                  v-model="statusNote"
+                  rows="2"
+                  class="modal-textarea-field"
+                  placeholder="Ghi chú thêm về lý do hoặc chi tiết chuyển trạng thái..."
+                  maxlength="255"
+              ></textarea>
+              <div class="char-count-row">
+                <span class="char-counter">{{ (statusNote || '').length }}/255</span>
+              </div>
+            </div>
           </div>
 
           <!-- Tab 2: Thông tin khách hàng -->
           <div v-else class="customer-edit-grid">
             <div class="form-group-modal">
-              <label class="modal-label">Tên khách hàng</label>
+              <label class="modal-label">
+                Tên khách hàng <span class="text-danger">*</span>
+              </label>
               <input
                   type="text"
                   v-model="editCustomerForm.name"
                   class="modal-input-field"
-                  placeholder="Nhập tên khách hàng..."
+                  :class="{ 'has-error': editErrors.name }"
+                  placeholder="Nhập họ và tên khách hàng..."
+                  maxlength="100"
+                  @input="editErrors.name = ''"
               />
+              <span v-if="editErrors.name" class="field-error-text">
+                ⚠️ {{ editErrors.name }}
+              </span>
             </div>
 
             <div class="form-group-modal">
-              <label class="modal-label">Số điện thoại</label>
+              <label class="modal-label">
+                Số điện thoại
+                <span v-if="isOnlineDelivery" class="text-danger">*</span>
+                <span v-else class="text-optional">(tùy chọn)</span>
+              </label>
               <input
                   type="text"
                   v-model="editCustomerForm.phone"
                   class="modal-input-field"
-                  placeholder="Nhập số điện thoại..."
+                  :class="{ 'has-error': editErrors.phone }"
+                  placeholder="Nhập số điện thoại (10 chữ số, VD: 0912345678)..."
+                  maxlength="11"
+                  @input="editErrors.phone = ''"
               />
+              <span v-if="editErrors.phone" class="field-error-text">
+                ⚠️ {{ editErrors.phone }}
+              </span>
             </div>
 
             <div class="form-group-modal">
-              <label class="modal-label">Địa chỉ nhận hàng</label>
+              <label class="modal-label">
+                Địa chỉ nhận hàng
+                <span v-if="isOnlineDelivery" class="text-danger">*</span>
+                <span v-else class="text-optional">(tùy chọn)</span>
+              </label>
               <input
                   type="text"
                   v-model="editCustomerForm.address"
                   class="modal-input-field"
-                  placeholder="Nhập địa chỉ nhận hàng..."
+                  :class="{ 'has-error': editErrors.address }"
+                  placeholder="Nhập địa chỉ nhận hàng cụ thể..."
+                  maxlength="255"
+                  @input="editErrors.address = ''"
               />
+              <span v-if="editErrors.address" class="field-error-text">
+                ⚠️ {{ editErrors.address }}
+              </span>
             </div>
 
             <div class="form-group-modal">
-              <label class="modal-label">Ghi chú</label>
+              <label class="modal-label">
+                Ghi chú đơn hàng <span class="text-optional">(tùy chọn)</span>
+              </label>
               <textarea
                   v-model="editCustomerForm.note"
                   rows="3"
                   class="modal-textarea-field"
-                  placeholder="Nhập ghi chú cho đơn hàng..."
+                  :class="{ 'has-error': editErrors.note }"
+                  placeholder="Nhập ghi chú thêm cho đơn hàng nếu có (tối đa 500 ký tự)..."
+                  maxlength="500"
+                  @input="editErrors.note = ''"
               ></textarea>
+              <div class="char-count-row">
+                <span v-if="editErrors.note" class="field-error-text">
+                  ⚠️ {{ editErrors.note }}
+                </span>
+                <span class="char-counter">{{ (editCustomerForm.note || '').length }}/500</span>
+              </div>
             </div>
           </div>
         </div>
@@ -2889,6 +3246,46 @@ onBeforeUnmount(() => {
 .modal-textarea-field:focus {
   border-color: #3e5c76;
   box-shadow: 0 0 0 2px rgba(62, 92, 118, 0.15);
+}
+
+.modal-input-field.has-error,
+.modal-textarea-field.has-error {
+  border-color: #dc2626 !important;
+  background-color: #fff9f9 !important;
+}
+
+.modal-input-field.has-error:focus,
+.modal-textarea-field.has-error:focus {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2) !important;
+}
+
+.field-error-text {
+  display: block;
+  font-size: 0.76rem;
+  color: #dc2626;
+  font-weight: 500;
+  margin-top: 4px;
+  line-height: 1.3;
+}
+
+.text-optional {
+  font-size: 0.74rem;
+  color: #8c969e;
+  font-weight: normal;
+}
+
+.char-count-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.char-counter {
+  font-size: 0.72rem;
+  color: #8c969e;
+  margin-left: auto;
 }
 
 .form-group-modal {
