@@ -32,11 +32,11 @@
         <!-- Hình thức -->
         <div class="form-field">
           <label>Hình thức</label>
-          <select v-model="filters.hinhThuc">
-            <option value="">Tất cả hình thức</option>
-            <option value="Công khai">Công khai</option>
-            <option value="Cá nhân">Cá nhân</option>
-          </select>
+          <Select2Combobox
+            v-model="filters.hinhThuc"
+            :options="hinhThucOptions"
+            placeholder="Tất cả hình thức"
+          />
         </div>
 
         <!-- Ngày bắt đầu -->
@@ -64,23 +64,21 @@
         <!-- Loại giảm -->
         <div class="form-field">
           <label>Loại giảm</label>
-          <select v-model="filters.loaiGiam">
-            <option value="">Tất cả loại giảm</option>
-            <option value="percent">Giảm theo %</option>
-            <option value="amount">Giảm tiền mặt</option>
-          </select>
+          <Select2Combobox
+            v-model="filters.loaiGiam"
+            :options="loaiGiamOptions"
+            placeholder="Tất cả loại giảm"
+          />
         </div>
 
         <!-- Trạng thái -->
         <div class="form-field">
           <label>Trạng thái</label>
-          <select v-model="filters.trangThai">
-            <option value="">Tất cả trạng thái</option>
-            <option value="active">Đang diễn ra</option>
-            <option value="upcoming">Sắp diễn ra</option>
-            <option value="expired">Đã kết thúc / Hết hạn</option>
-            <option value="inactive">Ngừng hoạt động</option>
-          </select>
+          <Select2Combobox
+            v-model="filters.trangThai"
+            :options="trangThaiOptions"
+            placeholder="Tất cả trạng thái"
+          />
         </div>
       </div>
 
@@ -308,8 +306,29 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../../api'
+import Select2Combobox from '../../components/Select2Combobox.vue'
 
 const router = useRouter()
+
+const hinhThucOptions = [
+  { value: '', label: 'Tất cả hình thức' },
+  { value: 'Công khai', label: 'Công khai' },
+  { value: 'Cá nhân', label: 'Cá nhân' }
+]
+
+const loaiGiamOptions = [
+  { value: '', label: 'Tất cả loại giảm' },
+  { value: 'percent', label: 'Giảm theo %' },
+  { value: 'amount', label: 'Giảm tiền mặt' }
+]
+
+const trangThaiOptions = [
+  { value: '', label: 'Tất cả trạng thái' },
+  { value: 'active', label: 'Đang diễn ra' },
+  { value: 'upcoming', label: 'Sắp diễn ra' },
+  { value: 'expired', label: 'Đã kết thúc / Hết hạn' },
+  { value: 'inactive', label: 'Ngừng hoạt động' }
+]
 
 const filters = ref({
   keyword: '',
