@@ -3099,10 +3099,6 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 </style>
-
-<!-- ======================================================== -->
-<!-- ĐỊNH DẠNG IN HÓA ĐƠN CHUẨN A4 XUẤT RA FILE PDF BẰNG BROWSER PRINT -->
-<!-- ======================================================== -->
 <style>
 @media print {
   @page {
