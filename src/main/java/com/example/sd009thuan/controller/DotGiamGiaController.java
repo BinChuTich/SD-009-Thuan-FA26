@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -31,7 +32,7 @@ public class DotGiamGiaController {
     @GetMapping
     public ResponseEntity<Page<DotGiamGia>> search(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Integer trangThai,
+            @RequestParam(required = false) String trangThai,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             @RequestParam(defaultValue = "0") int page,
@@ -44,6 +45,24 @@ public class DotGiamGiaController {
 
         Page<DotGiamGia> result = dotGiamGiaService.search(keyword, trangThai, startDate, endDate, pageable);
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Lấy bản đồ ID sản phẩm cha -> Đợt giảm giá đang áp dụng
+     */
+    @GetMapping("/active-products-map")
+    public ResponseEntity<Map<Long, DotGiamGia>> getActiveProductsMap(@RequestParam(required = false) Long excludeDotId) {
+        return ResponseEntity.ok(dotGiamGiaService.getActiveProductMap(excludeDotId));
+    }
+
+    /**
+     * Lấy đợt giảm giá đang áp dụng sản phẩm cha theo ID sản phẩm
+     */
+    @GetMapping("/by-product/{sanPhamId}")
+    public ResponseEntity<DotGiamGia> getByProductId(@PathVariable Long sanPhamId) {
+        return dotGiamGiaService.getActiveCampaignByProductId(sanPhamId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     /**

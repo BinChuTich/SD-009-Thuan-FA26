@@ -17,7 +17,9 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -39,33 +41,84 @@ public class DotGiamGiaService {
 
     public Page<DotGiamGia> search(
             String keyword,
-            Integer trangThai,
+            String trangThai,
             String startDateStr,
             String endDateStr,
             Pageable pageable
     ) {
-        Instant tuNgay = null;
-        Instant denNgay = null;
+        Instant tuNgayBatDau = null;
+        Instant denNgayBatDau = null;
+        Instant tuNgayKetThuc = null;
+        Instant denNgayKetThuc = null;
 
-        if (startDateStr != null && !startDateStr.trim().isEmpty()) {
+        boolean hasStart = startDateStr != null && !startDateStr.trim().isEmpty();
+        boolean hasEnd = endDateStr != null && !endDateStr.trim().isEmpty();
+
+        if (hasStart && hasEnd) {
+            // Người dùng chọn cả khoảng thời gian: Từ ngày bắt đầu đến ngày kết thúc
             try {
                 LocalDate start = LocalDate.parse(startDateStr.trim());
-                tuNgay = start.atStartOfDay(ZoneId.systemDefault()).toInstant();
+                LocalDate end = LocalDate.parse(endDateStr.trim());
+                tuNgayBatDau = start.atStartOfDay(ZoneId.systemDefault()).toInstant();
+                denNgayKetThuc = end.atTime(LocalTime.MAX).atZone(ZoneId.systemDefault()).toInstant();
             } catch (Exception ignored) {
             }
-        }
-
-        if (endDateStr != null && !endDateStr.trim().isEmpty()) {
+        } else if (hasEnd) {
+            // Người dùng CHỈ chọn Ngày kết thúc: Lọc đúng các đợt có ngày kết thúc rơi vào đúng ngày đó
             try {
                 LocalDate end = LocalDate.parse(endDateStr.trim());
-                denNgay = end.atTime(LocalTime.MAX).atZone(ZoneId.systemDefault()).toInstant();
+                tuNgayKetThuc = end.atStartOfDay(ZoneId.systemDefault()).toInstant();
+                denNgayKetThuc = end.atTime(LocalTime.MAX).atZone(ZoneId.systemDefault()).toInstant();
+            } catch (Exception ignored) {
+            }
+        } else if (hasStart) {
+            // Người dùng CHỈ chọn Ngày bắt đầu: Lọc các đợt có ngày bắt đầu từ ngày đó trở đi
+            try {
+                LocalDate start = LocalDate.parse(startDateStr.trim());
+                tuNgayBatDau = start.atStartOfDay(ZoneId.systemDefault()).toInstant();
             } catch (Exception ignored) {
             }
         }
 
         String searchKw = (keyword != null && !keyword.trim().isEmpty()) ? keyword.trim() : null;
+        String cleanKw = null;
+        BigDecimal giaTri = null;
 
-        return dotGiamGiaRepository.search(searchKw, trangThai, tuNgay, denNgay, pageable);
+        if (searchKw != null) {
+            String tempClean = searchKw.replace("%", "").trim();
+            if (!tempClean.isEmpty()) {
+                cleanKw = tempClean;
+                try {
+                    giaTri = new BigDecimal(tempClean.replace(",", "."));
+                } catch (Exception ignored) {
+                }
+            }
+        }
+
+        String statusStr = (trangThai != null && !trangThai.trim().isEmpty()) ? trangThai.trim() : null;
+
+        return dotGiamGiaRepository.search(
+                searchKw,
+                cleanKw,
+                giaTri,
+                statusStr,
+                Instant.now(),
+                tuNgayBatDau,
+                denNgayBatDau,
+                tuNgayKetThuc,
+                denNgayKetThuc,
+                pageable
+        );
+    }
+
+    public Page<DotGiamGia> search(
+            String keyword,
+            Integer trangThai,
+            String startDateStr,
+            String endDateStr,
+            Pageable pageable
+    ) {
+        return search(keyword, trangThai != null ? String.valueOf(trangThai) : null, startDateStr, endDateStr, pageable);
     }
 
     public List<DotGiamGia> getAll() {
@@ -146,8 +199,34 @@ public class DotGiamGiaService {
         }
     }
 
+    public Map<Long, DotGiamGia> getActiveProductMap(Long excludeDotId) {
+        List<ChiTietDotGiamGia> chiTiets = chiTietDotGiamGiaRepository.findActiveChiTiets(Instant.now(), excludeDotId);
+        Map<Long, DotGiamGia> map = new HashMap<>();
+        for (ChiTietDotGiamGia ct : chiTiets) {
+            if (ct.getIdChiTietSanPham() != null
+                    && ct.getIdChiTietSanPham().getIdSanPham() != null
+                    && ct.getIdDotGiamGia() != null) {
+                Long spId = ct.getIdChiTietSanPham().getIdSanPham().getId();
+                map.putIfAbsent(spId, ct.getIdDotGiamGia());
+            }
+        }
+        return map;
+    }
+
     public List<Long> getActiveProductIds(Long excludeDotId) {
-        return chiTietDotGiamGiaRepository.findActiveProductIds(Instant.now(), excludeDotId);
+        return new ArrayList<>(getActiveProductMap(excludeDotId).keySet());
+    }
+
+    public Optional<DotGiamGia> getActiveCampaignByProductId(Long sanPhamId) {
+        List<ChiTietDotGiamGia> chiTiets = chiTietDotGiamGiaRepository.findActiveChiTiets(Instant.now(), null);
+        for (ChiTietDotGiamGia ct : chiTiets) {
+            if (ct.getIdChiTietSanPham() != null
+                    && ct.getIdChiTietSanPham().getIdSanPham() != null
+                    && ct.getIdChiTietSanPham().getIdSanPham().getId().equals(sanPhamId)) {
+                return Optional.ofNullable(ct.getIdDotGiamGia());
+            }
+        }
+        return Optional.empty();
     }
 
     private void saveChiTiet(DotGiamGia dotGiamGia, List<Long> chiTietSanPhamIds) {
