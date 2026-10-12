@@ -12,13 +12,7 @@
       </div>
       <div class="header-right">
         <button type="button" class="btn-scan-cccd" @click="showScanModal = true">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7"></rect>
-            <rect x="14" y="3" width="7" height="7"></rect>
-            <rect x="14" y="14" width="7" height="7"></rect>
-            <rect x="3" y="14" width="7" height="7"></rect>
-          </svg>
-          Quét CCCD gắn chip
+          Quét CCCD
         </button>
       </div>
     </div>
@@ -719,25 +713,21 @@ onMounted(() => {
   align-items: center;
   gap: 0.55rem;
   padding: 0.6rem 1.35rem;
-  background-color: #2e9f65;
+  background-color: #b38e6e;
   color: #ffffff;
   border: none;
   border-radius: 8px;
   font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(46, 159, 101, 0.25);
+  box-shadow: 0 2px 6px rgba(179, 142, 110, 0.25);
   transition: all 0.2s;
 }
 
 .btn-scan-cccd:hover {
-  background-color: #248352;
-  box-shadow: 0 4px 12px rgba(46, 159, 101, 0.35);
+  background-color: #9c7756;
+  box-shadow: 0 4px 12px rgba(179, 142, 110, 0.35);
   transform: translateY(-1px);
-}
-
-.btn-scan-cccd svg {
-  display: block;
 }
 
 .loading-card {

@@ -4,12 +4,6 @@
       <!-- Modal Header -->
       <div class="cccd-modal-header">
         <div class="header-title-box">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7"></rect>
-            <rect x="14" y="3" width="7" height="7"></rect>
-            <rect x="14" y="14" width="7" height="7"></rect>
-            <rect x="3" y="14" width="7" height="7"></rect>
-          </svg>
           <h3 class="modal-title">Quét thẻ Căn cước công dân (CCCD)</h3>
         </div>
         <button type="button" class="btn-close-modal" @click="closeModal" title="Đóng">✕</button>
@@ -23,7 +17,7 @@
           :class="{ active: activeTab === 'camera' }"
           @click="switchTab('camera')"
         >
-          📷 Quét bằng Camera / Webcam
+          Quét bằng Camera
         </button>
         <button
           type="button"
@@ -31,7 +25,7 @@
           :class="{ active: activeTab === 'file' }"
           @click="switchTab('file')"
         >
-          📁 Tải ảnh thẻ CCCD
+          Tải ảnh thẻ CCCD
         </button>
       </div>
 
@@ -40,7 +34,6 @@
         <!-- TAB 1: CAMERA -->
         <div v-show="activeTab === 'camera'" class="tab-panel camera-panel">
           <div v-if="cameraError" class="camera-error-box">
-            <div class="error-icon">⚠️</div>
             <div class="error-message">{{ cameraError }}</div>
             <button type="button" class="btn-retry-camera" @click="initCamera">Thử lại</button>
           </div>
@@ -54,7 +47,7 @@
           </div>
 
           <div class="scan-instruction">
-            <span>💡 <strong>Hướng dẫn:</strong> Giơ mã QR ở góc trên bên phải của thẻ CCCD gắn chip vào trước camera để quét tự động.</span>
+            <span><strong>Hướng dẫn:</strong> Đưa mã QR trên thẻ CCCD gắn chip vào trước camera để quét tự động.</span>
           </div>
 
           <!-- Camera Selector nếu có nhiều camera -->
@@ -78,7 +71,6 @@
               @change="onFileSelected"
             />
             <div v-if="!filePreview" class="dropzone-empty">
-              <div class="upload-icon">📷</div>
               <div class="upload-title">Nhấp để chọn ảnh thẻ CCCD hoặc ảnh mã QR</div>
               <div class="upload-desc">Hỗ trợ các định dạng PNG, JPG, JPEG, WEBP</div>
             </div>
@@ -96,7 +88,7 @@
           </div>
 
           <div class="scan-instruction">
-            <span>💡 <strong>Mẹo:</strong> Hãy chụp ảnh rõ nét mã QR vuông ở góc trên bên phải của thẻ CCCD để hệ thống nhận diện tốt nhất.</span>
+            <span><strong>Lưu ý:</strong> Chụp ảnh rõ nét vùng mã QR vuông của thẻ CCCD để hệ thống nhận diện tốt nhất.</span>
           </div>
         </div>
 
@@ -191,14 +183,10 @@ function parseCccdQr(qrText) {
   }
 
   return {
-    raw: clean,
-    cccdNumber,
-    cmndNumber,
     fullName,
     dob,
     gender,
-    fullAddress,
-    issueDate: rawIssueDate
+    fullAddress
   }
 }
 
@@ -440,8 +428,8 @@ onBeforeUnmount(() => {
 
 .scan-tab-btn.active {
   background-color: #ffffff;
-  color: #496883;
-  border-bottom: 2px solid #496883;
+  color: #a67c52;
+  border-bottom: 2px solid #a67c52;
 }
 
 .cccd-modal-body {

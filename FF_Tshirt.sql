@@ -587,3 +587,4 @@ UNION ALL SELECT 'phuong_thuc_thanh_toan', COUNT(*) FROM phuong_thuc_thanh_toan
 UNION ALL SELECT 'hinh_thuc_thanh_toan', COUNT(*) FROM hinh_thuc_thanh_toan
 UNION ALL SELECT 'lich_su_thanh_toan', COUNT(*) FROM lich_su_thanh_toan;
 GO
+

@@ -54,5 +54,40 @@ public class EmailService {
             return false;
         }
     }
+
+    public boolean sendCustomEmail(String toEmail, String fullName, String subject, String content) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("Không thể gửi email vì địa chỉ email trống.");
+            return false;
+        }
+
+        String actualSubject = (subject == null || subject.isBlank()) ? "[FF-Tshirt] Thông báo hệ thống" : subject.trim();
+        String fullContent = String.format(
+                "Xin chào %s,\n\n" +
+                "%s\n\n" +
+                "Trân trọng,\n" +
+                "Ban quản trị hệ thống FF-Tshirt",
+                (fullName != null && !fullName.isBlank()) ? fullName : "bạn",
+                (content != null && !content.isBlank()) ? content.trim() : "Bạn nhận được thông báo này từ hệ thống."
+        );
+
+        if (mailSender == null) {
+            log.warn("JavaMailSender chưa được cấu hình. Nội dung email gửi tới {}:\n{}", toEmail, fullContent);
+            return false;
+        }
+
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(toEmail.trim());
+            message.setSubject(actualSubject);
+            message.setText(fullContent);
+            mailSender.send(message);
+            log.info("Đã gửi email thông báo thành công tới: {}", toEmail);
+            return true;
+        } catch (Exception e) {
+            log.error("Gửi email thất bại cho {}: {}", toEmail, e.getMessage());
+            return false;
+        }
+    }
 }
 
