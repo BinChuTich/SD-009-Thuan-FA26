@@ -4,10 +4,12 @@ import com.example.sd009thuan.entity.DotGiamGia;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;
 
@@ -21,15 +23,33 @@ public interface DotGiamGiaRepository extends JpaRepository<DotGiamGia, Long> {
     @Query("SELECT d FROM DotGiamGia d WHERE " +
             "(:keyword IS NULL OR :keyword = '' OR " +
             " LOWER(d.maDotGiamGia) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-            " LOWER(d.tenDotGiamGia) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
-            "(:trangThai IS NULL OR d.trangThai = :trangThai) AND " +
-            "(:tuNgay IS NULL OR d.ngayBatDau >= :tuNgay) AND " +
-            "(:denNgay IS NULL OR d.ngayKetThuc <= :denNgay)")
+            " LOWER(d.tenDotGiamGia) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            " (:giaTri IS NOT NULL AND d.phanTramGiam = :giaTri) OR " +
+            " (:cleanKw IS NOT NULL AND :cleanKw != '' AND CAST(d.phanTramGiam AS string) LIKE CONCAT('%', :cleanKw, '%'))) AND " +
+            "(:trangThaiStr IS NULL OR :trangThaiStr = '' OR " +
+            " (:trangThaiStr = '0' AND d.trangThai = 0) OR " +
+            " (:trangThaiStr = '1' AND d.trangThai = 1) OR " +
+            " (:trangThaiStr = 'ACTIVE' AND d.trangThai = 1 AND (d.ngayBatDau IS NULL OR d.ngayBatDau <= :now) AND (d.ngayKetThuc IS NULL OR d.ngayKetThuc > :now)) OR " +
+            " (:trangThaiStr = 'UPCOMING' AND d.trangThai = 1 AND d.ngayBatDau IS NOT NULL AND d.ngayBatDau > :now) OR " +
+            " (:trangThaiStr = 'ENDED' AND d.trangThai = 1 AND d.ngayKetThuc IS NOT NULL AND d.ngayKetThuc <= :now)) AND " +
+            "(:tuNgayBatDau IS NULL OR d.ngayBatDau >= :tuNgayBatDau) AND " +
+            "(:denNgayBatDau IS NULL OR d.ngayBatDau <= :denNgayBatDau) AND " +
+            "(:tuNgayKetThuc IS NULL OR d.ngayKetThuc >= :tuNgayKetThuc) AND " +
+            "(:denNgayKetThuc IS NULL OR d.ngayKetThuc <= :denNgayKetThuc)")
     Page<DotGiamGia> search(
             @Param("keyword") String keyword,
-            @Param("trangThai") Integer trangThai,
-            @Param("tuNgay") Instant tuNgay,
-            @Param("denNgay") Instant denNgay,
+            @Param("cleanKw") String cleanKw,
+            @Param("giaTri") BigDecimal giaTri,
+            @Param("trangThaiStr") String trangThaiStr,
+            @Param("now") Instant now,
+            @Param("tuNgayBatDau") Instant tuNgayBatDau,
+            @Param("denNgayBatDau") Instant denNgayBatDau,
+            @Param("tuNgayKetThuc") Instant tuNgayKetThuc,
+            @Param("denNgayKetThuc") Instant denNgayKetThuc,
             Pageable pageable
     );
+
+    @Modifying
+    @Query("UPDATE DotGiamGia d SET d.trangThai = 0 WHERE d.trangThai = 1 AND d.ngayKetThuc <= :now")
+    int updateHetHan(@Param("now") Instant now);
 }

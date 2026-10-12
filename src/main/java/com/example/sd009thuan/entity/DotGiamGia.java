@@ -13,13 +13,10 @@ import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 @Getter
 @Setter
 @Entity
 @Table(name = "dot_giam_gia")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class DotGiamGia {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -50,7 +47,8 @@ public class DotGiamGia {
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
 
-    @Transient
+    @Nationalized
+    @Column(name = "mo_ta")
     private String moTa;
 
     @Transient
@@ -67,6 +65,9 @@ public class DotGiamGia {
 
     @Transient
     private Integer soLuongSuDung; // Alias cho soLuong
+
+    @Transient
+    private java.util.List<Long> chiTietSanPhamIds;
 
     @com.fasterxml.jackson.annotation.JsonIgnore
     @OneToMany(mappedBy = "idDotGiamGia")
