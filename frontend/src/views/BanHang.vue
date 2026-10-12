@@ -220,6 +220,25 @@ const handleCheckout = async () => {
     return
   }
 
+  if (currentInvoice.value.isDelivery) {
+    if (!currentInvoice.value.customerPhone?.trim()) {
+      alert('Vui lòng nhập số điện thoại người nhận khi chọn giao hàng!')
+      return
+    }
+    if (!currentInvoice.value.deliveryAddress?.trim()) {
+      alert('Vui lòng nhập địa chỉ nhận hàng khi chọn giao hàng!')
+      return
+    }
+  }
+
+  if (currentInvoice.value.customerPhone?.trim()) {
+    const phone = currentInvoice.value.customerPhone.trim()
+    if (!/^(0[3|5|7|8|9])[0-9]{8}$/.test(phone)) {
+      alert('Số điện thoại không đúng định dạng 10 số (VD: 0912345678)!')
+      return
+    }
+  }
+
   if (currentInvoice.value.paymentMethod === 'TIEN_MAT') {
     const pay = Number(currentInvoice.value.customerPay || 0)
     if (pay < totalAmount.value) {
