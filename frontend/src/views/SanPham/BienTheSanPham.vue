@@ -105,25 +105,81 @@ const editModal = ref({
   errors: {}
 })
 
+const modalFileInput = ref(null)
+
 const openEditModal = (item) => {
+  if (colors.value.length === 0 || sizes.value.length === 0) {
+    fetchAttributes()
+  }
   editModal.value.data = {
     id: item.id,
     idSanPham: item.idSanPham || currentProduct.value?.id,
-    tenSanPham: item.tenSanPham || currentProduct.value?.tenSanPham,
-    maSanPham: item.maSanPham || currentProduct.value?.maSanPham,
-    maChiTietSanPham: item.maChiTietSanPham,
-    idKichCo: item.idKichCo,
+    tenSanPham: item.tenSanPham || currentProduct.value?.tenSanPham || '',
+    maSanPham: item.maSanPham || currentProduct.value?.maSanPham || '',
+    maChiTietSanPham: item.maChiTietSanPham || '',
+    idKichCo: item.idKichCo != null ? Number(item.idKichCo) : '',
     tenKichCo: item.tenKichCo,
-    idMauSac: item.idMauSac,
+    idMauSac: item.idMauSac != null ? Number(item.idMauSac) : '',
     tenMauSac: item.tenMauSac,
     maHex: item.maHex,
-    anhDaiDien: item.anhDaiDien || null,
+    anhDaiDien: item.anhDaiDien || '',
+    isImageDeleted: false,
     soLuong: item.soLuong,
     giaBan: item.giaBan,
-    trangThai: item.trangThai
+    trangThai: item.trangThai ?? 1
   }
   editModal.value.errors = {}
   editModal.value.show = true
+}
+
+const triggerModalImageUpload = () => {
+  if (modalFileInput.value) {
+    modalFileInput.value.click()
+  }
+}
+
+const onModalFileChange = (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    showToast('Lỗi tải ảnh', 'Vui lòng chọn tệp hình ảnh!', 'error')
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('Lỗi tải ảnh', 'Dung lượng ảnh tối đa là 5MB!', 'error')
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = (event) => {
+    editModal.value.data.anhDaiDien = event.target.result
+    editModal.value.data.isImageDeleted = false
+    showToast('Thành công', 'Đã tải ảnh cho biến thể!', 'success')
+  }
+  reader.readAsDataURL(file)
+}
+
+const removeModalImage = () => {
+  editModal.value.data.anhDaiDien = ''
+  editModal.value.data.isImageDeleted = true
+  if (modalFileInput.value) {
+    modalFileInput.value.value = ''
+  }
+  showToast('Thông báo', 'Đã gỡ ảnh. Hãy nhấn Lưu biến thể để hoàn tất!', 'info')
+}
+
+const onModalColorChange = () => {
+  const c = colors.value.find(item => Number(item.id) === Number(editModal.value.data.idMauSac))
+  if (c) {
+    editModal.value.data.tenMauSac = c.tenMauSac
+    editModal.value.data.maHex = c.maHex
+  }
+}
+
+const onModalSizeChange = () => {
+  const s = sizes.value.find(item => Number(item.id) === Number(editModal.value.data.idKichCo))
+  if (s) {
+    editModal.value.data.tenKichCo = s.tenKichCo
+  }
 }
 
 const closeEditModal = () => {
@@ -216,6 +272,11 @@ const handleSaveVariant = async () => {
   editModal.value.errors = {}
   const data = editModal.value.data
 
+  if (!data.tenSanPham?.trim()) {
+    editModal.value.errors.tenSanPham = 'Vui lòng nhập tên sản phẩm'
+    return
+  }
+
   if (!data.idKichCo) {
     editModal.value.errors.idKichCo = 'Vui lòng chọn kích cỡ'
     return
@@ -259,11 +320,20 @@ const handleSaveVariant = async () => {
   }
 
   try {
+    let payloadAnhDaiDien = undefined
+    if (data.isImageDeleted || !data.anhDaiDien) {
+      payloadAnhDaiDien = 'REMOVE'
+    } else if (data.anhDaiDien) {
+      payloadAnhDaiDien = data.anhDaiDien
+    }
+
     const payload = {
       id: data.id,
       idSanPham: data.idSanPham,
+      tenSanPham: data.tenSanPham.trim(),
       idKichCo: data.idKichCo,
       idMauSac: data.idMauSac,
+      anhDaiDien: payloadAnhDaiDien,
       maChiTietSanPham: data.maChiTietSanPham ? data.maChiTietSanPham.trim() : undefined,
       soLuong: Number(data.soLuong),
       giaBan: Number(data.giaBan),
@@ -274,6 +344,9 @@ const handleSaveVariant = async () => {
     await api.put(`/api/chi-tiet-san-pham/${data.id}`, payload)
     closeEditModal()
     showToast('Cập nhật thành công', `Đã cập nhật biến thể ${data.maChiTietSanPham || ''}`)
+    if (currentProduct.value && data.tenSanPham) {
+      currentProduct.value.tenSanPham = data.tenSanPham.trim()
+    }
     fetchVariants()
   } catch (err) {
     console.error('Lỗi cập nhật biến thể:', err)
@@ -897,15 +970,39 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
         <!-- Body: 2 cột theo ảnh mẫu -->
         <div class="update-variant-body">
-          <!-- Cột trái: Ảnh to + 2 thẻ thông tin Màu sắc, Kích cỡ -->
+          <!-- Cột trái: Ảnh to + Nút tải/đổi ảnh + 2 thẻ xem trước Màu sắc, Kích cỡ -->
           <div class="left-variant-preview">
-            <div class="large-img-card">
+            <div class="large-img-card" @click="triggerModalImageUpload" title="Nhấp để tải ảnh hoặc thay đổi ảnh biến thể">
               <img
-                  :src="formatImageUrl(editModal.data.anhDaiDien)"
+                  :src="formatImageUrl(editModal.data.anhDaiDien) || defaultImage"
                   @error="onImgError"
                   alt="Variant big preview"
                   class="preview-img-tag"
               />
+              <div class="img-overlay-hover">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <span>Nhấp để đổi ảnh</span>
+              </div>
+            </div>
+
+            <!-- Nút thao tác ảnh -->
+            <div class="variant-img-btn-row">
+              <button type="button" class="btn-upload-sub" @click="triggerModalImageUpload">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                Tải ảnh mới
+              </button>
+              <button type="button" class="btn-remove-sub" v-if="editModal.data.anhDaiDien" @click="removeModalImage">
+                Xóa ảnh
+              </button>
+              <input type="file" ref="modalFileInput" style="display: none" accept="image/*" @change="onModalFileChange" />
             </div>
 
             <div class="variant-attr-summary-row">
@@ -913,7 +1010,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
                 <span class="attr-box-label">MÀU SẮC</span>
                 <div class="attr-box-val">
                   <span class="attr-color-dot" :style="{ backgroundColor: editModal.data.maHex || 'var(--blue, #496883)' }"></span>
-                  <span class="attr-text-val">{{ editModal.data.tenMauSac || 'Mặc định' }}</span>
+                  <span class="attr-text-val">{{ editModal.data.tenMauSac || 'Chưa chọn' }}</span>
                 </div>
               </div>
 
@@ -931,8 +1028,42 @@ watch(() => route.query.sanPhamId, async (newId) => {
             <div class="form-card-heading">CẬP NHẬT THÔNG TIN</div>
 
             <div class="form-fields-stack">
+              <!-- Tên sản phẩm -->
               <div class="variant-field-group">
-                <label class="field-label-text">SỐ LƯỢNG</label>
+                <label class="field-label-text">TÊN SẢN PHẨM <span class="req-star">*</span></label>
+                <input
+                    type="text"
+                    v-model="editModal.data.tenSanPham"
+                    class="field-input-control"
+                    placeholder="Nhập tên sản phẩm..."
+                />
+                <span class="err-text" v-if="editModal.errors.tenSanPham">{{ editModal.errors.tenSanPham }}</span>
+              </div>
+
+              <!-- Màu sắc & Kích cỡ (2 cột) -->
+              <div class="variant-fields-row-2">
+                <div class="variant-field-group">
+                  <label class="field-label-text">MÀU SẮC <span class="req-star">*</span></label>
+                  <select v-model.number="editModal.data.idMauSac" @change="onModalColorChange" class="field-input-control field-select-control">
+                    <option value="" disabled>-- Chọn màu --</option>
+                    <option v-for="c in colors" :key="c.id" :value="Number(c.id)">{{ c.tenMauSac }}</option>
+                  </select>
+                  <span class="err-text" v-if="editModal.errors.idMauSac">{{ editModal.errors.idMauSac }}</span>
+                </div>
+
+                <div class="variant-field-group">
+                  <label class="field-label-text">KÍCH CỠ <span class="req-star">*</span></label>
+                  <select v-model.number="editModal.data.idKichCo" @change="onModalSizeChange" class="field-input-control field-select-control">
+                    <option value="" disabled>-- Chọn size --</option>
+                    <option v-for="s in sizes" :key="s.id" :value="Number(s.id)">{{ s.tenKichCo }}</option>
+                  </select>
+                  <span class="err-text" v-if="editModal.errors.idKichCo">{{ editModal.errors.idKichCo }}</span>
+                </div>
+              </div>
+
+              <!-- Số lượng -->
+              <div class="variant-field-group">
+                <label class="field-label-text">SỐ LƯỢNG <span class="req-star">*</span></label>
                 <input
                     type="number"
                     min="0"
@@ -943,8 +1074,9 @@ watch(() => route.query.sanPhamId, async (newId) => {
                 <span class="err-text" v-if="editModal.errors.soLuong">{{ editModal.errors.soLuong }}</span>
               </div>
 
+              <!-- Giá bán -->
               <div class="variant-field-group">
-                <label class="field-label-text">GIÁ BÁN <span class="req-star">*</span></label>
+                <label class="field-label-text">GIÁ BÁN (VNĐ) <span class="req-star">*</span></label>
                 <input
                     type="text"
                     inputmode="numeric"
@@ -959,6 +1091,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
                 <span class="err-text" v-if="editModal.errors.giaBan">{{ editModal.errors.giaBan }}</span>
               </div>
 
+              <!-- Trạng thái -->
               <div class="variant-field-group">
                 <label class="field-label-text">TRẠNG THÁI</label>
                 <select v-model.number="editModal.data.trangThai" class="field-input-control field-select-control">
@@ -2135,7 +2268,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
 /* Update Variant Dialog per Screenshot */
 .update-variant-dialog {
-  max-width: 760px;
+  max-width: 800px;
   border-radius: 16px;
   background-color: #ffffff;
   padding: 1.5rem 1.75rem;
@@ -2203,6 +2336,86 @@ watch(() => route.query.sanPhamId, async (newId) => {
   justify-content: center;
   padding: 12px;
   overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.large-img-card:hover {
+  border-color: #cbd5e1;
+}
+
+.large-img-card:hover .img-overlay-hover {
+  opacity: 1;
+}
+
+.img-overlay-hover {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.55);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  border-radius: 12px;
+}
+
+.variant-img-btn-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-upload-sub {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 2.25rem;
+  background-color: #f1f5f9;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-upload-sub:hover {
+  background-color: #e2e8f0;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.btn-remove-sub {
+  height: 2.25rem;
+  padding: 0 0.85rem;
+  background-color: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 8px;
+  color: #e11d48;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-remove-sub:hover {
+  background-color: #ffe4e6;
+  border-color: #fda4af;
+}
+
+.variant-fields-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
 }
 
 .preview-img-tag {

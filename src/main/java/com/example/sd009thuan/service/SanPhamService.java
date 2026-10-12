@@ -139,9 +139,6 @@ public class SanPhamService {
         if (trimmedName.isEmpty()) {
             throw new IllegalArgumentException("Tên sản phẩm không được để trống!");
         }
-        if (sanPhamRepository.existsByTenSanPhamIgnoreCase(trimmedName)) {
-            throw new IllegalArgumentException("Tên sản phẩm '" + trimmedName + "' đã tồn tại trong hệ thống!");
-        }
 
         if (req.getMaSanPham() == null || req.getMaSanPham().trim().isEmpty()) {
             req.setMaSanPham("SP" + System.currentTimeMillis());
@@ -157,7 +154,7 @@ public class SanPhamService {
         sp.setMaSanPham(req.getMaSanPham());
         sp.setTenSanPham(trimmedName);
         sp.setMoTa(req.getMoTa());
-        sp.setTrangThai(req.getTrangThai() != null ? req.getTrangThai() : 1);
+        sp.setTrangThai(1);
         sp.setNguoiTao(req.getNguoiThaoTac() != null ? req.getNguoiThaoTac() : "Admin");
 
         if (req.getIdXuatXu() != null) {
@@ -219,9 +216,6 @@ public class SanPhamService {
         String trimmedName = req.getTenSanPham() != null ? req.getTenSanPham().trim() : "";
         if (trimmedName.isEmpty()) {
             throw new IllegalArgumentException("Tên sản phẩm không được để trống!");
-        }
-        if (sanPhamRepository.existsByTenSanPhamIgnoreCaseAndIdNot(trimmedName, id)) {
-            throw new IllegalArgumentException("Tên sản phẩm '" + trimmedName + "' đã được sử dụng ở sản phẩm khác!");
         }
 
         if (req.getMaSanPham() != null && !req.getMaSanPham().trim().isEmpty()) {

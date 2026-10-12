@@ -28,7 +28,7 @@ public interface ChiTietSanPhamRepository extends JpaRepository<ChiTietSanPham, 
 
     boolean existsByIdKichCo_Id(Long idKichCo);
 
-    Optional<ChiTietSanPham> findByIdSanPham_IdAndIdKichCo_IdAndIdMauSac_Id(Long idSanPham, Long idKichCo, Long idMauSac);
+    List<ChiTietSanPham> findByIdSanPham_IdAndIdKichCo_IdAndIdMauSac_Id(Long idSanPham, Long idKichCo, Long idMauSac);
 
     @Query("SELECT MIN(ct.giaBan) FROM ChiTietSanPham ct WHERE ct.idSanPham.id = :idSanPham AND ct.trangThai = 1")
     BigDecimal findMinPriceBySanPhamId(@Param("idSanPham") Long idSanPham);

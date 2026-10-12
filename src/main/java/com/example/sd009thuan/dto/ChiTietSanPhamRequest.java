@@ -43,4 +43,6 @@ public class ChiTietSanPhamRequest {
     private Integer trangThai;
 
     private String nguoiThaoTac;
+    private String tenSanPham;
+    private String anhDaiDien;
 }

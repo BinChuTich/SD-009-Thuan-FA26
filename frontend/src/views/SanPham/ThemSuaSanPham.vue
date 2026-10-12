@@ -161,8 +161,8 @@
             />
           </div>
 
-          <!-- Trạng thái -->
-          <div class="form-item">
+          <!-- Trạng thái (chỉ hiển thị khi chỉnh sửa) -->
+          <div class="form-item" v-if="isEdit">
             <label class="item-label">Trạng thái <span class="text-danger">*</span></label>
             <select v-model="form.trangThai" class="form-select" required>
               <option :value="1">Đang kinh doanh</option>
@@ -1506,7 +1506,7 @@ const submitForm = async () => {
       idCoAo: form.value.idCoAo || null,
       idTayAo: form.value.idTayAo || null,
       idHoaTiet: form.value.idHoaTiet || null,
-      trangThai: form.value.trangThai ?? 1,
+      trangThai: isEdit.value ? (form.value.trangThai ?? 1) : 1,
       hinhAnhs: imageList
     }
 
@@ -1531,7 +1531,7 @@ const submitForm = async () => {
         idKichCo: v.idKichCo,
         soLuong: v.soLuong || 0,
         giaBan: v.giaBan || 0,
-        trangThai: v.trangThai ?? 1
+        trangThai: isEdit.value ? (v.trangThai ?? 1) : 1
       }))
 
       try {

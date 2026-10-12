@@ -113,10 +113,10 @@ public class ChiTietSanPhamService {
         MauSac ms = mauSacRepository.findById(req.getIdMauSac())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy màu sắc có ID: " + req.getIdMauSac()));
 
-        Optional<ChiTietSanPham> existing = chiTietSanPhamRepository.findByIdSanPham_IdAndIdKichCo_IdAndIdMauSac_Id(
+        List<ChiTietSanPham> existing = chiTietSanPhamRepository.findByIdSanPham_IdAndIdKichCo_IdAndIdMauSac_Id(
                 req.getIdSanPham(), req.getIdKichCo(), req.getIdMauSac()
         );
-        if (existing.isPresent()) {
+        if (existing != null && !existing.isEmpty()) {
             throw new IllegalArgumentException("Biến thể với kích cỡ " + kc.getTenKichCo() + " và màu sắc " + ms.getTenMauSac() + " đã tồn tại cho sản phẩm này!");
         }
 
@@ -157,11 +157,45 @@ public class ChiTietSanPhamService {
         MauSac ms = mauSacRepository.findById(req.getIdMauSac())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy màu sắc có ID: " + req.getIdMauSac()));
 
-        Optional<ChiTietSanPham> duplicate = chiTietSanPhamRepository.findByIdSanPham_IdAndIdKichCo_IdAndIdMauSac_Id(
-                ct.getIdSanPham().getId(), req.getIdKichCo(), req.getIdMauSac()
-        );
-        if (duplicate.isPresent() && !duplicate.get().getId().equals(id)) {
-            throw new IllegalArgumentException("Biến thể với kích cỡ " + kc.getTenKichCo() + " và màu sắc " + ms.getTenMauSac() + " đã tồn tại ở sản phẩm này!");
+        // Kiểm tra xem biến thể có bị đổi sang (Kích cỡ, Màu sắc) khác với hiện tại của nó không
+        boolean isColorOrSizeChanged = ct.getIdKichCo() == null || !ct.getIdKichCo().getId().equals(req.getIdKichCo())
+                || ct.getIdMauSac() == null || !ct.getIdMauSac().getId().equals(req.getIdMauSac());
+
+        if (isColorOrSizeChanged) {
+            List<ChiTietSanPham> duplicates = chiTietSanPhamRepository.findByIdSanPham_IdAndIdKichCo_IdAndIdMauSac_Id(
+                    ct.getIdSanPham().getId(), req.getIdKichCo(), req.getIdMauSac()
+            );
+            ChiTietSanPham other = duplicates != null ? duplicates.stream()
+                    .filter(d -> !d.getId().equals(id))
+                    .findFirst()
+                    .orElse(null) : null;
+
+            if (other != null) {
+                // Nếu sản phẩm đã có biến thể khác cùng Màu sắc & Kích cỡ, tự động gộp số lượng và cập nhật giá, trạng thái
+                other.setSoLuong((other.getSoLuong() != null ? other.getSoLuong() : 0) + (req.getSoLuong() != null ? req.getSoLuong() : 0));
+                other.setGiaBan(req.getGiaBan());
+                if (req.getTrangThai() != null) {
+                    other.setTrangThai(req.getTrangThai());
+                }
+                other.setNguoiCapNhat(req.getNguoiThaoTac() != null ? req.getNguoiThaoTac() : "Admin");
+
+                if (req.getTenSanPham() != null && !req.getTenSanPham().trim().isEmpty()) {
+                    String newTenSp = req.getTenSanPham().trim();
+                    SanPham sp = ct.getIdSanPham();
+                    if (sp != null && !newTenSp.equalsIgnoreCase(sp.getTenSanPham())) {
+                        sp.setTenSanPham(newTenSp);
+                        sanPhamRepository.save(sp);
+                    }
+                }
+
+                if (req.getAnhDaiDien() != null) {
+                    updateVariantImage(ct.getIdSanPham(), ms.getId(), req.getAnhDaiDien().trim());
+                }
+
+                chiTietSanPhamRepository.delete(ct);
+                ChiTietSanPham merged = chiTietSanPhamRepository.save(other);
+                return convertToResponse(merged);
+            }
         }
 
         if (req.getMaChiTietSanPham() != null && !req.getMaChiTietSanPham().trim().isEmpty()) {
@@ -180,8 +214,120 @@ public class ChiTietSanPhamService {
         }
         ct.setNguoiCapNhat(req.getNguoiThaoTac() != null ? req.getNguoiThaoTac() : "Admin");
 
+        // Cập nhật tên sản phẩm nếu có thay đổi
+        if (req.getTenSanPham() != null && !req.getTenSanPham().trim().isEmpty()) {
+            String newTenSp = req.getTenSanPham().trim();
+            SanPham sp = ct.getIdSanPham();
+            if (sp != null && !newTenSp.equalsIgnoreCase(sp.getTenSanPham())) {
+                sp.setTenSanPham(newTenSp);
+                sanPhamRepository.save(sp);
+            }
+        }
+
+        // Cập nhật/thêm/xóa ảnh đại diện theo màu sắc của biến thể
+        if (req.getAnhDaiDien() != null) {
+            updateVariantImage(ct.getIdSanPham(), ms.getId(), req.getAnhDaiDien().trim());
+        }
+
         ChiTietSanPham updated = chiTietSanPhamRepository.save(ct);
         return convertToResponse(updated);
+    }
+
+    private void updateVariantImage(SanPham sp, Long colorId, String imageInput) {
+        if (sp == null || colorId == null) {
+            return;
+        }
+        String targetTen = "COLOR_" + colorId;
+        List<HinhAnh> imgs = hinhAnhRepository.findByIdSanPham_Id(sp.getId());
+
+        // Nếu imageInput rỗng hoặc "REMOVE" -> Xóa ảnh của màu/biến thể này
+        if (imageInput == null || imageInput.trim().isEmpty() || "REMOVE".equalsIgnoreCase(imageInput.trim())) {
+            if (imgs != null) {
+                for (HinhAnh img : imgs) {
+                    if (targetTen.equals(img.getTenAnh())) {
+                        hinhAnhRepository.delete(img);
+                    }
+                }
+                // Nếu sản phẩm chỉ có duy nhất 1 ảnh chung và người dùng xóa ảnh ở biến thể
+                if (imgs.size() == 1) {
+                    HinhAnh single = imgs.get(0);
+                    if (single.getTenAnh() == null || !single.getTenAnh().startsWith("COLOR_")) {
+                        hinhAnhRepository.delete(single);
+                    }
+                }
+            }
+            return;
+        }
+
+        // Cập nhật hoặc thêm ảnh mới
+        String processedUrl = processImage(imageInput.trim());
+        if (processedUrl != null && !processedUrl.trim().isEmpty()) {
+            HinhAnh targetImg = null;
+            if (imgs != null) {
+                for (HinhAnh img : imgs) {
+                    if (targetTen.equals(img.getTenAnh())) {
+                        targetImg = img;
+                        break;
+                    }
+                }
+            }
+            if (targetImg != null) {
+                targetImg.setDuongDan(processedUrl.trim());
+                hinhAnhRepository.save(targetImg);
+            } else {
+                HinhAnh newImg = new HinhAnh();
+                newImg.setIdSanPham(sp);
+                newImg.setTenAnh(targetTen);
+                newImg.setDuongDan(processedUrl.trim());
+                newImg.setTrangThai(1);
+                hinhAnhRepository.save(newImg);
+            }
+        }
+    }
+
+    private String processImage(String imageInput) {
+        if (imageInput == null || imageInput.trim().isEmpty()) {
+            return null;
+        }
+        String trimmed = imageInput.trim();
+        if (trimmed.startsWith("data:image/")) {
+            try {
+                int commaIdx = trimmed.indexOf(",");
+                if (commaIdx != -1) {
+                    String metadata = trimmed.substring(0, commaIdx);
+                    String base64Data = trimmed.substring(commaIdx + 1);
+
+                    String extension = ".png";
+                    if (metadata.contains("image/jpeg") || metadata.contains("image/jpg")) {
+                        extension = ".jpg";
+                    } else if (metadata.contains("image/webp")) {
+                        extension = ".webp";
+                    } else if (metadata.contains("image/gif")) {
+                        extension = ".gif";
+                    }
+
+                    byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data);
+
+                    java.nio.file.Path uploadDir = java.nio.file.Paths.get("uploads");
+                    if (!java.nio.file.Files.exists(uploadDir)) {
+                        java.nio.file.Files.createDirectories(uploadDir);
+                    }
+
+                    String filename = "sp_" + System.currentTimeMillis() + "_" + java.util.UUID.randomUUID().toString().substring(0, 8) + extension;
+                    java.nio.file.Path filePath = uploadDir.resolve(filename);
+                    java.nio.file.Files.write(filePath, imageBytes);
+
+                    return "/uploads/" + filename;
+                }
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        if (trimmed.length() > 500) {
+            return trimmed.substring(0, 500);
+        }
+        return trimmed;
     }
 
     @Transactional
@@ -224,14 +370,29 @@ public class ChiTietSanPhamService {
 
     private ChiTietSanPhamResponse convertToResponse(ChiTietSanPham ct) {
         String anhDaiDien = null;
-        if (ct.getIdSanPham() != null && ct.getIdMauSac() != null) {
+        if (ct.getIdSanPham() != null) {
             List<HinhAnh> imgs = hinhAnhRepository.findByIdSanPham_Id(ct.getIdSanPham().getId());
             if (imgs != null && !imgs.isEmpty()) {
-                String targetTen = "COLOR_" + ct.getIdMauSac().getId();
-                for (HinhAnh img : imgs) {
-                    if (targetTen.equals(img.getTenAnh())) {
-                        anhDaiDien = img.getDuongDan();
-                        break;
+                if (ct.getIdMauSac() != null) {
+                    String targetTen = "COLOR_" + ct.getIdMauSac().getId();
+                    for (HinhAnh img : imgs) {
+                        if (targetTen.equals(img.getTenAnh())) {
+                            anhDaiDien = img.getDuongDan();
+                            break;
+                        }
+                    }
+                }
+                // Chỉ fallback về ảnh chung nếu sản phẩm có ảnh chung và KHÔNG có bất kỳ ảnh riêng nào theo màu khác
+                if (anhDaiDien == null) {
+                    boolean hasAnyColorSpecificImg = imgs.stream()
+                            .anyMatch(i -> i.getTenAnh() != null && i.getTenAnh().startsWith("COLOR_"));
+                    if (!hasAnyColorSpecificImg) {
+                        for (HinhAnh img : imgs) {
+                            if (img.getTenAnh() == null || !img.getTenAnh().startsWith("COLOR_")) {
+                                anhDaiDien = img.getDuongDan();
+                                break;
+                            }
+                        }
                     }
                 }
             }
