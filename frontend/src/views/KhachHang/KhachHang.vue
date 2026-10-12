@@ -784,12 +784,12 @@ onMounted(() => {
 }
 
 .btn-export {
-  background-color: #eaf1f4;
-  color: #3f5d75;
-  border: 1px solid #d0dfe6;
+  background-color: #edf5ef;
+  color: #558764;
+  border: 1px solid #d2e5d6;
 }
 .btn-export:hover {
-  background-color: #dde7ec;
+  background-color: #deede1;
 }
 
 .btn-primary {
