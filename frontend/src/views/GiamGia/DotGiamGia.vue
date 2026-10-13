@@ -218,17 +218,29 @@
               <!-- Cột Hành động: 2 nút tròn bo góc nhẹ (Power đỏ nhạt + Eye xám xanh) -->
               <td style="text-align: center;">
                 <div class="action-buttons-flex">
-                  <button
-                      v-if="getCampaignStatus(item).code !== 'ENDED'"
-                      class="btn-icon-circle btn-icon-power"
-                      :title="item.trangThai === 1 ? 'Chuyển sang Ngừng hoạt động' : 'Chuyển sang Đang hoạt động'"
-                      @click="openToggleStatusModal(item)"
+                  <!-- Công tắc gạt đổi trạng thái (Toggle Switch chuẩn ảnh mẫu) -->
+                  <label
+                    class="status-switch"
+                    :class="{
+                      'is-active': item.trangThai === 1,
+                      'is-disabled': getCampaignStatus(item).code === 'ENDED'
+                    }"
+                    :title="getCampaignStatus(item).code === 'ENDED'
+                      ? 'Đợt giảm giá đã kết thúc, không thể đổi trạng thái'
+                      : (item.trangThai === 1 ? 'Bấm để chuyển sang Ngừng hoạt động' : 'Bấm để chuyển sang Đang hoạt động')"
+                    @click.prevent="onToggleSwitchClick(item)"
                   >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-                      <line x1="12" y1="2" x2="12" y2="12"></line>
-                    </svg>
-                  </button>
+                    <input
+                      type="checkbox"
+                      :checked="item.trangThai === 1"
+                      :disabled="getCampaignStatus(item).code === 'ENDED'"
+                      tabindex="-1"
+                      class="switch-native-input"
+                    />
+                    <span class="switch-track">
+                      <span class="switch-handle"></span>
+                    </span>
+                  </label>
 
                   <button
                       class="btn-icon-circle btn-icon-eye"
@@ -388,32 +400,33 @@
               <span v-if="errors.phanTramGiam" class="field-error-msg">{{ errors.phanTramGiam }}</span>
             </div>
 
-            <!-- Thời gian bắt đầu * -->
-            <div class="video-form-group">
-              <label class="video-form-label">Thời gian bắt đầu <span class="req">*</span></label>
-              <input
-                type="datetime-local"
-                v-model="formData.ngayBatDau"
-                :min="minStartDateTime"
-                :class="['video-input', { 'input-has-error': errors.ngayBatDau }]"
-                @change="handleNgayBatDauChange"
-                @input="handleNgayBatDauChange"
-              />
-              <span v-if="errors.ngayBatDau" class="field-error-msg">{{ errors.ngayBatDau }}</span>
-            </div>
+            <!-- Từ ngày & Đến ngày ngang nhau (Có cả giờ đợt giảm giá) -->
+            <div class="video-date-row">
+              <div class="video-form-group">
+                <label class="video-form-label">Từ ngày <span class="req">*</span></label>
+                <input
+                  type="datetime-local"
+                  v-model="formData.ngayBatDau"
+                  :min="minStartDateTime"
+                  :class="['video-input', { 'input-has-error': errors.ngayBatDau }]"
+                  @change="handleNgayBatDauChange"
+                  @input="handleNgayBatDauChange"
+                />
+                <span v-if="errors.ngayBatDau" class="field-error-msg">{{ errors.ngayBatDau }}</span>
+              </div>
 
-            <!-- Thời gian kết thúc * -->
-            <div class="video-form-group">
-              <label class="video-form-label">Thời gian kết thúc <span class="req">*</span></label>
-              <input
-                type="datetime-local"
-                v-model="formData.ngayKetThuc"
-                :min="formData.ngayBatDau || minStartDateTime || undefined"
-                :class="['video-input', { 'input-has-error': errors.ngayKetThuc }]"
-                @change="handleNgayKetThucChange"
-                @input="handleNgayKetThucChange"
-              />
-              <span v-if="errors.ngayKetThuc" class="field-error-msg">{{ errors.ngayKetThuc }}</span>
+              <div class="video-form-group">
+                <label class="video-form-label">Đến ngày <span class="req">*</span></label>
+                <input
+                  type="datetime-local"
+                  v-model="formData.ngayKetThuc"
+                  :min="formData.ngayBatDau || minStartDateTime || undefined"
+                  :class="['video-input', { 'input-has-error': errors.ngayKetThuc }]"
+                  @change="handleNgayKetThucChange"
+                  @input="handleNgayKetThucChange"
+                />
+                <span v-if="errors.ngayKetThuc" class="field-error-msg">{{ errors.ngayKetThuc }}</span>
+              </div>
             </div>
 
 
@@ -605,12 +618,14 @@
                 class="btn-nav-arrow"
                 :disabled="productCurrentPage <= 1"
                 @click="productCurrentPage--"
+                title="Trang trước"
               >‹</button>
-              <span class="active-page-num">{{ productCurrentPage }}</span>
+              <span class="active-page-num" title="Trang hiện tại / Tổng số trang">{{ productCurrentPage }} / {{ sourceTotalPages }}</span>
               <button
                 class="btn-nav-arrow"
                 :disabled="productCurrentPage >= sourceTotalPages"
                 @click="productCurrentPage++"
+                title="Trang sau"
               >›</button>
             </div>
           </div>
@@ -669,6 +684,7 @@
                 <th style="width: 140px;">Giá bán</th>
                 <th style="width: 150px;">Giá sau giảm</th>
                 <th style="width: 110px; text-align: center;">Số lượng</th>
+                <th style="width: 50px; text-align: center;"></th>
               </tr>
             </thead>
             <tbody>
@@ -707,9 +723,14 @@
                 <td style="text-align: center;">
                   <span class="badge-pill badge-qty">{{ v.soLuong }}</span>
                 </td>
+                <td style="text-align: center;">
+                  <button class="btn-delete-cross" @click="removeSelectedVariant(v.id)" title="Gỡ bỏ biến thể này">
+                    ✕
+                  </button>
+                </td>
               </tr>
               <tr v-if="displaySelectedVariants.length === 0">
-                <td colspan="6" class="empty-cell">Chưa có biến thể nào được chọn áp dụng!</td>
+                <td colspan="7" class="empty-cell">Chưa có biến thể nào được chọn áp dụng!</td>
               </tr>
             </tbody>
           </table>
@@ -729,12 +750,14 @@
               class="btn-nav-arrow"
               :disabled="variantCurrentPage <= 1"
               @click="variantCurrentPage--"
+              title="Trang trước"
             >‹</button>
-            <span class="active-page-num">{{ variantCurrentPage }}</span>
+            <span class="active-page-num" title="Trang hiện tại / Tổng số trang">{{ variantCurrentPage }} / {{ variantTotalPages }}</span>
             <button
               class="btn-nav-arrow"
               :disabled="variantCurrentPage >= variantTotalPages"
               @click="variantCurrentPage++"
+              title="Trang sau"
             >›</button>
           </div>
         </div>
@@ -975,13 +998,14 @@ const clearError = (field) => {
 }
 
 
-// Mốc thời gian tối thiểu cho thời gian bắt đầu (không trước hiện tại khi tạo mới)
+// Mốc thời gian tối thiểu cho Từ ngày (không trước thời điểm hiện tại khi tạo mới)
 const minStartDateTime = computed(() => {
   if (isEditing.value) return undefined
   const now = new Date()
   const pad = n => String(n).padStart(2, '0')
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
 })
+const minStartDate = minStartDateTime
 
 // Hàm tự sinh mã đợt ngẫu nhiên (nút xoay tròn)
 const generateRandomMa = () => {
@@ -1434,38 +1458,42 @@ const handleGiaTriGiamInput = () => {
   }
 }
 
-// Kiểm tra thời gian bắt đầu
+// Kiểm tra Từ ngày
 const handleNgayBatDauChange = () => {
   clearError('ngayBatDau')
   if (!formData.value.ngayBatDau || formData.value.ngayBatDau.trim() === '') {
-    errors.value.ngayBatDau = 'Thời gian bắt đầu không được để trống!'
+    errors.value.ngayBatDau = 'Từ ngày không được để trống!'
     return
   }
   if (!isEditing.value) {
-    if (new Date(formData.value.ngayBatDau).getTime() < Date.now() - 60000) {
+    const startMs = new Date(formData.value.ngayBatDau).getTime()
+    // Dung sai 10 phút để người dùng thoải mái thao tác mà không bị chặn
+    if (startMs < Date.now() - 10 * 60 * 1000) {
       errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
       return
     }
   }
   if (formData.value.ngayKetThuc) {
     if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
-      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
+      errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
     } else {
       clearError('ngayKetThuc')
     }
   }
 }
 
-// Kiểm tra thời gian kết thúc (bắt buộc, không cho để trống)
+// Kiểm tra Đến ngày (bắt buộc, không cho để trống)
 const handleNgayKetThucChange = () => {
   clearError('ngayKetThuc')
   if (!formData.value.ngayKetThuc || formData.value.ngayKetThuc.trim() === '') {
-    errors.value.ngayKetThuc = 'Thời gian kết thúc không được để trống!'
+    errors.value.ngayKetThuc = 'Đến ngày không được để trống!'
     return
   }
   if (formData.value.ngayBatDau) {
     if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
-      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
+      errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
+    } else {
+      clearError('ngayKetThuc')
     }
   }
 }
@@ -1540,6 +1568,13 @@ const toInputDateTime = (val) => {
   if (isNaN(d.getTime())) return ''
   const pad = n => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+const toInputDate = (val) => {
+  if (!val) return ''
+  const d = new Date(val)
+  if (isNaN(d.getTime())) return ''
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 const formatDate = (val) => {
@@ -1744,6 +1779,15 @@ const visiblePages = computed(() => {
   }
   return pages
 })
+
+// Xử lý bấm công tắc đổi trạng thái
+const onToggleSwitchClick = (item) => {
+  if (getCampaignStatus(item).code === 'ENDED') {
+    showToast('Đợt giảm giá này đã kết thúc, không thể thay đổi trạng thái!', 'warning')
+    return
+  }
+  openToggleStatusModal(item)
+}
 
 // Mở modal xác nhận đổi trạng thái (theo đúng giao diện mẫu)
 const openToggleStatusModal = (item) => {
@@ -2066,7 +2110,7 @@ const openEditView = async (item) => {
   // Kiểm tra nếu ngày kết thúc <= ngày bắt đầu thì báo đỏ ngay dưới ô
   if (formData.value.ngayBatDau && formData.value.ngayKetThuc) {
     if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
-      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
+      errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
     }
   }
 
@@ -2109,9 +2153,9 @@ const onSaveClick = () => {
     }
   }
 
-  // 3. Kiểm tra Thời gian bắt đầu
+  // 3. Kiểm tra Từ ngày
   if (!formData.value.ngayBatDau || formData.value.ngayBatDau.trim() === '') {
-    errors.value.ngayBatDau = 'Thời gian bắt đầu không được để trống!'
+    errors.value.ngayBatDau = 'Từ ngày không được để trống!'
     hasError = true
   } else if (!isEditing.value) {
     const startMs = new Date(formData.value.ngayBatDau).getTime()
@@ -2122,13 +2166,13 @@ const onSaveClick = () => {
     }
   }
 
-  // 4. Kiểm tra Thời gian kết thúc (Bắt buộc, không cho để trống)
+  // 4. Kiểm tra Đến ngày (Bắt buộc, không cho để trống)
   if (!formData.value.ngayKetThuc || formData.value.ngayKetThuc.trim() === '') {
-    errors.value.ngayKetThuc = 'Thời gian kết thúc không được để trống!'
+    errors.value.ngayKetThuc = 'Đến ngày không được để trống!'
     hasError = true
   } else if (formData.value.ngayBatDau) {
     if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
-      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
+      errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
       hasError = true
     }
   }
@@ -2203,8 +2247,14 @@ const doSubmitAPI = async () => {
       loaiGiamGia: formData.value.loaiGiamGia,
       giaTriGiam: isPercent ? null : formData.value.giaTriGiam,
       giamToiDa: isPercent ? (formData.value.giamToiDa || null) : null,
-      ngayBatDau: new Date(formData.value.ngayBatDau).toISOString(),
-      ngayKetThuc: formData.value.ngayKetThuc ? new Date(formData.value.ngayKetThuc).toISOString() : null,
+      ngayBatDau: formData.value.ngayBatDau.length === 10
+        ? new Date(formData.value.ngayBatDau + 'T00:00:00').toISOString()
+        : new Date(formData.value.ngayBatDau).toISOString(),
+      ngayKetThuc: formData.value.ngayKetThuc
+        ? (formData.value.ngayKetThuc.length === 10
+            ? new Date(formData.value.ngayKetThuc + 'T23:59:59').toISOString()
+            : new Date(formData.value.ngayKetThuc).toISOString())
+        : null,
       moTa: formData.value.moTa?.trim() || null,
       trangThai: formData.value.trangThai,
       chiTietSanPhamIds: chiTietSanPhamIds
@@ -2421,13 +2471,14 @@ onUnmounted(() => {
   padding: 0 0.5rem;
 }
 .breadcrumb-text {
-  font-size: 1rem;
+  font-size: 1.15rem;
   color: #6b7280;
   letter-spacing: 0.01em;
 }
 .breadcrumb-text b {
   color: #111827;
   font-weight: 800;
+  font-size: 1.25rem;
 }
 .slash {
   margin: 0 10px;
@@ -2466,8 +2517,8 @@ onUnmounted(() => {
   color: #6b7280;
 }
 .filter-title {
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: 1.2rem;
+  font-weight: 750;
   margin: 0;
   color: #1f2937;
 }
@@ -2627,9 +2678,9 @@ onUnmounted(() => {
   margin-bottom: 1.2rem;
 }
 .table-title-custom {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #1f2937;
+  font-size: 1.2rem;
+  font-weight: 750;
+  color: #111827;
   margin: 0;
 }
 .record-count-simple {
@@ -2765,6 +2816,58 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.2s;
 }
+/* Công tắc gạt đổi trạng thái (Toggle Switch chuẩn hình ảnh mẫu) */
+.status-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 40px;
+  height: 22px;
+  cursor: pointer;
+  user-select: none;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.status-switch.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.switch-native-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.switch-track {
+  position: absolute;
+  inset: 0;
+  background-color: #d1d5db;
+  border-radius: 9999px;
+  transition: background-color 0.25s ease, box-shadow 0.2s ease;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.status-switch:hover:not(.is-disabled) .switch-track {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15), 0 0 0 3px rgba(179, 138, 101, 0.15);
+}
+.status-switch.is-active .switch-track {
+  background-color: #b38a65; /* Màu nâu caramel chuẩn theo ảnh mẫu */
+}
+.switch-handle {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.status-switch.is-active .switch-handle {
+  transform: translateX(18px);
+}
+
 .btn-icon-power {
   color: #b45309;
   background-color: #fff8eb;
@@ -2805,6 +2908,23 @@ onUnmounted(() => {
   background-color: #fffbf5;
   outline: none;
   cursor: pointer;
+}
+.page-size-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.pagination-total-info {
+  font-size: 0.84rem;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.pagination-total-info b {
+  color: #1e293b;
+  font-weight: 700;
 }
 .pagination-controls-right {
   display: flex;
@@ -3437,7 +3557,7 @@ onUnmounted(() => {
   border-color: #d1d5db;
 }
 .video-breadcrumb-text {
-  font-size: 0.95rem;
+  font-size: 1.15rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -3455,13 +3575,14 @@ onUnmounted(() => {
 }
 .crumb-current {
   color: #111827;
-  font-weight: 600;
+  font-weight: 800;
+  font-size: 1.25rem;
 }
 
 /* Hàng trên: Grid 2 cột (Cột trái rộng hơn, Cột phải hẹp hơn một chút và chứa cả 2 thẻ sản phẩm) */
 .video-top-grid {
   display: grid;
-  grid-template-columns: 430px 1fr;
+  grid-template-columns: 460px 1fr;
   gap: 1.25rem;
   align-items: start;
 }
@@ -3520,9 +3641,9 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 .video-card-title {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #1f2937;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #111827;
   margin: 0;
 }
 .video-card-subtitle {
@@ -3713,6 +3834,10 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
+}
+.video-date-row .video-input {
+  padding: 0.62rem 0.6rem;
+  font-size: 0.85rem;
 }
 
 .video-textarea {
@@ -3916,6 +4041,25 @@ onUnmounted(() => {
   justify-content: space-between;
   padding-top: 0.85rem;
   margin-top: 0.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.page-summary-text {
+  font-size: 0.82rem;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.page-summary-text b {
+  color: #1e293b;
+  font-weight: 700;
 }
 .select-page-size {
   border: 1px solid #e5e7eb;
@@ -3956,9 +4100,10 @@ onUnmounted(() => {
 }
 .active-page-num {
   font-size: 0.85rem;
-  font-weight: 600;
-  color: #111827;
-  padding: 0 4px;
+  font-weight: 700;
+  color: #1e293b;
+  padding: 0 6px;
+  white-space: nowrap;
 }
 
 /* Thẻ biến thể đã chọn ở dưới */
