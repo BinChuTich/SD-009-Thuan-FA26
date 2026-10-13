@@ -1,17 +1,26 @@
 package com.example.sd009thuan.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
+import java.math.BigDecimal;
+
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "chi_tiet_dot_giam_gia")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class ChiTietDotGiamGia {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Long id;
 
@@ -21,8 +30,17 @@ public class ChiTietDotGiamGia {
     private DotGiamGia idDotGiamGia;
 
     @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "id_chi_tiet_san_pham", nullable = false)
+    private ChiTietSanPham idChiTietSanPham;
+
+    @Column(name = "phan_tram_giam_bien_the", precision = 5, scale = 2)
+    private BigDecimal phanTramGiamBienThe;
+
+    @NotNull
     @ColumnDefault("1")
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
+
 
 }

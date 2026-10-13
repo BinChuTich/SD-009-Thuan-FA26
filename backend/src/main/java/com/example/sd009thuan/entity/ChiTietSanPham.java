@@ -1,9 +1,12 @@
 package com.example.sd009thuan.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Nationalized;
@@ -13,17 +16,28 @@ import java.time.Instant;
 
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "chi_tiet_san_pham")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class ChiTietSanPham {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Long id;
 
-    @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_san_pham", nullable = false)
+    private SanPham idSanPham;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_kich_co", nullable = false)
     private KichCo idKichCo;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_mau_sac", nullable = false)
+    private MauSac idMauSac;
 
     @Size(max = 50)
     @Column(name = "ma_chi_tiet_san_pham", length = 50)
@@ -62,4 +76,25 @@ public class ChiTietSanPham {
     @Column(name = "nguoi_cap_nhat", length = 100)
     private String nguoiCapNhat;
 
-}
+    @PrePersist
+    public void prePersist() {
+        if (this.ngayTao == null) {
+            this.ngayTao = Instant.now();
+        }
+        if (this.trangThai == null) {
+            this.trangThai = 1;
+        }
+        if (this.soLuong == null) {
+            this.soLuong = 0;
+        }
+        if (this.giaBan == null) {
+            this.giaBan = BigDecimal.ZERO;
+        }
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.ngayCapNhat = Instant.now();
+    }
+
+}

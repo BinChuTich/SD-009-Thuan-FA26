@@ -13,10 +13,13 @@ import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 @Getter
 @Setter
 @Entity
 @Table(name = "dot_giam_gia")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class DotGiamGia {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -47,6 +50,25 @@ public class DotGiamGia {
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
 
+    @Transient
+    private String moTa;
+
+    @Transient
+    private Integer loaiGiamGia = 1; // 1: Giảm theo %, 2: Giảm bằng tiền
+
+    @Transient
+    private BigDecimal giaTriGiam;
+
+    @Transient
+    private BigDecimal giamToiDa;
+
+    @Transient
+    private Integer soLuong; // Số lượt sử dụng (null: không giới hạn)
+
+    @Transient
+    private Integer soLuongSuDung; // Alias cho soLuong
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @OneToMany(mappedBy = "idDotGiamGia")
     private Set<ChiTietDotGiamGia> chiTietDotGiamGias = new LinkedHashSet<>();
 

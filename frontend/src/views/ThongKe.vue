@@ -2,8 +2,11 @@
   <section class="dashboard">
     <div class="dashboard-head">
       <div>
-        <div class="tiny-label">TRANG CHỦ / TỔNG QUAN</div>
-        <h1>Tổng quan hoạt động</h1>
+        <div class="page-breadcrumb">
+          <router-link to="/thong-ke" class="crumb-parent">Trang chủ</router-link>
+          <span class="crumb-separator">/</span>
+          <span class="crumb-current">Tổng quan hoạt động</span>
+        </div>
         <p>Theo dõi doanh thu, đơn hàng, tồn kho và khách hàng trong ngày.</p>
       </div>
       <button class="today-btn">◷ &nbsp; Lọc hôm nay</button>

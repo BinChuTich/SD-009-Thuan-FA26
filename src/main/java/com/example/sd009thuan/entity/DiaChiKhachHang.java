@@ -1,17 +1,22 @@
 package com.example.sd009thuan.entity;
-
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Nationalized;
 
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "dia_chi_khach_hang")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class DiaChiKhachHang {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -56,5 +61,14 @@ public class DiaChiKhachHang {
     @ColumnDefault("1")
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
+
+    @Size(max = 20)
+    @Column(name = "so_dien_thoai_nhan", length = 20)
+    private String soDienThoaiNhan;
+    @Size(max = 100)
+    @Nationalized
+    @Column(name = "ten_nguoi_nhan", length = 100)
+    private String tenNguoiNhan;
+
 
 }

@@ -1,5 +1,6 @@
 package com.example.sd009thuan.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -12,6 +13,7 @@ import org.hibernate.annotations.Nationalized;
 @Setter
 @Entity
 @Table(name = "mau_sac")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class MauSac {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

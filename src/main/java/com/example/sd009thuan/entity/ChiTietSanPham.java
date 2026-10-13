@@ -1,9 +1,12 @@
 package com.example.sd009thuan.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Nationalized;
@@ -13,8 +16,11 @@ import java.time.Instant;
 
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "chi_tiet_san_pham")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class ChiTietSanPham {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,14 +29,17 @@ public class ChiTietSanPham {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_san_pham", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "idChatLieu", "idCoAo", "idTayAo", "idXuatXu", "idThuongHieu", "idDanhMuc", "idHoaTiet"})
     private SanPham idSanPham;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_kich_co", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private KichCo idKichCo;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_mau_sac", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private MauSac idMauSac;
 
     @Size(max = 50)

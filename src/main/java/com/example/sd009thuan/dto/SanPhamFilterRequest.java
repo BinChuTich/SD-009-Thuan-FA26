@@ -38,4 +38,20 @@ public class SanPhamFilterRequest {
 
     @Builder.Default
     private String sortDir = "desc";
+
+    public String getSortBy() {
+        return (sortBy != null && !sortBy.trim().isEmpty()) ? sortBy : "id";
+    }
+
+    public String getSortDir() {
+        return (sortDir != null && !sortDir.trim().isEmpty()) ? sortDir : "desc";
+    }
+
+    public int getPage() {
+        return Math.max(page, 0);
+    }
+
+    public int getSize() {
+        return size > 0 ? size : 10;
+    }
 }
