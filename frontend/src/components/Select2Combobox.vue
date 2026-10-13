@@ -1,263 +1,161 @@
 <template>
-  <div class="select2-combobox-wrap" ref="comboboxRef" :class="{ 'is-open': isOpen, 'is-disabled': disabled }">
-    <!-- Trigger Field -->
+  <div class="select2-wrapper" ref="wrapperRef" :class="{ 'is-open': isOpen, 'is-disabled': disabled }">
+    <!-- Trigger Button hiển thị giá trị đã chọn -->
     <div
       class="select2-trigger"
-      :class="{ 'has-value': hasSelectedValue, 'is-active': isOpen }"
+      :class="{ 'trigger-focus': isOpen }"
       @click="toggleDropdown"
       tabindex="0"
-      @keydown.down.prevent="openDropdown"
+      @keydown.down.prevent="openAndFocusSearch"
+      @keydown.enter.prevent="toggleDropdown"
       @keydown.esc.prevent="closeDropdown"
     >
-      <span class="select2-selected-text" :class="{ 'placeholder-text': !selectedLabel && !hasSelectedValue }">
-        {{ selectedLabel || placeholder }}
+      <span class="select2-display-text" :class="{ 'is-placeholder': !selectedOption }">
+        {{ displayText }}
       </span>
-
-      <div class="select2-trigger-actions">
-        <!-- Nút Clear khi đã chọn -->
-        <button
-          v-if="allowClear && hasSelectedValue && !disabled"
-          type="button"
-          class="btn-select2-clear"
-          @click.stop="clearSelection"
-          title="Bỏ chọn"
-        >
-          ✕
-        </button>
-
-        <!-- Mũi tên Chevron -->
-        <span class="select2-arrow" :class="{ 'arrow-up': isOpen }">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </span>
-      </div>
+      <span class="select2-arrow" :class="{ 'arrow-up': isOpen }">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </span>
     </div>
 
-    <!-- Dropdown Menu dạng Floating Panel -->
-    <transition name="select2-fade">
-      <div v-if="isOpen" class="select2-dropdown-menu" @click.stop>
-        <!-- Hộp tìm kiếm Select2 -->
+    <!-- Dropdown Panel chứa Ô tìm kiếm & Danh sách lựa chọn (chuẩn Select2) -->
+    <transition name="select2-anim">
+      <div v-if="isOpen" class="select2-dropdown" @click.stop>
+        <!-- Ô Input tìm kiếm ở đầu dropdown -->
         <div class="select2-search-box">
-          <span class="select2-search-icon">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-          </span>
           <input
             ref="searchInputRef"
-            v-model="searchKeyword"
             type="text"
+            v-model="searchQuery"
+            :placeholder="searchPlaceholder"
             class="select2-search-input"
-            :placeholder="searchPlaceholder || 'Gõ để tìm kiếm...'"
+            @click.stop
+            @keydown.down.prevent="navigateOption(1)"
+            @keydown.up.prevent="navigateOption(-1)"
+            @keydown.enter.prevent="selectHighlighted"
             @keydown.esc.prevent="closeDropdown"
           />
-          <button
-            v-if="searchKeyword"
-            type="button"
-            class="btn-search-clear"
-            @click="searchKeyword = ''"
-            title="Xóa từ khóa tìm"
-          >
-            ✕
-          </button>
         </div>
 
-        <!-- Danh sách các tùy chọn -->
-        <ul class="select2-options-list" role="listbox">
-          <!-- Tùy chọn Mặc định / Tất cả -->
-          <li
-            v-if="shouldShowAllOption"
-            class="select2-option-item all-option"
-            :class="{ 'is-selected': !hasSelectedValue }"
-            @click="selectOption({ [valueKey]: '', [labelKey]: defaultOptionLabel })"
-          >
-            <span class="option-label">{{ defaultOptionLabel }}</span>
-            <span v-if="!hasSelectedValue" class="option-check">✓</span>
-          </li>
-
-          <!-- Khi tìm kiếm không có kết quả -->
-          <li v-if="filteredOptions.length === 0" class="select2-no-results">
-            Không tìm thấy kết quả phù hợp
-          </li>
-
-          <!-- Các tùy chọn trong danh mục -->
-          <li
-            v-for="(opt, idx) in filteredOptions"
-            :key="getOptionValue(opt) ?? idx"
+        <!-- Danh sách các Options -->
+        <div class="select2-options-list" ref="listRef">
+          <div
+            v-for="(item, idx) in filteredOptions"
+            :key="item.value"
             class="select2-option-item"
-            :class="{ 'is-selected': isSelected(opt) }"
-            @click="selectOption(opt)"
+            :class="{
+              'is-selected': isSelected(item.value),
+              'is-highlighted': highlightedIndex === idx
+            }"
+            @click="selectOption(item)"
+            @mouseenter="highlightedIndex = idx"
           >
-            <span class="option-label">{{ getOptionLabel(opt) }}</span>
-            <span v-if="isSelected(opt)" class="option-check">✓</span>
-          </li>
-        </ul>
+            <span class="option-label">{{ item.label }}</span>
+            <span v-if="isSelected(item.value)" class="option-check">✓</span>
+          </div>
+
+          <div v-if="filteredOptions.length === 0" class="select2-empty-state">
+            Không tìm thấy kết quả
+          </div>
+        </div>
       </div>
     </transition>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
 const props = defineProps({
   modelValue: {
-    type: [String, Number, null],
+    type: [String, Number, Boolean],
     default: ''
   },
   options: {
     type: Array,
-    default: () => []
-  },
-  valueKey: {
-    type: String,
-    default: 'id'
-  },
-  labelKey: {
-    type: String,
-    default: 'name'
+    required: true
+    // Mảng có dạng: [{ label: 'Tất cả...', value: '' }, ...] hoặc ['A', 'B']
   },
   placeholder: {
     type: String,
-    default: '-- Chọn --'
+    default: 'Chọn giá trị...'
   },
   searchPlaceholder: {
     type: String,
     default: ''
   },
-  allowClear: {
-    type: Boolean,
-    default: true
-  },
   disabled: {
     type: Boolean,
     default: false
-  },
-  showAllOption: {
-    type: Boolean,
-    default: true
-  },
-  allLabel: {
-    type: String,
-    default: ''
   }
 })
 
 const emit = defineEmits(['update:modelValue', 'change'])
 
-const comboboxRef = ref(null)
+const wrapperRef = ref(null)
 const searchInputRef = ref(null)
+const listRef = ref(null)
 const isOpen = ref(false)
-const searchKeyword = ref('')
+const searchQuery = ref('')
+const highlightedIndex = ref(-1)
 
-// Chuẩn hóa tiếng Việt không dấu để tìm kiếm thông minh
-const normalizeText = (str) => {
-  if (str == null) return ''
-  return String(str)
+// Chuẩn hóa mảng options sang dạng { label, value }
+const normalizedOptions = computed(() => {
+  if (!Array.isArray(props.options)) return []
+  return props.options.map(opt => {
+    if (typeof opt === 'object' && opt !== null) {
+      return {
+        label: opt.label !== undefined ? String(opt.label) : String(opt.value ?? ''),
+        value: opt.value !== undefined ? opt.value : opt.label
+      }
+    }
+    return {
+      label: String(opt),
+      value: opt
+    }
+  })
+})
+
+// Tìm option đang được chọn
+const selectedOption = computed(() => {
+  return normalizedOptions.value.find(opt => isSelected(opt.value))
+})
+
+const displayText = computed(() => {
+  if (selectedOption.value) {
+    return selectedOption.value.label
+  }
+  return props.placeholder
+})
+
+const isSelected = (val) => {
+  return String(props.modelValue ?? '') === String(val ?? '')
+}
+
+// Hàm chuẩn hóa chuỗi không dấu để tìm kiếm tiếng Việt tốt nhất
+const normalizeText = (text) => {
+  if (!text) return ''
+  return text
+    .toString()
+    .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
     .trim()
 }
 
-const getOptionValue = (opt) => {
-  if (opt == null) return ''
-  if (typeof opt === 'object') {
-    if (props.valueKey && opt[props.valueKey] !== undefined) return opt[props.valueKey]
-    if (opt.value !== undefined) return opt.value
-    if (opt.id !== undefined) return opt.id
-    if (opt.ma !== undefined) return opt.ma
-    if (opt.code !== undefined) return opt.code
-    return ''
-  }
-  return opt
-}
-
-const getOptionLabel = (opt) => {
-  if (opt == null) return ''
-  if (typeof opt === 'object') {
-    if (props.labelKey && opt[props.labelKey] !== undefined) return opt[props.labelKey]
-    if (opt.label !== undefined) return opt.label
-    if (opt.name !== undefined) return opt.name
-    if (opt.ten !== undefined) return opt.ten
-    if (opt.tenDotGiamGia !== undefined) return opt.tenDotGiamGia
-    if (opt.title !== undefined) return opt.title
-    if (opt.text !== undefined) return opt.text
-    return String(getOptionValue(opt) ?? '')
-  }
-  return String(opt)
-}
-
-const defaultOptionLabel = computed(() => {
-  if (props.allLabel) return props.allLabel
-  return props.placeholder || '-- Tất cả --'
-})
-
-const shouldShowAllOption = computed(() => {
-  if (!props.showAllOption) return false
-  const hasEmpty = (props.options || []).some(opt => {
-    const val = getOptionValue(opt)
-    return val === '' || val === null || val === undefined
-  })
-  return !hasEmpty
-})
-
-const hasSelectedValue = computed(() => {
-  return props.modelValue !== '' && props.modelValue !== null && props.modelValue !== undefined
-})
-
-const isValueEqual = (valA, valB) => {
-  if (valA === valB) return true
-  if ((valA === '' || valA == null) && (valB === '' || valB == null)) return true
-  return String(valA ?? '').trim() === String(valB ?? '').trim()
-}
-
-const selectedLabel = computed(() => {
-  const found = (props.options || []).find(opt => {
-    return isValueEqual(getOptionValue(opt), props.modelValue)
-  })
-  if (found) {
-    const lbl = getOptionLabel(found)
-    if (lbl) return lbl
-  }
-  if (!hasSelectedValue.value) return ''
-  return String(props.modelValue)
-})
-
-const isSelected = (opt) => {
-  return isValueEqual(getOptionValue(opt), props.modelValue)
-}
-
+// Lọc options theo từ khóa tìm kiếm
 const filteredOptions = computed(() => {
-  if (!searchKeyword.value.trim()) {
-    return props.options || []
-  }
-  const kw = normalizeText(searchKeyword.value)
-  return (props.options || []).filter(opt => {
-    const text = normalizeText(getOptionLabel(opt))
-    return text.includes(kw)
+  const query = normalizeText(searchQuery.value)
+  if (!query) return normalizedOptions.value
+  return normalizedOptions.value.filter(opt => {
+    return normalizeText(opt.label).includes(query)
   })
 })
-
-const openDropdown = () => {
-  if (props.disabled) return
-  isOpen.value = true
-  searchKeyword.value = ''
-  nextTick(() => {
-    if (searchInputRef.value) {
-      searchInputRef.value.focus()
-    }
-  })
-}
-
-const closeDropdown = () => {
-  isOpen.value = false
-  searchKeyword.value = ''
-}
 
 const toggleDropdown = () => {
+  if (props.disabled) return
   if (isOpen.value) {
     closeDropdown()
   } else {
@@ -265,21 +163,71 @@ const toggleDropdown = () => {
   }
 }
 
-const selectOption = (opt) => {
-  const val = getOptionValue(opt)
-  emit('update:modelValue', val)
-  emit('change', val)
+const openDropdown = () => {
+  if (props.disabled) return
+  isOpen.value = true
+  searchQuery.value = ''
+  highlightedIndex.value = -1
+
+  nextTick(() => {
+    if (searchInputRef.value) {
+      searchInputRef.value.focus()
+    }
+    // Cuộn tới mục đang chọn nếu có
+    const selectedIdx = filteredOptions.value.findIndex(o => isSelected(o.value))
+    if (selectedIdx >= 0) {
+      highlightedIndex.value = selectedIdx
+      scrollToHighlighted()
+    }
+  })
+}
+
+const openAndFocusSearch = () => {
+  if (!isOpen.value) {
+    openDropdown()
+  }
+}
+
+const closeDropdown = () => {
+  isOpen.value = false
+  searchQuery.value = ''
+  highlightedIndex.value = -1
+}
+
+const selectOption = (item) => {
+  emit('update:modelValue', item.value)
+  emit('change', item.value)
   closeDropdown()
 }
 
-const clearSelection = () => {
-  emit('update:modelValue', '')
-  emit('change', '')
+const selectHighlighted = () => {
+  if (highlightedIndex.value >= 0 && highlightedIndex.value < filteredOptions.value.length) {
+    selectOption(filteredOptions.value[highlightedIndex.value])
+  } else if (filteredOptions.value.length === 1) {
+    selectOption(filteredOptions.value[0])
+  }
 }
 
-// Bắt sự kiện click ra ngoài để đóng popup
-const handleClickOutside = (event) => {
-  if (comboboxRef.value && !comboboxRef.value.contains(event.target)) {
+const navigateOption = (step) => {
+  const len = filteredOptions.value.length
+  if (len === 0) return
+  highlightedIndex.value = (highlightedIndex.value + step + len) % len
+  scrollToHighlighted()
+}
+
+const scrollToHighlighted = () => {
+  nextTick(() => {
+    if (!listRef.value) return
+    const el = listRef.value.children[highlightedIndex.value]
+    if (el) {
+      el.scrollIntoView({ block: 'nearest' })
+    }
+  })
+}
+
+// Bắt sự kiện click ra ngoài để đóng dropdown
+const handleClickOutside = (e) => {
+  if (wrapperRef.value && !wrapperRef.value.contains(e.target)) {
     closeDropdown()
   }
 }
@@ -294,270 +242,185 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.select2-combobox-wrap {
+.select2-wrapper {
   position: relative;
   width: 100%;
   font-family: inherit;
-  user-select: none;
+}
+
+.select2-wrapper.is-open {
+  z-index: 100;
 }
 
 .select2-trigger {
+  width: 100%;
+  height: 2.6rem;
+  border: 1px solid var(--line, #e9e5db);
+  border-radius: 8px;
+  padding: 0 0.85rem;
+  font-size: 0.92rem;
+  color: var(--text, #3d4a50);
+  background-color: #fcfbf8;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 2.45rem;
-  padding: 0 0.85rem;
-  background-color: #ffffff;
-  border: 1.5px solid #dfd9ce;
-  border-radius: 8px;
   cursor: pointer;
+  user-select: none;
+  outline: none;
   transition: all 0.2s ease;
   box-sizing: border-box;
 }
 
-.select2-trigger:hover:not(.is-disabled) {
-  border-color: #bfa895;
-  background-color: #fffefb;
+.select2-trigger:hover {
+  border-color: #b8c3cc;
+  background-color: #ffffff;
 }
 
-.select2-trigger.is-active {
-  border-color: #496883;
+.select2-trigger.trigger-focus {
+  border-color: var(--blue, #496883);
   background-color: #ffffff;
   box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
 }
 
-.select2-trigger.has-value {
-  border-color: #c9c0b3;
-}
-
-.select2-selected-text {
-  font-size: 0.86rem;
-  color: #2b353b;
-  font-weight: 600;
+.select2-display-text {
+  flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex: 1;
-  padding-right: 6px;
+  text-align: left;
 }
 
-.select2-selected-text.placeholder-text {
-  color: #7d8890;
-  font-weight: 500;
-}
-
-.select2-trigger-actions {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-}
-
-.btn-select2-clear {
-  border: none;
-  background: #ede8df;
-  color: #736d65;
-  border-radius: 50%;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.15s;
-  padding: 0;
-  line-height: 1;
-}
-
-.btn-select2-clear:hover {
-  background: #c94a29;
-  color: #ffffff;
+.select2-display-text.is-placeholder {
+  color: #94a3b8;
 }
 
 .select2-arrow {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #838e96;
+  margin-left: 0.5rem;
+  color: #64748b;
   transition: transform 0.2s ease;
 }
 
 .select2-arrow.arrow-up {
   transform: rotate(180deg);
-  color: #496883;
+  color: var(--blue, #496883);
 }
 
-/* Dropdown Menu Floating */
-.select2-dropdown-menu {
+/* Dropdown Container */
+.select2-dropdown {
   position: absolute;
-  top: calc(100% + 5px);
+  top: calc(100% + 4px);
   left: 0;
   right: 0;
-  z-index: 1050;
-  background-color: #ffffff;
-  border: 1.5px solid #dcd4c7;
-  border-radius: 10px;
-  box-shadow: 0 10px 28px rgba(43, 66, 87, 0.16);
+  min-width: 100%;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
   padding: 8px;
-  min-width: 190px;
-  max-width: 100%;
-  animation: select2Pop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 1000;
   box-sizing: border-box;
 }
 
-@keyframes select2Pop {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* Ô tìm kiếm bên trong dropdown */
+/* Ô input tìm kiếm bên trong dropdown */
 .select2-search-box {
-  display: flex;
-  align-items: center;
-  background-color: #f7f5ef;
-  border: 1px solid #dfd9ce;
-  border-radius: 6px;
-  padding: 0 8px;
   margin-bottom: 6px;
-  height: 32px;
-}
-
-.select2-search-icon {
-  color: #8c979e;
-  margin-right: 6px;
-  display: flex;
-  align-items: center;
 }
 
 .select2-search-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  font-size: 0.83rem;
-  color: #2b353b;
-  outline: none;
   width: 100%;
+  height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 13.5px;
+  color: #1e293b;
+  background: #ffffff;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.btn-search-clear {
-  border: none;
-  background: transparent;
-  color: #8c979e;
-  cursor: pointer;
-  font-size: 11px;
-  padding: 2px 4px;
+.select2-search-input:focus {
+  border-color: var(--blue, #496883);
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.15);
 }
 
-.btn-search-clear:hover {
-  color: #c94a29;
-}
-
-/* Danh sách tùy chọn */
+/* Danh sách Options */
 .select2-options-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 220px;
+  max-height: 210px;
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: #cfc7ba #f7f5ef;
+  overscroll-behavior: contain;
 }
 
+/* Tùy chỉnh thanh cuộn đẹp mắt giống ảnh */
 .select2-options-list::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
 }
 
 .select2-options-list::-webkit-scrollbar-track {
-  background: #f7f5ef;
-  border-radius: 4px;
+  background: transparent;
 }
 
 .select2-options-list::-webkit-scrollbar-thumb {
-  background: #cfc7ba;
-  border-radius: 4px;
+  background-color: #cbd5e1;
+  border-radius: 10px;
 }
 
+.select2-options-list::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+/* Từng Option */
 .select2-option-item {
+  padding: 7px 10px;
+  font-size: 13.5px;
+  color: #334155;
+  border-radius: 5px;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 10px;
-  border-radius: 6px;
-  font-size: 0.84rem;
-  color: #3f4c53;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  margin-bottom: 2px;
+  transition: background-color 0.12s;
+  user-select: none;
 }
 
-.select2-option-item:hover {
-  background-color: #f7f5ef;
-  color: #496883;
-  font-weight: 600;
-}
-
-.select2-option-item.all-option {
-  border-bottom: 1px dashed #e6dfd3;
-  margin-bottom: 5px;
-  font-weight: 500;
-  color: #636f75;
-}
-
-.select2-option-item.all-option:hover {
-  color: #496883;
+.select2-option-item:hover,
+.select2-option-item.is-highlighted {
+  background-color: #f1f5f9;
+  color: #0f172a;
 }
 
 .select2-option-item.is-selected {
-  background-color: #eaf1f4;
-  color: #496883;
-  font-weight: 700;
-}
-
-.option-label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
+  background-color: #f1f5f9;
+  font-weight: 600;
+  color: var(--blue, #496883);
 }
 
 .option-check {
-  font-size: 0.85rem;
-  color: #496883;
-  font-weight: bold;
-  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--blue, #496883);
 }
 
-.select2-no-results {
-  padding: 12px 10px;
+.select2-empty-state {
+  padding: 12px;
   text-align: center;
-  font-size: 0.82rem;
-  color: #929ea6;
+  font-size: 13px;
+  color: #94a3b8;
   font-style: italic;
 }
 
-.is-disabled .select2-trigger {
-  background-color: #f5f4f0;
-  border-color: #e5e2db;
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-/* Transition */
-.select2-fade-enter-active,
-.select2-fade-leave-active {
+/* Hiệu ứng dropdown */
+.select2-anim-enter-active,
+.select2-anim-leave-active {
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
-.select2-fade-enter-from,
-.select2-fade-leave-to {
+.select2-anim-enter-from,
+.select2-anim-leave-to {
   opacity: 0;
   transform: translateY(-4px);
 }

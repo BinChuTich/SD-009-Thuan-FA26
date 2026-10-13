@@ -32,11 +32,11 @@
         <!-- Hình thức -->
         <div class="form-field">
           <label>Hình thức</label>
-          <select v-model="filters.hinhThuc">
-            <option value="">Tất cả hình thức</option>
-            <option value="Công khai">Công khai</option>
-            <option value="Cá nhân">Cá nhân</option>
-          </select>
+          <Select2Combobox
+            v-model="filters.hinhThuc"
+            :options="hinhThucOptions"
+            placeholder="Tất cả hình thức"
+          />
         </div>
 
         <!-- Ngày bắt đầu -->
@@ -67,11 +67,7 @@
           <Select2Combobox
             v-model="filters.loaiGiam"
             :options="loaiGiamOptions"
-            value-key="value"
-            label-key="label"
             placeholder="Tất cả loại giảm"
-            all-label="Tất cả loại giảm"
-            search-placeholder="Tìm loại giảm..."
           />
         </div>
 
@@ -81,11 +77,7 @@
           <Select2Combobox
             v-model="filters.trangThai"
             :options="trangThaiOptions"
-            value-key="value"
-            label-key="label"
             placeholder="Tất cả trạng thái"
-            all-label="Tất cả trạng thái"
-            search-placeholder="Tìm trạng thái..."
           />
         </div>
       </div>
@@ -167,24 +159,20 @@
             <!-- Cột Hành động: 1. Đổi trạng thái (Bật/Tắt) | 2. Vừa xem vừa sửa -->
             <td style="text-align: center;">
               <div class="action-buttons">
-                <!-- Nút 1: Đổi trạng thái hoạt động (Bật/Tắt) có popup xác nhận -->
-                <button
-                    class="btn-action-status"
-                    :class="{
-                      'status-on': item.rawTrangThai !== 0 && !item.isExpired,
-                      'status-off': item.rawTrangThai === 0 && !item.isExpired,
-                      'status-disabled': item.isExpired
-                    }"
-                    :title="item.isExpired ? 'Phiếu đã hết hạn - Không thể đổi trạng thái' : (item.rawTrangThai !== 0 ? 'Đổi trạng thái: Đang hoạt động (Bấm để ngừng hoạt động)' : 'Đổi trạng thái: Ngừng hoạt động (Bấm để kích hoạt lại)')"
-                    :disabled="item.isExpired"
-                    @click="openToggleStatusModal(item)"
+                <!-- Switch Bật / Tắt trạng thái hoạt động chuẩn ảnh mẫu -->
+                <label
+                    class="switch-toggle"
+                    :class="{ 'switch-disabled': item.isExpired }"
+                    :title="item.isExpired ? 'Phiếu đã hết hạn - Không thể đổi trạng thái' : (item.rawTrangThai !== 0 ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)')"
                 >
-                  <!-- SVG biểu tượng Nút nguồn / Bật tắt trạng thái chuẩn, không lỗi font -->
-                  <svg class="action-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-                    <line x1="12" y1="2" x2="12" y2="12"></line>
-                  </svg>
-                </button>
+                  <input
+                      type="checkbox"
+                      :checked="item.rawTrangThai !== 0 && !item.isExpired"
+                      :disabled="item.isExpired"
+                      @click.prevent="openToggleStatusModal(item)"
+                  />
+                  <span class="slider-round"></span>
+                </label>
 
                 <!-- Nút 2: Vừa xem chi tiết vừa chỉnh sửa phiếu giảm giá -->
                 <button
@@ -256,30 +244,40 @@
       </div>
     </div>
 
-    <!-- 4. POPUP MODAL XÁC NHẬN ĐỔI TRẠNG THÁI HOẠT ĐỘNG (CHUẨN ĐẸP NHƯ BÊN CẬP NHẬT) -->
+    <!-- 4. POPUP MODAL XÁC NHẬN ĐỔI TRẠNG THÁI HOẠT ĐỘNG -->
     <div v-if="showToggleConfirmModal" class="modal-overlay" @click.self="closeToggleConfirmModal">
       <div class="modal-box confirm-modal-box">
-        <div class="confirm-modal-header" :class="{ 'header-danger': voucherToToggle?.rawTrangThai !== 0 }">
+        <div class="confirm-modal-header">
+          <div class="confirm-warning-icon">
+            <svg v-if="voucherToToggle?.rawTrangThai !== 0" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+            </svg>
+          </div>
           <div class="confirm-title-wrap">
             <h3 class="confirm-title">
               {{ voucherToToggle?.rawTrangThai !== 0 ? 'Xác nhận ngừng hoạt động' : 'Xác nhận kích hoạt phiếu' }}
             </h3>
             <p class="confirm-subtitle">
-              {{ voucherToToggle?.rawTrangThai !== 0 ? 'Tạm ngưng hiệu lực của phiếu giảm giá' : 'Kích hoạt phiếu giảm giá vào hoạt động' }}
+              {{ voucherToToggle?.rawTrangThai !== 0 ? 'Thao tác sẽ tạm dừng áp dụng phiếu này' : 'Phiếu sẽ có hiệu lực áp dụng cho khách hàng' }}
             </p>
           </div>
-          <button class="modal-close-btn" @click="closeToggleConfirmModal">✕</button>
+          <button class="modal-close-btn" @click="closeToggleConfirmModal" :disabled="togglingStatus">✕</button>
         </div>
 
         <div class="confirm-modal-body">
           <p class="confirm-message-text" v-if="voucherToToggle?.rawTrangThai !== 0">
             Bạn có chắc chắn muốn chuyển phiếu giảm giá
             <b class="text-blue">[{{ voucherToToggle?.code }}]</b> sang trạng thái
-            <b class="text-danger">Ngừng hoạt động</b> không?
+            <b class="text-highlight">Ngừng hoạt động</b> không?
           </p>
           <p class="confirm-message-text" v-else>
             Bạn có chắc chắn muốn
-            <b class="text-success">Kích hoạt lại</b> phiếu giảm giá
+            <b class="text-activate">Kích hoạt lại</b> phiếu giảm giá
             <b class="text-blue">[{{ voucherToToggle?.code }}]</b> để áp dụng cho khách hàng không?
           </p>
         </div>
@@ -289,7 +287,7 @@
             Hủy bỏ
           </button>
           <button
-              :class="['btn', voucherToToggle?.rawTrangThai !== 0 ? 'btn-confirm-deactivate' : 'btn-save-confirm']"
+              class="btn btn-save-confirm"
               @click="confirmToggleStatus"
               :disabled="togglingStatus"
           >
@@ -299,14 +297,38 @@
       </div>
     </div>
 
-    <!-- 5. TOAST THÔNG BÁO THÀNH CÔNG -->
-    <div v-if="showSuccessToast" class="toast-success">
-      <div class="toast-text">
-        <b>Thành công!</b>
-        <p>{{ toastMessage }}</p>
+    <!-- 5. TOAST THÔNG BÁO ĐỒNG BỘ GIAO DIỆN PHIẾU GIẢM GIÁ -->
+    <transition name="toast-slide">
+      <div v-if="toast.show" :class="['toast-msg', `toast-${toast.type}`]">
+        <div class="toast-icon">
+          <svg v-if="toast.type === 'success'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <svg v-else-if="toast.type === 'error'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+          <svg v-else-if="toast.type === 'warning'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+        </div>
+        <div class="toast-content">
+          <span class="toast-title">
+            {{ toast.type === 'success' ? 'Thành công!' : (toast.type === 'error' ? 'Thao tác thất bại' : (toast.type === 'warning' ? 'Cảnh báo' : 'Thông báo')) }}
+          </span>
+          <span class="toast-text">{{ toast.message }}</span>
+        </div>
+        <button class="toast-btn-close" @click="closeToast" title="Đóng">✕</button>
       </div>
-      <button class="toast-close" @click="showSuccessToast = false">✕</button>
-    </div>
+    </transition>
   </div>
 </template>
 
@@ -314,16 +336,24 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../../api'
-import Select2Combobox from '@/components/Select2Combobox.vue'
+import Select2Combobox from '../../components/Select2Combobox.vue'
 
 const router = useRouter()
 
+const hinhThucOptions = [
+  { value: '', label: 'Tất cả hình thức' },
+  { value: 'Công khai', label: 'Công khai' },
+  { value: 'Cá nhân', label: 'Cá nhân' }
+]
+
 const loaiGiamOptions = [
+  { value: '', label: 'Tất cả loại giảm' },
   { value: 'percent', label: 'Giảm theo %' },
   { value: 'amount', label: 'Giảm tiền mặt' }
 ]
 
 const trangThaiOptions = [
+  { value: '', label: 'Tất cả trạng thái' },
   { value: 'active', label: 'Đang diễn ra' },
   { value: 'upcoming', label: 'Sắp diễn ra' },
   { value: 'expired', label: 'Đã kết thúc / Hết hạn' },
@@ -347,8 +377,21 @@ const selectedVoucher = ref(null)
 const showToggleConfirmModal = ref(false)
 const voucherToToggle = ref(null)
 const togglingStatus = ref(false)
-const showSuccessToast = ref(false)
-const toastMessage = ref('')
+const toast = ref({ show: false, message: '', type: 'success' })
+let toastTimer = null
+
+const showToastNotification = (message, type = 'success', duration = 3500) => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { show: true, message, type }
+  toastTimer = setTimeout(() => {
+    toast.value.show = false
+  }, duration)
+}
+
+const closeToast = () => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value.show = false
+}
 
 const currentPage = ref(1)
 const pageSize = ref(5)
@@ -432,7 +475,7 @@ const fetchVouchers = async () => {
     })
   } catch (error) {
     console.error('Lỗi khi nạp dữ liệu phiếu giảm giá từ SQL Server:', error)
-    alert('Không thể kết nối tới Backend Spring Boot!')
+    showToastNotification('Không thể kết nối tới máy chủ dữ liệu!', 'error')
   } finally {
     loading.value = false
   }
@@ -544,7 +587,7 @@ const resetFilters = () => {
 // Mở modal xác nhận đổi trạng thái
 const openToggleStatusModal = (item) => {
   if (item.isExpired) {
-    alert(`Phiếu [${item.code}] đã hết hạn vào ngày ${item.endDate}, không thể kích hoạt lại!`)
+    showToastNotification(`Phiếu [${item.code}] đã hết hạn vào ngày ${item.endDate}, không thể kích hoạt lại!`, 'warning')
     return
   }
   voucherToToggle.value = item
@@ -570,14 +613,10 @@ const confirmToggleStatus = async () => {
     // Tải lại danh sách mới nhất từ Database
     await fetchVouchers()
     showToggleConfirmModal.value = false
-    toastMessage.value = `Đã chuyển phiếu [${item.code}] sang trạng thái "${newStatusText}".`
-    showSuccessToast.value = true
-    setTimeout(() => {
-      showSuccessToast.value = false
-    }, 3500)
+    showToastNotification(`Đã chuyển phiếu [${item.code}] sang trạng thái "${newStatusText}".`, 'success')
   } catch (error) {
     console.error('Lỗi khi cập nhật trạng thái:', error)
-    alert('Cập nhật trạng thái thất bại! Vui lòng kiểm tra kết nối cơ sở dữ liệu.')
+    showToastNotification('Cập nhật trạng thái thất bại! Vui lòng kiểm tra kết nối cơ sở dữ liệu.', 'error')
   } finally {
     togglingStatus.value = false
     voucherToToggle.value = null
@@ -987,60 +1026,55 @@ const openCreateModal = () => {
   gap: 0.6rem;
 }
 
-/* Nút Đổi trạng thái (Bật / Tắt hoạt động) */
-.btn-action-status {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+/* SWITCH TOGGLE (Công tắc bật/tắt chuẩn theo ảnh) */
+.switch-toggle {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  outline: none;
-  background-color: #ffffff;
+  margin: 0;
+  vertical-align: middle;
 }
 
-/* Khi đang BẬT (Đang hoạt động) - Tone xanh lá rõ nét */
-.btn-action-status.status-on {
-  background-color: #edf7ee;
-  border-color: #bce3c5;
-  color: #2e7d32;
-}
-
-.btn-action-status.status-on:hover {
-  background-color: #d8edd9;
-  border-color: #96d4a2;
-  color: #1b5e20;
-  transform: translateY(-2px);
-  box-shadow: 0 3px 8px rgba(46, 125, 50, 0.2);
-}
-
-/* Khi đang TẮT (Ngừng hoạt động) - Tone đỏ/hồng cảnh báo */
-.btn-action-status.status-off {
-  background-color: #fdeded;
-  border-color: #f8c2c2;
-  color: #c0392b;
-}
-
-.btn-action-status.status-off:hover {
-  background-color: #fcd4d4;
-  border-color: #f19999;
-  color: #962d22;
-  transform: translateY(-2px);
-  box-shadow: 0 3px 8px rgba(192, 57, 43, 0.2);
-}
-
-/* Khi đã HẾT HẠN - Mờ & vô hiệu hóa */
-.btn-action-status.status-disabled {
-  background-color: #f5f5f5;
-  border-color: #e2e2e2;
-  color: #a0a0a0;
+.switch-toggle.switch-disabled {
   opacity: 0.45;
   cursor: not-allowed;
-  transform: none !important;
-  box-shadow: none !important;
+}
+
+.switch-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider-round {
+  position: absolute;
+  inset: 0;
+  background-color: #d1d5db;
+  border-radius: 22px;
+  transition: all 0.25s ease;
+}
+
+.slider-round::before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: all 0.25s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.switch-toggle input:checked + .slider-round {
+  background-color: #b38e6e;
+}
+
+.switch-toggle input:checked + .slider-round::before {
+  transform: translateX(16px);
 }
 
 /* Nút Vừa xem chi tiết vừa chỉnh sửa phiếu */
@@ -1120,8 +1154,15 @@ const openCreateModal = () => {
 }
 
 .confirm-warning-icon {
-  font-size: 1.8rem;
-  line-height: 1;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #f7eee1;
+  color: #b38e6e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .confirm-title-wrap {
@@ -1135,18 +1176,10 @@ const openCreateModal = () => {
   color: #8c6328;
 }
 
-.confirm-modal-header.header-danger .confirm-title {
-  color: #c0392b;
-}
-
 .confirm-subtitle {
   margin: 0.2rem 0 0;
   font-size: 0.83rem;
   color: #aa8651;
-}
-
-.confirm-modal-header.header-danger .confirm-subtitle {
-  color: #b85d56;
 }
 
 .modal-close-btn {
@@ -1159,7 +1192,7 @@ const openCreateModal = () => {
 }
 
 .modal-close-btn:hover {
-  color: #c0392b;
+  color: #8c6328;
 }
 
 .confirm-modal-body {
@@ -1186,8 +1219,18 @@ const openCreateModal = () => {
   font-weight: 700;
 }
 
+.text-activate {
+  color: #b38e6e;
+  font-weight: 700;
+}
+
+.text-blue {
+  color: var(--blue, #496883);
+  font-weight: 700;
+}
+
 .text-highlight {
-  color: #c0392b;
+  color: #8c6328;
   font-weight: 700;
 }
 
@@ -1256,72 +1299,154 @@ const openCreateModal = () => {
   background-color: #faf9f6;
 }
 
+.btn-secondary {
+  background-color: #ffffff;
+  border: 1px solid #d8d2c6;
+  color: #616e75;
+  font-weight: 600;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #f7f5ef;
+  color: #2b383e;
+  border-color: #c5bfae;
+}
+
 .btn-save-confirm {
-  background-color: #4c8a5a;
+  background-color: #b38e6e;
   color: #ffffff;
+  font-weight: 700;
 }
 
 .btn-save-confirm:hover:not(:disabled) {
-  background-color: #3b7047;
+  background-color: #9c7857;
 }
 
 .btn-confirm-deactivate {
-  background-color: #c0392b;
+  background-color: #b38e6e;
   color: #ffffff;
+  font-weight: 700;
 }
 
 .btn-confirm-deactivate:hover:not(:disabled) {
-  background-color: #a5281b;
+  background-color: #9c7857;
 }
 
-/* Toast thông báo thành công */
-.toast-success {
+/* Toast thông báo đồng bộ giao diện Phiếu giảm giá */
+.toast-msg {
   position: fixed;
-  bottom: 2rem;
-  right: 2rem;
+  bottom: 24px;
+  right: 28px;
   background-color: #ffffff;
-  border-left: 5px solid #4c8a5a;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  padding: 1rem 1.25rem;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(65, 60, 50, 0.14), 0 8px 10px -6px rgba(65, 60, 50, 0.08);
+  border: 1px solid #efeae0;
+  padding: 12px 18px;
   display: flex;
   align-items: center;
-  gap: 0.85rem;
-  z-index: 2000;
-  animation: slideUp 0.3s ease-out;
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  gap: 12px;
+  z-index: 99999;
+  max-width: 440px;
 }
 
 .toast-icon {
-  font-size: 1.5rem;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
 }
 
-.toast-text b {
-  font-size: 0.95rem;
+.toast-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.toast-title {
+  font-size: 0.92rem;
+  font-weight: 700;
   color: #2b383e;
+  line-height: 1.25;
 }
 
-.toast-text p {
-  margin: 0.2rem 0 0;
-  font-size: 0.85rem;
-  color: #65757d;
+.toast-text {
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: #616e75;
+  line-height: 1.4;
 }
 
-.toast-close {
+.toast-btn-close {
   background: transparent;
   border: none;
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: #a0a8ab;
   cursor: pointer;
-  margin-left: 0.5rem;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
-.toast-close:hover {
+.toast-btn-close:hover {
+  color: #2b383e;
+  background-color: #f7f5ef;
+}
+
+/* Biến thể màu cho Toast theo phong cách ấm của Phiếu giảm giá */
+.toast-success {
+  border-left: 4px solid #4c8a5a;
+}
+.toast-success .toast-icon {
+  background-color: #edf5ef;
+  color: #4c8a5a;
+}
+
+.toast-warning {
+  border-left: 4px solid #b38e6e;
+}
+.toast-warning .toast-icon {
+  background-color: #fff9f0;
+  color: #b38e6e;
+}
+.toast-warning .toast-title {
+  color: #8c6328;
+}
+
+.toast-error {
+  border-left: 4px solid #c0392b;
+}
+.toast-error .toast-icon {
+  background-color: #fdeded;
   color: #c0392b;
+}
+.toast-error .toast-title {
+  color: #c0392b;
+}
+
+.toast-info {
+  border-left: 4px solid #496883;
+}
+.toast-info .toast-icon {
+  background-color: #edf5fa;
+  color: #496883;
+}
+.toast-info .toast-title {
+  color: #496883;
+}
+
+/* Hiệu ứng trượt */
+.toast-slide-enter-active,
+.toast-slide-leave-active {
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.toast-slide-enter-from,
+.toast-slide-leave-to {
+  opacity: 0;
+  transform: translateY(20px) translateX(25px);
 }
 
 /* Phân trang dưới cùng bảng */
