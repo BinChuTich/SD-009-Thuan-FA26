@@ -106,11 +106,11 @@ const addModalFileInput = ref(null)
 const openAddModal = () => {
   const currentId = currentProduct.value?.id || (route.query.sanPhamId ? Number(route.query.sanPhamId) : null)
   addModal.value.data = {
-    idSanPham: currentId || (productsList.value[0]?.id || null),
-    idMauSac: colors.value[0]?.id || null,
-    idKichCo: sizes.value[0]?.id || null,
-    soLuong: 10,
-    giaBan: 100000,
+    idSanPham: currentId || null,
+    idMauSac: null,
+    idKichCo: null,
+    soLuong: '',
+    giaBan: '',
     anhDaiDien: '',
     trangThai: 1
   }
