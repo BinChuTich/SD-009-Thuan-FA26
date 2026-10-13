@@ -19,34 +19,7 @@
     <!-- Form Container -->
     <div v-else class="form-container-card">
       <div class="form-layout-grid">
-        <!-- Cột trái: Ảnh đại diện -->
-        <div class="avatar-upload-panel">
-          <div class="avatar-card">
-            <h4 class="card-subtitle">Ảnh đại diện</h4>
-            <div class="avatar-integrated-wrapper">
-              <label class="avatar-uploader-box" title="Nhấp để chọn hoặc đổi ảnh đại diện">
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/jpg,image/webp"
-                  @change="onImageSelected"
-                  style="display: none"
-                />
-                <img v-if="avatarPreview" :src="avatarPreview" class="avatar-preview-img" alt="avatar" />
-                <div v-else class="avatar-empty-placeholder">
-                  <span class="avatar-placeholder-text">Chọn ảnh</span>
-                </div>
-                <div class="avatar-hover-overlay">
-                  <span>Đổi ảnh</span>
-                </div>
-              </label>
-              <button v-if="avatarPreview" type="button" class="btn-remove-avatar-link" @click="removeAvatar">
-                Gỡ ảnh
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Cột phải: Thông tin chi tiết -->
+        <!-- Thông tin chi tiết -->
         <div class="form-fields-panel">
           <!-- Phần 1: Thông tin khách hàng -->
           <div class="section-card">
@@ -221,8 +194,6 @@ const id = route.params.id
 
 const loading = ref(true)
 const saving = ref(false)
-const selectedFile = ref(null)
-const avatarPreview = ref('')
 const maxDate = new Date().toISOString().split('T')[0]
 
 // Danh mục hành chính (2 cấp: Tỉnh/Thành phố & Phường/Xã)
@@ -240,7 +211,6 @@ const form = reactive({
   gioiTinh: true,
   ngaySinh: '',
   trangThai: 1,
-  anhKhachHang: '',
   thanhPho: '',
   huyen: '',
   phuong: '',
@@ -392,17 +362,10 @@ async function loadCustomer() {
     form.gioiTinh = data.gioiTinh ?? true
     form.ngaySinh = data.ngaySinh || ''
     form.trangThai = data.trangThai ?? 1
-    form.anhKhachHang = data.anhKhachHang || ''
     form.thanhPho = data.thanhPho || ''
     form.huyen = data.huyen || ''
     form.phuong = data.phuong || ''
     form.diaChiCuThe = data.diaChiCuThe || ''
-
-    if (data.anhKhachHang) {
-      avatarPreview.value = data.anhKhachHang.startsWith('http')
-        ? data.anhKhachHang
-        : `http://localhost:8080${data.anhKhachHang}`
-    }
 
     // Khớp danh mục hành chính 2 cấp từ địa chỉ đã lưu
     if (form.thanhPho) {
@@ -462,41 +425,6 @@ async function loadCustomer() {
   }
 }
 
-function onImageSelected(e) {
-  const file = e.target.files?.[0]
-  if (!file) return
-  if (!file.type.startsWith('image/')) {
-    showAlert({
-      title: 'Định dạng không hợp lệ',
-      message: 'Vui lòng chọn file hình ảnh (JPG, PNG, WEBP).',
-      type: 'warning'
-    })
-    e.target.value = ''
-    return
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    showAlert({
-      title: 'Dung lượng quá lớn',
-      message: 'Kích thước ảnh không được vượt quá 5MB.',
-      type: 'warning'
-    })
-    e.target.value = ''
-    return
-  }
-
-  selectedFile.value = file
-  if (avatarPreview.value) {
-    URL.revokeObjectURL(avatarPreview.value)
-  }
-  avatarPreview.value = URL.createObjectURL(file)
-}
-
-function removeAvatar() {
-  selectedFile.value = null
-  avatarPreview.value = ''
-  form.anhKhachHang = ''
-}
-
 function goBack() {
   router.push('/khach-hang')
 }
@@ -530,26 +458,13 @@ async function handleUpdate() {
       gioiTinh: form.gioiTinh,
       ngaySinh: form.ngaySinh || undefined,
       trangThai: form.trangThai,
-      anhKhachHang: form.anhKhachHang || undefined,
       thanhPho: form.thanhPho.trim(),
       huyen: form.huyen.trim(),
       phuong: form.phuong.trim(),
       diaChiCuThe: form.diaChiCuThe.trim()
     }
 
-    if (selectedFile.value) {
-      const formData = new FormData()
-      formData.append(
-        'data',
-        new Blob([JSON.stringify(payload)], { type: 'application/json' })
-      )
-      formData.append('file', selectedFile.value)
-      await api.put(`/api/khach-hang/${id}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
-    } else {
-      await api.put(`/api/khach-hang/${id}`, payload)
-    }
+    await api.put(`/api/khach-hang/${id}`, payload)
 
     showToast('Cập nhật thông tin khách hàng thành công!', 'success')
     router.push('/khach-hang')
@@ -642,110 +557,9 @@ onMounted(() => {
 
 .form-layout-grid {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 1fr;
   gap: 2.5rem;
   align-items: start;
-}
-
-/* Avatar Panel */
-.avatar-card {
-  background: #faf8f4;
-  border: 1px dashed #d6d0c4;
-  border-radius: 12px;
-  padding: 1.6rem 1rem;
-  text-align: center;
-}
-
-.card-subtitle {
-  margin: 0 0 1.2rem;
-  font-size: 1rem;
-  font-weight: 700;
-  color: #496883;
-}
-
-.avatar-integrated-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.8rem;
-}
-
-.avatar-uploader-box {
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  margin: 0 auto;
-  background: #eaf1f5;
-  border: 3px solid #ffffff;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  position: relative;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.avatar-uploader-box:hover {
-  border-color: #496883;
-  transform: scale(1.02);
-  box-shadow: 0 6px 18px rgba(73, 104, 131, 0.2);
-}
-
-.avatar-preview-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.avatar-empty-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #647b8c;
-}
-
-.avatar-placeholder-text {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #496883;
-}
-
-.avatar-hover-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(43, 62, 79, 0.65);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.88rem;
-  font-weight: 600;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.avatar-uploader-box:hover .avatar-hover-overlay {
-  opacity: 1;
-}
-
-.btn-remove-avatar-link {
-  background: none;
-  border: none;
-  color: #c94a4a;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0.2rem 0.6rem;
-  border-radius: 4px;
-}
-
-.btn-remove-avatar-link:hover {
-  background-color: #fde8e8;
 }
 
 /* Form Fields Panel */
