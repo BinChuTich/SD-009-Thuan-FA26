@@ -881,11 +881,11 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
           <div class="filter-buttons-right">
             <button class="btn-primary-add" @click="openAddModal" title="Thêm biến thể mới">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
-              <span>+ Thêm biến thể</span>
+              <span>Thêm biến thể</span>
             </button>
 
             <button class="btn-outline-gold" @click="resetFilters" title="Đặt lại bộ lọc">
@@ -958,7 +958,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
             <th style="width: 135px; text-align: right;">Giá bán</th>
             <th style="width: 80px; text-align: center;">Giảm</th>
             <th style="width: 110px; text-align: center;">Trạng thái</th>
-            <th style="width: 130px; text-align: center;">Hành động</th>
+            <th style="width: 100px; text-align: center;">Hành động</th>
           </tr>
           </thead>
           <tbody>
@@ -1055,7 +1055,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
               </span>
             </td>
 
-            <!-- Cột hành động gồm 3 icon: (kinh doanh, sửa, xóa) -->
+            <!-- Cột hành động gồm 2 icon: Đổi trạng thái (Bật/tắt) và Xem/Cập nhật biến thể -->
             <td style="text-align: center;">
               <div class="variant-action-group">
                 <!-- 1. Icon Kinh doanh (Power icon) -->
@@ -1071,27 +1071,15 @@ watch(() => route.query.sanPhamId, async (newId) => {
                   </svg>
                 </button>
 
-                <!-- 2. Icon Sửa (Pencil icon) -->
+                <!-- 2. Icon Xem & Cập nhật biến thể (Gộp chung) -->
                 <button
                     class="btn-icon-round btn-edit-variant"
                     @click="openEditModal(item)"
-                    title="Chỉnh sửa chi tiết biến thể"
+                    title="Xem chi tiết & Cập nhật biến thể"
                 >
                   <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                  </svg>
-                </button>
-
-                <!-- 3. Icon Xem chi tiết (Eye icon) -->
-                <button
-                    class="btn-icon-round btn-view-variant"
-                    @click="openDetailModal(item)"
-                    title="Xem chi tiết biến thể"
-                >
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                    <circle cx="12" cy="12" r="3"></circle>
                   </svg>
                 </button>
               </div>
@@ -1327,94 +1315,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
       </div>
     </div>
 
-    <!-- Modal Xem Chi Tiết Biến Thể -->
-    <div class="modal-backdrop" v-if="detailModal.show" @click.self="closeDetailModal">
-      <div class="modal-dialog-box update-variant-dialog">
-        <!-- Header -->
-        <div class="update-variant-header">
-          <div class="header-left-info">
-            <div class="variant-tag-badge view-badge">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-              </svg>
-              <span>Chi tiết biến thể</span>
-            </div>
-            <h3 class="update-product-title">{{ detailModal.data.tenSanPham || currentProduct?.tenSanPham || 'Sản phẩm' }}</h3>
-            <div class="update-product-code">Mã SP: {{ detailModal.data.maSanPham || currentProduct?.maSanPham || '—' }} | Mã CTSP: {{ detailModal.data.maChiTietSanPham || '—' }}</div>
-          </div>
-          <button class="modal-close-icon" @click="closeDetailModal" title="Đóng">&times;</button>
-        </div>
 
-        <!-- Body: 2 cột đồng bộ với giao diện hệ thống -->
-        <div class="update-variant-body">
-          <!-- Cột trái: Ảnh to + 2 thẻ Màu sắc, Kích cỡ -->
-          <div class="left-variant-preview">
-            <div class="large-img-card">
-              <img
-                  :src="formatImageUrl(detailModal.data.anhDaiDien)"
-                  @error="onImgError"
-                  alt="Variant preview"
-                  class="preview-img-tag"
-              />
-            </div>
-
-            <div class="variant-attr-summary-row">
-              <div class="attr-summary-box">
-                <span class="attr-box-label">MÀU SẮC</span>
-                <div class="attr-box-val">
-                  <span class="attr-color-dot" :style="{ backgroundColor: detailModal.data.maHex || 'var(--blue, #496883)' }"></span>
-                  <span class="attr-text-val">{{ detailModal.data.tenMauSac || 'Mặc định' }}</span>
-                </div>
-              </div>
-
-              <div class="attr-summary-box">
-                <span class="attr-box-label">KÍCH CỠ</span>
-                <div class="attr-box-val">
-                  <span class="attr-text-val">Size {{ detailModal.data.tenKichCo || '—' }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Cột phải: Thông tin chi tiết biến thể -->
-          <div class="right-variant-form-card">
-            <div class="form-card-heading">THÔNG TIN BIẾN THỂ</div>
-
-            <div class="detail-info-grid">
-              <div class="detail-item-box">
-                <span class="detail-item-label">Mã biến thể</span>
-                <span class="detail-item-value highlight-code">{{ detailModal.data.maChiTietSanPham || '—' }}</span>
-              </div>
-
-              <div class="detail-item-box">
-                <span class="detail-item-label">Số lượng tồn kho</span>
-                <span class="detail-item-value bold-number">{{ detailModal.data.soLuong ?? 0 }}</span>
-              </div>
-
-              <div class="detail-item-box">
-                <span class="detail-item-label">Giá bán</span>
-                <span class="detail-item-value price-number">{{ formatPrice(detailModal.data.giaBan) }}</span>
-              </div>
-
-              <div class="detail-item-box">
-                <span class="detail-item-label">Trạng thái</span>
-                <span :class="['detail-status-pill', detailModal.data.trangThai === 1 ? 'status-pill-active' : 'status-pill-inactive']">
-                  {{ detailModal.data.trangThai === 1 ? 'Đang bán' : 'Ngừng bán' }}
-                </span>
-              </div>
-            </div>
-
-            <div class="detail-actions-footer">
-              <button class="btn-detail-edit" @click="switchToEditFromDetail">
-                Chỉnh sửa biến thể
-              </button>
-              <button class="btn-detail-close" @click="closeDetailModal">Đóng</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Modal Xem / Tải QR -->
     <div class="modal-backdrop" v-if="qrModal.show" @click.self="closeQrModal">
@@ -1888,17 +1789,28 @@ watch(() => route.query.sanPhamId, async (newId) => {
 }
 
 .btn-primary-add {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  height: 2.5rem;
+  padding: 0 1.15rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  background-color: var(--blue, #496883);
   color: #ffffff;
-  border: none;
-  font-weight: 600;
-  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+  border: 1px solid var(--blue, #496883);
+  box-shadow: 0 2px 4px rgba(73, 104, 131, 0.2);
+  transition: all 0.2s ease;
 }
 
 .btn-primary-add:hover {
-  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  background-color: #385269;
+  border-color: #385269;
   transform: translateY(-1px);
-  box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 4px 8px rgba(73, 104, 131, 0.3);
 }
 
 .btn-outline-gold {

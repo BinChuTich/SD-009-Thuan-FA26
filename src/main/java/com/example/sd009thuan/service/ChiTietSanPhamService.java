@@ -147,6 +147,11 @@ public class ChiTietSanPhamService {
 
         ChiTietSanPham saved = chiTietSanPhamRepository.save(ct);
 
+        // Lưu / cập nhật ảnh đại diện theo màu sắc của biến thể (nếu có truyền ảnh)
+        if (req.getAnhDaiDien() != null && !req.getAnhDaiDien().trim().isEmpty()) {
+            updateVariantImage(sp, ms.getId(), req.getAnhDaiDien().trim());
+        }
+
         // Tự động liên kết với đợt giảm giá đang hoạt động của sản phẩm (nếu có)
         try {
             List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsBySanPhamId(sp.getId());

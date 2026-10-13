@@ -479,8 +479,8 @@ const isThuocTinhActive = computed(() => {
 }
 
 .submenu-sub-tree {
-  display: flex !important;
-  flex-direction: column !important;
+  display: flex;
+  flex-direction: column;
   padding-left: 14px;
   margin: 2px 0;
   width: 100%;

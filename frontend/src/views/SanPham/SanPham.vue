@@ -45,10 +45,6 @@
           <button class="btn btn-export" @click="handleExportExcel" :disabled="exporting" title="Xuất danh sách ra file Excel">
             {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
           </button>
-          <!-- Nút Thêm biến thể riêng -->
-          <button class="btn btn-add-variant" @click="openAddVariantModal" title="Thêm biến thể mới cho sản phẩm">
-            + Thêm biến thể
-          </button>
           <!-- Nút Thêm sản phẩm riêng -->
           <button class="btn btn-add" @click="goToAddPage" title="Thêm mới sản phẩm">
             + Thêm sản phẩm
@@ -284,7 +280,6 @@
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                     </svg>
-                    <span>Sửa</span>
                   </button>
 
                   <!-- Nút menu mở rộng (3 chấm) -->
@@ -308,7 +303,7 @@
                       </svg>
                       Quản lý biến thể ({{ item.soLuongBienThe || 0 }})
                     </button>
-                    <button class="dropdown-menu-item" @click="openAddVariantForProduct(item)">
+                    <button class="dropdown-menu-item" @click="goToVariants(item)">
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="12" y1="5" x2="12" y2="19"></line>
                         <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -505,114 +500,7 @@
       </div>
     </div>
 
-    <!-- MODAL THÊM BIẾN THỂ MỚI (TÁCH BIỆT HOÀN TOÀN LUỒNG) -->
-    <div class="modal-backdrop" v-if="addVariantModal.show" @click.self="closeAddVariantModal">
-      <div class="modal-dialog add-variant-dialog">
-        <div class="modal-header">
-          <div class="header-left">
-            <span class="badge-add-variant">+ Thêm biến thể mới</span>
-            <h3 class="modal-title">Tạo mới biến thể sản phẩm</h3>
-          </div>
-          <button class="btn-close-modal" @click="closeAddVariantModal" title="Đóng">&times;</button>
-        </div>
 
-        <div class="modal-body add-variant-body">
-          <div class="form-row">
-            <!-- 1. Chọn sản phẩm cha (Select2) -->
-            <div class="form-group full-width">
-              <label class="form-label required">Sản phẩm cha</label>
-              <Select2
-                v-model="addVariantModal.data.idSanPham"
-                :options="productSelectOptions"
-                placeholder="-- Chọn sản phẩm cha để thêm biến thể --"
-                searchPlaceholder="Tìm mã hoặc tên sản phẩm..."
-              />
-              <span class="err-text" v-if="addVariantModal.errors.idSanPham">{{ addVariantModal.errors.idSanPham }}</span>
-            </div>
-          </div>
-
-          <div class="form-grid-2">
-            <!-- 2. Chọn Màu sắc (Select2) -->
-            <div class="form-group">
-              <label class="form-label required">Màu sắc</label>
-              <Select2
-                v-model="addVariantModal.data.idMauSac"
-                :options="mauSacOptions"
-                placeholder="-- Chọn màu sắc --"
-                searchPlaceholder="Tìm màu sắc..."
-              />
-              <span class="err-text" v-if="addVariantModal.errors.idMauSac">{{ addVariantModal.errors.idMauSac }}</span>
-            </div>
-
-            <!-- 3. Chọn Kích cỡ (Select2) -->
-            <div class="form-group">
-              <label class="form-label required">Kích cỡ</label>
-              <Select2
-                v-model="addVariantModal.data.idKichCo"
-                :options="kichCoOptions"
-                placeholder="-- Chọn kích cỡ --"
-                searchPlaceholder="Tìm kích cỡ..."
-              />
-              <span class="err-text" v-if="addVariantModal.errors.idKichCo">{{ addVariantModal.errors.idKichCo }}</span>
-            </div>
-          </div>
-
-          <div class="form-grid-2">
-            <!-- 4. Số lượng -->
-            <div class="form-group">
-              <label class="form-label required">Số lượng</label>
-              <input
-                type="number"
-                min="0"
-                max="999999"
-                v-model.number="addVariantModal.data.soLuong"
-                class="form-input"
-                placeholder="Nhập số lượng..."
-              />
-              <span class="err-text" v-if="addVariantModal.errors.soLuong">{{ addVariantModal.errors.soLuong }}</span>
-            </div>
-
-            <!-- 5. Đơn giá -->
-            <div class="form-group">
-              <label class="form-label required">Đơn giá bán (VNĐ)</label>
-              <input
-                type="number"
-                min="0"
-                max="1000000000"
-                v-model.number="addVariantModal.data.giaBan"
-                class="form-input"
-                placeholder="Nhập đơn giá bán..."
-              />
-              <span class="err-text" v-if="addVariantModal.errors.giaBan">{{ addVariantModal.errors.giaBan }}</span>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <!-- 6. Ảnh biến thể -->
-            <div class="form-group full-width">
-              <label class="form-label">Ảnh biến thể (tùy chọn)</label>
-              <div class="variant-img-uploader-row">
-                <div class="variant-mini-img-preview" v-if="addVariantModal.data.anhDaiDien">
-                  <img :src="formatImageUrl(addVariantModal.data.anhDaiDien)" alt="Preview" />
-                  <button type="button" class="btn-remove-mini-img" @click="addVariantModal.data.anhDaiDien = ''">&times;</button>
-                </div>
-                <label class="btn-upload-file">
-                  <span>{{ addVariantModal.data.anhDaiDien ? 'Đổi ảnh khác' : 'Chọn tệp ảnh' }}</span>
-                  <input type="file" accept="image/*" @change="onAddVariantFileChange" style="display: none" />
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="closeAddVariantModal">Hủy bỏ</button>
-          <button class="btn btn-primary" :disabled="addVariantModal.submitting" @click="handleSaveNewVariant">
-            {{ addVariantModal.submitting ? 'Đang lưu...' : 'Lưu biến thể' }}
-          </button>
-        </div>
-      </div>
-    </div>
 
     <!-- MODAL XÁC NHẬN HÀNH ĐỘNG (XÓA / ĐỔI TRẠNG THÁI) -->
     <transition name="fade">
@@ -735,15 +623,7 @@ const kichCoOptions = computed(() => [
   ...(attributes.value.kichCo || []).map(i => ({ value: i.id, label: `Size ${i.tenKichCo}` }))
 ])
 
-// Danh sách tất cả sản phẩm cho Select2 trong AddVariantModal
-const allProductsList = ref([])
-const productSelectOptions = computed(() => [
-  { value: '', label: '-- Chọn sản phẩm cha --' },
-  ...(allProductsList.value || []).map(p => ({
-    value: p.id,
-    label: `${p.maSanPham} - ${p.tenSanPham}`
-  }))
-])
+
 
 // Danh sách sản phẩm & phân trang
 const products = ref([])
@@ -788,120 +668,7 @@ const goToEditFromDetail = () => {
   goToEditPage(item)
 }
 
-// Modal Thêm biến thể mới (Tách luồng)
-const addVariantModal = ref({
-  show: false,
-  submitting: false,
-  data: {
-    idSanPham: '',
-    idMauSac: '',
-    idKichCo: '',
-    soLuong: 10,
-    giaBan: 150000,
-    anhDaiDien: '',
-    trangThai: 1
-  },
-  errors: {}
-})
 
-const openAddVariantModal = () => {
-  addVariantModal.value.data = {
-    idSanPham: '',
-    idMauSac: '',
-    idKichCo: '',
-    soLuong: 10,
-    giaBan: 150000,
-    anhDaiDien: '',
-    trangThai: 1
-  }
-  addVariantModal.value.errors = {}
-  addVariantModal.value.show = true
-  fetchAllProductsSimple()
-}
-
-const openAddVariantForProduct = (item) => {
-  closeActionMenu()
-  addVariantModal.value.data = {
-    idSanPham: item.id,
-    idMauSac: '',
-    idKichCo: '',
-    soLuong: 10,
-    giaBan: (item.minGia != null && item.minGia > 0) ? Number(item.minGia) : 150000,
-    anhDaiDien: item.anhDaiDien || '',
-    trangThai: 1
-  }
-  addVariantModal.value.errors = {}
-  addVariantModal.value.show = true
-  fetchAllProductsSimple()
-}
-
-const closeAddVariantModal = () => {
-  addVariantModal.value.show = false
-}
-
-const onAddVariantFileChange = (e) => {
-  const file = e.target.files?.[0]
-  if (!file) return
-  if (!file.type.startsWith('image/')) {
-    showToast('Vui lòng chọn tệp hình ảnh!', 'error')
-    return
-  }
-  const reader = new FileReader()
-  reader.onload = (event) => {
-    addVariantModal.value.data.anhDaiDien = event.target.result
-  }
-  reader.readAsDataURL(file)
-}
-
-const handleSaveNewVariant = async () => {
-  addVariantModal.value.errors = {}
-  const d = addVariantModal.value.data
-
-  if (!d.idSanPham) {
-    addVariantModal.value.errors.idSanPham = 'Vui lòng chọn sản phẩm cha!'
-    return
-  }
-  if (!d.idMauSac) {
-    addVariantModal.value.errors.idMauSac = 'Vui lòng chọn màu sắc!'
-    return
-  }
-  if (!d.idKichCo) {
-    addVariantModal.value.errors.idKichCo = 'Vui lòng chọn kích cỡ!'
-    return
-  }
-  if (d.soLuong === '' || d.soLuong == null || d.soLuong < 0) {
-    addVariantModal.value.errors.soLuong = 'Số lượng phải từ 0 trở lên!'
-    return
-  }
-  if (d.giaBan === '' || d.giaBan == null || d.giaBan < 0) {
-    addVariantModal.value.errors.giaBan = 'Giá bán phải từ 0 trở lên!'
-    return
-  }
-
-  addVariantModal.value.submitting = true
-  try {
-    const payload = {
-      idSanPham: Number(d.idSanPham),
-      idMauSac: Number(d.idMauSac),
-      idKichCo: Number(d.idKichCo),
-      soLuong: Number(d.soLuong),
-      giaBan: Number(d.giaBan),
-      anhDaiDien: d.anhDaiDien || undefined,
-      trangThai: 1,
-      nguoiThaoTac: 'Admin'
-    }
-
-    await api.post('/api/chi-tiet-san-pham', payload)
-    showToast('Thêm biến thể mới thành công!')
-    closeAddVariantModal()
-    fetchProducts()
-  } catch (err) {
-    console.error('Lỗi thêm biến thể:', err)
-    showToast(err.response?.data?.message || 'Lỗi khi thêm biến thể mới!', 'error')
-  } finally {
-    addVariantModal.value.submitting = false
-  }
-}
 
 // Hộp thoại xác nhận tương tác
 const confirmDialog = ref({
@@ -1645,6 +1412,8 @@ onMounted(() => {
 
 /* Nút Sửa chính */
 .btn-edit-primary {
+  width: 32px;
+  padding: 0;
   background-color: #eff6ff;
   color: #2563eb;
   border-color: #bfdbfe;
