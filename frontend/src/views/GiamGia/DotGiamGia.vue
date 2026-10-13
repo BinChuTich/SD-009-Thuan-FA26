@@ -4,15 +4,15 @@
     <transition name="toast-slide">
       <div v-if="toast.show" :class="['toast-msg', `toast-${toast.type}`]">
         <div class="toast-icon">
-          <svg v-if="toast.type === 'success'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg v-if="toast.type === 'success'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12"/>
           </svg>
-          <svg v-else-if="toast.type === 'error'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg v-else-if="toast.type === 'error'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/>
             <line x1="15" y1="9" x2="9" y2="15"/>
             <line x1="9" y1="9" x2="15" y2="15"/>
           </svg>
-          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="16" x2="12" y2="12"/>
             <line x1="12" y1="8" x2="12.01" y2="8"/>
@@ -688,9 +688,12 @@
                 <td>
                   <div class="product-cell-flex">
                     <div class="product-thumb-box">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.8">
-                        <path d="M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16m-2-2l1.586-1.586a2 2 0 0 1 2.828 0L20 14m-6-6h.01M6 20h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z"></path>
-                      </svg>
+                      <img
+                        :src="getProductImage(v)"
+                        :alt="v.spTen"
+                        class="product-thumb-img"
+                        @error="(e) => { e.target.src = defaultProductImages[0] }"
+                      />
                     </div>
                     <div class="product-cell-info">
                       <div class="font-bold text-dark">{{ v.spTen }}</div>
@@ -1020,12 +1023,60 @@ const selectedFilterColor = ref('')
 const selectedFilterSize = ref('')
 const selectedFilterKeyword = ref('')
 
+// Ảnh sản phẩm mặc định chuẩn áo phông
+const defaultProductImages = [
+  'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1622445262464-84b14e3295b6?w=300&auto=format&fit=crop&q=80'
+]
+
+const getFallbackProductImage = (id, code) => {
+  let num = typeof id === 'number' ? id : 0
+  if (!num && code) {
+    const digits = String(code).replace(/\D/g, '')
+    num = digits ? parseInt(digits.slice(-4)) : 0
+  }
+  const idx = Math.abs(num) % defaultProductImages.length
+  return defaultProductImages[idx]
+}
+
+const resolveImageUrl = (url, fallbackId, fallbackCode) => {
+  if (!url || typeof url !== 'string' || url.trim() === '') {
+    return getFallbackProductImage(fallbackId, fallbackCode)
+  }
+  const trimmed = url.trim()
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image')) {
+    return trimmed
+  }
+  if (trimmed.startsWith('/')) {
+    return `http://localhost:8080${trimmed}`
+  }
+  return `http://localhost:8080/${trimmed}`
+}
+
+const getProductImage = (item) => {
+  if (!item) return defaultProductImages[0]
+  const rawImg = item.spHinhAnh || item.hinhAnh || item.anhDaiDien || item.image
+  if (rawImg && typeof rawImg === 'string' && rawImg.trim() !== '') {
+    return resolveImageUrl(rawImg, item.spId || item.id, item.spMa || item.ma)
+  }
+  const found = productSourceList.value.find(p => p.id === (item.spId || item.id) || (p.ma && p.ma === (item.spMa || item.ma)))
+  if (found && (found.hinhAnh || found.anhDaiDien || found.image)) {
+    return resolveImageUrl(found.hinhAnh || found.anhDaiDien || found.image, item.spId || item.id, item.spMa || item.ma)
+  }
+  return getFallbackProductImage(item.spId || item.id, item.spMa || item.ma)
+}
+
 // Danh sách sản phẩm nguồn chuẩn theo CSDL FFTShirt (Áo thun)
 const productSourceList = ref([
   {
     id: 1,
     ma: 'SP001',
     ten: 'Áo Phông Nam Basic Cotton Cổ Tròn',
+    hinhAnh: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80',
     thuongHieu: 'FF Shirt',
     chatLieu: 'Cotton 100%',
     gia: 199000,
@@ -1040,6 +1091,7 @@ const productSourceList = ref([
     id: 2,
     ma: 'SP002',
     ten: 'Áo Polo Nam Cổ Bẻ Cao Cấp',
+    hinhAnh: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=300&auto=format&fit=crop&q=80',
     thuongHieu: 'FF Shirt',
     chatLieu: 'CVC Cá Sấu',
     gia: 299000,
@@ -1053,6 +1105,7 @@ const productSourceList = ref([
     id: 3,
     ma: 'SP003',
     ten: 'Áo Phông Unisex In Hình Graphic',
+    hinhAnh: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=300&auto=format&fit=crop&q=80',
     thuongHieu: 'Local Brand',
     chatLieu: 'Cotton 100%',
     gia: 250000,
@@ -1065,6 +1118,7 @@ const productSourceList = ref([
     id: 4,
     ma: 'SP004',
     ten: 'Áo Phông Cổ Tim Cotton Compact',
+    hinhAnh: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=300&auto=format&fit=crop&q=80',
     thuongHieu: 'FF Shirt',
     chatLieu: 'Cotton Compact',
     gia: 220000,
@@ -1078,6 +1132,7 @@ const productSourceList = ref([
     id: 5,
     ma: 'SP005',
     ten: 'Áo Polo Thể Thao Phối Kẻ Sọc',
+    hinhAnh: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=300&auto=format&fit=crop&q=80',
     thuongHieu: 'Polo Pro',
     chatLieu: 'Coolmax Co Giãn',
     gia: 320000,
@@ -1269,6 +1324,7 @@ const toggleProductSelection = (p) => {
           spId: p.id,
           spMa: p.ma,
           spTen: p.ten,
+          spHinhAnh: p.hinhAnh || p.image || p.anhDaiDien || v.hinhAnh || '',
           maBienThe: v.maBienThe,
           mauSac: v.mauSac,
           kichCo: v.kichCo,
@@ -1280,7 +1336,6 @@ const toggleProductSelection = (p) => {
     showToast(`Đã thêm các biến thể của "${p.ten}"!`, 'info')
   } else {
     selectedVariants.value = selectedVariants.value.filter(sv => sv.spId !== p.id)
-    showToast(`Đã bỏ các biến thể của "${p.ten}"!`, 'info')
   }
 }
 
@@ -1301,6 +1356,7 @@ const addProductVariants = (p) => {
         spId: p.id,
         spMa: p.ma,
         spTen: p.ten,
+        spHinhAnh: p.hinhAnh || p.image || p.anhDaiDien || v.hinhAnh || '',
         maBienThe: v.maBienThe,
         mauSac: v.mauSac,
         kichCo: v.kichCo,
@@ -1323,7 +1379,6 @@ const removeSelectedVariant = (vId) => {
       if (prod) prod.selected = false
     }
   }
-  showToast('Đã xóa biến thể khỏi danh sách áp dụng!', 'info')
 }
 
 // Chọn tất cả sản phẩm (chỉ chọn sản phẩm chưa có đợt giảm giá)
@@ -1345,6 +1400,7 @@ const toggleSelectAllSourceProducts = () => {
             spId: p.id,
             spMa: p.ma,
             spTen: p.ten,
+            spHinhAnh: p.hinhAnh || p.image || p.anhDaiDien || v.hinhAnh || '',
             maBienThe: v.maBienThe,
             mauSac: v.mauSac,
             kichCo: v.kichCo,
@@ -2069,11 +2125,13 @@ const openEditView = async (item) => {
       selectedVariants.value = ctRes.data.map(ct => {
         const ctsp = ct.idChiTietSanPham || {}
         const sp = ctsp.idSanPham || {}
+        const matchedP = productSourceList.value.find(p => p.id === (sp.id || 1) || (p.ma && p.ma === sp.maSanPham))
         return {
           id: ctsp.id || ct.id,
           spId: sp.id || 1,
           spMa: sp.maSanPham || ('SP' + (sp.id || '')),
           spTen: sp.tenSanPham || 'Sản phẩm',
+          spHinhAnh: matchedP?.hinhAnh || sp.anhDaiDien || (sp.hinhAnhs && sp.hinhAnhs[0]) || ctsp.anhDaiDien || '',
           maBienThe: ctsp.maChiTietSanPham || ('BT-' + ct.id),
           mauSac: ctsp.idMauSac?.tenMauSac || 'Xám',
           kichCo: ctsp.idKichCo?.tenKichCo || '37',
@@ -2097,6 +2155,7 @@ const openEditView = async (item) => {
           spId: p1.id,
           spMa: p1.ma,
           spTen: p1.ten,
+          spHinhAnh: p1.hinhAnh || p1.image || '',
           maBienThe: v.maBienThe,
           mauSac: v.mauSac,
           kichCo: v.kichCo,
@@ -2304,6 +2363,7 @@ const fetchRealProductsFromDB = async () => {
     if (items && items.length > 0) {
       const prods = await Promise.all(items.map(async (sp) => {
         let variants = []
+        const spImg = sp.anhDaiDien || (sp.hinhAnhs && sp.hinhAnhs[0]) || sp.image || sp.hinhAnh || ''
         try {
           const varRes = await api.get(`/api/chi-tiet-san-pham/by-san-pham/${sp.id}`)
           if (varRes.data && varRes.data.length > 0) {
@@ -2313,7 +2373,8 @@ const fetchRealProductsFromDB = async () => {
               mauSac: v.tenMauSac || v.idMauSac?.tenMauSac || 'Đen',
               kichCo: v.tenKichCo || v.idKichCo?.tenKichCo || 'M',
               gia: v.giaBan || 199000,
-              soLuong: v.soLuong || 50
+              soLuong: v.soLuong || 50,
+              hinhAnh: v.anhDaiDien || spImg || ''
             }))
           }
         } catch (e) {
@@ -2322,12 +2383,13 @@ const fetchRealProductsFromDB = async () => {
           id: sp.id,
           ma: sp.maSanPham || ('SP' + sp.id),
           ten: sp.tenSanPham || 'Áo phông FFTShirt',
+          hinhAnh: spImg,
           thuongHieu: sp.tenThuongHieu || sp.idThuongHieu?.tenThuongHieu || 'FF Shirt',
           chatLieu: sp.tenChatLieu || sp.idChatLieu?.tenChatLieu || 'Cotton 100%',
           gia: sp.giaBan || (variants[0]?.gia || 199000),
           selected: false,
           variants: variants.length > 0 ? variants : [
-            { id: sp.id * 10 + 1, maBienThe: (sp.maSanPham || 'SP') + '-M', mauSac: 'Đen', kichCo: 'M', gia: 199000, soLuong: 50 }
+            { id: sp.id * 10 + 1, maBienThe: (sp.maSanPham || 'SP') + '-M', mauSac: 'Đen', kichCo: 'M', gia: 199000, soLuong: 50, hinhAnh: spImg }
           ]
         }
       }))
@@ -2381,23 +2443,23 @@ onUnmounted(() => {
 /* Toast Notification trên góc phải màn hình */
 .toast-msg {
   position: fixed;
-  top: 24px;
-  right: 28px;
-  min-width: 320px;
-  max-width: 460px;
-  padding: 1rem 1.2rem;
-  border-radius: 10px;
+  top: 18px;
+  right: 22px;
+  min-width: 250px;
+  max-width: 360px;
+  padding: 0.65rem 0.95rem;
+  border-radius: 8px;
   display: flex;
   align-items: center;
-  gap: 0.9rem;
+  gap: 0.65rem;
   background: #ffffff;
   border: 1px solid #e5e7eb;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 8px 18px -4px rgba(0, 0, 0, 0.1), 0 3px 6px -3px rgba(0, 0, 0, 0.04);
   z-index: 999999;
 }
 .toast-icon {
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -2407,28 +2469,28 @@ onUnmounted(() => {
 .toast-content {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 1px;
   flex: 1;
 }
 .toast-title {
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 750;
   color: #111827;
   line-height: 1.25;
 }
 .toast-text {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 500;
   color: #4b5563;
-  line-height: 1.4;
+  line-height: 1.35;
 }
 .toast-btn-close {
   background: transparent;
   border: none;
-  font-size: 1rem;
+  font-size: 0.85rem;
   color: #9ca3af;
   cursor: pointer;
-  padding: 4px;
+  padding: 2px 4px;
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -2444,21 +2506,21 @@ onUnmounted(() => {
 
 /* Biến thể màu cho Toast tinh tế (không nền chói lọi) */
 .toast-success {
-  border-left: 4px solid #16a34a;
+  border-left: 3.5px solid #16a34a;
 }
 .toast-success .toast-icon {
   background-color: #f0fdf4;
   color: #16a34a;
 }
 .toast-error {
-  border-left: 4px solid #dc2626;
+  border-left: 3.5px solid #dc2626;
 }
 .toast-error .toast-icon {
   background-color: #fef2f2;
   color: #dc2626;
 }
 .toast-info {
-  border-left: 4px solid #2563eb;
+  border-left: 3.5px solid #2563eb;
 }
 .toast-info .toast-icon {
   background-color: #eff6ff;
@@ -4146,6 +4208,13 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+}
+.product-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .product-cell-info {
   display: flex;
