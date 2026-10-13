@@ -70,4 +70,13 @@ public class SanPhamController {
         sanPhamService.delete(id);
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/{id}/apply-discount")
+    public ResponseEntity<Void> applyDiscount(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long idDotGiamGia
+    ) {
+        sanPhamService.applyDiscountToProduct(id, idDotGiamGia);
+        return ResponseEntity.ok().build();
+    }
 }

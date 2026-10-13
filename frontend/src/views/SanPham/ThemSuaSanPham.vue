@@ -163,10 +163,11 @@
           <!-- Trạng thái (chỉ hiển thị khi chỉnh sửa) -->
           <div class="form-item" v-if="isEdit">
             <label class="item-label">Trạng thái <span class="text-danger">*</span></label>
-            <select v-model.number="form.trangThai" class="form-select" required>
-              <option :value="1">Đang kinh doanh</option>
-              <option :value="0">Ngừng kinh doanh</option>
-            </select>
+            <Select2
+              v-model="form.trangThai"
+              :options="statusOptions"
+              placeholder="Chọn trạng thái"
+            />
           </div>
         </div>
       </div>
@@ -742,6 +743,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../../api'
 import AttributeCombobox from '../../components/AttributeCombobox.vue'
+import Select2 from '../../components/Select2.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -822,6 +824,11 @@ const form = ref({
   trangThai: 1,
   moTa: ''
 })
+
+const statusOptions = [
+  { value: 1, label: 'Đang kinh doanh' },
+  { value: 0, label: 'Ngừng kinh doanh' }
+]
 
 // Chọn màu sắc & kích cỡ
 const selectedColors = ref([])
@@ -1447,8 +1454,23 @@ const openSaveConfirm = () => {
     return
   }
 
+  // Kiểm tra và tự động sinh biến thể nếu đã chọn màu và size nhưng chưa bấm tạo biến thể
+  if (variantsList.value.length === 0 && selectedColors.value.length > 0 && selectedSizes.value.length > 0) {
+    generateVariants()
+  }
+
+  if (variantsList.value.length === 0) {
+    showToast('Vui lòng chọn Màu sắc, Kích cỡ và nhấn "Tạo biến thể tự động" để nhập Số lượng và Giá bán cho sản phẩm!', 'error')
+    return
+  }
+
   // Validate các biến thể được chọn
   const activeVariants = variantsList.value.filter(v => v.selected !== false)
+  if (activeVariants.length === 0) {
+    showToast('Vui lòng chọn ít nhất một biến thể để lưu cùng sản phẩm!', 'error')
+    return
+  }
+
   for (const v of activeVariants) {
     const label = `${v.tenMauSac || 'Màu'} - ${v.tenKichCo || 'Size'}`
     if (v.soLuong === '' || v.soLuong === null || v.soLuong === undefined) {
@@ -1466,8 +1488,8 @@ const openSaveConfirm = () => {
       return
     }
     const gb = Number(v.giaBan)
-    if (isNaN(gb) || !Number.isInteger(gb) || gb < 0 || gb > 1000000000) {
-      showToast(`Giá bán biến thể (${label}) phải là số nguyên từ 0 đến 1,000,000,000 VNĐ!`, 'error')
+    if (isNaN(gb) || !Number.isInteger(gb) || gb <= 0 || gb > 1000000000) {
+      showToast(`Giá bán của biến thể (${label}) phải lớn hơn 0 VNĐ và tối đa 1,000,000,000 VNĐ!`, 'error')
       return
     }
   }
@@ -1477,7 +1499,7 @@ const openSaveConfirm = () => {
 
   openConfirm({
     title: isEdit.value ? 'Xác nhận chỉnh sửa sản phẩm' : 'Xác nhận lưu sản phẩm',
-    message: `Bạn có muốn ${actionText} sản phẩm "${ten}"${countVar > 0 ? ` cùng ${countVar} biến thể` : ''} không?`,
+    message: `Bạn có muốn ${actionText} sản phẩm "${ten}" cùng ${countVar} biến thể không?`,
     type: 'primary',
     confirmText: isEdit.value ? 'Xác nhận cập nhật' : 'Xác nhận lưu',
     onConfirm: submitForm
@@ -1520,7 +1542,7 @@ const submitForm = async () => {
       showToast('Thêm mới sản phẩm thành công!')
     }
 
-    // Nếu có biến thể, lưu danh sách biến thể được chọn
+    // Lưu danh sách biến thể được chọn
     const activeVariants = variantsList.value.filter(v => v.selected !== false)
     if (savedProduct && savedProduct.id && activeVariants.length > 0) {
       const variantPayloads = activeVariants.map(v => ({
@@ -1528,8 +1550,8 @@ const submitForm = async () => {
         idSanPham: savedProduct.id,
         idMauSac: v.idMauSac,
         idKichCo: v.idKichCo,
-        soLuong: v.soLuong || 0,
-        giaBan: v.giaBan || 0,
+        soLuong: Math.max(0, parseInt(v.soLuong, 10) || 0),
+        giaBan: Math.max(0, parseInt(v.giaBan, 10) || 0),
         trangThai: isEdit.value ? (v.trangThai ?? 1) : 1
       }))
 
@@ -1537,10 +1559,20 @@ const submitForm = async () => {
         await api.post('/api/chi-tiet-san-pham/batch', variantPayloads)
       } catch (vErr) {
         console.warn('Lỗi lưu danh sách biến thể qua batch, thử lưu lẻ:', vErr)
+        let savedCount = 0
+        let lastError = null
         for (const vReq of variantPayloads) {
           try {
             await api.post('/api/chi-tiet-san-pham', vReq)
-          } catch (_) {}
+            savedCount++
+          } catch (singleErr) {
+            lastError = singleErr
+          }
+        }
+        if (savedCount === 0 && variantPayloads.length > 0) {
+          const errMsg = lastError?.response?.data?.message || 'Không thể lưu các biến thể của sản phẩm!'
+          showToast(errMsg, 'error')
+          throw new Error(errMsg)
         }
       }
     }

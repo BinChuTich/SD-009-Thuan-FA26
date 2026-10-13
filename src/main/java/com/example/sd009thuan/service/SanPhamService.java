@@ -39,6 +39,8 @@ public class SanPhamService {
     private final CoAoRepository coAoRepository;
     private final TayAoRepository tayAoRepository;
     private final HoaTietRepository hoaTietRepository;
+    private final ChiTietDotGiamGiaRepository chiTietDotGiamGiaRepository;
+    private final DotGiamGiaRepository dotGiamGiaRepository;
 
     public SanPhamService(
             SanPhamRepository sanPhamRepository,
@@ -50,7 +52,9 @@ public class SanPhamService {
             DanhMucRepository danhMucRepository,
             CoAoRepository coAoRepository,
             TayAoRepository tayAoRepository,
-            HoaTietRepository hoaTietRepository
+            HoaTietRepository hoaTietRepository,
+            ChiTietDotGiamGiaRepository chiTietDotGiamGiaRepository,
+            DotGiamGiaRepository dotGiamGiaRepository
     ) {
         this.sanPhamRepository = sanPhamRepository;
         this.chiTietSanPhamRepository = chiTietSanPhamRepository;
@@ -62,6 +66,8 @@ public class SanPhamService {
         this.coAoRepository = coAoRepository;
         this.tayAoRepository = tayAoRepository;
         this.hoaTietRepository = hoaTietRepository;
+        this.chiTietDotGiamGiaRepository = chiTietDotGiamGiaRepository;
+        this.dotGiamGiaRepository = dotGiamGiaRepository;
     }
 
     private Specification<SanPham> buildSpecification(SanPhamFilterRequest req) {
@@ -217,6 +223,10 @@ public class SanPhamService {
             }
         }
 
+        if (req.getIdDotGiamGia() != null) {
+            applyDiscountToProduct(saved.getId(), req.getIdDotGiamGia());
+        }
+
         return convertToResponse(saved);
     }
 
@@ -313,6 +323,10 @@ public class SanPhamService {
                     hinhAnhRepository.save(ha);
                 }
             }
+        }
+
+        if (req.getIdDotGiamGia() != null) {
+            applyDiscountToProduct(updated.getId(), req.getIdDotGiamGia());
         }
 
         return convertToResponse(updated);
@@ -523,6 +537,32 @@ public class SanPhamService {
         }
     }
 
+    @Transactional
+    public void applyDiscountToProduct(Long sanPhamId, Long dotGiamGiaId) {
+        if (sanPhamId == null) return;
+        List<ChiTietSanPham> variants = chiTietSanPhamRepository.findByIdSanPham_Id(sanPhamId);
+        if (variants == null || variants.isEmpty()) return;
+
+        List<ChiTietDotGiamGia> old = chiTietDotGiamGiaRepository.findActiveDiscountsBySanPhamId(sanPhamId);
+        if (old != null && !old.isEmpty()) {
+            chiTietDotGiamGiaRepository.deleteAll(old);
+        }
+
+        if (dotGiamGiaId != null && dotGiamGiaId > 0) {
+            DotGiamGia dgg = dotGiamGiaRepository.findById(dotGiamGiaId).orElse(null);
+            if (dgg != null) {
+                for (ChiTietSanPham ct : variants) {
+                    ChiTietDotGiamGia cd = new ChiTietDotGiamGia();
+                    cd.setIdDotGiamGia(dgg);
+                    cd.setIdChiTietSanPham(ct);
+                    cd.setPhanTramGiamBienThe(dgg.getPhanTramGiam());
+                    cd.setTrangThai(1);
+                    chiTietDotGiamGiaRepository.save(cd);
+                }
+            }
+        }
+    }
+
     private SanPhamResponse convertToResponse(SanPham sp) {
         BigDecimal minGia = chiTietSanPhamRepository.findMinPriceBySanPhamId(sp.getId());
         BigDecimal maxGia = chiTietSanPhamRepository.findMaxPriceBySanPhamId(sp.getId());
@@ -538,6 +578,48 @@ public class SanPhamService {
             }
             return ha.getDuongDan();
         }).toList() : List.of();
+
+        // Tính toán thông tin đợt giảm giá & giá bán sau giảm
+        Long idDotGiamGia = null;
+        String tenDotGiamGia = null;
+        BigDecimal phanTramGiam = null;
+        BigDecimal minGiaSauGiam = minGia;
+        BigDecimal maxGiaSauGiam = maxGia;
+        boolean coGiamGia = false;
+
+        List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsBySanPhamId(sp.getId());
+        if (activeDiscounts != null && !activeDiscounts.isEmpty()) {
+            java.time.Instant now = java.time.Instant.now();
+            ChiTietDotGiamGia validDiscount = null;
+            for (ChiTietDotGiamGia cd : activeDiscounts) {
+                DotGiamGia d = cd.getIdDotGiamGia();
+                if (d != null && d.getTrangThai() != null && d.getTrangThai() == 1) {
+                    boolean started = d.getNgayBatDau() == null || !now.isBefore(d.getNgayBatDau());
+                    boolean notEnded = d.getNgayKetThuc() == null || !now.isAfter(d.getNgayKetThuc());
+                    if (started && notEnded) {
+                        validDiscount = cd;
+                        break;
+                    }
+                }
+            }
+
+            if (validDiscount != null) {
+                DotGiamGia d = validDiscount.getIdDotGiamGia();
+                idDotGiamGia = d.getId();
+                tenDotGiamGia = d.getTenDotGiamGia();
+                phanTramGiam = validDiscount.getPhanTramGiamBienThe() != null ? validDiscount.getPhanTramGiamBienThe() : d.getPhanTramGiam();
+                if (phanTramGiam != null && phanTramGiam.compareTo(BigDecimal.ZERO) > 0) {
+                    coGiamGia = true;
+                    BigDecimal factor = BigDecimal.valueOf(100).subtract(phanTramGiam).divide(BigDecimal.valueOf(100), 4, java.math.RoundingMode.HALF_UP);
+                    if (minGia != null) {
+                        minGiaSauGiam = minGia.multiply(factor).setScale(0, java.math.RoundingMode.HALF_UP);
+                    }
+                    if (maxGia != null) {
+                        maxGiaSauGiam = maxGia.multiply(factor).setScale(0, java.math.RoundingMode.HALF_UP);
+                    }
+                }
+            }
+        }
 
         return SanPhamResponse.builder()
                 .id(sp.getId())
@@ -568,6 +650,12 @@ public class SanPhamService {
                 .soLuongBienThe(variants != null ? variants.size() : 0)
                 .anhDaiDien(anhDaiDien)
                 .hinhAnhs(hinhAnhs)
+                .idDotGiamGia(idDotGiamGia)
+                .tenDotGiamGia(tenDotGiamGia)
+                .phanTramGiam(phanTramGiam)
+                .minGiaSauGiam(minGiaSauGiam)
+                .maxGiaSauGiam(maxGiaSauGiam)
+                .coGiamGia(coGiamGia)
                 .build();
     }
 }

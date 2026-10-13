@@ -7,7 +7,10 @@ import com.example.sd009thuan.entity.ChiTietSanPham;
 import com.example.sd009thuan.entity.KichCo;
 import com.example.sd009thuan.entity.MauSac;
 import com.example.sd009thuan.entity.SanPham;
+import com.example.sd009thuan.entity.DotGiamGia;
+import com.example.sd009thuan.entity.ChiTietDotGiamGia;
 import com.example.sd009thuan.repository.ChiTietSanPhamRepository;
+import com.example.sd009thuan.repository.ChiTietDotGiamGiaRepository;
 import com.example.sd009thuan.repository.KichCoRepository;
 import com.example.sd009thuan.repository.MauSacRepository;
 import com.example.sd009thuan.repository.SanPhamRepository;
@@ -30,7 +33,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 public class ChiTietSanPhamService {
@@ -40,19 +45,22 @@ public class ChiTietSanPhamService {
     private final KichCoRepository kichCoRepository;
     private final MauSacRepository mauSacRepository;
     private final com.example.sd009thuan.repository.HinhAnhRepository hinhAnhRepository;
+    private final ChiTietDotGiamGiaRepository chiTietDotGiamGiaRepository;
 
     public ChiTietSanPhamService(
             ChiTietSanPhamRepository chiTietSanPhamRepository,
             SanPhamRepository sanPhamRepository,
             KichCoRepository kichCoRepository,
             MauSacRepository mauSacRepository,
-            com.example.sd009thuan.repository.HinhAnhRepository hinhAnhRepository
+            com.example.sd009thuan.repository.HinhAnhRepository hinhAnhRepository,
+            ChiTietDotGiamGiaRepository chiTietDotGiamGiaRepository
     ) {
         this.chiTietSanPhamRepository = chiTietSanPhamRepository;
         this.sanPhamRepository = sanPhamRepository;
         this.kichCoRepository = kichCoRepository;
         this.mauSacRepository = mauSacRepository;
         this.hinhAnhRepository = hinhAnhRepository;
+        this.chiTietDotGiamGiaRepository = chiTietDotGiamGiaRepository;
     }
 
     public List<ChiTietSanPhamResponse> getBySanPhamId(Long idSanPham) {
@@ -138,6 +146,25 @@ public class ChiTietSanPhamService {
         ct.setNguoiTao(req.getNguoiThaoTac() != null ? req.getNguoiThaoTac() : "Admin");
 
         ChiTietSanPham saved = chiTietSanPhamRepository.save(ct);
+
+        // Tự động liên kết với đợt giảm giá đang hoạt động của sản phẩm (nếu có)
+        try {
+            List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsBySanPhamId(sp.getId());
+            if (activeDiscounts != null && !activeDiscounts.isEmpty()) {
+                ChiTietDotGiamGia sample = activeDiscounts.get(0);
+                if (sample.getIdDotGiamGia() != null) {
+                    ChiTietDotGiamGia newCd = new ChiTietDotGiamGia();
+                    newCd.setIdDotGiamGia(sample.getIdDotGiamGia());
+                    newCd.setIdChiTietSanPham(saved);
+                    newCd.setPhanTramGiamBienThe(sample.getPhanTramGiamBienThe() != null ? sample.getPhanTramGiamBienThe() : sample.getIdDotGiamGia().getPhanTramGiam());
+                    newCd.setTrangThai(1);
+                    chiTietDotGiamGiaRepository.save(newCd);
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Không thể tự động liên kết đợt giảm giá cho CTSP {}: {}", saved.getId(), ex.getMessage());
+        }
+
         return convertToResponse(saved);
     }
 
@@ -399,6 +426,36 @@ public class ChiTietSanPhamService {
             }
         }
 
+        // Tính toán đợt giảm giá & giá bán sau giảm của biến thể
+        Long idDotGiamGia = null;
+        String tenDotGiamGia = null;
+        BigDecimal phanTramGiam = null;
+        BigDecimal giaSauGiam = ct.getGiaBan();
+        boolean coGiamGia = false;
+
+        List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsByCtspId(ct.getId());
+        if (activeDiscounts != null && !activeDiscounts.isEmpty()) {
+            java.time.Instant now = java.time.Instant.now();
+            for (ChiTietDotGiamGia cd : activeDiscounts) {
+                DotGiamGia d = cd.getIdDotGiamGia();
+                if (d != null && d.getTrangThai() != null && d.getTrangThai() == 1) {
+                    boolean started = d.getNgayBatDau() == null || !now.isBefore(d.getNgayBatDau());
+                    boolean notEnded = d.getNgayKetThuc() == null || !now.isAfter(d.getNgayKetThuc());
+                    if (started && notEnded) {
+                        idDotGiamGia = d.getId();
+                        tenDotGiamGia = d.getTenDotGiamGia();
+                        phanTramGiam = cd.getPhanTramGiamBienThe() != null ? cd.getPhanTramGiamBienThe() : d.getPhanTramGiam();
+                        if (phanTramGiam != null && phanTramGiam.compareTo(BigDecimal.ZERO) > 0 && ct.getGiaBan() != null) {
+                            coGiamGia = true;
+                            BigDecimal factor = BigDecimal.valueOf(100).subtract(phanTramGiam).divide(BigDecimal.valueOf(100), 4, java.math.RoundingMode.HALF_UP);
+                            giaSauGiam = ct.getGiaBan().multiply(factor).setScale(0, java.math.RoundingMode.HALF_UP);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
         return ChiTietSanPhamResponse.builder()
                 .id(ct.getId())
                 .idSanPham(ct.getIdSanPham() != null ? ct.getIdSanPham().getId() : null)
@@ -415,6 +472,11 @@ public class ChiTietSanPhamService {
                 .trangThai(ct.getTrangThai())
                 .ngayTao(ct.getNgayTao())
                 .anhDaiDien(anhDaiDien)
+                .idDotGiamGia(idDotGiamGia)
+                .tenDotGiamGia(tenDotGiamGia)
+                .phanTramGiam(phanTramGiam)
+                .giaSauGiam(giaSauGiam)
+                .coGiamGia(coGiamGia)
                 .build();
     }
 
