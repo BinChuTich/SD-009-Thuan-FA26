@@ -669,7 +669,6 @@
                 <th style="width: 140px;">Giá bán</th>
                 <th style="width: 150px;">Giá sau giảm</th>
                 <th style="width: 110px; text-align: center;">Số lượng</th>
-                <th style="width: 60px; text-align: center;"></th>
               </tr>
             </thead>
             <tbody>
@@ -708,14 +707,9 @@
                 <td style="text-align: center;">
                   <span class="badge-pill badge-qty">{{ v.soLuong }}</span>
                 </td>
-                <td style="text-align: center;">
-                  <button class="btn-delete-cross" @click="removeSelectedVariant(v.id)" title="Gỡ bỏ biến thể này">
-                    ✕
-                  </button>
-                </td>
               </tr>
               <tr v-if="displaySelectedVariants.length === 0">
-                <td colspan="7" class="empty-cell">Chưa có biến thể nào được chọn áp dụng!</td>
+                <td colspan="6" class="empty-cell">Chưa có biến thể nào được chọn áp dụng!</td>
               </tr>
             </tbody>
           </table>
@@ -2318,10 +2312,10 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 
-/* Toast Notification dưới góc phải màn hình */
+/* Toast Notification trên góc phải màn hình */
 .toast-msg {
   position: fixed;
-  bottom: 24px;
+  top: 24px;
   right: 28px;
   min-width: 320px;
   max-width: 460px;
@@ -2332,8 +2326,8 @@ onUnmounted(() => {
   gap: 0.9rem;
   background: #ffffff;
   border: 1px solid #e5e7eb;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-  z-index: 99999;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  z-index: 999999;
 }
 .toast-icon {
   width: 34px;
@@ -2405,18 +2399,18 @@ onUnmounted(() => {
   color: #2563eb;
 }
 
-/* Hiệu ứng trượt từ góc phải */
+/* Hiệu ứng trượt từ góc trên phải */
 .toast-slide-enter-active,
 .toast-slide-leave-active {
   transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .toast-slide-enter-from {
   opacity: 0;
-  transform: translateY(25px) translateX(35px);
+  transform: translateY(-25px) translateX(35px);
 }
 .toast-slide-leave-to {
   opacity: 0;
-  transform: translateY(25px) translateX(35px);
+  transform: translateY(-25px) translateX(35px);
 }
 
 /* Header breadcrumb: Tăng khoảng cách lề thoáng đãng */
