@@ -172,35 +172,35 @@ import { dialogState, handleConfirmChoice, handleAlertClose, removeToast } from 
 }
 
 .toast-success {
-  border-left: 5px solid #16a34a;
-  color: #15803d;
+  border-left: 5px solid #4c8a5a;
+  color: #3b7047;
 }
 .toast-success .toast-icon {
-  color: #16a34a;
+  color: #4c8a5a;
 }
 
 .toast-error {
-  border-left: 5px solid #dc2626;
-  color: #b91c1c;
+  border-left: 5px solid #c0392b;
+  color: #a5281b;
 }
 .toast-error .toast-icon {
-  color: #dc2626;
+  color: #c0392b;
 }
 
 .toast-warning {
-  border-left: 5px solid #d97706;
-  color: #b45309;
+  border-left: 5px solid #b38e6e;
+  color: #8c6328;
 }
 .toast-warning .toast-icon {
-  color: #d97706;
+  color: #b38e6e;
 }
 
 .toast-info {
-  border-left: 5px solid #2563eb;
-  color: #1d4ed8;
+  border-left: 5px solid #496883;
+  color: #376384;
 }
 .toast-info .toast-icon {
-  color: #2563eb;
+  color: #496883;
 }
 
 .toast-icon {
@@ -305,28 +305,28 @@ import { dialogState, handleConfirmChoice, handleAlertClose, removeToast } from 
 }
 
 .icon-question {
-  background-color: #e8f0fe;
-  color: #1a73e8;
+  background-color: #edf5fa;
+  color: #496883;
 }
 
 .icon-warning {
-  background-color: #fef3c7;
-  color: #d97706;
+  background-color: #fff9f0;
+  color: #b38e6e;
 }
 
 .icon-danger {
-  background-color: #fee2e2;
-  color: #dc2626;
+  background-color: #fdeded;
+  color: #c0392b;
 }
 
 .icon-success {
-  background-color: #dcfce7;
-  color: #16a34a;
+  background-color: #edf5ef;
+  color: #4c8a5a;
 }
 
 .icon-error {
-  background-color: #fee2e2;
-  color: #dc2626;
+  background-color: #fdeded;
+  color: #c0392b;
 }
 
 .dialog-title {
