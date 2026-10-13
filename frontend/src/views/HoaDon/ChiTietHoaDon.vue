@@ -50,24 +50,6 @@ const quayLaiBanHang = () => {
   router.push('/ban-hang')
 }
 
-// SVG Placeholder khi sản phẩm chưa có ảnh
-const defaultImage = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'%3E%3C/circle%3E%3Cpolyline points='21 15 16 10 5 21'%3E%3C/polyline%3E%3C/svg%3E"
-
-const formatImageUrl = (url) => {
-  if (!url) return defaultImage
-  let cleanUrl = String(url)
-  if (cleanUrl.includes('|')) {
-    cleanUrl = cleanUrl.split('|')[1]
-  }
-  if (!cleanUrl) return defaultImage
-  if (cleanUrl.startsWith('data:') || cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) return cleanUrl
-  return `http://localhost:8080${cleanUrl.startsWith('/') ? '' : '/'}${cleanUrl}`
-}
-
-const onImgError = (e) => {
-  e.target.src = defaultImage
-}
-
 const formatDateTime = (date) => {
   if (!date) return ''
   const parsed = new Date(date)
@@ -465,31 +447,11 @@ const mapInvoiceItem = (item, index) => {
       `SP00${index + 1}`
   )
 
-  const productId = product['id'] || variant['idSanPham'] || raw['idSanPham'] || null
-
-  const rawImg = getString(
-      raw['anhDaiDien'],
-      raw['hinhAnh'],
-      raw['duongDanAnh'],
-      raw['duongDan'],
-      variant['anhDaiDien'],
-      variant['hinhAnh'],
-      variant['duongDanAnh'],
-      product['anhDaiDien'],
-      product['hinhAnh'],
-      product['duongDanAnh'],
-      matchedCatalog['image'],
-      matchedCatalog['anhDaiDien'],
-      ''
-  )
-
   return {
     id: raw['id'] || (index + 1),
-    productId,
     code: productCode,
     variantCode: variantCode || matchedCatalog['variantCode'] || `CTSP0${index + 1}`,
     name: productName,
-    image: rawImg,
     color: colorText,
     colorHex,
     size: sizeText,
@@ -542,47 +504,34 @@ const loadDetail = async (identifier) => {
     const returnedCode = getString(data['maHoaDon'], data['code'], queryParam)
     invoiceData.value.code = returnedCode
 
-    // 1. Khách hàng: lấy từ bảng khóa ngoại KhachHang và dữ liệu hóa đơn
+    // 1. Khách hàng: lấy từ bảng khóa ngoại KhachHang và catalog DB
     const khachHangObj = data['idKhachHang'] || data['khachHang'] || {}
-    const rawCustomerName = (getString(
-        data['tenKhachHang'],
-        data['tenKhachHangHienThi'],
+    const rawCustomerName = getString(
         khachHangObj['tenKhachHang'],
+        data['tenKhachHangHienThi'],
+        data['tenKhachHang'],
         data['customerName'],
         khachHangObj['taiKhoan'],
-        ''
-    ) || '').trim()
-
-    // Nếu khách không để lại thông tin, tự động note tên khách hàng là "Khách lẻ"
-    const resolvedCustomerName = (!rawCustomerName || rawCustomerName === '---' || rawCustomerName === '—' || rawCustomerName.toLowerCase() === 'null')
-      ? 'Khách lẻ'
-      : rawCustomerName
-
-    const customerCatalog = DB_CUSTOMER_CATALOG[resolvedCustomerName] || DB_CUSTOMER_CATALOG[data['idKhachHang']] || DB_CUSTOMER_CATALOG[data['soDienThoaiKhachHang']] || {}
+        'Khách lẻ'
+    )
+    const customerCatalog = DB_CUSTOMER_CATALOG[rawCustomerName] || DB_CUSTOMER_CATALOG[data['idKhachHang']] || DB_CUSTOMER_CATALOG[data['soDienThoaiKhachHang']] || {}
 
     invoiceData.value.customer = {
-      name: resolvedCustomerName,
-      code: getString(
-        khachHangObj['maKhachHang'],
-        data['maKhachHang'],
-        customerCatalog['code'],
-        '—'
-      ),
+      name: rawCustomerName !== 'Khách lẻ' ? rawCustomerName : (customerCatalog['name'] || 'Khách lẻ'),
       phone: getString(
-        data['soDienThoaiKhachHang'],
-        data['soDienThoaiHienThi'],
         khachHangObj['soDienThoai'],
+        data['soDienThoaiHienThi'],
+        data['soDienThoaiKhachHang'],
         data['soDienThoai'],
         customerCatalog['phone'],
         data['sdt'],
-        '—'
+        '---'
       ),
       email: getString(
-        data['emailKhachHang'],
         khachHangObj['email'],
         data['email'],
         customerCatalog['email'],
-        '—'
+        '---'
       )
     }
 
@@ -625,7 +574,6 @@ const loadDetail = async (identifier) => {
     invoiceData.value.delivery = {
       address: getString(data['diaChiNhanHang'], data['diaChi'], data['address'], '—'),
       type: Number(data['loaiDon']) === 1 ? 'Tại quầy' : 'Online',
-      loaiDon: Number(data['loaiDon']),
       carrier: getString(data['donViVanChuyen'], data['tenDonViVanChuyen'], data['carrier'], '—'),
       receiveType: Number(data['loaiDon']) === 1 ? 'Nhận tại quầy' : 'Giao hàng tận nơi',
       note: getString(data['ghiChu'], data['note'], '—')
@@ -653,18 +601,6 @@ const loadDetail = async (identifier) => {
 
     const detailList = Array.isArray(rawList) ? rawList : []
     invoiceData.value.items = detailList.map(mapInvoiceItem)
-
-    // Bổ sung ảnh đại diện sản phẩm nếu dữ liệu hóa đơn chi tiết ban đầu chưa có
-    invoiceData.value.items.forEach(async (it) => {
-      if (!it.image && it.productId) {
-        try {
-          const spRes = await api.get(`/api/san-pham/${it.productId}`)
-          if (spRes?.data?.anhDaiDien) {
-            it.image = spRes.data.anhDaiDien
-          }
-        } catch (_) {}
-      }
-    })
 
     // Tự động tính toán tổng tiền chuẩn xác từ tất cả sản phẩm trong hóa đơn chi tiết
     const calcSum = invoiceData.value.items.reduce((sum, it) => sum + it.total, 0)
@@ -858,20 +794,19 @@ const validateCustomerForm = () => {
   const addressVal = (editCustomerForm.value.address || '').trim()
   const noteVal = (editCustomerForm.value.note || '').trim()
 
-  // 1. Validate Tên khách hàng: Nếu khách không để lại thông tin, tự động note là "Khách lẻ"
-  if (!nameVal || nameVal === '' || nameVal === '---' || nameVal === '—') {
-    editCustomerForm.value.name = 'Khách lẻ'
-  } else if (nameVal !== 'Khách lẻ') {
-    if (nameVal.length < 2) {
-      editErrors.value.name = 'Tên khách hàng phải có ít nhất 2 ký tự'
-      isValid = false
-    } else if (nameVal.length > 100) {
-      editErrors.value.name = 'Tên khách hàng không được vượt quá 100 ký tự'
-      isValid = false
-    } else if (/[<>{}()[\]$%^*@=+#_~`|\\/?!]/.test(nameVal)) {
-      editErrors.value.name = 'Tên khách hàng không được chứa ký tự đặc biệt'
-      isValid = false
-    }
+  // 1. Validate Tên khách hàng
+  if (!nameVal) {
+    editErrors.value.name = 'Họ và tên khách hàng không được để trống'
+    isValid = false
+  } else if (nameVal.length < 2) {
+    editErrors.value.name = 'Tên khách hàng phải có ít nhất 2 ký tự'
+    isValid = false
+  } else if (nameVal.length > 100) {
+    editErrors.value.name = 'Tên khách hàng không được vượt quá 100 ký tự'
+    isValid = false
+  } else if (/[<>{}()[\]$%^*@=+#_~`|\\/?!]/.test(nameVal)) {
+    editErrors.value.name = 'Tên khách hàng không được chứa ký tự đặc biệt'
+    isValid = false
   }
 
   // 2. Validate Số điện thoại
@@ -1035,16 +970,11 @@ const handleSaveEditModal = async () => {
     }
     updatingStatus.value = true
     try {
-      const finalCustName = (editCustomerForm.value.name && editCustomerForm.value.name.trim()) ? editCustomerForm.value.name.trim() : 'Khách lẻ'
-      const phoneVal = (editCustomerForm.value.phone || '').trim()
-      const addressVal = (editCustomerForm.value.address || '').trim()
-      const noteVal = (editCustomerForm.value.note || '').trim()
-
       await api.put(`/api/hoa-don/${id}`, {
-        tenKhachHang: finalCustName,
-        soDienThoaiKhachHang: phoneVal,
-        diaChiNhanHang: addressVal,
-        ghiChu: noteVal
+        tenKhachHang: editCustomerForm.value.name.trim(),
+        soDienThoaiKhachHang: editCustomerForm.value.phone.trim() || null,
+        diaChiNhanHang: editCustomerForm.value.address.trim() || null,
+        ghiChu: editCustomerForm.value.note.trim() || null
       })
       showToast('Đã lưu thông tin khách hàng thành công!')
       showStatusModal.value = false
@@ -1216,7 +1146,7 @@ const nextStatusInfo = computed(() => {
     case 2:
       return { nextStatus: 3, label: 'Chờ Vận Chuyển' }
     case 3:
-      return { nextStatus: 4, label: 'Đang Vận Chuyển' }
+      return { nextStatus: 4, label: 'Giao Vận Chuyển' }
     case 4:
       return { nextStatus: 5, label: 'Hoàn Thành Đơn' }
     default:
@@ -1493,22 +1423,6 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="stepper-footer-right">
-            <button
-                v-if="nextStatusInfo"
-                class="btn-next-status"
-                type="button"
-                :disabled="updatingStatus"
-                @click="handleNextStatus"
-                :title="'Chuyển sang: ' + nextStatusInfo.label"
-            >
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 16 16 12 12 8"></polyline>
-                <line x1="8" y1="12" x2="16" y2="12"></line>
-              </svg>
-              <span>Trạng thái tiếp theo: <strong>{{ nextStatusInfo.label }}</strong></span>
-            </button>
-
             <button class="btn-history-outline" type="button" @click="showHistoryModal = true">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"></circle>
@@ -1741,7 +1655,6 @@ onBeforeUnmount(() => {
           <tr>
             <th class="col-stt text-center" style="width: 50px;">STT</th>
             <th class="col-code text-left" style="width: 120px;">Mã SP</th>
-            <th class="col-img text-center" style="width: 75px;">Ảnh</th>
             <th class="col-name text-left">Tên Sản Phẩm</th>
             <th class="col-variant text-center" style="width: 150px;">Phân Loại</th>
             <th class="col-qty text-center" style="width: 90px;">Số Lượng</th>
@@ -1751,20 +1664,11 @@ onBeforeUnmount(() => {
           </thead>
           <tbody>
           <tr v-if="filteredProductItems.length === 0">
-            <td colspan="8" class="text-center text-muted" style="padding: 24px;">Không có sản phẩm nào phù hợp với bộ lọc.</td>
+            <td colspan="7" class="text-center text-muted" style="padding: 24px;">Không có sản phẩm nào phù hợp với bộ lọc.</td>
           </tr>
           <tr v-for="(item, index) in filteredProductItems" :key="item.id" class="product-item-row">
             <td class="text-center text-muted">{{ index + 1 }}</td>
             <td class="text-left font-bold text-code">{{ item.code }}</td>
-            <td class="text-center">
-              <div class="table-thumb-box">
-                <img
-                    :src="formatImageUrl(item.image)"
-                    @error="onImgError"
-                    alt="Ảnh sản phẩm"
-                />
-              </div>
-            </td>
             <td class="text-left font-medium">
               <div class="product-name-heading">{{ item.name }}</div>
               <div class="product-sub-variant">Biến thể: {{ item.variantCode || item.code }}</div>
@@ -1933,15 +1837,14 @@ onBeforeUnmount(() => {
           <div v-else class="customer-edit-grid">
             <div class="form-group-modal">
               <label class="modal-label">
-                Tên khách hàng
-                <span class="text-optional">(Nếu khách không để lại thông tin, tự động note là "Khách lẻ")</span>
+                Tên khách hàng <span class="text-danger">*</span>
               </label>
               <input
                   type="text"
                   v-model="editCustomerForm.name"
                   class="modal-input-field"
                   :class="{ 'has-error': editErrors.name }"
-                  placeholder="Nhập tên khách hàng (để trống sẽ tự động lưu là 'Khách lẻ')..."
+                  placeholder="Nhập họ và tên khách hàng..."
                   maxlength="100"
                   @input="editErrors.name = ''"
               />
@@ -2590,39 +2493,7 @@ onBeforeUnmount(() => {
 .stepper-footer-right {
   display: flex;
   justify-content: flex-end;
-  align-items: center;
-  gap: 10px;
   margin-top: 14px;
-  flex-wrap: wrap;
-}
-
-.btn-next-status {
-  background: #3e5c76;
-  border: 1.5px solid #3e5c76;
-  color: #ffffff;
-  border-radius: 8px;
-  padding: 6px 16px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(62, 92, 118, 0.25);
-  transition: all 0.2s ease;
-}
-
-.btn-next-status:hover:not(:disabled) {
-  background: #2b4257;
-  border-color: #243742;
-  box-shadow: 0 4px 10px rgba(62, 92, 118, 0.35);
-  transform: translateY(-1px);
-}
-
-.btn-next-status:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
 }
 
 .btn-history-outline {
@@ -2960,26 +2831,6 @@ onBeforeUnmount(() => {
 
 .product-item-row:hover {
   background: #fcfaf7;
-}
-
-.table-thumb-box {
-  width: 48px;
-  height: 48px;
-  border-radius: 6px;
-  border: 1px solid #ebd9c8;
-  overflow: hidden;
-  background-color: #f7f5ef;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-
-.table-thumb-box img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
 .text-code {
