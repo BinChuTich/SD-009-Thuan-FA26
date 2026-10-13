@@ -183,14 +183,14 @@
             </tr>
 
             <!-- Trạng thái Không có dữ liệu -->
-            <tr v-else-if="campaigns.length === 0">
+            <tr v-else-if="displayCampaigns.length === 0">
               <td colspan="8" class="empty-cell">
                 Không có đợt giảm giá nào phù hợp với bộ lọc hiện tại.
               </td>
             </tr>
 
             <!-- Dữ liệu thực từ Database -->
-            <tr v-else v-for="(item, index) in campaigns" :key="item.id">
+            <tr v-else v-for="(item, index) in displayCampaigns" :key="item.id">
               <td style="text-align: center;" class="text-sub-num">
                 {{ (currentPage - 1) * pageSize + index + 1 }}
               </td>
@@ -209,9 +209,9 @@
               <td style="text-align: center;">
                 <span
                     class="badge-pill-status"
-                    :class="getCampaignStatus(item).class"
+                    :class="item._status.class"
                 >
-                  {{ getCampaignStatus(item).text }}
+                  {{ item._status.text }}
                 </span>
               </td>
 
@@ -222,18 +222,18 @@
                   <label
                     class="status-switch"
                     :class="{
-                      'is-active': item.trangThai === 1,
-                      'is-disabled': getCampaignStatus(item).code === 'ENDED'
+                      'is-active': item.trangThai === 1 && item._status.code !== 'ENDED',
+                      'is-disabled': item._status.code === 'ENDED'
                     }"
-                    :title="getCampaignStatus(item).code === 'ENDED'
+                    :title="item._status.code === 'ENDED'
                       ? 'Đợt giảm giá đã kết thúc, không thể đổi trạng thái'
                       : (item.trangThai === 1 ? 'Bấm để chuyển sang Ngừng hoạt động' : 'Bấm để chuyển sang Đang hoạt động')"
                     @click.prevent="onToggleSwitchClick(item)"
                   >
                     <input
                       type="checkbox"
-                      :checked="item.trangThai === 1"
-                      :disabled="getCampaignStatus(item).code === 'ENDED'"
+                      :checked="item.trangThai === 1 && item._status.code !== 'ENDED'"
+                      :disabled="item._status.code === 'ENDED'"
                       tabindex="-1"
                       class="switch-native-input"
                     />
@@ -261,15 +261,6 @@
 
         <!-- Phân trang đáy bảng chuẩn ảnh mẫu -->
         <div class="pagination-footer-flex" v-if="totalPages > 0">
-          <div class="page-size-left">
-            <select v-model.number="pageSize" @change="onPageSizeChange" class="select-page-size-custom">
-              <option :value="5">5</option>
-              <option :value="10">10</option>
-              <option :value="20">20</option>
-              <option :value="50">50</option>
-            </select>
-          </div>
-
           <div class="pagination-controls-right">
             <button
                 class="pg-btn-box"
@@ -630,13 +621,15 @@
             </div>
           </div>
         </div>
+      </div> <!-- đóng video-right-column -->
+    </div> <!-- đóng video-top-grid -->
 
-        <!-- 2. Thẻ sản phẩm & biến thể đã chọn (được đẩy lên trên vào cột phải) -->
-        <div class="video-card card-applied-variants">
-        <div class="video-card-header header-between">
-          <div class="header-left-group">
-            <h3 class="video-card-title">Sản phẩm & biến thể đã chọn áp dụng</h3>
-          </div>
+    <!-- HÀNG DƯỚI NẰM NGANG: Thẻ sản phẩm & biến thể đã chọn (Full-width ngang bên dưới) -->
+    <div class="video-card card-applied-variants">
+      <div class="video-card-header header-between">
+        <div class="header-left-group">
+          <h3 class="video-card-title">Sản phẩm & biến thể đã chọn áp dụng</h3>
+        </div>
 
           <!-- Bộ lọc bên phải: Màu sắc, Kích cỡ, Tìm kiếm biến thể -->
           <div class="product-top-filters">
@@ -762,8 +755,6 @@
           </div>
         </div>
       </div> <!-- đóng card-applied-variants -->
-        </div> <!-- đóng video-right-column -->
-      </div> <!-- đóng video-top-grid -->
     </div> <!-- đóng view-form -->
 
     <!-- ========================================================
@@ -858,7 +849,7 @@
         <div class="toggle-modal-body">
           <p class="toggle-lead-msg">
             Bạn có chắc chắn muốn chuyển đợt giảm giá <b>[{{ selectedToggleItem.maDotGiamGia || '—' }}]</b> sang trạng thái
-            <b :class="selectedToggleItem.trangThai === 1 ? 'text-danger' : 'text-green'">
+            <b :class="selectedToggleItem.trangThai === 1 ? 'text-beige' : 'text-logo-brand'">
               {{ selectedToggleItem.trangThai === 1 ? 'Ngừng hoạt động' : 'Hoạt động' }}
             </b> không?
           </p>
@@ -875,7 +866,7 @@
             </div>
             <div class="toggle-info-row">
               <span class="toggle-info-label">Trạng thái mới:</span>
-              <span class="toggle-info-val font-bold" :class="selectedToggleItem.trangThai === 1 ? 'text-danger' : 'text-green'">
+              <span class="toggle-info-val font-bold" :class="selectedToggleItem.trangThai === 1 ? 'text-beige' : 'text-logo-brand'">
                 {{ selectedToggleItem.trangThai === 1 ? 'Ngừng hoạt động' : 'Đang hoạt động' }}
               </span>
             </div>
@@ -1603,21 +1594,34 @@ const formatDateTime = (val) => {
 // Tính trạng thái thực tế dựa trên mốc thời gian hiện tại (phản ứng tự động theo currentTime)
 const getCampaignStatus = (item) => {
   if (!item) return { code: 'INACTIVE', text: 'Ngừng hoạt động', class: 'status-pill-inactive' }
-  if (item.trangThai === 0) {
-    return { code: 'INACTIVE', text: 'Ngừng hoạt động', class: 'status-pill-inactive' }
-  }
   const now = currentTime.value
   const start = item.ngayBatDau ? new Date(item.ngayBatDau).getTime() : null
   const end = item.ngayKetThuc ? new Date(item.ngayKetThuc).getTime() : null
 
-  if (start && now < start) {
-    return { code: 'UPCOMING', text: 'Sắp diễn ra', class: 'status-pill-upcoming' }
-  }
+  // 1. Nếu đã qua ngày kết thúc -> Đã kết thúc
   if (end && now >= end) {
     return { code: 'ENDED', text: 'Đã kết thúc', class: 'status-pill-ended' }
   }
+  // 2. Nếu trạng thái bằng 0 (người dùng tắt) -> Ngừng hoạt động
+  if (item.trangThai === 0) {
+    return { code: 'INACTIVE', text: 'Ngừng hoạt động', class: 'status-pill-inactive' }
+  }
+  // 3. Nếu chưa tới ngày bắt đầu -> Sắp diễn ra
+  if (start && now < start) {
+    return { code: 'UPCOMING', text: 'Sắp diễn ra', class: 'status-pill-upcoming' }
+  }
+  // 4. Đang trong khoảng thời gian hiệu lực -> Đang diễn ra
   return { code: 'ACTIVE', text: 'Đang diễn ra', class: 'status-pill-active' }
 }
+
+// Danh sách đợt giảm giá hiển thị tự động cập nhật theo currentTime mỗi giây
+const displayCampaigns = computed(() => {
+  const _now = currentTime.value
+  return (campaigns.value || []).map(item => ({
+    ...item,
+    _status: getCampaignStatus(item)
+  }))
+})
 
 const formatDiscountVal = (item) => {
   if (!item) return '0%'
@@ -1637,10 +1641,10 @@ const formatInputDateDisplay = (val) => {
 
 const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0)
 
-// Load dữ liệu
-const fetchData = async () => {
+// Load dữ liệu (hỗ trợ isSilent = true để tự động cập nhật ngầm mà không nháy màn hình)
+const fetchData = async (isSilent = false) => {
   try {
-    loading.value = true
+    if (!isSilent) loading.value = true
     errorMessage.value = ''
 
     const hasStatusFilter = Boolean(filters.value.trangThai !== '' && filters.value.trangThai !== null && filters.value.trangThai !== undefined)
@@ -1686,7 +1690,7 @@ const fetchData = async () => {
     // Lọc theo trạng thái (Đang diễn ra, Sắp diễn ra, Đã kết thúc, Ngừng hoạt động)
     if (hasStatusFilter) {
       if (filters.value.trangThai === '0' || filters.value.trangThai === 0 || filters.value.trangThai === 'INACTIVE') {
-        list = list.filter(item => item.trangThai === 0 || getCampaignStatus(item).code === 'INACTIVE')
+        list = list.filter(item => getCampaignStatus(item).code === 'INACTIVE')
       } else {
         list = list.filter(item => getCampaignStatus(item).code === filters.value.trangThai)
       }
@@ -1704,12 +1708,14 @@ const fetchData = async () => {
     }
   } catch (error) {
     console.error('Lỗi khi tải dữ liệu từ database:', error)
-    errorMessage.value = 'Không thể tải dữ liệu đợt giảm giá từ database. Vui lòng kiểm tra backend và kết nối SQL Server!'
-    campaigns.value = []
-    totalPages.value = 0
-    totalElements.value = 0
+    if (!isSilent) {
+      errorMessage.value = 'Không thể tải dữ liệu đợt giảm giá từ database. Vui lòng kiểm tra backend và kết nối SQL Server!'
+      campaigns.value = []
+      totalPages.value = 0
+      totalElements.value = 0
+    }
   } finally {
-    loading.value = false
+    if (!isSilent) loading.value = false
   }
 }
 
@@ -2341,9 +2347,19 @@ onMounted(() => {
   fetchRealProductsFromDB()
   loadActiveCampaignProducts()
 
-  // Real-time ticker mỗi giây: tự động đổi trạng thái mượt mà (Sắp diễn ra -> Đang diễn ra -> Đã kết thúc) không cần tải lại trang
+  // Real-time ticker mỗi giây và đồng bộ dữ liệu ngầm tự động (tự động cập nhật không cần load lại trang)
+  let pollCounter = 0
   realTimeTimer = setInterval(() => {
     currentTime.value = Date.now()
+    pollCounter++
+    // Mỗi 3 giây tự động đồng bộ ngầm dữ liệu danh sách và sản phẩm đang áp dụng
+    if (pollCounter >= 3) {
+      pollCounter = 0
+      if (currentView.value === 'list' && !loading.value && !submitting.value && !togglingStatus.value) {
+        fetchData(true)
+        loadActiveCampaignProducts()
+      }
+    }
   }, 1000)
 })
 
@@ -2894,7 +2910,7 @@ onUnmounted(() => {
 /* Phân trang đáy bảng (Màu Xanh dương & Be) */
 .pagination-footer-flex {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   margin-top: 1.25rem;
   padding-top: 0.85rem;
@@ -3274,17 +3290,17 @@ onUnmounted(() => {
 ======================================================== */
 .toggle-status-modal-box {
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 10px;
   width: 92%;
-  max-width: 520px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  max-width: 440px;
+  box-shadow: 0 16px 24px -5px rgba(0, 0, 0, 0.1), 0 6px 10px -6px rgba(0, 0, 0, 0.04);
   overflow: hidden;
   animation: fadeIn 0.15s ease-out;
   border: 1px solid #e5e7eb;
 }
 
 .toggle-modal-header {
-  padding: 1.15rem 1.4rem;
+  padding: 0.85rem 1.15rem;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -3295,7 +3311,7 @@ onUnmounted(() => {
 .toggle-header-left {
   display: flex;
   align-items: flex-start;
-  gap: 0.85rem;
+  gap: 0.75rem;
 }
 .toggle-title-wrap {
   display: flex;
@@ -3303,26 +3319,28 @@ onUnmounted(() => {
 }
 .toggle-title-text {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.02rem;
   font-weight: 800;
   letter-spacing: -0.015em;
   color: #111827;
 }
-.title-deactivate { color: #b91c1c; }
-.title-activate { color: #15803d; }
+.title-deactivate { color: #b38a65; }
+.title-activate { color: #496883; }
+.text-logo-brand { color: #496883; }
+.text-beige { color: #b38a65; }
 .toggle-subtitle-text {
-  margin: 3px 0 0 0;
-  font-size: 0.84rem;
+  margin: 2px 0 0 0;
+  font-size: 0.78rem;
   color: #6b7280;
 }
 
 .btn-toggle-close {
   background: transparent;
   border: none;
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   cursor: pointer;
   color: #9ca3af;
-  padding: 4px;
+  padding: 2px 4px;
   border-radius: 4px;
   line-height: 1;
   transition: all 0.15s;
@@ -3330,29 +3348,29 @@ onUnmounted(() => {
 .btn-toggle-close:hover { color: #111827; background-color: #f3f4f6; }
 
 .toggle-modal-body {
-  padding: 1.35rem 1.4rem 1.1rem;
+  padding: 1rem 1.15rem 0.85rem;
 }
 .toggle-lead-msg {
-  font-size: 0.93rem;
+  font-size: 0.86rem;
   color: #374151;
-  margin: 0 0 1.15rem 0;
+  margin: 0 0 0.85rem 0;
   line-height: 1.5;
 }
 
 .toggle-info-card {
   background: #f9fafb;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 1rem 1.25rem;
+  border-radius: 6px;
+  padding: 0.75rem 0.95rem;
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.5rem;
 }
 .toggle-info-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
 }
 .toggle-info-label {
   color: #6b7280;
@@ -3365,16 +3383,16 @@ onUnmounted(() => {
 }
 
 .toggle-warning-alert {
-  margin-top: 1.1rem;
+  margin-top: 0.85rem;
   background: #f3f4f6;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 0.8rem 1rem;
+  border-radius: 6px;
+  padding: 0.7rem 0.85rem;
 }
 .alert-content {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #4b5563;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 .alert-tag {
   font-weight: 750;
@@ -3383,10 +3401,10 @@ onUnmounted(() => {
 }
 
 .toggle-modal-footer {
-  padding: 1.1rem 1.4rem 1.3rem;
+  padding: 0.75rem 1.15rem 0.95rem;
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
+  gap: 0.6rem;
   border-top: 1px solid #f3f4f6;
 }
 .btn-toggle-cancel {
@@ -3394,10 +3412,11 @@ onUnmounted(() => {
   border: 1px solid #dfd5c2;
   color: #957b48;
   font-weight: 600;
-  height: 2.5rem;
-  padding: 0 1.4rem;
-  border-radius: 7px;
+  height: 2.2rem;
+  padding: 0 1.1rem;
+  border-radius: 6px;
   cursor: pointer;
+  font-size: 0.82rem;
   transition: all 0.15s;
 }
 .btn-toggle-cancel:hover {
@@ -3407,31 +3426,33 @@ onUnmounted(() => {
 }
 
 .btn-toggle-action {
-  height: 2.5rem;
-  padding: 0 1.45rem;
-  border-radius: 7px;
+  height: 2.2rem;
+  padding: 0 1.15rem;
+  border-radius: 6px;
   border: none;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.83rem;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
   transition: all 0.15s;
 }
 .btn-red-action {
-  background: #dc2626;
+  background: #b38a65;
   color: #ffffff;
+  box-shadow: 0 2px 6px rgba(179, 138, 101, 0.25);
 }
 .btn-red-action:hover:not(:disabled) {
-  background: #b91c1c;
+  background: #9d7552;
 }
 .btn-green-action {
-  background: #16a34a;
+  background: #496883;
   color: #ffffff;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.25);
 }
 .btn-green-action:hover:not(:disabled) {
-  background: #15803d;
+  background: #385268;
 }
 .btn-toggle-action:disabled {
   opacity: 0.65;

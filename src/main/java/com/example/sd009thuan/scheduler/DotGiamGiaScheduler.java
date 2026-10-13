@@ -14,12 +14,14 @@ public class DotGiamGiaScheduler {
     }
 
     /**
-     * Tự động quét trạng thái đợt giảm giá (trạng thái hiển thị theo thời gian thực)
+     * Tự động quét và cập nhật trạng thái đợt giảm giá hết hạn mỗi 5 giây
      */
-    @Scheduled(fixedRate = 10000)
+    @Scheduled(fixedRate = 5000)
     public void tuDongCapNhatHetHan() {
-        // Trạng thái (Sắp diễn ra, Đang diễn ra, Đã kết thúc) được tính toán theo thời gian thực (real-time)
-        // Không ép trang_thai = 0 để tránh bị nhầm sang "Ngừng hoạt động"
+        try {
+            dotGiamGiaService.autoUpdateExpiredStatus();
+        } catch (Exception ignored) {
+        }
     }
 }
 
