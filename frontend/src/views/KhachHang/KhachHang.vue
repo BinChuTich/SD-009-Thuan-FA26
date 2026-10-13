@@ -1,12 +1,5 @@
 <template>
   <div class="customer-page-wrapper">
-    <!-- Breadcrumb -->
-    <div class="page-breadcrumb">
-      <router-link to="/khach-hang" class="crumb-parent">Quản lý khách hàng</router-link>
-      <span class="crumb-separator">/</span>
-      <span class="crumb-current">Danh sách khách hàng</span>
-    </div>
-
     <!-- Khung Bộ lọc -->
     <div class="content-card filter-card">
       <div class="card-header-filter">
@@ -26,16 +19,11 @@
         </div>
 
         <div class="form-field">
-          <Select2Combobox
-            v-model="filters.status"
-            :options="trangThaiOptions"
-            value-key="value"
-            label-key="label"
-            placeholder="Tất cả trạng thái"
-            all-label="Tất cả trạng thái"
-            search-placeholder="Tìm trạng thái..."
-            @change="applyFilters"
-          />
+          <select v-model="filters.status" @change="applyFilters">
+            <option value="">Tất cả trạng thái</option>
+            <option value="1">Hoạt động</option>
+            <option value="0">Ngừng hoạt động</option>
+          </select>
         </div>
       </div>
 
@@ -203,26 +191,25 @@
               <div class="address-form-grid">
                 <div class="addr-field">
                   <label>Tỉnh / Thành phố <span class="required">*</span></label>
-                  <select v-model="addrProvinceCode" @change="onAddrProvinceChange">
-                    <option value="">-- Chọn Tỉnh / Thành phố --</option>
-                    <option v-for="p in provincesList" :key="p.code" :value="p.code">
-                      {{ p.name }}
-                    </option>
-                  </select>
+                  <Select2
+                    v-model="addrProvinceCode"
+                    :options="provincesList"
+                    placeholder="-- Chọn Tỉnh / Thành phố --"
+                    search-placeholder="Tìm kiếm Tỉnh / Thành phố..."
+                    @change="onAddrProvinceChange"
+                  />
                 </div>
 
                 <div class="addr-field">
                   <label>Phường / Xã <span class="required">*</span></label>
-                  <select
+                  <Select2
                     v-model="addrWardCode"
+                    :options="addrWardsList"
                     :disabled="!addrProvinceCode"
+                    placeholder="-- Chọn Phường / Xã --"
+                    search-placeholder="Tìm kiếm Phường / Xã..."
                     @change="onAddrWardChange"
-                  >
-                    <option value="">-- Chọn Phường / Xã --</option>
-                    <option v-for="w in addrWardsList" :key="w.code" :value="w.code">
-                      {{ w.name }}
-                    </option>
-                  </select>
+                  />
                 </div>
 
                 <div class="addr-field full-width">
@@ -313,13 +300,9 @@ import { useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
 import { getProvinces, getWardsByProvince, lookupLegacyWard } from '@/services/provincesApi.js'
-import Select2Combobox from '@/components/Select2Combobox.vue'
+import Select2 from '@/components/Select2.vue'
 
 const router = useRouter()
-const trangThaiOptions = [
-  { value: '1', label: 'Hoạt động' },
-  { value: '0', label: 'Ngừng hoạt động' }
-]
 const filters = ref({ keyword: '', status: '' })
 const items = ref([])
 const page = ref(0)
@@ -359,12 +342,6 @@ const pageNumbers = computed(() => {
   const end = Math.min(total, start + 5)
   return Array.from({ length: end - start }, (_, i) => start + i)
 })
-
-function initialsOf(name) {
-  if (!name) return 'KH'
-  const p = name.trim().split(/\s+/)
-  return p.length === 1 ? p[0].slice(0, 2).toUpperCase() : (p[0][0] + p[p.length - 1][0]).toUpperCase()
-}
 
 function genderText(g) {
   if (g === true) return 'Nam'
@@ -694,41 +671,11 @@ onMounted(() => {
 
 <style scoped>
 .customer-page-wrapper {
-  padding: 1.25rem 2rem 3rem;
+  padding: 0 2.2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);
   box-sizing: border-box;
-}
-
-.page-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.88rem;
-  margin-bottom: 20px;
-}
-
-.crumb-parent {
-  color: #8c969e;
-  font-weight: 400;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.crumb-parent:hover {
-  color: #3e5c76;
-}
-
-.crumb-separator {
-  color: #b0b7bd;
-  font-weight: 300;
-  user-select: none;
-}
-
-.crumb-current {
-  color: #3e5c76;
-  font-weight: 600;
 }
 
 .content-card {
@@ -831,12 +778,12 @@ onMounted(() => {
 }
 
 .btn-export {
-  background-color: #eaf1f4;
-  color: #3f5d75;
-  border: 1px solid #d0dfe6;
+  background-color: #edf5ef;
+  color: #558764;
+  border: 1px solid #d2e5d6;
 }
 .btn-export:hover {
-  background-color: #dde7ec;
+  background-color: #deede1;
 }
 
 .btn-primary {
@@ -904,34 +851,6 @@ onMounted(() => {
   border-bottom: 1px solid #f0ede6;
   color: #3d4a50;
   vertical-align: middle;
-}
-
-.avatar-cell {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.avatar-img {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid #e0dad0;
-}
-
-.avatar-placeholder {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: #f0e6dc;
-  color: #8c6a46;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.8rem;
-  border: 1px solid #e2d3c5;
 }
 
 .text-code { color: #8c6a46; }

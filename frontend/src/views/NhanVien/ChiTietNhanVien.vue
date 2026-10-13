@@ -2,23 +2,17 @@
   <div class="employee-page-wrapper">
     <!-- Header -->
     <div class="page-top-header">
-      <div class="page-breadcrumb">
-        <router-link to="/nhan-vien" class="crumb-parent">Quản lý nhân viên</router-link>
-        <span class="crumb-separator">/</span>
-        <span class="crumb-current">Thông tin nhân viên: {{ form.tenNhanVien || form.maNhanVien }}</span>
-      </div>
-      <div class="header-right">
+      <div class="header-left">
         <button class="btn-back" @click="goBack">
           <span>←</span> Quay lại danh sách
         </button>
+        <h2 class="page-title">
+          Thông tin nhân viên: {{ form.tenNhanVien || form.maNhanVien }}
+        </h2>
+      </div>
+      <div class="header-right">
         <button type="button" class="btn-scan-cccd" @click="showScanModal = true">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7"></rect>
-            <rect x="14" y="3" width="7" height="7"></rect>
-            <rect x="14" y="14" width="7" height="7"></rect>
-            <rect x="3" y="14" width="7" height="7"></rect>
-          </svg>
-          Quét CCCD gắn chip
+          Quét CCCD
         </button>
       </div>
     </div>
@@ -151,32 +145,26 @@
               <!-- Chức vụ -->
               <div class="form-field">
                 <label>Chức vụ <span class="required">*</span></label>
-                <Select2Combobox
+                <select
                   v-model="form.idVaiTro"
-                  :options="roles"
-                  value-key="id"
-                  label-key="tenVaiTro"
-                  placeholder="-- Chọn chức vụ --"
-                  all-label="-- Chọn chức vụ --"
-                  search-placeholder="Tìm chức vụ..."
+                  :class="{ 'has-error': errors.idVaiTro }"
                   @change="validateField('idVaiTro')"
-                />
+                >
+                  <option value="">-- Chọn chức vụ --</option>
+                  <option v-for="r in roles" :key="r.id" :value="r.id">
+                    {{ r.tenVaiTro }}
+                  </option>
+                </select>
                 <span v-if="errors.idVaiTro" class="error-inline-msg">{{ errors.idVaiTro }}</span>
               </div>
 
               <!-- Trạng thái -->
               <div class="form-field">
                 <label>Trạng thái</label>
-                <Select2Combobox
-                  v-model="form.trangThai"
-                  :options="trangThaiOptions"
-                  value-key="id"
-                  label-key="name"
-                  :show-all-option="false"
-                  :allow-clear="false"
-                  placeholder="-- Chọn trạng thái --"
-                  search-placeholder="Tìm trạng thái..."
-                />
+                <select v-model="form.trangThai">
+                  <option :value="1">Hoạt động</option>
+                  <option :value="0">Ngừng hoạt động</option>
+                </select>
               </div>
             </div>
           </div>
@@ -188,14 +176,12 @@
               <!-- Tỉnh / Thành phố -->
               <div class="form-field">
                 <label>Tỉnh / Thành phố <span class="required">*</span></label>
-                <Select2Combobox
+                <Select2
                   v-model="selectedProvinceCode"
                   :options="provincesList"
-                  value-key="code"
-                  label-key="name"
                   placeholder="-- Chọn Tỉnh / Thành phố --"
-                  all-label="-- Chọn Tỉnh / Thành phố --"
                   search-placeholder="Tìm kiếm Tỉnh / Thành phố..."
+                  :has-error="!!errors.queQuan"
                   @change="onProvinceChange"
                 />
                 <span v-if="errors.queQuan" class="error-inline-msg">{{ errors.queQuan }}</span>
@@ -204,15 +190,13 @@
               <!-- Phường / Xã -->
               <div class="form-field">
                 <label>Phường / Xã <span class="required">*</span></label>
-                <Select2Combobox
+                <Select2
                   v-model="selectedWardCode"
                   :options="wardsList"
                   :disabled="!selectedProvinceCode"
-                  value-key="code"
-                  label-key="name"
                   placeholder="-- Chọn Phường / Xã --"
-                  all-label="-- Chọn Phường / Xã --"
                   search-placeholder="Tìm kiếm Phường / Xã..."
+                  :has-error="!!errors.phuong"
                   @change="onWardChange"
                 />
                 <span v-if="errors.phuong" class="error-inline-msg">{{ errors.phuong }}</span>
@@ -251,8 +235,8 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
 import { getProvinces, getWardsByProvince, matchAddressHierarchy, lookupLegacyWard } from '@/services/provincesApi.js'
-import CccdScannerModal from '@/components/cccdScannerModal.vue'
-import Select2Combobox from '@/components/Select2Combobox.vue'
+import CccdScannerModal from '@/components/CccdScannerModal.vue'
+import Select2 from '@/components/Select2.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -271,11 +255,6 @@ const provincesList = ref([])
 const wardsList = ref([])
 const selectedProvinceCode = ref('')
 const selectedWardCode = ref('')
-
-const trangThaiOptions = [
-  { id: 1, name: 'Hoạt động' },
-  { id: 0, name: 'Ngừng hoạt động' }
-]
 
 const form = reactive({
   maNhanVien: '',
@@ -303,10 +282,7 @@ const errors = reactive({
   phuong: ''
 })
 
-async function onProvinceChange(newVal) {
-  if (newVal !== undefined) {
-    selectedProvinceCode.value = newVal
-  }
+async function onProvinceChange() {
   const p = provincesList.value.find(item => item.code === selectedProvinceCode.value)
   form.queQuan = p ? p.name : ''
   selectedWardCode.value = ''
@@ -320,10 +296,7 @@ async function onProvinceChange(newVal) {
   }
 }
 
-function onWardChange(newVal) {
-  if (newVal !== undefined) {
-    selectedWardCode.value = newVal
-  }
+function onWardChange() {
   const w = wardsList.value.find(item => item.code === selectedWardCode.value)
   form.phuong = w ? w.name : ''
   validateField('phuong')
@@ -677,7 +650,7 @@ onMounted(() => {
 
 <style scoped>
 .employee-page-wrapper {
-  padding: 1.25rem 2rem 3rem;
+  padding: 1.8rem 2.2rem 3.5rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);
@@ -688,61 +661,70 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.25rem;
-  width: 100%;
+  margin-bottom: 1.5rem;
+  max-width: 1250px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
 }
 
 .btn-back {
+  background: #ffffff;
+  border: 1px solid var(--line, #e9e5db);
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #496883;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  background: #ffffff;
-  border: 1px solid #d2d6dc;
-  padding: 0.45rem 1rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #4b5563;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  gap: 0.45rem;
+  transition: all 0.2s;
 }
 
 .btn-back:hover {
-  background-color: #f3f4f6;
-  border-color: #9ca3af;
-  color: #111827;
+  background-color: #eaf1f4;
+  border-color: #496883;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--blue, #496883);
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
 }
 
 .btn-scan-cccd {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.48rem 1.15rem;
-  background-color: #2e9f65;
+  gap: 0.55rem;
+  padding: 0.6rem 1.35rem;
+  background-color: #b38e6e;
   color: #ffffff;
   border: none;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(46, 159, 101, 0.25);
-  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(179, 142, 110, 0.25);
+  transition: all 0.2s;
 }
 
 .btn-scan-cccd:hover {
-  background-color: #248352;
-  box-shadow: 0 3px 8px rgba(46, 159, 101, 0.35);
+  background-color: #9c7756;
+  box-shadow: 0 4px 12px rgba(179, 142, 110, 0.35);
   transform: translateY(-1px);
-}
-
-.btn-scan-cccd svg {
-  display: block;
 }
 
 .loading-card {
@@ -750,48 +732,41 @@ onMounted(() => {
   text-align: center;
   color: #7d8b91;
   font-size: 1.05rem;
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid var(--line, #e9e5db);
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
-  width: 100%;
+  max-width: 1250px;
+  margin: 0 auto;
 }
 
 .form-container-card {
-  background: transparent;
-  border: none;
-  padding: 0;
-  box-shadow: none;
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid var(--line, #e9e5db);
+  padding: 2.2rem 2.5rem;
+  box-shadow: 0 2px 8px rgba(65, 60, 50, 0.03);
+  max-width: 1250px;
+  margin: 0 auto;
 }
 
 .form-layout-grid {
   display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 1.5rem;
+  grid-template-columns: 240px 1fr;
+  gap: 2.5rem;
   align-items: start;
-  width: 100%;
 }
 
 /* Avatar Panel */
 .avatar-card {
-  background: #ffffff;
-  border: 1px solid var(--line, #e9e5db);
+  background: #faf8f4;
+  border: 1px dashed #d6d0c4;
   border-radius: 12px;
-  padding: 1.6rem 1.25rem;
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+  padding: 1.6rem 1rem;
   text-align: center;
 }
 
 .card-subtitle {
-  margin: 0 0 1.25rem;
-  font-size: 1.05rem;
+  margin: 0 0 1.2rem;
+  font-size: 1rem;
   font-weight: 700;
-  color: #2c3e50;
-  border-bottom: 1px solid #f0eee6;
-  padding-bottom: 0.75rem;
+  color: #496883;
 }
 
 .avatar-integrated-wrapper {
@@ -883,24 +858,21 @@ onMounted(() => {
 .form-fields-panel {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.8rem;
 }
 
 .section-card {
-  border: 1px solid var(--line, #e9e5db);
+  border: 1px solid #ece8de;
   border-radius: 12px;
-  padding: 1.5rem 1.85rem;
+  padding: 1.8rem 2rem;
   background-color: #ffffff;
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
 }
 
 .section-title {
-  margin: 0 0 1.25rem;
-  font-size: 1.1rem;
+  margin: 0 0 1.4rem;
+  font-size: 1.15rem;
   font-weight: 700;
-  color: #2c3e50;
-  border-bottom: 1px solid #f0eee6;
-  padding-bottom: 0.75rem;
+  color: #384952;
 }
 
 .form-grid {
@@ -1017,22 +989,18 @@ onMounted(() => {
 }
 
 .form-actions-bar {
-  background: #ffffff;
-  border: 1px solid var(--line, #e9e5db);
-  border-radius: 12px;
-  padding: 1rem 1.5rem;
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
   display: flex;
   justify-content: flex-end;
-  gap: 0.85rem;
+  gap: 1rem;
+  padding-top: 0.8rem;
 }
 
 .btn {
-  height: 2.65rem;
-  padding: 0 1.6rem;
+  height: 2.85rem;
+  padding: 0 1.8rem;
   border-radius: 8px;
-  font-size: 0.92rem;
-  font-weight: 600;
+  font-size: 0.98rem;
+  font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1043,25 +1011,20 @@ onMounted(() => {
 }
 
 .btn-secondary {
-  border: 1px solid #d1d5db;
-  background-color: #ffffff;
-  color: #4b5563;
+  border: 1px solid #dfd5c2;
+  background-color: #fff8eb;
+  color: #957b48;
 }
 .btn-secondary:hover {
-  background-color: #f3f4f6;
-  color: #111827;
+  background-color: #faeed7;
 }
 
 .btn-primary {
-  background-color: #496883;
+  background-color: #3b596a;
   color: #ffffff;
 }
-.btn-primary:hover:not(:disabled) {
-  background-color: #3b546b;
-}
-.btn-primary:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
+.btn-primary:hover {
+  background-color: #2c4350;
 }
 
 @media (max-width: 900px) {

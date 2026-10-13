@@ -2,14 +2,14 @@
   <div class="customer-page-wrapper">
     <!-- Header -->
     <div class="page-top-header">
-      <div class="page-breadcrumb">
-        <router-link to="/khach-hang" class="crumb-parent">Quản lý khách hàng</router-link>
-        <span class="crumb-separator">/</span>
-        <span class="crumb-current">Thông tin khách hàng: {{ form.tenKhachHang || form.maKhachHang }}</span>
+      <div class="header-left">
+        <button class="btn-back" @click="goBack">
+          <span>←</span> Quay lại danh sách
+        </button>
+        <h2 class="page-title">
+          Thông tin khách hàng: {{ form.tenKhachHang || form.maKhachHang }}
+        </h2>
       </div>
-      <button class="btn-back" @click="goBack">
-        <span>←</span> Quay lại danh sách
-      </button>
     </div>
 
     <div v-if="loading" class="content-card loading-card">
@@ -19,34 +19,7 @@
     <!-- Form Container -->
     <div v-else class="form-container-card">
       <div class="form-layout-grid">
-        <!-- Cột trái: Ảnh đại diện -->
-        <div class="avatar-upload-panel">
-          <div class="avatar-card">
-            <h4 class="card-subtitle">Ảnh đại diện</h4>
-            <div class="avatar-integrated-wrapper">
-              <label class="avatar-uploader-box" title="Nhấp để chọn hoặc đổi ảnh đại diện">
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/jpg,image/webp"
-                  @change="onImageSelected"
-                  style="display: none"
-                />
-                <img v-if="avatarPreview" :src="avatarPreview" class="avatar-preview-img" alt="avatar" />
-                <div v-else class="avatar-empty-placeholder">
-                  <span class="avatar-placeholder-text">Chọn ảnh</span>
-                </div>
-                <div class="avatar-hover-overlay">
-                  <span>Đổi ảnh</span>
-                </div>
-              </label>
-              <button v-if="avatarPreview" type="button" class="btn-remove-avatar-link" @click="removeAvatar">
-                Gỡ ảnh
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Cột phải: Thông tin chi tiết -->
+        <!-- Thông tin chi tiết -->
         <div class="form-fields-panel">
           <!-- Phần 1: Thông tin khách hàng -->
           <div class="section-card">
@@ -119,7 +92,7 @@
 
               <!-- Ngày sinh -->
               <div class="form-field">
-                <label>Ngày sinh <span class="required">*</span></label>
+                <label>Ngày sinh <span class="sub-hint">(Từ 15 tuổi trở lên)</span></label>
                 <input
                   v-model="form.ngaySinh"
                   type="date"
@@ -133,16 +106,10 @@
               <!-- Trạng thái -->
               <div class="form-field">
                 <label>Trạng thái</label>
-                <Select2Combobox
-                  v-model="form.trangThai"
-                  :options="trangThaiOptions"
-                  value-key="id"
-                  label-key="name"
-                  :show-all-option="false"
-                  :allow-clear="false"
-                  placeholder="-- Chọn trạng thái --"
-                  search-placeholder="Tìm trạng thái..."
-                />
+                <select v-model="form.trangThai">
+                  <option :value="1">Hoạt động</option>
+                  <option :value="0">Ngừng hoạt động</option>
+                </select>
               </div>
             </div>
           </div>
@@ -154,14 +121,12 @@
               <!-- Tỉnh / Thành phố -->
               <div class="form-field">
                 <label>Tỉnh / Thành phố <span class="required">*</span></label>
-                <Select2Combobox
+                <Select2
                   v-model="selectedProvinceCode"
                   :options="provincesList"
-                  value-key="code"
-                  label-key="name"
                   placeholder="-- Chọn Tỉnh / Thành phố --"
-                  all-label="-- Chọn Tỉnh / Thành phố --"
                   search-placeholder="Tìm kiếm Tỉnh / Thành phố..."
+                  :has-error="!!errors.thanhPho"
                   @change="onProvinceChange"
                 />
                 <span v-if="errors.thanhPho" class="error-inline-msg">{{ errors.thanhPho }}</span>
@@ -170,15 +135,13 @@
               <!-- Phường / Xã -->
               <div class="form-field">
                 <label>Phường / Xã <span class="required">*</span></label>
-                <Select2Combobox
+                <Select2
                   v-model="selectedWardCode"
                   :options="wardsList"
                   :disabled="!selectedProvinceCode"
-                  value-key="code"
-                  label-key="name"
                   placeholder="-- Chọn Phường / Xã --"
-                  all-label="-- Chọn Phường / Xã --"
                   search-placeholder="Tìm kiếm Phường / Xã..."
+                  :has-error="!!errors.phuong"
                   @change="onWardChange"
                 />
                 <span v-if="errors.phuong" class="error-inline-msg">{{ errors.phuong }}</span>
@@ -220,7 +183,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
 import { getProvinces, getWardsByProvince, lookupLegacyWard } from '@/services/provincesApi.js'
-import Select2Combobox from '@/components/Select2Combobox.vue'
+import Select2 from '@/components/Select2.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -228,8 +191,6 @@ const id = route.params.id
 
 const loading = ref(true)
 const saving = ref(false)
-const selectedFile = ref(null)
-const avatarPreview = ref('')
 const maxDate = new Date().toISOString().split('T')[0]
 
 // Danh mục hành chính (2 cấp: Tỉnh/Thành phố & Phường/Xã)
@@ -239,11 +200,6 @@ const wardsList = ref([])
 const selectedProvinceCode = ref('')
 const selectedWardCode = ref('')
 
-const trangThaiOptions = [
-  { id: 1, name: 'Hoạt động' },
-  { id: 0, name: 'Ngừng hoạt động' }
-]
-
 const form = reactive({
   maKhachHang: '',
   tenKhachHang: '',
@@ -252,7 +208,6 @@ const form = reactive({
   gioiTinh: true,
   ngaySinh: '',
   trangThai: 1,
-  anhKhachHang: '',
   thanhPho: '',
   huyen: '',
   phuong: '',
@@ -269,10 +224,7 @@ const errors = reactive({
   diaChiCuThe: ''
 })
 
-async function onProvinceChange(newVal) {
-  if (newVal !== undefined) {
-    selectedProvinceCode.value = newVal
-  }
+async function onProvinceChange() {
   const p = provincesList.value.find(item => item.code === selectedProvinceCode.value)
   form.thanhPho = p ? p.name : ''
   selectedWardCode.value = ''
@@ -287,10 +239,7 @@ async function onProvinceChange(newVal) {
   }
 }
 
-function onWardChange(newVal) {
-  if (newVal !== undefined) {
-    selectedWardCode.value = newVal
-  }
+function onWardChange() {
   const w = wardsList.value.find(item => item.code === selectedWardCode.value)
   form.phuong = w ? w.name : ''
   if (w && w.districtName) {
@@ -337,16 +286,25 @@ function validateField(fieldName) {
   }
 
   if (fieldName === 'ngaySinh') {
-    if (!form.ngaySinh) {
-      errors.ngaySinh = 'Ngày sinh khách hàng không được để trống!'
-    } else {
+    if (form.ngaySinh) {
       const bDate = new Date(form.ngaySinh)
       const today = new Date()
       if (bDate > today) {
         errors.ngaySinh = 'Ngày sinh không được lớn hơn ngày hiện tại!'
       } else {
-        errors.ngaySinh = ''
+        let age = today.getFullYear() - bDate.getFullYear()
+        const m = today.getMonth() - bDate.getMonth()
+        if (m < 0 || (m === 0 && today.getDate() < bDate.getDate())) {
+          age--
+        }
+        if (age < 15) {
+          errors.ngaySinh = 'Khách hàng phải từ 15 tuổi trở lên!'
+        } else {
+          errors.ngaySinh = ''
+        }
       }
+    } else {
+      errors.ngaySinh = ''
     }
   }
 
@@ -401,17 +359,10 @@ async function loadCustomer() {
     form.gioiTinh = data.gioiTinh ?? true
     form.ngaySinh = data.ngaySinh || ''
     form.trangThai = data.trangThai ?? 1
-    form.anhKhachHang = data.anhKhachHang || ''
     form.thanhPho = data.thanhPho || ''
     form.huyen = data.huyen || ''
     form.phuong = data.phuong || ''
     form.diaChiCuThe = data.diaChiCuThe || ''
-
-    if (data.anhKhachHang) {
-      avatarPreview.value = data.anhKhachHang.startsWith('http')
-        ? data.anhKhachHang
-        : `http://localhost:8080${data.anhKhachHang}`
-    }
 
     // Khớp danh mục hành chính 2 cấp từ địa chỉ đã lưu
     if (form.thanhPho) {
@@ -471,41 +422,6 @@ async function loadCustomer() {
   }
 }
 
-function onImageSelected(e) {
-  const file = e.target.files?.[0]
-  if (!file) return
-  if (!file.type.startsWith('image/')) {
-    showAlert({
-      title: 'Định dạng không hợp lệ',
-      message: 'Vui lòng chọn file hình ảnh (JPG, PNG, WEBP).',
-      type: 'warning'
-    })
-    e.target.value = ''
-    return
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    showAlert({
-      title: 'Dung lượng quá lớn',
-      message: 'Kích thước ảnh không được vượt quá 5MB.',
-      type: 'warning'
-    })
-    e.target.value = ''
-    return
-  }
-
-  selectedFile.value = file
-  if (avatarPreview.value) {
-    URL.revokeObjectURL(avatarPreview.value)
-  }
-  avatarPreview.value = URL.createObjectURL(file)
-}
-
-function removeAvatar() {
-  selectedFile.value = null
-  avatarPreview.value = ''
-  form.anhKhachHang = ''
-}
-
 function goBack() {
   router.push('/khach-hang')
 }
@@ -539,26 +455,13 @@ async function handleUpdate() {
       gioiTinh: form.gioiTinh,
       ngaySinh: form.ngaySinh || undefined,
       trangThai: form.trangThai,
-      anhKhachHang: form.anhKhachHang || undefined,
       thanhPho: form.thanhPho.trim(),
       huyen: form.huyen.trim(),
       phuong: form.phuong.trim(),
       diaChiCuThe: form.diaChiCuThe.trim()
     }
 
-    if (selectedFile.value) {
-      const formData = new FormData()
-      formData.append(
-        'data',
-        new Blob([JSON.stringify(payload)], { type: 'application/json' })
-      )
-      formData.append('file', selectedFile.value)
-      await api.put(`/api/khach-hang/${id}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
-    } else {
-      await api.put(`/api/khach-hang/${id}`, payload)
-    }
+    await api.put(`/api/khach-hang/${id}`, payload)
 
     showToast('Cập nhật thông tin khách hàng thành công!', 'success')
     router.push('/khach-hang')
@@ -580,7 +483,7 @@ onMounted(() => {
 
 <style scoped>
 .customer-page-wrapper {
-  padding: 1.25rem 2rem 3rem;
+  padding: 1.8rem 2.2rem 3.5rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);
@@ -591,29 +494,43 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.25rem;
-  width: 100%;
+  margin-bottom: 1.5rem;
+  max-width: 1250px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
 }
 
 .btn-back {
+  background: #ffffff;
+  border: 1px solid var(--line, #e9e5db);
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #496883;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  background: #ffffff;
-  border: 1px solid #d2d6dc;
-  padding: 0.45rem 1rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #4b5563;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  gap: 0.45rem;
+  transition: all 0.2s;
 }
 
 .btn-back:hover {
-  background-color: #f3f4f6;
-  border-color: #9ca3af;
-  color: #111827;
+  background-color: #eaf1f4;
+  border-color: #496883;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--blue, #496883);
 }
 
 .loading-card {
@@ -621,157 +538,46 @@ onMounted(() => {
   text-align: center;
   color: #7d8b91;
   font-size: 1.05rem;
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid var(--line, #e9e5db);
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
-  width: 100%;
+  max-width: 1250px;
+  margin: 0 auto;
 }
 
 .form-container-card {
-  background: transparent;
-  border: none;
-  padding: 0;
-  box-shadow: none;
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid var(--line, #e9e5db);
+  padding: 2.2rem 2.5rem;
+  box-shadow: 0 2px 8px rgba(65, 60, 50, 0.03);
+  max-width: 1250px;
+  margin: 0 auto;
 }
 
 .form-layout-grid {
   display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 1.5rem;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
   align-items: start;
-  width: 100%;
-}
-
-/* Avatar Panel */
-.avatar-card {
-  background: #ffffff;
-  border: 1px solid var(--line, #e9e5db);
-  border-radius: 12px;
-  padding: 1.6rem 1.25rem;
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
-  text-align: center;
-}
-
-.card-subtitle {
-  margin: 0 0 1.25rem;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #2c3e50;
-  border-bottom: 1px solid #f0eee6;
-  padding-bottom: 0.75rem;
-}
-
-.avatar-integrated-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.8rem;
-}
-
-.avatar-uploader-box {
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  margin: 0 auto;
-  background: #eaf1f5;
-  border: 3px solid #ffffff;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  position: relative;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.avatar-uploader-box:hover {
-  border-color: #496883;
-  transform: scale(1.02);
-  box-shadow: 0 6px 18px rgba(73, 104, 131, 0.2);
-}
-
-.avatar-preview-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.avatar-empty-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #647b8c;
-}
-
-.avatar-placeholder-text {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #496883;
-}
-
-.avatar-hover-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(43, 62, 79, 0.65);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.88rem;
-  font-weight: 600;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.avatar-uploader-box:hover .avatar-hover-overlay {
-  opacity: 1;
-}
-
-.btn-remove-avatar-link {
-  background: none;
-  border: none;
-  color: #c94a4a;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0.2rem 0.6rem;
-  border-radius: 4px;
-}
-
-.btn-remove-avatar-link:hover {
-  background-color: #fde8e8;
 }
 
 /* Form Fields Panel */
 .form-fields-panel {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.8rem;
 }
 
 .section-card {
-  border: 1px solid var(--line, #e9e5db);
+  border: 1px solid #ece8de;
   border-radius: 12px;
-  padding: 1.5rem 1.85rem;
+  padding: 1.8rem 2rem;
   background-color: #ffffff;
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
 }
 
 .section-title {
-  margin: 0 0 1.25rem;
-  font-size: 1.1rem;
+  margin: 0 0 1.4rem;
+  font-size: 1.15rem;
   font-weight: 700;
-  color: #2c3e50;
-  border-bottom: 1px solid #f0eee6;
-  padding-bottom: 0.75rem;
+  color: #384952;
 }
 
 .form-grid {
@@ -882,22 +688,18 @@ onMounted(() => {
 }
 
 .form-actions-bar {
-  background: #ffffff;
-  border: 1px solid var(--line, #e9e5db);
-  border-radius: 12px;
-  padding: 1rem 1.5rem;
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
   display: flex;
   justify-content: flex-end;
-  gap: 0.85rem;
+  gap: 1rem;
+  padding-top: 0.8rem;
 }
 
 .btn {
-  height: 2.65rem;
-  padding: 0 1.6rem;
+  height: 2.85rem;
+  padding: 0 1.8rem;
   border-radius: 8px;
-  font-size: 0.92rem;
-  font-weight: 600;
+  font-size: 0.98rem;
+  font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -908,25 +710,20 @@ onMounted(() => {
 }
 
 .btn-secondary {
-  border: 1px solid #d1d5db;
-  background-color: #ffffff;
-  color: #4b5563;
+  border: 1px solid #dfd5c2;
+  background-color: #fff8eb;
+  color: #957b48;
 }
 .btn-secondary:hover {
-  background-color: #f3f4f6;
-  color: #111827;
+  background-color: #faeed7;
 }
 
 .btn-primary {
-  background-color: #496883;
+  background-color: #3b596a;
   color: #ffffff;
 }
-.btn-primary:hover:not(:disabled) {
-  background-color: #3b546b;
-}
-.btn-primary:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
+.btn-primary:hover {
+  background-color: #2c4350;
 }
 
 @media (max-width: 900px) {

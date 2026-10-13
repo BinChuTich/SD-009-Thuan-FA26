@@ -21,6 +21,5 @@ public record KhachHangRequest(
         String phuong,
         String diaChiCuThe,
         String nguoiNhan,
-        String soDienThoaiNhan,
-        String anhKhachHang
+        String soDienThoaiNhan
 ) {}

@@ -14,7 +14,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -26,12 +25,10 @@ import java.util.Optional;
 public class KhachHangService {
     private final KhachHangRepository repo;
     private final DiaChiKhachHangRepository addressRepo;
-    private final FileStorageService fileStorageService;
 
-    public KhachHangService(KhachHangRepository repo, DiaChiKhachHangRepository addressRepo, FileStorageService fileStorageService) {
+    public KhachHangService(KhachHangRepository repo, DiaChiKhachHangRepository addressRepo) {
         this.repo = repo;
         this.addressRepo = addressRepo;
-        this.fileStorageService = fileStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -47,7 +44,7 @@ public class KhachHangService {
     }
 
     @Transactional
-    public KhachHangResponse create(KhachHangRequest req, MultipartFile file) {
+    public KhachHangResponse create(KhachHangRequest req) {
         validateRequired(req);
         validateUnique(req, null);
         KhachHang x = new KhachHang();
@@ -60,8 +57,6 @@ public class KhachHangService {
         x.setMatKhau(blankToNull(req.matKhau()) != null ? req.matKhau() : "123456");
         String phone = blankToNull(req.soDienThoai()) != null ? req.soDienThoai() : req.soDienThoaiNhan();
         x.setSoDienThoai(blankToNull(phone));
-        String imageUrl = fileStorageService.storeCustomerImage(file);
-        x.setAnhKhachHang(imageUrl != null ? imageUrl : blankToNull(req.anhKhachHang()));
         x.setNgaySinh(req.ngaySinh());
         x.setGioiTinh(req.gioiTinh() == null ? true : req.gioiTinh());
         x.setTrangThai(req.trangThai() == null ? 1 : req.trangThai());
@@ -73,12 +68,7 @@ public class KhachHangService {
     }
 
     @Transactional
-    public KhachHangResponse create(KhachHangRequest req) {
-        return create(req, null);
-    }
-
-    @Transactional
-    public KhachHangResponse update(Long id, KhachHangRequest req, MultipartFile file) {
+    public KhachHangResponse update(Long id, KhachHangRequest req) {
         KhachHang x = find(id);
         validateUnique(req, id);
         if (blankToNull(req.maKhachHang()) != null) x.setMaKhachHang(req.maKhachHang().trim());
@@ -104,14 +94,6 @@ public class KhachHangService {
             validateSoDienThoai(phone);
             x.setSoDienThoai(blankToNull(phone));
         }
-        String oldImage = x.getAnhKhachHang();
-        String imageUrl = fileStorageService.storeCustomerImage(file);
-        if (imageUrl != null) {
-            x.setAnhKhachHang(imageUrl);
-            fileStorageService.deleteIfLocal(oldImage);
-        } else if (blankToNull(req.anhKhachHang()) != null) {
-            x.setAnhKhachHang(blankToNull(req.anhKhachHang()));
-        }
         if (req.ngaySinh() != null) {
             if (req.ngaySinh().isAfter(LocalDate.now())) {
                 throw new IllegalArgumentException("Ngày sinh không được lớn hơn ngày hiện tại");
@@ -125,11 +107,6 @@ public class KhachHangService {
         x = repo.save(x);
         saveDefaultAddress(x, req);
         return toResponse(x);
-    }
-
-    @Transactional
-    public KhachHangResponse update(Long id, KhachHangRequest req) {
-        return update(id, req, null);
     }
 
     @Transactional
@@ -348,8 +325,7 @@ public class KhachHangService {
                 a == null ? null : a.getPhuong(),
                 a == null ? null : a.getDiaChiCuThe(),
                 a == null ? null : a.getTenNguoiNhan(),
-                a == null ? null : a.getSoDienThoaiNhan(),
-                x.getAnhKhachHang()
+                a == null ? null : a.getSoDienThoaiNhan()
         );
     }
 
