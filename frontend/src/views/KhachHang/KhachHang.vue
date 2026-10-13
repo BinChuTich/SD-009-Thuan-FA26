@@ -191,26 +191,25 @@
               <div class="address-form-grid">
                 <div class="addr-field">
                   <label>Tỉnh / Thành phố <span class="required">*</span></label>
-                  <select v-model="addrProvinceCode" @change="onAddrProvinceChange">
-                    <option value="">-- Chọn Tỉnh / Thành phố --</option>
-                    <option v-for="p in provincesList" :key="p.code" :value="p.code">
-                      {{ p.name }}
-                    </option>
-                  </select>
+                  <Select2
+                    v-model="addrProvinceCode"
+                    :options="provincesList"
+                    placeholder="-- Chọn Tỉnh / Thành phố --"
+                    search-placeholder="Tìm kiếm Tỉnh / Thành phố..."
+                    @change="onAddrProvinceChange"
+                  />
                 </div>
 
                 <div class="addr-field">
                   <label>Phường / Xã <span class="required">*</span></label>
-                  <select
+                  <Select2
                     v-model="addrWardCode"
+                    :options="addrWardsList"
                     :disabled="!addrProvinceCode"
+                    placeholder="-- Chọn Phường / Xã --"
+                    search-placeholder="Tìm kiếm Phường / Xã..."
                     @change="onAddrWardChange"
-                  >
-                    <option value="">-- Chọn Phường / Xã --</option>
-                    <option v-for="w in addrWardsList" :key="w.code" :value="w.code">
-                      {{ w.name }}
-                    </option>
-                  </select>
+                  />
                 </div>
 
                 <div class="addr-field full-width">
@@ -301,6 +300,7 @@ import { useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
 import { getProvinces, getWardsByProvince, lookupLegacyWard } from '@/services/provincesApi.js'
+import Select2 from '@/components/Select2.vue'
 
 const router = useRouter()
 const filters = ref({ keyword: '', status: '' })

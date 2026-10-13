@@ -176,33 +176,29 @@
               <!-- Tỉnh / Thành phố -->
               <div class="form-field">
                 <label>Tỉnh / Thành phố <span class="required">*</span></label>
-                <select
+                <Select2
                   v-model="selectedProvinceCode"
-                  :class="{ 'has-error': errors.queQuan }"
+                  :options="provincesList"
+                  placeholder="-- Chọn Tỉnh / Thành phố --"
+                  search-placeholder="Tìm kiếm Tỉnh / Thành phố..."
+                  :has-error="!!errors.queQuan"
                   @change="onProvinceChange"
-                >
-                  <option value="">-- Chọn Tỉnh / Thành phố --</option>
-                  <option v-for="p in provincesList" :key="p.code" :value="p.code">
-                    {{ p.name }}
-                  </option>
-                </select>
+                />
                 <span v-if="errors.queQuan" class="error-inline-msg">{{ errors.queQuan }}</span>
               </div>
 
               <!-- Phường / Xã -->
               <div class="form-field">
                 <label>Phường / Xã <span class="required">*</span></label>
-                <select
+                <Select2
                   v-model="selectedWardCode"
+                  :options="wardsList"
                   :disabled="!selectedProvinceCode"
-                  :class="{ 'has-error': errors.phuong }"
+                  placeholder="-- Chọn Phường / Xã --"
+                  search-placeholder="Tìm kiếm Phường / Xã..."
+                  :has-error="!!errors.phuong"
                   @change="onWardChange"
-                >
-                  <option value="">-- Chọn Phường / Xã --</option>
-                  <option v-for="w in wardsList" :key="w.code" :value="w.code">
-                    {{ w.name }}
-                  </option>
-                </select>
+                />
                 <span v-if="errors.phuong" class="error-inline-msg">{{ errors.phuong }}</span>
               </div>
 
@@ -240,6 +236,7 @@ import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
 import { getProvinces, getWardsByProvince, matchAddressHierarchy, lookupLegacyWard } from '@/services/provincesApi.js'
 import CccdScannerModal from '@/components/CccdScannerModal.vue'
+import Select2 from '@/components/Select2.vue'
 
 const route = useRoute()
 const router = useRouter()
