@@ -343,12 +343,6 @@ const pageNumbers = computed(() => {
   return Array.from({ length: end - start }, (_, i) => start + i)
 })
 
-function initialsOf(name) {
-  if (!name) return 'KH'
-  const p = name.trim().split(/\s+/)
-  return p.length === 1 ? p[0].slice(0, 2).toUpperCase() : (p[0][0] + p[p.length - 1][0]).toUpperCase()
-}
-
 function genderText(g) {
   if (g === true) return 'Nam'
   if (g === false) return 'Nữ'
@@ -857,34 +851,6 @@ onMounted(() => {
   border-bottom: 1px solid #f0ede6;
   color: #3d4a50;
   vertical-align: middle;
-}
-
-.avatar-cell {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.avatar-img {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid #e0dad0;
-}
-
-.avatar-placeholder {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: #f0e6dc;
-  color: #8c6a46;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.8rem;
-  border: 1px solid #e2d3c5;
 }
 
 .text-code { color: #8c6a46; }

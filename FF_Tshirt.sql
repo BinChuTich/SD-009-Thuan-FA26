@@ -238,7 +238,6 @@ CREATE TABLE khach_hang (
     nguoi_tao NVARCHAR(100),
     ngay_cap_nhat DATETIME2,
     nguoi_cap_nhat NVARCHAR(100),
-    anh_khach_hang VARCHAR(255),
     CONSTRAINT CK_khach_hang_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
