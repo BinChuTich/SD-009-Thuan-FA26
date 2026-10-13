@@ -1,5 +1,12 @@
 <template>
   <div class="customer-page-wrapper">
+    <!-- Breadcrumb -->
+    <div class="page-breadcrumb">
+      <router-link to="/khach-hang" class="crumb-parent">Quản lý khách hàng</router-link>
+      <span class="crumb-separator">/</span>
+      <span class="crumb-current">Danh sách khách hàng</span>
+    </div>
+
     <!-- Khung Bộ lọc -->
     <div class="content-card filter-card">
       <div class="card-header-filter">
@@ -19,11 +26,14 @@
         </div>
 
         <div class="form-field">
-          <select v-model="filters.status" @change="applyFilters">
-            <option value="">Tất cả trạng thái</option>
-            <option value="1">Hoạt động</option>
-            <option value="0">Ngừng hoạt động</option>
-          </select>
+          <Select2Combobox
+            v-model="filters.status"
+            :options="statusOptions"
+            placeholder="Tất cả trạng thái"
+            all-label="Tất cả trạng thái"
+            search-placeholder="Tìm trạng thái..."
+            @change="applyFilters"
+          />
         </div>
       </div>
 
@@ -191,9 +201,11 @@
               <div class="address-form-grid">
                 <div class="addr-field">
                   <label>Tỉnh / Thành phố <span class="required">*</span></label>
-                  <Select2
+                  <Select2Combobox
                     v-model="addrProvinceCode"
                     :options="provincesList"
+                    value-key="code"
+                    label-key="name"
                     placeholder="-- Chọn Tỉnh / Thành phố --"
                     search-placeholder="Tìm kiếm Tỉnh / Thành phố..."
                     @change="onAddrProvinceChange"
@@ -202,9 +214,11 @@
 
                 <div class="addr-field">
                   <label>Phường / Xã <span class="required">*</span></label>
-                  <Select2
+                  <Select2Combobox
                     v-model="addrWardCode"
                     :options="addrWardsList"
+                    value-key="code"
+                    label-key="name"
                     :disabled="!addrProvinceCode"
                     placeholder="-- Chọn Phường / Xã --"
                     search-placeholder="Tìm kiếm Phường / Xã..."
@@ -300,7 +314,13 @@ import { useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
 import { getProvinces, getWardsByProvince, lookupLegacyWard } from '@/services/provincesApi.js'
-import Select2 from '@/components/Select2.vue'
+import Select2Combobox from '@/components/Select2Combobox.vue'
+
+const statusOptions = [
+  { value: '', label: 'Tất cả trạng thái' },
+  { value: '1', label: 'Hoạt động' },
+  { value: '0', label: 'Ngừng hoạt động' }
+]
 
 const router = useRouter()
 const filters = ref({ keyword: '', status: '' })
@@ -678,24 +698,52 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
+/* Breadcrumb */
+.page-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  margin-bottom: 20px;
+}
+.crumb-parent {
+  color: #647074;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+.crumb-parent:hover {
+  color: var(--blue, #496883);
+  text-decoration: underline;
+}
+.crumb-separator {
+  color: #b0b7bd;
+}
+.crumb-current {
+  color: var(--blue, #496883);
+  font-weight: 700;
+}
+
 .content-card {
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid var(--line, #e9e5db);
-  box-shadow: 0 1px 4px rgba(65, 60, 50, 0.03);
-  padding: 1.5rem 1.8rem;
-  margin-bottom: 1.4rem;
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+  padding: 1.5rem 1.85rem;
+  margin-bottom: 1.5rem;
 }
 
 .card-header-filter {
-  margin-bottom: 1.2rem;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f2eae1;
 }
 
 .filter-title {
   font-size: 1.05rem;
   font-weight: 700;
   margin: 0;
-  color: #43545c;
+  color: var(--blue, #496883);
 }
 
 .filter-inputs-grid {
@@ -743,13 +791,15 @@ onMounted(() => {
 .filter-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.8rem;
+  gap: 0.75rem;
   align-items: center;
+  border-top: 1px dashed #efeae0;
+  padding-top: 1.1rem;
 }
 
 .btn {
-  height: 2.6rem;
-  padding: 0 1.25rem;
+  height: 2.5rem;
+  padding: 0 1.35rem;
   border-radius: 8px;
   font-size: 0.92rem;
   font-weight: 600;
@@ -757,7 +807,7 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
   transition: all 0.2s;
   border: none;
 }
@@ -790,8 +840,8 @@ onMounted(() => {
   background-color: #3b596a;
   color: #ffffff;
   border: 1px solid #324b5a;
-  border-radius: 9999px;
-  padding: 0.6rem 1.4rem;
+  border-radius: 8px;
+  padding: 0 1.4rem;
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(59, 89, 106, 0.25);
@@ -853,9 +903,13 @@ onMounted(() => {
   vertical-align: middle;
 }
 
-.text-code { color: #8c6a46; }
+.text-code {
+  color: var(--blue, #496883);
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
 .text-account { color: #52443a; }
-.text-blue { color: #8c6a46; }
+.text-blue { color: var(--blue, #496883); }
 .text-dark { color: #222b30; }
 .text-muted { color: #88959c; }
 .font-bold { font-weight: 700; }
@@ -925,7 +979,7 @@ onMounted(() => {
 }
 
 .switch-toggle input:checked + .slider-round {
-  background-color: #b38e6e;
+  background-color: var(--blue, #496883);
 }
 
 .switch-toggle input:checked + .slider-round::before {
@@ -936,33 +990,38 @@ onMounted(() => {
   width: 30px;
   height: 30px;
   border-radius: 6px;
-  border: 1px solid transparent;
+  border: 1px solid #d8e2e8;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
   background-color: #f7f5ee;
+  color: #496883;
+}
+
+.btn-circle-action svg {
+  display: block;
 }
 
 .btn-edit {
-  color: #8c7152;
-  border-color: #dfd5c8;
+  color: #496883;
+  border-color: #d8e2e8;
 }
 .btn-edit:hover {
-  background-color: #8c7152;
-  border-color: #8c7152;
+  background-color: #496883;
+  border-color: #496883;
   color: #ffffff;
 }
 
 .btn-address {
-  color: #a67c52;
-  border-color: #dfd2c4;
-  background-color: #faf5ef;
+  color: #496883;
+  border-color: #d8e2e8;
+  background-color: #f7f5ee;
 }
 .btn-address:hover {
-  background-color: #b38e6e;
-  border-color: #b38e6e;
+  background-color: #496883;
+  border-color: #496883;
   color: #ffffff;
 }
 
@@ -1231,10 +1290,10 @@ onMounted(() => {
 }
 
 .btn-edit-addr {
-  color: #8c713b;
+  color: #496883;
 }
 .btn-edit-addr:hover {
-  background-color: #fcf4e6;
+  background-color: #eaf1f4;
 }
 
 .btn-del-addr {

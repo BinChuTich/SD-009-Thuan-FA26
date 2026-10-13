@@ -1033,18 +1033,18 @@ watch(() => route.query.sanPhamId, async (newId) => {
             <!-- Cột hành động gồm 3 icon: (kinh doanh, sửa, xóa) -->
             <td style="text-align: center;">
               <div class="variant-action-group">
-                <!-- 1. Icon Kinh doanh (Power icon) -->
-                <button
-                    class="btn-icon-round btn-status-toggle"
-                    :class="{ 'is-active': item.trangThai === 1 }"
-                    @click="toggleVariantStatus(item)"
-                    :title="item.trangThai === 1 ? 'Ngừng kinh doanh' : 'Bật kinh doanh'"
+                <!-- 1. Switch Bật / Tắt kinh doanh -->
+                <label
+                  class="switch-toggle"
+                  :title="item.trangThai === 1 ? 'Đang kinh doanh (nhấn để ngừng)' : 'Đang ngừng kinh doanh (nhấn để bật)'"
                 >
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-                    <line x1="12" y1="2" x2="12" y2="12"></line>
-                  </svg>
-                </button>
+                  <input
+                    type="checkbox"
+                    :checked="item.trangThai === 1"
+                    @click.prevent="toggleVariantStatus(item)"
+                  />
+                  <span class="slider-round"></span>
+                </label>
 
                 <!-- 2. Icon Sửa (Pencil icon) -->
                 <button
@@ -2036,7 +2036,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
 .cell-bold-code {
   font-weight: 700;
-  color: #8c6a46;
+  color: var(--blue, #496883);
   font-family: monospace, sans-serif;
   letter-spacing: 0.4px;
 }
@@ -2044,7 +2044,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
 .cell-code {
   font-family: monospace, sans-serif;
   font-size: 0.85rem;
-  color: #8c6a46;
+  color: var(--blue, #496883);
   font-weight: 700;
   letter-spacing: 0.4px;
 }

@@ -1597,7 +1597,7 @@ onMounted(async () => {
 }
 
 .delivery-switch-wrap input:checked + .switch-ui {
-  background-color: #2e7d32;
+  background-color: var(--blue, #496883);
 }
 
 .delivery-switch-wrap input:checked + .switch-ui::after {

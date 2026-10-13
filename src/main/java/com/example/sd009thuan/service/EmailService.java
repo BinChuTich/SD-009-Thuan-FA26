@@ -3,7 +3,10 @@ package com.example.sd009thuan.service;
 import com.example.sd009thuan.entity.KhachHang;
 import com.example.sd009thuan.entity.PhieuGiamGia;
 import jakarta.mail.internet.MimeMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -16,6 +19,8 @@ import java.time.format.DateTimeFormatter;
 
 @Service
 public class EmailService {
+
+    private static final Logger log = LoggerFactory.getLogger(EmailService.class);
 
     @Autowired(required = false)
     private JavaMailSender mailSender;
@@ -354,21 +359,20 @@ public class EmailService {
     /**
      * Gửi email thông tin tài khoản và mật khẩu cho nhân viên mới
      */
-    @Async
-    public void sendAccountInfoEmail(String toEmail, String employeeName, String code, String account, String password) {
+    public boolean sendAccountInfoEmail(String toEmail, String employeeName, String code, String account, String password) {
         if (toEmail == null || toEmail.trim().isEmpty()) {
-            return;
+            return false;
         }
         try {
             if (mailSender == null) {
                 System.out.println("==> [EmailService Mock] Đã gửi thông tin tài khoản nhân viên " + code + " tới " + toEmail);
-                return;
+                return true;
             }
 
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setTo(toEmail);
+            helper.setTo(toEmail.trim());
             helper.setSubject("[FF T-Shirt] Cung cấp thông tin tài khoản nhân viên mới - " + code);
 
             String html = """
@@ -415,8 +419,10 @@ public class EmailService {
             System.out.println("==> [EmailService] Đang gửi thông tin tài khoản nhân viên tới: " + toEmail);
             mailSender.send(message);
             System.out.println("==> [EmailService] Đã gửi thông tin tài khoản nhân viên THÀNH CÔNG tới: " + toEmail);
+            return true;
         } catch (Exception e) {
             System.err.println("==> [EmailService Lỗi] Không thể gửi email tài khoản tới " + toEmail + ": " + e.getMessage());
+            return false;
         }
     }
 

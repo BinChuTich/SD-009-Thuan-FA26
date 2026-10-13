@@ -1070,7 +1070,7 @@ const openCreateModal = () => {
 }
 
 .switch-toggle input:checked + .slider-round {
-  background-color: #b38e6e;
+  background-color: var(--blue, #496883);
 }
 
 .switch-toggle input:checked + .slider-round::before {
@@ -1157,8 +1157,8 @@ const openCreateModal = () => {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background-color: #f7eee1;
-  color: #b38e6e;
+  background-color: #eaf1f5;
+  color: var(--blue, #496883);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1220,7 +1220,7 @@ const openCreateModal = () => {
 }
 
 .text-activate {
-  color: #b38e6e;
+  color: var(--blue, #496883);
   font-weight: 700;
 }
 

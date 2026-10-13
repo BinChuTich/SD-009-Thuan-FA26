@@ -19,10 +19,6 @@ public interface ChiTietDotGiamGiaRepository extends JpaRepository<ChiTietDotGia
     @Query("DELETE FROM ChiTietDotGiamGia ct WHERE ct.idDotGiamGia.id = :idDotGiamGia")
     void deleteByIdDotGiamGiaId(@Param("idDotGiamGia") Long idDotGiamGia);
 
-    /**
-     * Tìm các đợt giảm giá chưa kết thúc đang chứa các biến thể hoặc sản phẩm cha này
-     * Quy tắc: 1 sản phẩm chỉ được tạo 1 đợt giảm giá, khi đợt đó kết thúc mới tạo lại được
-     */
     @Query("SELECT ct FROM ChiTietDotGiamGia ct " +
            "WHERE (ct.idChiTietSanPham.id IN :ctspIds " +
            "       OR ct.idChiTietSanPham.idSanPham.id IN :spIds) " +
@@ -53,4 +49,34 @@ public interface ChiTietDotGiamGiaRepository extends JpaRepository<ChiTietDotGia
            "AND (ct.idDotGiamGia.ngayKetThuc IS NULL OR ct.idDotGiamGia.ngayKetThuc > :now) " +
            "AND (:excludeDotId IS NULL OR ct.idDotGiamGia.id != :excludeDotId)")
     List<ChiTietDotGiamGia> findActiveChiTiets(@Param("now") Instant now, @Param("excludeDotId") Long excludeDotId);
+
+    /**
+     * Tìm các chi tiết đợt giảm giá đang hoạt động cho một biến thể sản phẩm cụ thể
+     */
+    @Query("SELECT ct FROM ChiTietDotGiamGia ct " +
+           "WHERE ct.idChiTietSanPham.id = :variantId " +
+           "AND ct.idDotGiamGia.trangThai = 1 " +
+           "AND (ct.idDotGiamGia.ngayBatDau IS NULL OR ct.idDotGiamGia.ngayBatDau <= :now) " +
+           "AND (ct.idDotGiamGia.ngayKetThuc IS NULL OR ct.idDotGiamGia.ngayKetThuc > :now) " +
+           "AND (ct.trangThai = 1 OR ct.trangThai IS NULL) " +
+           "ORDER BY ct.idDotGiamGia.id DESC")
+    List<ChiTietDotGiamGia> findActiveDiscountsByVariantId(
+            @Param("variantId") Long variantId,
+            @Param("now") Instant now
+    );
+
+    /**
+     * Tìm các chi tiết đợt giảm giá đang hoạt động cho một sản phẩm cha cụ thể
+     */
+    @Query("SELECT ct FROM ChiTietDotGiamGia ct " +
+           "WHERE ct.idChiTietSanPham.idSanPham.id = :sanPhamId " +
+           "AND ct.idDotGiamGia.trangThai = 1 " +
+           "AND (ct.idDotGiamGia.ngayBatDau IS NULL OR ct.idDotGiamGia.ngayBatDau <= :now) " +
+           "AND (ct.idDotGiamGia.ngayKetThuc IS NULL OR ct.idDotGiamGia.ngayKetThuc > :now) " +
+           "AND (ct.trangThai = 1 OR ct.trangThai IS NULL) " +
+           "ORDER BY ct.idDotGiamGia.id DESC")
+    List<ChiTietDotGiamGia> findActiveDiscountsBySanPhamId(
+            @Param("sanPhamId") Long sanPhamId,
+            @Param("now") Instant now
+    );
 }

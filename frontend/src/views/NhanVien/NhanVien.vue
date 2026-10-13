@@ -1064,7 +1064,7 @@ onMounted(async () => {
 }
 
 .switch-toggle input:checked + .slider-round {
-  background-color: #b38e6e;
+  background-color: var(--blue, #496883);
 }
 
 .switch-toggle input:checked + .slider-round::before {
@@ -1146,7 +1146,7 @@ onMounted(async () => {
   width: 17px;
   height: 17px;
   cursor: pointer;
-  accent-color: #b38e6e;
+  accent-color: var(--blue, #496883);
 }
 
 .row-checkbox:disabled {

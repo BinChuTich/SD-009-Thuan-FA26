@@ -19,6 +19,7 @@ public interface KhachHangRepository extends JpaRepository<KhachHang, Long>, Jpa
     boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
     Optional<KhachHang> findTopByOrderByIdDesc();
     Optional<KhachHang> findByMaKhachHang(String maKhachHang);
+    Optional<KhachHang> findByMaKhachHangIgnoreCase(String maKhachHang);
     Optional<KhachHang> findByTaiKhoan(String taiKhoan);
     Optional<KhachHang> findByEmail(String email);
     Optional<KhachHang> findBySoDienThoai(String soDienThoai);

@@ -31,24 +31,16 @@
     ======================================================== -->
     <div v-if="currentView === 'list'" class="view-list">
       <!-- 1. Thanh tiêu đề trên cùng góc trái -->
-      <div class="breadcrumb-header">
-        <div class="breadcrumb-left">
-          <span class="breadcrumb-text">Quản lý giảm giá <span class="slash">/</span> <b>Đợt giảm giá</b></span>
-        </div>
+      <div class="page-breadcrumb">
+        <router-link to="/dot-giam-gia" class="crumb-parent">Quản lý giảm giá</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">Đợt giảm giá</span>
       </div>
 
-      <!-- 2. Khung Bộ lọc (Chuẩn ảnh mẫu) -->
-      <div class="content-card filter-card-custom">
+      <!-- 2. Khung Bộ lọc -->
+      <div class="content-card filter-card">
         <div class="card-header-filter">
-          <div class="filter-icon-box">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-            </svg>
-          </div>
-          <div class="filter-title-wrap">
-            <h3 class="filter-title">Bộ lọc</h3>
-            <p class="filter-subtitle">Tra cứu nhanh dữ liệu.</p>
-          </div>
+          <h3 class="filter-title">Bộ lọc tìm kiếm</h3>
         </div>
 
         <!-- Lưới 4 ô lọc trên 1 hàng -->
@@ -115,41 +107,26 @@
           </div>
         </div>
 
-        <!-- Hàng nút góc phải (Xanh dương & Be) -->
-        <div class="filter-actions-right">
-          <button class="btn btn-action-beige" @click="resetFilters">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="1 4 1 10 7 10"></polyline>
-              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-            </svg>
-            <span>Đặt lại bộ lọc</span>
+        <!-- Hàng nút thao tác -->
+        <div class="filter-actions">
+          <button class="btn btn-reset" @click="resetFilters">
+            Đặt lại bộ lọc
           </button>
-          <button class="btn btn-action-outline-blue" @click="exportToExcel" :disabled="exporting">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-            </svg>
-            <span>{{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}</span>
+          <button class="btn btn-export" @click="exportToExcel" :disabled="exporting">
+            {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
           </button>
-          <button class="btn btn-action-solid-blue" @click="openCreateView">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            <span>Tạo đợt giảm giá</span>
+          <button class="btn btn-primary" @click="openCreateView">
+            + Thêm đợt giảm giá
           </button>
         </div>
       </div>
 
-      <!-- 2. Khung Bảng danh sách (Chuẩn ảnh mẫu) -->
-      <div class="content-card table-card-custom">
-        <div class="table-header-row-custom">
-          <h3 class="table-title-custom">Danh sách các đợt giảm giá</h3>
-          <span class="record-count-simple">
-            {{ totalElements }} bản ghi hiển thị.
-          </span>
+      <!-- 3. Khung Bảng danh sách -->
+      <div class="content-card table-card">
+        <div class="table-header-row">
+          <div class="table-title-wrap">
+            <h3 class="table-title">Danh sách đợt giảm giá</h3>
+          </div>
         </div>
 
         <div class="table-responsive-custom">
@@ -179,7 +156,7 @@
               <td colspan="8" class="error-cell">
                 {{ errorMessage }}
                 <div style="margin-top: 8px;">
-                  <button class="btn btn-action-outline-blue" style="height: 2rem; font-size: 0.85rem;" @click="fetchData">Thử lại</button>
+                  <button class="btn btn-export" style="height: 2rem; font-size: 0.85rem;" @click="fetchData">Thử lại</button>
                 </div>
               </td>
             </tr>
@@ -310,20 +287,15 @@
     ======================================================== -->
     <div v-else class="view-form-video">
       <!-- Breadcrumb thanh điều hướng trên cùng -->
-      <div class="video-breadcrumb-bar">
-        <button class="btn-video-back" @click="backToList" title="Quay lại">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"></line>
-            <polyline points="12 19 5 12 12 5"></polyline>
-          </svg>
+      <div class="page-breadcrumb">
+        <button class="btn-back-pill" type="button" @click="backToList" title="Quay lại">
+          ← Quay lại
         </button>
-        <div class="video-breadcrumb-text">
-          <span class="crumb-link" @click="backToList">Quản lý giảm giá</span>
-          <span class="crumb-sep">/</span>
-          <span class="crumb-link" @click="backToList">Đợt giảm giá</span>
-          <span class="crumb-sep">/</span>
-          <span class="crumb-current">{{ isEditing ? 'Chi tiết đợt giảm giá' : 'Thêm đợt giảm giá' }}</span>
-        </div>
+        <span class="crumb-parent" @click="backToList" style="cursor: pointer;">Quản lý giảm giá</span>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-parent" @click="backToList" style="cursor: pointer;">Đợt giảm giá</span>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">{{ isEditing ? 'Chi tiết đợt giảm giá' : 'Thêm đợt giảm giá' }}</span>
       </div>
 
       <!-- HÀNG TRÊN: GRID 2 CỘT (Cột trái: Thông tin đợt giảm, Cột phải: Chọn sản phẩm) -->
@@ -2440,7 +2412,7 @@ onUnmounted(() => {
 
 <style scoped>
 .dot-giam-gia-wrapper {
-  padding: 2.2rem 3.5rem 5rem;
+  padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   font-family: var(--system-font, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
@@ -2549,69 +2521,73 @@ onUnmounted(() => {
   transform: translateY(-25px) translateX(35px);
 }
 
-/* Header breadcrumb: Tăng khoảng cách lề thoáng đãng */
-.breadcrumb-header {
-  margin-bottom: 1.6rem;
+/* 1. Thanh tiêu đề trên cùng (Breadcrumb) */
+.page-breadcrumb {
   display: flex;
   align-items: center;
-  padding: 0 0.5rem;
+  gap: 8px;
+  font-size: 0.88rem;
+  margin-bottom: 20px;
 }
-.breadcrumb-text {
-  font-size: 1.15rem;
-  color: #6b7280;
-  letter-spacing: 0.01em;
+.crumb-parent {
+  color: #647074;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s ease;
 }
-.breadcrumb-text b {
+.crumb-parent:hover {
+  color: var(--blue, #496883);
+  text-decoration: underline;
+}
+.crumb-separator {
+  color: #b0b7bd;
+}
+.crumb-current {
+  color: var(--blue, #496883);
+  font-weight: 700;
+}
+.btn-back-pill {
+  padding: 0.35rem 0.85rem;
+  border-radius: 20px;
+  border: 1px solid #d2d6dc;
+  background-color: #ffffff;
+  color: #4b5563;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-right: 6px;
+}
+.btn-back-pill:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
   color: #111827;
-  font-weight: 800;
-  font-size: 1.25rem;
-}
-.slash {
-  margin: 0 10px;
-  color: #d1d5db;
 }
 
-/* Content Card chung màu trắng be tinh tế */
+/* Content Card chuẩn hệ thống */
 .content-card {
   background: #ffffff;
-  border-radius: 14px;
-  border: 1px solid #ede9de;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
   padding: 1.5rem 1.85rem;
-  margin-bottom: 1.6rem;
+  margin-bottom: 1.5rem;
 }
 
-/* 1. KHỐI BỘ LỌC (Chuẩn ảnh mẫu) */
-.filter-card-custom {
-  background: #ffffff;
-}
-
+/* 2. KHỐI BỘ LỌC */
 .card-header-filter {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  margin-bottom: 1.25rem;
-}
-.filter-icon-box {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background-color: #f3f4f6;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #6b7280;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f2eae1;
 }
 .filter-title {
-  font-size: 1.2rem;
-  font-weight: 750;
+  font-size: 1.05rem;
+  font-weight: 700;
   margin: 0;
-  color: #1f2937;
-}
-.filter-subtitle {
-  font-size: 0.8rem;
-  color: #9ca3af;
-  margin: 2px 0 0 0;
+  color: var(--blue, #496883);
 }
 
 /* Lưới 4 ô lọc */
@@ -2622,10 +2598,11 @@ onUnmounted(() => {
   margin-bottom: 1.25rem;
 }
 .filter-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 0.4rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #4f5d63;
+  margin-bottom: 0.45rem;
+  display: block;
 }
 .input-inner-custom {
   position: relative;
@@ -2639,144 +2616,98 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
 }
-.filter-text-input {
+.filter-text-input,
+.filter-date-input {
   width: 100%;
   height: 2.6rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 0 0.85rem 0 2.5rem;
-  font-size: 0.88rem;
-  color: #1f2937;
-  background-color: #ffffff;
-  outline: none;
-  transition: all 0.2s;
-  box-sizing: border-box;
-}
-.filter-text-input:focus,
-.filter-date-input:focus,
-.filter-select-input:focus {
-  border-color: #304b60;
-  box-shadow: 0 0 0 3px rgba(48, 75, 96, 0.12);
-}
-.filter-date-input,
-.filter-select-input {
-  width: 100%;
-  height: 2.6rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--line, #e9e5db);
   border-radius: 8px;
   padding: 0 0.85rem;
-  font-size: 0.88rem;
-  color: #1f2937;
-  background-color: #ffffff;
+  font-size: 0.92rem;
+  color: var(--text, #3d4a50);
+  background-color: #fcfbf8;
   outline: none;
   transition: all 0.2s;
   box-sizing: border-box;
 }
+.filter-text-input {
+  padding-left: 2.3rem;
+}
+.filter-text-input:focus,
+.filter-date-input:focus {
+  border-color: var(--blue, #496883);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
+}
 
-/* Hàng nút góc phải bộ lọc */
-.filter-actions-right {
+/* Hàng nút thao tác bộ lọc */
+.filter-actions {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 0.75rem;
-  margin-top: 0.5rem;
+  border-top: 1px dashed #efeae0;
+  padding-top: 1.1rem;
 }
-/* Nút Đặt lại bộ lọc (Màu be thanh lịch) */
-.btn-action-beige {
-  height: 2.45rem;
-  padding: 0 1.2rem;
+
+.btn {
+  height: 2.5rem;
+  padding: 0 1.35rem;
   border-radius: 8px;
-  font-size: 0.88rem;
-  font-weight: 600;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-reset {
   border: 1px solid #dfd5c2;
   background-color: #fff8eb;
   color: #957b48;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  transition: all 0.2s;
 }
-.btn-action-beige:hover:not(:disabled) {
+.btn-reset:hover {
   background-color: #faeed7;
-  border-color: #c8b99c;
-}
-.btn-action-beige:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
-/* Nút Xuất Excel (Viền xanh dương nhạt) */
-.btn-action-outline-blue {
-  height: 2.45rem;
-  padding: 0 1.2rem;
-  border-radius: 8px;
-  font-size: 0.88rem;
-  font-weight: 600;
-  border: 1px solid #c2daf0;
-  background-color: #f0f7ff;
-  color: #304b60;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  transition: all 0.2s;
+.btn-export {
+  background-color: #edf5ef;
+  color: #558764;
+  border: 1px solid #d2e5d6;
 }
-.btn-action-outline-blue:hover:not(:disabled) {
-  background-color: #e2effb;
-  border-color: #93c5fd;
-  color: #1e3a5f;
-}
-.btn-action-outline-blue:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.btn-export:hover {
+  background-color: #deede1;
 }
 
-/* Nút Tạo đợt giảm giá (Màu xanh dương đậm nổi bật) */
-.btn-action-solid-blue {
-  height: 2.45rem;
-  padding: 0 1.35rem;
-  border-radius: 8px;
-  font-size: 0.88rem;
-  font-weight: 600;
-  border: none;
-  background-color: #304b60;
+.btn-primary {
+  background-color: #3b596a;
   color: #ffffff;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  transition: all 0.2s;
-  box-shadow: 0 2px 6px rgba(48, 75, 96, 0.25);
 }
-.btn-action-solid-blue:hover {
-  background-color: #1e3342;
+.btn-primary:hover {
+  background-color: #2c4350;
 }
 
-/* 2. KHỐI BẢNG DANH SÁCH (Chuẩn ảnh mẫu & cột gần nhau) */
-.table-card-custom {
-  background: #ffffff;
-}
-.table-header-row-custom {
+/* 3. KHỐI BẢNG DANH SÁCH */
+.table-header-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.2rem;
+  margin-bottom: 1.1rem;
 }
-.table-title-custom {
-  font-size: 1.2rem;
-  font-weight: 750;
-  color: #111827;
+.table-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #3c4d55;
   margin: 0;
-}
-.record-count-simple {
-  font-size: 0.85rem;
-  color: #9ca3af;
 }
 .table-responsive-custom {
   overflow-x: auto;
-  border: 1px solid #ede9de;
-  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
+  border-radius: 8px;
   background: #ffffff;
 }
 .custom-table-styled {
@@ -2812,7 +2743,7 @@ onUnmounted(() => {
   font-size: 0.85rem;
 }
 .text-main-code {
-  color: #304b60;
+  color: var(--blue, #496883);
   font-weight: 700;
   letter-spacing: 0.3px;
 }
@@ -2934,10 +2865,10 @@ onUnmounted(() => {
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 .status-switch:hover:not(.is-disabled) .switch-track {
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15), 0 0 0 3px rgba(179, 138, 101, 0.15);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15), 0 0 0 3px rgba(73, 104, 131, 0.15);
 }
 .status-switch.is-active .switch-track {
-  background-color: #b38a65; /* Màu nâu caramel chuẩn theo ảnh mẫu */
+  background-color: var(--blue, #496883);
 }
 .switch-handle {
   position: absolute;
@@ -3038,8 +2969,8 @@ onUnmounted(() => {
   background-color: #f0f7ff;
 }
 .pg-btn-box.pg-active {
-  background-color: #304b60;
-  border-color: #304b60;
+  background-color: #3b596a;
+  border-color: #3b596a;
   color: #ffffff;
   font-weight: 700;
 }
@@ -3174,8 +3105,8 @@ onUnmounted(() => {
 }
 
 .product-search-input:focus {
-  border-color: #304b60;
-  box-shadow: 0 0 0 3px rgba(48, 75, 96, 0.12);
+  border-color: #496883;
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
   background: #ffffff;
 }
 
@@ -3195,14 +3126,14 @@ onUnmounted(() => {
   transition: all 0.15s;
 }
 .btn-clear-search:hover {
-  background: #304b60;
+  background: #3b596a;
   color: #ffffff;
 }
 
 .btn-search-product {
   height: 2.75rem;
   padding: 0 1.35rem;
-  background: #304b60;
+  background: #3b596a;
   color: #ffffff;
   border: none;
   border-radius: 8px;
@@ -3217,7 +3148,7 @@ onUnmounted(() => {
 }
 
 .btn-search-product:hover {
-  background: #213544;
+  background: #2c4350;
   transform: translateY(-1px);
 }
 
@@ -3267,7 +3198,7 @@ onUnmounted(() => {
   font-weight: 600;
 }
 .product-badge-found b {
-  color: #304b60;
+  color: #496883;
 }
 .product-table-box { max-height: 260px; overflow-y: auto; border: 1px solid #e9e5db; border-radius: 8px; background: #ffffff; }
 .product-table th { padding: 0.95rem 1.25rem; }
@@ -3659,15 +3590,15 @@ onUnmounted(() => {
   transition: color 0.15s;
 }
 .crumb-link:hover {
-  color: #304b60;
+  color: var(--blue, #496883);
 }
 .crumb-sep {
   color: #9ca3af;
 }
 .crumb-current {
-  color: #111827;
-  font-weight: 800;
-  font-size: 1.25rem;
+  color: var(--blue, #496883);
+  font-weight: 700;
+  font-size: 0.88rem;
 }
 
 /* Hàng trên: Grid 2 cột (Cột trái rộng hơn, Cột phải hẹp hơn một chút và chứa cả 2 thẻ sản phẩm) */
@@ -3725,7 +3656,7 @@ onUnmounted(() => {
   height: 38px;
   border-radius: 10px;
   background: #eaf1f5;
-  color: #304b60;
+  color: var(--blue, #496883);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3945,7 +3876,7 @@ onUnmounted(() => {
 .btn-video-submit {
   width: 100%;
   padding: 0.75rem;
-  background: #304b60;
+  background: #3b596a;
   color: #ffffff;
   border: none;
   border-radius: 8px;
@@ -3957,10 +3888,10 @@ onUnmounted(() => {
   justify-content: center;
   gap: 0.5rem;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(48, 75, 96, 0.22);
+  box-shadow: 0 4px 12px rgba(59, 89, 106, 0.22);
 }
 .btn-video-submit:hover:not(:disabled) {
-  background: #1e3342;
+  background: #2c4350;
 }
 .btn-video-submit:disabled {
   opacity: 0.65;

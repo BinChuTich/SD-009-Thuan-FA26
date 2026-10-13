@@ -43,6 +43,28 @@ public class KhachHangService {
         return toResponse(find(id));
     }
 
+    @Transactional(readOnly = true)
+    public KhachHangResponse getByIdentifier(String identifier) {
+        return toResponse(findByIdentifier(identifier));
+    }
+
+    public KhachHang findByIdentifier(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            throw new EntityNotFoundException("Mã hoặc ID khách hàng không hợp lệ");
+        }
+        try {
+            Long id = Long.parseLong(identifier.trim());
+            Optional<KhachHang> byId = repo.findById(id);
+            if (byId.isPresent()) {
+                return byId.get();
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        return repo.findByMaKhachHangIgnoreCase(identifier.trim())
+                .or(() -> repo.findByMaKhachHang(identifier.trim()))
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy khách hàng: " + identifier));
+    }
+
     @Transactional
     public KhachHangResponse create(KhachHangRequest req) {
         validateRequired(req);

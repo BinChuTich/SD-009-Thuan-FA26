@@ -1180,8 +1180,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../../api'
-import AttributeCombobox from '../../components/AttributeCombobox.vue'
-import Select2 from '../../components/Select2.vue'
+import Select2 from '../../components/Select2Combobox.vue'
 
 // Tùy chọn trạng thái kinh doanh dùng cho Select2
 const statusOptions = [

@@ -1,18 +1,25 @@
 <template>
   <div class="employee-page-wrapper">
-    <!-- Header -->
+    <!-- 1. Thanh tiêu đề trên cùng & Nút hành động -->
     <div class="page-top-header">
-      <div class="header-left">
-        <button class="btn-back" @click="goBack">
-          <span>←</span> Quay lại danh sách
-        </button>
-        <h2 class="page-title">
-          Thông tin nhân viên: {{ form.tenNhanVien || form.maNhanVien }}
-        </h2>
+      <div class="page-breadcrumb">
+        <router-link to="/nhan-vien" class="crumb-parent">Quản lý nhân viên</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">Thông tin nhân viên: {{ form.tenNhanVien || form.maNhanVien }}</span>
       </div>
-      <div class="header-right">
-        <button type="button" class="btn-scan-cccd" @click="showScanModal = true">
+      <div class="header-right-actions">
+        <button type="button" class="btn-scan-pill" @click="showScanModal = true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+            <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+            <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+            <line x1="7" y1="12" x2="17" y2="12"/>
+          </svg>
           Quét CCCD
+        </button>
+        <button class="btn-back-pill" @click="goBack" title="Quay lại danh sách nhân viên">
+          ← Quay lại danh sách
         </button>
       </div>
     </div>
@@ -24,17 +31,21 @@
       @scan-success="onCccdScanned"
     />
 
-    <div v-if="loading" class="content-card loading-card">
-      <p>Đang tải thông tin nhân viên...</p>
+    <!-- Trạng thái Đang tải dữ liệu -->
+    <div v-if="loading" class="content-card status-msg-card">
+      <div class="spinner">⏳</div>
+      <span>Đang nạp dữ liệu chi tiết nhân viên từ hệ thống...</span>
     </div>
 
-    <!-- Form Layout -->
-    <div v-else class="form-container-card">
-      <div class="form-layout-grid">
-        <!-- Cột trái: Ảnh đại diện -->
-        <div class="avatar-upload-panel">
-          <div class="avatar-card">
-            <h4 class="card-subtitle">Ảnh đại diện</h4>
+    <!-- 2. Form nội dung: Bố cục lưới phẳng hiện đại -->
+    <form v-else @submit.prevent="handleUpdate" class="employee-layout-grid">
+      <!-- Cột trái: Ảnh đại diện -->
+      <div class="avatar-sidebar-col">
+        <div class="content-card avatar-section-card">
+          <div class="card-section-header">
+            <h3 class="section-title">Ảnh đại diện</h3>
+          </div>
+          <div class="avatar-body">
             <div class="avatar-integrated-wrapper">
               <label class="avatar-uploader-box" title="Nhấp để chọn hoặc đổi ảnh đại diện">
                 <input
@@ -45,6 +56,10 @@
                 />
                 <img v-if="avatarPreview" :src="avatarPreview" class="avatar-preview-img" alt="avatar" />
                 <div v-else class="avatar-empty-placeholder">
+                  <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#8c979d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
                   <span class="avatar-placeholder-text">Chọn ảnh</span>
                 </div>
                 <div class="avatar-hover-overlay">
@@ -54,69 +69,129 @@
               <button v-if="avatarPreview" type="button" class="btn-remove-avatar-link" @click="removeAvatar">
                 Gỡ ảnh
               </button>
+              <span class="avatar-hint-note">Định dạng JPG, PNG, WEBP</span>
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Cột phải: Thông tin chi tiết -->
-        <div class="form-fields-panel">
-          <!-- Phần 1: Thông tin cơ bản -->
-          <div class="section-card">
-            <h4 class="section-title">Thông tin cơ bản</h4>
-            <div class="form-grid">
-              <!-- Mã nhân viên (KHÓA - KHÔNG CHO SỬA) -->
+      <!-- Cột phải: Các Card thông tin xếp dọc phẳng -->
+      <div class="form-content-container">
+        <!-- KHỐI 1: THÔNG TIN CƠ BẢN -->
+        <div class="content-card form-section-card">
+          <div class="card-section-header">
+            <h3 class="section-title">Thông tin cơ bản</h3>
+          </div>
+          <div class="section-body">
+            <!-- Hàng 1 (2 Cột): Mã nhân viên & Họ và tên -->
+            <div class="form-grid-2">
               <div class="form-field">
-                <label>Mã nhân viên <span class="tag-hint">(Không thể sửa)</span></label>
+                <label class="field-label">
+                  Mã nhân viên
+                  <span class="badge-lock">Cố định</span>
+                </label>
                 <input
                   v-model="form.maNhanVien"
                   type="text"
-                  class="input-disabled"
+                  class="form-control input-disabled"
                   disabled
                 />
               </div>
 
-              <!-- Họ và tên -->
               <div class="form-field">
-                <label>Họ và tên <span class="required">*</span></label>
+                <label class="field-label">Họ và tên <span class="required">*</span></label>
                 <input
                   v-model="form.tenNhanVien"
                   type="text"
                   placeholder="Nhập họ và tên..."
-                  :class="{ 'has-error': errors.tenNhanVien }"
+                  class="form-control"
+                  :class="{ 'input-error': errors.tenNhanVien }"
                   @input="validateField('tenNhanVien')"
                 />
-                <span v-if="errors.tenNhanVien" class="error-inline-msg">{{ errors.tenNhanVien }}</span>
+                <span v-if="errors.tenNhanVien" class="field-error-msg">{{ errors.tenNhanVien }}</span>
               </div>
+            </div>
 
-              <!-- Số điện thoại -->
+            <!-- Hàng 2 (2 Cột): Số điện thoại & Email -->
+            <div class="form-grid-2">
               <div class="form-field">
-                <label>Số điện thoại <span class="required">*</span></label>
+                <label class="field-label">Số điện thoại <span class="required">*</span></label>
                 <input
                   v-model="form.soDienThoai"
                   type="text"
                   placeholder="VD: 0987654321 (10 - 11 số)"
-                  :class="{ 'has-error': errors.soDienThoai }"
+                  class="form-control"
+                  :class="{ 'input-error': errors.soDienThoai }"
                   @input="validateField('soDienThoai')"
                 />
-                <span v-if="errors.soDienThoai" class="error-inline-msg">{{ errors.soDienThoai }}</span>
+                <span v-if="errors.soDienThoai" class="field-error-msg">{{ errors.soDienThoai }}</span>
               </div>
 
-              <!-- Email -->
               <div class="form-field">
-                <label>Email <span class="required">*</span></label>
+                <label class="field-label">Email <span class="required">*</span></label>
                 <input
                   v-model="form.email"
                   type="email"
                   placeholder="example@gmail.com"
-                  :class="{ 'has-error': errors.email }"
+                  class="form-control"
+                  :class="{ 'input-error': errors.email }"
                   @input="validateField('email')"
                 />
-                <span v-if="errors.email" class="error-inline-msg">{{ errors.email }}</span>
+                <span v-if="errors.email" class="field-error-msg">{{ errors.email }}</span>
+              </div>
+            </div>
+
+            <!-- Hàng 3 (2 Cột): Ngày sinh & Chức vụ -->
+            <div class="form-grid-2">
+              <div class="form-field">
+                <label class="field-label">
+                  Ngày sinh <span class="required">*</span>
+                  <span class="sub-hint">(Từ đủ 18 tuổi)</span>
+                </label>
+                <input
+                  v-model="form.ngaySinh"
+                  type="date"
+                  :max="maxDate"
+                  class="form-control"
+                  :class="{ 'input-error': errors.ngaySinh }"
+                  @change="validateField('ngaySinh')"
+                />
+                <span v-if="errors.ngaySinh" class="field-error-msg">{{ errors.ngaySinh }}</span>
               </div>
 
-              <!-- Giới tính (Radio) -->
               <div class="form-field">
-                <label>Giới tính <span class="required">*</span></label>
+                <label class="field-label">Chức vụ <span class="required">*</span></label>
+                <Select2Combobox
+                  v-model="form.idVaiTro"
+                  :options="roles"
+                  value-key="id"
+                  label-key="tenVaiTro"
+                  placeholder="-- Chọn chức vụ --"
+                  search-placeholder="Tìm chức vụ..."
+                  :has-error="!!errors.idVaiTro"
+                  @change="validateField('idVaiTro')"
+                />
+                <span v-if="errors.idVaiTro" class="field-error-msg">{{ errors.idVaiTro }}</span>
+              </div>
+            </div>
+
+            <!-- Hàng 4 (2 Cột): Trạng thái & Giới tính -->
+            <div class="form-grid-2">
+              <div class="form-field">
+                <label class="field-label">Trạng thái</label>
+                <Select2Combobox
+                  v-model="form.trangThai"
+                  :options="statusOptions"
+                  value-key="value"
+                  label-key="label"
+                  :allow-clear="false"
+                  :searchable="false"
+                  placeholder="Chọn trạng thái..."
+                />
+              </div>
+
+              <div class="form-field">
+                <label class="field-label">Giới tính <span class="required">*</span></label>
                 <div class="gender-radio-group">
                   <label class="radio-label">
                     <input type="radio" :value="true" v-model="form.gioiTinh" />
@@ -128,104 +203,74 @@
                   </label>
                 </div>
               </div>
-
-              <!-- Ngày sinh -->
-              <div class="form-field">
-                <label>Ngày sinh <span class="required">*</span> <span class="sub-hint">(Từ đủ 18 tuổi)</span></label>
-                <input
-                  v-model="form.ngaySinh"
-                  type="date"
-                  :max="maxDate"
-                  :class="{ 'has-error': errors.ngaySinh }"
-                  @change="validateField('ngaySinh')"
-                />
-                <span v-if="errors.ngaySinh" class="error-inline-msg">{{ errors.ngaySinh }}</span>
-              </div>
-
-              <!-- Chức vụ -->
-              <div class="form-field">
-                <label>Chức vụ <span class="required">*</span></label>
-                <select
-                  v-model="form.idVaiTro"
-                  :class="{ 'has-error': errors.idVaiTro }"
-                  @change="validateField('idVaiTro')"
-                >
-                  <option value="">-- Chọn chức vụ --</option>
-                  <option v-for="r in roles" :key="r.id" :value="r.id">
-                    {{ r.tenVaiTro }}
-                  </option>
-                </select>
-                <span v-if="errors.idVaiTro" class="error-inline-msg">{{ errors.idVaiTro }}</span>
-              </div>
-
-              <!-- Trạng thái -->
-              <div class="form-field">
-                <label>Trạng thái</label>
-                <select v-model="form.trangThai">
-                  <option :value="1">Hoạt động</option>
-                  <option :value="0">Ngừng hoạt động</option>
-                </select>
-              </div>
             </div>
           </div>
+        </div>
 
-          <!-- Phần 2: Thông tin địa chỉ -->
-          <div class="section-card">
-            <h4 class="section-title">Thông tin địa chỉ</h4>
-            <div class="form-grid">
-              <!-- Tỉnh / Thành phố -->
+        <!-- KHỐI 2: THÔNG TIN ĐỊA CHỈ -->
+        <div class="content-card form-section-card">
+          <div class="card-section-header">
+            <h3 class="section-title">Thông tin địa chỉ</h3>
+          </div>
+          <div class="section-body">
+            <!-- Hàng 1 (2 Cột): Tỉnh / Thành phố & Phường / Xã -->
+            <div class="form-grid-2">
               <div class="form-field">
-                <label>Tỉnh / Thành phố <span class="required">*</span></label>
-                <Select2
+                <label class="field-label">Tỉnh / Thành phố <span class="required">*</span></label>
+                <Select2Combobox
                   v-model="selectedProvinceCode"
                   :options="provincesList"
+                  value-key="code"
+                  label-key="name"
                   placeholder="-- Chọn Tỉnh / Thành phố --"
                   search-placeholder="Tìm kiếm Tỉnh / Thành phố..."
                   :has-error="!!errors.queQuan"
                   @change="onProvinceChange"
                 />
-                <span v-if="errors.queQuan" class="error-inline-msg">{{ errors.queQuan }}</span>
+                <span v-if="errors.queQuan" class="field-error-msg">{{ errors.queQuan }}</span>
               </div>
 
-              <!-- Phường / Xã -->
               <div class="form-field">
-                <label>Phường / Xã <span class="required">*</span></label>
-                <Select2
+                <label class="field-label">Phường / Xã <span class="required">*</span></label>
+                <Select2Combobox
                   v-model="selectedWardCode"
                   :options="wardsList"
+                  value-key="code"
+                  label-key="name"
                   :disabled="!selectedProvinceCode"
                   placeholder="-- Chọn Phường / Xã --"
                   search-placeholder="Tìm kiếm Phường / Xã..."
                   :has-error="!!errors.phuong"
                   @change="onWardChange"
                 />
-                <span v-if="errors.phuong" class="error-inline-msg">{{ errors.phuong }}</span>
-              </div>
-
-              <!-- Địa chỉ cụ thể -->
-              <div class="form-field full-width">
-                <label>Địa chỉ cụ thể</label>
-                <input
-                  v-model="form.diaChiCuThe"
-                  type="text"
-                  placeholder="Số nhà, ngõ, tên đường (không bắt buộc)..."
-                />
+                <span v-if="errors.phuong" class="field-error-msg">{{ errors.phuong }}</span>
               </div>
             </div>
-          </div>
 
-          <!-- Nút hành động -->
-          <div class="form-actions-bar">
-            <button class="btn btn-secondary" @click="goBack">
-              Quay lại danh sách
-            </button>
-            <button class="btn btn-primary" :disabled="saving" @click="handleUpdate">
-              {{ saving ? 'Đang lưu...' : 'Lưu thay đổi' }}
-            </button>
+            <!-- Hàng 2: Địa chỉ cụ thể -->
+            <div class="form-field full-width">
+              <label class="field-label">Địa chỉ cụ thể</label>
+              <input
+                v-model="form.diaChiCuThe"
+                type="text"
+                placeholder="Số nhà, ngõ, tên đường (không bắt buộc)..."
+                class="form-control"
+              />
+            </div>
           </div>
         </div>
+
+        <!-- KHỐI 3: NÚT HÀNH ĐỘNG -->
+        <div class="form-actions-bar">
+          <button type="button" class="btn btn-secondary" @click="goBack">
+            Quay lại danh sách
+          </button>
+          <button type="submit" class="btn btn-primary" :disabled="saving">
+            {{ saving ? 'Đang lưu...' : 'Lưu thay đổi' }}
+          </button>
+        </div>
       </div>
-    </div>
+    </form>
   </div>
 </template>
 
@@ -236,7 +281,12 @@ import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
 import { getProvinces, getWardsByProvince, matchAddressHierarchy, lookupLegacyWard } from '@/services/provincesApi.js'
 import CccdScannerModal from '@/components/CccdScannerModal.vue'
-import Select2 from '@/components/Select2.vue'
+import Select2Combobox from '@/components/Select2Combobox.vue'
+
+const statusOptions = [
+  { value: 1, label: 'Hoạt động' },
+  { value: 0, label: 'Ngừng hoạt động' }
+]
 
 const route = useRoute()
 const router = useRouter()
@@ -649,131 +699,161 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Khung tổng thể bao ngoài căn lề chuẩn hệ thống */
 .employee-page-wrapper {
-  padding: 1.8rem 2.2rem 3.5rem;
+  padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);
   box-sizing: border-box;
 }
 
+/* 1. Header trên cùng & Breadcrumb */
 .page-top-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
-  max-width: 1250px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
-.header-left {
+.page-breadcrumb {
+  font-size: 0.95rem;
   display: flex;
   align-items: center;
-  gap: 1.2rem;
+  gap: 0.5rem;
+  line-height: 1.4;
 }
 
-.btn-back {
-  background: #ffffff;
-  border: 1px solid var(--line, #e9e5db);
-  padding: 0.55rem 1.1rem;
-  border-radius: 8px;
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: #496883;
-  cursor: pointer;
+.crumb-parent {
+  color: #6b7280;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.crumb-parent:hover {
+  color: #1f2937;
+  text-decoration: underline;
+}
+
+.crumb-separator {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.crumb-current {
+  color: var(--blue, #496883);
+  font-weight: 700;
+}
+
+.header-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-scan-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  transition: all 0.2s;
-}
-
-.btn-back:hover {
-  background-color: #eaf1f4;
-  border-color: #496883;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 1.45rem;
-  font-weight: 700;
-  color: var(--blue, #496883);
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-}
-
-.btn-scan-cccd {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.6rem 1.35rem;
+  padding: 0.4rem 1.1rem;
   background-color: #b38e6e;
   color: #ffffff;
   border: none;
-  border-radius: 8px;
-  font-size: 0.92rem;
-  font-weight: 700;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(179, 142, 110, 0.25);
-  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(179, 142, 110, 0.25);
+  transition: all 0.2s ease;
 }
 
-.btn-scan-cccd:hover {
+.btn-scan-pill:hover {
   background-color: #9c7756;
-  box-shadow: 0 4px 12px rgba(179, 142, 110, 0.35);
-  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(179, 142, 110, 0.35);
 }
 
-.loading-card {
-  padding: 3.5rem;
+.btn-back-pill {
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  border: 1px solid #d2d6dc;
+  background-color: #ffffff;
+  color: #4b5563;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-back-pill:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+  color: #111827;
+}
+
+/* Trạng thái thông báo đang nạp dữ liệu */
+.status-msg-card {
   text-align: center;
-  color: #7d8b91;
-  font-size: 1.05rem;
-  max-width: 1250px;
-  margin: 0 auto;
+  padding: 3.5rem !important;
+  color: #647074;
 }
 
-.form-container-card {
-  background: #ffffff;
-  border-radius: 14px;
-  border: 1px solid var(--line, #e9e5db);
-  padding: 2.2rem 2.5rem;
-  box-shadow: 0 2px 8px rgba(65, 60, 50, 0.03);
-  max-width: 1250px;
-  margin: 0 auto;
+.spinner {
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
 }
 
-.form-layout-grid {
+/* 2. Bố cục trang nhân viên */
+.employee-layout-grid {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 2.5rem;
+  grid-template-columns: 270px 1fr;
+  gap: 1.5rem;
   align-items: start;
 }
 
-/* Avatar Panel */
-.avatar-card {
-  background: #faf8f4;
-  border: 1px dashed #d6d0c4;
-  border-radius: 12px;
-  padding: 1.6rem 1rem;
+/* Thẻ Card trắng chuẩn hệ thống */
+.content-card {
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+  padding: 1.5rem 1.85rem;
+}
+
+.card-section-header {
+  border-bottom: 1px solid #f0eee6;
+  padding-bottom: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0;
+}
+
+/* Avatar Card */
+.avatar-section-card {
   text-align: center;
 }
 
-.card-subtitle {
-  margin: 0 0 1.2rem;
-  font-size: 1rem;
-  font-weight: 700;
-  color: #496883;
+.avatar-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 0;
 }
 
 .avatar-integrated-wrapper {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.8rem;
+  gap: 0.85rem;
+  width: 100%;
 }
 
 .avatar-uploader-box {
@@ -783,7 +863,7 @@ onMounted(() => {
   margin: 0 auto;
   background: #eaf1f5;
   border: 3px solid #ffffff;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -797,7 +877,7 @@ onMounted(() => {
 .avatar-uploader-box:hover {
   border-color: #496883;
   transform: scale(1.02);
-  box-shadow: 0 6px 18px rgba(73, 104, 131, 0.2);
+  box-shadow: 0 6px 16px rgba(73, 104, 131, 0.2);
 }
 
 .avatar-preview-img {
@@ -812,12 +892,13 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0.35rem;
   color: #647b8c;
 }
 
 .avatar-placeholder-text {
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: 0.88rem;
+  font-weight: 600;
   color: #496883;
 }
 
@@ -829,7 +910,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 600;
   opacity: 0;
   transition: opacity 0.2s ease;
@@ -842,43 +923,42 @@ onMounted(() => {
 .btn-remove-avatar-link {
   background: none;
   border: none;
-  color: #c94a4a;
+  color: #dc2626;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  padding: 0.2rem 0.6rem;
+  padding: 0.25rem 0.6rem;
   border-radius: 4px;
+  transition: background-color 0.15s ease;
 }
 
 .btn-remove-avatar-link:hover {
-  background-color: #fde8e8;
+  background-color: #fee2e2;
 }
 
-/* Form Fields Panel */
-.form-fields-panel {
+.avatar-hint-note {
+  font-size: 0.78rem;
+  color: #8c979d;
+}
+
+/* Cột phải: Form Content Container */
+.form-content-container {
   display: flex;
   flex-direction: column;
-  gap: 1.8rem;
+  gap: 1.5rem;
 }
 
-.section-card {
-  border: 1px solid #ece8de;
-  border-radius: 12px;
-  padding: 1.8rem 2rem;
-  background-color: #ffffff;
+.section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
 }
 
-.section-title {
-  margin: 0 0 1.4rem;
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: #384952;
-}
-
-.form-grid {
+/* Grid 2 cột */
+.form-grid-2 {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.4rem 1.8rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
 }
 
 .form-field {
@@ -887,28 +967,32 @@ onMounted(() => {
   gap: 0.45rem;
 }
 
-.form-field.full-width {
-  grid-column: span 2;
+.full-width {
+  width: 100%;
 }
 
-.form-field label {
+.field-label {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #414d55;
+  color: #374151;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
+}
+
+.badge-lock {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #6b7280;
+  background-color: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
 }
 
 .required {
-  color: #d9534f;
+  color: #dc2626;
   font-weight: bold;
-}
-
-.tag-hint {
-  font-size: 0.78rem;
-  color: #8c979d;
-  font-weight: normal;
 }
 
 .sub-hint {
@@ -917,49 +1001,48 @@ onMounted(() => {
   font-weight: normal;
 }
 
-.form-field input,
-.form-field select {
-  height: 2.85rem;
-  border: 1px solid var(--line, #dfdcd3);
+.form-control {
+  width: 100%;
+  height: 2.7rem;
+  border: 1px solid var(--line, #e9e5db);
   border-radius: 8px;
   padding: 0 0.95rem;
   font-size: 0.95rem;
-  color: #2b383e;
-  background-color: #ffffff;
+  color: var(--text, #3d4a50);
+  background-color: #fcfbf8;
   outline: none;
   transition: all 0.2s;
   box-sizing: border-box;
 }
 
-.form-field input:focus,
-.form-field select:focus {
+.form-control:focus {
   border-color: #496883;
+  background-color: #ffffff;
   box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
 }
 
-.form-field input.has-error,
-.form-field select.has-error {
-  border-color: #e53e3e !important;
-  background-color: #fffaf9;
+.input-error {
+  border-color: #dc2626 !important;
+  background-color: #fffaf9 !important;
 }
 
-.form-field input.has-error:focus,
-.form-field select.has-error:focus {
-  box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.15) !important;
+.input-error:focus {
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important;
 }
 
-.error-inline-msg {
+.field-error-msg {
   font-size: 0.82rem;
-  color: #e53e3e;
+  color: #dc2626;
   font-weight: 500;
   line-height: 1.25;
 }
 
 .input-disabled {
-  background-color: #f1ede4 !important;
-  color: #7b868b !important;
+  background-color: #f3f4f6 !important;
+  color: #6b7280 !important;
   cursor: not-allowed;
   font-weight: 600;
+  border-color: #e5e7eb;
 }
 
 /* Radio Group */
@@ -967,7 +1050,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 2rem;
-  height: 2.85rem;
+  height: 2.7rem;
 }
 
 .radio-label {
@@ -975,7 +1058,7 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.95rem;
-  color: #384952;
+  color: #374151;
   cursor: pointer;
   font-weight: 500;
 }
@@ -988,35 +1071,36 @@ onMounted(() => {
   margin: 0;
 }
 
+/* Form Actions */
 .form-actions-bar {
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
-  padding-top: 0.8rem;
+  gap: 0.8rem;
+  padding-top: 0.5rem;
 }
 
 .btn {
-  height: 2.85rem;
-  padding: 0 1.8rem;
+  height: 2.6rem;
+  padding: 0 1.5rem;
   border-radius: 8px;
-  font-size: 0.98rem;
-  font-weight: 700;
+  font-size: 0.92rem;
+  font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   transition: all 0.2s;
   border: none;
 }
 
 .btn-secondary {
-  border: 1px solid #dfd5c2;
-  background-color: #fff8eb;
-  color: #957b48;
+  background-color: #f4efe6;
+  color: #6d6352;
+  border: 1px solid #e2dacd;
 }
 .btn-secondary:hover {
-  background-color: #faeed7;
+  background-color: #ebe3d6;
 }
 
 .btn-primary {
@@ -1026,19 +1110,20 @@ onMounted(() => {
 .btn-primary:hover {
   background-color: #2c4350;
 }
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
-@media (max-width: 900px) {
-  .form-layout-grid {
+@media (max-width: 960px) {
+  .employee-layout-grid {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 600px) {
-  .form-grid {
+@media (max-width: 768px) {
+  .form-grid-2 {
     grid-template-columns: 1fr;
-  }
-  .form-field.full-width {
-    grid-column: span 1;
   }
 }
 </style>

@@ -22,7 +22,7 @@
         class="select2-selection__rendered"
         :class="{ 'is-placeholder': !selectedOption }"
       >
-        {{ selectedOption ? selectedOption[labelKey] : placeholder }}
+        {{ selectedOption ? getItemLabel(selectedOption) : placeholder }}
       </span>
 
       <span class="select2-selection__arrow">
@@ -66,16 +66,16 @@
         </li>
         <li
           v-for="(item, idx) in filteredOptions"
-          :key="item[valueKey]"
+          :key="String(getItemValue(item)) + '_' + idx"
           class="select2-results__option"
           :class="{
-            'is-selected': String(item[valueKey]) === String(modelValue),
+            'is-selected': String(getItemValue(item)) === String(modelValue),
             'is-highlighted': idx === highlightedIndex
           }"
           @mouseenter="highlightedIndex = idx"
-          @click="selectValue(item[valueKey])"
+          @click="selectValue(getItemValue(item))"
         >
-          {{ item[labelKey] }}
+          {{ getItemLabel(item) }}
         </li>
         <li v-if="!filteredOptions.length" class="select2-results__empty">
           Không tìm thấy kết quả phù hợp
@@ -90,7 +90,7 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
 const props = defineProps({
   modelValue: {
-    type: [String, Number],
+    type: [String, Number, Boolean],
     default: ''
   },
   options: {
@@ -99,11 +99,11 @@ const props = defineProps({
   },
   valueKey: {
     type: String,
-    default: 'code'
+    default: ''
   },
   labelKey: {
     type: String,
-    default: 'name'
+    default: ''
   },
   placeholder: {
     type: String,
@@ -147,18 +147,51 @@ function removeAccents(str) {
     .trim()
 }
 
+function getItemLabel(opt) {
+  if (opt === null || opt === undefined) return ''
+  if (typeof opt !== 'object') return String(opt)
+  if (props.labelKey && opt[props.labelKey] !== undefined) return String(opt[props.labelKey])
+  if (opt.name !== undefined) return String(opt.name)
+  if (opt.label !== undefined) return String(opt.label)
+  if (opt.ten !== undefined) return String(opt.ten)
+  if (opt.tenDanhMuc !== undefined) return String(opt.tenDanhMuc)
+  if (opt.tenThuongHieu !== undefined) return String(opt.tenThuongHieu)
+  if (opt.tenChatLieu !== undefined) return String(opt.tenChatLieu)
+  if (opt.tenCoAo !== undefined) return String(opt.tenCoAo)
+  if (opt.tenTayAo !== undefined) return String(opt.tenTayAo)
+  if (opt.tenXuatXu !== undefined) return String(opt.tenXuatXu)
+  if (opt.tenHoaTiet !== undefined) return String(opt.tenHoaTiet)
+  if (opt.tenMauSac !== undefined) return String(opt.tenMauSac)
+  if (opt.tenKichCo !== undefined) return String(opt.tenKichCo)
+  if (opt.tenVaiTro !== undefined) return String(opt.tenVaiTro)
+  if (opt.title !== undefined) return String(opt.title)
+  if (opt.text !== undefined) return String(opt.text)
+  return String(opt.code || opt.id || opt.value || '')
+}
+
+function getItemValue(opt) {
+  if (opt === null || opt === undefined) return ''
+  if (typeof opt !== 'object') return opt
+  if (props.valueKey && opt[props.valueKey] !== undefined) return opt[props.valueKey]
+  if (opt.code !== undefined) return opt.code
+  if (opt.id !== undefined) return opt.id
+  if (opt.value !== undefined) return opt.value
+  if (opt.ma !== undefined) return opt.ma
+  return getItemLabel(opt)
+}
+
 const selectedOption = computed(() => {
   if (props.modelValue === '' || props.modelValue === null || props.modelValue === undefined) {
     return null
   }
-  return props.options.find(opt => String(opt[props.valueKey]) === String(props.modelValue)) || null
+  return props.options.find(opt => String(getItemValue(opt)) === String(props.modelValue)) || null
 })
 
 const filteredOptions = computed(() => {
   const q = removeAccents(searchQuery.value)
   if (!q) return props.options
   return props.options.filter(opt => {
-    const labelNorm = removeAccents(opt[props.labelKey])
+    const labelNorm = removeAccents(getItemLabel(opt))
     return labelNorm.includes(q)
   })
 })

@@ -60,7 +60,9 @@ public class KhachHangController {
     }
 
     @GetMapping("/{id}")
-    public KhachHangResponse get(@PathVariable Long id) { return service.get(id); }
+    public KhachHangResponse get(@PathVariable String id) {
+        return service.getByIdentifier(id);
+    }
 
     @PostMapping
     public ResponseEntity<KhachHangResponse> create(@RequestBody KhachHangRequest req) {
@@ -68,55 +70,58 @@ public class KhachHangController {
     }
 
     @PutMapping("/{id}")
-    public KhachHangResponse update(@PathVariable Long id, @RequestBody KhachHangRequest req) {
-        return service.update(id, req);
+    public KhachHangResponse update(@PathVariable String id, @RequestBody KhachHangRequest req) {
+        com.example.sd009thuan.entity.KhachHang customer = service.findByIdentifier(id);
+        return service.update(customer.getId(), req);
     }
 
     @PatchMapping("/{id}/toggle-status")
-    public ResponseEntity<Void> toggle(@PathVariable Long id) {
-        service.toggleStatus(id);
+    public ResponseEntity<Void> toggle(@PathVariable String id) {
+        com.example.sd009thuan.entity.KhachHang customer = service.findByIdentifier(id);
+        service.toggleStatus(customer.getId());
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        service.deactivate(id);
+    public ResponseEntity<Void> delete(@PathVariable String id) {
+        com.example.sd009thuan.entity.KhachHang customer = service.findByIdentifier(id);
+        service.deactivate(customer.getId());
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/dia-chi")
-    public List<com.example.sd009thuan.dto.DiaChiKhachHangDto> getAddresses(@PathVariable Long id) {
-        return service.getAddresses(id);
+    public List<com.example.sd009thuan.dto.DiaChiKhachHangDto> getAddresses(@PathVariable String id) {
+        return service.getAddresses(service.findByIdentifier(id).getId());
     }
 
     @PostMapping("/{id}/dia-chi")
     public ResponseEntity<com.example.sd009thuan.dto.DiaChiKhachHangDto> addAddress(
-            @PathVariable Long id,
+            @PathVariable String id,
             @RequestBody com.example.sd009thuan.dto.DiaChiKhachHangDto dto) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.addAddress(id, dto));
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.addAddress(service.findByIdentifier(id).getId(), dto));
     }
 
     @PutMapping("/{id}/dia-chi/{addressId}")
     public com.example.sd009thuan.dto.DiaChiKhachHangDto updateAddress(
-            @PathVariable Long id,
+            @PathVariable String id,
             @PathVariable Long addressId,
             @RequestBody com.example.sd009thuan.dto.DiaChiKhachHangDto dto) {
-        return service.updateAddress(id, addressId, dto);
+        return service.updateAddress(service.findByIdentifier(id).getId(), addressId, dto);
     }
 
     @PutMapping("/{id}/dia-chi/{addressId}/mac-dinh")
     public ResponseEntity<Void> setDefaultAddress(
-            @PathVariable Long id,
+            @PathVariable String id,
             @PathVariable Long addressId) {
-        service.setDefaultAddress(id, addressId);
+        service.setDefaultAddress(service.findByIdentifier(id).getId(), addressId);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}/dia-chi/{addressId}")
     public ResponseEntity<Void> deleteAddress(
-            @PathVariable Long id,
+            @PathVariable String id,
             @PathVariable Long addressId) {
-        service.deleteAddress(id, addressId);
+        service.deleteAddress(service.findByIdentifier(id).getId(), addressId);
         return ResponseEntity.noContent().build();
     }
 }

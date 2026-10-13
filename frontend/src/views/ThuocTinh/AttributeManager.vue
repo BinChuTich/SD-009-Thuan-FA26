@@ -321,6 +321,32 @@ const confirmDeleteItem = (item) => {
   })
 }
 
+// Đổi trạng thái trực tiếp bằng công tắc switch
+const toggleStatus = (item) => {
+  const newStatus = item.trangThai === 1 ? 0 : 1
+  const actionText = newStatus === 1 ? 'kinh doanh lại' : 'ngừng kinh doanh'
+  openConfirm({
+    title: 'Xác nhận thay đổi trạng thái',
+    message: `Bạn có chắc chắn muốn ${actionText} ${props.title.toLowerCase()} "${item.ten}" không?`,
+    type: 'primary',
+    confirmText: 'Xác nhận',
+    onConfirm: async () => {
+      try {
+        const payload = {
+          ...item.raw,
+          trangThai: newStatus
+        }
+        await api.put(`/api/thuoc-tinh/type/${props.attrType}/${item.id}`, payload)
+        item.trangThai = newStatus
+        showToast(`Đã chuyển trạng thái sang "${newStatus === 1 ? 'Kinh doanh' : 'Ngừng KD'}"`, 'success')
+      } catch (err) {
+        console.error('Lỗi đổi trạng thái thuộc tính:', err)
+        showToast('Không thể đổi trạng thái!', 'error')
+      }
+    }
+  })
+}
+
 // Xuất file Excel
 const exportExcel = () => {
   try {
@@ -501,6 +527,19 @@ onMounted(() => {
             <!-- Cột hành động: Icon mắt (Cập nhật) & Icon thùng rác (Xóa) -->
             <td style="text-align: center;">
               <div class="action-buttons-group">
+                <!-- Switch Bật / Tắt trạng thái -->
+                <label
+                  class="switch-toggle"
+                  :title="item.trangThai === 1 ? 'Đang kinh doanh (nhấn để ngừng)' : 'Đang ngừng kinh doanh (nhấn để bật)'"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="item.trangThai === 1"
+                    @click.prevent="toggleStatus(item)"
+                  />
+                  <span class="slider-round"></span>
+                </label>
+
                 <!-- Icon mắt (Xem / Cập nhật) -->
                 <button
                     class="btn-action btn-view"
@@ -1004,7 +1043,7 @@ onMounted(() => {
 }
 
 .code-cell {
-  color: #8c6a46;
+  color: var(--blue, #496883);
   font-family: monospace, sans-serif;
   letter-spacing: 0.4px;
   font-size: 0.88rem;

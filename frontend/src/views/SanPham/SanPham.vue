@@ -364,18 +364,18 @@
             <!-- Cột thao tác: Chuyển trạng thái kinh doanh, Xem chi tiết biến thể -->
             <td style="text-align: center;">
               <div class="action-buttons-group">
-                <!-- 1. Icon chuyển trạng thái kinh doanh -->
-                <button
-                    class="btn-action btn-status"
-                    :class="{ 'is-active': item.trangThai === 1 }"
-                    @click="toggleStatus(item)"
-                    :title="item.trangThai === 1 ? 'Ngừng kinh doanh' : 'Mở kinh doanh'"
+                <!-- 1. Switch chuyển trạng thái kinh doanh -->
+                <label
+                  class="switch-toggle"
+                  :title="item.trangThai === 1 ? 'Đang kinh doanh (nhấn để ngừng)' : 'Đang ngừng kinh doanh (nhấn để bật)'"
                 >
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-                    <line x1="12" y1="2" x2="12" y2="12"></line>
-                  </svg>
-                </button>
+                  <input
+                    type="checkbox"
+                    :checked="item.trangThai === 1"
+                    @click.prevent="toggleStatus(item)"
+                  />
+                  <span class="slider-round"></span>
+                </label>
 
                 <!-- 2. Icon chỉnh sửa biến thể sản phẩm -->
                 <button
