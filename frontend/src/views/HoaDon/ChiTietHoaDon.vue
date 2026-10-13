@@ -2,6 +2,7 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api.js'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -999,6 +1000,12 @@ const productFilter = ref({
   sort: ''
 })
 
+const sortOptions = [
+  { value: 'price-asc', label: 'Giá tăng dần' },
+  { value: 'price-desc', label: 'Giá giảm dần' },
+  { value: 'qty-desc', label: 'Số lượng giảm dần' }
+]
+
 const availableColors = computed(() => {
   const set = new Set()
   invoiceData.value.items.forEach(it => {
@@ -1618,33 +1625,45 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="toolbar-item">
-          <select v-model="productFilter.category" class="form-control-tb">
-            <option value="">Tất cả loại</option>
-            <option v-for="cat in availableCategories" :key="cat" :value="cat">{{ cat }}</option>
-          </select>
+          <Select2Combobox
+            v-model="productFilter.category"
+            :options="availableCategories"
+            placeholder="Tất cả loại"
+            all-label="Tất cả loại"
+            search-placeholder="Tìm loại sản phẩm..."
+          />
         </div>
 
         <div class="toolbar-item">
-          <select v-model="productFilter.color" class="form-control-tb">
-            <option value="">Tất cả màu sắc</option>
-            <option v-for="col in availableColors" :key="col" :value="col">{{ col }}</option>
-          </select>
+          <Select2Combobox
+            v-model="productFilter.color"
+            :options="availableColors"
+            placeholder="Tất cả màu sắc"
+            all-label="Tất cả màu sắc"
+            search-placeholder="Tìm màu sắc..."
+          />
         </div>
 
         <div class="toolbar-item">
-          <select v-model="productFilter.size" class="form-control-tb">
-            <option value="">Tất cả kích cỡ</option>
-            <option v-for="s in availableSizes" :key="s" :value="s">{{ s }}</option>
-          </select>
+          <Select2Combobox
+            v-model="productFilter.size"
+            :options="availableSizes"
+            placeholder="Tất cả kích cỡ"
+            all-label="Tất cả kích cỡ"
+            search-placeholder="Tìm kích cỡ..."
+          />
         </div>
 
         <div class="toolbar-item">
-          <select v-model="productFilter.sort" class="form-control-tb">
-            <option value="">Mặc định</option>
-            <option value="price-asc">Giá tăng dần</option>
-            <option value="price-desc">Giá giảm dần</option>
-            <option value="qty-desc">Số lượng giảm dần</option>
-          </select>
+          <Select2Combobox
+            v-model="productFilter.sort"
+            :options="sortOptions"
+            value-key="value"
+            label-key="label"
+            placeholder="Mặc định"
+            all-label="Mặc định"
+            search-placeholder="Tìm sắp xếp..."
+          />
         </div>
       </div>
 
@@ -1768,20 +1787,16 @@ onBeforeUnmount(() => {
                 Trạng thái mới <span class="text-danger">*</span>
               </label>
               <div class="custom-select-wrapper">
-                <select
-                    v-model="targetStatus"
-                    class="modal-select-field"
-                    :disabled="!hasNextStatus"
-                    @change="editErrors.statusNote = ''"
-                >
-                  <option
-                      v-for="st in selectableStatusOptions"
-                      :key="st.value"
-                      :value="st.value"
-                  >
-                    {{ st.label }}
-                  </option>
-                </select>
+                <Select2Combobox
+                  v-model="targetStatus"
+                  :options="selectableStatusOptions"
+                  value-key="value"
+                  label-key="label"
+                  placeholder="Chọn trạng thái mới..."
+                  :show-all-option="false"
+                  :disabled="!hasNextStatus"
+                  @change="editErrors.statusNote = ''"
+                />
               </div>
               <p class="status-help-text">
                 Chỉ được chuyển sang trạng thái kế tiếp theo đúng quy trình của đơn hàng.
@@ -2750,6 +2765,7 @@ onBeforeUnmount(() => {
   grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
   gap: 10px;
   margin-bottom: 16px;
+  align-items: center;
 }
 
 @media (max-width: 900px) {
@@ -2779,9 +2795,9 @@ onBeforeUnmount(() => {
 }
 
 .form-control-tb {
-  height: 36px;
-  border: 1px solid #d5c8b8;
-  border-radius: 7px;
+  height: 38px;
+  border: 1.5px solid #d5c8b8;
+  border-radius: 8px;
   padding: 0 10px;
   font-size: 0.84rem;
   color: #2b353b;

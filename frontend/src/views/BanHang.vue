@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const router = useRouter()
 
@@ -469,6 +470,25 @@ const fetchVouchers = async () => {
   }
 }
 
+const formattedVouchers = computed(() => {
+  return availableVouchers.value.map(v => ({
+    id: v.id,
+    label: `${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${Number(v.loaiPhieuGiamGia) === 2 ? `-${v.giaTriGiamGia}%` : `-${formatMoney(v.giaTriGiamGia)}`})`
+  }))
+})
+
+const selectedVoucherId = computed({
+  get: () => currentInvoice.value?.voucher?.id || '',
+  set: (val) => {
+    if (!currentInvoice.value) return
+    if (!val) {
+      currentInvoice.value.voucher = null
+    } else {
+      currentInvoice.value.voucher = availableVouchers.value.find(v => v.id === val || String(v.id) === String(val)) || null
+    }
+  }
+})
+
 const voucherDiscount = computed(() => {
   if (!currentInvoice.value || !currentInvoice.value.voucher) return 0
   const v = currentInvoice.value.voucher
@@ -861,16 +881,15 @@ onMounted(async () => {
           <!-- Chọn phiếu giảm giá (Voucher) -->
           <div class="pos-form-group">
             <label class="group-label-gray">Phiếu giảm giá (Voucher)</label>
-            <select v-model="currentInvoice.voucher" class="pos-form-select">
-              <option :value="null">-- Không áp dụng voucher --</option>
-              <option
-                  v-for="v in availableVouchers"
-                  :key="v.id"
-                  :value="v"
-              >
-                {{ v.maPhieuGiamGia }} - {{ v.tenPhieuGiamGia }} ({{ Number(v.loaiPhieuGiamGia) === 2 ? `-${v.giaTriGiamGia}%` : `-${formatMoney(v.giaTriGiamGia)}` }})
-              </option>
-            </select>
+            <Select2Combobox
+              v-model="selectedVoucherId"
+              :options="formattedVouchers"
+              value-key="id"
+              label-key="label"
+              placeholder="-- Không áp dụng voucher --"
+              all-label="-- Không áp dụng voucher --"
+              search-placeholder="Tìm kiếm mã hoặc tên voucher..."
+            />
           </div>
 
           <!-- Dòng tóm tắt tiền tệ -->

@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 const router = useRouter()
 
 const xemChiTiet = (maHoaDon) => {
@@ -244,6 +245,25 @@ const onStatusComboboxChange = () => {
   currentTab.value = mapStatusToTab(filters.value.status)
   resetPage()
 }
+
+const loaiDonOptions = [
+  { value: 'Tại cửa hàng', label: 'Tại cửa hàng' },
+  { value: 'Online', label: 'Online' }
+]
+
+const trangThaiDonOptions = [
+  { value: '1', label: 'Chờ xác nhận' },
+  { value: '2', label: 'Đã xác nhận' },
+  { value: '3', label: 'Chờ vận chuyển' },
+  { value: '4', label: 'Vận chuyển' },
+  { value: '5', label: 'Đã hoàn thành' },
+  { value: '6', label: 'Hủy' }
+]
+
+const paymentStatusOptions = [
+  { value: '1', label: 'Đã thanh toán' },
+  { value: '0', label: 'Chưa thanh toán' }
+]
 
 const getTabClass = (tab) => {
   switch (tab) {
@@ -727,47 +747,46 @@ onBeforeUnmount(() => {
         <!-- 2. Loại đơn hàng (Combobox) -->
         <div class="form-group">
           <label>Loại đơn hàng</label>
-          <select
-              v-model="filters.type"
-              @change="resetPage"
-              class="form-control select-combobox"
-          >
-            <option value="">Tất cả loại đơn</option>
-            <option value="Tại cửa hàng">Tại cửa hàng</option>
-            <option value="Online">Online</option>
-          </select>
+          <Select2Combobox
+            v-model="filters.type"
+            :options="loaiDonOptions"
+            value-key="value"
+            label-key="label"
+            placeholder="Tất cả loại đơn"
+            all-label="Tất cả loại đơn"
+            search-placeholder="Tìm loại đơn..."
+            @change="resetPage"
+          />
         </div>
 
         <!-- 3. Trạng thái đơn hàng (Combobox) -->
         <div class="form-group">
           <label>Trạng thái đơn hàng</label>
-          <select
-              v-model="filters.status"
-              @change="onStatusComboboxChange"
-              class="form-control select-combobox"
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="1">Chờ xác nhận</option>
-            <option value="2">Đã xác nhận</option>
-            <option value="3">Chờ vận chuyển</option>
-            <option value="4">Vận chuyển</option>
-            <option value="5">Đã hoàn thành</option>
-            <option value="6">Hủy</option>
-          </select>
+          <Select2Combobox
+            v-model="filters.status"
+            :options="trangThaiDonOptions"
+            value-key="value"
+            label-key="label"
+            placeholder="Tất cả trạng thái"
+            all-label="Tất cả trạng thái"
+            search-placeholder="Tìm trạng thái..."
+            @change="onStatusComboboxChange"
+          />
         </div>
 
         <!-- 4. Trạng thái thanh toán (Combobox) -->
         <div class="form-group">
           <label>Trạng thái thanh toán</label>
-          <select
-              v-model="filters.paymentStatus"
-              @change="resetPage"
-              class="form-control select-combobox"
-          >
-            <option value="">Tất cả thanh toán</option>
-            <option value="1">Đã thanh toán</option>
-            <option value="0">Chưa thanh toán</option>
-          </select>
+          <Select2Combobox
+            v-model="filters.paymentStatus"
+            :options="paymentStatusOptions"
+            value-key="value"
+            label-key="label"
+            placeholder="Tất cả thanh toán"
+            all-label="Tất cả thanh toán"
+            search-placeholder="Tìm trạng thái thanh toán..."
+            @change="resetPage"
+          />
         </div>
 
         <!-- 5. Từ ngày -->

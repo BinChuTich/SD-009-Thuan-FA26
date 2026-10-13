@@ -64,23 +64,29 @@
         <!-- Loại giảm -->
         <div class="form-field">
           <label>Loại giảm</label>
-          <select v-model="filters.loaiGiam">
-            <option value="">Tất cả loại giảm</option>
-            <option value="percent">Giảm theo %</option>
-            <option value="amount">Giảm tiền mặt</option>
-          </select>
+          <Select2Combobox
+            v-model="filters.loaiGiam"
+            :options="loaiGiamOptions"
+            value-key="value"
+            label-key="label"
+            placeholder="Tất cả loại giảm"
+            all-label="Tất cả loại giảm"
+            search-placeholder="Tìm loại giảm..."
+          />
         </div>
 
         <!-- Trạng thái -->
         <div class="form-field">
           <label>Trạng thái</label>
-          <select v-model="filters.trangThai">
-            <option value="">Tất cả trạng thái</option>
-            <option value="active">Đang diễn ra</option>
-            <option value="upcoming">Sắp diễn ra</option>
-            <option value="expired">Đã kết thúc / Hết hạn</option>
-            <option value="inactive">Ngừng hoạt động</option>
-          </select>
+          <Select2Combobox
+            v-model="filters.trangThai"
+            :options="trangThaiOptions"
+            value-key="value"
+            label-key="label"
+            placeholder="Tất cả trạng thái"
+            all-label="Tất cả trạng thái"
+            search-placeholder="Tìm trạng thái..."
+          />
         </div>
       </div>
 
@@ -308,8 +314,21 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../../api'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const router = useRouter()
+
+const loaiGiamOptions = [
+  { value: 'percent', label: 'Giảm theo %' },
+  { value: 'amount', label: 'Giảm tiền mặt' }
+]
+
+const trangThaiOptions = [
+  { value: 'active', label: 'Đang diễn ra' },
+  { value: 'upcoming', label: 'Sắp diễn ra' },
+  { value: 'expired', label: 'Đã kết thúc / Hết hạn' },
+  { value: 'inactive', label: 'Ngừng hoạt động' }
+]
 
 const filters = ref({
   keyword: '',

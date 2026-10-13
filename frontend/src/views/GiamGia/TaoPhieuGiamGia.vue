@@ -87,10 +87,16 @@
             <!-- Cột trái: Loại giảm -->
             <div class="form-field">
               <label class="field-label">Loại giảm <span class="required">*</span></label>
-              <select v-model.number="form.loaiPhieuGiamGia" class="form-control form-select">
-                <option :value="1">Giảm theo %</option>
-                <option :value="2">Giảm tiền mặt trực tiếp</option>
-              </select>
+              <Select2Combobox
+                v-model="form.loaiPhieuGiamGia"
+                :options="loaiGiamOptions"
+                value-key="id"
+                label-key="name"
+                :show-all-option="false"
+                :allow-clear="false"
+                placeholder="-- Chọn loại giảm --"
+                search-placeholder="Tìm loại giảm..."
+              />
             </div>
 
             <!-- Cột phải: Giá trị giảm -->
@@ -255,11 +261,14 @@
               </div>
 
               <div class="cust-filter-item">
-                <select v-model="custGenderFilter" class="form-control form-select-sm">
-                  <option value="">Tất cả giới tính</option>
-                  <option value="female">Nữ</option>
-                  <option value="male">Nam</option>
-                </select>
+                <Select2Combobox
+                  v-model="custGenderFilter"
+                  :options="custGenderOptions"
+                  value-key="id"
+                  label-key="name"
+                  placeholder="Tất cả giới tính"
+                  search-placeholder="Tìm giới tính..."
+                />
               </div>
             </div>
 
@@ -389,6 +398,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../../api'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const router = useRouter()
 
@@ -400,6 +410,17 @@ const customerList = ref([])
 const custSearchKeyword = ref('')
 const custGenderFilter = ref('')
 const selectedCustomerIds = ref([])
+
+const loaiGiamOptions = [
+  { id: 1, name: 'Giảm theo %' },
+  { id: 2, name: 'Giảm tiền mặt trực tiếp' }
+]
+
+const custGenderOptions = [
+  { id: '', name: 'Tất cả giới tính' },
+  { id: 'female', name: 'Nữ' },
+  { id: 'male', name: 'Nam' }
+]
 
 const getTodayString = () => {
   const d = new Date()

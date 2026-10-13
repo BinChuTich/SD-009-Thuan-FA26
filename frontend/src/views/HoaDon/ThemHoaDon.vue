@@ -59,10 +59,14 @@
               Loại đơn <span>*</span>
             </label>
 
-            <select v-model="form.loaiDon">
-              <option :value="1">Tại cửa hàng</option>
-              <option :value="2">Online</option>
-            </select>
+            <Select2Combobox
+              v-model="form.loaiDon"
+              :options="loaiDonOptions"
+              value-key="value"
+              label-key="label"
+              placeholder="Chọn loại đơn..."
+              :show-all-option="false"
+            />
           </div>
 
           <!-- Trạng thái -->
@@ -71,14 +75,14 @@
               Trạng thái <span>*</span>
             </label>
 
-            <select v-model="form.trangThai">
-              <option :value="1">Chờ xác nhận</option>
-              <option :value="2">Đã xác nhận</option>
-              <option :value="3">Chờ vận chuyển</option>
-              <option :value="4">Vận chuyển</option>
-              <option :value="5">Đã hoàn thành</option>
-              <option :value="6">Hủy</option>
-            </select>
+            <Select2Combobox
+              v-model="form.trangThai"
+              :options="trangThaiOptions"
+              value-key="value"
+              label-key="label"
+              placeholder="Chọn trạng thái..."
+              :show-all-option="false"
+            />
           </div>
 
           <!-- Người tạo -->
@@ -304,8 +308,23 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const router = useRouter()
+
+const loaiDonOptions = [
+  { value: 1, label: 'Tại cửa hàng' },
+  { value: 2, label: 'Online' }
+]
+
+const trangThaiOptions = [
+  { value: 1, label: 'Chờ xác nhận' },
+  { value: 2, label: 'Đã xác nhận' },
+  { value: 3, label: 'Chờ vận chuyển' },
+  { value: 4, label: 'Vận chuyển' },
+  { value: 5, label: 'Đã hoàn thành' },
+  { value: 6, label: 'Hủy' }
+]
 
 const loading = ref(false)
 const errorMessage = ref('')

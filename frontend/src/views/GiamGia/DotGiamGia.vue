@@ -100,14 +100,16 @@
             </div>
           </div>
 
-          <!-- Trạng thái (Select2 vừa chọn vừa tìm kiếm gõ phím được) -->
+          <!-- Trạng thái (Select2Combobox vừa chọn vừa tìm kiếm gõ phím được) -->
           <div class="form-field">
             <label class="filter-label">Trạng thái</label>
-            <Select2
+            <Select2Combobox
               v-model="filters.trangThai"
               :options="trangThaiOptions"
+              value-key="value"
+              label-key="label"
               placeholder="Tất cả trạng thái"
-              searchPlaceholder="Tìm kiếm trạng thái..."
+              search-placeholder="Tìm kiếm trạng thái..."
               @change="handleFilterChange"
             />
           </div>
@@ -626,20 +628,24 @@
           <!-- Bộ lọc bên phải: Màu sắc, Kích cỡ, Tìm kiếm biến thể -->
           <div class="product-top-filters">
             <div style="min-width: 145px;">
-              <Select2
+              <Select2Combobox
                 v-model="selectedFilterColor"
                 :options="colorOptions"
+                value-key="value"
+                label-key="label"
                 placeholder="Tất cả màu sắc"
-                searchPlaceholder="Tìm màu..."
+                search-placeholder="Tìm màu..."
               />
             </div>
 
             <div style="min-width: 135px;">
-              <Select2
+              <Select2Combobox
                 v-model="selectedFilterSize"
                 :options="sizeOptions"
+                value-key="value"
+                label-key="label"
                 placeholder="Tất cả kích cỡ"
-                searchPlaceholder="Tìm cỡ..."
+                search-placeholder="Tìm cỡ..."
               />
             </div>
 
@@ -890,7 +896,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import api from '@/api.js'
-import Select2 from '@/components/Select2.vue'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 // Đồng hồ thời gian thực tự động cập nhật mỗi 1 giây để đổi trạng thái tự động không cần reload
 const currentTime = ref(Date.now())

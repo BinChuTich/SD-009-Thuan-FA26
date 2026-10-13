@@ -26,11 +26,16 @@
         </div>
 
         <div class="form-field">
-          <select v-model="filters.status" @change="applyFilters">
-            <option value="">Tất cả trạng thái</option>
-            <option value="1">Hoạt động</option>
-            <option value="0">Ngừng hoạt động</option>
-          </select>
+          <Select2Combobox
+            v-model="filters.status"
+            :options="trangThaiOptions"
+            value-key="value"
+            label-key="label"
+            placeholder="Tất cả trạng thái"
+            all-label="Tất cả trạng thái"
+            search-placeholder="Tìm trạng thái..."
+            @change="applyFilters"
+          />
         </div>
       </div>
 
@@ -308,8 +313,13 @@ import { useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
 import { getProvinces, getWardsByProvince, lookupLegacyWard } from '@/services/provincesApi.js'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const router = useRouter()
+const trangThaiOptions = [
+  { value: '1', label: 'Hoạt động' },
+  { value: '0', label: 'Ngừng hoạt động' }
+]
 const filters = ref({ keyword: '', status: '' })
 const items = ref([])
 const page = ref(0)

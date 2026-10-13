@@ -148,26 +148,32 @@
               <!-- Chức vụ -->
               <div class="form-field">
                 <label>Chức vụ <span class="required">*</span></label>
-                <select
+                <Select2Combobox
                   v-model="form.idVaiTro"
-                  :class="{ 'has-error': errors.idVaiTro }"
+                  :options="roles"
+                  value-key="id"
+                  label-key="tenVaiTro"
+                  placeholder="-- Chọn chức vụ --"
+                  all-label="-- Chọn chức vụ --"
+                  search-placeholder="Tìm chức vụ..."
                   @change="validateField('idVaiTro')"
-                >
-                  <option value="">-- Chọn chức vụ --</option>
-                  <option v-for="r in roles" :key="r.id" :value="r.id">
-                    {{ r.tenVaiTro }}
-                  </option>
-                </select>
+                />
                 <span v-if="errors.idVaiTro" class="error-inline-msg">{{ errors.idVaiTro }}</span>
               </div>
 
               <!-- Trạng thái -->
               <div class="form-field">
                 <label>Trạng thái</label>
-                <select v-model="form.trangThai">
-                  <option :value="1">Hoạt động</option>
-                  <option :value="0">Ngừng hoạt động</option>
-                </select>
+                <Select2Combobox
+                  v-model="form.trangThai"
+                  :options="trangThaiOptions"
+                  value-key="id"
+                  label-key="name"
+                  :show-all-option="false"
+                  :allow-clear="false"
+                  placeholder="-- Chọn trạng thái --"
+                  search-placeholder="Tìm trạng thái..."
+                />
               </div>
             </div>
           </div>
@@ -179,33 +185,33 @@
               <!-- Tỉnh / Thành phố -->
               <div class="form-field">
                 <label>Tỉnh / Thành phố <span class="required">*</span></label>
-                <select
+                <Select2Combobox
                   v-model="selectedProvinceCode"
-                  :class="{ 'has-error': errors.queQuan }"
+                  :options="provincesList"
+                  value-key="code"
+                  label-key="name"
+                  placeholder="-- Chọn Tỉnh / Thành phố --"
+                  all-label="-- Chọn Tỉnh / Thành phố --"
+                  search-placeholder="Tìm kiếm Tỉnh / Thành phố..."
                   @change="onProvinceChange"
-                >
-                  <option value="">-- Chọn Tỉnh / Thành phố --</option>
-                  <option v-for="p in provincesList" :key="p.code" :value="p.code">
-                    {{ p.name }}
-                  </option>
-                </select>
+                />
                 <span v-if="errors.queQuan" class="error-inline-msg">{{ errors.queQuan }}</span>
               </div>
 
               <!-- Phường / Xã -->
               <div class="form-field">
                 <label>Phường / Xã <span class="required">*</span></label>
-                <select
+                <Select2Combobox
                   v-model="selectedWardCode"
+                  :options="wardsList"
                   :disabled="!selectedProvinceCode"
-                  :class="{ 'has-error': errors.phuong }"
+                  value-key="code"
+                  label-key="name"
+                  placeholder="-- Chọn Phường / Xã --"
+                  all-label="-- Chọn Phường / Xã --"
+                  search-placeholder="Tìm kiếm Phường / Xã..."
                   @change="onWardChange"
-                >
-                  <option value="">-- Chọn Phường / Xã --</option>
-                  <option v-for="w in wardsList" :key="w.code" :value="w.code">
-                    {{ w.name }}
-                  </option>
-                </select>
+                />
                 <span v-if="errors.phuong" class="error-inline-msg">{{ errors.phuong }}</span>
               </div>
 
@@ -242,7 +248,8 @@ import { useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
 import { getProvinces, getWardsByProvince, matchAddressHierarchy } from '@/services/provincesApi.js'
-import CccdScannerModal from '@/components/CccdScannerModal.vue'
+import CccdScannerModal from '@/components/cccdScannerModal.vue'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const router = useRouter()
 const saving = ref(false)
@@ -257,6 +264,11 @@ const provincesList = ref([])
 const wardsList = ref([])
 const selectedProvinceCode = ref('')
 const selectedWardCode = ref('')
+
+const trangThaiOptions = [
+  { id: 1, name: 'Hoạt động' },
+  { id: 0, name: 'Ngừng hoạt động' }
+]
 
 const form = reactive({
   maNhanVien: '',
@@ -356,7 +368,10 @@ async function loadProvinces() {
   provincesList.value = await getProvinces()
 }
 
-async function onProvinceChange() {
+async function onProvinceChange(newVal) {
+  if (newVal !== undefined) {
+    selectedProvinceCode.value = newVal
+  }
   const p = provincesList.value.find(item => item.code === selectedProvinceCode.value)
   form.queQuan = p ? p.name : ''
   selectedWardCode.value = ''
@@ -370,7 +385,10 @@ async function onProvinceChange() {
   }
 }
 
-function onWardChange() {
+function onWardChange(newVal) {
+  if (newVal !== undefined) {
+    selectedWardCode.value = newVal
+  }
   const w = wardsList.value.find(item => item.code === selectedWardCode.value)
   form.phuong = w ? w.name : ''
   validateField('phuong')

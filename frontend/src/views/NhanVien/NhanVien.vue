@@ -26,20 +26,29 @@
         </div>
 
         <div class="form-field">
-          <select v-model="filters.role" @change="applyFilters">
-            <option value="">Tất cả chức vụ</option>
-            <option v-for="role in roles" :key="role.id" :value="String(role.id)">
-              {{ role.tenVaiTro }}
-            </option>
-          </select>
+          <Select2Combobox
+            v-model="filters.role"
+            :options="roles"
+            value-key="id"
+            label-key="tenVaiTro"
+            placeholder="Tất cả chức vụ"
+            all-label="Tất cả chức vụ"
+            search-placeholder="Tìm chức vụ..."
+            @change="applyFilters"
+          />
         </div>
 
         <div class="form-field">
-          <select v-model="filters.status" @change="applyFilters">
-            <option value="">Tất cả trạng thái</option>
-            <option value="1">Hoạt động</option>
-            <option value="0">Ngừng hoạt động</option>
-          </select>
+          <Select2Combobox
+            v-model="filters.status"
+            :options="trangThaiOptions"
+            value-key="value"
+            label-key="label"
+            placeholder="Tất cả trạng thái"
+            all-label="Tất cả trạng thái"
+            search-placeholder="Tìm trạng thái..."
+            @change="applyFilters"
+          />
         </div>
       </div>
 
@@ -174,10 +183,15 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const router = useRouter()
 const employees = ref([])
 const roles = ref([])
+const trangThaiOptions = [
+  { value: '1', label: 'Hoạt động' },
+  { value: '0', label: 'Ngừng hoạt động' }
+]
 const loading = ref(false)
 const filters = reactive({ keyword: '', role: '', status: '' })
 const pagination = reactive({ page: 0, size: 5, totalPages: 0, totalElements: 0 })

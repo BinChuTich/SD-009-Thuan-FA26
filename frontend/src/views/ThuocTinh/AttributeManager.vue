@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import api from '@/api.js'
 import * as XLSX from 'xlsx'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const props = defineProps({
   attrType: {
@@ -31,6 +32,17 @@ const searchKeyword = ref('')
 const filterStatus = ref('')
 const currentPage = ref(0)
 const pageSize = ref(10)
+
+const filterStatusOptions = [
+  { id: '', name: 'Tất cả trạng thái' },
+  { id: '1', name: 'Kinh doanh' },
+  { id: '0', name: 'Ngừng kinh doanh' }
+]
+
+const formStatusOptions = [
+  { id: 1, name: 'Kinh doanh' },
+  { id: 0, name: 'Ngừng kinh doanh' }
+]
 
 // Modal Thêm mới
 const showAddModal = ref(false)
@@ -393,11 +405,15 @@ onMounted(() => {
         <!-- Cột giữa: Bộ lọc trạng thái -->
         <div class="filter-select-col">
           <label class="search-label">Trạng thái</label>
-          <select v-model="filterStatus" class="filter-select-control">
-            <option value="">Tất cả trạng thái</option>
-            <option value="1">Kinh doanh</option>
-            <option value="0">Ngừng kinh doanh</option>
-          </select>
+          <Select2Combobox
+            v-model="filterStatus"
+            :options="filterStatusOptions"
+            value-key="id"
+            label-key="name"
+            placeholder="Tất cả trạng thái"
+            search-placeholder="Tìm trạng thái..."
+            @change="currentPage = 0"
+          />
         </div>
 
         <!-- Cột phải: 3 nút hành động (Đặt lại, Xuất Excel, + Thêm mới) -->
@@ -618,10 +634,16 @@ onMounted(() => {
 
             <div class="form-group full-width">
               <label class="form-label">Trạng thái hoạt động</label>
-              <select v-model.number="formData.trangThai" class="form-control">
-                <option :value="1">Kinh doanh</option>
-                <option :value="0">Ngừng kinh doanh</option>
-              </select>
+              <Select2Combobox
+                v-model="formData.trangThai"
+                :options="formStatusOptions"
+                value-key="id"
+                label-key="name"
+                :show-all-option="false"
+                :allow-clear="false"
+                placeholder="-- Chọn trạng thái --"
+                search-placeholder="Tìm trạng thái..."
+              />
             </div>
           </div>
 
@@ -680,10 +702,16 @@ onMounted(() => {
 
             <div class="form-group full-width">
               <label class="form-label">Trạng thái hoạt động</label>
-              <select v-model.number="formData.trangThai" class="form-control">
-                <option :value="1">Kinh doanh</option>
-                <option :value="0">Ngừng kinh doanh</option>
-              </select>
+              <Select2Combobox
+                v-model="formData.trangThai"
+                :options="formStatusOptions"
+                value-key="id"
+                label-key="name"
+                :show-all-option="false"
+                :allow-clear="false"
+                placeholder="-- Chọn trạng thái --"
+                search-placeholder="Tìm trạng thái..."
+              />
             </div>
           </div>
 

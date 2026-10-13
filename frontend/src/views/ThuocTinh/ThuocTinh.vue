@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api.js'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,6 +33,17 @@ const searchKeyword = ref('')
 const filterStatus = ref('')
 const currentPage = ref(0)
 const pageSize = ref(10)
+
+const filterStatusOptions = [
+  { id: '', name: 'Tất cả trạng thái' },
+  { id: '1', name: 'Đang sử dụng' },
+  { id: '0', name: 'Ngừng sử dụng' }
+]
+
+const formStatusOptions = [
+  { id: 1, name: 'Đang sử dụng' },
+  { id: 0, name: 'Ngừng sử dụng' }
+]
 
 // Modal Thêm / Sửa
 const modal = ref({
@@ -442,11 +454,17 @@ watch(() => route.query.tab, (newTab) => {
         </div>
 
         <div class="toolbar-actions">
-          <select v-model="filterStatus" class="select-filter">
-            <option value="">Tất cả trạng thái</option>
-            <option value="1">Đang sử dụng</option>
-            <option value="0">Ngừng sử dụng</option>
-          </select>
+          <div style="min-width: 170px;">
+            <Select2Combobox
+              v-model="filterStatus"
+              :options="filterStatusOptions"
+              value-key="id"
+              label-key="name"
+              placeholder="Tất cả trạng thái"
+              search-placeholder="Tìm trạng thái..."
+              @change="currentPage = 0"
+            />
+          </div>
 
           <button class="btn-refresh" @click="fetchTabItems" title="Làm mới danh sách">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -636,10 +654,16 @@ watch(() => route.query.tab, (newTab) => {
 
           <div class="form-group">
             <label class="form-label">TRẠNG THÁI</label>
-            <select v-model.number="modal.data.trangThai" class="form-input">
-              <option :value="1">Đang sử dụng</option>
-              <option :value="0">Ngừng sử dụng</option>
-            </select>
+            <Select2Combobox
+              v-model="modal.data.trangThai"
+              :options="formStatusOptions"
+              value-key="id"
+              label-key="name"
+              :show-all-option="false"
+              :allow-clear="false"
+              placeholder="-- Chọn trạng thái --"
+              search-placeholder="Tìm trạng thái..."
+            />
           </div>
         </div>
 

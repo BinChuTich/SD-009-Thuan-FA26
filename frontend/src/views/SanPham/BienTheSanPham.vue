@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api.js'
 import Select2 from '@/components/Select2.vue'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -877,45 +878,42 @@ watch(() => route.query.sanPhamId, async (newId) => {
         <div class="filter-bottom-row">
           <div class="dropdown-filter-item">
             <label class="dropdown-label">Màu sắc</label>
-            <Select2
+            <Select2Combobox
               v-model="filters.idMauSac"
               :options="colors"
+              value-key="id"
               label-key="tenMauSac"
               placeholder="Tất cả màu sắc"
+              all-label="Tất cả màu sắc"
               search-placeholder="Tìm kiếm màu sắc..."
-              :allow-clear="true"
-              :show-all-option="true"
-              all-option-label="Tất cả màu sắc"
               @change="handleFilterChange"
             />
           </div>
 
           <div class="dropdown-filter-item">
             <label class="dropdown-label">Kích cỡ</label>
-            <Select2
+            <Select2Combobox
               v-model="filters.idKichCo"
               :options="sizes"
+              value-key="id"
               label-key="tenKichCo"
               placeholder="Tất cả kích cỡ"
+              all-label="Tất cả kích cỡ"
               search-placeholder="Tìm kiếm kích cỡ..."
-              :allow-clear="true"
-              :show-all-option="true"
-              all-option-label="Tất cả kích cỡ"
               @change="handleFilterChange"
             />
           </div>
 
           <div class="dropdown-filter-item">
             <label class="dropdown-label">Trạng thái</label>
-            <Select2
+            <Select2Combobox
               v-model="filters.trangThai"
               :options="trangThaiOptions"
+              value-key="id"
               label-key="label"
               placeholder="Tất cả trạng thái"
+              all-label="Tất cả trạng thái"
               search-placeholder="Tìm trạng thái..."
-              :allow-clear="true"
-              :show-all-option="true"
-              all-option-label="Tất cả trạng thái"
               @change="handleFilterChange"
             />
           </div>
