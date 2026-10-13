@@ -22,8 +22,8 @@ const invoiceId = ref(null)
 
 const loading = ref(false)
 const updatingStatus = ref(false)
-const showHistoryModal = ref(false) // Toggle modal lịch sử thao tác
-const orderLogs = ref([]) // Danh sách lịch sử thao tác
+const showHistoryModal = ref(false)
+const orderLogs = ref([])
 
 let requestId = 0
 let toastTimer = null
@@ -74,7 +74,7 @@ const createDefaultInvoice = (code) => ({
   createTime: '',
   lastUpdated: '',
   steps: [
-    { id: 1, name: 'Hóa đơn chờ', time: '', done: false, active: true, pending: false },
+    { id: 1, name: 'Chờ xác nhận', time: '', done: false, active: true, pending: false },
     { id: 2, name: 'Đã xác nhận', time: '', done: false, active: false, pending: true },
     { id: 3, name: 'Chờ vận chuyển', time: '', done: false, active: false, pending: true },
     { id: 4, name: 'Đang vận chuyển', time: '', done: false, active: false, pending: true },
@@ -144,23 +144,14 @@ const getNumber = (...values) => {
 const buildLogsByStatus = (status, baseDate, isAtStore = false, options = {}) => {
   const statusNum = Number(status) || 1
   const employeeName = (options.employeeName && options.employeeName !== '---' && options.employeeName !== 'Đơn Online')
-    ? options.employeeName
-    : (invoiceData.value.employee?.name && invoiceData.value.employee?.name !== '---' && invoiceData.value.employee?.name !== 'Đơn Online' ? invoiceData.value.employee.name : 'Nhân viên')
+      ? options.employeeName
+      : (invoiceData.value.employee?.name && invoiceData.value.employee?.name !== '---' && invoiceData.value.employee?.name !== 'Đơn Online' ? invoiceData.value.employee.name : 'Nhân viên')
   const baseTimeMs = baseDate ? new Date(baseDate).getTime() : Date.now()
   const baseTimeVal = new Date(baseTimeMs)
 
   if (isAtStore) {
-    // ==========================================
-    // ĐƠN HÀNG TẠI QUẦY (Bán tại quầy / POS)
-    // Quy trình tại quầy chỉ có 2 bước:
-    // 1. Tạo hóa đơn tại quầy
-    // 2. Hoàn thành đơn hàng (hoặc Hủy đơn hàng)
-    // KHÔNG qua các bước shipper / vận chuyển / đóng gói kho
-    // ==========================================
     const logs = []
-
     if (statusNum === 6) {
-      // Đã hủy đơn hàng tại quầy
       let cancelTime = options.finishDate ? new Date(options.finishDate) : null
       if (!cancelTime || Number.isNaN(cancelTime.getTime())) {
         cancelTime = new Date(baseTimeMs)
@@ -187,10 +178,8 @@ const buildLogsByStatus = (status, baseDate, isAtStore = false, options = {}) =>
     }
 
     if (statusNum === 5) {
-      // Hoàn thành đơn hàng tại quầy (đã thanh toán và nhận hàng)
       let finishTime = options.finishDate ? new Date(options.finishDate) : null
       let createTime = baseTimeVal
-
       if (finishTime && !Number.isNaN(finishTime.getTime()) && finishTime.getTime() > baseTimeMs) {
         createTime = baseTimeVal
       } else {
@@ -242,7 +231,6 @@ const buildLogsByStatus = (status, baseDate, isAtStore = false, options = {}) =>
       return logs
     }
 
-    // Mặc định: status === 1 (Hóa đơn chờ)
     logs.push({
       id: 1,
       action: 'Tạo hóa đơn tại quầy',
@@ -255,10 +243,6 @@ const buildLogsByStatus = (status, baseDate, isAtStore = false, options = {}) =>
     return logs
   }
 
-  // ==========================================
-  // ĐƠN HÀNG ONLINE (Giao hàng tận nơi)
-  // Quy trình đầy đủ gồm 5 bước qua shipper / vận chuyển
-  // ==========================================
   const stepTitles = [
     { title: 'Tạo đơn hàng thành công', note: 'Đơn hàng mới tạo ở trạng thái chờ xác nhận' },
     { title: 'Xác nhận đơn hàng', note: 'Nhân viên đã kiểm tra và duyệt đơn hàng' },
@@ -338,7 +322,7 @@ const applyOrderStatus = (statusNumber, isAtStore = false) => {
   }))
 }
 
-// Dữ liệu danh mục chuẩn từ cơ sở dữ liệu FF_Tshirt để tra cứu chính xác
+// Danh mục chuẩn tra cứu
 const DB_CTSP_CATALOG = {
   1: { code: 'SP001', variantCode: 'CTSP01', name: 'Áo Phông Nam Basic Cotton Cổ Tròn', color: 'Đen', hex: '#000000', size: 'S', price: 199000 },
   2: { code: 'SP001', variantCode: 'CTSP02', name: 'Áo Phông Nam Basic Cotton Cổ Tròn', color: 'Đen', hex: '#000000', size: 'M', price: 199000 },
@@ -360,38 +344,22 @@ const DB_CTSP_CATALOG = {
 const DB_EMPLOYEE_CATALOG = {
   1: { code: 'NV001', name: 'Nguyễn Văn Admin', role: 'Quản trị viên' },
   2: { code: 'NV002', name: 'Trần Thị Quản Lý', role: 'Quản lý' },
-  3: { code: 'NV003', name: 'Lê Văn Bán Hàng', role: 'Nhân viên bán hàng' },
-  'NV001': { code: 'NV001', name: 'Nguyễn Văn Admin', role: 'Quản trị viên' },
-  'NV002': { code: 'NV002', name: 'Trần Thị Quản Lý', role: 'Quản lý' },
-  'NV003': { code: 'NV003', name: 'Lê Văn Bán Hàng', role: 'Nhân viên bán hàng' },
-  'admin': { code: 'NV001', name: 'Nguyễn Văn Admin', role: 'Quản trị viên' },
-  'quanly01': { code: 'NV002', name: 'Trần Thị Quản Lý', role: 'Quản lý' },
-  'nvbanhang': { code: 'NV003', name: 'Lê Văn Bán Hàng', role: 'Nhân viên bán hàng' }
+  3: { code: 'NV003', name: 'Lê Văn Bán Hàng', role: 'Nhân viên bán hàng' }
 }
 
 const DB_VOUCHER_CATALOG = {
   1: { code: 'PGG01', name: 'Voucher Giảm 50k', discount: 50000 },
-  2: { code: 'PGG02', name: 'Voucher Giảm 15% cho khách mới', discountPercent: 15 },
-  'PGG01': { code: 'PGG01', name: 'Voucher Giảm 50k', discount: 50000 },
-  'PGG02': { code: 'PGG02', name: 'Voucher Giảm 15% cho khách mới', discountPercent: 15 }
+  2: { code: 'PGG02', name: 'Voucher Giảm 15% cho khách mới', discountPercent: 15 }
 }
 
 const DB_CUSTOMER_CATALOG = {
   1: { code: 'KH001', name: 'Nguyễn Văn An', phone: '0911111111', email: 'an@gmail.com' },
   2: { code: 'KH002', name: 'Trần Thị Bình', phone: '0922222222', email: 'binh@gmail.com' },
-  3: { code: 'KH003', name: 'Lê Văn Cường', phone: '0933333333', email: 'cuong@gmail.com' },
-  'KH001': { code: 'KH001', name: 'Nguyễn Văn An', phone: '0911111111', email: 'an@gmail.com' },
-  'KH002': { code: 'KH002', name: 'Trần Thị Bình', phone: '0922222222', email: 'binh@gmail.com' },
-  'KH003': { code: 'KH003', name: 'Lê Văn Cường', phone: '0933333333', email: 'cuong@gmail.com' },
-  'khachhang01': { code: 'KH001', name: 'Nguyễn Văn An', phone: '0911111111', email: 'an@gmail.com' },
-  'khachhang02': { code: 'KH002', name: 'Trần Thị Bình', phone: '0922222222', email: 'binh@gmail.com' },
-  'khachhang03': { code: 'KH003', name: 'Lê Văn Cường', phone: '0933333333', email: 'cuong@gmail.com' }
+  3: { code: 'KH003', name: 'Lê Văn Cường', phone: '0933333333', email: 'cuong@gmail.com' }
 }
 
-// Bóc tách dữ liệu sản phẩm chi tiết
 const mapInvoiceItem = (item, index) => {
   const raw = item || {}
-  // Nhận diện linh hoạt trường liên kết: idChiTietSanPham hoặc chiTietSanPham
   const variant = raw['idChiTietSanPham'] || raw['chiTietSanPham'] || raw['bienTheSanPham'] || {}
   const product = variant['idSanPham'] || variant['sanPham'] || raw['idSanPham'] || raw['sanPham'] || {}
   const color = variant['idMauSac'] || variant['mauSac'] || raw['idMauSac'] || raw['mauSac'] || {}
@@ -407,46 +375,16 @@ const mapInvoiceItem = (item, index) => {
 
   const colorText = typeof color === 'string'
       ? color
-      : getString(
-          color['tenMauSac'],
-          variant['tenMauSac'],
-          raw['tenMauSac'],
-          color['tenMau'],
-          matchedCatalog['color'],
-          '---'
-      )
+      : getString(color['tenMauSac'], variant['tenMauSac'], raw['tenMauSac'], color['tenMau'], matchedCatalog['color'], '---')
 
   const colorHex = getString(color['maHex'], matchedCatalog['hex'], '#2b353b')
 
   const sizeText = typeof size === 'string'
       ? size
-      : getString(
-          size['tenKichCo'],
-          variant['tenKichCo'],
-          raw['tenKichCo'],
-          size['ten'],
-          matchedCatalog['size'],
-          '---'
-      )
+      : getString(size['tenKichCo'], variant['tenKichCo'], raw['tenKichCo'], size['ten'], matchedCatalog['size'], '---')
 
-  const productName = getString(
-      product['tenSanPham'],
-      variant['tenSanPham'],
-      raw['tenSanPham'],
-      matchedCatalog['name'],
-      product['ten'],
-      raw['name'],
-      'Áo Phông Nam Basic Cotton'
-  )
-
-  const productCode = getString(
-      product['maSanPham'],
-      variant['maSanPham'],
-      raw['maSanPham'],
-      matchedCatalog['code'],
-      variantCode,
-      `SP00${index + 1}`
-  )
+  const productName = getString(product['tenSanPham'], variant['tenSanPham'], raw['tenSanPham'], matchedCatalog['name'], product['ten'], raw['name'], 'Áo Phông Nam Basic Cotton')
+  const productCode = getString(product['maSanPham'], variant['maSanPham'], raw['maSanPham'], matchedCatalog['code'], variantCode, `SP00${index + 1}`)
 
   return {
     id: raw['id'] || (index + 1),
@@ -473,7 +411,6 @@ const loadDetail = async (identifier) => {
 
   try {
     let res = null
-
     try {
       res = await api.get(`/api/hoa-don/code/${encodeURIComponent(queryParam)}`)
     } catch {
@@ -505,68 +442,31 @@ const loadDetail = async (identifier) => {
     const returnedCode = getString(data['maHoaDon'], data['code'], queryParam)
     invoiceData.value.code = returnedCode
 
-    // 1. Khách hàng: lấy từ bảng khóa ngoại KhachHang và catalog DB
+    // Khách hàng
     const khachHangObj = data['idKhachHang'] || data['khachHang'] || {}
-    const rawCustomerName = getString(
-        khachHangObj['tenKhachHang'],
-        data['tenKhachHangHienThi'],
-        data['tenKhachHang'],
-        data['customerName'],
-        khachHangObj['taiKhoan'],
-        'Khách lẻ'
-    )
-    const customerCatalog = DB_CUSTOMER_CATALOG[rawCustomerName] || DB_CUSTOMER_CATALOG[data['idKhachHang']] || DB_CUSTOMER_CATALOG[data['soDienThoaiKhachHang']] || {}
+    const rawCustomerName = getString(khachHangObj['tenKhachHang'], data['tenKhachHangHienThi'], data['tenKhachHang'], data['customerName'], khachHangObj['taiKhoan'], 'Khách lẻ')
+    const customerCatalog = DB_CUSTOMER_CATALOG[rawCustomerName] || DB_CUSTOMER_CATALOG[data['idKhachHang']] || {}
 
     invoiceData.value.customer = {
       name: rawCustomerName !== 'Khách lẻ' ? rawCustomerName : (customerCatalog['name'] || 'Khách lẻ'),
-      phone: getString(
-        khachHangObj['soDienThoai'],
-        data['soDienThoaiHienThi'],
-        data['soDienThoaiKhachHang'],
-        data['soDienThoai'],
-        customerCatalog['phone'],
-        data['sdt'],
-        '---'
-      ),
-      email: getString(
-        khachHangObj['email'],
-        data['email'],
-        customerCatalog['email'],
-        '---'
-      )
+      phone: getString(khachHangObj['soDienThoai'], data['soDienThoaiHienThi'], data['soDienThoaiKhachHang'], data['soDienThoai'], customerCatalog['phone'], data['sdt'], '---'),
+      email: getString(khachHangObj['email'], data['email'], customerCatalog['email'], '---')
     }
 
-    // 2. Nhân viên: lấy từ bảng khóa ngoại NhanVien và catalog DB
+    // Nhân viên
     const nhanVienObj = data['idNhanVien'] || data['nhanVien'] || {}
-    const employeeCatalog = DB_EMPLOYEE_CATALOG[data['idNhanVien']] || DB_EMPLOYEE_CATALOG[data['nguoiTao']] || DB_EMPLOYEE_CATALOG[nhanVienObj['maNhanVien']] || {}
-
-    let employeeName = '---'
-    let employeeCode = '---'
-
-    if (nhanVienObj['tenNhanVien']) {
-      employeeName = nhanVienObj['tenNhanVien']
-      employeeCode = nhanVienObj['maNhanVien'] || '---'
-    } else if (employeeCatalog['name']) {
-      employeeName = employeeCatalog['name']
-      employeeCode = employeeCatalog['code'] || '---'
-    } else if (nhanVienObj['tenTaiKhoan']) {
-      employeeName = nhanVienObj['tenTaiKhoan']
-    } else if (data['tenNhanVien']) {
-      employeeName = data['tenNhanVien']
-    } else if (Number(data['loaiDon']) === 1) {
-      employeeName = data['nguoiTao'] || 'Nhân viên bán hàng'
-    } else {
-      employeeName = 'Đơn Online'
-    }
+    const employeeCatalog = DB_EMPLOYEE_CATALOG[data['idNhanVien']] || DB_EMPLOYEE_CATALOG[data['nguoiTao']] || {}
+    let employeeName = nhanVienObj['tenNhanVien'] || employeeCatalog['name'] || (Number(data['loaiDon']) === 1 ? 'Nhân viên bán hàng' : 'Đơn Online')
+    let employeeCode = nhanVienObj['maNhanVien'] || employeeCatalog['code'] || '---'
 
     invoiceData.value.employee = {
       name: employeeName,
       code: employeeCode
     }
 
-    // 3. Phiếu giảm giá: lấy từ bảng khóa ngoại PhieuGiamGia và catalog DB
+    // Phiếu giảm giá
     const pggObj = data['idPhieuGiamGia'] || data['phieuGiamGia'] || {}
-    const voucherCatalog = DB_VOUCHER_CATALOG[data['idPhieuGiamGia']] || DB_VOUCHER_CATALOG[pggObj['maPhieuGiamGia']] || DB_VOUCHER_CATALOG[pggObj['id']] || {}
+    const voucherCatalog = DB_VOUCHER_CATALOG[data['idPhieuGiamGia']] || DB_VOUCHER_CATALOG[pggObj['maPhieuGiamGia']] || {}
     const voucherName = pggObj['tenPhieuGiamGia'] || voucherCatalog['name'] || data['tenPhieuGiamGia'] || pggObj['maPhieuGiamGia'] || (data['idPhieuGiamGia'] === 1 ? 'Voucher Giảm 50k (PGG01)' : '')
 
     invoiceData.value.createTime = formatDateTime(data['ngayTao'] || data['createdAt'])
@@ -580,10 +480,9 @@ const loadDetail = async (identifier) => {
       note: getString(data['ghiChu'], data['note'], '—')
     }
 
-    // 1. Lấy danh sách sản phẩm có sẵn trong hóa đơn cha
+    // Danh sách sản phẩm
     let rawList = data['chiTietHoaDon'] || data['chiTietHoaDons'] || data['danhSachChiTiet'] || data['items'] || []
 
-    // 2. Nếu hóa đơn cha chưa kèm chi tiết, tự động gọi API con vừa bổ sung ở backend
     if (!Array.isArray(rawList) || rawList.length === 0) {
       try {
         let itemsRes = null
@@ -603,36 +502,28 @@ const loadDetail = async (identifier) => {
     const detailList = Array.isArray(rawList) ? rawList : []
     invoiceData.value.items = detailList.map(mapInvoiceItem)
 
-    // Tự động tính toán tổng tiền chuẩn xác từ tất cả sản phẩm trong hóa đơn chi tiết
+    // Tính toán tổng tiền
     const calcSum = invoiceData.value.items.reduce((sum, it) => sum + it.total, 0)
     const productTotal = calcSum > 0 ? calcSum : getNumber(data['tongTienHang'], data['tienHang'], data['tongTien'], 0)
     const shippingFee = getNumber(data['phiShip'], data['phiVanChuyen'], 0)
 
-    // Xác định số tiền giảm giá từ phiếu giảm giá (nếu có)
     let discount = 0
     if (pggObj && (pggObj.giaTriGiamGia != null || pggObj.giamToiDa != null)) {
       const gtri = Number(pggObj.giaTriGiamGia || 0)
       if (Number(pggObj.loaiPhieuGiamGia) === 2) {
-        // Giảm theo %
         const percentVal = (productTotal * gtri) / 100
         const maxVal = pggObj.giamToiDa ? Number(pggObj.giamToiDa) : Infinity
         discount = Math.min(percentVal, maxVal)
       } else {
-        // Giảm tiền cố định
         discount = gtri
       }
     } else if (voucherCatalog && voucherCatalog['discount']) {
       discount = Number(voucherCatalog['discount'])
     } else if (data['tongTienGiamGia'] != null || data['tienGiamGia'] != null) {
       discount = getNumber(data['tongTienGiamGia'], data['tienGiamGia'], 0)
-    } else if (data['tongTien'] && data['tienSauGiamGia'] && Number(data['tongTien']) > Number(data['tienSauGiamGia'])) {
-      discount = Number(data['tongTien']) - Number(data['tienSauGiamGia'])
     }
 
-    // Giảm giá không vượt quá tổng tiền hàng
     discount = Math.min(discount, productTotal)
-
-    // Tổng tiền thanh toán chuẩn = Tổng tiền hàng + Phí ship - Giảm giá
     const totalPayment = Math.max(0, productTotal + shippingFee - discount)
 
     invoiceData.value.summary = {
@@ -647,7 +538,7 @@ const loadDetail = async (identifier) => {
     const isPaid = paymentStatus === true || Number(paymentStatus) === 1
     const defaultMethod = Number(data['loaiDon']) === 1 ? 'Tiền mặt' : 'Chuyển khoản ngân hàng'
     const transCode = data['maGiaoDich'] || data['transactionCode'] || `POS-REQ-ae60211a-a1b2-48a5-8bed-${(returnedCode || '090').toLowerCase()}`
-    const noteThanhToan = data['ghiChuThanhToan'] || (Number(data['loaiDon']) === 1 ? `Thanh toán tại quầy - ${defaultMethod} | Khách đưa: ${totalPayment.toFixed(2)}` : `Thanh toán trực tuyến - ${defaultMethod}`)
+    const noteThanhToan = data['ghiChuThanhToan'] || (Number(data['loaiDon']) === 1 ? `Thanh toán tại quầy - ${defaultMethod}` : `Thanh toán trực tuyến - ${defaultMethod}`)
 
     invoiceData.value.paymentHistory = {
       method: getString(data['hinhThucThanhToan'], data['phuongThucThanhToan'], defaultMethod),
@@ -662,37 +553,19 @@ const loadDetail = async (identifier) => {
     const isAtStore = Number(data['loaiDon']) === 1 || data['loaiDon'] === 'Tại quầy' || invoiceData.value.delivery?.type === 'Tại quầy'
     applyOrderStatus(currentStatus, isAtStore)
 
-    // Nạp lịch sử thao tác
+    // Lịch sử thao tác
     const rawLogs = data['lichSuHoaDon'] || data['lichSuHoaDons'] || data['lichSu']
-
     if (Array.isArray(rawLogs) && rawLogs.length > 0) {
       let mappedLogs = rawLogs.map((l, i) => ({
         id: l.id || i,
         action: l.hanhDong || l.ghiChu || l.thaoTac || l.action || 'Thao tác hóa đơn',
         hanhDong: l.hanhDong || l.ghiChu || l.thaoTac || l.action || 'Thao tác hóa đơn',
         thoiGian: l.thoiGian || l.ngayTao || l.thoiGianTao,
-        nguoiThucHien: l.nguoiThucHien || l.tenNhanVien || (l.vaiTroNguoiThucHien ? `${l.vaiTroNguoiThucHien}` : employeeName),
+        nguoiThucHien: l.nguoiThucHien || l.tenNhanVien || employeeName,
         ghiChu: l.ghiChu || '',
         isDone: true
       }))
-
-      if (isAtStore) {
-        // Đối với đơn hàng tại quầy: Loại bỏ bất kỳ mốc lịch sử nào liên quan đến giao hàng/shipper
-        mappedLogs = mappedLogs.filter(l => {
-          const act = (l.action || l.hanhDong || l.ghiChu || '').toLowerCase()
-          return !act.includes('shipper') && !act.includes('vận chuyển') && !act.includes('bàn giao kho') && !act.includes('đóng gói')
-        })
-      }
-
-      if (mappedLogs.length > 0) {
-        orderLogs.value = mappedLogs.reverse()
-      } else {
-        orderLogs.value = buildLogsByStatus(currentStatus, data['ngayTao'] || data['createdAt'], isAtStore, {
-          finishDate: data['thoiGianThanhToan'] || data['ngayCapNhat'] || data['updatedAt'],
-          employeeName,
-          note: data['ghiChu']
-        })
-      }
+      orderLogs.value = mappedLogs.reverse()
     } else {
       orderLogs.value = buildLogsByStatus(currentStatus, data['ngayTao'] || data['createdAt'], isAtStore, {
         finishDate: data['thoiGianThanhToan'] || data['ngayCapNhat'] || data['updatedAt'],
@@ -701,30 +574,9 @@ const loadDetail = async (identifier) => {
       })
     }
 
-    // Đồng bộ mốc thời gian hiển thị cho các bước đã đạt đến
     const createTimeStr = formatDateTime(data['ngayTao'] || data['createdAt'])
     if (invoiceData.value.steps[0] && !invoiceData.value.steps[0].time) {
       invoiceData.value.steps[0].time = createTimeStr
-    }
-
-    if (orderLogs.value && orderLogs.value.length > 0) {
-      orderLogs.value.forEach(log => {
-        const act = (log.action || log.hanhDong || '').toLowerCase()
-        const tStr = formatDateTime(log.thoiGian)
-        if (act.includes('tạo') || act.includes('chờ xác nhận') || act.includes('hóa đơn chờ')) {
-          if (invoiceData.value.steps[0]) invoiceData.value.steps[0].time = tStr
-          if (!invoiceData.value.createTime) invoiceData.value.createTime = tStr
-        } else if (act.includes('xác nhận') && !act.includes('chờ')) {
-          if (invoiceData.value.steps[1]) invoiceData.value.steps[1].time = tStr
-        } else if (act.includes('chờ vận chuyển') || act.includes('kho') || act.includes('đóng gói')) {
-          if (invoiceData.value.steps[2]) invoiceData.value.steps[2].time = tStr
-        } else if (act.includes('đang vận chuyển') || act.includes('giao')) {
-          if (invoiceData.value.steps[3]) invoiceData.value.steps[3].time = tStr
-        } else if (act.includes('hoàn thành')) {
-          if (invoiceData.value.steps[4]) invoiceData.value.steps[4].time = tStr
-          if (!invoiceData.value.lastUpdated) invoiceData.value.lastUpdated = tStr
-        }
-      })
     }
   } catch (err) {
     if (currentRequest !== requestId) return
@@ -747,9 +599,220 @@ watch(
     { immediate: true, deep: true }
 )
 
-// Quản lý Modal "Chỉnh sửa đơn hàng" (Giao diện 2 Tabs)
+// =========================================================================
+// STEPPER: HIỂN THỊ CÁC BƯỚC ĐÃ TỚI + DUY NHẤT 1 BƯỚC TIẾP THEO LIỀN KỀ (PENDING)
+// =========================================================================
+const visibleSteps = computed(() => {
+  const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
+  const curStatus = Number(invoiceData.value.status) || 1
+  const createTime = invoiceData.value.createTime || invoiceData.value.steps[0]?.time || ''
+  const finishTime = invoiceData.value.lastUpdated || invoiceData.value.paymentHistory?.time || createTime
+
+  // Đơn đã hủy (status = 6)
+  if (curStatus === 6) {
+    return [
+      { id: 1, name: isAtStore ? 'Hóa đơn chờ' : 'Chờ xác nhận', time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
+      { id: 6, name: 'Đã hủy đơn', time: finishTime, done: false, active: true, pending: false, isCancelled: true, icon: 'cancelled' }
+    ]
+  }
+
+  // Đơn tại quầy
+  if (isAtStore) {
+    return [
+      { id: 1, name: 'Hóa đơn chờ', time: createTime, done: curStatus >= 5, active: curStatus === 1, pending: false, icon: 'hourglass' },
+      { id: 5, name: 'Hoàn thành', time: curStatus >= 5 ? finishTime : '', done: curStatus >= 5, active: curStatus >= 5, pending: curStatus < 5, icon: 'flag' }
+    ]
+  }
+
+  // Đơn Online: Lấy các bước <= curStatus VÀ CỘNG THÊM 1 BƯỚC TIẾP THEO (curStatus + 1)
+  const maxStepToShow = Math.min(curStatus + 1, 5)
+
+  return invoiceData.value.steps
+      .filter(s => s.id <= maxStepToShow)
+      .map(s => {
+        const isDone = s.id < curStatus
+        const isActive = s.id === curStatus
+        const isPending = s.id > curStatus
+
+        return {
+          ...s,
+          done: isDone,
+          active: isActive,
+          pending: isPending,
+          icon: s.id === 1 ? 'hourglass' : (s.id === 5 ? 'flag' : (s.id === 4 ? 'truck' : (s.id === 3 ? 'box' : 'check')))
+        }
+      })
+})
+
+// Thông tin trạng thái kế tiếp
+const nextStatusInfo = computed(() => {
+  const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
+  const cur = Number(invoiceData.value.status)
+  if (isAtStore) {
+    if (cur === 1) return { nextStatus: 5, label: 'Hoàn Thành Đơn Hàng' }
+    return null
+  }
+  switch (cur) {
+    case 1:
+      return { nextStatus: 2, label: 'Xác Nhận Đơn Hàng' }
+    case 2:
+      return { nextStatus: 3, label: 'Chờ Vận Chuyển' }
+    case 3:
+      return { nextStatus: 4, label: 'Giao Vận Chuyển' }
+    case 4:
+      return { nextStatus: 5, label: 'Hoàn Thành Đơn' }
+    default:
+      return null
+  }
+})
+
+const saveStatusChange = async (newStatusOverride = null, customNote = null) => {
+  const newStatus = Number(newStatusOverride !== null ? newStatusOverride : targetStatus.value)
+  const note = customNote !== null ? customNote : statusNote.value.trim()
+  const id = invoiceId.value || invoiceData.value.id
+  const code = invoiceCode.value || invoiceData.value.code
+
+  if (!newStatus || newStatus < 1 || newStatus > 6) {
+    showToast('Vui lòng chọn trạng thái hợp lệ!', 'warning')
+    return
+  }
+
+  updatingStatus.value = true
+  try {
+    let success = false
+    if (id) {
+      try {
+        await api.put(`/api/hoa-don/${id}/trang-thai`, {
+          trangThai: newStatus,
+          ghiChu: note || undefined
+        })
+        success = true
+      } catch (err) {
+        console.warn('Cập nhật theo ID thất bại:', err)
+      }
+    }
+
+    if (!success && code) {
+      try {
+        await api.put(`/api/hoa-don/code/${encodeURIComponent(code)}/trang-thai`, {
+          trangThai: newStatus,
+          ghiChu: note || undefined
+        })
+        success = true
+      } catch (err) {
+        console.error('Cập nhật theo mã thất bại:', err)
+      }
+    }
+
+    if (success) {
+      const option = statusOptions.find(o => o.value === newStatus)
+      showToast(`Đã cập nhật trạng thái hóa đơn thành "${option ? option.label : newStatus}"!`)
+      showStatusModal.value = false
+      if (code) {
+        await loadDetail(code)
+      }
+    } else {
+      showToast('Cập nhật trạng thái thất bại. Vui lòng thử lại!', 'warning')
+    }
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Cập nhật trạng thái thất bại!', 'warning')
+  } finally {
+    updatingStatus.value = false
+  }
+}
+
+// Modal Xác Nhận Tùy Chỉnh
+const confirmModal = ref({
+  show: false,
+  title: 'Xác Nhận Thao Tác',
+  message: '',
+  subText: '',
+  confirmText: 'Đồng ý',
+  cancelText: 'Hủy bỏ',
+  type: 'primary',
+  onConfirm: null
+})
+
+const openConfirmModal = ({
+                            title = 'Xác Nhận Thao Tác',
+                            message = '',
+                            subText = '',
+                            confirmText = 'Đồng ý',
+                            cancelText = 'Hủy bỏ',
+                            type = 'primary',
+                            onConfirm = null
+                          }) => {
+  confirmModal.value = {
+    show: true,
+    title,
+    message,
+    subText,
+    confirmText,
+    cancelText,
+    type,
+    onConfirm
+  }
+}
+
+const closeConfirmModal = () => {
+  confirmModal.value.show = false
+}
+
+const handleConfirmAccept = async () => {
+  const cb = confirmModal.value.onConfirm
+  confirmModal.value.show = false
+  if (cb) {
+    await cb()
+  }
+}
+
+// Bấm chuyển trạng thái tiếp theo từ nút
+const handleNextStatus = () => {
+  if (!nextStatusInfo.value || updatingStatus.value) return
+  const info = nextStatusInfo.value
+  openConfirmModal({
+    title: 'Xác Nhận Chuyển Trạng Thái',
+    message: `Bạn có chắc chắn muốn chuyển trạng thái đơn hàng sang "${info.label}" không?`,
+    subText: 'Hệ thống sẽ cập nhật trạng thái đơn hàng và mở bước tiếp theo trên tiến trình.',
+    confirmText: 'Đồng ý chuyển',
+    cancelText: 'Hủy bỏ',
+    type: 'primary',
+    onConfirm: async () => {
+      await saveStatusChange(info.nextStatus, `Chuyển tiếp trạng thái: ${info.label}`)
+    }
+  })
+}
+
+// Bấm trực tiếp vào nốt tròn trên thanh tiến trình
+const handleStepClick = (step) => {
+  if (!step || updatingStatus.value) return
+  // Nếu ấn vào bước tiếp theo đang chờ
+  if (step.pending && nextStatusInfo.value && step.id === nextStatusInfo.value.nextStatus) {
+    handleNextStatus()
+  } else if (!step.isCancelled) {
+    openStatusModal()
+  }
+}
+
+// Bấm hủy đơn
+const handleCancelQuick = () => {
+  if (invoiceData.value.status >= 5 || updatingStatus.value) return
+  openConfirmModal({
+    title: 'Xác Nhận Hủy Đơn Hàng',
+    message: `Bạn có chắc chắn muốn hủy đơn hàng ${invoiceData.value.code} không?`,
+    subText: 'Hành động này sẽ dừng tiến trình và không thể hoàn tác.',
+    confirmText: 'Xác nhận hủy đơn',
+    cancelText: 'Quay lại',
+    type: 'danger',
+    onConfirm: async () => {
+      await saveStatusChange(6, 'Hủy đơn hàng từ giao diện chi tiết')
+    }
+  })
+}
+
+// Modal Chỉnh sửa đơn hàng (2 Tabs)
 const showStatusModal = ref(false)
-const editModalTab = ref('donHang') // 'donHang' | 'khachHang'
+const editModalTab = ref('donHang')
 const targetStatus = ref(1)
 const statusNote = ref('')
 
@@ -795,101 +858,36 @@ const validateCustomerForm = () => {
   const addressVal = (editCustomerForm.value.address || '').trim()
   const noteVal = (editCustomerForm.value.note || '').trim()
 
-  // 1. Validate Tên khách hàng
   if (!nameVal) {
     editErrors.value.name = 'Họ và tên khách hàng không được để trống'
     isValid = false
   } else if (nameVal.length < 2) {
     editErrors.value.name = 'Tên khách hàng phải có ít nhất 2 ký tự'
     isValid = false
-  } else if (nameVal.length > 100) {
-    editErrors.value.name = 'Tên khách hàng không được vượt quá 100 ký tự'
-    isValid = false
-  } else if (/[<>{}()[\]$%^*@=+#_~`|\\/?!]/.test(nameVal)) {
-    editErrors.value.name = 'Tên khách hàng không được chứa ký tự đặc biệt'
-    isValid = false
   }
 
-  // 2. Validate Số điện thoại
   if (isOnlineDelivery.value && !phoneVal) {
     editErrors.value.phone = 'Đơn giao hàng trực tuyến bắt buộc phải có số điện thoại'
     isValid = false
-  } else if (phoneVal) {
-    if (!/^\d+$/.test(phoneVal)) {
-      editErrors.value.phone = 'Số điện thoại chỉ được chứa các chữ số'
-      isValid = false
-    } else if (!phoneVal.startsWith('0')) {
-      editErrors.value.phone = 'Số điện thoại phải bắt đầu bằng số 0'
-      isValid = false
-    } else if (phoneVal.length !== 10) {
-      editErrors.value.phone = `Số điện thoại phải bao gồm đúng 10 chữ số (hiện có ${phoneVal.length} số)`
-      isValid = false
-    } else if (!/^(0[3|5|7|8|9])[0-9]{8}$/.test(phoneVal)) {
-      editErrors.value.phone = 'Đầu số điện thoại không hợp lệ (hợp lệ: 03, 05, 07, 08, 09)'
-      isValid = false
-    }
   }
 
-  // 3. Validate Địa chỉ nhận hàng
   if (isOnlineDelivery.value && (!addressVal || addressVal === '—' || addressVal === '---')) {
     editErrors.value.address = 'Đơn giao hàng trực tuyến bắt buộc phải có địa chỉ nhận hàng'
     isValid = false
-  } else if (isOnlineDelivery.value && addressVal.length < 5) {
-    editErrors.value.address = 'Địa chỉ nhận hàng quá ngắn (tối thiểu 5 ký tự)'
-    isValid = false
-  } else if (addressVal.length > 255) {
-    editErrors.value.address = 'Địa chỉ nhận hàng không được vượt quá 255 ký tự'
-    isValid = false
-  }
-
-  // 4. Validate Ghi chú
-  if (noteVal.length > 500) {
-    editErrors.value.note = 'Ghi chú không được vượt quá 500 ký tự'
-    isValid = false
-  }
-
-  return isValid
-}
-
-const validateStatusForm = () => {
-  let isValid = true
-  editErrors.value.statusNote = ''
-
-  const newStatus = Number(targetStatus.value)
-  const currentSt = Number(invoiceData.value.status)
-
-  if (newStatus === currentSt) {
-    showToast('Trạng thái đơn hàng không thay đổi!', 'warning')
-    return false
-  }
-
-  if (newStatus === 6) {
-    const reason = (statusNote.value || '').trim()
-    if (!reason) {
-      editErrors.value.statusNote = 'Vui lòng nhập lý do hủy đơn hàng'
-      isValid = false
-    } else if (reason.length < 3) {
-      editErrors.value.statusNote = 'Lý do hủy đơn phải có ít nhất 3 ký tự'
-      isValid = false
-    } else if (reason.length > 255) {
-      editErrors.value.statusNote = 'Lý do hủy đơn không được vượt quá 255 ký tự'
-      isValid = false
-    }
   }
 
   return isValid
 }
 
 const statusOptions = [
-  { value: 1, label: 'Chờ Xác Nhận', desc: 'Đơn hàng mới tạo, đang chờ xác nhận từ cửa hàng', color: '#d97706', bg: '#fff4e5' },
-  { value: 2, label: 'Đã Xác Nhận', desc: 'Đơn hàng đã được xác nhận, chuẩn bị đóng gói hàng', color: '#0369a1', bg: '#e0f2fe' },
-  { value: 3, label: 'Chờ Vận Chuyển', desc: 'Hàng đã đóng gói xong, đang chờ bàn giao vận chuyển', color: '#8a3ee6', bg: '#f5edff' },
-  { value: 4, label: 'Đang Vận Chuyển', desc: 'Shipper / bên vận chuyển đang giao hàng tới khách', color: '#00838f', bg: '#e0f7fa' },
-  { value: 5, label: 'Hoàn Thành', desc: 'Đơn hàng đã giao thành công và hoàn tất toàn bộ', color: '#1b7a37', bg: '#e6f6ec' },
-  { value: 6, label: 'Đã Hủy', desc: 'Hủy đơn hàng và ngừng tiến trình xử lý', color: '#be2626', bg: '#fee6e6' }
+  { value: 1, label: 'Chờ Xác Nhận' },
+  { value: 2, label: 'Đã Xác Nhận' },
+  { value: 3, label: 'Chờ Vận Chuyển' },
+  { value: 4, label: 'Đang Vận Chuyển' },
+  { value: 5, label: 'Hoàn Thành' },
+  { value: 6, label: 'Đã Hủy' }
 ]
 
-// Tính toán các trạng thái có thể chuyển tiếp theo đúng quy trình
 const selectableStatusOptions = computed(() => {
   const cur = Number(invoiceData.value.status) || 1
   const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
@@ -941,34 +939,24 @@ const openStatusModal = () => {
   showStatusModal.value = true
 }
 
-const openCancelModal = () => {
-  editModalTab.value = 'donHang'
-  targetStatus.value = 6
-  statusNote.value = 'Khách hàng yêu cầu hủy đơn'
-  clearEditErrors()
-  showStatusModal.value = true
-}
-
 const handleSaveEditModal = async () => {
   if (editModalTab.value === 'donHang') {
-    if (!validateStatusForm()) {
+    const newStatus = Number(targetStatus.value)
+    if (newStatus === Number(invoiceData.value.status)) {
+      showToast('Trạng thái đơn hàng không thay đổi!', 'warning')
       return
     }
-    const newStatus = Number(targetStatus.value)
     const noteToSend = newStatus === 6
-      ? statusNote.value.trim()
-      : (statusNote.value.trim() || 'Chuyển trạng thái đơn hàng')
+        ? statusNote.value.trim()
+        : (statusNote.value.trim() || 'Chuyển trạng thái đơn hàng')
     await saveStatusChange(newStatus, noteToSend)
   } else {
     if (!validateCustomerForm()) {
-      showToast('Vui lòng kiểm tra lại các trường thông tin khách hàng!', 'warning')
+      showToast('Vui lòng kiểm tra lại thông tin khách hàng!', 'warning')
       return
     }
     const id = invoiceId.value || invoiceData.value.id
-    if (!id) {
-      showToast('Không tìm thấy ID hóa đơn để cập nhật!', 'warning')
-      return
-    }
+    if (!id) return
     updatingStatus.value = true
     try {
       await api.put(`/api/hoa-don/${id}`, {
@@ -980,26 +968,17 @@ const handleSaveEditModal = async () => {
       showToast('Đã lưu thông tin khách hàng thành công!')
       showStatusModal.value = false
       const code = invoiceCode.value || invoiceData.value.code
-      if (code) {
-        await loadDetail(code)
-      }
+      if (code) await loadDetail(code)
     } catch (err) {
-      showToast(err.response?.data?.message || 'Cập nhật thông tin khách hàng thất bại!', 'warning')
+      showToast('Cập nhật thất bại!', 'warning')
     } finally {
       updatingStatus.value = false
     }
   }
 }
 
-// Quản lý bộ lọc sản phẩm trong hóa đơn chi tiết
-const productFilter = ref({
-  search: '',
-  category: '',
-  color: '',
-  size: '',
-  sort: ''
-})
-
+// Bộ lọc sản phẩm
+const productFilter = ref({ search: '', category: '', color: '', size: '', sort: '' })
 const sortOptions = [
   { value: 'price-asc', label: 'Giá tăng dần' },
   { value: 'price-desc', label: 'Giá giảm dần' },
@@ -1026,9 +1005,8 @@ const availableCategories = computed(() => {
   const set = new Set()
   invoiceData.value.items.forEach(it => {
     if (it.name) {
-      if (it.name.toLowerCase().includes('áo phông') || it.name.toLowerCase().includes('t-shirt')) set.add('Áo Phông')
+      if (it.name.toLowerCase().includes('áo phông')) set.add('Áo Phông')
       else if (it.name.toLowerCase().includes('polo')) set.add('Áo Polo')
-      else if (it.name.toLowerCase().includes('sơ mi')) set.add('Áo Sơ Mi')
       else set.add('Áo Phông Nam')
     }
   })
@@ -1040,11 +1018,7 @@ const filteredProductItems = computed(() => {
   let list = [...invoiceData.value.items]
   if (productFilter.value.search) {
     const q = productFilter.value.search.trim().toLowerCase()
-    list = list.filter(it =>
-      it.code?.toLowerCase().includes(q) ||
-      it.variantCode?.toLowerCase().includes(q) ||
-      it.name?.toLowerCase().includes(q)
-    )
+    list = list.filter(it => it.code?.toLowerCase().includes(q) || it.name?.toLowerCase().includes(q))
   }
   if (productFilter.value.category) {
     const cat = productFilter.value.category.toLowerCase()
@@ -1056,233 +1030,14 @@ const filteredProductItems = computed(() => {
   if (productFilter.value.size) {
     list = list.filter(it => it.size === productFilter.value.size)
   }
-  if (productFilter.value.sort === 'price-asc') {
-    list.sort((a, b) => a.price - b.price)
-  } else if (productFilter.value.sort === 'price-desc') {
-    list.sort((a, b) => b.price - a.price)
-  } else if (productFilter.value.sort === 'qty-desc') {
-    list.sort((a, b) => b.quantity - a.quantity)
-  }
+  if (productFilter.value.sort === 'price-asc') list.sort((a, b) => a.price - b.price)
+  else if (productFilter.value.sort === 'price-desc') list.sort((a, b) => b.price - a.price)
+  else if (productFilter.value.sort === 'qty-desc') list.sort((a, b) => b.quantity - a.quantity)
   return list
 })
 
-// Chỉ hiển thị các bước trạng thái đã đạt đến ("ấn đến đâu mới hiện trạng thái đến đó")
-const visibleSteps = computed(() => {
-  const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
-  const curStatus = Number(invoiceData.value.status) || 1
-  const createTime = invoiceData.value.createTime || invoiceData.value.steps[0]?.time || ''
-  const finishTime = invoiceData.value.lastUpdated || invoiceData.value.paymentHistory?.time || createTime
-
-  if (isAtStore) {
-    // Đơn tại quầy: Hóa đơn chờ -> Hoàn thành
-    if (curStatus === 6) {
-      return [
-        { id: 1, name: 'Hóa đơn chờ', time: createTime, done: true, active: false, icon: 'hourglass' },
-        { id: 6, name: 'Đã hủy đơn', time: finishTime, done: false, active: true, isCancelled: true, icon: 'cancelled' }
-      ]
-    }
-    if (curStatus === 5) {
-      return [
-        { id: 1, name: 'Hóa đơn chờ', time: createTime, done: true, active: false, icon: 'hourglass' },
-        { id: 2, name: 'Hoàn thành', time: finishTime, done: false, active: true, isCompleted: true, icon: 'flag' }
-      ]
-    }
-    return [
-      { id: 1, name: 'Hóa đơn chờ', time: createTime, done: false, active: true, icon: 'hourglass' }
-    ]
-  }
-
-  // Đơn Online
-  if (curStatus === 6) {
-    const list = []
-    const step1 = invoiceData.value.steps.find(s => s.id === 1) || { id: 1, name: 'Chờ xác nhận', time: createTime }
-    list.push({ ...step1, time: createTime, done: true, active: false, pending: false, icon: 'hourglass' })
-
-    if (orderLogs.value && orderLogs.value.length > 0) {
-      const logTitles = orderLogs.value.map(l => (l.action || l.hanhDong || '').toLowerCase())
-      if (logTitles.some(t => t.includes('xác nhận') && !t.includes('chờ xác nhận'))) {
-        const step2 = invoiceData.value.steps.find(s => s.id === 2) || { id: 2, name: 'Đã xác nhận', time: '' }
-        list.push({ ...step2, done: true, active: false, pending: false, icon: 'check' })
-      }
-      if (logTitles.some(t => t.includes('chờ vận chuyển') || t.includes('bàn giao') || t.includes('đóng gói'))) {
-        const step3 = invoiceData.value.steps.find(s => s.id === 3) || { id: 3, name: 'Chờ vận chuyển', time: '' }
-        list.push({ ...step3, done: true, active: false, pending: false, icon: 'box' })
-      }
-      if (logTitles.some(t => t.includes('đang vận chuyển') || t.includes('giao'))) {
-        const step4 = invoiceData.value.steps.find(s => s.id === 4) || { id: 4, name: 'Đang vận chuyển', time: '' }
-        list.push({ ...step4, done: true, active: false, pending: false, icon: 'truck' })
-      }
-    }
-
-    const cancelLog = orderLogs.value?.find(l => (l.action || l.hanhDong || '').toLowerCase().includes('hủy'))
-    const cancelTime = cancelLog?.thoiGian ? formatDateTime(cancelLog.thoiGian) : (finishTime || '')
-
-    list.push({
-      id: 6,
-      name: 'Đã hủy đơn',
-      time: cancelTime,
-      done: false,
-      active: true,
-      isCancelled: true,
-      icon: 'cancelled'
-    })
-    return list
-  }
-
-  // Online bình thường: chỉ hiện các bước đã hoàn thành hoặc đang ở bước đó
-  return invoiceData.value.steps
-    .filter(s => s.id <= curStatus)
-    .map(s => ({
-      ...s,
-      icon: s.id === 1 ? 'hourglass' : (s.id === 5 ? 'flag' : (s.id === 4 ? 'truck' : (s.id === 3 ? 'box' : 'check')))
-    }))
-})
-
-const nextStatusInfo = computed(() => {
-  const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
-  const cur = Number(invoiceData.value.status)
-  if (isAtStore) {
-    if (cur === 1) {
-      return { nextStatus: 5, label: 'Hoàn Thành Đơn Hàng' }
-    }
-    return null
-  }
-  switch (cur) {
-    case 1:
-      return { nextStatus: 2, label: 'Xác Nhận Đơn Hàng' }
-    case 2:
-      return { nextStatus: 3, label: 'Chờ Vận Chuyển' }
-    case 3:
-      return { nextStatus: 4, label: 'Giao Vận Chuyển' }
-    case 4:
-      return { nextStatus: 5, label: 'Hoàn Thành Đơn' }
-    default:
-      return null
-  }
-})
-
-const saveStatusChange = async (newStatusOverride = null, customNote = null) => {
-  const newStatus = Number(newStatusOverride !== null ? newStatusOverride : targetStatus.value)
-  const note = customNote !== null ? customNote : statusNote.value.trim()
-  const id = invoiceId.value || invoiceData.value.id
-  const code = invoiceCode.value || invoiceData.value.code
-
-  if (!newStatus || newStatus < 1 || newStatus > 6) {
-    showToast('Vui lòng chọn trạng thái hợp lệ!', 'warning')
-    return
-  }
-
-  updatingStatus.value = true
-  try {
-    let success = false
-
-    // 1. Cố gắng cập nhật qua ID
-    if (id) {
-      try {
-        await api.put(`/api/hoa-don/${id}/trang-thai`, {
-          trangThai: newStatus,
-          ghiChu: note || undefined
-        })
-        success = true
-      } catch (err) {
-        console.warn('Cập nhật theo ID thất bại, sẽ thử cập nhật theo mã:', err)
-      }
-    }
-
-    // 2. Nếu chưa thành công hoặc không có ID, cập nhật qua mã hóa đơn
-    if (!success && code) {
-      try {
-        await api.put(`/api/hoa-don/code/${encodeURIComponent(code)}/trang-thai`, {
-          trangThai: newStatus,
-          ghiChu: note || undefined
-        })
-        success = true
-      } catch (err) {
-        console.error('Cập nhật theo mã thất bại:', err)
-      }
-    }
-
-    if (success) {
-      const option = statusOptions.find(o => o.value === newStatus)
-      showToast(`Đã cập nhật trạng thái hóa đơn thành "${option ? option.label : newStatus}"!`)
-      showStatusModal.value = false
-      if (code) {
-        await loadDetail(code)
-      }
-    } else {
-      showToast('Cập nhật trạng thái thất bại. Vui lòng thử lại!', 'warning')
-    }
-  } catch (error) {
-    showToast(error.response?.data?.message || 'Cập nhật trạng thái thất bại!', 'warning')
-  } finally {
-    updatingStatus.value = false
-  }
-}
-
-// Quản lý Modal Xác Nhận Tùy Chỉnh (thay thế triệt để window.confirm / alert của trình duyệt)
-const confirmModal = ref({
-  show: false,
-  title: 'Xác Nhận Thao Tác',
-  message: '',
-  subText: '',
-  confirmText: 'Đồng ý',
-  cancelText: 'Hủy bỏ',
-  type: 'primary',
-  onConfirm: null
-})
-
-const openConfirmModal = ({
-  title = 'Xác Nhận Thao Tác',
-  message = '',
-  subText = '',
-  confirmText = 'Đồng ý',
-  cancelText = 'Hủy bỏ',
-  type = 'primary',
-  onConfirm = null
-}) => {
-  confirmModal.value = {
-    show: true,
-    title,
-    message,
-    subText,
-    confirmText,
-    cancelText,
-    type,
-    onConfirm
-  }
-}
-
-const closeConfirmModal = () => {
-  confirmModal.value.show = false
-}
-
-const handleConfirmAccept = async () => {
-  const cb = confirmModal.value.onConfirm
-  confirmModal.value.show = false
-  if (cb) {
-    await cb()
-  }
-}
-
-const handleNextStatus = () => {
-  if (!nextStatusInfo.value || updatingStatus.value) return
-  const info = nextStatusInfo.value
-  openConfirmModal({
-    title: 'Xác Nhận Chuyển Trạng Thái',
-    message: `Bạn có chắc chắn muốn chuyển trạng thái đơn hàng sang "${info.label}" không?`,
-    subText: 'Hệ thống sẽ cập nhật trạng thái đơn hàng và lưu mốc thời gian vào lịch sử thao tác.',
-    confirmText: 'Đồng ý chuyển',
-    cancelText: 'Hủy bỏ',
-    type: 'primary',
-    onConfirm: async () => {
-      await saveStatusChange(info.nextStatus, `Chuyển tiếp trạng thái: ${info.label}`)
-    }
-  })
-}
-
 const handlePrint = () => {
   const originalTitle = document.title
-  // Đặt tên trang để khi chọn "Lưu dưới dạng PDF" (Save as PDF), trình duyệt tự đặt tên tệp là Hoa_Don_HDxxx.pdf
   document.title = `Hoa_Don_${invoiceData.value.code || 'FF_Tshirt'}`
   window.print()
   setTimeout(() => {
@@ -1327,7 +1082,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- Top Meta Information Card (3 columns x 2 rows gọn gàng, phân cách tinh tế) -->
+    <!-- Top Meta Information Card -->
     <div class="card-box meta-info-card">
       <div class="meta-info-grid">
         <div class="meta-info-col col-1">
@@ -1367,7 +1122,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- Main Layout Grid (Left 1.8fr, Right 1fr) -->
+    <!-- Main Layout Grid -->
     <div class="main-layout-grid">
       <!-- Cột Trái -->
       <div class="left-section">
@@ -1380,23 +1135,36 @@ onBeforeUnmount(() => {
               </svg>
               Trạng thái đơn hàng
             </div>
+            <span class="badge-status-top" :class="'badge-status-' + invoiceData.status">
+              {{ invoiceData.statusBadge }}
+            </span>
           </div>
 
+          <!-- Thanh tiến trình Stepper (Hiện các bước đã tới + bước tiếp theo) -->
           <div class="stepper-track-wrap">
-            <div class="stepper-bg-line"></div>
-            <div
-                v-for="step in visibleSteps"
-                :key="step.id"
-                class="stepper-step-item"
-                :class="{ 'step-item-cancelled': step.isCancelled }"
-            >
-              <div
-                  class="step-circle-icon"
-                  :class="{
-                    'circle-blue': !step.isCancelled,
-                    'circle-red': step.isCancelled
-                  }"
-              >
+            <div class="stepper-step-item"
+                 v-for="(step, idx) in visibleSteps"
+                 :key="step.id"
+                 :class="{
+                   'step-item-done': step.done,
+                   'step-item-active': step.active,
+                   'step-item-pending': step.pending,
+                   'step-item-cancelled': step.isCancelled
+                 }">
+              <!-- Vạch nối: Sáng xanh nếu bước hiện tại không phải pending -->
+              <div v-if="idx > 0" class="step-connector-line" :class="{ 'line-active': !step.pending && !step.isCancelled }"></div>
+
+              <!-- Vòng tròn nốt: Click vào bước pending để kích hoạt chuyển sang bước đó -->
+              <div class="step-circle-icon"
+                   :class="{
+                     'circle-done': step.done,
+                     'circle-active': step.active,
+                     'circle-pending': step.pending,
+                     'circle-red': step.isCancelled,
+                     'clickable': step.pending
+                   }"
+                   :title="step.pending ? 'Nhấn để chuyển sang ' + step.name : step.name"
+                   @click="handleStepClick(step)">
                 <svg v-if="step.icon === 'hourglass'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
                   <path d="M5 22h14M5 2h14M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" />
                 </svg>
@@ -1424,12 +1192,15 @@ onBeforeUnmount(() => {
                 </svg>
               </div>
 
-              <div class="step-item-title" :class="{ 'text-danger': step.isCancelled }">{{ step.name }}</div>
+              <div class="step-item-title" :class="{ 'title-active': step.active, 'title-done': step.done, 'title-pending': step.pending, 'text-danger': step.isCancelled }">
+                {{ step.name }}
+              </div>
               <div v-if="step.time" class="step-item-time">{{ step.time }}</div>
             </div>
           </div>
 
-          <div class="stepper-footer-right">
+          <!-- Nhóm nút hành động ở góc dưới khung trạng thái -->
+          <div class="stepper-footer-actions">
             <button class="btn-history-outline" type="button" @click="showHistoryModal = true">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"></circle>
@@ -1437,12 +1208,17 @@ onBeforeUnmount(() => {
               </svg>
               Lịch sử thao tác
             </button>
+
+            <div class="right-action-buttons">
+              <button v-if="invoiceData.status < 5" class="btn-cancel-action" type="button" :disabled="updatingStatus" @click="handleCancelQuick">
+                ✕ Hủy đơn
+              </button>
+            </div>
           </div>
         </div>
 
-        <!-- Khung 2: Khách hàng & Giao hàng (Dual Grid) -->
+        <!-- Khung 2: Khách hàng & Giao hàng -->
         <div class="info-dual-grid">
-          <!-- Thông tin khách hàng -->
           <div class="card-box sub-info-card">
             <div class="card-header-styled">
               <div class="card-title-styled">
@@ -1473,7 +1249,6 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <!-- Thông tin giao hàng -->
           <div class="card-box sub-info-card">
             <div class="card-header-styled">
               <div class="card-title-styled">
@@ -1556,7 +1331,6 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="pay-method-title">{{ invoiceData.paymentHistory.method }}</div>
-
             <div class="pay-time-trans">
               <span class="time-clock-icon">🕒</span> {{ invoiceData.paymentHistory.time }} • {{ invoiceData.paymentHistory.transCode }}
             </div>
@@ -1591,7 +1365,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- Khung 5 (Full Width): Danh sách sản phẩm -->
+    <!-- Khung 5: Danh sách sản phẩm -->
     <div class="card-box products-card">
       <div class="card-header-styled">
         <div class="card-title-styled">
@@ -1607,7 +1381,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- Toolbar bộ lọc sản phẩm (5 dropdowns / inputs) -->
+      <!-- Toolbar bộ lọc sản phẩm -->
       <div class="product-filters-toolbar">
         <div class="toolbar-item search-item">
           <div class="search-input-box">
@@ -1626,43 +1400,43 @@ onBeforeUnmount(() => {
 
         <div class="toolbar-item">
           <Select2Combobox
-            v-model="productFilter.category"
-            :options="availableCategories"
-            placeholder="Tất cả loại"
-            all-label="Tất cả loại"
-            search-placeholder="Tìm loại sản phẩm..."
+              v-model="productFilter.category"
+              :options="availableCategories"
+              placeholder="Tất cả loại"
+              all-label="Tất cả loại"
+              search-placeholder="Tìm loại sản phẩm..."
           />
         </div>
 
         <div class="toolbar-item">
           <Select2Combobox
-            v-model="productFilter.color"
-            :options="availableColors"
-            placeholder="Tất cả màu sắc"
-            all-label="Tất cả màu sắc"
-            search-placeholder="Tìm màu sắc..."
+              v-model="productFilter.color"
+              :options="availableColors"
+              placeholder="Tất cả màu sắc"
+              all-label="Tất cả màu sắc"
+              search-placeholder="Tìm màu sắc..."
           />
         </div>
 
         <div class="toolbar-item">
           <Select2Combobox
-            v-model="productFilter.size"
-            :options="availableSizes"
-            placeholder="Tất cả kích cỡ"
-            all-label="Tất cả kích cỡ"
-            search-placeholder="Tìm kích cỡ..."
+              v-model="productFilter.size"
+              :options="availableSizes"
+              placeholder="Tất cả kích cỡ"
+              all-label="Tất cả kích cỡ"
+              search-placeholder="Tìm kích cỡ..."
           />
         </div>
 
         <div class="toolbar-item">
           <Select2Combobox
-            v-model="productFilter.sort"
-            :options="sortOptions"
-            value-key="value"
-            label-key="label"
-            placeholder="Mặc định"
-            all-label="Mặc định"
-            search-placeholder="Tìm sắp xếp..."
+              v-model="productFilter.sort"
+              :options="sortOptions"
+              value-key="value"
+              label-key="label"
+              placeholder="Mặc định"
+              all-label="Mặc định"
+              search-placeholder="Tìm sắp xếp..."
           />
         </div>
       </div>
@@ -1710,7 +1484,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- Modal Popup Lịch Sử Thao Tác (Khi bấm nút Lịch Sử Thao Tác trong khung trạng thái) -->
+    <!-- Modal Popup Lịch Sử Thao Tác -->
     <div v-if="showHistoryModal" class="modal-backdrop" @click.self="showHistoryModal = false">
       <div class="modal-container">
         <div class="modal-header">
@@ -1740,7 +1514,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- Modal Chỉnh Sửa Đơn Hàng (Thiết kế 2 Tab chuẩn theo mẫu giao diện) -->
+    <!-- Modal Chỉnh Sửa Đơn Hàng (2 Tabs) -->
     <div v-if="showStatusModal" class="modal-backdrop" @click.self="showStatusModal = false">
       <div class="modal-container modal-edit-order">
         <div class="modal-header modal-header-clean">
@@ -1748,28 +1522,16 @@ onBeforeUnmount(() => {
           <button class="btn-close-modal" type="button" @click="showStatusModal = false">✕</button>
         </div>
 
-        <!-- Thanh chuyển Tab: Thông tin đơn hàng & Thông tin khách hàng -->
         <div class="modal-tabs-bar">
-          <button
-              type="button"
-              class="modal-tab-btn"
-              :class="{ active: editModalTab === 'donHang' }"
-              @click="editModalTab = 'donHang'"
-          >
+          <button type="button" class="modal-tab-btn" :class="{ active: editModalTab === 'donHang' }" @click="editModalTab = 'donHang'">
             Thông tin đơn hàng
           </button>
-          <button
-              type="button"
-              class="modal-tab-btn"
-              :class="{ active: editModalTab === 'khachHang' }"
-              @click="editModalTab = 'khachHang'"
-          >
+          <button type="button" class="modal-tab-btn" :class="{ active: editModalTab === 'khachHang' }" @click="editModalTab = 'khachHang'">
             Thông tin khách hàng
           </button>
         </div>
 
         <div class="modal-body modal-body-order">
-          <!-- Tab 1: Thông tin đơn hàng -->
           <div v-if="editModalTab === 'donHang'" class="tab-donhang-content">
             <div class="order-meta-cards-row">
               <div class="meta-mini-card">
@@ -1783,191 +1545,88 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="form-group-modal mt-14">
-              <label class="modal-label">
-                Trạng thái mới <span class="text-danger">*</span>
-              </label>
+              <label class="modal-label">Trạng thái mới <span class="text-danger">*</span></label>
               <div class="custom-select-wrapper">
                 <Select2Combobox
-                  v-model="targetStatus"
-                  :options="selectableStatusOptions"
-                  value-key="value"
-                  label-key="label"
-                  placeholder="Chọn trạng thái mới..."
-                  :show-all-option="false"
-                  :disabled="!hasNextStatus"
-                  @change="editErrors.statusNote = ''"
+                    v-model="targetStatus"
+                    :options="selectableStatusOptions"
+                    value-key="value"
+                    label-key="label"
+                    placeholder="Chọn trạng thái mới..."
+                    :show-all-option="false"
+                    :disabled="!hasNextStatus"
+                    @change="editErrors.statusNote = ''"
                 />
               </div>
-              <p class="status-help-text">
-                Chỉ được chuyển sang trạng thái kế tiếp theo đúng quy trình của đơn hàng.
-              </p>
-
+              <p class="status-help-text">Chỉ được chuyển sang trạng thái kế tiếp theo đúng quy trình của đơn hàng.</p>
               <div v-if="!hasNextStatus" class="status-alert-box info">
                 <span class="alert-icon">ⓘ</span>
                 <span>Đơn hàng hiện không còn trạng thái kế tiếp để cập nhật.</span>
               </div>
             </div>
 
-            <!-- Ô nhập lý do hủy bắt buộc khi chọn trạng thái Đã Hủy -->
             <div v-if="Number(targetStatus) === 6" class="form-group-modal mt-14">
-              <label class="modal-label">
-                Lý do hủy đơn hàng <span class="text-danger">*</span>
-              </label>
-              <textarea
-                  v-model="statusNote"
-                  rows="3"
-                  class="modal-textarea-field"
-                  :class="{ 'has-error': editErrors.statusNote }"
-                  placeholder="Nhập lý do hủy đơn hàng (bắt buộc, tối thiểu 3 ký tự)..."
-                  maxlength="255"
-                  @input="editErrors.statusNote = ''"
-              ></textarea>
-              <div class="char-count-row">
-                <span v-if="editErrors.statusNote" class="field-error-text">
-                  ⚠️ {{ editErrors.statusNote }}
-                </span>
-                <span class="char-counter">{{ (statusNote || '').length }}/255</span>
-              </div>
+              <label class="modal-label">Lý do hủy đơn hàng <span class="text-danger">*</span></label>
+              <textarea v-model="statusNote" rows="3" class="modal-textarea-field" :class="{ 'has-error': editErrors.statusNote }" placeholder="Nhập lý do hủy đơn hàng..." maxlength="255"></textarea>
             </div>
 
-            <!-- Ghi chú tùy chọn khi chuyển trạng thái khác -->
             <div v-else-if="Number(targetStatus) !== Number(invoiceData.status)" class="form-group-modal mt-14">
-              <label class="modal-label">
-                Ghi chú thao tác <span class="text-optional">(tùy chọn)</span>
-              </label>
-              <textarea
-                  v-model="statusNote"
-                  rows="2"
-                  class="modal-textarea-field"
-                  placeholder="Ghi chú thêm về lý do hoặc chi tiết chuyển trạng thái..."
-                  maxlength="255"
-              ></textarea>
-              <div class="char-count-row">
-                <span class="char-counter">{{ (statusNote || '').length }}/255</span>
-              </div>
+              <label class="modal-label">Ghi chú thao tác <span class="text-optional">(tùy chọn)</span></label>
+              <textarea v-model="statusNote" rows="2" class="modal-textarea-field" placeholder="Ghi chú thêm..." maxlength="255"></textarea>
             </div>
           </div>
 
-          <!-- Tab 2: Thông tin khách hàng -->
           <div v-else class="customer-edit-grid">
             <div class="form-group-modal">
-              <label class="modal-label">
-                Tên khách hàng <span class="text-danger">*</span>
-              </label>
-              <input
-                  type="text"
-                  v-model="editCustomerForm.name"
-                  class="modal-input-field"
-                  :class="{ 'has-error': editErrors.name }"
-                  placeholder="Nhập họ và tên khách hàng..."
-                  maxlength="100"
-                  @input="editErrors.name = ''"
-              />
-              <span v-if="editErrors.name" class="field-error-text">
-                ⚠️ {{ editErrors.name }}
-              </span>
+              <label class="modal-label">Tên khách hàng <span class="text-danger">*</span></label>
+              <input type="text" v-model="editCustomerForm.name" class="modal-input-field" placeholder="Nhập tên khách hàng..." maxlength="100" />
             </div>
 
             <div class="form-group-modal">
-              <label class="modal-label">
-                Số điện thoại
-                <span v-if="isOnlineDelivery" class="text-danger">*</span>
-                <span v-else class="text-optional">(tùy chọn)</span>
-              </label>
-              <input
-                  type="text"
-                  v-model="editCustomerForm.phone"
-                  class="modal-input-field"
-                  :class="{ 'has-error': editErrors.phone }"
-                  placeholder="Nhập số điện thoại (10 chữ số, VD: 0912345678)..."
-                  maxlength="11"
-                  @input="editErrors.phone = ''"
-              />
-              <span v-if="editErrors.phone" class="field-error-text">
-                ⚠️ {{ editErrors.phone }}
-              </span>
+              <label class="modal-label">Số điện thoại</label>
+              <input type="text" v-model="editCustomerForm.phone" class="modal-input-field" placeholder="Nhập số điện thoại..." maxlength="11" />
             </div>
 
             <div class="form-group-modal">
-              <label class="modal-label">
-                Địa chỉ nhận hàng
-                <span v-if="isOnlineDelivery" class="text-danger">*</span>
-                <span v-else class="text-optional">(tùy chọn)</span>
-              </label>
-              <input
-                  type="text"
-                  v-model="editCustomerForm.address"
-                  class="modal-input-field"
-                  :class="{ 'has-error': editErrors.address }"
-                  placeholder="Nhập địa chỉ nhận hàng cụ thể..."
-                  maxlength="255"
-                  @input="editErrors.address = ''"
-              />
-              <span v-if="editErrors.address" class="field-error-text">
-                ⚠️ {{ editErrors.address }}
-              </span>
+              <label class="modal-label">Địa chỉ nhận hàng</label>
+              <input type="text" v-model="editCustomerForm.address" class="modal-input-field" placeholder="Nhập địa chỉ..." maxlength="255" />
             </div>
 
             <div class="form-group-modal">
-              <label class="modal-label">
-                Ghi chú đơn hàng <span class="text-optional">(tùy chọn)</span>
-              </label>
-              <textarea
-                  v-model="editCustomerForm.note"
-                  rows="3"
-                  class="modal-textarea-field"
-                  :class="{ 'has-error': editErrors.note }"
-                  placeholder="Nhập ghi chú thêm cho đơn hàng nếu có (tối đa 500 ký tự)..."
-                  maxlength="500"
-                  @input="editErrors.note = ''"
-              ></textarea>
-              <div class="char-count-row">
-                <span v-if="editErrors.note" class="field-error-text">
-                  ⚠️ {{ editErrors.note }}
-                </span>
-                <span class="char-counter">{{ (editCustomerForm.note || '').length }}/500</span>
-              </div>
+              <label class="modal-label">Ghi chú</label>
+              <textarea v-model="editCustomerForm.note" rows="3" class="modal-textarea-field" placeholder="Nhập ghi chú..." maxlength="500"></textarea>
             </div>
           </div>
         </div>
 
         <div class="modal-footer">
-          <button class="btn-modal-cancel" type="button" @click="showStatusModal = false">
-            Hủy
-          </button>
-          <button
-              class="btn-modal-save"
-              type="button"
-              :disabled="updatingStatus"
-              @click="handleSaveEditModal"
-          >
+          <button class="btn-modal-cancel" type="button" @click="showStatusModal = false">Hủy</button>
+          <button class="btn-modal-save" type="button" :disabled="updatingStatus" @click="handleSaveEditModal">
             {{ updatingStatus ? 'Đang lưu...' : '✓ Lưu' }}
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Modal Xác Nhận Thao Tác (Thay thế confirm() của localhost) -->
+    <!-- Modal Xác Nhận Thao Tác -->
     <transition name="modal-fade">
       <div v-if="confirmModal.show" class="modal-backdrop" @click.self="closeConfirmModal">
         <div class="modal-container modal-confirm-box">
           <div class="modal-header confirm-header">
             <div class="confirm-title-group">
               <span class="confirm-icon-badge" :class="confirmModal.type">
-                <svg v-if="confirmModal.type === 'danger'" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <svg v-if="confirmModal.type === 'danger'" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2">
                   <circle cx="12" cy="12" r="10"></circle>
                   <line x1="12" y1="8" x2="12" y2="12"></line>
                   <line x1="12" y1="16" x2="12.01" y2="16"></line>
                 </svg>
-                <svg v-else viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <svg v-else viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2">
                   <circle cx="12" cy="12" r="10"></circle>
                   <path d="M12 16v-4"></path>
                   <path d="M12 8h.01"></path>
                 </svg>
               </span>
-              <div>
-                <h3 class="card-title">{{ confirmModal.title }}</h3>
-              </div>
+              <h3 class="card-title">{{ confirmModal.title }}</h3>
             </div>
             <button class="btn-close-modal" type="button" @click="closeConfirmModal">✕</button>
           </div>
@@ -1978,16 +1637,8 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="modal-footer confirm-footer">
-            <button class="btn-modal-cancel" type="button" @click="closeConfirmModal">
-              {{ confirmModal.cancelText }}
-            </button>
-            <button
-                class="btn-confirm-accept"
-                :class="confirmModal.type"
-                type="button"
-                :disabled="updatingStatus"
-                @click="handleConfirmAccept"
-            >
+            <button class="btn-modal-cancel" type="button" @click="closeConfirmModal">{{ confirmModal.cancelText }}</button>
+            <button class="btn-confirm-accept" :class="confirmModal.type" type="button" :disabled="updatingStatus" @click="handleConfirmAccept">
               {{ updatingStatus ? 'Đang xử lý...' : confirmModal.confirmText }}
             </button>
           </div>
@@ -1995,13 +1646,8 @@ onBeforeUnmount(() => {
       </div>
     </transition>
 
-    <!-- ============================================ -->
-    <!-- ============================================ -->
-    <!-- MẪU IN HÓA ĐƠN CHUẨN A4 DÀNH CHO XUẤT FILE PDF -->
-    <!-- ============================================ -->
-    <!-- MẪU IN HÓA ĐƠN ĐƠN GIẢN, TINH TẾ, THANH LỊCH (MINIMALIST INVOICE) -->
+    <!-- MẪU IN HÓA ĐƠN CHUẨN A4 -->
     <div class="printable-invoice">
-      <!-- Header: Tên Cửa Hàng & Tiêu Đề -->
       <div class="print-header-top">
         <div class="print-store-brand">
           <div class="print-brand-name">FF T-SHIRT FASHION</div>
@@ -2019,7 +1665,6 @@ onBeforeUnmount(() => {
 
       <div class="print-divider"></div>
 
-      <!-- Thông Tin Khách Hàng & Đơn Hàng (2 Cột Tinh Gọn, Không Đóng Hộp Rườm Rà) -->
       <div class="print-info-row">
         <div class="print-info-col">
           <div class="print-data-line">
@@ -2045,43 +1690,34 @@ onBeforeUnmount(() => {
             <span class="p-label">Thu ngân:</span>
             <span class="p-val">{{ invoiceData.employee?.name || 'Nhân viên bán hàng' }}</span>
           </div>
-          <div class="print-data-line" v-if="invoiceData.delivery.note && invoiceData.delivery.note !== '—' && invoiceData.delivery.note !== '---'">
-            <span class="p-label">Ghi chú:</span>
-            <span class="p-val">{{ invoiceData.delivery.note }}</span>
-          </div>
         </div>
       </div>
 
-      <!-- Bảng Sản Phẩm Đơn Giản, Thanh Lịch -->
       <table class="print-table">
         <thead>
-          <tr>
-            <th style="width: 40px;" class="text-center">#</th>
-            <th style="width: 95px;" class="text-left">Mã SP</th>
-            <th class="text-left">Tên sản phẩm</th>
-            <th style="width: 120px;" class="text-center">Phân loại</th>
-            <th style="width: 50px;" class="text-center">SL</th>
-            <th style="width: 110px;" class="text-right">Đơn giá</th>
-            <th style="width: 120px;" class="text-right">Thành tiền</th>
-          </tr>
+        <tr>
+          <th style="width: 40px;" class="text-center">#</th>
+          <th style="width: 95px;" class="text-left">Mã SP</th>
+          <th class="text-left">Tên sản phẩm</th>
+          <th style="width: 120px;" class="text-center">Phân loại</th>
+          <th style="width: 50px;" class="text-center">SL</th>
+          <th style="width: 110px;" class="text-right">Đơn giá</th>
+          <th style="width: 120px;" class="text-right">Thành tiền</th>
+        </tr>
         </thead>
         <tbody>
-          <tr v-for="(it, idx) in invoiceData.items" :key="it.id || idx">
-            <td class="text-center">{{ idx + 1 }}</td>
-            <td class="text-left">{{ it.code }}</td>
-            <td class="text-left font-medium">{{ it.name }}</td>
-            <td class="text-center text-muted">{{ it.color }} / {{ it.size }}</td>
-            <td class="text-center font-bold">{{ it.quantity }}</td>
-            <td class="text-right">{{ formatMoney(it.price) }}</td>
-            <td class="text-right font-bold">{{ formatMoney(it.total) }}</td>
-          </tr>
-          <tr v-if="!invoiceData.items || invoiceData.items.length === 0">
-            <td colspan="7" class="text-center" style="padding: 16px; color: #64748b;">Không có sản phẩm nào trong hóa đơn</td>
-          </tr>
+        <tr v-for="(it, idx) in invoiceData.items" :key="it.id || idx">
+          <td class="text-center">{{ idx + 1 }}</td>
+          <td class="text-left">{{ it.code }}</td>
+          <td class="text-left font-medium">{{ it.name }}</td>
+          <td class="text-center text-muted">{{ it.color }} / {{ it.size }}</td>
+          <td class="text-center font-bold">{{ it.quantity }}</td>
+          <td class="text-right">{{ formatMoney(it.price) }}</td>
+          <td class="text-right font-bold">{{ formatMoney(it.total) }}</td>
+        </tr>
         </tbody>
       </table>
 
-      <!-- Khối Thanh Toán & Tổng Tiền Tinh Gọn (Không Đóng Hộp Rườm Rà) -->
       <div class="print-bottom-summary">
         <div class="print-payment-info">
           <div class="print-data-line">
@@ -2103,10 +1739,6 @@ onBeforeUnmount(() => {
             <span>Giảm giá:</span>
             <span>-{{ formatMoney(invoiceData.summary.voucherDiscount) }}</span>
           </div>
-          <div v-if="invoiceData.summary.shippingFee > 0" class="calc-row">
-            <span>Phí vận chuyển:</span>
-            <span>{{ formatMoney(invoiceData.summary.shippingFee) }}</span>
-          </div>
           <div class="calc-divider"></div>
           <div class="calc-row total-row">
             <span>TỔNG CỘNG:</span>
@@ -2114,34 +1746,11 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
-
-      <!-- Chữ Ký Xác Nhận -->
-      <div class="print-signatures-row">
-        <div class="sig-block">
-          <div class="sig-role">Người Mua Hàng</div>
-          <div class="sig-note">(Ký, ghi rõ họ tên)</div>
-          <div class="sig-blank-space"></div>
-          <div class="sig-name">{{ invoiceData.customer.name }}</div>
-        </div>
-        <div class="sig-block">
-          <div class="sig-role">Người Bán Hàng</div>
-          <div class="sig-note">(Ký, ghi rõ họ tên)</div>
-          <div class="sig-blank-space"></div>
-          <div class="sig-name">{{ invoiceData.employee?.name || 'Nhân viên bán hàng' }}</div>
-        </div>
-      </div>
-
-      <!-- Lời Cảm Ơn Chân Trang -->
-      <div class="print-footer-section">
-        <div class="print-thanks">Cảm ơn quý khách đã tin tưởng và mua sắm tại FF T-Shirt!</div>
-        <div class="print-policy">Hỗ trợ đổi trả size/màu trong 7 ngày kèm hóa đơn này. Hotline: 0988.888.888</div>
-      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* Ẩn mẫu in hóa đơn trên màn hình giao diện web */
 .printable-invoice {
   display: none;
 }
@@ -2150,7 +1759,6 @@ onBeforeUnmount(() => {
   width: 100%;
   padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
-  min-height: calc(100vh - 48px);
   box-sizing: border-box;
   position: relative;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -2207,7 +1815,7 @@ onBeforeUnmount(() => {
   transform: translateY(-10px);
 }
 
-/* 1. Top Navigation Bar */
+/* Top Navigation Bar */
 .top-nav-bar {
   display: flex;
   justify-content: space-between;
@@ -2278,7 +1886,7 @@ onBeforeUnmount(() => {
   font-size: 0.88rem;
 }
 
-/* 2. Top Meta Info Card (3 columns - gọn gàng, tinh tế) */
+/* Meta Info Card */
 .meta-info-card {
   margin-bottom: 16px;
   padding: 12px 20px;
@@ -2385,7 +1993,7 @@ onBeforeUnmount(() => {
   border: 1px solid #e2d8cd;
 }
 
-/* 3. Main Layout Grid (Left 1.8fr, Right 1fr) */
+/* Main Layout Grid */
 .main-layout-grid {
   display: grid;
   grid-template-columns: 1.8fr 1fr;
@@ -2406,7 +2014,6 @@ onBeforeUnmount(() => {
   gap: 16px;
 }
 
-/* Card Box General */
 .card-box {
   background: #ffffff;
   border: 1px solid #ebd9c8;
@@ -2436,40 +2043,63 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-/* Left Card: Trạng thái đơn hàng (Stepper) */
+.badge-status-top {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 3px 12px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+}
+
+.badge-status-1 { background-color: #fff4e5; color: #d97706; border-color: #fde0be; }
+.badge-status-2 { background-color: #e0f2fe; color: #0369a1; border-color: #bfe5fd; }
+.badge-status-3 { background-color: #f5edff; color: #8a3ee6; border-color: #e6d4fc; }
+.badge-status-4 { background-color: #e0f7fa; color: #00838f; border-color: #b5eff5; }
+.badge-status-5 { background-color: #e6f6ec; color: #1b7a37; border-color: #c4ecd1; }
+.badge-status-6 { background-color: #fee6e6; color: #be2626; border-color: #facdcd; }
+
+/* ==================================================== */
+/* Stepper Timeline: Hiện các bước đã tới + bước tiếp theo */
+/* ==================================================== */
 .card-order-status {
-  padding-bottom: 14px;
+  padding-bottom: 16px;
 }
 
 .stepper-track-wrap {
   position: relative;
   display: flex;
-  justify-content: space-around;
+  justify-content: flex-start;
   align-items: flex-start;
   padding: 16px 20px 10px;
-}
-
-.stepper-bg-line {
-  position: absolute;
-  top: 35px;
-  left: 20%;
-  right: 20%;
-  height: 3px;
-  background-color: #3e5c76;
-  z-index: 1;
-  border-radius: 2px;
+  margin: 10px 0 20px 0;
+  gap: 50px;
 }
 
 .stepper-step-item {
   position: relative;
-  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  min-width: 130px;
+  min-width: 110px;
 }
 
+/* Vạch nối */
+.step-connector-line {
+  position: absolute;
+  top: 19px;
+  right: 50%;
+  width: calc(100% + 50px);
+  height: 2px;
+  background-color: #dbe2e8; /* Màu xám mờ dẫn tới bước tiếp theo */
+  z-index: 1;
+}
+
+.step-connector-line.line-active {
+  background-color: var(--blue, #496883) !important;
+}
+
+/* Nốt tròn */
 .step-circle-icon {
   width: 38px;
   height: 38px;
@@ -2477,48 +2107,98 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  z-index: 2;
   margin-bottom: 8px;
-  transition: all 0.2s ease;
+  background-color: #ffffff;
+  transition: all 0.25s ease;
 }
 
-.circle-blue {
-  background-color: #3e5c76;
+.step-circle-icon.clickable {
+  cursor: pointer;
+}
+
+.step-circle-icon.clickable:hover {
+  transform: scale(1.08);
+  border-color: var(--blue, #496883);
+}
+
+/* 1. Bước đã xong */
+.circle-done {
+  background-color: var(--blue, #496883);
   color: #ffffff;
-  box-shadow: 0 0 0 4px #e5edf3;
+  border: 2px solid var(--blue, #496883);
+}
+
+/* 2. Bước hiện tại */
+.circle-active {
+  background-color: var(--blue, #496883);
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 4px rgba(73, 104, 131, 0.25);
+}
+
+/* 3. Bước tiếp theo (Pending) */
+.circle-pending {
+  background-color: #ffffff;
+  color: #a8b3bc;
+  border: 2px dashed #cfd8df;
 }
 
 .circle-red {
   background-color: #ef4444;
   color: #ffffff;
+  border: 2px solid #ef4444;
   box-shadow: 0 0 0 4px #fee2e2;
 }
 
 .step-item-title {
-  font-size: 0.85rem;
+  font-size: 0.83rem;
   font-weight: 600;
-  color: #2b353b;
   margin-bottom: 2px;
 }
 
-.step-item-time {
-  font-size: 0.75rem;
+.step-item-title.title-done,
+.step-item-title.title-active {
+  color: var(--blue, #496883);
+  font-weight: 700;
+}
+
+.step-item-title.title-pending {
   color: #8c969e;
 }
 
-.stepper-footer-right {
+.step-item-time {
+  font-size: 0.72rem;
+  color: #9aa4ac;
+}
+
+/* Thanh footer chứa nút */
+.stepper-footer-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed #ebd9c8;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.right-action-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .btn-history-outline {
   background: #ffffff;
   border: 1.5px solid #d5c8b8;
   border-radius: 8px;
-  padding: 6px 14px;
-  font-size: 0.82rem;
+  padding: 7px 14px;
+  font-size: 0.83rem;
   font-weight: 600;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2529,11 +2209,63 @@ onBeforeUnmount(() => {
 
 .btn-history-outline:hover {
   background: #f7f5ef;
-  border-color: #3e5c76;
+  border-color: var(--blue, #496883);
   color: #243c50;
 }
 
-/* Left Row: Thông tin khách hàng & Giao hàng */
+.btn-next-action {
+  background: var(--blue, #496883);
+  color: #ffffff;
+  border: 1.5px solid var(--blue, #496883);
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 0.83rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btn-next-action:hover:not(:disabled) {
+  background: #2b4257;
+  border-color: #243742;
+  transform: translateY(-1px);
+}
+
+.btn-next-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-cancel-action {
+  background: #ffffff;
+  color: #dc2626;
+  border: 1.5px solid #fca5a5;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.83rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-cancel-action:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #dc2626;
+}
+
+.btn-cancel-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Info Dual Grid */
 .info-dual-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2579,7 +2311,7 @@ onBeforeUnmount(() => {
   text-align: right;
 }
 
-/* Right Card: Tổng kết thanh toán */
+/* Right Section Summary & Payment */
 .summary-card {
   padding: 16px 20px;
 }
@@ -2632,7 +2364,6 @@ onBeforeUnmount(() => {
   color: #3e5c76;
 }
 
-/* Right Card: Lịch sử thanh toán */
 .payment-card {
   padding: 16px 20px;
 }
@@ -2749,7 +2480,7 @@ onBeforeUnmount(() => {
   transform: none;
 }
 
-/* 4. Bottom Card: Danh sách sản phẩm */
+/* Products Card */
 .products-card {
   padding: 20px;
 }
@@ -2898,36 +2629,15 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
-/* Utilities */
-.font-bold {
-  font-weight: 700;
-}
+.font-bold { font-weight: 700; }
+.font-medium { font-weight: 500; }
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+.text-muted { color: #8c969e !important; }
+.text-danger { color: #dc2626 !important; }
 
-.font-medium {
-  font-weight: 500;
-}
-
-.text-center {
-  text-align: center;
-}
-
-.text-left {
-  text-align: left;
-}
-
-.text-right {
-  text-align: right;
-}
-
-.text-muted {
-  color: #8c969e !important;
-}
-
-.text-danger {
-  color: #dc2626 !important;
-}
-
-/* Modal Popup Lịch Sử Thao Tác */
+/* Modals */
 .modal-backdrop {
   position: fixed;
   top: 0;
@@ -2970,16 +2680,9 @@ onBeforeUnmount(() => {
   font-size: 1.1rem;
   cursor: pointer;
   color: #647074;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
 }
 
 .btn-close-modal:hover {
-  background: #f0e6dc;
   color: #3e5c76;
 }
 
@@ -2998,7 +2701,7 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 
-/* Modal Lịch Sử Thao Tác */
+/* Timeline */
 .logs-timeline-list {
   display: flex;
   flex-direction: column;
@@ -3041,30 +2744,15 @@ onBeforeUnmount(() => {
   margin-bottom: 4px;
 }
 
-.log-action-text {
-  font-size: 0.85rem;
-  color: #2b353b;
-}
+.log-action-text { font-size: 0.85rem; color: #2b353b; }
+.log-time-text { font-size: 0.75rem; color: #8c969e; }
+.log-sub-info { font-size: 0.78rem; color: #647074; }
 
-.log-time-text {
-  font-size: 0.75rem;
-  color: #8c969e;
-}
-
-.log-sub-info {
-  font-size: 0.78rem;
-  color: #647074;
-}
-
-/* Modal Chỉnh Sửa Đơn Hàng (2 Tabs Layout) */
+/* Modal Edit */
 .modal-edit-order {
   max-width: 530px;
   width: 92%;
   border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-  background: #ffffff;
-  border: 1px solid #ebd9c8;
 }
 
 .modal-header-clean {
@@ -3072,8 +2760,6 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px 14px;
-  background: #ffffff;
-  border-bottom: none;
 }
 
 .modal-title-clean {
@@ -3083,14 +2769,12 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 
-/* Tabs Bar */
 .modal-tabs-bar {
   display: flex;
   align-items: center;
   gap: 24px;
   padding: 0 20px;
   border-bottom: 1px solid #ebe5df;
-  background: #ffffff;
 }
 
 .modal-tab-btn {
@@ -3102,12 +2786,7 @@ onBeforeUnmount(() => {
   font-weight: 500;
   color: #78858f;
   cursor: pointer;
-  transition: all 0.2s ease;
   margin-bottom: -1px;
-}
-
-.modal-tab-btn:hover {
-  color: #3e5c76;
 }
 
 .modal-tab-btn.active {
@@ -3118,15 +2797,12 @@ onBeforeUnmount(() => {
 
 .modal-body-order {
   padding: 18px 20px 22px;
-  background: #ffffff;
 }
 
-/* Tab 1: Đơn Hàng */
 .order-meta-cards-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  margin-bottom: 6px;
 }
 
 .meta-mini-card {
@@ -3139,61 +2815,13 @@ onBeforeUnmount(() => {
   gap: 4px;
 }
 
-.mini-card-label {
-  font-size: 0.74rem;
-  color: #78858f;
-  font-weight: 500;
-}
-
-.mini-card-val {
-  font-size: 0.95rem;
-  color: #2b353b;
-  font-weight: 700;
-  word-break: break-all;
-}
-
-.custom-select-wrapper {
-  position: relative;
-  width: 100%;
-}
-
-.modal-select-field {
-  width: 100%;
-  height: 42px;
-  border: 1px solid #d5c8b8;
-  border-radius: 8px;
-  padding: 0 34px 0 12px;
-  font-size: 0.88rem;
-  color: #2b353b;
-  background-color: #fcfbf9;
-  outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233e5c76' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 14px;
-}
-
-.modal-select-field:focus {
-  border-color: #3e5c76;
-  box-shadow: 0 0 0 2px rgba(62, 92, 118, 0.15);
-}
-
-.modal-select-field:disabled {
-  background-color: #f7f5ef;
-  color: #78858f;
-  cursor: not-allowed;
-  opacity: 0.9;
-}
+.mini-card-label { font-size: 0.74rem; color: #78858f; font-weight: 500; }
+.mini-card-val { font-size: 0.95rem; color: #2b353b; font-weight: 700; }
 
 .status-help-text {
   font-size: 0.76rem;
   color: #78858f;
   margin: 6px 0 12px 0;
-  line-height: 1.4;
 }
 
 .status-alert-box {
@@ -3203,7 +2831,6 @@ onBeforeUnmount(() => {
   padding: 10px 14px;
   border-radius: 8px;
   font-size: 0.82rem;
-  line-height: 1.4;
 }
 
 .status-alert-box.info {
@@ -3212,13 +2839,6 @@ onBeforeUnmount(() => {
   color: #1e6288;
 }
 
-.alert-icon {
-  font-size: 0.95rem;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-/* Tab 2: Khách Hàng */
 .customer-edit-grid {
   display: flex;
   flex-direction: column;
@@ -3232,16 +2852,8 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   padding: 0 12px;
   font-size: 0.88rem;
-  color: #2b353b;
-  background-color: #ffffff;
   box-sizing: border-box;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.modal-input-field:focus {
-  border-color: #3e5c76;
-  box-shadow: 0 0 0 2px rgba(62, 92, 118, 0.15);
 }
 
 .modal-textarea-field {
@@ -3250,58 +2862,9 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 0.88rem;
-  color: #2b353b;
-  background-color: #ffffff;
   box-sizing: border-box;
-  font-family: inherit;
   resize: vertical;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.modal-textarea-field:focus {
-  border-color: #3e5c76;
-  box-shadow: 0 0 0 2px rgba(62, 92, 118, 0.15);
-}
-
-.modal-input-field.has-error,
-.modal-textarea-field.has-error {
-  border-color: #dc2626 !important;
-  background-color: #fff9f9 !important;
-}
-
-.modal-input-field.has-error:focus,
-.modal-textarea-field.has-error:focus {
-  border-color: #dc2626 !important;
-  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2) !important;
-}
-
-.field-error-text {
-  display: block;
-  font-size: 0.76rem;
-  color: #dc2626;
-  font-weight: 500;
-  margin-top: 4px;
-  line-height: 1.3;
-}
-
-.text-optional {
-  font-size: 0.74rem;
-  color: #8c969e;
-  font-weight: normal;
-}
-
-.char-count-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 4px;
-}
-
-.char-counter {
-  font-size: 0.72rem;
-  color: #8c969e;
-  margin-left: auto;
 }
 
 .form-group-modal {
@@ -3340,13 +2903,6 @@ onBeforeUnmount(() => {
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-modal-cancel:hover {
-  background: #f7f5ef;
-  color: #3e5c76;
-  border-color: #3e5c76;
 }
 
 .btn-modal-save {
@@ -3359,13 +2915,6 @@ onBeforeUnmount(() => {
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
-  box-shadow: 0 2px 6px rgba(62, 92, 118, 0.25);
-}
-
-.btn-modal-save:hover:not(:disabled) {
-  background: #2b4257;
-  border-color: #243742;
 }
 
 .btn-modal-save:disabled {
@@ -3373,27 +2922,17 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
 }
 
-/* Custom Confirm Modal Styling */
+/* Confirm Modal */
 .modal-confirm-box {
   max-width: 480px;
   width: 90%;
   border-radius: 12px;
-  border: 1px solid #ebd9c8;
-  overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  background: #ffffff;
 }
 
 @keyframes modalPop {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .confirm-header {
@@ -3418,23 +2957,10 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
 }
 
-.confirm-icon-badge.primary {
-  background: #eaf1f4;
-  color: #3e5c76;
-}
-
-.confirm-icon-badge.warning {
-  background: #fef3c7;
-  color: #d97706;
-}
-
-.confirm-icon-badge.danger {
-  background: #fee2e2;
-  color: #dc2626;
-}
+.confirm-icon-badge.primary { background: #eaf1f4; color: #3e5c76; }
+.confirm-icon-badge.danger { background: #fee2e2; color: #dc2626; }
 
 .confirm-body {
   padding: 20px;
@@ -3442,16 +2968,13 @@ onBeforeUnmount(() => {
 
 .confirm-main-message {
   font-size: 0.95rem;
-  color: #2b353b;
   font-weight: 600;
-  line-height: 1.5;
   margin: 0 0 6px 0;
 }
 
 .confirm-sub-message {
   font-size: 0.82rem;
   color: #647074;
-  line-height: 1.45;
   margin: 0;
 }
 
@@ -3472,382 +2995,9 @@ onBeforeUnmount(() => {
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
   color: #ffffff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
-.btn-confirm-accept.primary {
-  background-color: #3e5c76;
-  box-shadow: 0 2px 6px rgba(62, 92, 118, 0.25);
-}
-
-.btn-confirm-accept.primary:hover:not(:disabled) {
-  background-color: #2b4257;
-}
-
-.btn-confirm-accept.danger {
-  background-color: #dc2626;
-  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
-}
-
-.btn-confirm-accept.danger:hover:not(:disabled) {
-  background-color: #b91c1c;
-}
-
-.btn-confirm-accept:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.modal-fade-enter-active,
-.modal-fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.modal-fade-enter-from,
-.modal-fade-leave-to {
-  opacity: 0;
-}
-</style>
-<style>
-@media print {
-  @page {
-    size: A4 portrait;
-    margin: 15mm 15mm 15mm 15mm;
-  }
-
-  html, body {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #ffffff !important;
-    color: #111827 !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  /* Ẩn TOÀN BỘ mọi thành phần trong body */
-  body * {
-    visibility: hidden !important;
-  }
-
-  /* Ẩn triệt để tất cả layout giao diện web của ứng dụng */
-  aside,
-  .sidebar,
-  header,
-  .top-header,
-  .top-nav-bar,
-  .main-layout-grid,
-  .left-section,
-  .right-section,
-  .invoice-items-card,
-  .card-box,
-  .modal-backdrop,
-  .modal-container,
-  .toast-popup,
-  .action-status-footer,
-  .stepper-container,
-  .payment-action-box,
-  .chi-tiet-page > :not(.printable-invoice) {
-    display: none !important;
-  }
-
-  .app-shell,
-  .main-content,
-  .page-body,
-  .chi-tiet-page {
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-height: auto !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    display: block !important;
-  }
-
-  /* CHỈ HIỂN THỊ DUY NHẤT vùng Hóa Đơn Bán Hàng */
-  .printable-invoice,
-  .printable-invoice * {
-    visibility: visible !important;
-  }
-
-  .printable-invoice {
-    display: block !important;
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    box-sizing: border-box !important;
-    background: #ffffff !important;
-    color: #111827 !important;
-    font-size: 13px !important;
-    line-height: 1.5 !important;
-  }
-
-  /* Header Hóa Đơn */
-  .print-header-top {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: flex-start !important;
-    padding-bottom: 8px !important;
-  }
-
-  .print-store-brand {
-    flex: 1 !important;
-  }
-
-  .print-brand-name {
-    font-size: 18px !important;
-    font-weight: 800 !important;
-    color: #111827 !important;
-    letter-spacing: 0.5px !important;
-    margin-bottom: 2px !important;
-  }
-
-  .print-store-meta {
-    font-size: 11.5px !important;
-    color: #4b5563 !important;
-    line-height: 1.45 !important;
-  }
-
-  .print-invoice-title-block {
-    text-align: right !important;
-    flex-shrink: 0 !important;
-  }
-
-  .print-main-title {
-    font-size: 20px !important;
-    font-weight: 800 !important;
-    color: #111827 !important;
-    margin: 0 0 3px 0 !important;
-    letter-spacing: 0.5px !important;
-  }
-
-  .print-meta-code {
-    font-size: 13px !important;
-    color: #111827 !important;
-    margin-bottom: 2px !important;
-  }
-
-  .print-meta-date {
-    font-size: 11.5px !important;
-    color: #6b7280 !important;
-  }
-
-  .print-divider {
-    height: 1.5px !important;
-    background: #111827 !important;
-    margin: 8px 0 16px 0 !important;
-  }
-
-  /* Thông tin khách hàng & Đơn hàng (Đơn giản, không đóng hộp rườm rà) */
-  .print-info-row {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 32px !important;
-    margin-bottom: 20px !important;
-  }
-
-  .print-info-col {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 4px !important;
-  }
-
-  .print-data-line {
-    font-size: 12.5px !important;
-    display: flex !important;
-    gap: 8px !important;
-    line-height: 1.4 !important;
-  }
-
-  .p-label {
-    color: #6b7280 !important;
-    min-width: 95px !important;
-    flex-shrink: 0 !important;
-  }
-
-  .p-val {
-    color: #111827 !important;
-  }
-
-  .p-val.font-bold {
-    font-weight: 600 !important;
-  }
-
-  /* Bảng sản phẩm tinh giản: Chỉ có đường kẻ ngang, không ô lưới dọc */
-  .print-table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-    margin-bottom: 20px !important;
-    font-size: 12.5px !important;
-  }
-
-  .print-table th {
-    border-top: 1.5px solid #111827 !important;
-    border-bottom: 1.5px solid #111827 !important;
-    border-left: none !important;
-    border-right: none !important;
-    padding: 8px 6px !important;
-    font-size: 11.5px !important;
-    font-weight: 700 !important;
-    color: #111827 !important;
-    text-transform: uppercase !important;
-    background: transparent !important;
-  }
-
-  .print-table td {
-    border-bottom: 1px solid #e5e7eb !important;
-    border-top: none !important;
-    border-left: none !important;
-    border-right: none !important;
-    padding: 8px 6px !important;
-    vertical-align: middle !important;
-    color: #111827 !important;
-  }
-
-  .print-table .text-center {
-    text-align: center !important;
-  }
-
-  .print-table .text-left {
-    text-align: left !important;
-  }
-
-  .print-table .text-right {
-    text-align: right !important;
-  }
-
-  .print-table .font-bold {
-    font-weight: 700 !important;
-  }
-
-  .print-table .font-medium {
-    font-weight: 500 !important;
-  }
-
-  .print-table .text-muted {
-    color: #6b7280 !important;
-  }
-
-  .print-table tr {
-    page-break-inside: avoid !important;
-  }
-
-  /* Khối tổng kết thanh toán (Gọn gàng, không đóng khung hộp) */
-  .print-bottom-summary {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: flex-start !important;
-    margin-bottom: 28px !important;
-    page-break-inside: avoid !important;
-    gap: 20px !important;
-  }
-
-  .print-payment-info {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 4px !important;
-  }
-
-  .print-calc-block {
-    width: 290px !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 5px !important;
-  }
-
-  .calc-row {
-    display: flex !important;
-    justify-content: space-between !important;
-    font-size: 12.5px !important;
-    color: #374151 !important;
-  }
-
-  .calc-divider {
-    height: 1px !important;
-    background: #111827 !important;
-    margin: 4px 0 !important;
-  }
-
-  .calc-row.total-row {
-    font-size: 14px !important;
-    font-weight: 800 !important;
-    color: #111827 !important;
-    padding-top: 2px !important;
-  }
-
-  .total-money {
-    font-size: 15px !important;
-    font-weight: 800 !important;
-    color: #111827 !important;
-  }
-
-  /* Chữ ký */
-  .print-signatures-row {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 60px !important;
-    text-align: center !important;
-    margin-bottom: 28px !important;
-    page-break-inside: avoid !important;
-  }
-
-  .sig-block {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-  }
-
-  .sig-role {
-    font-size: 12.5px !important;
-    font-weight: 700 !important;
-    color: #111827 !important;
-    text-transform: uppercase !important;
-  }
-
-  .sig-note {
-    font-size: 11px !important;
-    color: #6b7280 !important;
-    font-style: italic !important;
-    margin-top: 2px !important;
-  }
-
-  .sig-blank-space {
-    height: 55px !important;
-  }
-
-  .sig-name {
-    font-size: 12.5px !important;
-    font-weight: 600 !important;
-    color: #111827 !important;
-  }
-
-  /* Lời cảm ơn chân trang */
-  .print-footer-section {
-    text-align: center !important;
-    border-top: 1px dashed #d1d5db !important;
-    padding-top: 12px !important;
-    page-break-inside: avoid !important;
-  }
-
-  .print-thanks {
-    font-size: 12px !important;
-    font-weight: 600 !important;
-    color: #374151 !important;
-    margin-bottom: 3px !important;
-  }
-
-  .print-policy {
-    font-size: 11px !important;
-    color: #6b7280 !important;
-  }
-}
+.btn-confirm-accept.primary { background-color: #3e5c76; }
+.btn-confirm-accept.danger { background-color: #dc2626; }
 </style>

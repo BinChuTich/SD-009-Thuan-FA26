@@ -96,7 +96,7 @@ const toggleMenu = (menu) => {
           <div class="menu-item has-sub" @click="toggleMenu('thuocTinh')">
             <span class="menu-icon">
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2l-5.5 9h11L12 2zm0 3.84L13.93 9h-3.87L12 5.84zM17.5 13c-2.49 0-4.5 2.01-4.5 4.5s2.01 4.5 4.5 4.5 4.5-2.01 4.5-4.5-2.01-4.5-4.5zm0 7c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5zM3 21.5h8v-8H3v8zm2-6h4v4H5v-4z"/>
+                <path d="M12 2l-5.5 9h11z M3 13.5h8v8H3z M17.5 13.5a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/>
               </svg>
             </span>
             <span class="menu-text">Quản lý thuộc tính</span>
