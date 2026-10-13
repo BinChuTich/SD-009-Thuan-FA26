@@ -4,15 +4,15 @@
     <transition name="toast-slide">
       <div v-if="toast.show" :class="['toast-msg', `toast-${toast.type}`]">
         <div class="toast-icon">
-          <svg v-if="toast.type === 'success'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg v-if="toast.type === 'success'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12"/>
           </svg>
-          <svg v-else-if="toast.type === 'error'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg v-else-if="toast.type === 'error'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/>
             <line x1="15" y1="9" x2="9" y2="15"/>
             <line x1="9" y1="9" x2="15" y2="15"/>
           </svg>
-          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="16" x2="12" y2="12"/>
             <line x1="12" y1="8" x2="12.01" y2="8"/>
@@ -185,14 +185,14 @@
             </tr>
 
             <!-- Trạng thái Không có dữ liệu -->
-            <tr v-else-if="campaigns.length === 0">
+            <tr v-else-if="displayCampaigns.length === 0">
               <td colspan="8" class="empty-cell">
                 Không có đợt giảm giá nào phù hợp với bộ lọc hiện tại.
               </td>
             </tr>
 
             <!-- Dữ liệu thực từ Database -->
-            <tr v-else v-for="(item, index) in campaigns" :key="item.id">
+            <tr v-else v-for="(item, index) in displayCampaigns" :key="item.id">
               <td style="text-align: center;" class="text-sub-num">
                 {{ (currentPage - 1) * pageSize + index + 1 }}
               </td>
@@ -211,26 +211,38 @@
               <td style="text-align: center;">
                 <span
                     class="badge-pill-status"
-                    :class="getCampaignStatus(item).class"
+                    :class="item._status.class"
                 >
-                  {{ getCampaignStatus(item).text }}
+                  {{ item._status.text }}
                 </span>
               </td>
 
               <!-- Cột Hành động: 2 nút tròn bo góc nhẹ (Power đỏ nhạt + Eye xám xanh) -->
               <td style="text-align: center;">
                 <div class="action-buttons-flex">
-                  <button
-                      v-if="getCampaignStatus(item).code !== 'ENDED'"
-                      class="btn-icon-circle btn-icon-power"
-                      :title="item.trangThai === 1 ? 'Chuyển sang Ngừng hoạt động' : 'Chuyển sang Đang hoạt động'"
-                      @click="openToggleStatusModal(item)"
+                  <!-- Công tắc gạt đổi trạng thái (Toggle Switch chuẩn ảnh mẫu) -->
+                  <label
+                    class="status-switch"
+                    :class="{
+                      'is-active': item.trangThai === 1 && item._status.code !== 'ENDED',
+                      'is-disabled': item._status.code === 'ENDED'
+                    }"
+                    :title="item._status.code === 'ENDED'
+                      ? 'Đợt giảm giá đã kết thúc, không thể đổi trạng thái'
+                      : (item.trangThai === 1 ? 'Bấm để chuyển sang Ngừng hoạt động' : 'Bấm để chuyển sang Đang hoạt động')"
+                    @click.prevent="onToggleSwitchClick(item)"
                   >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-                      <line x1="12" y1="2" x2="12" y2="12"></line>
-                    </svg>
-                  </button>
+                    <input
+                      type="checkbox"
+                      :checked="item.trangThai === 1 && item._status.code !== 'ENDED'"
+                      :disabled="item._status.code === 'ENDED'"
+                      tabindex="-1"
+                      class="switch-native-input"
+                    />
+                    <span class="switch-track">
+                      <span class="switch-handle"></span>
+                    </span>
+                  </label>
 
                   <button
                       class="btn-icon-circle btn-icon-eye"
@@ -251,15 +263,6 @@
 
         <!-- Phân trang đáy bảng chuẩn ảnh mẫu -->
         <div class="pagination-footer-flex" v-if="totalPages > 0">
-          <div class="page-size-left">
-            <select v-model.number="pageSize" @change="onPageSizeChange" class="select-page-size-custom">
-              <option :value="5">5</option>
-              <option :value="10">10</option>
-              <option :value="20">20</option>
-              <option :value="50">50</option>
-            </select>
-          </div>
-
           <div class="pagination-controls-right">
             <button
                 class="pg-btn-box"
@@ -390,32 +393,33 @@
               <span v-if="errors.phanTramGiam" class="field-error-msg">{{ errors.phanTramGiam }}</span>
             </div>
 
-            <!-- Thời gian bắt đầu * -->
-            <div class="video-form-group">
-              <label class="video-form-label">Thời gian bắt đầu <span class="req">*</span></label>
-              <input
-                type="datetime-local"
-                v-model="formData.ngayBatDau"
-                :min="minStartDateTime"
-                :class="['video-input', { 'input-has-error': errors.ngayBatDau }]"
-                @change="handleNgayBatDauChange"
-                @input="handleNgayBatDauChange"
-              />
-              <span v-if="errors.ngayBatDau" class="field-error-msg">{{ errors.ngayBatDau }}</span>
-            </div>
+            <!-- Từ ngày & Đến ngày ngang nhau (Có cả giờ đợt giảm giá) -->
+            <div class="video-date-row">
+              <div class="video-form-group">
+                <label class="video-form-label">Từ ngày <span class="req">*</span></label>
+                <input
+                  type="datetime-local"
+                  v-model="formData.ngayBatDau"
+                  :min="minStartDateTime"
+                  :class="['video-input', { 'input-has-error': errors.ngayBatDau }]"
+                  @change="handleNgayBatDauChange"
+                  @input="handleNgayBatDauChange"
+                />
+                <span v-if="errors.ngayBatDau" class="field-error-msg">{{ errors.ngayBatDau }}</span>
+              </div>
 
-            <!-- Thời gian kết thúc * -->
-            <div class="video-form-group">
-              <label class="video-form-label">Thời gian kết thúc <span class="req">*</span></label>
-              <input
-                type="datetime-local"
-                v-model="formData.ngayKetThuc"
-                :min="formData.ngayBatDau || minStartDateTime || undefined"
-                :class="['video-input', { 'input-has-error': errors.ngayKetThuc }]"
-                @change="handleNgayKetThucChange"
-                @input="handleNgayKetThucChange"
-              />
-              <span v-if="errors.ngayKetThuc" class="field-error-msg">{{ errors.ngayKetThuc }}</span>
+              <div class="video-form-group">
+                <label class="video-form-label">Đến ngày <span class="req">*</span></label>
+                <input
+                  type="datetime-local"
+                  v-model="formData.ngayKetThuc"
+                  :min="formData.ngayBatDau || minStartDateTime || undefined"
+                  :class="['video-input', { 'input-has-error': errors.ngayKetThuc }]"
+                  @change="handleNgayKetThucChange"
+                  @input="handleNgayKetThucChange"
+                />
+                <span v-if="errors.ngayKetThuc" class="field-error-msg">{{ errors.ngayKetThuc }}</span>
+              </div>
             </div>
 
 
@@ -607,23 +611,27 @@
                 class="btn-nav-arrow"
                 :disabled="productCurrentPage <= 1"
                 @click="productCurrentPage--"
+                title="Trang trước"
               >‹</button>
-              <span class="active-page-num">{{ productCurrentPage }}</span>
+              <span class="active-page-num" title="Trang hiện tại / Tổng số trang">{{ productCurrentPage }} / {{ sourceTotalPages }}</span>
               <button
                 class="btn-nav-arrow"
                 :disabled="productCurrentPage >= sourceTotalPages"
                 @click="productCurrentPage++"
+                title="Trang sau"
               >›</button>
             </div>
           </div>
         </div>
+      </div> <!-- đóng video-right-column -->
+    </div> <!-- đóng video-top-grid -->
 
-        <!-- 2. Thẻ sản phẩm & biến thể đã chọn (được đẩy lên trên vào cột phải) -->
-        <div class="video-card card-applied-variants">
-        <div class="video-card-header header-between">
-          <div class="header-left-group">
-            <h3 class="video-card-title">Sản phẩm & biến thể đã chọn áp dụng</h3>
-          </div>
+    <!-- HÀNG DƯỚI NẰM NGANG: Thẻ sản phẩm & biến thể đã chọn (Full-width ngang bên dưới) -->
+    <div class="video-card card-applied-variants">
+      <div class="video-card-header header-between">
+        <div class="header-left-group">
+          <h3 class="video-card-title">Sản phẩm & biến thể đã chọn áp dụng</h3>
+        </div>
 
           <!-- Bộ lọc bên phải: Màu sắc, Kích cỡ, Tìm kiếm biến thể -->
           <div class="product-top-filters">
@@ -675,7 +683,7 @@
                 <th style="width: 140px;">Giá bán</th>
                 <th style="width: 150px;">Giá sau giảm</th>
                 <th style="width: 110px; text-align: center;">Số lượng</th>
-                <th style="width: 60px; text-align: center;"></th>
+                <th style="width: 50px; text-align: center;"></th>
               </tr>
             </thead>
             <tbody>
@@ -686,9 +694,12 @@
                 <td>
                   <div class="product-cell-flex">
                     <div class="product-thumb-box">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.8">
-                        <path d="M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16m-2-2l1.586-1.586a2 2 0 0 1 2.828 0L20 14m-6-6h.01M6 20h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z"></path>
-                      </svg>
+                      <img
+                        :src="getProductImage(v)"
+                        :alt="v.spTen"
+                        class="product-thumb-img"
+                        @error="(e) => { e.target.src = defaultProductImages[0] }"
+                      />
                     </div>
                     <div class="product-cell-info">
                       <div class="font-bold text-dark">{{ v.spTen }}</div>
@@ -741,18 +752,18 @@
               class="btn-nav-arrow"
               :disabled="variantCurrentPage <= 1"
               @click="variantCurrentPage--"
+              title="Trang trước"
             >‹</button>
-            <span class="active-page-num">{{ variantCurrentPage }}</span>
+            <span class="active-page-num" title="Trang hiện tại / Tổng số trang">{{ variantCurrentPage }} / {{ variantTotalPages }}</span>
             <button
               class="btn-nav-arrow"
               :disabled="variantCurrentPage >= variantTotalPages"
               @click="variantCurrentPage++"
+              title="Trang sau"
             >›</button>
           </div>
         </div>
       </div> <!-- đóng card-applied-variants -->
-        </div> <!-- đóng video-right-column -->
-      </div> <!-- đóng video-top-grid -->
     </div> <!-- đóng view-form -->
 
     <!-- ========================================================
@@ -847,7 +858,7 @@
         <div class="toggle-modal-body">
           <p class="toggle-lead-msg">
             Bạn có chắc chắn muốn chuyển đợt giảm giá <b>[{{ selectedToggleItem.maDotGiamGia || '—' }}]</b> sang trạng thái
-            <b :class="selectedToggleItem.trangThai === 1 ? 'text-danger' : 'text-green'">
+            <b :class="selectedToggleItem.trangThai === 1 ? 'text-beige' : 'text-logo-brand'">
               {{ selectedToggleItem.trangThai === 1 ? 'Ngừng hoạt động' : 'Hoạt động' }}
             </b> không?
           </p>
@@ -864,7 +875,7 @@
             </div>
             <div class="toggle-info-row">
               <span class="toggle-info-label">Trạng thái mới:</span>
-              <span class="toggle-info-val font-bold" :class="selectedToggleItem.trangThai === 1 ? 'text-danger' : 'text-green'">
+              <span class="toggle-info-val font-bold" :class="selectedToggleItem.trangThai === 1 ? 'text-beige' : 'text-logo-brand'">
                 {{ selectedToggleItem.trangThai === 1 ? 'Ngừng hoạt động' : 'Đang hoạt động' }}
               </span>
             </div>
@@ -987,13 +998,14 @@ const clearError = (field) => {
 }
 
 
-// Mốc thời gian tối thiểu cho thời gian bắt đầu (không trước hiện tại khi tạo mới)
+// Mốc thời gian tối thiểu cho Từ ngày (không trước thời điểm hiện tại khi tạo mới)
 const minStartDateTime = computed(() => {
   if (isEditing.value) return undefined
   const now = new Date()
   const pad = n => String(n).padStart(2, '0')
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
 })
+const minStartDate = minStartDateTime
 
 // Hàm tự sinh mã đợt ngẫu nhiên (nút xoay tròn)
 const generateRandomMa = () => {
@@ -1017,12 +1029,60 @@ const selectedFilterColor = ref('')
 const selectedFilterSize = ref('')
 const selectedFilterKeyword = ref('')
 
+// Ảnh sản phẩm mặc định chuẩn áo phông
+const defaultProductImages = [
+  'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1622445262464-84b14e3295b6?w=300&auto=format&fit=crop&q=80'
+]
+
+const getFallbackProductImage = (id, code) => {
+  let num = typeof id === 'number' ? id : 0
+  if (!num && code) {
+    const digits = String(code).replace(/\D/g, '')
+    num = digits ? parseInt(digits.slice(-4)) : 0
+  }
+  const idx = Math.abs(num) % defaultProductImages.length
+  return defaultProductImages[idx]
+}
+
+const resolveImageUrl = (url, fallbackId, fallbackCode) => {
+  if (!url || typeof url !== 'string' || url.trim() === '') {
+    return getFallbackProductImage(fallbackId, fallbackCode)
+  }
+  const trimmed = url.trim()
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image')) {
+    return trimmed
+  }
+  if (trimmed.startsWith('/')) {
+    return `http://localhost:8080${trimmed}`
+  }
+  return `http://localhost:8080/${trimmed}`
+}
+
+const getProductImage = (item) => {
+  if (!item) return defaultProductImages[0]
+  const rawImg = item.spHinhAnh || item.hinhAnh || item.anhDaiDien || item.image
+  if (rawImg && typeof rawImg === 'string' && rawImg.trim() !== '') {
+    return resolveImageUrl(rawImg, item.spId || item.id, item.spMa || item.ma)
+  }
+  const found = productSourceList.value.find(p => p.id === (item.spId || item.id) || (p.ma && p.ma === (item.spMa || item.ma)))
+  if (found && (found.hinhAnh || found.anhDaiDien || found.image)) {
+    return resolveImageUrl(found.hinhAnh || found.anhDaiDien || found.image, item.spId || item.id, item.spMa || item.ma)
+  }
+  return getFallbackProductImage(item.spId || item.id, item.spMa || item.ma)
+}
+
 // Danh sách sản phẩm nguồn chuẩn theo CSDL FFTShirt (Áo thun)
 const productSourceList = ref([
   {
     id: 1,
     ma: 'SP001',
     ten: 'Áo Phông Nam Basic Cotton Cổ Tròn',
+    hinhAnh: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80',
     thuongHieu: 'FF Shirt',
     chatLieu: 'Cotton 100%',
     gia: 199000,
@@ -1037,6 +1097,7 @@ const productSourceList = ref([
     id: 2,
     ma: 'SP002',
     ten: 'Áo Polo Nam Cổ Bẻ Cao Cấp',
+    hinhAnh: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=300&auto=format&fit=crop&q=80',
     thuongHieu: 'FF Shirt',
     chatLieu: 'CVC Cá Sấu',
     gia: 299000,
@@ -1050,6 +1111,7 @@ const productSourceList = ref([
     id: 3,
     ma: 'SP003',
     ten: 'Áo Phông Unisex In Hình Graphic',
+    hinhAnh: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=300&auto=format&fit=crop&q=80',
     thuongHieu: 'Local Brand',
     chatLieu: 'Cotton 100%',
     gia: 250000,
@@ -1062,6 +1124,7 @@ const productSourceList = ref([
     id: 4,
     ma: 'SP004',
     ten: 'Áo Phông Cổ Tim Cotton Compact',
+    hinhAnh: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=300&auto=format&fit=crop&q=80',
     thuongHieu: 'FF Shirt',
     chatLieu: 'Cotton Compact',
     gia: 220000,
@@ -1075,6 +1138,7 @@ const productSourceList = ref([
     id: 5,
     ma: 'SP005',
     ten: 'Áo Polo Thể Thao Phối Kẻ Sọc',
+    hinhAnh: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=300&auto=format&fit=crop&q=80',
     thuongHieu: 'Polo Pro',
     chatLieu: 'Coolmax Co Giãn',
     gia: 320000,
@@ -1266,6 +1330,7 @@ const toggleProductSelection = (p) => {
           spId: p.id,
           spMa: p.ma,
           spTen: p.ten,
+          spHinhAnh: p.hinhAnh || p.image || p.anhDaiDien || v.hinhAnh || '',
           maBienThe: v.maBienThe,
           mauSac: v.mauSac,
           kichCo: v.kichCo,
@@ -1277,7 +1342,6 @@ const toggleProductSelection = (p) => {
     showToast(`Đã thêm các biến thể của "${p.ten}"!`, 'info')
   } else {
     selectedVariants.value = selectedVariants.value.filter(sv => sv.spId !== p.id)
-    showToast(`Đã bỏ các biến thể của "${p.ten}"!`, 'info')
   }
 }
 
@@ -1298,6 +1362,7 @@ const addProductVariants = (p) => {
         spId: p.id,
         spMa: p.ma,
         spTen: p.ten,
+        spHinhAnh: p.hinhAnh || p.image || p.anhDaiDien || v.hinhAnh || '',
         maBienThe: v.maBienThe,
         mauSac: v.mauSac,
         kichCo: v.kichCo,
@@ -1320,7 +1385,6 @@ const removeSelectedVariant = (vId) => {
       if (prod) prod.selected = false
     }
   }
-  showToast('Đã xóa biến thể khỏi danh sách áp dụng!', 'info')
 }
 
 // Chọn tất cả sản phẩm (chỉ chọn sản phẩm chưa có đợt giảm giá)
@@ -1342,6 +1406,7 @@ const toggleSelectAllSourceProducts = () => {
             spId: p.id,
             spMa: p.ma,
             spTen: p.ten,
+            spHinhAnh: p.hinhAnh || p.image || p.anhDaiDien || v.hinhAnh || '',
             maBienThe: v.maBienThe,
             mauSac: v.mauSac,
             kichCo: v.kichCo,
@@ -1446,38 +1511,42 @@ const handleGiaTriGiamInput = () => {
   }
 }
 
-// Kiểm tra thời gian bắt đầu
+// Kiểm tra Từ ngày
 const handleNgayBatDauChange = () => {
   clearError('ngayBatDau')
   if (!formData.value.ngayBatDau || formData.value.ngayBatDau.trim() === '') {
-    errors.value.ngayBatDau = 'Thời gian bắt đầu không được để trống!'
+    errors.value.ngayBatDau = 'Từ ngày không được để trống!'
     return
   }
   if (!isEditing.value) {
-    if (new Date(formData.value.ngayBatDau).getTime() < Date.now() - 60000) {
+    const startMs = new Date(formData.value.ngayBatDau).getTime()
+    // Dung sai 10 phút để người dùng thoải mái thao tác mà không bị chặn
+    if (startMs < Date.now() - 10 * 60 * 1000) {
       errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
       return
     }
   }
   if (formData.value.ngayKetThuc) {
     if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
-      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
+      errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
     } else {
       clearError('ngayKetThuc')
     }
   }
 }
 
-// Kiểm tra thời gian kết thúc (bắt buộc, không cho để trống)
+// Kiểm tra Đến ngày (bắt buộc, không cho để trống)
 const handleNgayKetThucChange = () => {
   clearError('ngayKetThuc')
   if (!formData.value.ngayKetThuc || formData.value.ngayKetThuc.trim() === '') {
-    errors.value.ngayKetThuc = 'Thời gian kết thúc không được để trống!'
+    errors.value.ngayKetThuc = 'Đến ngày không được để trống!'
     return
   }
   if (formData.value.ngayBatDau) {
     if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
-      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
+      errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
+    } else {
+      clearError('ngayKetThuc')
     }
   }
 }
@@ -1553,6 +1622,13 @@ const toInputDateTime = (val) => {
   const pad = n => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
+const toInputDate = (val) => {
+  if (!val) return ''
+  const d = new Date(val)
+  if (isNaN(d.getTime())) return ''
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
 
 const formatDate = (val) => {
   if (!val) return '—'
@@ -1580,21 +1656,34 @@ const formatDateTime = (val) => {
 // Tính trạng thái thực tế dựa trên mốc thời gian hiện tại (phản ứng tự động theo currentTime)
 const getCampaignStatus = (item) => {
   if (!item) return { code: 'INACTIVE', text: 'Ngừng hoạt động', class: 'status-pill-inactive' }
-  if (item.trangThai === 0) {
-    return { code: 'INACTIVE', text: 'Ngừng hoạt động', class: 'status-pill-inactive' }
-  }
   const now = currentTime.value
   const start = item.ngayBatDau ? new Date(item.ngayBatDau).getTime() : null
   const end = item.ngayKetThuc ? new Date(item.ngayKetThuc).getTime() : null
 
-  if (start && now < start) {
-    return { code: 'UPCOMING', text: 'Sắp diễn ra', class: 'status-pill-upcoming' }
-  }
+  // 1. Nếu đã qua ngày kết thúc -> Đã kết thúc
   if (end && now >= end) {
     return { code: 'ENDED', text: 'Đã kết thúc', class: 'status-pill-ended' }
   }
+  // 2. Nếu trạng thái bằng 0 (người dùng tắt) -> Ngừng hoạt động
+  if (item.trangThai === 0) {
+    return { code: 'INACTIVE', text: 'Ngừng hoạt động', class: 'status-pill-inactive' }
+  }
+  // 3. Nếu chưa tới ngày bắt đầu -> Sắp diễn ra
+  if (start && now < start) {
+    return { code: 'UPCOMING', text: 'Sắp diễn ra', class: 'status-pill-upcoming' }
+  }
+  // 4. Đang trong khoảng thời gian hiệu lực -> Đang diễn ra
   return { code: 'ACTIVE', text: 'Đang diễn ra', class: 'status-pill-active' }
 }
+
+// Danh sách đợt giảm giá hiển thị tự động cập nhật theo currentTime mỗi giây
+const displayCampaigns = computed(() => {
+  const _now = currentTime.value
+  return (campaigns.value || []).map(item => ({
+    ...item,
+    _status: getCampaignStatus(item)
+  }))
+})
 
 const formatDiscountVal = (item) => {
   if (!item) return '0%'
@@ -1614,10 +1703,10 @@ const formatInputDateDisplay = (val) => {
 
 const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0)
 
-// Load dữ liệu
-const fetchData = async () => {
+// Load dữ liệu (hỗ trợ isSilent = true để tự động cập nhật ngầm mà không nháy màn hình)
+const fetchData = async (isSilent = false) => {
   try {
-    loading.value = true
+    if (!isSilent) loading.value = true
     errorMessage.value = ''
 
     const hasStatusFilter = Boolean(filters.value.trangThai !== '' && filters.value.trangThai !== null && filters.value.trangThai !== undefined)
@@ -1663,7 +1752,7 @@ const fetchData = async () => {
     // Lọc theo trạng thái (Đang diễn ra, Sắp diễn ra, Đã kết thúc, Ngừng hoạt động)
     if (hasStatusFilter) {
       if (filters.value.trangThai === '0' || filters.value.trangThai === 0 || filters.value.trangThai === 'INACTIVE') {
-        list = list.filter(item => item.trangThai === 0 || getCampaignStatus(item).code === 'INACTIVE')
+        list = list.filter(item => getCampaignStatus(item).code === 'INACTIVE')
       } else {
         list = list.filter(item => getCampaignStatus(item).code === filters.value.trangThai)
       }
@@ -1681,12 +1770,14 @@ const fetchData = async () => {
     }
   } catch (error) {
     console.error('Lỗi khi tải dữ liệu từ database:', error)
-    errorMessage.value = 'Không thể tải dữ liệu đợt giảm giá từ database. Vui lòng kiểm tra backend và kết nối SQL Server!'
-    campaigns.value = []
-    totalPages.value = 0
-    totalElements.value = 0
+    if (!isSilent) {
+      errorMessage.value = 'Không thể tải dữ liệu đợt giảm giá từ database. Vui lòng kiểm tra backend và kết nối SQL Server!'
+      campaigns.value = []
+      totalPages.value = 0
+      totalElements.value = 0
+    }
   } finally {
-    loading.value = false
+    if (!isSilent) loading.value = false
   }
 }
 
@@ -1756,6 +1847,15 @@ const visiblePages = computed(() => {
   }
   return pages
 })
+
+// Xử lý bấm công tắc đổi trạng thái
+const onToggleSwitchClick = (item) => {
+  if (getCampaignStatus(item).code === 'ENDED') {
+    showToast('Đợt giảm giá này đã kết thúc, không thể thay đổi trạng thái!', 'warning')
+    return
+  }
+  openToggleStatusModal(item)
+}
 
 // Mở modal xác nhận đổi trạng thái (theo đúng giao diện mẫu)
 const openToggleStatusModal = (item) => {
@@ -2031,11 +2131,13 @@ const openEditView = async (item) => {
       selectedVariants.value = ctRes.data.map(ct => {
         const ctsp = ct.idChiTietSanPham || {}
         const sp = ctsp.idSanPham || {}
+        const matchedP = productSourceList.value.find(p => p.id === (sp.id || 1) || (p.ma && p.ma === sp.maSanPham))
         return {
           id: ctsp.id || ct.id,
           spId: sp.id || 1,
           spMa: sp.maSanPham || ('SP' + (sp.id || '')),
           spTen: sp.tenSanPham || 'Sản phẩm',
+          spHinhAnh: matchedP?.hinhAnh || sp.anhDaiDien || (sp.hinhAnhs && sp.hinhAnhs[0]) || ctsp.anhDaiDien || '',
           maBienThe: ctsp.maChiTietSanPham || ('BT-' + ct.id),
           mauSac: ctsp.idMauSac?.tenMauSac || 'Xám',
           kichCo: ctsp.idKichCo?.tenKichCo || '37',
@@ -2059,6 +2161,7 @@ const openEditView = async (item) => {
           spId: p1.id,
           spMa: p1.ma,
           spTen: p1.ten,
+          spHinhAnh: p1.hinhAnh || p1.image || '',
           maBienThe: v.maBienThe,
           mauSac: v.mauSac,
           kichCo: v.kichCo,
@@ -2078,7 +2181,7 @@ const openEditView = async (item) => {
   // Kiểm tra nếu ngày kết thúc <= ngày bắt đầu thì báo đỏ ngay dưới ô
   if (formData.value.ngayBatDau && formData.value.ngayKetThuc) {
     if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
-      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
+      errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
     }
   }
 
@@ -2121,9 +2224,9 @@ const onSaveClick = () => {
     }
   }
 
-  // 3. Kiểm tra Thời gian bắt đầu
+  // 3. Kiểm tra Từ ngày
   if (!formData.value.ngayBatDau || formData.value.ngayBatDau.trim() === '') {
-    errors.value.ngayBatDau = 'Thời gian bắt đầu không được để trống!'
+    errors.value.ngayBatDau = 'Từ ngày không được để trống!'
     hasError = true
   } else if (!isEditing.value) {
     const startMs = new Date(formData.value.ngayBatDau).getTime()
@@ -2134,13 +2237,13 @@ const onSaveClick = () => {
     }
   }
 
-  // 4. Kiểm tra Thời gian kết thúc (Bắt buộc, không cho để trống)
+  // 4. Kiểm tra Đến ngày (Bắt buộc, không cho để trống)
   if (!formData.value.ngayKetThuc || formData.value.ngayKetThuc.trim() === '') {
-    errors.value.ngayKetThuc = 'Thời gian kết thúc không được để trống!'
+    errors.value.ngayKetThuc = 'Đến ngày không được để trống!'
     hasError = true
   } else if (formData.value.ngayBatDau) {
     if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
-      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
+      errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
       hasError = true
     }
   }
@@ -2217,8 +2320,14 @@ const doSubmitAPI = async () => {
       loaiGiamGia: formData.value.loaiGiamGia,
       giaTriGiam: isPercent ? null : formData.value.giaTriGiam,
       giamToiDa: isPercent ? (formData.value.giamToiDa || null) : null,
-      ngayBatDau: new Date(formData.value.ngayBatDau).toISOString(),
-      ngayKetThuc: formData.value.ngayKetThuc ? new Date(formData.value.ngayKetThuc).toISOString() : null,
+      ngayBatDau: formData.value.ngayBatDau.length === 10
+        ? new Date(formData.value.ngayBatDau + 'T00:00:00').toISOString()
+        : new Date(formData.value.ngayBatDau).toISOString(),
+      ngayKetThuc: formData.value.ngayKetThuc
+        ? (formData.value.ngayKetThuc.length === 10
+            ? new Date(formData.value.ngayKetThuc + 'T23:59:59').toISOString()
+            : new Date(formData.value.ngayKetThuc).toISOString())
+        : null,
       moTa: formData.value.moTa?.trim() || null,
       trangThai: formData.value.trangThai,
       chiTietSanPhamIds: chiTietSanPhamIds,
@@ -2262,6 +2371,7 @@ const fetchRealProductsFromDB = async () => {
     if (items && items.length > 0) {
       const prods = await Promise.all(items.map(async (sp) => {
         let variants = []
+        const spImg = sp.anhDaiDien || (sp.hinhAnhs && sp.hinhAnhs[0]) || sp.image || sp.hinhAnh || ''
         try {
           const varRes = await api.get(`/api/chi-tiet-san-pham/by-san-pham/${sp.id}`)
           if (varRes.data && varRes.data.length > 0) {
@@ -2271,7 +2381,8 @@ const fetchRealProductsFromDB = async () => {
               mauSac: v.tenMauSac || v.idMauSac?.tenMauSac || 'Đen',
               kichCo: v.tenKichCo || v.idKichCo?.tenKichCo || 'M',
               gia: v.giaBan || 199000,
-              soLuong: v.soLuong || 50
+              soLuong: v.soLuong || 50,
+              hinhAnh: v.anhDaiDien || spImg || ''
             }))
           }
         } catch (e) {
@@ -2280,12 +2391,13 @@ const fetchRealProductsFromDB = async () => {
           id: sp.id,
           ma: sp.maSanPham || ('SP' + sp.id),
           ten: sp.tenSanPham || 'Áo phông FFTShirt',
+          hinhAnh: spImg,
           thuongHieu: sp.tenThuongHieu || sp.idThuongHieu?.tenThuongHieu || 'FF Shirt',
           chatLieu: sp.tenChatLieu || sp.idChatLieu?.tenChatLieu || 'Cotton 100%',
           gia: sp.giaBan || (variants[0]?.gia || 199000),
           selected: false,
           variants: variants.length > 0 ? variants : [
-            { id: sp.id * 10 + 1, maBienThe: (sp.maSanPham || 'SP') + '-M', mauSac: 'Đen', kichCo: 'M', gia: 199000, soLuong: 50 }
+            { id: sp.id * 10 + 1, maBienThe: (sp.maSanPham || 'SP') + '-M', mauSac: 'Đen', kichCo: 'M', gia: 199000, soLuong: 50, hinhAnh: spImg }
           ]
         }
       }))
@@ -2305,9 +2417,19 @@ onMounted(() => {
   fetchRealProductsFromDB()
   loadActiveCampaignProducts()
 
-  // Real-time ticker mỗi giây: tự động đổi trạng thái mượt mà (Sắp diễn ra -> Đang diễn ra -> Đã kết thúc) không cần tải lại trang
+  // Real-time ticker mỗi giây và đồng bộ dữ liệu ngầm tự động (tự động cập nhật không cần load lại trang)
+  let pollCounter = 0
   realTimeTimer = setInterval(() => {
     currentTime.value = Date.now()
+    pollCounter++
+    // Mỗi 3 giây tự động đồng bộ ngầm dữ liệu danh sách và sản phẩm đang áp dụng
+    if (pollCounter >= 3) {
+      pollCounter = 0
+      if (currentView.value === 'list' && !loading.value && !submitting.value && !togglingStatus.value) {
+        fetchData(true)
+        loadActiveCampaignProducts()
+      }
+    }
   }, 1000)
 })
 
@@ -2326,26 +2448,26 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 
-/* Toast Notification dưới góc phải màn hình */
+/* Toast Notification trên góc phải màn hình */
 .toast-msg {
   position: fixed;
-  bottom: 24px;
-  right: 28px;
-  min-width: 320px;
-  max-width: 460px;
-  padding: 1rem 1.2rem;
-  border-radius: 10px;
+  top: 18px;
+  right: 22px;
+  min-width: 250px;
+  max-width: 360px;
+  padding: 0.65rem 0.95rem;
+  border-radius: 8px;
   display: flex;
   align-items: center;
-  gap: 0.9rem;
+  gap: 0.65rem;
   background: #ffffff;
   border: 1px solid #e5e7eb;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-  z-index: 99999;
+  box-shadow: 0 8px 18px -4px rgba(0, 0, 0, 0.1), 0 3px 6px -3px rgba(0, 0, 0, 0.04);
+  z-index: 999999;
 }
 .toast-icon {
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -2355,28 +2477,28 @@ onUnmounted(() => {
 .toast-content {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 1px;
   flex: 1;
 }
 .toast-title {
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 750;
   color: #111827;
   line-height: 1.25;
 }
 .toast-text {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 500;
   color: #4b5563;
-  line-height: 1.4;
+  line-height: 1.35;
 }
 .toast-btn-close {
   background: transparent;
   border: none;
-  font-size: 1rem;
+  font-size: 0.85rem;
   color: #9ca3af;
   cursor: pointer;
-  padding: 4px;
+  padding: 2px 4px;
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -2392,39 +2514,39 @@ onUnmounted(() => {
 
 /* Biến thể màu cho Toast tinh tế (không nền chói lọi) */
 .toast-success {
-  border-left: 4px solid #16a34a;
+  border-left: 3.5px solid #16a34a;
 }
 .toast-success .toast-icon {
   background-color: #f0fdf4;
   color: #16a34a;
 }
 .toast-error {
-  border-left: 4px solid #dc2626;
+  border-left: 3.5px solid #dc2626;
 }
 .toast-error .toast-icon {
   background-color: #fef2f2;
   color: #dc2626;
 }
 .toast-info {
-  border-left: 4px solid #2563eb;
+  border-left: 3.5px solid #2563eb;
 }
 .toast-info .toast-icon {
   background-color: #eff6ff;
   color: #2563eb;
 }
 
-/* Hiệu ứng trượt từ góc phải */
+/* Hiệu ứng trượt từ góc trên phải */
 .toast-slide-enter-active,
 .toast-slide-leave-active {
   transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .toast-slide-enter-from {
   opacity: 0;
-  transform: translateY(25px) translateX(35px);
+  transform: translateY(-25px) translateX(35px);
 }
 .toast-slide-leave-to {
   opacity: 0;
-  transform: translateY(25px) translateX(35px);
+  transform: translateY(-25px) translateX(35px);
 }
 
 /* Header breadcrumb: Tăng khoảng cách lề thoáng đãng */
@@ -2435,13 +2557,14 @@ onUnmounted(() => {
   padding: 0 0.5rem;
 }
 .breadcrumb-text {
-  font-size: 1rem;
+  font-size: 1.15rem;
   color: #6b7280;
   letter-spacing: 0.01em;
 }
 .breadcrumb-text b {
   color: #111827;
   font-weight: 800;
+  font-size: 1.25rem;
 }
 .slash {
   margin: 0 10px;
@@ -2480,8 +2603,8 @@ onUnmounted(() => {
   color: #6b7280;
 }
 .filter-title {
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: 1.2rem;
+  font-weight: 750;
   margin: 0;
   color: #1f2937;
 }
@@ -2641,9 +2764,9 @@ onUnmounted(() => {
   margin-bottom: 1.2rem;
 }
 .table-title-custom {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #1f2937;
+  font-size: 1.2rem;
+  font-weight: 750;
+  color: #111827;
   margin: 0;
 }
 .record-count-simple {
@@ -2779,6 +2902,58 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.2s;
 }
+/* Công tắc gạt đổi trạng thái (Toggle Switch chuẩn hình ảnh mẫu) */
+.status-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 40px;
+  height: 22px;
+  cursor: pointer;
+  user-select: none;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.status-switch.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.switch-native-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.switch-track {
+  position: absolute;
+  inset: 0;
+  background-color: #d1d5db;
+  border-radius: 9999px;
+  transition: background-color 0.25s ease, box-shadow 0.2s ease;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.status-switch:hover:not(.is-disabled) .switch-track {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15), 0 0 0 3px rgba(179, 138, 101, 0.15);
+}
+.status-switch.is-active .switch-track {
+  background-color: #b38a65; /* Màu nâu caramel chuẩn theo ảnh mẫu */
+}
+.switch-handle {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.status-switch.is-active .switch-handle {
+  transform: translateX(18px);
+}
+
 .btn-icon-power {
   color: #b45309;
   background-color: #fff8eb;
@@ -2805,7 +2980,7 @@ onUnmounted(() => {
 /* Phân trang đáy bảng (Màu Xanh dương & Be) */
 .pagination-footer-flex {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   margin-top: 1.25rem;
   padding-top: 0.85rem;
@@ -2819,6 +2994,23 @@ onUnmounted(() => {
   background-color: #fffbf5;
   outline: none;
   cursor: pointer;
+}
+.page-size-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.pagination-total-info {
+  font-size: 0.84rem;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.pagination-total-info b {
+  color: #1e293b;
+  font-weight: 700;
 }
 .pagination-controls-right {
   display: flex;
@@ -3168,17 +3360,17 @@ onUnmounted(() => {
 ======================================================== */
 .toggle-status-modal-box {
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 10px;
   width: 92%;
-  max-width: 520px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  max-width: 440px;
+  box-shadow: 0 16px 24px -5px rgba(0, 0, 0, 0.1), 0 6px 10px -6px rgba(0, 0, 0, 0.04);
   overflow: hidden;
   animation: fadeIn 0.15s ease-out;
   border: 1px solid #e5e7eb;
 }
 
 .toggle-modal-header {
-  padding: 1.15rem 1.4rem;
+  padding: 0.85rem 1.15rem;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -3189,7 +3381,7 @@ onUnmounted(() => {
 .toggle-header-left {
   display: flex;
   align-items: flex-start;
-  gap: 0.85rem;
+  gap: 0.75rem;
 }
 .toggle-title-wrap {
   display: flex;
@@ -3197,26 +3389,28 @@ onUnmounted(() => {
 }
 .toggle-title-text {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.02rem;
   font-weight: 800;
   letter-spacing: -0.015em;
   color: #111827;
 }
-.title-deactivate { color: #b91c1c; }
-.title-activate { color: #15803d; }
+.title-deactivate { color: #b38a65; }
+.title-activate { color: #496883; }
+.text-logo-brand { color: #496883; }
+.text-beige { color: #b38a65; }
 .toggle-subtitle-text {
-  margin: 3px 0 0 0;
-  font-size: 0.84rem;
+  margin: 2px 0 0 0;
+  font-size: 0.78rem;
   color: #6b7280;
 }
 
 .btn-toggle-close {
   background: transparent;
   border: none;
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   cursor: pointer;
   color: #9ca3af;
-  padding: 4px;
+  padding: 2px 4px;
   border-radius: 4px;
   line-height: 1;
   transition: all 0.15s;
@@ -3224,29 +3418,29 @@ onUnmounted(() => {
 .btn-toggle-close:hover { color: #111827; background-color: #f3f4f6; }
 
 .toggle-modal-body {
-  padding: 1.35rem 1.4rem 1.1rem;
+  padding: 1rem 1.15rem 0.85rem;
 }
 .toggle-lead-msg {
-  font-size: 0.93rem;
+  font-size: 0.86rem;
   color: #374151;
-  margin: 0 0 1.15rem 0;
+  margin: 0 0 0.85rem 0;
   line-height: 1.5;
 }
 
 .toggle-info-card {
   background: #f9fafb;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 1rem 1.25rem;
+  border-radius: 6px;
+  padding: 0.75rem 0.95rem;
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.5rem;
 }
 .toggle-info-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
 }
 .toggle-info-label {
   color: #6b7280;
@@ -3259,16 +3453,16 @@ onUnmounted(() => {
 }
 
 .toggle-warning-alert {
-  margin-top: 1.1rem;
+  margin-top: 0.85rem;
   background: #f3f4f6;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 0.8rem 1rem;
+  border-radius: 6px;
+  padding: 0.7rem 0.85rem;
 }
 .alert-content {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #4b5563;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 .alert-tag {
   font-weight: 750;
@@ -3277,10 +3471,10 @@ onUnmounted(() => {
 }
 
 .toggle-modal-footer {
-  padding: 1.1rem 1.4rem 1.3rem;
+  padding: 0.75rem 1.15rem 0.95rem;
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
+  gap: 0.6rem;
   border-top: 1px solid #f3f4f6;
 }
 .btn-toggle-cancel {
@@ -3288,10 +3482,11 @@ onUnmounted(() => {
   border: 1px solid #dfd5c2;
   color: #957b48;
   font-weight: 600;
-  height: 2.5rem;
-  padding: 0 1.4rem;
-  border-radius: 7px;
+  height: 2.2rem;
+  padding: 0 1.1rem;
+  border-radius: 6px;
   cursor: pointer;
+  font-size: 0.82rem;
   transition: all 0.15s;
 }
 .btn-toggle-cancel:hover {
@@ -3301,31 +3496,33 @@ onUnmounted(() => {
 }
 
 .btn-toggle-action {
-  height: 2.5rem;
-  padding: 0 1.45rem;
-  border-radius: 7px;
+  height: 2.2rem;
+  padding: 0 1.15rem;
+  border-radius: 6px;
   border: none;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.83rem;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
   transition: all 0.15s;
 }
 .btn-red-action {
-  background: #dc2626;
+  background: #b38a65;
   color: #ffffff;
+  box-shadow: 0 2px 6px rgba(179, 138, 101, 0.25);
 }
 .btn-red-action:hover:not(:disabled) {
-  background: #b91c1c;
+  background: #9d7552;
 }
 .btn-green-action {
-  background: #16a34a;
+  background: #496883;
   color: #ffffff;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.25);
 }
 .btn-green-action:hover:not(:disabled) {
-  background: #15803d;
+  background: #385268;
 }
 .btn-toggle-action:disabled {
   opacity: 0.65;
@@ -3451,7 +3648,7 @@ onUnmounted(() => {
   border-color: #d1d5db;
 }
 .video-breadcrumb-text {
-  font-size: 0.95rem;
+  font-size: 1.15rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -3469,13 +3666,14 @@ onUnmounted(() => {
 }
 .crumb-current {
   color: #111827;
-  font-weight: 600;
+  font-weight: 800;
+  font-size: 1.25rem;
 }
 
 /* Hàng trên: Grid 2 cột (Cột trái rộng hơn, Cột phải hẹp hơn một chút và chứa cả 2 thẻ sản phẩm) */
 .video-top-grid {
   display: grid;
-  grid-template-columns: 430px 1fr;
+  grid-template-columns: 460px 1fr;
   gap: 1.25rem;
   align-items: start;
 }
@@ -3534,9 +3732,9 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 .video-card-title {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #1f2937;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #111827;
   margin: 0;
 }
 .video-card-subtitle {
@@ -3727,6 +3925,10 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
+}
+.video-date-row .video-input {
+  padding: 0.62rem 0.6rem;
+  font-size: 0.85rem;
 }
 
 .video-textarea {
@@ -3930,6 +4132,25 @@ onUnmounted(() => {
   justify-content: space-between;
   padding-top: 0.85rem;
   margin-top: 0.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.page-summary-text {
+  font-size: 0.82rem;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.page-summary-text b {
+  color: #1e293b;
+  font-weight: 700;
 }
 .select-page-size {
   border: 1px solid #e5e7eb;
@@ -3970,9 +4191,10 @@ onUnmounted(() => {
 }
 .active-page-num {
   font-size: 0.85rem;
-  font-weight: 600;
-  color: #111827;
-  padding: 0 4px;
+  font-weight: 700;
+  color: #1e293b;
+  padding: 0 6px;
+  white-space: nowrap;
 }
 
 /* Thẻ biến thể đã chọn ở dưới */
@@ -3994,6 +4216,13 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+}
+.product-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .product-cell-info {
   display: flex;
