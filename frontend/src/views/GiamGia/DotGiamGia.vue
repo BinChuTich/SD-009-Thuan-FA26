@@ -458,7 +458,7 @@
                 <div>
                   <h3 class="video-card-title">Chọn sản phẩm áp dụng</h3>
                   <span class="video-card-subtitle" :class="{ 'text-error-red': errors.selectedVariants }">
-                    Đã chọn {{ selectedVariants.length }} biến thể
+                    Đã chọn {{ selectedProductCount }} sản phẩm ({{ selectedVariants.length }} biến thể)
                   </span>
                 </div>
               </div>
@@ -2202,6 +2202,8 @@ const doSubmitAPI = async () => {
       return isNaN(num) ? 1 : num
     })
 
+    const appliedParentSpIds = Array.from(new Set(selectedVariants.value.map(v => Number(v.spId))))
+
     const payload = {
       maDotGiamGia: finalMa,
       tenDotGiamGia: formData.value.tenDotGiamGia.trim(),
@@ -2213,7 +2215,8 @@ const doSubmitAPI = async () => {
       ngayKetThuc: formData.value.ngayKetThuc ? new Date(formData.value.ngayKetThuc).toISOString() : null,
       moTa: formData.value.moTa?.trim() || null,
       trangThai: formData.value.trangThai,
-      chiTietSanPhamIds: chiTietSanPhamIds
+      chiTietSanPhamIds: chiTietSanPhamIds,
+      sanPhamIds: appliedParentSpIds
     }
 
     let res = null
@@ -2230,7 +2233,6 @@ const doSubmitAPI = async () => {
     saveCampaignMeta(savedId, formData.value.maDotGiamGia, {
       giamToiDa: formData.value.giamToiDa
     })
-    const appliedParentSpIds = Array.from(new Set(selectedVariants.value.map(v => Number(v.spId))))
     saveCampaignProductIds(savedId, formData.value.maDotGiamGia, appliedParentSpIds)
 
     showConfirmModal.value = false

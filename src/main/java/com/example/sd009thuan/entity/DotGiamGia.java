@@ -47,8 +47,7 @@ public class DotGiamGia {
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
 
-    @Nationalized
-    @Column(name = "mo_ta")
+    @Transient
     private String moTa;
 
     @Transient
@@ -68,6 +67,9 @@ public class DotGiamGia {
 
     @Transient
     private java.util.List<Long> chiTietSanPhamIds;
+
+    @Transient
+    private java.util.List<Long> sanPhamIds;
 
     @com.fasterxml.jackson.annotation.JsonIgnore
     @OneToMany(mappedBy = "idDotGiamGia")

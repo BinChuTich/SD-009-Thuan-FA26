@@ -107,4 +107,16 @@ public class ChiTietHoaDon {
         }
         return null;
     }
+
+    @Transient
+    @JsonProperty("anhDaiDien")
+    private String anhDaiDien;
+
+    public String getAnhDaiDien() {
+        return anhDaiDien;
+    }
+
+    public void setAnhDaiDien(String anhDaiDien) {
+        this.anhDaiDien = anhDaiDien;
+    }
 }

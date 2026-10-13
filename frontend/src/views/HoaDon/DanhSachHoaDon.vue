@@ -396,11 +396,13 @@ const loadHoaDon = async () => {
 
       try {
         // 1. Tên khách hàng: ưu tiên lấy từ bảng khóa ngoại KhachHang
-        const khachHangObj = item.idKhachHang || item.khachHang
-        const customerName = khachHangObj?.tenKhachHang
+        const khachHangObj = item.idKhachHang || item.khachHang || {}
+        const rawCustName = String(item.tenKhachHang
             || item.tenKhachHangHienThi
-            || item.tenKhachHang
-            || (khachHangObj?.taiKhoan ? khachHangObj.taiKhoan : 'Khách lẻ')
+            || khachHangObj?.tenKhachHang
+            || khachHangObj?.taiKhoan
+            || '').trim()
+        const customerName = (!rawCustName || rawCustName === '---' || rawCustName === '—' || rawCustName.toLowerCase() === 'null') ? 'Khách lẻ' : rawCustName
 
         // 2. Tên nhân viên: ưu tiên lấy từ bảng khóa ngoại NhanVien
         const nhanVienObj = item.idNhanVien || item.nhanVien
@@ -511,7 +513,7 @@ const loadHoaDon = async () => {
           id: item.id,
           code: item.maHoaDon,
           customerName,
-          customerPhone: khachHangObj?.soDienThoai || item.soDienThoaiHienThi || item.soDienThoaiKhachHang || '',
+          customerPhone: item.soDienThoaiKhachHang || item.soDienThoaiHienThi || khachHangObj?.soDienThoai || '',
           address: item.diaChiNhanHang || '',
           employeeName,
           voucherName,

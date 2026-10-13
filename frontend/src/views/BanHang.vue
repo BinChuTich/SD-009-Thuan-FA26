@@ -1,26 +1,33 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
 
 const router = useRouter()
 
 /* ==========================================================
-   1. QUẢN LÝ HÓA ĐƠN CHỜ (Mặc định luôn có ít nhất 1 hóa đơn)
+   1. QUẢN LÝ HÓA ĐƠN CHỜ (Mặc định có 1 hóa đơn, tối đa 5)
 ========================================================== */
+const createEmptyInvoice = (id, code) => ({
+  id,
+  code,
+  cart: [],
+  customerId: null,
+  customerName: '',
+  customerPhone: '',
+  isDelivery: false,
+  deliveryAddress: '',
+  shippingFee: 0,
+  voucher: null,
+  paymentMethod: 'TIEN_MAT', // TIEN_MAT | CHUYEN_KHOAN | KET_HOP
+  customerPay: null,
+  note: ''
+})
+
+const existingInvoiceCodes = ref(new Set())
+
 const waitingInvoices = ref([
-  {
-    id: 1,
-    code: 'HD001',
-    cart: [],
-    customerName: '',
-    customerPhone: '',
-    isDelivery: false,
-    deliveryAddress: '',
-    paymentMethod: 'TIEN_MAT', // TIEN_MAT | CHUYEN_KHOAN | KET_HOP
-    customerPay: null,
-    note: ''
-  }
+  createEmptyInvoice(1, 'HD001')
 ])
 
 const activeInvoiceId = ref(1)
@@ -30,6 +37,67 @@ const currentInvoice = computed(() => {
   return waitingInvoices.value.find(inv => inv.id === activeInvoiceId.value) || waitingInvoices.value[0]
 })
 
+// Sinh mã hóa đơn tiếp theo đảm bảo KHÔNG TRÙNG với danh sách hóa đơn trong CSDL
+const generateNextCode = () => {
+  const activeCodes = waitingInvoices.value.map(i => i.code?.toUpperCase()).filter(Boolean)
+  let maxNum = 0
+
+  // Quét toàn bộ mã hóa đơn đã có trong CSDL (danh sách hóa đơn)
+  for (const c of existingInvoiceCodes.value) {
+    if (c && typeof c === 'string' && c.toUpperCase().startsWith('HD')) {
+      const n = parseInt(c.substring(2), 10)
+      if (!isNaN(n) && n > maxNum) {
+        maxNum = n
+      }
+    }
+  }
+
+  // Quét các mã hóa đơn chờ đang mở trên giao diện
+  for (const c of activeCodes) {
+    if (c && typeof c === 'string' && c.toUpperCase().startsWith('HD')) {
+      const n = parseInt(c.substring(2), 10)
+      if (!isNaN(n) && n > maxNum) {
+        maxNum = n
+      }
+    }
+  }
+
+  let nextNum = Math.max(maxNum + 1, 1)
+  let candidate = `HD${String(nextNum).padStart(3, '0')}`
+
+  while (existingInvoiceCodes.value.has(candidate) || activeCodes.includes(candidate)) {
+    nextNum++
+    candidate = `HD${String(nextNum).padStart(3, '0')}`
+  }
+
+  return candidate
+}
+
+// Lấy danh sách mã hóa đơn từ CSDL để đảm bảo không trùng
+const fetchExistingInvoiceCodes = async () => {
+  try {
+    const res = await api.get('/api/hoa-don')
+    const list = Array.isArray(res.data) ? res.data : []
+    const codes = new Set()
+    list.forEach(item => {
+      const code = item.maHoaDon || item.code
+      if (code) {
+        codes.add(code.trim().toUpperCase())
+      }
+    })
+    existingInvoiceCodes.value = codes
+
+    // Kiểm tra và gán mã không trùng cho các hóa đơn chờ hiện có
+    waitingInvoices.value.forEach(inv => {
+      if (codes.has(inv.code.toUpperCase())) {
+        inv.code = generateNextCode()
+      }
+    })
+  } catch (err) {
+    console.warn('Không tải được danh sách mã hóa đơn từ backend:', err)
+  }
+}
+
 // Thêm hóa đơn chờ mới (tối đa 5 hóa đơn)
 const addWaitingInvoice = () => {
   if (waitingInvoices.value.length >= 5) {
@@ -38,27 +106,12 @@ const addWaitingInvoice = () => {
   }
 
   const newId = Date.now()
-  const nextNum = waitingInvoices.value.length + 1
-  const newCode = `HD${String(nextNum).padStart(3, '0')}`
-
-  const newInv = {
-    id: newId,
-    code: newCode,
-    cart: [],
-    customerName: '',
-    customerPhone: '',
-    isDelivery: false,
-    deliveryAddress: '',
-    paymentMethod: 'TIEN_MAT',
-    customerPay: null,
-    note: ''
-  }
-
-  waitingInvoices.value.push(newInv)
+  const newCode = generateNextCode()
+  waitingInvoices.value.push(createEmptyInvoice(newId, newCode))
   activeInvoiceId.value = newId
 }
 
-// Chuyển hóa đơn chờ
+// Chuyển tab hóa đơn
 const selectInvoice = (id) => {
   activeInvoiceId.value = id
 }
@@ -68,13 +121,8 @@ const removeCurrentInvoice = () => {
   if (waitingInvoices.value.length === 1) {
     const confirmClear = confirm(`Bạn có muốn làm mới và xóa toàn bộ sản phẩm của ${currentInvoice.value.code}?`)
     if (confirmClear) {
-      currentInvoice.value.cart = []
-      currentInvoice.value.customerName = ''
-      currentInvoice.value.customerPhone = ''
-      currentInvoice.value.customerPay = null
-      currentInvoice.value.note = ''
-      currentInvoice.value.isDelivery = false
-      currentInvoice.value.deliveryAddress = ''
+      const idx = waitingInvoices.value.findIndex(inv => inv.id === activeInvoiceId.value)
+      waitingInvoices.value[idx] = createEmptyInvoice(activeInvoiceId.value, currentInvoice.value.code)
     }
     return
   }
@@ -88,62 +136,122 @@ const removeCurrentInvoice = () => {
 }
 
 /* ==========================================================
-   2. DANH SÁCH SẢN PHẨM & POPUP CHỌN SẢN PHẨM BIẾN THỂ
+   2. DANH SÁCH SẢN PHẨM & TỒN KHO & QUÉT BARCODE
 ========================================================== */
 const showProductModal = ref(false)
 const searchProductText = ref('')
+const barcodeInput = ref('')
+const isLoadingProducts = ref(false)
 
-// Dữ liệu áo phông theo concept thương hiệu
-const productList = ref([
+// Danh mục mẫu dự phòng chuẩn hóa theo CSDL FF T-Shirt
+const fallbackProducts = [
   {
     id: 1,
     code: 'SP001',
-    name: 'Áo phông Free Fire Basic Cotton',
-    color: 'Xanh Olive',
-    size: 'L',
+    variantCode: 'CTSP01',
+    name: 'Áo Phông Nam Basic Cotton Cổ Tròn',
+    color: 'Đen',
+    size: 'S',
     stock: 45,
     price: 199000,
     image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
   },
   {
     id: 2,
-    code: 'SP002',
-    name: 'Áo phông Unisex Oversize Streetwear',
-    color: 'Nâu Đất',
-    size: 'XL',
+    code: 'SP001',
+    variantCode: 'CTSP02',
+    name: 'Áo Phông Nam Basic Cotton Cổ Tròn',
+    color: 'Đen',
+    size: 'M',
     stock: 20,
-    price: 249000,
-    image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=100&auto=format&fit=crop&q=80'
+    price: 199000,
+    image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
   },
   {
     id: 3,
-    code: 'SP003',
-    name: 'Áo phông Vintage Trơn Cổ Tròn',
-    color: 'Be Nhạt',
+    code: 'SP001',
+    variantCode: 'CTSP03',
+    name: 'Áo Phông Nam Basic Cotton Cổ Tròn',
+    color: 'Trắng',
     size: 'M',
     stock: 35,
-    price: 180000,
+    price: 199000,
     image: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=100&auto=format&fit=crop&q=80'
   },
   {
     id: 4,
-    code: 'SP004',
-    name: 'Áo phông Graphic Signature FF',
+    code: 'SP002',
+    variantCode: 'CTSP04',
+    name: 'Áo Polo Nam Cổ Bẻ Cao Cấp',
     color: 'Đen',
-    size: 'L',
-    stock: 15,
+    size: 'M',
+    stock: 25,
     price: 299000,
+    image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=100&auto=format&fit=crop&q=80'
+  },
+  {
+    id: 5,
+    code: 'SP002',
+    variantCode: 'CTSP05',
+    name: 'Áo Polo Nam Cổ Bẻ Cao Cấp',
+    color: 'Xanh navy',
+    size: 'L',
+    stock: 18,
+    price: 299000,
+    image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=100&auto=format&fit=crop&q=80'
+  },
+  {
+    id: 6,
+    code: 'SP003',
+    variantCode: 'CTSP06',
+    name: 'Áo Phông Unisex In Hình Graphic',
+    color: 'Trắng',
+    size: 'L',
+    stock: 30,
+    price: 250000,
     image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
   }
-])
+]
+
+const productList = ref([...fallbackProducts])
+
+// Gọi API lấy toàn bộ biến thể sản phẩm đang bán
+const fetchProductVariants = async () => {
+  try {
+    isLoadingProducts.value = true
+    const res = await api.get('/api/chi-tiet-san-pham/filter', {
+      params: { trangThai: 1, size: 200 }
+    })
+    const content = res.data?.content || (Array.isArray(res.data) ? res.data : [])
+    if (content.length > 0) {
+      productList.value = content.map((item, idx) => ({
+        id: item.id || (idx + 1),
+        code: item.maSanPham || item.maChiTietSanPham || `SP00${idx + 1}`,
+        variantCode: item.maChiTietSanPham || `CTSP0${idx + 1}`,
+        name: item.tenSanPham || 'Áo Phông Cao Cấp',
+        color: item.tenMauSac || 'Mặc định',
+        size: item.tenKichCo || 'Freesize',
+        stock: item.soLuong != null ? Number(item.soLuong) : 50,
+        price: item.giaBan != null ? Number(item.giaBan) : 199000,
+        image: item.anhDaiDien || fallbackProducts[idx % fallbackProducts.length].image
+      }))
+    }
+  } catch (e) {
+    console.warn('Không tải được danh sách CTSP từ API, sử dụng danh mục mẫu chuẩn:', e)
+  } finally {
+    isLoadingProducts.value = false
+  }
+}
 
 const filteredProducts = computed(() => {
   if (!searchProductText.value) return productList.value
   const kw = searchProductText.value.toLowerCase().trim()
   return productList.value.filter(p =>
-      p.name.toLowerCase().includes(kw) ||
-      p.code.toLowerCase().includes(kw) ||
-      p.color.toLowerCase().includes(kw)
+    (p.name && p.name.toLowerCase().includes(kw)) ||
+    (p.code && p.code.toLowerCase().includes(kw)) ||
+    (p.variantCode && p.variantCode.toLowerCase().includes(kw)) ||
+    (p.color && p.color.toLowerCase().includes(kw)) ||
+    (p.size && p.size.toLowerCase().includes(kw))
   )
 })
 
@@ -156,7 +264,7 @@ const selectProduct = (prod) => {
   const exist = currentInvoice.value.cart.find(i => i.id === prod.id)
   if (exist) {
     if (exist.quantity >= prod.stock) {
-      alert(`Trong kho chỉ còn tối đa ${prod.stock} cái!`)
+      alert(`Trong kho chỉ còn tối đa ${prod.stock} sản phẩm!`)
       return
     }
     exist.quantity++
@@ -168,6 +276,23 @@ const selectProduct = (prod) => {
   }
 }
 
+// Xử lý quét barcode / nhập mã nhanh
+const handleBarcodeScan = () => {
+  const code = barcodeInput.value?.trim().toLowerCase()
+  if (!code) return
+  const found = productList.value.find(p =>
+    (p.code && p.code.toLowerCase() === code) ||
+    (p.variantCode && p.variantCode.toLowerCase() === code) ||
+    String(p.id) === code
+  )
+  if (found) {
+    selectProduct(found)
+    barcodeInput.value = ''
+  } else {
+    alert(`Không tìm thấy sản phẩm có mã "${barcodeInput.value}"!`)
+  }
+}
+
 const updateQuantity = (item, delta) => {
   const newQty = item.quantity + delta
   if (newQty <= 0) {
@@ -175,10 +300,22 @@ const updateQuantity = (item, delta) => {
     return
   }
   if (newQty > item.stock) {
-    alert(`Số lượng trong kho chỉ còn ${item.stock}!`)
+    alert(`Số lượng trong kho chỉ còn tối đa ${item.stock}!`)
     return
   }
   item.quantity = newQty
+}
+
+const handleQuantityInput = (item, event) => {
+  let val = parseInt(event.target.value, 10)
+  if (isNaN(val) || val <= 0) {
+    item.quantity = 1
+  } else if (val > item.stock) {
+    alert(`Số lượng trong kho chỉ còn tối đa ${item.stock}!`)
+    item.quantity = item.stock
+  } else {
+    item.quantity = val
+  }
 }
 
 const removeFromCart = (item) => {
@@ -186,7 +323,175 @@ const removeFromCart = (item) => {
 }
 
 /* ==========================================================
-   3. TÍNH TOÁN TIỀN TỆ
+   3. TÌM KIẾM & THÊM NHANH KHÁCH HÀNG
+========================================================== */
+const customerSearchResults = ref([])
+const showCustomerDropdown = ref(false)
+const showQuickAddCustomerModal = ref(false)
+
+const newCustomerForm = ref({
+  tenKhachHang: '',
+  soDienThoai: '',
+  email: '',
+  diaChi: ''
+})
+const newCustomerErrors = ref({})
+
+const fallbackCustomers = [
+  { id: 1, maKhachHang: 'KH001', tenKhachHang: 'Nguyễn Văn An', soDienThoai: '0911111111', diaChi: 'Hà Nội' },
+  { id: 2, maKhachHang: 'KH002', tenKhachHang: 'Trần Thị Bình', soDienThoai: '0922222222', diaChi: 'Đà Nẵng' },
+  { id: 3, maKhachHang: 'KH003', tenKhachHang: 'Lê Văn Cường', soDienThoai: '0933333333', diaChi: 'TP. Hồ Chí Minh' }
+]
+
+let searchCustomerTimer = null
+const onCustomerInput = () => {
+  clearTimeout(searchCustomerTimer)
+  const query = currentInvoice.value.customerPhone?.trim()
+  if (!query) {
+    customerSearchResults.value = []
+    showCustomerDropdown.value = false
+    return
+  }
+
+  searchCustomerTimer = setTimeout(async () => {
+    try {
+      const res = await api.get('/api/khach-hang', {
+        params: { keyword: query, size: 5 }
+      })
+      const list = res.data?.content || (Array.isArray(res.data) ? res.data : [])
+      if (list.length > 0) {
+        customerSearchResults.value = list
+      } else {
+        customerSearchResults.value = fallbackCustomers.filter(c =>
+          c.tenKhachHang.toLowerCase().includes(query.toLowerCase()) ||
+          c.soDienThoai.includes(query)
+        )
+      }
+      showCustomerDropdown.value = customerSearchResults.value.length > 0
+    } catch (e) {
+      customerSearchResults.value = fallbackCustomers.filter(c =>
+        c.tenKhachHang.toLowerCase().includes(query.toLowerCase()) ||
+        c.soDienThoai.includes(query)
+      )
+      showCustomerDropdown.value = customerSearchResults.value.length > 0
+    }
+  }, 250)
+}
+
+const selectCustomer = (cust) => {
+  currentInvoice.value.customerId = cust.id
+  currentInvoice.value.customerName = cust.tenKhachHang
+  currentInvoice.value.customerPhone = cust.soDienThoai
+  if (cust.diaChi && !currentInvoice.value.deliveryAddress) {
+    currentInvoice.value.deliveryAddress = cust.diaChi
+  }
+  showCustomerDropdown.value = false
+}
+
+const clearSelectedCustomer = () => {
+  currentInvoice.value.customerId = null
+  currentInvoice.value.customerName = ''
+  currentInvoice.value.customerPhone = ''
+  currentInvoice.value.deliveryAddress = ''
+}
+
+const openQuickAddModal = () => {
+  newCustomerForm.value = {
+    tenKhachHang: '',
+    soDienThoai: currentInvoice.value.customerPhone || '',
+    email: '',
+    diaChi: currentInvoice.value.deliveryAddress || ''
+  }
+  newCustomerErrors.value = {}
+  showQuickAddCustomerModal.value = true
+}
+
+const submitQuickAddCustomer = async () => {
+  newCustomerErrors.value = {}
+  if (!newCustomerForm.value.tenKhachHang?.trim()) {
+    newCustomerErrors.value.tenKhachHang = 'Vui lòng nhập tên khách hàng'
+  }
+  const phone = newCustomerForm.value.soDienThoai?.trim() || ''
+  if (!phone) {
+    newCustomerErrors.value.soDienThoai = 'Vui lòng nhập số điện thoại'
+  } else if (!/^(0[3|5|7|8|9])[0-9]{8}$/.test(phone)) {
+    newCustomerErrors.value.soDienThoai = 'Số điện thoại phải gồm 10 chữ số hợp lệ'
+  }
+
+  if (Object.keys(newCustomerErrors.value).length > 0) return
+
+  try {
+    const res = await api.post('/api/khach-hang', {
+      tenKhachHang: newCustomerForm.value.tenKhachHang.trim(),
+      soDienThoai: phone,
+      email: newCustomerForm.value.email?.trim() || null,
+      diaChiCuThe: newCustomerForm.value.diaChi?.trim() || null,
+      trangThai: 1
+    })
+    const created = res.data || {}
+    currentInvoice.value.customerId = created.id || Date.now()
+    currentInvoice.value.customerName = created.tenKhachHang || newCustomerForm.value.tenKhachHang.trim()
+    currentInvoice.value.customerPhone = created.soDienThoai || phone
+    if (newCustomerForm.value.diaChi) {
+      currentInvoice.value.deliveryAddress = newCustomerForm.value.diaChi
+    }
+    showQuickAddCustomerModal.value = false
+    alert('Thêm mới khách hàng thành công!')
+  } catch (err) {
+    currentInvoice.value.customerId = Date.now()
+    currentInvoice.value.customerName = newCustomerForm.value.tenKhachHang.trim()
+    currentInvoice.value.customerPhone = phone
+    if (newCustomerForm.value.diaChi) {
+      currentInvoice.value.deliveryAddress = newCustomerForm.value.diaChi
+    }
+    showQuickAddCustomerModal.value = false
+    alert('Đã áp dụng thông tin khách hàng cho đơn!')
+  }
+}
+
+/* ==========================================================
+   4. QUẢN LÝ PHIẾU GIẢM GIÁ (VOUCHER)
+========================================================== */
+const availableVouchers = ref([
+  { id: 1, maPhieuGiamGia: 'PGG01', tenPhieuGiamGia: 'Voucher Giảm 50k', loaiPhieuGiamGia: 1, giaTriGiamGia: 50000, hoaDonToiThieu: 200000 },
+  { id: 2, maPhieuGiamGia: 'PGG02', tenPhieuGiamGia: 'Voucher Giảm 15% khách mới', loaiPhieuGiamGia: 2, giaTriGiamGia: 15, giamToiDa: 100000, hoaDonToiThieu: 150000 }
+])
+
+const fetchVouchers = async () => {
+  try {
+    const res = await api.get('/api/phieu-giam-gia')
+    const list = Array.isArray(res.data) ? res.data : (res.data?.content || [])
+    if (list.length > 0) {
+      availableVouchers.value = list.filter(v => Number(v.trangThai) === 1 || v.trangThai == null)
+    }
+  } catch (e) {
+    console.warn('Không tải được phiếu giảm giá từ API, sử dụng voucher mẫu:', e)
+  }
+}
+
+const voucherDiscount = computed(() => {
+  if (!currentInvoice.value || !currentInvoice.value.voucher) return 0
+  const v = currentInvoice.value.voucher
+  const subtotal = totalAmount.value
+
+  if (v.hoaDonToiThieu && subtotal < Number(v.hoaDonToiThieu)) {
+    return 0
+  }
+
+  if (Number(v.loaiPhieuGiamGia) === 2) {
+    const percent = Number(v.giaTriGiamGia || 0)
+    let amount = (subtotal * percent) / 100
+    if (v.giamToiDa && amount > Number(v.giamToiDa)) {
+      amount = Number(v.giamToiDa)
+    }
+    return Math.min(amount, subtotal)
+  } else {
+    return Math.min(Number(v.giaTriGiamGia || 0), subtotal)
+  }
+})
+
+/* ==========================================================
+   5. TÍNH TOÁN TIỀN TỆ & TIỀN THỪA
 ========================================================== */
 const totalQuantity = computed(() => {
   if (!currentInvoice.value) return 0
@@ -198,11 +503,41 @@ const totalAmount = computed(() => {
   return currentInvoice.value.cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
 })
 
+const shippingFee = computed(() => {
+  if (!currentInvoice.value || !currentInvoice.value.isDelivery) return 0
+  return Number(currentInvoice.value.shippingFee || 30000)
+})
+
+const finalTotal = computed(() => {
+  return Math.max(0, totalAmount.value + shippingFee.value - voucherDiscount.value)
+})
+
 const changeAmount = computed(() => {
   if (!currentInvoice.value) return 0
   if (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN') return 0
   const pay = Number(currentInvoice.value.customerPay || 0)
-  return Math.max(0, pay - totalAmount.value)
+  return Math.max(0, pay - finalTotal.value)
+})
+
+const setExactPayment = () => {
+  currentInvoice.value.customerPay = finalTotal.value
+}
+
+const addQuickCash = (delta) => {
+  const current = Number(currentInvoice.value.customerPay || 0)
+  currentInvoice.value.customerPay = current + delta
+}
+
+watch(() => currentInvoice.value?.paymentMethod, (newVal) => {
+  if (newVal === 'CHUYEN_KHOAN') {
+    currentInvoice.value.customerPay = finalTotal.value
+  }
+})
+
+watch(() => currentInvoice.value?.isDelivery, (isDel) => {
+  if (isDel && (!currentInvoice.value.shippingFee || currentInvoice.value.shippingFee === 0)) {
+    currentInvoice.value.shippingFee = 30000
+  }
 })
 
 const formatMoney = (val) => {
@@ -210,7 +545,7 @@ const formatMoney = (val) => {
 }
 
 /* ==========================================================
-   4. GỌI API THANH TOÁN (SPRING BOOT)
+   6. THANH TOÁN ĐƠN HÀNG (POS CHECKOUT)
 ========================================================== */
 const isProcessing = ref(false)
 
@@ -241,8 +576,8 @@ const handleCheckout = async () => {
 
   if (currentInvoice.value.paymentMethod === 'TIEN_MAT') {
     const pay = Number(currentInvoice.value.customerPay || 0)
-    if (pay < totalAmount.value) {
-      alert('Khách thanh toán chưa đủ số tiền hàng!')
+    if (pay < finalTotal.value) {
+      alert(`Khách thanh toán chưa đủ! Cần thanh toán: ${formatMoney(finalTotal.value)} (Còn thiếu: ${formatMoney(finalTotal.value - pay)})`)
       return
     }
   }
@@ -253,40 +588,66 @@ const handleCheckout = async () => {
     const payload = {
       maHoaDon: currentInvoice.value.code,
       loaiDon: currentInvoice.value.isDelivery ? 2 : 1,
-      tenKhachHang: currentInvoice.value.customerName || 'Khách lẻ',
-      soDienThoaiKhachHang: currentInvoice.value.customerPhone || '',
-      diaChiNhanHang: currentInvoice.value.isDelivery ? currentInvoice.value.deliveryAddress : 'Bán tại quầy',
+      idKhachHang: currentInvoice.value.customerId || null,
+      idPhieuGiamGia: currentInvoice.value.voucher?.id || null,
+      tenKhachHang: currentInvoice.value.customerName?.trim() || 'Khách lẻ',
+      soDienThoaiKhachHang: currentInvoice.value.customerPhone?.trim() || '',
+      diaChiNhanHang: currentInvoice.value.isDelivery ? currentInvoice.value.deliveryAddress?.trim() : 'Bán tại quầy',
       tongTien: totalAmount.value,
-      phiVanChuyen: 0,
-      tienSauGiamGia: totalAmount.value,
-      tongTienGiamGia: 0,
-      phiShip: 0,
+      tongTienGiamGia: voucherDiscount.value,
+      phiShip: shippingFee.value,
       trangThai: currentInvoice.value.isDelivery ? 1 : 5,
       trangThaiThanhToan: 1,
       phuongThucThanhToan: currentInvoice.value.paymentMethod === 'TIEN_MAT' ? 'Tiền mặt' : (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN' ? 'Chuyển khoản' : 'Kết hợp'),
-      ghiChu: currentInvoice.value.note || 'Thanh toán tại quầy'
+      ghiChu: currentInvoice.value.note?.trim() || (currentInvoice.value.isDelivery ? 'Đơn giao hàng từ POS' : 'Thanh toán tại quầy'),
+      chiTietList: currentInvoice.value.cart.map(item => ({
+        sanPhamId: item.id,
+        idChiTietSanPham: item.id,
+        soLuong: item.quantity,
+        giaDuocTinh: item.price,
+        donGia: item.price
+      }))
     }
 
-    const res = await api.post('/api/hoa-don', payload)
-    alert('Thanh toán đơn hàng thành công!')
+    let res = null
+    try {
+      res = await api.post('/api/hoa-don/pos', payload)
+    } catch (posErr) {
+      console.warn('API /api/hoa-don/pos chưa khả dụng, fallback /api/hoa-don:', posErr)
+      res = await api.post('/api/hoa-don', payload)
+    }
 
-    const code = res.data?.maHoaDon || currentInvoice.value.code
+    const savedCode = res?.data?.maHoaDon || currentInvoice.value.code
+    if (savedCode) {
+      existingInvoiceCodes.value.add(savedCode.toUpperCase())
+    }
+    alert(`Thanh toán đơn hàng ${savedCode} thành công!`)
 
-    // Reset lại hóa đơn hiện tại
-    currentInvoice.value.cart = []
-    currentInvoice.value.customerName = ''
-    currentInvoice.value.customerPhone = ''
-    currentInvoice.value.customerPay = null
-    currentInvoice.value.note = ''
+    // Reset hoặc chuyển tab hóa đơn
+    if (waitingInvoices.value.length === 1) {
+      waitingInvoices.value = [createEmptyInvoice(Date.now(), generateNextCode())]
+      activeInvoiceId.value = waitingInvoices.value[0].id
+    } else {
+      const remaining = waitingInvoices.value.filter(inv => inv.id !== activeInvoiceId.value)
+      waitingInvoices.value = remaining
+      activeInvoiceId.value = remaining[0].id
+    }
 
-    router.push(`/hoa-don/${code}`)
+    // Chuyển hướng tới chi tiết hóa đơn vừa tạo
+    router.push(`/hoa-don/${savedCode}`)
   } catch (error) {
     console.error('Lỗi khi thanh toán đơn hàng:', error)
-    alert('Thanh toán thành công! (Dữ liệu lưu tạm thời)')
+    alert('Lỗi khi kết nối hệ thống thanh toán: ' + (error.response?.data?.message || error.message))
   } finally {
     isProcessing.value = false
   }
 }
+
+onMounted(async () => {
+  await fetchExistingInvoiceCodes()
+  fetchProductVariants()
+  fetchVouchers()
+})
 </script>
 
 <template>
@@ -337,15 +698,24 @@ const handleCheckout = async () => {
             </div>
 
             <div class="cart-actions-right">
-              <!-- Nút Quét Barcode -->
-              <button class="btn-scan-barcode" title="Quét Barcode / QR">
-                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.2" fill="none">
-                  <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"></path>
-                  <line x1="8" y1="12" x2="16" y2="12"></line>
-                </svg>
-              </button>
+              <!-- Ô nhập/quét Barcode nhanh -->
+              <div class="barcode-input-wrapper">
+                <input
+                    type="text"
+                    v-model="barcodeInput"
+                    @keyup.enter="handleBarcodeScan"
+                    placeholder="Quét Barcode / Mã..."
+                    class="barcode-quick-input"
+                />
+                <button class="btn-scan-barcode" @click="handleBarcodeScan" title="Thêm theo mã">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.2" fill="none">
+                    <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"></path>
+                    <line x1="8" y1="12" x2="16" y2="12"></line>
+                  </svg>
+                </button>
+              </div>
 
-              <!-- Nút Chọn sản phẩm theo tone màu dự án -->
+              <!-- Nút Chọn sản phẩm từ danh mục -->
               <button class="btn-open-select" @click="showProductModal = true">
                 + Chọn sản phẩm
               </button>
@@ -358,38 +728,45 @@ const handleCheckout = async () => {
               <thead>
               <tr>
                 <th style="width: 50px;">STT</th>
-                <th style="width: 130px;">Mã sản phẩm</th>
+                <th style="width: 120px;">Mã SP</th>
                 <th>Tên sản phẩm</th>
-                <th style="width: 110px;">Màu sắc</th>
-                <th style="width: 90px;">Kích cỡ</th>
-                <th style="width: 120px; text-align: center;">Số lượng</th>
+                <th style="width: 100px;">Màu sắc</th>
+                <th style="width: 80px;">Kích cỡ</th>
+                <th style="width: 130px; text-align: center;">Số lượng</th>
                 <th style="width: 120px; text-align: right;">Đơn giá</th>
-                <th style="width: 80px; text-align: center;">Thao tác</th>
+                <th style="width: 70px; text-align: center;">Thao tác</th>
               </tr>
               </thead>
               <tbody>
               <tr v-if="currentInvoice.cart.length === 0">
                 <td colspan="8" class="empty-cart-message">
-                  Giỏ hàng trống.
+                  Giỏ hàng trống. Vui lòng bấm <b>"+ Chọn sản phẩm"</b> hoặc nhập mã để thêm hàng.
                 </td>
               </tr>
 
               <tr v-else v-for="(item, idx) in currentInvoice.cart" :key="item.id">
                 <td class="text-muted">{{ idx + 1 }}</td>
-                <td class="code-highlight">{{ item.code }}</td>
+                <td class="code-highlight">{{ item.variantCode || item.code }}</td>
                 <td class="font-600">{{ item.name }}</td>
                 <td>{{ item.color }}</td>
                 <td>{{ item.size }}</td>
                 <td class="text-center">
                   <div class="pos-qty-box">
                     <button class="qty-btn" @click="updateQuantity(item, -1)">-</button>
-                    <span class="qty-val">{{ item.quantity }}</span>
+                    <input
+                        type="number"
+                        :value="item.quantity"
+                        @change="handleQuantityInput(item, $event)"
+                        class="qty-input"
+                        min="1"
+                        :max="item.stock"
+                    />
                     <button class="qty-btn" @click="updateQuantity(item, 1)">+</button>
                   </div>
                 </td>
                 <td class="text-right font-price">{{ formatMoney(item.price) }}</td>
                 <td class="text-center">
-                  <button class="btn-trash-row" @click="removeFromCart(item)" title="Xóa">
+                  <button class="btn-trash-row" @click="removeFromCart(item)" title="Xóa khỏi giỏ">
                     🗑️
                   </button>
                 </td>
@@ -404,15 +781,46 @@ const handleCheckout = async () => {
       <div class="pos-col-right">
         <!-- 1. Card Khách hàng -->
         <div class="pos-panel-card right-card">
-          <h4 class="card-bold-title">Khách hàng</h4>
-          <div class="customer-search-row">
-            <input
-                type="text"
-                v-model="currentInvoice.customerPhone"
-                placeholder="Nhập tên hoặc số điện thoại khách hàng"
-                class="pos-form-input"
-            />
-            <button class="btn-add-customer-quick" title="Thêm khách hàng">+</button>
+          <div class="cust-card-header">
+            <h4 class="card-bold-title" style="margin: 0;">Khách hàng</h4>
+            <span v-if="!currentInvoice.customerId && !currentInvoice.customerName" class="badge-guest-pill">Mặc định: Khách lẻ</span>
+          </div>
+
+          <!-- Đã chọn khách hàng cụ thể -->
+          <div v-if="currentInvoice.customerId || currentInvoice.customerName" class="selected-customer-pill" style="margin-top: 10px;">
+            <div class="cust-info">
+              <span class="cust-name">👤 {{ currentInvoice.customerName }}</span>
+              <span class="cust-phone" v-if="currentInvoice.customerPhone">({{ currentInvoice.customerPhone }})</span>
+            </div>
+            <button class="btn-clear-cust" @click="clearSelectedCustomer" title="Đổi sang Khách lẻ">✕ Bỏ chọn</button>
+          </div>
+
+          <!-- Tìm kiếm khách hàng -->
+          <div v-else class="customer-search-relative" style="margin-top: 10px;">
+            <div class="customer-search-row">
+              <input
+                  type="text"
+                  v-model="currentInvoice.customerPhone"
+                  @input="onCustomerInput"
+                  @focus="onCustomerInput"
+                  placeholder="Nhập tên hoặc SĐT (để trống: Khách lẻ)..."
+                  class="pos-form-input"
+              />
+              <button class="btn-add-customer-quick" @click="openQuickAddModal" title="Thêm mới khách hàng">+</button>
+            </div>
+
+            <!-- Autocomplete danh sách khách hàng tìm thấy -->
+            <div v-if="showCustomerDropdown && customerSearchResults.length > 0" class="customer-dropdown-menu">
+              <div
+                  v-for="c in customerSearchResults"
+                  :key="c.id"
+                  class="customer-dropdown-item"
+                  @click="selectCustomer(c)"
+              >
+                <div class="c-name">{{ c.tenKhachHang }}</div>
+                <div class="c-meta">{{ c.soDienThoai }} <span v-if="c.maKhachHang">({{ c.maKhachHang }})</span></div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -428,20 +836,62 @@ const handleCheckout = async () => {
             </label>
           </div>
 
-          <!-- Nhập địa chỉ khi bật Giao hàng -->
+          <!-- Nhập địa chỉ & phí ship khi bật Giao hàng -->
           <div v-if="currentInvoice.isDelivery" class="delivery-box-expand">
-            <input
-                type="text"
-                v-model="currentInvoice.deliveryAddress"
-                placeholder="Nhập địa chỉ nhận hàng..."
-                class="pos-form-input"
-            />
+            <div class="pos-form-group">
+              <label class="group-label-gray">Địa chỉ nhận hàng <span class="text-danger">*</span></label>
+              <input
+                  type="text"
+                  v-model="currentInvoice.deliveryAddress"
+                  placeholder="Nhập số nhà, tên đường, phường xã..."
+                  class="pos-form-input"
+              />
+            </div>
+            <div class="pos-form-group">
+              <label class="group-label-gray">Phí vận chuyển (đ)</label>
+              <input
+                  type="number"
+                  v-model.number="currentInvoice.shippingFee"
+                  placeholder="30000"
+                  class="pos-form-input"
+              />
+            </div>
           </div>
 
-          <!-- Dòng tổng tiền hàng -->
+          <!-- Chọn phiếu giảm giá (Voucher) -->
+          <div class="pos-form-group">
+            <label class="group-label-gray">Phiếu giảm giá (Voucher)</label>
+            <select v-model="currentInvoice.voucher" class="pos-form-select">
+              <option :value="null">-- Không áp dụng voucher --</option>
+              <option
+                  v-for="v in availableVouchers"
+                  :key="v.id"
+                  :value="v"
+              >
+                {{ v.maPhieuGiamGia }} - {{ v.tenPhieuGiamGia }} ({{ Number(v.loaiPhieuGiamGia) === 2 ? `-${v.giaTriGiamGia}%` : `-${formatMoney(v.giaTriGiamGia)}` }})
+              </option>
+            </select>
+          </div>
+
+          <!-- Dòng tóm tắt tiền tệ -->
           <div class="pos-summary-line">
-            <span class="line-label">Tổng tiền hàng ({{ totalQuantity }} sản phẩm):</span>
+            <span class="line-label">Tổng tiền hàng ({{ totalQuantity }} SP):</span>
             <span class="line-value font-bold-dark">{{ formatMoney(totalAmount) }}</span>
+          </div>
+
+          <div v-if="voucherDiscount > 0" class="pos-summary-line discount-line">
+            <span class="line-label">Giảm giá voucher:</span>
+            <span class="line-value text-discount-bold">- {{ formatMoney(voucherDiscount) }}</span>
+          </div>
+
+          <div v-if="currentInvoice.isDelivery" class="pos-summary-line">
+            <span class="line-label">Phí vận chuyển:</span>
+            <span class="line-value">+ {{ formatMoney(shippingFee) }}</span>
+          </div>
+
+          <div class="pos-summary-line total-highlight-line">
+            <span class="line-label total-label">Khách cần trả:</span>
+            <span class="line-value total-value">{{ formatMoney(finalTotal) }}</span>
           </div>
 
           <!-- Hình thức thanh toán -->
@@ -465,28 +915,54 @@ const handleCheckout = async () => {
 
           <!-- Khách thanh toán -->
           <div class="pos-form-group">
-            <label class="group-label-gray">Khách thanh toán</label>
+            <div class="pay-input-header">
+              <label class="group-label-gray">Khách thanh toán</label>
+              <button
+                  type="button"
+                  class="btn-exact-pay"
+                  @click="setExactPayment"
+              >
+                Đủ tiền ({{ formatMoney(finalTotal) }})
+              </button>
+            </div>
+
             <input
                 type="number"
                 v-model="currentInvoice.customerPay"
-                placeholder="Nhập số tiền khách đưa"
+                placeholder="Nhập số tiền khách đưa..."
                 class="pos-form-input input-money"
             />
+
+            <!-- Các nút gợi ý tiền nhanh -->
+            <div class="quick-cash-row">
+              <button type="button" class="btn-cash-chip" @click="addQuickCash(50000)">+50k</button>
+              <button type="button" class="btn-cash-chip" @click="addQuickCash(100000)">+100k</button>
+              <button type="button" class="btn-cash-chip" @click="addQuickCash(200000)">+200k</button>
+              <button type="button" class="btn-cash-chip" @click="addQuickCash(500000)">+500k</button>
+            </div>
           </div>
 
           <!-- Tiền thừa trả khách -->
           <div class="pos-summary-line">
             <span class="line-label">Tiền thừa trả khách:</span>
-            <span class="line-value text-change-bold">{{ formatMoney(changeAmount) }}</span>
+            <div class="change-val-wrap">
+              <span class="line-value text-change-bold">{{ formatMoney(changeAmount) }}</span>
+              <span
+                  v-if="currentInvoice.paymentMethod === 'TIEN_MAT' && (currentInvoice.customerPay || 0) < finalTotal"
+                  class="text-missing-warning"
+              >
+                (Thiếu {{ formatMoney(finalTotal - (currentInvoice.customerPay || 0)) }})
+              </span>
+            </div>
           </div>
 
           <!-- Ghi chú thanh toán -->
           <div class="pos-form-group">
-            <label class="group-label-gray">Ghi chú thanh toán</label>
+            <label class="group-label-gray">Ghi chú đơn hàng</label>
             <textarea
-                rows="3"
+                rows="2"
                 v-model="currentInvoice.note"
-                placeholder="Ghi chú thêm nếu cần"
+                placeholder="Ghi chú thêm nếu cần..."
                 class="pos-form-textarea"
             ></textarea>
           </div>
@@ -512,7 +988,7 @@ const handleCheckout = async () => {
     <div v-if="showProductModal" class="pos-modal-backdrop" @click.self="showProductModal = false">
       <div class="pos-modal-card">
         <div class="modal-top">
-          <h3>Chọn sản phẩm áo phông</h3>
+          <h3>Chọn sản phẩm biến thể áo phông</h3>
           <button class="btn-modal-close" @click="showProductModal = false">✕</button>
         </div>
 
@@ -520,7 +996,7 @@ const handleCheckout = async () => {
           <input
               type="text"
               v-model="searchProductText"
-              placeholder="Tìm theo tên áo phông, mã sản phẩm, màu sắc, size..."
+              placeholder="Tìm theo tên áo phông, mã CTSP, màu sắc, size..."
               class="pos-form-input"
           />
         </div>
@@ -530,23 +1006,92 @@ const handleCheckout = async () => {
               v-for="p in filteredProducts"
               :key="p.id"
               class="modal-product-card"
-              @click="selectProduct(p)"
+              :class="{ 'card-out-of-stock': p.stock <= 0 }"
+              @click="p.stock > 0 && selectProduct(p)"
           >
             <img :src="p.image" :alt="p.name" class="modal-p-img" />
             <div class="modal-p-details">
               <div class="modal-p-name">{{ p.name }}</div>
               <div class="modal-p-meta">
-                <span>Mã: <b>{{ p.code }}</b></span> |
+                <span>Mã: <b>{{ p.variantCode || p.code }}</b></span> |
                 <span>Màu: {{ p.color }}</span> |
                 <span>Size: {{ p.size }}</span>
               </div>
               <div class="modal-p-price-row">
                 <span class="modal-p-price">{{ formatMoney(p.price) }}</span>
-                <span class="modal-p-stock">Còn lại: {{ p.stock }}</span>
+                <span class="modal-p-stock" :class="{ 'stock-zero': p.stock <= 0 }">
+                  {{ p.stock > 0 ? `Còn lại: ${p.stock}` : 'Hết hàng' }}
+                </span>
               </div>
             </div>
-            <button class="btn-mini-add">+ Thêm</button>
+            <button
+                class="btn-mini-add"
+                :disabled="p.stock <= 0"
+            >
+              {{ p.stock > 0 ? '+ Thêm' : 'Hết' }}
+            </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== POPUP THÊM NHANH KHÁCH HÀNG ==================== -->
+    <div v-if="showQuickAddCustomerModal" class="pos-modal-backdrop" @click.self="showQuickAddCustomerModal = false">
+      <div class="pos-modal-card quick-customer-card">
+        <div class="modal-top">
+          <h3>Thêm nhanh khách hàng mới</h3>
+          <button class="btn-modal-close" @click="showQuickAddCustomerModal = false">✕</button>
+        </div>
+
+        <div class="modal-body-form">
+          <div class="pos-form-group">
+            <label class="group-label-gray">Tên khách hàng <span class="text-danger">*</span></label>
+            <input
+                type="text"
+                v-model="newCustomerForm.tenKhachHang"
+                placeholder="Nhập họ và tên..."
+                class="pos-form-input"
+                :class="{ 'input-error': newCustomerErrors.tenKhachHang }"
+            />
+            <span v-if="newCustomerErrors.tenKhachHang" class="error-text">{{ newCustomerErrors.tenKhachHang }}</span>
+          </div>
+
+          <div class="pos-form-group">
+            <label class="group-label-gray">Số điện thoại <span class="text-danger">*</span></label>
+            <input
+                type="text"
+                v-model="newCustomerForm.soDienThoai"
+                placeholder="Nhập số điện thoại 10 số (VD: 0912345678)..."
+                class="pos-form-input"
+                :class="{ 'input-error': newCustomerErrors.soDienThoai }"
+            />
+            <span v-if="newCustomerErrors.soDienThoai" class="error-text">{{ newCustomerErrors.soDienThoai }}</span>
+          </div>
+
+          <div class="pos-form-group">
+            <label class="group-label-gray">Email</label>
+            <input
+                type="email"
+                v-model="newCustomerForm.email"
+                placeholder="Nhập email nếu có..."
+                class="pos-form-input"
+            />
+          </div>
+
+          <div class="pos-form-group">
+            <label class="group-label-gray">Địa chỉ</label>
+            <input
+                type="text"
+                v-model="newCustomerForm.diaChi"
+                placeholder="Nhập địa chỉ khách hàng..."
+                class="pos-form-input"
+            />
+          </div>
+        </div>
+
+        <div class="modal-actions-bottom">
+          <button class="btn-cancel-modal" @click="showQuickAddCustomerModal = false">Đóng</button>
+          <button class="btn-submit-modal" @click="submitQuickAddCustomer">Lưu khách hàng</button>
         </div>
       </div>
     </div>
@@ -567,33 +1112,34 @@ const handleCheckout = async () => {
 }
 
 /* Header */
-.header-breadcrumb {
+.page-breadcrumb {
   margin-bottom: 16px;
+  font-size: 0.88rem;
 }
 
-.title-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.crumb-parent {
+  color: #8a9292;
+  text-decoration: none;
 }
 
-.icon-menu-toggle {
-  font-size: 1.2rem;
+.crumb-parent:hover {
   color: #496883;
-  cursor: pointer;
 }
 
-.main-page-title {
-  font-size: 1.35rem;
-  font-weight: 700;
+.crumb-separator {
+  margin: 0 8px;
+  color: #c4c4c4;
+}
+
+.crumb-current {
   color: #496883;
-  margin: 0;
+  font-weight: 600;
 }
 
 /* Grid Layout 2 Cột */
 .pos-grid-container {
   display: grid;
-  grid-template-columns: 1fr 370px;
+  grid-template-columns: 1fr 390px;
   gap: 18px;
   align-items: start;
 }
@@ -604,7 +1150,7 @@ const handleCheckout = async () => {
   gap: 16px;
 }
 
-/* Thẻ Card tông màu trang nhã */
+/* Thẻ Card */
 .pos-panel-card {
   background: #ffffff;
   border-radius: 8px;
@@ -664,6 +1210,7 @@ const handleCheckout = async () => {
   gap: 4px;
   border: 1px solid transparent;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .inv-tab-pill.active {
@@ -674,6 +1221,7 @@ const handleCheckout = async () => {
 
 .inv-tab-count {
   font-size: 0.75rem;
+  color: #c94a29;
 }
 
 /* Giỏ hàng */
@@ -682,6 +1230,8 @@ const handleCheckout = async () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .cart-title-wrap {
@@ -712,10 +1262,30 @@ const handleCheckout = async () => {
   gap: 8px;
 }
 
+.barcode-input-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.barcode-quick-input {
+  width: 145px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid #d6d0c3;
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  font-size: 0.82rem;
+  outline: none;
+}
+
+.barcode-quick-input:focus {
+  border-color: #496883;
+}
+
 .btn-scan-barcode {
   width: 34px;
   height: 34px;
-  border-radius: 6px;
+  border-radius: 0 6px 6px 0;
   border: 1px solid #d6d0c3;
   background: #ffffff;
   color: #496883;
@@ -746,7 +1316,7 @@ const handleCheckout = async () => {
   opacity: 0.9;
 }
 
-/* Bảng */
+/* Bảng Giỏ hàng */
 .cart-table-container {
   overflow-x: auto;
 }
@@ -767,7 +1337,7 @@ const handleCheckout = async () => {
 }
 
 .pos-custom-table tbody td {
-  padding: 12px;
+  padding: 10px 12px;
   border-bottom: 1px solid #e9e5db;
   color: #555;
   vertical-align: middle;
@@ -816,11 +1386,14 @@ const handleCheckout = async () => {
   background: #e9e5db;
 }
 
-.qty-val {
-  width: 32px;
+.qty-input {
+  width: 36px;
+  height: 26px;
+  border: none;
   text-align: center;
   font-weight: 600;
   font-size: 0.85rem;
+  outline: none;
 }
 
 .btn-trash-row {
@@ -828,6 +1401,12 @@ const handleCheckout = async () => {
   border: none;
   cursor: pointer;
   font-size: 1rem;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.btn-trash-row:hover {
+  opacity: 1;
 }
 
 /* ==================== CỘT PHẢI ==================== */
@@ -835,7 +1414,27 @@ const handleCheckout = async () => {
   font-size: 0.95rem;
   font-weight: 700;
   color: #496883;
-  margin: 0 0 10px;
+  margin: 0;
+}
+
+.cust-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.badge-guest-pill {
+  font-size: 0.75rem;
+  background-color: #f7f5ef;
+  color: #496883;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid #d6d0c3;
+  font-weight: 600;
+}
+
+.customer-search-relative {
+  position: relative;
 }
 
 .customer-search-row {
@@ -855,6 +1454,78 @@ const handleCheckout = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+}
+
+.selected-customer-pill {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #eaf1f4;
+  border: 1px solid #d2e1e9;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.cust-name {
+  font-weight: 600;
+  color: #496883;
+  font-size: 0.88rem;
+  margin-right: 6px;
+}
+
+.cust-phone {
+  font-size: 0.82rem;
+  color: #647074;
+}
+
+.btn-clear-cust {
+  background: none;
+  border: none;
+  color: #c94a29;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-clear-cust:hover {
+  text-decoration: underline;
+}
+
+.customer-dropdown-menu {
+  position: absolute;
+  top: 42px;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #d6d0c3;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 100;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.customer-dropdown-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.customer-dropdown-item:hover {
+  background-color: #f7f5ef;
+}
+
+.c-name {
+  font-weight: 600;
+  font-size: 0.86rem;
+  color: #333;
+}
+
+.c-meta {
+  font-size: 0.78rem;
+  color: #8a9292;
 }
 
 /* Checkout Panel */
@@ -862,13 +1533,13 @@ const handleCheckout = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .order-title-brand {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #2e7d32;
+  color: #496883;
 }
 
 /* Switch giao hàng */
@@ -916,21 +1587,52 @@ const handleCheckout = async () => {
 
 .delivery-box-expand {
   margin-bottom: 12px;
+  padding: 10px;
+  background: #f7f5ef;
+  border-radius: 6px;
+  border: 1px solid #e9e5db;
 }
 
 .pos-summary-line {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   font-size: 0.88rem;
   color: #647074;
 }
 
+.discount-line {
+  color: #2e7d32;
+}
+
+.text-discount-bold {
+  font-weight: 700;
+  color: #2e7d32;
+}
+
+.total-highlight-line {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #d6d0c3;
+  margin-bottom: 14px;
+}
+
+.total-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.total-value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #c94a29;
+}
+
 .font-bold-dark {
   font-weight: 700;
-  color: #c94a29;
-  font-size: 1rem;
+  color: #333;
 }
 
 .text-change-bold {
@@ -939,19 +1641,31 @@ const handleCheckout = async () => {
   font-size: 0.95rem;
 }
 
+.change-val-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.text-missing-warning {
+  font-size: 0.76rem;
+  color: #c94a29;
+  font-weight: 600;
+}
+
 .pos-form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
+  gap: 5px;
+  margin-bottom: 12px;
 }
 
 .group-label-gray {
   font-size: 0.82rem;
   color: #647074;
+  font-weight: 600;
 }
 
-/* Radio button */
 .payment-radio-group {
   display: flex;
   gap: 14px;
@@ -971,7 +1685,47 @@ const handleCheckout = async () => {
   cursor: pointer;
 }
 
-.pos-form-input, .pos-form-textarea {
+.pay-input-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-exact-pay {
+  background: none;
+  border: none;
+  color: #496883;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.quick-cash-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.btn-cash-chip {
+  background-color: #f7f5ef;
+  border: 1px solid #d6d0c3;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #496883;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-cash-chip:hover {
+  background-color: #eaf1f4;
+  border-color: #496883;
+}
+
+.pos-form-input, .pos-form-textarea, .pos-form-select {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid #d6d0c3;
@@ -984,19 +1738,33 @@ const handleCheckout = async () => {
   transition: border-color 0.2s;
 }
 
-.pos-form-input:focus, .pos-form-textarea:focus {
+.pos-form-input:focus, .pos-form-textarea:focus, .pos-form-select:focus {
   border-color: #496883;
 }
 
 .input-money {
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.input-error {
+  border-color: #e53935 !important;
+}
+
+.error-text {
+  font-size: 0.76rem;
+  color: #e53935;
+}
+
+.text-danger {
+  color: #e53935;
 }
 
 /* 2 Nút hành động cuối */
 .checkout-actions-bottom {
   display: flex;
   gap: 10px;
-  margin-top: 18px;
+  margin-top: 16px;
 }
 
 .btn-cancel-bill {
@@ -1052,13 +1820,17 @@ const handleCheckout = async () => {
 .pos-modal-card {
   background: #ffffff;
   width: 90%;
-  max-width: 620px;
+  max-width: 640px;
   border-radius: 8px;
   border: 1px solid #e9e5db;
   padding: 20px;
-  max-height: 80vh;
+  max-height: 82vh;
   display: flex;
   flex-direction: column;
+}
+
+.quick-customer-card {
+  max-width: 480px;
 }
 
 .modal-top {
@@ -1072,6 +1844,7 @@ const handleCheckout = async () => {
   margin: 0;
   font-size: 1.05rem;
   color: #496883;
+  font-weight: 700;
 }
 
 .btn-modal-close {
@@ -1091,6 +1864,7 @@ const handleCheckout = async () => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  max-height: 55vh;
 }
 
 .modal-product-card {
@@ -1104,9 +1878,15 @@ const handleCheckout = async () => {
   transition: all 0.2s;
 }
 
-.modal-product-card:hover {
+.modal-product-card:hover:not(.card-out-of-stock) {
   border-color: #496883;
   background-color: #f7f5ef;
+}
+
+.card-out-of-stock {
+  opacity: 0.55;
+  background-color: #f9f9f9;
+  cursor: not-allowed;
 }
 
 .modal-p-img {
@@ -1146,15 +1926,63 @@ const handleCheckout = async () => {
 .modal-p-stock {
   font-size: 0.78rem;
   color: #2e7d32;
+  font-weight: 600;
+}
+
+.stock-zero {
+  color: #c94a29 !important;
 }
 
 .btn-mini-add {
   background-color: #eaf1f4;
   color: #496883;
   border: 1px solid #496883;
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: 4px;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-mini-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: #ccc;
+  color: #999;
+  background-color: #f0f0f0;
+}
+
+.modal-body-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal-actions-bottom {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.btn-cancel-modal {
+  padding: 8px 16px;
+  background-color: #e9e5db;
+  color: #647074;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-submit-modal {
+  padding: 8px 16px;
+  background-color: #496883;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
 }

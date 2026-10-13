@@ -1,16 +1,24 @@
 <template>
   <div class="product-form-container">
     <!-- 1. Thanh tiêu đề & Điều hướng -->
-    <div class="form-header-bar">
-      <div class="page-breadcrumb">
-        <router-link to="/san-pham" class="crumb-parent">Quản lý sản phẩm</router-link>
-        <span class="crumb-separator">/</span>
-        <span class="crumb-current">{{ isEdit ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm' }}</span>
+    <div class="page-top-header">
+      <div class="header-left-col">
+        <div class="page-breadcrumb">
+          <router-link to="/san-pham" class="crumb-parent">Quản lý sản phẩm</router-link>
+          <span class="crumb-separator">/</span>
+          <span class="crumb-current">{{ isEdit ? 'Sửa sản phẩm' : 'Thêm sản phẩm' }}</span>
+        </div>
       </div>
 
-      <button type="button" class="btn btn-back-top" @click="handleBack">
-        Quay lại danh sách
-      </button>
+      <div class="header-right-col">
+        <button type="button" class="btn btn-back-top" @click="handleBack" title="Quay lại danh sách sản phẩm">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          <span>Quay lại</span>
+        </button>
+      </div>
     </div>
 
     <!-- Thông báo Toast -->
@@ -21,23 +29,40 @@
     </transition>
 
     <form @submit.prevent="openSaveConfirm" class="product-form-body">
-      <!-- 2. Khối 1: Thông tin sản phẩm -->
+      <!-- 2. Khối: Thông tin sản phẩm -->
       <div class="form-card">
-        <div class="grid-2-cols">
-          <!-- Mã sản phẩm -->
+        <div class="card-box-header">
+          <div class="card-title-group">
+            <span class="card-icon-box">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+              </svg>
+            </span>
+            <h3 class="card-title-text">Thông tin sản phẩm</h3>
+          </div>
+        </div>
+
+        <div class="form-grid-layout">
+          <!-- Hàng 1: Mã SP | Tên SP -->
           <div class="form-item">
-            <label class="item-label">Mã sản phẩm</label>
+            <label class="item-label">
+              Mã sản phẩm <span class="text-danger" v-if="!isEdit">*</span>
+              <span class="tag-auto" v-if="!isEdit">(Tự sinh)</span>
+            </label>
             <input
                 type="text"
                 v-model="form.maSanPham"
-                class="form-input"
-                placeholder="Nhập mã hoặc để trống hệ thống tự sinh..."
+                :disabled="isEdit"
+                :class="['form-input', { 'input-disabled': isEdit }]"
+                placeholder="Mã tự sinh theo thứ tự (VD: SP001)..."
             />
+            <span v-if="isEdit" class="help-subtext">Mã được giữ nguyên khi sửa</span>
           </div>
 
-          <!-- Tên sản phẩm -->
           <div class="form-item">
-            <label class="item-label">Sản phẩm <span class="text-danger">*</span></label>
+            <label class="item-label">Tên sản phẩm <span class="text-danger">*</span></label>
             <input
                 type="text"
                 v-model="form.tenSanPham"
@@ -46,133 +71,291 @@
                 required
             />
           </div>
-        </div>
 
-        <div class="grid-2-cols mt-3">
-          <!-- Thương hiệu -->
+          <!-- Hàng 2: Danh mục | Thương hiệu -->
+          <div class="form-item">
+            <label class="item-label">Danh mục <span class="text-danger">*</span></label>
+            <Select2
+              v-model="form.idDanhMuc"
+              :options="attributes.danhMuc"
+              label-key="tenDanhMuc"
+              type="danh-muc"
+              label="Danh mục"
+              placeholder="-- Chọn danh mục --"
+              search-placeholder="Tìm kiếm hoặc tạo mới danh mục..."
+              :allow-create="true"
+              @created="onAttributeCreated('danhMuc', $event)"
+              @toast="showToast($event.message, $event.type)"
+            />
+          </div>
+
           <div class="form-item">
             <label class="item-label">Thương hiệu <span class="text-danger">*</span></label>
-            <AttributeCombobox
+            <Select2
               v-model="form.idThuongHieu"
-              :items="attributes.thuongHieu"
-              name-key="tenThuongHieu"
+              :options="attributes.thuongHieu"
+              label-key="tenThuongHieu"
               type="thuong-hieu"
               label="Thương hiệu"
-              placeholder="-- Chọn hoặc nhập thương hiệu --"
+              placeholder="-- Chọn thương hiệu --"
+              search-placeholder="Tìm kiếm hoặc tạo mới thương hiệu..."
+              :allow-create="true"
               @created="onAttributeCreated('thuongHieu', $event)"
               @toast="showToast($event.message, $event.type)"
             />
           </div>
 
-          <!-- Danh mục -->
-          <div class="form-item">
-            <label class="item-label">Danh mục <span class="text-danger">*</span></label>
-            <AttributeCombobox
-              v-model="form.idDanhMuc"
-              :items="attributes.danhMuc"
-              name-key="tenDanhMuc"
-              type="danh-muc"
-              label="Danh mục"
-              placeholder="-- Chọn hoặc nhập danh mục --"
-              @created="onAttributeCreated('danhMuc', $event)"
-              @toast="showToast($event.message, $event.type)"
-            />
-          </div>
-        </div>
-
-        <div class="grid-2-cols mt-3">
-          <!-- Xuất xứ -->
-          <div class="form-item">
-            <label class="item-label">Xuất xứ <span class="text-danger">*</span></label>
-            <AttributeCombobox
-              v-model="form.idXuatXu"
-              :items="attributes.xuatXu"
-              name-key="tenXuatXu"
-              type="xuat-xu"
-              label="Xuất xứ"
-              placeholder="-- Chọn hoặc nhập xuất xứ --"
-              @created="onAttributeCreated('xuatXu', $event)"
-              @toast="showToast($event.message, $event.type)"
-            />
-          </div>
-
-          <!-- Chất liệu -->
+          <!-- Hàng 3: Chất liệu | Cổ áo -->
           <div class="form-item">
             <label class="item-label">Chất liệu <span class="text-danger">*</span></label>
-            <AttributeCombobox
+            <Select2
               v-model="form.idChatLieu"
-              :items="attributes.chatLieu"
-              name-key="tenChatLieu"
+              :options="attributes.chatLieu"
+              label-key="tenChatLieu"
               type="chat-lieu"
               label="Chất liệu"
-              placeholder="-- Chọn hoặc nhập chất liệu --"
+              placeholder="-- Chọn chất liệu --"
+              search-placeholder="Tìm kiếm hoặc tạo mới chất liệu..."
+              :allow-create="true"
               @created="onAttributeCreated('chatLieu', $event)"
               @toast="showToast($event.message, $event.type)"
             />
           </div>
-        </div>
 
-        <div class="grid-2-cols mt-3">
-          <!-- Cổ áo -->
           <div class="form-item">
             <label class="item-label">Cổ áo <span class="text-danger">*</span></label>
-            <AttributeCombobox
+            <Select2
               v-model="form.idCoAo"
-              :items="attributes.coAo"
-              name-key="tenCoAo"
+              :options="attributes.coAo"
+              label-key="tenCoAo"
               type="co-ao"
               label="Cổ áo"
-              placeholder="-- Chọn hoặc nhập cổ áo --"
+              placeholder="-- Chọn cổ áo --"
+              search-placeholder="Tìm kiếm hoặc tạo mới cổ áo..."
+              :allow-create="true"
               @created="onAttributeCreated('coAo', $event)"
               @toast="showToast($event.message, $event.type)"
             />
           </div>
 
-          <!-- Tay áo -->
+          <!-- Hàng 4: Tay áo | Xuất xứ -->
           <div class="form-item">
             <label class="item-label">Tay áo <span class="text-danger">*</span></label>
-            <AttributeCombobox
+            <Select2
               v-model="form.idTayAo"
-              :items="attributes.tayAo"
-              name-key="tenTayAo"
+              :options="attributes.tayAo"
+              label-key="tenTayAo"
               type="tay-ao"
               label="Tay áo"
-              placeholder="-- Chọn hoặc nhập tay áo --"
+              placeholder="-- Chọn tay áo --"
+              search-placeholder="Tìm kiếm hoặc tạo mới tay áo..."
+              :allow-create="true"
               @created="onAttributeCreated('tayAo', $event)"
               @toast="showToast($event.message, $event.type)"
             />
           </div>
-        </div>
 
-        <div class="grid-2-cols mt-3">
-          <!-- Họa tiết -->
+          <div class="form-item">
+            <label class="item-label">Xuất xứ <span class="text-danger">*</span></label>
+            <Select2
+              v-model="form.idXuatXu"
+              :options="attributes.xuatXu"
+              label-key="tenXuatXu"
+              type="xuat-xu"
+              label="Xuất xứ"
+              placeholder="-- Chọn xuất xứ --"
+              search-placeholder="Tìm kiếm hoặc tạo mới xuất xứ..."
+              :allow-create="true"
+              @created="onAttributeCreated('xuatXu', $event)"
+              @toast="showToast($event.message, $event.type)"
+            />
+          </div>
+
+          <!-- Hàng 5: Họa tiết | Trạng thái -->
           <div class="form-item">
             <label class="item-label">Họa tiết <span class="text-danger">*</span></label>
-            <AttributeCombobox
+            <Select2
               v-model="form.idHoaTiet"
-              :items="attributes.hoaTiet"
-              name-key="tenHoaTiet"
+              :options="attributes.hoaTiet"
+              label-key="tenHoaTiet"
               type="hoa-tiet"
               label="Họa tiết"
-              placeholder="-- Chọn hoặc nhập họa tiết --"
+              placeholder="-- Chọn họa tiết --"
+              search-placeholder="Tìm kiếm hoặc tạo mới họa tiết..."
+              :allow-create="true"
               @created="onAttributeCreated('hoaTiet', $event)"
               @toast="showToast($event.message, $event.type)"
             />
           </div>
 
-          <!-- Trạng thái -->
           <div class="form-item">
             <label class="item-label">Trạng thái <span class="text-danger">*</span></label>
-            <select v-model.number="form.trangThai" class="form-select" required>
-              <option :value="1">Đang kinh doanh</option>
-              <option :value="0">Ngừng kinh doanh</option>
-            </select>
+            <Select2
+              v-model="form.trangThai"
+              :options="statusOptions"
+              placeholder="-- Chọn trạng thái --"
+              :allow-clear="false"
+              :searchable="false"
+            />
           </div>
+
+          <!-- Hàng 6: Mô tả chi tiết (chiếm 2 cột) -->
+          <div class="form-item full-width-col">
+            <label class="item-label">Mô tả chi tiết</label>
+            <textarea
+                v-model="form.moTa"
+                rows="4"
+                class="form-textarea"
+                placeholder="Nhập mô tả sản phẩm..."
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Các nút bấm Lưu / Hủy trong chế độ Sửa sản phẩm (isEdit) -->
+        <div v-if="isEdit" class="card-bottom-actions">
+          <button
+              type="submit"
+              class="btn btn-save-action"
+              :disabled="submitting"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>{{ submitting ? 'Đang lưu...' : 'Lưu thay đổi' }}</span>
+          </button>
+          <button type="button" class="btn btn-cancel-action" @click="handleBack">
+            Hủy
+          </button>
         </div>
       </div>
 
-      <!-- 3. Khối 2: Chọn Màu sắc & Kích cỡ để sinh biến thể tự động -->
+      <!-- Khối: Hình ảnh sản phẩm (Dùng chung cho các biến thể) -->
       <div class="form-card mt-3">
+        <div class="card-box-header">
+          <div class="card-title-group">
+            <span class="card-icon-box">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            </span>
+            <div class="title-with-sub">
+              <h3 class="card-title-text">Hình ảnh sản phẩm</h3>
+              <p class="card-subtitle-text">Ảnh được dùng chung cho các biến thể của sản phẩm. Chọn ảnh từ máy để xem trước khi lưu.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="product-images-manager">
+          <!-- Hàng 1: Nút chọn ảnh từ máy -->
+          <div class="upload-trigger-row">
+            <input
+              type="file"
+              ref="productFileInput"
+              multiple
+              accept="image/png, image/jpeg, image/webp"
+              @change="onProductFilesSelected"
+              style="display: none;"
+            />
+            <button
+              type="button"
+              class="btn btn-choose-files"
+              @click="triggerSelectProductImages"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>
+              <span>Chọn ảnh từ máy</span>
+            </button>
+            <span class="upload-limits-hint">JPG, PNG, WEBP - Tối đa 5 MB/ảnh. Có thể chọn nhiều ảnh.</span>
+          </div>
+
+          <!-- Đường phân cách -->
+          <div class="images-section-divider"></div>
+
+          <!-- Hàng 2: Nút thêm ảnh đã chọn -->
+          <div class="staged-action-row">
+            <button
+              type="button"
+              class="btn btn-add-staged"
+              :disabled="pendingFiles.length === 0"
+              @click="addPendingImages"
+            >
+              + Thêm {{ pendingFiles.length }} ảnh
+            </button>
+            <span class="staged-hint-text">Ảnh đầu tiên tự được chọn làm ảnh chính.</span>
+          </div>
+
+          <!-- Hàng 3: Danh sách các ảnh sản phẩm đã có -->
+          <div v-if="productImages.length > 0" class="product-images-cards-grid">
+            <div
+              v-for="(img, idx) in productImages"
+              :key="idx"
+              class="product-image-card-item"
+            >
+              <div class="image-thumb-box">
+                <img :src="img.url" :alt="`Ảnh sản phẩm ${idx + 1}`" class="image-thumb" />
+              </div>
+
+              <div class="image-card-meta">
+                <span v-if="idx === 0 || img.isMain" class="badge-main-image">Ảnh chính</span>
+                <button
+                  v-else
+                  type="button"
+                  class="btn-set-main"
+                  @click="setMainImage(idx)"
+                  title="Đặt ảnh này làm ảnh chính"
+                >
+                  Đặt làm ảnh chính
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-remove-image"
+                  @click="removeProductImage(idx)"
+                  title="Gỡ ảnh này"
+                >
+                  Gỡ ảnh
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Placeholder khi chưa có ảnh -->
+          <div v-else class="empty-product-images">
+            <div class="empty-icon-photo">
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            </div>
+            <span class="empty-images-text">Chưa có hình ảnh nào cho sản phẩm.</span>
+            <span class="empty-images-sub">Nhấn "Chọn ảnh từ máy" rồi bấm nút "+ Thêm ảnh" để tải ảnh lên.</span>
+          </div>
+        </div>
+
+        <!-- Các nút bấm Lưu / Hủy trong chế độ Sửa sản phẩm (isEdit) -->
+        <div v-if="isEdit" class="card-bottom-actions mt-3">
+          <button
+              type="submit"
+              class="btn btn-save-action"
+              :disabled="submitting"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>{{ submitting ? 'Đang lưu...' : 'Lưu thay đổi' }}</span>
+          </button>
+          <button type="button" class="btn btn-cancel-action" @click="handleBack">
+            Hủy
+          </button>
+        </div>
+      </div>
+
+      <!-- 3. Khối: Chọn Màu sắc & Kích cỡ để sinh biến thể tự động (Chỉ hiện khi Thêm mới) -->
+      <div v-if="!isEdit" class="form-card mt-3">
         <!-- Hàng 1: Màu sắc -->
         <div class="attribute-picker-row">
           <div class="picker-label-col">
@@ -413,8 +596,8 @@
         </div>
       </div>
 
-      <!-- 4. Khối 3: Bảng danh sách biến thể theo màu sắc -->
-      <div v-if="groupedVariants.length > 0" class="form-card mt-3">
+      <!-- 4. Khối 3: Bảng danh sách biến thể theo màu sắc (Chỉ hiện khi Thêm mới) -->
+      <div v-if="!isEdit && groupedVariants.length > 0" class="form-card mt-3">
         <!-- Thanh áp dụng nhanh hàng loạt -->
         <div class="bulk-apply-bar">
           <label class="bulk-select-all">
@@ -547,8 +730,8 @@
         </div>
       </div>
 
-      <!-- 5. Khối 4: Ảnh sản phẩm chi tiết theo màu sắc -->
-      <div v-if="activeColorsForImages.length > 0" class="form-card mt-3 color-images-container">
+      <!-- 5. Khối 4: Ảnh sản phẩm chi tiết theo màu sắc (Chỉ hiện khi Thêm mới) -->
+      <div v-if="!isEdit && activeColorsForImages.length > 0" class="form-card mt-3 color-images-container">
         <div class="images-header-wrap">
           <h4 class="card-section-title">Ảnh sản phẩm chi tiết</h4>
           <p class="card-section-subtitle">
@@ -621,28 +804,20 @@
         </div>
       </div>
 
-      <!-- 6. Khối 5: Mô tả sản phẩm -->
-      <div class="form-card mt-3">
-        <label class="item-label">Mô tả</label>
-        <textarea
-            v-model="form.moTa"
-            rows="4"
-            class="form-textarea"
-            placeholder="Mô tả sản phẩm..."
-        ></textarea>
-      </div>
-
-      <!-- 7. Chân trang Action buttons -->
-      <div class="form-footer-actions mt-4">
-        <button type="button" class="btn btn-cancel-lg" @click="handleBack">
+      <!-- 6. Chân trang Action buttons (Chỉ hiển thị khi Thêm mới sản phẩm) -->
+      <div v-if="!isEdit" class="form-footer-actions mt-4">
+        <button type="button" class="btn btn-cancel-action" @click="handleBack">
           Hủy
         </button>
         <button
             type="submit"
-            class="btn btn-save-lg"
+            class="btn btn-save-action"
             :disabled="submitting"
         >
-          {{ submitting ? 'Đang lưu...' : (isEdit ? 'Cập nhật sản phẩm' : 'Lưu sản phẩm') }}
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span>{{ submitting ? 'Đang lưu...' : 'Thêm sản phẩm' }}</span>
         </button>
       </div>
     </form>
@@ -734,6 +909,270 @@
         </div>
       </div>
     </transition>
+
+    <!-- 10. Modal Chỉnh sửa / Thêm mới biến thể sản phẩm -->
+    <transition name="fade">
+      <div v-if="variantModal.show" class="confirm-modal-overlay" @click.self="closeVariantModal">
+        <div class="variant-modal-card" @click.stop>
+          <div class="variant-modal-header">
+            <div class="variant-modal-title-box">
+              <span class="variant-modal-badge">{{ variantModal.isEdit ? '✏️ Chỉnh sửa' : '✨ Thêm mới' }}</span>
+              <h3 class="variant-modal-title">
+                {{ variantModal.isEdit ? 'Chỉnh sửa biến thể sản phẩm' : 'Thêm mới biến thể sản phẩm' }}
+              </h3>
+            </div>
+            <button type="button" class="btn-close-modal" @click="closeVariantModal">&times;</button>
+          </div>
+
+          <div class="variant-modal-body">
+            <div class="variant-modal-grid">
+              <!-- Mã CTSP -->
+              <div class="variant-modal-field">
+                <label class="item-label">Mã chi tiết sản phẩm</label>
+                <input
+                    type="text"
+                    v-model="variantModal.data.maChiTietSanPham"
+                    class="form-input"
+                    placeholder="Mã tự sinh nếu để trống..."
+                    maxlength="50"
+                />
+              </div>
+
+              <!-- Màu sắc -->
+              <div class="variant-modal-field">
+                <label class="item-label">Màu sắc <span class="text-danger">*</span></label>
+                <Select2
+                  v-model="variantModal.data.idMauSac"
+                  :options="attributes.mauSac"
+                  label-key="tenMauSac"
+                  placeholder="-- Chọn màu sắc --"
+                  search-placeholder="Tìm kiếm màu sắc..."
+                  :allow-clear="false"
+                />
+              </div>
+
+              <!-- Kích cỡ -->
+              <div class="variant-modal-field">
+                <label class="item-label">Kích cỡ <span class="text-danger">*</span></label>
+                <Select2
+                  v-model="variantModal.data.idKichCo"
+                  :options="attributes.kichCo"
+                  label-key="tenKichCo"
+                  placeholder="-- Chọn kích cỡ --"
+                  search-placeholder="Tìm kiếm kích cỡ..."
+                  :allow-clear="false"
+                />
+              </div>
+
+              <!-- Số lượng -->
+              <div class="variant-modal-field">
+                <label class="item-label">Số lượng tồn kho <span class="text-danger">*</span></label>
+                <input
+                    type="number"
+                    min="0"
+                    v-model.number="variantModal.data.soLuong"
+                    class="form-input"
+                    placeholder="Nhập số lượng..."
+                    @keydown="blockInvalidIntegerKeys"
+                />
+              </div>
+
+              <!-- Giá bán -->
+              <div class="variant-modal-field">
+                <label class="item-label">Giá bán (VNĐ) <span class="text-danger">*</span></label>
+                <input
+                    type="text"
+                    inputmode="numeric"
+                    :value="formatNumberWithDots(variantModal.data.giaBan)"
+                    class="form-input"
+                    placeholder="Nhập giá bán..."
+                    @focus="$event.target.select()"
+                    @input="onModalVariantPriceInput"
+                    @keydown="blockInvalidIntegerKeys"
+                    @paste="handleIntegerPaste"
+                    @blur="onModalBlurPrice"
+                />
+              </div>
+
+              <!-- Trạng thái -->
+              <div class="variant-modal-field">
+                <label class="item-label">Trạng thái kinh doanh</label>
+                <div class="status-radio-group">
+                  <label class="status-radio-option">
+                    <input
+                        type="radio"
+                        :value="1"
+                        v-model.number="variantModal.data.trangThai"
+                    />
+                    <span class="status-radio-label is-active">Đang kinh doanh</span>
+                  </label>
+                  <label class="status-radio-option">
+                    <input
+                        type="radio"
+                        :value="0"
+                        v-model.number="variantModal.data.trangThai"
+                    />
+                    <span class="status-radio-label is-inactive">Ngừng kinh doanh</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Hình ảnh biến thể -->
+              <div class="variant-modal-field full-width-col">
+                <label class="item-label">Hình ảnh biến thể</label>
+                <div class="variant-img-upload-box">
+                  <div class="variant-img-thumb-preview" @click="triggerModalVariantImageUpload">
+                    <img
+                      v-if="variantModal.data.anhDaiDien"
+                      :src="formatImageUrl(variantModal.data.anhDaiDien)"
+                      alt="Ảnh biến thể"
+                      class="variant-thumb-img"
+                    />
+                    <div v-else class="variant-thumb-empty">
+                      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                      </svg>
+                      <span>Chọn ảnh</span>
+                    </div>
+                  </div>
+
+                  <div class="variant-img-meta-col">
+                    <input
+                      type="file"
+                      ref="modalVariantFileInput"
+                      accept="image/png, image/jpeg, image/webp"
+                      style="display: none;"
+                      @change="onModalVariantImageSelected"
+                    />
+                    <div class="variant-img-btn-row">
+                      <button
+                        type="button"
+                        class="btn btn-choose-variant-img"
+                        @click="triggerModalVariantImageUpload"
+                      >
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                          <polyline points="17 8 12 3 7 8"></polyline>
+                          <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <span>{{ variantModal.data.anhDaiDien ? 'Đổi ảnh' : 'Tải ảnh lên' }}</span>
+                      </button>
+                      <button
+                        v-if="variantModal.data.anhDaiDien"
+                        type="button"
+                        class="btn btn-remove-variant-img"
+                        @click="removeModalVariantImage"
+                      >
+                        Gỡ ảnh
+                      </button>
+                    </div>
+                    <span class="variant-img-hint-text">JPG, PNG, WEBP (Tối đa 5MB). Ảnh hiển thị riêng cho biến thể này.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="variant-modal-footer">
+            <button type="button" class="btn btn-modal-cancel" @click="closeVariantModal">
+              Hủy
+            </button>
+            <button
+                type="button"
+                class="btn btn-modal-submit"
+                :disabled="variantModal.saving"
+                @click="saveVariantModal"
+            >
+              {{ variantModal.saving ? 'Đang lưu...' : (variantModal.isEdit ? 'Cập nhật biến thể' : 'Thêm biến thể') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- 11. Modal Xem Chi Tiết Biến Thể -->
+    <transition name="fade">
+      <div v-if="viewVariantModal.show" class="confirm-modal-overlay" @click.self="closeViewVariantModal">
+        <div class="variant-modal-card" @click.stop>
+          <div class="variant-modal-header">
+            <div class="variant-modal-title-box">
+              <span class="variant-modal-badge">👁 Chi tiết</span>
+              <h3 class="variant-modal-title">Chi tiết biến thể sản phẩm</h3>
+            </div>
+            <button type="button" class="btn-close-modal" @click="closeViewVariantModal">&times;</button>
+          </div>
+
+          <div class="variant-modal-body">
+            <div class="variant-modal-grid">
+              <div class="variant-modal-field">
+                <span class="detail-label-text">Mã chi tiết sản phẩm:</span>
+                <span class="ctsp-code-badge">{{ viewVariantModal.data.maChiTietSanPham || '—' }}</span>
+              </div>
+              <div class="variant-modal-field">
+                <span class="detail-label-text">Tên sản phẩm:</span>
+                <span class="detail-val-text font-bold">{{ form.tenSanPham || '—' }}</span>
+              </div>
+              <div class="variant-modal-field">
+                <span class="detail-label-text">Màu sắc:</span>
+                <div class="color-badge-cell">
+                  <span class="color-circle-dot" :style="{ backgroundColor: getVariantColorHex(viewVariantModal.data) }"></span>
+                  <span class="color-name-text">{{ getVariantColorName(viewVariantModal.data) }}</span>
+                </div>
+              </div>
+              <div class="variant-modal-field">
+                <span class="detail-label-text">Kích cỡ:</span>
+                <span class="size-pill-tag">{{ getVariantSizeName(viewVariantModal.data) }}</span>
+              </div>
+              <div class="variant-modal-field">
+                <span class="detail-label-text">Số lượng tồn kho:</span>
+                <span class="detail-val-text font-bold text-success">{{ viewVariantModal.data.soLuong ?? 0 }}</span>
+              </div>
+              <div class="variant-modal-field">
+                <span class="detail-label-text">Giá bán:</span>
+                <span class="detail-val-text font-bold text-danger">{{ formatNumberWithDots(viewVariantModal.data.giaBan) }} VNĐ</span>
+              </div>
+              <div class="variant-modal-field" style="grid-column: span 2;">
+                <span class="detail-label-text">Trạng thái kinh doanh:</span>
+                <div class="mt-1">
+                  <span :class="['status-badge', viewVariantModal.data.trangThai === 1 ? 'status-active' : 'status-inactive']">
+                    {{ viewVariantModal.data.trangThai === 1 ? 'Đang kinh doanh' : 'Ngừng kinh doanh' }}
+                  </span>
+                </div>
+              </div>
+              <div class="variant-modal-field" style="grid-column: span 2;" v-if="viewVariantModal.data.anhDaiDien">
+                <span class="detail-label-text">Hình ảnh biến thể:</span>
+                <div class="view-variant-img-preview mt-2">
+                  <img
+                    :src="formatImageUrl(viewVariantModal.data.anhDaiDien)"
+                    alt="Ảnh biến thể"
+                    class="view-variant-img"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="variant-modal-footer">
+            <button type="button" class="btn btn-modal-cancel" @click="closeViewVariantModal">
+              Đóng
+            </button>
+            <button
+                type="button"
+                class="btn btn-modal-submit"
+                @click="switchToEditFromView"
+            >
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 4px;">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              <span>Chỉnh sửa biến thể này</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -742,6 +1181,13 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../../api'
 import AttributeCombobox from '../../components/AttributeCombobox.vue'
+import Select2 from '../../components/Select2.vue'
+
+// Tùy chọn trạng thái kinh doanh dùng cho Select2
+const statusOptions = [
+  { id: 1, label: 'Kinh doanh' },
+  { id: 0, label: 'Ngừng kinh doanh' }
+]
 
 const route = useRoute()
 const router = useRouter()
@@ -834,6 +1280,75 @@ const sizeSearch = ref('')
 // Ảnh theo màu sắc
 const colorImages = ref({})
 const fileInputs = ref({})
+
+// Quản lý ảnh chung của sản phẩm (dùng chung cho các biến thể)
+const productImages = ref([])
+const pendingFiles = ref([])
+const productFileInput = ref(null)
+
+const triggerSelectProductImages = () => {
+  if (productFileInput.value) {
+    productFileInput.value.click()
+  }
+}
+
+const onProductFilesSelected = (e) => {
+  const files = Array.from(e.target.files || [])
+  if (files.length === 0) return
+
+  const validFiles = []
+  for (const file of files) {
+    if (file.size > 5 * 1024 * 1024) {
+      showToast(`Ảnh "${file.name}" vượt quá dung lượng tối đa 5MB!`, 'error')
+    } else {
+      validFiles.push(file)
+    }
+  }
+
+  pendingFiles.value = validFiles
+}
+
+const addPendingImages = () => {
+  if (pendingFiles.value.length === 0) return
+
+  const filesToProcess = [...pendingFiles.value]
+  pendingFiles.value = []
+  if (productFileInput.value) {
+    productFileInput.value.value = ''
+  }
+
+  filesToProcess.forEach(file => {
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const isFirst = productImages.value.length === 0
+      productImages.value.push({
+        url: event.target.result,
+        file: file,
+        name: file.name,
+        isMain: isFirst
+      })
+      showToast(`Đã thêm ảnh "${file.name}"!`, 'success')
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
+const setMainImage = (index) => {
+  productImages.value.forEach((img, idx) => {
+    img.isMain = (idx === index)
+  })
+  const [mainItem] = productImages.value.splice(index, 1)
+  productImages.value.unshift(mainItem)
+  showToast('Đã đặt làm ảnh chính!', 'success')
+}
+
+const removeProductImage = (index) => {
+  const removed = productImages.value.splice(index, 1)[0]
+  if (productImages.value.length > 0 && (!productImages.value.some(img => img.isMain) || (removed && removed.isMain))) {
+    productImages.value[0].isMain = true
+  }
+  showToast('Đã gỡ ảnh!')
+}
 
 // Biến thể đã sinh
 const variantsList = ref([])
@@ -1343,6 +1858,290 @@ const openDeleteVariantConfirm = (item) => {
   })
 }
 
+// -------------------------------------------------------------
+// QUẢN LÝ BIẾN THỂ TRONG CHẾ ĐỘ SỬA SẢN PHẨM (isEdit)
+// -------------------------------------------------------------
+const getVariantColorHex = (v) => {
+  if (v.maHex) return v.maHex
+  const found = attributes.value.mauSac?.find(c => c.id === v.idMauSac)
+  return found?.maHex || '#888888'
+}
+
+const getVariantColorName = (v) => {
+  if (v.tenMauSac) return v.tenMauSac
+  const found = attributes.value.mauSac?.find(c => c.id === v.idMauSac)
+  return found?.tenMauSac || 'Mặc định'
+}
+
+const getVariantSizeName = (v) => {
+  if (v.tenKichCo) return v.tenKichCo
+  const found = attributes.value.kichCo?.find(s => s.id === v.idKichCo)
+  return found?.tenKichCo || '—'
+}
+
+const variantModal = ref({
+  show: false,
+  isEdit: false,
+  saving: false,
+  data: {
+    id: null,
+    maChiTietSanPham: '',
+    idMauSac: '',
+    idKichCo: '',
+    soLuong: 0,
+    giaBan: 0,
+    trangThai: 1
+  }
+})
+
+const openAddVariantModal = () => {
+  const nextIdx = variantsList.value.length + 1
+  variantModal.value = {
+    show: true,
+    isEdit: false,
+    saving: false,
+    data: {
+      id: null,
+      maChiTietSanPham: `CTSP${String(nextIdx).padStart(3, '0')}`,
+      idMauSac: attributes.value.mauSac?.[0]?.id || '',
+      idKichCo: attributes.value.kichCo?.[0]?.id || '',
+      soLuong: 0,
+      giaBan: 0,
+      trangThai: 1,
+      anhDaiDien: ''
+    }
+  }
+}
+
+const openEditVariantModal = (v) => {
+  variantModal.value = {
+    show: true,
+    isEdit: true,
+    saving: false,
+    data: {
+      id: v.id,
+      maChiTietSanPham: v.maChiTietSanPham || '',
+      idMauSac: v.idMauSac || '',
+      idKichCo: v.idKichCo || '',
+      soLuong: v.soLuong ?? 0,
+      giaBan: v.giaBan ?? 0,
+      trangThai: v.trangThai ?? 1,
+      anhDaiDien: v.anhDaiDien || ''
+    }
+  }
+}
+
+const closeVariantModal = () => {
+  variantModal.value.show = false
+  variantModal.value.saving = false
+}
+
+// Xử lý upload / gỡ ảnh cho biến thể trong modal của ThemSuaSanPham
+const modalVariantFileInput = ref(null)
+
+const triggerModalVariantImageUpload = () => {
+  if (modalVariantFileInput.value) {
+    modalVariantFileInput.value.click()
+  }
+}
+
+const onModalVariantImageSelected = (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('Ảnh quá lớn (tối đa 5MB)!', 'error')
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = (event) => {
+    variantModal.value.data.anhDaiDien = event.target.result
+    showToast('Đã chọn ảnh cho biến thể!', 'success')
+  }
+  reader.readAsDataURL(file)
+}
+
+const removeModalVariantImage = () => {
+  variantModal.value.data.anhDaiDien = ''
+  if (modalVariantFileInput.value) {
+    modalVariantFileInput.value.value = ''
+  }
+}
+
+// Modal Xem chi tiết biến thể
+const viewVariantModal = ref({
+  show: false,
+  data: {}
+})
+
+const openViewVariantModal = (v) => {
+  viewVariantModal.value = {
+    show: true,
+    data: { ...v }
+  }
+}
+
+const closeViewVariantModal = () => {
+  viewVariantModal.value.show = false
+  viewVariantModal.value.data = {}
+}
+
+const switchToEditFromView = () => {
+  const item = { ...viewVariantModal.value.data }
+  closeViewVariantModal()
+  openEditVariantModal(item)
+}
+
+const onModalVariantPriceInput = (e) => {
+  handlePriceInput(e, (val) => {
+    variantModal.value.data.giaBan = val === '' ? '' : val
+  })
+}
+
+const onModalBlurPrice = () => {
+  const d = variantModal.value.data
+  if (d.giaBan !== '' && d.giaBan !== null && d.giaBan !== undefined) {
+    const num = Math.floor(Number(d.giaBan))
+    d.giaBan = isNaN(num) || num < 0 ? 0 : Math.min(num, 1000000000)
+  }
+}
+
+// 1. Thao tác bật/tắt trạng thái kinh doanh của biến thể (Power button)
+const toggleVariantActiveStatus = (v) => {
+  const newStatus = v.trangThai === 1 ? 0 : 1
+  const actionText = newStatus === 1 ? 'mở kinh doanh' : 'ngừng kinh doanh'
+  const label = v.maChiTietSanPham || `${getVariantColorName(v)} - ${getVariantSizeName(v)}`
+
+  openConfirm({
+    title: 'Xác nhận đổi trạng thái biến thể',
+    message: `Bạn có chắc chắn muốn ${actionText} biến thể "${label}" không?`,
+    type: 'info',
+    confirmText: 'Xác nhận',
+    onConfirm: async () => {
+      try {
+        if (v.id) {
+          try {
+            await api.patch(`/api/chi-tiet-san-pham/${v.id}/status`, null, {
+              params: { trangThai: newStatus }
+            })
+          } catch (_) {
+            await api.put(`/api/chi-tiet-san-pham/${v.id}`, {
+              ...v,
+              trangThai: newStatus
+            })
+          }
+        }
+        v.trangThai = newStatus
+        showToast(newStatus === 1 ? 'Đã mở kinh doanh biến thể!' : 'Đã ngừng kinh doanh biến thể!', 'success')
+      } catch (err) {
+        console.error('Lỗi đổi trạng thái biến thể:', err)
+        showToast('Không thể thay đổi trạng thái biến thể!', 'error')
+      }
+    }
+  })
+}
+
+// 2. Lưu / Cập nhật biến thể từ modal
+const saveVariantModal = async () => {
+  const d = variantModal.value.data
+  if (!d.idMauSac) {
+    showToast('Vui lòng chọn màu sắc!', 'error')
+    return
+  }
+  if (!d.idKichCo) {
+    showToast('Vui lòng chọn kích cỡ!', 'error')
+    return
+  }
+  if (d.soLuong === '' || d.soLuong === null || d.soLuong === undefined) {
+    showToast('Vui lòng nhập số lượng!', 'error')
+    return
+  }
+  const sl = Number(d.soLuong)
+  if (isNaN(sl) || !Number.isInteger(sl) || sl < 0 || sl > 999999) {
+    showToast('Số lượng phải là số nguyên từ 0 đến 999,999!', 'error')
+    return
+  }
+  if (d.giaBan === '' || d.giaBan === null || d.giaBan === undefined) {
+    showToast('Vui lòng nhập giá bán!', 'error')
+    return
+  }
+  const gb = Number(d.giaBan)
+  if (isNaN(gb) || !Number.isInteger(gb) || gb < 0 || gb > 1000000000) {
+    showToast('Giá bán phải là số nguyên từ 0 đến 1,000,000,000 VNĐ!', 'error')
+    return
+  }
+
+  // Check trùng màu và size nếu là thêm mới hoặc đổi màu/size sang biến thể khác đã có
+  const existingDup = variantsList.value.find(item =>
+    item.id !== d.id && item.idMauSac === d.idMauSac && item.idKichCo === d.idKichCo
+  )
+  if (existingDup) {
+    showToast(`Biến thể với màu và kích cỡ này đã tồn tại (${existingDup.maChiTietSanPham || 'CTSP'})!`, 'error')
+    return
+  }
+
+  variantModal.value.saving = true
+  try {
+    const colorObj = attributes.value.mauSac?.find(c => c.id === d.idMauSac)
+    const sizeObj = attributes.value.kichCo?.find(s => s.id === d.idKichCo)
+
+    const payload = {
+      id: d.id || undefined,
+      idSanPham: productId.value,
+      idMauSac: d.idMauSac,
+      idKichCo: d.idKichCo,
+      maChiTietSanPham: d.maChiTietSanPham?.trim() || undefined,
+      soLuong: sl,
+      giaBan: gb,
+      trangThai: Number(d.trangThai ?? 1),
+      anhDaiDien: d.anhDaiDien !== undefined ? d.anhDaiDien : null,
+      nguoiThaoTac: 'Admin'
+    }
+
+    if (variantModal.value.isEdit && d.id) {
+      await api.put(`/api/chi-tiet-san-pham/${d.id}`, payload)
+      const idx = variantsList.value.findIndex(item => item.id === d.id)
+      if (idx !== -1) {
+        variantsList.value[idx] = {
+          ...variantsList.value[idx],
+          ...payload,
+          anhDaiDien: d.anhDaiDien || '',
+          tenMauSac: colorObj?.tenMauSac || variantsList.value[idx].tenMauSac,
+          maHex: colorObj?.maHex || variantsList.value[idx].maHex,
+          tenKichCo: sizeObj?.tenKichCo || variantsList.value[idx].tenKichCo
+        }
+      }
+      showToast('Cập nhật biến thể thành công!', 'success')
+    } else {
+      const res = await api.post('/api/chi-tiet-san-pham', payload)
+      const created = res.data || payload
+      variantsList.value.push({
+        ...created,
+        id: created.id || Date.now(),
+        maChiTietSanPham: created.maChiTietSanPham || d.maChiTietSanPham || '',
+        idMauSac: d.idMauSac,
+        tenMauSac: colorObj?.tenMauSac || '',
+        maHex: colorObj?.maHex || '',
+        idKichCo: d.idKichCo,
+        tenKichCo: sizeObj?.tenKichCo || '',
+        soLuong: sl,
+        giaBan: gb,
+        trangThai: Number(d.trangThai ?? 1),
+        anhDaiDien: created.anhDaiDien || d.anhDaiDien || '',
+        selected: true
+      })
+      showToast('Thêm mới biến thể thành công!', 'success')
+    }
+    closeVariantModal()
+  } catch (err) {
+    console.error('Lỗi lưu biến thể:', err)
+    const msg = err.response?.data?.message || 'Có lỗi xảy ra khi lưu biến thể!'
+    showToast(msg, 'error')
+  } finally {
+    variantModal.value.saving = false
+  }
+}
 
 // Upload ảnh theo màu
 const triggerUpload = (colorId) => {
@@ -1447,39 +2246,40 @@ const openSaveConfirm = () => {
     return
   }
 
-  // Validate các biến thể được chọn
-  const activeVariants = variantsList.value.filter(v => v.selected !== false)
-  for (const v of activeVariants) {
-    const label = `${v.tenMauSac || 'Màu'} - ${v.tenKichCo || 'Size'}`
-    if (v.soLuong === '' || v.soLuong === null || v.soLuong === undefined) {
-      showToast(`Vui lòng nhập số lượng cho biến thể (${label})!`, 'error')
-      return
-    }
-    const sl = Number(v.soLuong)
-    if (isNaN(sl) || !Number.isInteger(sl) || sl < 0 || sl > 999999) {
-      showToast(`Số lượng biến thể (${label}) phải là số nguyên từ 0 đến 999,999!`, 'error')
-      return
-    }
+  // Validate các biến thể được chọn nếu là Thêm mới
+  if (!isEdit.value) {
+    const activeVariants = variantsList.value.filter(v => v.selected !== false)
+    for (const v of activeVariants) {
+      const label = `${v.tenMauSac || 'Màu'} - ${v.tenKichCo || 'Size'}`
+      if (v.soLuong === '' || v.soLuong === null || v.soLuong === undefined) {
+        showToast(`Vui lòng nhập số lượng cho biến thể (${label})!`, 'error')
+        return
+      }
+      const sl = Number(v.soLuong)
+      if (isNaN(sl) || !Number.isInteger(sl) || sl < 0 || sl > 999999) {
+        showToast(`Số lượng biến thể (${label}) phải là số nguyên từ 0 đến 999,999!`, 'error')
+        return
+      }
 
-    if (v.giaBan === '' || v.giaBan === null || v.giaBan === undefined) {
-      showToast(`Vui lòng nhập giá bán cho biến thể (${label})!`, 'error')
-      return
-    }
-    const gb = Number(v.giaBan)
-    if (isNaN(gb) || !Number.isInteger(gb) || gb < 0 || gb > 1000000000) {
-      showToast(`Giá bán biến thể (${label}) phải là số nguyên từ 0 đến 1,000,000,000 VNĐ!`, 'error')
-      return
+      if (v.giaBan === '' || v.giaBan === null || v.giaBan === undefined) {
+        showToast(`Vui lòng nhập giá bán cho biến thể (${label})!`, 'error')
+        return
+      }
+      const gb = Number(v.giaBan)
+      if (isNaN(gb) || !Number.isInteger(gb) || gb < 0 || gb > 1000000000) {
+        showToast(`Giá bán biến thể (${label}) phải là số nguyên từ 0 đến 1,000,000,000 VNĐ!`, 'error')
+        return
+      }
     }
   }
 
-  const actionText = isEdit.value ? 'chỉnh sửa' : 'lưu'
-  const countVar = activeVariants.length
-
   openConfirm({
-    title: isEdit.value ? 'Xác nhận chỉnh sửa sản phẩm' : 'Xác nhận lưu sản phẩm',
-    message: `Bạn có muốn ${actionText} sản phẩm "${ten}"${countVar > 0 ? ` cùng ${countVar} biến thể` : ''} không?`,
+    title: isEdit.value ? 'Xác nhận cập nhật sản phẩm' : 'Xác nhận lưu sản phẩm',
+    message: isEdit.value
+      ? `Bạn có chắc chắn muốn lưu các thay đổi cho sản phẩm "${ten}" không?`
+      : `Bạn có muốn lưu sản phẩm "${ten}" cùng ${variantsList.value.filter(v => v.selected !== false).length} biến thể không?`,
     type: 'primary',
-    confirmText: isEdit.value ? 'Xác nhận cập nhật' : 'Xác nhận lưu',
+    confirmText: isEdit.value ? 'Lưu thay đổi' : 'Xác nhận lưu',
     onConfirm: submitForm
   })
 }
@@ -1488,12 +2288,6 @@ const openSaveConfirm = () => {
 const submitForm = async () => {
   submitting.value = true
   try {
-    // Thu thập danh sách ảnh từ các màu thực sự còn tồn tại
-    const activeColorIds = new Set(activeColorsForImages.value.map(c => String(c.id)))
-    const imageList = Object.entries(colorImages.value)
-      .filter(([cId, img]) => activeColorIds.has(String(cId)) && !!img)
-      .map(([cId, img]) => `${cId}|${img}`)
-
     const payload = {
       maSanPham: form.value.maSanPham?.trim() || undefined,
       tenSanPham: form.value.tenSanPham.trim(),
@@ -1505,20 +2299,67 @@ const submitForm = async () => {
       idCoAo: form.value.idCoAo || null,
       idTayAo: form.value.idTayAo || null,
       idHoaTiet: form.value.idHoaTiet || null,
-      trangThai: form.value.trangThai ?? 1,
-      hinhAnhs: imageList
+      trangThai: form.value.trangThai ?? 1
     }
 
-    let savedProduct = null
     if (isEdit.value) {
-      const res = await api.put(`/api/san-pham/${productId.value}`, payload)
-      savedProduct = res.data
+      // Đính kèm danh sách ảnh sản phẩm khi cập nhật
+      const imageList = productImages.value.map(img => img.url)
+      payload.hinhAnhs = imageList
+      if (productImages.value.length > 0) {
+        const mainImg = productImages.value.find(img => img.isMain) || productImages.value[0]
+        payload.anhDaiDien = mainImg.url
+      }
+
+      await api.put(`/api/san-pham/${productId.value}`, payload)
+
+      // Cập nhật đồng bộ các biến thể nếu có thay đổi từ bảng
+      if (variantsList.value && variantsList.value.length > 0) {
+        for (const v of variantsList.value) {
+          if (v.id) {
+            try {
+              await api.put(`/api/chi-tiet-san-pham/${v.id}`, {
+                id: v.id,
+                idSanPham: productId.value,
+                idMauSac: v.idMauSac,
+                idKichCo: v.idKichCo,
+                maChiTietSanPham: v.maChiTietSanPham || undefined,
+                soLuong: Number(v.soLuong || 0),
+                giaBan: Number(v.giaBan || 0),
+                trangThai: Number(v.trangThai ?? 1),
+                nguoiThaoTac: 'Admin'
+              })
+            } catch (vErr) {
+              console.warn('Lỗi lưu biến thể ID ' + v.id, vErr)
+            }
+          }
+        }
+      }
+
       showToast('Cập nhật sản phẩm thành công!')
-    } else {
-      const res = await api.post('/api/san-pham', payload)
-      savedProduct = res.data
-      showToast('Thêm mới sản phẩm thành công!')
+      setTimeout(() => {
+        router.push('/san-pham')
+      }, 700)
+      return
     }
+
+    // Nếu có ảnh chung của sản phẩm thì sử dụng
+    if (productImages.value.length > 0) {
+      payload.hinhAnhs = productImages.value.map(img => img.url)
+      const mainImg = productImages.value.find(img => img.isMain) || productImages.value[0]
+      payload.anhDaiDien = mainImg.url
+    } else {
+      // Thu thập danh sách ảnh từ các màu thực sự còn tồn tại khi Thêm mới
+      const activeColorIds = new Set(activeColorsForImages.value.map(c => String(c.id)))
+      const imageList = Object.entries(colorImages.value)
+        .filter(([cId, img]) => activeColorIds.has(String(cId)) && !!img)
+        .map(([cId, img]) => `${cId}|${img}`)
+      payload.hinhAnhs = imageList
+    }
+
+    const res = await api.post('/api/san-pham', payload)
+    const savedProduct = res.data
+    showToast('Thêm mới sản phẩm thành công!')
 
     // Nếu có biến thể, lưu danh sách biến thể được chọn
     const activeVariants = variantsList.value.filter(v => v.selected !== false)
@@ -1530,7 +2371,8 @@ const submitForm = async () => {
         idKichCo: v.idKichCo,
         soLuong: v.soLuong || 0,
         giaBan: v.giaBan || 0,
-        trangThai: v.trangThai ?? 1
+        trangThai: v.trangThai ?? 1,
+        anhDaiDien: v.anhDaiDien || undefined
       }))
 
       try {
@@ -1580,16 +2422,22 @@ const loadProductDetails = async (id) => {
     const res = await api.get(`/api/san-pham/${id}`)
     if (res.data) {
       const p = res.data
+      const extractId = (val) => {
+        if (!val) return ''
+        if (typeof val === 'object' && val.id !== undefined && val.id !== null) return val.id
+        return val
+      }
+
       form.value = {
         maSanPham: p.maSanPham || '',
         tenSanPham: p.tenSanPham || '',
-        idThuongHieu: p.idThuongHieu || '',
-        idDanhMuc: p.idDanhMuc || '',
-        idXuatXu: p.idXuatXu || '',
-        idChatLieu: p.idChatLieu || '',
-        idCoAo: p.idCoAo || '',
-        idTayAo: p.idTayAo || '',
-        idHoaTiet: p.idHoaTiet || '',
+        idThuongHieu: extractId(p.idThuongHieu),
+        idDanhMuc: extractId(p.idDanhMuc),
+        idXuatXu: extractId(p.idXuatXu),
+        idChatLieu: extractId(p.idChatLieu),
+        idCoAo: extractId(p.idCoAo),
+        idTayAo: extractId(p.idTayAo),
+        idHoaTiet: extractId(p.idHoaTiet),
         trangThai: p.trangThai ?? 1,
         moTa: p.moTa || ''
       }
@@ -1597,19 +2445,25 @@ const loadProductDetails = async (id) => {
       // Tải biến thể của sản phẩm
       const varRes = await api.get(`/api/chi-tiet-san-pham/by-san-pham/${id}`)
       if (varRes.data && varRes.data.length > 0) {
-        variantsList.value = varRes.data.map(item => ({
-          key: `${item.idMauSac}_${item.idKichCo}`,
-          id: item.id,
-          idMauSac: item.idMauSac,
-          tenMauSac: item.tenMauSac,
-          maHex: item.maHex,
-          idKichCo: item.idKichCo,
-          tenKichCo: item.tenKichCo,
-          soLuong: item.soLuong,
-          giaBan: item.giaBan,
-          trangThai: item.trangThai ?? 1,
-          selected: true
-        }))
+        variantsList.value = varRes.data.map(item => {
+          const colorObj = attributes.value.mauSac?.find(c => c.id === item.idMauSac)
+          const sizeObj = attributes.value.kichCo?.find(s => s.id === item.idKichCo)
+          return {
+            key: `${item.idMauSac}_${item.idKichCo}`,
+            id: item.id,
+            maChiTietSanPham: item.maChiTietSanPham || '',
+            idMauSac: item.idMauSac,
+            tenMauSac: item.tenMauSac || colorObj?.tenMauSac || '',
+            maHex: item.maHex || colorObj?.maHex || '',
+            idKichCo: item.idKichCo,
+            tenKichCo: item.tenKichCo || sizeObj?.tenKichCo || '',
+            soLuong: item.soLuong ?? 0,
+            giaBan: item.giaBan ?? 0,
+            trangThai: item.trangThai ?? 1,
+            anhDaiDien: item.anhDaiDien || '',
+            selected: true
+          }
+        })
 
         // Đổ vào selectedColors và selectedSizes từ các biến thể đã có
         const colorMap = new Map()
@@ -1637,6 +2491,31 @@ const loadProductDetails = async (id) => {
           })
         }
       }
+
+      // Nạp danh sách ảnh sản phẩm hiện có
+      const loadedImgs = []
+      if (p.anhDaiDien) {
+        loadedImgs.push({
+          url: formatImageUrl(p.anhDaiDien),
+          isMain: true
+        })
+      }
+      if (Array.isArray(p.hinhAnhs) && p.hinhAnhs.length > 0) {
+        p.hinhAnhs.forEach((item) => {
+          let cleanUrl = item
+          if (cleanUrl && cleanUrl.includes('|')) {
+            cleanUrl = cleanUrl.split('|')[1]
+          }
+          cleanUrl = formatImageUrl(cleanUrl)
+          if (cleanUrl && !loadedImgs.some(img => img.url === cleanUrl)) {
+            loadedImgs.push({
+              url: cleanUrl,
+              isMain: loadedImgs.length === 0
+            })
+          }
+        })
+      }
+      productImages.value = loadedImgs
     }
   } catch (err) {
     console.error('Lỗi tải thông tin sản phẩm:', err)
@@ -1656,8 +2535,20 @@ const fetchAttributes = async () => {
   }
 }
 
+// Lấy mã sản phẩm tự sinh 3 số theo thứ tự (SP001, SP002, ...)
+const fetchNextCode = async () => {
+  try {
+    const res = await api.get('/api/san-pham/next-code')
+    if (res.data?.code) {
+      form.value.maSanPham = res.data.code
+    }
+  } catch (e) {
+    console.error('Không thể lấy mã sản phẩm tự sinh:', e)
+  }
+}
+
 // Đặt lại form về mặc định khi Thêm sản phẩm
-const resetFormToAdd = () => {
+const resetFormToAdd = async () => {
   form.value = {
     maSanPham: '',
     tenSanPham: '',
@@ -1675,8 +2566,11 @@ const resetFormToAdd = () => {
   selectedSizes.value = []
   variantsList.value = []
   colorImages.value = {}
+  productImages.value = []
+  pendingFiles.value = []
   bulkQty.value = 0
   bulkPrice.value = 0
+  await fetchNextCode()
 }
 
 onMounted(async () => {
@@ -1685,7 +2579,7 @@ onMounted(async () => {
   if (isEdit.value && productId.value) {
     await loadProductDetails(productId.value)
   } else {
-    resetFormToAdd()
+    await resetFormToAdd()
   }
 })
 
@@ -1694,7 +2588,7 @@ watch(() => route.params.id, async (newId) => {
   if (newId) {
     await loadProductDetails(newId)
   } else {
-    resetFormToAdd()
+    await resetFormToAdd()
   }
 })
 </script>
@@ -1709,73 +2603,455 @@ watch(() => route.params.id, async (newId) => {
 }
 
 /* 1. Header bar */
-.form-header-bar {
+.page-top-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.2rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
-.breadcrumb-group {
+.header-left-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.page-breadcrumb {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.95rem;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: #7f8c8d;
+  margin-bottom: 0;
 }
 
-.breadcrumb-icon {
-  font-size: 1.1rem;
-  color: #71828d;
+.crumb-parent {
+  color: #7f8c8d;
+  text-decoration: none;
+  transition: color 0.15s;
 }
-
-.breadcrumb-root {
-  color: #64748b;
-  cursor: pointer;
-  font-weight: 500;
-  transition: color 0.2s;
-}
-
-.breadcrumb-root:hover {
+.crumb-parent:hover {
   color: var(--blue, #496883);
 }
 
-.breadcrumb-sep {
-  color: #94a3b8;
+.crumb-separator {
+  color: #bdc3c7;
 }
 
-.breadcrumb-current {
-  color: #1e293b;
-  font-weight: 700;
+.crumb-current {
+  color: #496883;
+  font-weight: 600;
+}
+
+.page-main-title {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #2c3e50;
+  letter-spacing: -0.3px;
+  margin: 0 0 0.25rem 0;
+}
+
+.page-sub-title {
+  font-size: 0.88rem;
+  color: #7f8c8d;
+  margin: 0;
+}
+
+.header-right-col {
+  display: flex;
+  align-items: center;
 }
 
 .btn-back-top {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  background: #ffffff;
-  border: 1px solid #d2d6dc;
-  padding: 0.45rem 1rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
+  gap: 6px;
+  background-color: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  height: 38px;
+  padding: 0 16px;
+  font-size: 0.88rem;
   font-weight: 600;
-  color: #4b5563;
   cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   transition: all 0.2s ease;
 }
 
 .btn-back-top:hover {
-  background-color: #f3f4f6;
-  border-color: #9ca3af;
-  color: #111827;
+  background-color: #f7f5ee;
+  border-color: #496883;
+  color: #496883;
+  transform: translateY(-1px);
 }
 
 /* Card container */
 .form-card {
   background: #ffffff;
   border-radius: 12px;
-  padding: 1.5rem;
-  border: 1px solid var(--line, #e9e5db);
+  padding: 1.5rem 1.75rem;
+  border: 1px solid var(--line, #ede8dc);
   box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+}
+
+.card-box-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.85rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid #ebd9c8;
+}
+
+.card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-icon-box {
+  display: flex;
+  align-items: center;
+  color: var(--blue, #496883);
+}
+
+.card-title-text {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #2b353b;
+  margin: 0;
+}
+
+/* Form items & Grid */
+.form-grid-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .form-grid-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.full-width-col {
+  grid-column: 1 / -1;
+}
+
+.input-disabled {
+  background-color: #f5f4ef !important;
+  color: #71828d !important;
+  cursor: not-allowed !important;
+  border-color: #e5e0d3 !important;
+}
+
+.help-subtext {
+  font-size: 0.8rem;
+  color: #8c8275;
+  margin-top: 4px;
+}
+
+.tag-auto {
+  font-size: 0.78rem;
+  color: #647b8c;
+  font-weight: normal;
+  margin-left: 0.35rem;
+}
+
+/* Styled select */
+.select-styled-wrap {
+  width: 100%;
+}
+
+.styled-select {
+  height: 38px;
+  padding: 0 0.85rem;
+  background-color: #ffffff;
+  cursor: pointer;
+}
+
+/* Card bottom actions (Lưu thay đổi / Hủy) */
+.card-bottom-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+}
+
+.btn-save-action {
+  background-color: var(--blue, #496883);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  height: 38px;
+  padding: 0 1.5rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btn-save-action:hover:not(:disabled) {
+  background-color: #385269;
+  box-shadow: 0 4px 10px rgba(73, 104, 131, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-save-action:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.btn-cancel-action {
+  background-color: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  height: 38px;
+  padding: 0 1.4rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-cancel-action:hover {
+  background-color: #f7f5ee;
+  border-color: #496883;
+  color: #496883;
+}
+
+/* =========================================
+   HÌNH ẢNH SẢN PHẨM (CARD STYLE THEO MẪU)
+   ========================================= */
+.title-with-sub {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-subtitle-text {
+  font-size: 0.83rem;
+  color: #64748b;
+  margin: 3px 0 0 0;
+  font-weight: 400;
+}
+
+.product-images-manager {
+  display: flex;
+  flex-direction: column;
+}
+
+.upload-trigger-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.btn-choose-files {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background-color: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  height: 38px;
+  padding: 0 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.btn-choose-files:hover {
+  background-color: #f7f5ee;
+  border-color: #496883;
+  color: #496883;
+}
+
+.upload-limits-hint {
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+.images-section-divider {
+  border-top: 1px dashed #ede8dc;
+  margin: 1.15rem 0;
+}
+
+.staged-action-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.btn-add-staged {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--blue, #496883);
+  color: #ffffff;
+  border: none;
+  border-radius: 7px;
+  height: 36px;
+  padding: 0 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(73, 104, 131, 0.2);
+}
+
+.btn-add-staged:hover:not(:disabled) {
+  background-color: #385269;
+}
+
+.btn-add-staged:disabled {
+  background-color: #94a3b8;
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.staged-hint-text {
+  font-size: 0.82rem;
+  color: #7f8c8d;
+}
+
+.product-images-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 140px));
+  gap: 1rem;
+}
+
+.product-image-card-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.2s;
+}
+
+.product-image-card-item:hover {
+  border-color: #cbd5e1;
+}
+
+.image-thumb-box {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  border: 1px solid #f1f5f9;
+}
+
+.image-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-card-meta {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-main-image {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  border-radius: 9999px;
+  padding: 2px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.btn-set-main {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  border-radius: 9999px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-set-main:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.btn-remove-image {
+  background: transparent;
+  border: none;
+  color: #e11d48;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 6px;
+  transition: color 0.15s;
+}
+
+.btn-remove-image:hover {
+  color: #be123c;
+  text-decoration: underline;
+}
+
+.empty-product-images {
+  padding: 2.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #faf9f6;
+  border: 1.5px dashed #e2ded5;
+  border-radius: 8px;
+  color: #71828d;
+  text-align: center;
+}
+
+.empty-icon-photo {
+  color: #a0aec0;
+  margin-bottom: 4px;
+}
+
+.empty-images-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.empty-images-sub {
+  font-size: 0.8rem;
+  color: #94a3b8;
 }
 
 .mt-3 {
@@ -1784,13 +3060,6 @@ watch(() => route.params.id, async (newId) => {
 
 .mt-4 {
   margin-top: 1.5rem;
-}
-
-/* Form items & Grid */
-.grid-2-cols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.25rem;
 }
 
 .form-item {
@@ -2915,6 +4184,529 @@ watch(() => route.params.id, async (newId) => {
 
 .btn-confirm-danger:hover {
   background: #b91c1c;
+}
+
+/* =========================================================
+   CỤM NÚT THAO TÁC BIẾN THỂ (Khớp 1:1 theo ảnh mẫu: Power + Eye)
+   ========================================================= */
+.action-buttons-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 3px;
+  background-color: #f7f5ee;
+  border: 1px solid #e7e2d6;
+  border-radius: 8px;
+}
+
+.btn-action {
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  background-color: #ffffff;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s ease;
+  padding: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.btn-action svg {
+  display: block;
+}
+
+.btn-action.btn-status {
+  color: #dc2626;
+  background-color: #fff1f2;
+  border-color: #ffe4e6;
+}
+
+.btn-action.btn-status.is-active {
+  color: #059669;
+  background-color: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.btn-action.btn-status:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.95);
+}
+
+.btn-action.btn-view {
+  color: #496883;
+  background-color: #ffffff;
+  border: 1px solid #e7e2d6;
+}
+
+.btn-action.btn-view:hover {
+  background-color: #496883;
+  color: #ffffff;
+  border-color: #496883;
+  transform: translateY(-1px);
+}
+
+.btn-action.btn-edit {
+  color: #496883;
+  background-color: #ffffff;
+  border: 1px solid #e7e2d6;
+}
+
+.btn-action.btn-edit:hover {
+  background-color: #496883;
+  color: #ffffff;
+  border-color: #496883;
+  transform: translateY(-1px);
+}
+
+.detail-label-text {
+  font-size: 0.82rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.detail-val-text {
+  font-size: 0.92rem;
+  color: #1e293b;
+}
+
+/* =========================================================
+   GIAO DIỆN KHỐI BIẾN THỂ SẢN PHẨM (Card 3: Chế độ Sửa)
+   ========================================================= */
+.card-title-badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.variant-count-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #496883;
+  background-color: #eaf2f8;
+  border-radius: 20px;
+  border: 1px solid #d4e2ee;
+}
+
+.btn-add-variant-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #496883;
+  color: #ffffff;
+  border: 1px solid #496883;
+  border-radius: 8px;
+  padding: 7px 15px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.btn-add-variant-btn:hover {
+  background-color: #385269;
+  border-color: #385269;
+  transform: translateY(-1px);
+}
+
+.edit-variants-table-wrap {
+  border: 1px solid #ede8dc;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+  margin-top: 0.5rem;
+}
+
+.edit-variants-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.edit-variants-table th {
+  background-color: #f7f5ef;
+  color: #496883;
+  font-weight: 700;
+  font-size: 0.84rem;
+  padding: 10px 12px;
+  border-bottom: 2px solid #ede8dc;
+  text-transform: none;
+}
+
+.edit-variant-row td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1ece4;
+  vertical-align: middle;
+  font-size: 0.88rem;
+}
+
+.edit-variant-row:last-child td {
+  border-bottom: none;
+}
+
+.edit-variant-row:hover td {
+  background-color: #fdfcf9;
+}
+
+.ctsp-code-badge {
+  font-family: monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #8c6a46;
+  background-color: #fbf8f3;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid #ebd9c8;
+  display: inline-block;
+}
+
+.color-badge-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.color-circle-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  display: inline-block;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.color-name-text {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.88rem;
+}
+
+.size-pill-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  background-color: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.variant-inline-input {
+  max-width: 140px;
+  padding: 6px 8px;
+  font-size: 0.88rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  transition: all 0.2s;
+}
+
+.variant-inline-input:focus {
+  border-color: #496883;
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.15);
+  outline: none;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.status-badge.status-active {
+  background-color: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.status-badge.status-inactive {
+  background-color: #fff1f2;
+  color: #dc2626;
+  border: 1px solid #fecdd3;
+}
+
+.empty-edit-variants {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1rem;
+  background-color: #faf8f3;
+  border: 1px dashed #ded8cb;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+}
+
+.empty-icon-box {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.empty-text {
+  font-size: 0.92rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* =========================================================
+   MODAL CHỈNH SỬA / THÊM MỚI BIẾN THỂ (variantModal)
+   ========================================================= */
+.variant-modal-card {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 540px;
+  max-width: 95vw;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  animation: modalScaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.variant-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.1rem 1.4rem;
+  background-color: #fdfcf9;
+  border-bottom: 1px solid #ede8dc;
+}
+
+.variant-modal-title-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.variant-modal-badge {
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  background-color: #eaf2f8;
+  color: #496883;
+  border-radius: 6px;
+}
+
+.variant-modal-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.variant-modal-body {
+  padding: 1.25rem 1.4rem;
+}
+
+.variant-modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.variant-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.status-radio-group {
+  display: flex;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.status-radio-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.86rem;
+}
+
+.status-radio-label.is-active {
+  color: #059669;
+  font-weight: 600;
+}
+
+.status-radio-label.is-inactive {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.variant-modal-field.full-width-col {
+  grid-column: span 2;
+}
+
+.variant-img-upload-box {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background-color: #faf8f5;
+  border: 1px dashed #d5c8b8;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.variant-img-thumb-preview {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  background-color: #fff;
+  border: 1px solid #e2dcd0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.variant-img-thumb-preview:hover {
+  border-color: #496883;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.15);
+}
+
+.variant-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.variant-thumb-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+
+.variant-img-meta-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.variant-img-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-choose-variant-img {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background-color: #496883;
+  color: #ffffff;
+  border: 1px solid #496883;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-choose-variant-img:hover {
+  background-color: #385269;
+}
+
+.btn-remove-variant-img {
+  padding: 6px 12px;
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-remove-variant-img:hover {
+  background-color: #fee2e2;
+}
+
+.variant-img-hint-text {
+  font-size: 0.74rem;
+  color: #8c827a;
+}
+
+.view-variant-img-preview {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  border: 1px solid #d5c8b8;
+  overflow: hidden;
+  background-color: #fff;
+}
+
+.view-variant-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.variant-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 1rem 1.4rem;
+  background-color: #fdfcf9;
+  border-top: 1px solid #ede8dc;
+}
+
+.btn-modal-cancel {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 0.55rem 1.2rem;
+  border-radius: 7px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-modal-cancel:hover {
+  background-color: #e2e8f0;
+}
+
+.btn-modal-submit {
+  background-color: #496883;
+  color: #ffffff;
+  border: 1px solid #496883;
+  padding: 0.55rem 1.4rem;
+  border-radius: 7px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(73, 104, 131, 0.2);
+}
+
+.btn-modal-submit:hover {
+  background-color: #385269;
+  border-color: #385269;
+}
+
+.btn-modal-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 @media (max-width: 768px) {

@@ -270,28 +270,15 @@ public class KhachHangService {
         if (blankToNull(req.tenKhachHang()) == null) {
             throw new IllegalArgumentException("Họ tên khách hàng không được để trống");
         }
-        if (blankToNull(req.email()) == null) {
-            throw new IllegalArgumentException("Email khách hàng không được để trống");
-        }
-        if (!req.email().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+        if (blankToNull(req.email()) != null && !req.email().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
             throw new IllegalArgumentException("Email khách hàng không đúng định dạng");
         }
         String phone = blankToNull(req.soDienThoai()) != null ? req.soDienThoai() : req.soDienThoaiNhan();
-        validateSoDienThoai(phone);
-        if (req.ngaySinh() == null) {
-            throw new IllegalArgumentException("Ngày sinh khách hàng không được để trống");
+        if (phone != null) {
+            validateSoDienThoai(phone);
         }
-        if (req.ngaySinh().isAfter(LocalDate.now())) {
+        if (req.ngaySinh() != null && req.ngaySinh().isAfter(LocalDate.now())) {
             throw new IllegalArgumentException("Ngày sinh không được lớn hơn ngày hiện tại");
-        }
-        if (blankToNull(req.thanhPho()) == null) {
-            throw new IllegalArgumentException("Tỉnh / Thành phố không được để trống");
-        }
-        if (blankToNull(req.phuong()) == null) {
-            throw new IllegalArgumentException("Phường / Xã không được để trống");
-        }
-        if (blankToNull(req.diaChiCuThe()) == null) {
-            throw new IllegalArgumentException("Địa chỉ cụ thể không được để trống");
         }
     }
 

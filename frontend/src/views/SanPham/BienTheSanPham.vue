@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api.js'
+import Select2 from '@/components/Select2.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -9,9 +10,25 @@ const router = useRouter()
 // SVG Placeholder khi chưa có ảnh
 const defaultImage = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'%3E%3C/circle%3E%3Cpolyline points='21 15 16 10 5 21'%3E%3C/polyline%3E%3C/svg%3E"
 
+// Tùy chọn trạng thái cho Select2
+const trangThaiOptions = [
+  { id: 1, label: 'Đang bán' },
+  { id: 0, label: 'Ngừng bán' }
+]
+
 // Thông tin sản phẩm hiện tại
 const currentProduct = ref(null)
 const productsList = ref([])
+
+// Danh sách sản phẩm định dạng cho Select2
+const formattedProducts = computed(() => {
+  return productsList.value.map(p => ({
+    id: p.id,
+    label: `${p.tenSanPham} (${p.maSanPham || 'SP'})`,
+    tenSanPham: p.tenSanPham,
+    maSanPham: p.maSanPham
+  }))
+})
 
 // Dữ liệu bộ lọc
 const filters = ref({
@@ -26,6 +43,15 @@ const filters = ref({
 // Dữ liệu thuộc tính
 const colors = ref([])
 const sizes = ref([])
+
+// Danh sách kích cỡ định dạng cho Select2
+const formattedSizes = computed(() => {
+  return sizes.value.map(s => ({
+    id: s.id,
+    label: `Size ${s.tenKichCo}`,
+    tenKichCo: s.tenKichCo
+  }))
+})
 
 // Dữ liệu bảng biến thể
 const variants = ref([])
@@ -128,6 +154,127 @@ const openEditModal = (item) => {
 
 const closeEditModal = () => {
   editModal.value.show = false
+}
+
+// Xử lý tải / thay đổi / gỡ ảnh cho biến thể trong editModal
+const variantImageFileInput = ref(null)
+
+const triggerSelectVariantImage = () => {
+  if (variantImageFileInput.value) {
+    variantImageFileInput.value.click()
+  }
+}
+
+const onVariantImageFileSelected = (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('Ảnh quá lớn', 'Kích thước ảnh không được vượt quá 5MB!', 'error')
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = (event) => {
+    editModal.value.data.anhDaiDien = event.target.result
+    showToast('Đã chọn ảnh', 'Ảnh biến thể đã được tải, hãy bấm "Lưu biến thể" để hoàn tất.', 'success')
+  }
+  reader.readAsDataURL(file)
+}
+
+const removeVariantImage = () => {
+  editModal.value.data.anhDaiDien = ''
+  if (variantImageFileInput.value) {
+    variantImageFileInput.value.value = ''
+  }
+  showToast('Đã gỡ ảnh', 'Ảnh biến thể đã được gỡ. Hãy bấm "Lưu biến thể" để lưu thay đổi.', 'info')
+}
+
+// Modal Thêm mới biến thể
+const addModal = ref({
+  show: false,
+  saving: false,
+  data: {
+    idSanPham: '',
+    maChiTietSanPham: '',
+    idKichCo: '',
+    idMauSac: '',
+    soLuong: 1,
+    giaBan: 0,
+    trangThai: 1
+  },
+  errors: {}
+})
+
+const openAddModal = async () => {
+  if (colors.value.length === 0 || sizes.value.length === 0) {
+    await fetchAttributes()
+  }
+  if (!currentProduct.value && productsList.value.length === 0) {
+    try {
+      const res = await api.get('/api/san-pham')
+      productsList.value = res.data?.content || []
+    } catch (_) {}
+  }
+
+  addModal.value = {
+    show: true,
+    saving: false,
+    data: {
+      idSanPham: currentProduct.value?.id || (productsList.value[0]?.id || ''),
+      maChiTietSanPham: '',
+      idKichCo: sizes.value[0]?.id || '',
+      idMauSac: colors.value[0]?.id || '',
+      soLuong: 1,
+      giaBan: 0,
+      trangThai: 1,
+      anhDaiDien: ''
+    },
+    errors: {}
+  }
+}
+
+const closeAddModal = () => {
+  addModal.value.show = false
+  addModal.value.saving = false
+}
+
+const addVariantFileInput = ref(null)
+
+const triggerAddVariantImage = () => {
+  if (addVariantFileInput.value) {
+    addVariantFileInput.value.click()
+  }
+}
+
+const onAddVariantImageFileSelected = (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('Ảnh quá lớn', 'Kích thước ảnh không được vượt quá 5MB!', 'warning')
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = (event) => {
+    addModal.value.data.anhDaiDien = event.target.result
+    showToast('Đã chọn ảnh', 'Ảnh biến thể đã sẵn sàng.', 'success')
+  }
+  reader.readAsDataURL(file)
+}
+
+const removeAddVariantImage = () => {
+  addModal.value.data.anhDaiDien = ''
+  if (addVariantFileInput.value) {
+    addVariantFileInput.value.value = ''
+  }
+}
+
+const onAddModalPriceInput = (e) => {
+  handlePriceInput(e, (val) => {
+    addModal.value.data.giaBan = val === '' ? '' : val
+  })
 }
 
 // Modal Xem chi tiết biến thể
@@ -268,6 +415,7 @@ const handleSaveVariant = async () => {
       soLuong: Number(data.soLuong),
       giaBan: Number(data.giaBan),
       trangThai: Number(data.trangThai),
+      anhDaiDien: data.anhDaiDien !== undefined ? data.anhDaiDien : null,
       nguoiThaoTac: 'Admin'
     }
 
@@ -279,6 +427,83 @@ const handleSaveVariant = async () => {
     console.error('Lỗi cập nhật biến thể:', err)
     const msg = err.response?.data?.message || 'Lỗi khi cập nhật biến thể!'
     showToast('Lỗi cập nhật', msg, 'error')
+  }
+}
+
+const handleSaveNewVariant = async () => {
+  addModal.value.errors = {}
+  const data = addModal.value.data
+
+  const targetProductId = data.idSanPham || currentProduct.value?.id
+  if (!targetProductId) {
+    addModal.value.errors.idSanPham = 'Vui lòng chọn sản phẩm'
+    return
+  }
+  if (!data.idMauSac) {
+    addModal.value.errors.idMauSac = 'Vui lòng chọn màu sắc'
+    return
+  }
+  if (!data.idKichCo) {
+    addModal.value.errors.idKichCo = 'Vui lòng chọn kích cỡ'
+    return
+  }
+  if (data.soLuong === '' || data.soLuong === null || data.soLuong === undefined) {
+    addModal.value.errors.soLuong = 'Vui lòng nhập số lượng'
+    return
+  }
+  const sl = Number(data.soLuong)
+  if (isNaN(sl) || !Number.isInteger(sl) || sl < 0 || sl > 999999) {
+    addModal.value.errors.soLuong = 'Số lượng phải là số nguyên từ 0 đến 999,999'
+    return
+  }
+
+  if (data.giaBan === '' || data.giaBan === null || data.giaBan === undefined) {
+    addModal.value.errors.giaBan = 'Vui lòng nhập giá bán'
+    return
+  }
+  const gb = Number(data.giaBan)
+  if (isNaN(gb) || !Number.isInteger(gb) || gb < 0 || gb > 1000000000) {
+    addModal.value.errors.giaBan = 'Giá bán phải là số nguyên từ 0 đến 1,000,000,000 VNĐ'
+    return
+  }
+
+  if (data.maChiTietSanPham?.trim()) {
+    const ma = data.maChiTietSanPham.trim()
+    if (ma.length > 50) {
+      addModal.value.errors.maChiTietSanPham = 'Mã chi tiết sản phẩm không quá 50 ký tự'
+      return
+    }
+    const codeRegex = /^[A-Za-z0-9_-]+$/
+    if (!codeRegex.test(ma)) {
+      addModal.value.errors.maChiTietSanPham = 'Mã chỉ gồm chữ cái, số, gạch dưới và gạch ngang'
+      return
+    }
+  }
+
+  addModal.value.saving = true
+  try {
+    const payload = {
+      idSanPham: targetProductId,
+      idKichCo: data.idKichCo,
+      idMauSac: data.idMauSac,
+      maChiTietSanPham: data.maChiTietSanPham?.trim() || undefined,
+      soLuong: Number(data.soLuong),
+      giaBan: Number(data.giaBan),
+      trangThai: Number(data.trangThai ?? 1),
+      anhDaiDien: data.anhDaiDien || undefined,
+      nguoiThaoTac: 'Admin'
+    }
+
+    await api.post('/api/chi-tiet-san-pham', payload)
+    closeAddModal()
+    showToast('Thêm thành công', 'Đã thêm biến thể mới cho sản phẩm')
+    fetchVariants()
+  } catch (err) {
+    console.error('Lỗi thêm biến thể:', err)
+    const msg = err.response?.data?.message || 'Lỗi khi thêm biến thể!'
+    showToast('Lỗi thêm biến thể', msg, 'error')
+  } finally {
+    addModal.value.saving = false
   }
 }
 
@@ -600,8 +825,12 @@ watch(() => route.query.sanPhamId, async (newId) => {
           </div>
         </div>
 
-        <button class="btn-back-link" @click="goToProductList" title="Quay lại danh sách sản phẩm">
-          Danh sách sản phẩm
+        <button class="btn-add-variant-primary" @click="openAddModal" title="Thêm biến thể sản phẩm">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Thêm biến thể sản phẩm</span>
         </button>
       </div>
 
@@ -644,31 +873,51 @@ watch(() => route.query.sanPhamId, async (newId) => {
           </div>
         </div>
 
-        <!-- Hàng 2: Ba bộ chọn Dropdown (Màu sắc, Kích cỡ, Trạng thái) -->
+        <!-- Hàng 2: Ba bộ chọn Dropdown Select2 (Màu sắc, Kích cỡ, Trạng thái) -->
         <div class="filter-bottom-row">
           <div class="dropdown-filter-item">
             <label class="dropdown-label">Màu sắc</label>
-            <select v-model="filters.idMauSac" @change="handleFilterChange" class="dropdown-select">
-              <option value="">Tất cả màu sắc</option>
-              <option v-for="c in colors" :key="c.id" :value="c.id">{{ c.tenMauSac }}</option>
-            </select>
+            <Select2
+              v-model="filters.idMauSac"
+              :options="colors"
+              label-key="tenMauSac"
+              placeholder="Tất cả màu sắc"
+              search-placeholder="Tìm kiếm màu sắc..."
+              :allow-clear="true"
+              :show-all-option="true"
+              all-option-label="Tất cả màu sắc"
+              @change="handleFilterChange"
+            />
           </div>
 
           <div class="dropdown-filter-item">
             <label class="dropdown-label">Kích cỡ</label>
-            <select v-model="filters.idKichCo" @change="handleFilterChange" class="dropdown-select">
-              <option value="">Tất cả kích cỡ</option>
-              <option v-for="s in sizes" :key="s.id" :value="s.id">{{ s.tenKichCo }}</option>
-            </select>
+            <Select2
+              v-model="filters.idKichCo"
+              :options="sizes"
+              label-key="tenKichCo"
+              placeholder="Tất cả kích cỡ"
+              search-placeholder="Tìm kiếm kích cỡ..."
+              :allow-clear="true"
+              :show-all-option="true"
+              all-option-label="Tất cả kích cỡ"
+              @change="handleFilterChange"
+            />
           </div>
 
           <div class="dropdown-filter-item">
             <label class="dropdown-label">Trạng thái</label>
-            <select v-model="filters.trangThai" @change="handleFilterChange" class="dropdown-select">
-              <option value="">Tất cả trạng thái</option>
-              <option :value="1">Đang bán</option>
-              <option :value="0">Ngừng bán</option>
-            </select>
+            <Select2
+              v-model="filters.trangThai"
+              :options="trangThaiOptions"
+              label-key="label"
+              placeholder="Tất cả trạng thái"
+              search-placeholder="Tìm trạng thái..."
+              :allow-clear="true"
+              :show-all-option="true"
+              all-option-label="Tất cả trạng thái"
+              @change="handleFilterChange"
+            />
           </div>
         </div>
       </div>
@@ -759,12 +1008,21 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
             <!-- Giá bán -->
             <td style="text-align: right;" class="cell-price">
-              {{ formatPrice(item.giaBan) }}
+              <div v-if="item.coGiamGia && item.giaSauGiam != null" class="variant-price-stack">
+                <span class="original-price-strike">{{ formatPrice(item.giaBan) }}</span>
+                <span class="sale-price-val">{{ formatPrice(item.giaSauGiam) }}</span>
+              </div>
+              <div v-else>
+                {{ formatPrice(item.giaBan) }}
+              </div>
             </td>
 
             <!-- Giảm -->
             <td style="text-align: center;" class="cell-discount">
-              —
+              <span v-if="item.coGiamGia && item.phanTramGiam" class="discount-badge-percent" :title="item.tenDotGiamGia ? `Đợt giảm: ${item.tenDotGiamGia}` : 'Đang áp dụng giảm giá'">
+                -{{ item.phanTramGiam }}%
+              </span>
+              <span v-else class="text-muted">—</span>
             </td>
 
             <!-- Trạng thái -->
@@ -895,15 +1153,70 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
         <!-- Body: 2 cột theo ảnh mẫu -->
         <div class="update-variant-body">
-          <!-- Cột trái: Ảnh to + 2 thẻ thông tin Màu sắc, Kích cỡ -->
+          <!-- Cột trái: Ảnh to + Thao tác ảnh + 2 thẻ thông tin Màu sắc, Kích cỡ -->
           <div class="left-variant-preview">
-            <div class="large-img-card">
+            <div class="large-img-card" @click="triggerSelectVariantImage">
               <img
+                  v-if="editModal.data.anhDaiDien"
                   :src="formatImageUrl(editModal.data.anhDaiDien)"
                   @error="onImgError"
                   alt="Variant big preview"
                   class="preview-img-tag"
               />
+              <div v-else class="variant-img-placeholder">
+                <svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span class="placeholder-main">Chưa có ảnh riêng</span>
+                <span class="placeholder-sub">Bấm để tải ảnh lên</span>
+              </div>
+
+              <!-- Overlay khi hover ảnh -->
+              <div class="img-hover-overlay">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                  <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+                <span>{{ editModal.data.anhDaiDien ? 'Thay đổi ảnh' : 'Tải ảnh mới' }}</span>
+              </div>
+            </div>
+
+            <!-- Các nút thao tác ảnh bên dưới -->
+            <div class="variant-img-action-bar">
+              <input
+                type="file"
+                ref="variantImageFileInput"
+                accept="image/png, image/jpeg, image/webp"
+                style="display: none;"
+                @change="onVariantImageFileSelected"
+              />
+              <button
+                type="button"
+                class="btn-variant-upload-img"
+                @click="triggerSelectVariantImage"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <span>{{ editModal.data.anhDaiDien ? 'Đổi ảnh' : 'Thêm ảnh' }}</span>
+              </button>
+              <button
+                v-if="editModal.data.anhDaiDien"
+                type="button"
+                class="btn-variant-remove-img"
+                @click="removeVariantImage"
+                title="Gỡ ảnh biến thể"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                <span>Gỡ ảnh</span>
+              </button>
             </div>
 
             <div class="variant-attr-summary-row">
@@ -959,10 +1272,15 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
               <div class="variant-field-group">
                 <label class="field-label-text">TRẠNG THÁI</label>
-                <select v-model.number="editModal.data.trangThai" class="field-input-control field-select-control">
-                  <option :value="1">Đang bán</option>
-                  <option :value="0">Ngừng bán</option>
-                </select>
+                <Select2
+                  v-model="editModal.data.trangThai"
+                  :options="trangThaiOptions"
+                  label-key="label"
+                  placeholder="-- Chọn trạng thái --"
+                  search-placeholder="Tìm trạng thái..."
+                  :allow-clear="false"
+                  :searchable="false"
+                />
               </div>
 
               <button class="btn-save-variant-action" @click="handleSaveVariant">
@@ -1112,6 +1430,178 @@ watch(() => route.query.sanPhamId, async (newId) => {
               @click="executeConfirm"
           >
             {{ confirmDialog.confirmText }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Thêm Mới Biến Thể -->
+    <div class="modal-backdrop" v-if="addModal.show" @click.self="closeAddModal">
+      <div class="modal-dialog-box add-variant-dialog">
+        <!-- Header -->
+        <div class="modal-header-row">
+          <div>
+            <div class="variant-tag-badge add-badge">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Thêm biến thể sản phẩm</span>
+            </div>
+            <h3 class="modal-dialog-title" style="margin-top: 6px;">{{ currentProduct?.tenSanPham || 'Thêm mới biến thể' }}</h3>
+            <div class="update-product-code" v-if="currentProduct?.maSanPham">Mã SP: {{ currentProduct.maSanPham }}</div>
+          </div>
+          <button class="modal-close-icon" @click="closeAddModal" title="Đóng">&times;</button>
+        </div>
+
+        <!-- Body -->
+        <div class="modal-body-content">
+          <div class="modal-form-grid">
+            <!-- Sản phẩm nếu chưa chọn -->
+            <div class="modal-field-item full-width" v-if="!currentProduct && productsList.length > 0">
+              <label class="form-item-label">Sản phẩm <span class="req-star">*</span></label>
+              <Select2
+                v-model="addModal.data.idSanPham"
+                :options="formattedProducts"
+                label-key="label"
+                placeholder="-- Chọn sản phẩm --"
+                search-placeholder="Tìm kiếm sản phẩm..."
+                :allow-clear="false"
+              />
+              <span class="err-text" v-if="addModal.errors.idSanPham">{{ addModal.errors.idSanPham }}</span>
+            </div>
+
+            <!-- Mã CTSP -->
+            <div class="modal-field-item full-width">
+              <label class="form-item-label">Mã chi tiết sản phẩm <span class="sub-hint" style="color: #64748b; font-weight: normal; font-size: 0.8rem;">(Để trống hệ thống tự sinh)</span></label>
+              <input
+                  type="text"
+                  v-model="addModal.data.maChiTietSanPham"
+                  class="form-control-input"
+                  placeholder="Nhập mã hoặc để trống tự sinh..."
+                  maxlength="50"
+              />
+              <span class="err-text" v-if="addModal.errors.maChiTietSanPham">{{ addModal.errors.maChiTietSanPham }}</span>
+            </div>
+
+            <!-- Màu sắc -->
+            <div class="modal-field-item">
+              <label class="form-item-label">Màu sắc <span class="req-star">*</span></label>
+              <Select2
+                v-model="addModal.data.idMauSac"
+                :options="colors"
+                label-key="tenMauSac"
+                placeholder="-- Chọn màu sắc --"
+                search-placeholder="Tìm kiếm màu sắc..."
+                :allow-clear="false"
+              />
+              <span class="err-text" v-if="addModal.errors.idMauSac">{{ addModal.errors.idMauSac }}</span>
+            </div>
+
+            <!-- Kích cỡ -->
+            <div class="modal-field-item">
+              <label class="form-item-label">Kích cỡ <span class="req-star">*</span></label>
+              <Select2
+                v-model="addModal.data.idKichCo"
+                :options="formattedSizes"
+                label-key="label"
+                placeholder="-- Chọn kích cỡ --"
+                search-placeholder="Tìm kiếm kích cỡ..."
+                :allow-clear="false"
+              />
+              <span class="err-text" v-if="addModal.errors.idKichCo">{{ addModal.errors.idKichCo }}</span>
+            </div>
+
+            <!-- Số lượng -->
+            <div class="modal-field-item">
+              <label class="form-item-label">Số lượng <span class="req-star">*</span></label>
+              <input
+                  type="number"
+                  min="0"
+                  v-model.number="addModal.data.soLuong"
+                  class="form-control-input"
+                  placeholder="0"
+                  @keydown="blockInvalidIntegerKeys"
+              />
+              <span class="err-text" v-if="addModal.errors.soLuong">{{ addModal.errors.soLuong }}</span>
+            </div>
+
+            <!-- Giá bán -->
+            <div class="modal-field-item">
+              <label class="form-item-label">Giá bán (VNĐ) <span class="req-star">*</span></label>
+              <input
+                  type="text"
+                  inputmode="numeric"
+                  :value="formatNumberWithDots(addModal.data.giaBan)"
+                  class="form-control-input"
+                  placeholder="0"
+                  @focus="$event.target.select()"
+                  @input="onAddModalPriceInput"
+                  @keydown="blockInvalidIntegerKeys"
+                  @paste="handleIntegerPaste"
+              />
+              <span class="err-text" v-if="addModal.errors.giaBan">{{ addModal.errors.giaBan }}</span>
+            </div>
+
+            <!-- Trạng thái -->
+            <div class="modal-field-item full-width">
+              <label class="form-item-label">Trạng thái kinh doanh</label>
+              <Select2
+                v-model="addModal.data.trangThai"
+                :options="trangThaiOptions"
+                label-key="label"
+                placeholder="-- Chọn trạng thái --"
+                search-placeholder="Tìm trạng thái..."
+                :allow-clear="false"
+                :searchable="false"
+              />
+            </div>
+
+            <!-- Hình ảnh biến thể -->
+            <div class="modal-field-item full-width">
+              <label class="form-item-label">Hình ảnh biến thể <span class="sub-hint" style="color: #64748b; font-weight: normal; font-size: 0.8rem;">(Tùy chọn - Tối đa 5MB)</span></label>
+              <div class="add-variant-img-row">
+                <div class="add-variant-img-preview" @click="triggerAddVariantImage">
+                  <img v-if="addModal.data.anhDaiDien" :src="formatImageUrl(addModal.data.anhDaiDien)" alt="Preview" class="add-variant-img" />
+                  <div v-else class="add-variant-img-placeholder">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                      <circle cx="8.5" cy="8.5" r="1.5"/>
+                      <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                    <span>Chọn ảnh</span>
+                  </div>
+                </div>
+                <div class="add-variant-img-actions">
+                  <input
+                    type="file"
+                    ref="addVariantFileInput"
+                    accept="image/png, image/jpeg, image/webp"
+                    style="display: none;"
+                    @change="onAddVariantImageFileSelected"
+                  />
+                  <button type="button" class="btn-img-action-sm btn-pick" @click="triggerAddVariantImage">
+                    {{ addModal.data.anhDaiDien ? 'Đổi ảnh' : 'Tải ảnh lên' }}
+                  </button>
+                  <button v-if="addModal.data.anhDaiDien" type="button" class="btn-img-action-sm btn-remove" @click="removeAddVariantImage">
+                    Gỡ ảnh
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="modal-footer-row">
+          <button type="button" class="btn btn-cancel-modal" @click="closeAddModal">Hủy bỏ</button>
+          <button
+              type="button"
+              class="btn btn-save-modal"
+              :disabled="addModal.saving"
+              @click="handleSaveNewVariant"
+          >
+            {{ addModal.saving ? 'Đang lưu...' : 'Thêm biến thể' }}
           </button>
         </div>
       </div>
@@ -1299,6 +1789,40 @@ watch(() => route.query.sanPhamId, async (newId) => {
 .btn-back-link:hover {
   background-color: #f1f5f9;
   color: #0f172a;
+}
+
+.btn-add-variant-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background-color: var(--blue, #496883);
+  color: #ffffff;
+  border: 1px solid var(--blue, #496883);
+  border-radius: 8px;
+  height: 38px;
+  padding: 0 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(73, 104, 131, 0.2);
+}
+
+.btn-add-variant-primary:hover {
+  background-color: #3d5870;
+  border-color: #3d5870;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(73, 104, 131, 0.25);
+}
+
+.variant-tag-badge.add-badge {
+  color: #0d9488;
+  background-color: #ccfbf1;
+}
+
+.add-variant-dialog {
+  max-width: 540px;
 }
 
 /* 3. Khu vực bộ lọc theo ảnh mẫu */
@@ -1582,8 +2106,39 @@ watch(() => route.query.sanPhamId, async (newId) => {
   color: #2b353b;
 }
 
+.variant-price-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.original-price-strike {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  text-decoration: line-through;
+  font-weight: 500;
+}
+
+.sale-price-val {
+  color: #c94a29;
+  font-weight: 700;
+}
+
 .cell-discount {
   color: #94a3b8;
+}
+
+.discount-badge-percent {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #dc2626;
+  background-color: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
 }
 
 .status-pill {
@@ -1946,6 +2501,11 @@ watch(() => route.query.sanPhamId, async (newId) => {
   animation: modalIn 0.25s ease;
 }
 
+.modal-dialog-box.add-variant-dialog,
+.modal-dialog-box.update-variant-dialog {
+  overflow: visible;
+}
+
 @keyframes modalIn {
   from { opacity: 0; transform: scale(0.96) translateY(8px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
@@ -2214,19 +2774,118 @@ watch(() => route.query.sanPhamId, async (newId) => {
 .large-img-card {
   height: 235px;
   background-color: #f8fafc;
-  border: 1px solid #f1f5f9;
+  border: 1.5px dashed #cbd5e1;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 12px;
   overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.large-img-card:hover {
+  border-color: var(--blue, #496883);
+  background-color: #f1f5f9;
 }
 
 .preview-img-tag {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+.variant-img-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.variant-img-placeholder .placeholder-main {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.variant-img-placeholder .placeholder-sub {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.img-hover-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.6);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  backdrop-filter: blur(2px);
+}
+
+.large-img-card:hover .img-hover-overlay {
+  opacity: 1;
+}
+
+.variant-img-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-variant-upload-img {
+  flex: 1;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background-color: #ffffff;
+  color: var(--blue, #496883);
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-variant-upload-img:hover {
+  background-color: #f1f5f9;
+  border-color: var(--blue, #496883);
+}
+
+.btn-variant-remove-img {
+  height: 32px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background-color: #fff1f2;
+  color: #e11d48;
+  border: 1px solid #fecdd3;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-variant-remove-img:hover {
+  background-color: #ffe4e6;
+  border-color: #fb7185;
 }
 
 .variant-attr-summary-row {
@@ -2350,6 +3009,85 @@ watch(() => route.query.sanPhamId, async (newId) => {
   border-color: #3d576e;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(73, 104, 131, 0.25);
+}
+
+.add-variant-img-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background-color: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.add-variant-img-preview {
+  width: 68px;
+  height: 68px;
+  border-radius: 6px;
+  background-color: #fff;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.add-variant-img-preview:hover {
+  border-color: #496883;
+}
+
+.add-variant-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.add-variant-img-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+
+.add-variant-img-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.btn-img-action-sm {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-img-action-sm.btn-pick {
+  background-color: #496883;
+  color: #ffffff;
+  border: 1px solid #496883;
+}
+
+.btn-img-action-sm.btn-pick:hover {
+  background-color: #385269;
+}
+
+.btn-img-action-sm.btn-remove {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.btn-img-action-sm.btn-remove:hover {
+  background-color: #fee2e2;
 }
 
 /* Responsive */

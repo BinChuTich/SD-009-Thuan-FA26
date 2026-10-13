@@ -31,4 +31,10 @@ public class ChiTietSanPhamResponse {
     private Integer trangThai;
     private Instant ngayTao;
     private String anhDaiDien;
+
+    // Thông tin giảm giá liên kết
+    private Boolean coGiamGia;
+    private BigDecimal giaSauGiam;
+    private BigDecimal phanTramGiam;
+    private String tenDotGiamGia;
 }

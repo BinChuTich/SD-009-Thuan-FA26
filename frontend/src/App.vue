@@ -1,9 +1,7 @@
 <script setup>
-import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref } from 'vue'
 import GlobalDialog from '@/components/GlobalDialog.vue'
 
-const route = useRoute()
 const openMenus = ref({
   sanPham: true,
   thuocTinh: true,
@@ -13,11 +11,6 @@ const openMenus = ref({
 const toggleMenu = (menu) => {
   openMenus.value[menu] = !openMenus.value[menu]
 }
-
-const isThuocTinhActive = computed(() => {
-  const path = route.path
-  return ['thuoc-tinh', 'thuong-hieu', 'danh-muc', 'chat-lieu', 'xuat-xu', 'co-ao', 'tay-ao', 'hoa-tiet', 'mau-sac', 'kich-co'].some(p => path.includes(p))
-})
 </script>
 
 <template>
@@ -92,59 +85,62 @@ const isThuocTinhActive = computed(() => {
               <span>Sản phẩm</span>
             </router-link>
             <router-link to="/bien-the-san-pham" class="tree-item" active-class="active">
-              <span class="tree-branch">├─</span>
+              <span class="tree-branch">└─</span>
               <span>Biến thể sản phẩm</span>
             </router-link>
+          </div>
+        </div>
 
-            <!-- Nhánh lồng cấp 3: Quản lý thuộc tính -->
-            <div
-              class="tree-item has-sub-nested"
-              :class="{ active: isThuocTinhActive }"
-              @click="toggleMenu('thuocTinh')"
-            >
+        <!-- 5. Quản lý thuộc tính (Menu chính) -->
+        <div class="menu-group">
+          <div class="menu-item has-sub" @click="toggleMenu('thuocTinh')">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l-5.5 9h11L12 2zm0 3.84L13.93 9h-3.87L12 5.84zM17.5 13c-2.49 0-4.5 2.01-4.5 4.5s2.01 4.5 4.5 4.5 4.5-2.01 4.5-4.5-2.01-4.5-4.5zm0 7c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5zM3 21.5h8v-8H3v8zm2-6h4v4H5v-4z"/>
+              </svg>
+            </span>
+            <span class="menu-text">Quản lý thuộc tính</span>
+            <span class="arrow-icon" :class="{ open: openMenus.thuocTinh }">⌄</span>
+          </div>
+
+          <!-- Menu con của Thuộc tính -->
+          <div class="submenu-tree" v-show="openMenus.thuocTinh">
+            <router-link to="/thuong-hieu" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Thương hiệu</span>
+            </router-link>
+            <router-link to="/danh-muc" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Danh mục</span>
+            </router-link>
+            <router-link to="/chat-lieu" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Chất liệu</span>
+            </router-link>
+            <router-link to="/xuat-xu" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Xuất xứ</span>
+            </router-link>
+            <router-link to="/co-ao" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Cổ áo</span>
+            </router-link>
+            <router-link to="/tay-ao" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Tay áo</span>
+            </router-link>
+            <router-link to="/hoa-tiet" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Họa tiết</span>
+            </router-link>
+            <router-link to="/mau-sac" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Màu sắc</span>
+            </router-link>
+            <router-link to="/kich-co" class="tree-item" active-class="active">
               <span class="tree-branch">└─</span>
-              <span class="nested-title">Quản lý thuộc tính</span>
-              <span class="arrow-icon-sub" :class="{ open: openMenus.thuocTinh }">⌄</span>
-            </div>
-
-            <div class="submenu-sub-tree" v-show="openMenus.thuocTinh">
-              <router-link to="/thuong-hieu" class="tree-sub-item" active-class="active">
-                <span class="tree-branch">├─</span>
-                <span>Thương hiệu</span>
-              </router-link>
-              <router-link to="/danh-muc" class="tree-sub-item" active-class="active">
-                <span class="tree-branch">├─</span>
-                <span>Danh mục</span>
-              </router-link>
-              <router-link to="/chat-lieu" class="tree-sub-item" active-class="active">
-                <span class="tree-branch">├─</span>
-                <span>Chất liệu</span>
-              </router-link>
-              <router-link to="/xuat-xu" class="tree-sub-item" active-class="active">
-                <span class="tree-branch">├─</span>
-                <span>Xuất xứ</span>
-              </router-link>
-              <router-link to="/co-ao" class="tree-sub-item" active-class="active">
-                <span class="tree-branch">├─</span>
-                <span>Cổ áo</span>
-              </router-link>
-              <router-link to="/tay-ao" class="tree-sub-item" active-class="active">
-                <span class="tree-branch">├─</span>
-                <span>Tay áo</span>
-              </router-link>
-              <router-link to="/hoa-tiet" class="tree-sub-item" active-class="active">
-                <span class="tree-branch">├─</span>
-                <span>Họa tiết</span>
-              </router-link>
-              <router-link to="/mau-sac" class="tree-sub-item" active-class="active">
-                <span class="tree-branch">├─</span>
-                <span>Màu sắc</span>
-              </router-link>
-              <router-link to="/kich-co" class="tree-sub-item" active-class="active">
-                <span class="tree-branch">└─</span>
-                <span>Kích cỡ</span>
-              </router-link>
-            </div>
+              <span>Kích cỡ</span>
+            </router-link>
           </div>
         </div>
 
@@ -446,74 +442,6 @@ const isThuocTinhActive = computed(() => {
 }
 
 .tree-item.active .tree-branch {
-  color: #496883;
-}
-
-/* Nhánh lồng cấp 3 (Thuộc tính sản phẩm) */
-.has-sub-nested {
-  cursor: pointer;
-  user-select: none;
-}
-
-.has-sub-nested.active {
-  background-color: #f0f4f7;
-  color: #496883;
-  font-weight: 700;
-}
-
-.nested-title {
-  flex: 1;
-  white-space: nowrap;
-}
-
-.arrow-icon-sub {
-  font-size: 11px;
-  color: #8a9292;
-  margin-left: auto;
-  transition: transform 0.2s ease;
-  padding-right: 4px;
-}
-
-.arrow-icon-sub.open {
-  transform: rotate(180deg);
-}
-
-.submenu-sub-tree {
-  display: flex !important;
-  flex-direction: column !important;
-  padding-left: 14px;
-  margin: 2px 0;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.tree-sub-item {
-  display: flex !important;
-  align-items: center;
-  height: 28px;
-  padding: 0 8px;
-  font-size: 0.8rem !important;
-  color: #647074;
-  text-decoration: none;
-  border-radius: 4px;
-  white-space: nowrap !important;
-  width: 100%;
-  box-sizing: border-box;
-  transition: all 0.15s ease;
-}
-
-.tree-sub-item:hover {
-  background-color: #f7f5ef;
-  color: #496883;
-}
-
-.tree-sub-item.active {
-  background-color: #eaf1f4;
-  color: #496883;
-  font-weight: 700;
-}
-
-.tree-sub-item.active .tree-branch {
   color: #496883;
 }
 

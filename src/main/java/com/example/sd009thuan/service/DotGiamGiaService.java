@@ -18,9 +18,11 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class DotGiamGiaService {
@@ -162,19 +164,33 @@ public class DotGiamGiaService {
         }
 
         // Kiểm tra quy tắc: 1 sản phẩm chỉ được tạo 1 đợt giảm giá, khi kết thúc mới tạo lại được
-        if (dotGiamGia.getChiTietSanPhamIds() != null && !dotGiamGia.getChiTietSanPhamIds().isEmpty()) {
-            List<Long> ctspIds = dotGiamGia.getChiTietSanPhamIds();
-            List<Long> spIds = new ArrayList<>();
-            for (Long ctspId : ctspIds) {
-                chiTietSanPhamRepository.findById(ctspId).ifPresent(ctsp -> {
-                    if (ctsp.getIdSanPham() != null) {
-                        spIds.add(ctsp.getIdSanPham().getId());
+        List<Long> ctspIds = new ArrayList<>();
+        if (dotGiamGia.getChiTietSanPhamIds() != null) {
+            ctspIds.addAll(dotGiamGia.getChiTietSanPhamIds());
+        }
+        List<Long> spIds = new ArrayList<>();
+        if (dotGiamGia.getSanPhamIds() != null) {
+            spIds.addAll(dotGiamGia.getSanPhamIds());
+            for (Long spId : dotGiamGia.getSanPhamIds()) {
+                List<ChiTietSanPham> variants = chiTietSanPhamRepository.findByIdSanPham_Id(spId);
+                for (ChiTietSanPham v : variants) {
+                    if (!ctspIds.contains(v.getId())) {
+                        ctspIds.add(v.getId());
                     }
-                });
+                }
             }
-            if (spIds.isEmpty()) {
-                spIds.add(-1L);
-            }
+        }
+        for (Long ctspId : ctspIds) {
+            chiTietSanPhamRepository.findById(ctspId).ifPresent(ctsp -> {
+                if (ctsp.getIdSanPham() != null && !spIds.contains(ctsp.getIdSanPham().getId())) {
+                    spIds.add(ctsp.getIdSanPham().getId());
+                }
+            });
+        }
+
+        if (!ctspIds.isEmpty() || !spIds.isEmpty()) {
+            if (spIds.isEmpty()) spIds.add(-1L);
+            if (ctspIds.isEmpty()) ctspIds.add(-1L);
 
             List<ChiTietDotGiamGia> conflicts = chiTietDotGiamGiaRepository.findUnendedCampaignConflicts(
                     ctspIds,
@@ -229,10 +245,22 @@ public class DotGiamGiaService {
         return Optional.empty();
     }
 
-    private void saveChiTiet(DotGiamGia dotGiamGia, List<Long> chiTietSanPhamIds) {
-        if (chiTietSanPhamIds == null || chiTietSanPhamIds.isEmpty()) return;
+    private void saveChiTiet(DotGiamGia dotGiamGia, List<Long> chiTietSanPhamIds, List<Long> sanPhamIds) {
+        Set<Long> finalCtspIds = new LinkedHashSet<>();
+        if (chiTietSanPhamIds != null) {
+            finalCtspIds.addAll(chiTietSanPhamIds);
+        }
+        if (sanPhamIds != null) {
+            for (Long spId : sanPhamIds) {
+                List<ChiTietSanPham> variants = chiTietSanPhamRepository.findByIdSanPham_Id(spId);
+                for (ChiTietSanPham v : variants) {
+                    finalCtspIds.add(v.getId());
+                }
+            }
+        }
+        if (finalCtspIds.isEmpty()) return;
         List<ChiTietDotGiamGia> list = new ArrayList<>();
-        for (Long ctspId : chiTietSanPhamIds) {
+        for (Long ctspId : finalCtspIds) {
             Optional<ChiTietSanPham> opt = chiTietSanPhamRepository.findById(ctspId);
             if (opt.isPresent()) {
                 ChiTietDotGiamGia ct = new ChiTietDotGiamGia();
@@ -258,7 +286,7 @@ public class DotGiamGiaService {
             dotGiamGia.setTrangThai(1);
         }
         DotGiamGia saved = dotGiamGiaRepository.save(dotGiamGia);
-        saveChiTiet(saved, dotGiamGia.getChiTietSanPhamIds());
+        saveChiTiet(saved, dotGiamGia.getChiTietSanPhamIds(), dotGiamGia.getSanPhamIds());
         return saved;
     }
 
@@ -279,9 +307,9 @@ public class DotGiamGiaService {
         }
 
         DotGiamGia saved = dotGiamGiaRepository.save(cu);
-        if (moi.getChiTietSanPhamIds() != null) {
+        if (moi.getChiTietSanPhamIds() != null || moi.getSanPhamIds() != null) {
             chiTietDotGiamGiaRepository.deleteByIdDotGiamGiaId(id);
-            saveChiTiet(saved, moi.getChiTietSanPhamIds());
+            saveChiTiet(saved, moi.getChiTietSanPhamIds(), moi.getSanPhamIds());
         }
         return saved;
     }

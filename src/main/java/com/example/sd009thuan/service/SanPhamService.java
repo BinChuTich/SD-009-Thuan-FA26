@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -39,6 +40,8 @@ public class SanPhamService {
     private final CoAoRepository coAoRepository;
     private final TayAoRepository tayAoRepository;
     private final HoaTietRepository hoaTietRepository;
+    private final ChiTietDotGiamGiaRepository chiTietDotGiamGiaRepository;
+    private final DotGiamGiaRepository dotGiamGiaRepository;
 
     public SanPhamService(
             SanPhamRepository sanPhamRepository,
@@ -50,7 +53,9 @@ public class SanPhamService {
             DanhMucRepository danhMucRepository,
             CoAoRepository coAoRepository,
             TayAoRepository tayAoRepository,
-            HoaTietRepository hoaTietRepository
+            HoaTietRepository hoaTietRepository,
+            ChiTietDotGiamGiaRepository chiTietDotGiamGiaRepository,
+            DotGiamGiaRepository dotGiamGiaRepository
     ) {
         this.sanPhamRepository = sanPhamRepository;
         this.chiTietSanPhamRepository = chiTietSanPhamRepository;
@@ -62,6 +67,8 @@ public class SanPhamService {
         this.coAoRepository = coAoRepository;
         this.tayAoRepository = tayAoRepository;
         this.hoaTietRepository = hoaTietRepository;
+        this.chiTietDotGiamGiaRepository = chiTietDotGiamGiaRepository;
+        this.dotGiamGiaRepository = dotGiamGiaRepository;
     }
 
     private Specification<SanPham> buildSpecification(SanPhamFilterRequest req) {
@@ -145,6 +152,35 @@ public class SanPhamService {
         return convertToResponse(sp);
     }
 
+    public String nextCode() {
+        List<SanPham> all = sanPhamRepository.findAll();
+        int maxIndex = 0;
+        for (SanPham sp : all) {
+            String code = sp.getMaSanPham();
+            if (code != null) {
+                String trimmed = code.trim().toUpperCase();
+                if (trimmed.startsWith("SP")) {
+                    String numPart = trimmed.substring(2).trim();
+                    if (numPart.matches("\\d{1,4}")) {
+                        try {
+                            int val = Integer.parseInt(numPart);
+                            if (val > maxIndex) {
+                                maxIndex = val;
+                            }
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
+        }
+        int next = maxIndex + 1;
+        String candidate = String.format("SP%03d", next);
+        while (sanPhamRepository.existsByMaSanPhamIgnoreCase(candidate)) {
+            next++;
+            candidate = String.format("SP%03d", next);
+        }
+        return candidate;
+    }
+
     @Transactional
     public SanPhamResponse create(SanPhamRequest req) {
         String trimmedName = req.getTenSanPham() != null ? req.getTenSanPham().trim() : "";
@@ -156,10 +192,10 @@ public class SanPhamService {
         }
 
         if (req.getMaSanPham() == null || req.getMaSanPham().trim().isEmpty()) {
-            req.setMaSanPham("SP" + System.currentTimeMillis());
+            req.setMaSanPham(nextCode());
         } else {
             String trimmedCode = req.getMaSanPham().trim();
-            if (sanPhamRepository.existsByMaSanPham(trimmedCode)) {
+            if (sanPhamRepository.existsByMaSanPhamIgnoreCase(trimmedCode)) {
                 throw new IllegalArgumentException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại!");
             }
             req.setMaSanPham(trimmedCode);
@@ -238,7 +274,7 @@ public class SanPhamService {
 
         if (req.getMaSanPham() != null && !req.getMaSanPham().trim().isEmpty()) {
             String trimmedCode = req.getMaSanPham().trim();
-            if (sanPhamRepository.existsByMaSanPhamAndIdNot(trimmedCode, id)) {
+            if (sanPhamRepository.existsByMaSanPhamIgnoreCaseAndIdNot(trimmedCode, id)) {
                 throw new IllegalArgumentException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại ở sản phẩm khác!");
             }
             sp.setMaSanPham(trimmedCode);
@@ -435,7 +471,9 @@ public class SanPhamService {
             String[] headers = {
                     "STT", "Mã sản phẩm", "Tên sản phẩm", "Danh mục", "Thương hiệu",
                     "Xuất xứ", "Chất liệu", "Cổ áo", "Tay áo", "Họa tiết",
-                    "Giá thấp nhất (VNĐ)", "Giá cao nhất (VNĐ)", "Số lượng tồn", "Số biến thể",
+                    "Số màu", "Số kích thước",
+                    "Giá bán (VNĐ)", "Giá sau giảm (VNĐ)", "Đợt giảm giá",
+                    "Số lượng tồn", "Số biến thể",
                     "Trạng thái", "Ngày tạo"
             };
 
@@ -494,28 +532,44 @@ public class SanPhamService {
                 c9.setCellStyle(dataStyle);
 
                 Cell c10 = row.createCell(10);
-                c10.setCellValue(sp.getMinGia() != null ? sp.getMinGia().doubleValue() : 0);
-                c10.setCellStyle(numberStyle);
+                c10.setCellValue(sp.getSoMau() != null ? sp.getSoMau() : 0);
+                c10.setCellStyle(centerStyle);
 
                 Cell c11 = row.createCell(11);
-                c11.setCellValue(sp.getMaxGia() != null ? sp.getMaxGia().doubleValue() : 0);
-                c11.setCellStyle(numberStyle);
+                c11.setCellValue(sp.getSoKichCo() != null ? sp.getSoKichCo() : 0);
+                c11.setCellStyle(centerStyle);
 
                 Cell c12 = row.createCell(12);
-                c12.setCellValue(sp.getTongSoLuong() != null ? sp.getTongSoLuong() : 0);
-                c12.setCellStyle(centerStyle);
+                c12.setCellValue(sp.getMinGia() != null ? sp.getMinGia().doubleValue() : 0);
+                c12.setCellStyle(numberStyle);
 
                 Cell c13 = row.createCell(13);
-                c13.setCellValue(sp.getSoLuongBienThe() != null ? sp.getSoLuongBienThe() : 0);
-                c13.setCellStyle(centerStyle);
+                if (Boolean.TRUE.equals(sp.getCoGiamGia()) && sp.getMinGiaSauGiam() != null) {
+                    c13.setCellValue(sp.getMinGiaSauGiam().doubleValue());
+                } else {
+                    c13.setCellValue(sp.getMinGia() != null ? sp.getMinGia().doubleValue() : 0);
+                }
+                c13.setCellStyle(numberStyle);
 
                 Cell c14 = row.createCell(14);
-                c14.setCellValue(sp.getTrangThai() != null && sp.getTrangThai() == 1 ? "Đang kinh doanh" : "Ngừng kinh doanh");
+                c14.setCellValue(Boolean.TRUE.equals(sp.getCoGiamGia()) && sp.getTenDotGiamGia() != null ? sp.getTenDotGiamGia() : "Không áp dụng");
                 c14.setCellStyle(centerStyle);
 
                 Cell c15 = row.createCell(15);
-                c15.setCellValue(sp.getNgayTao() != null ? formatter.format(sp.getNgayTao()) : "");
+                c15.setCellValue(sp.getTongSoLuong() != null ? sp.getTongSoLuong() : 0);
                 c15.setCellStyle(centerStyle);
+
+                Cell c16 = row.createCell(16);
+                c16.setCellValue(sp.getSoLuongBienThe() != null ? sp.getSoLuongBienThe() : 0);
+                c16.setCellStyle(centerStyle);
+
+                Cell c17 = row.createCell(17);
+                c17.setCellValue(sp.getTrangThai() != null && sp.getTrangThai() == 1 ? "Đang kinh doanh" : "Ngừng kinh doanh");
+                c17.setCellStyle(centerStyle);
+
+                Cell c18 = row.createCell(18);
+                c18.setCellValue(sp.getNgayTao() != null ? formatter.format(sp.getNgayTao()) : "");
+                c18.setCellStyle(centerStyle);
             }
 
             for (int i = 0; i < headers.length; i++) {
@@ -535,6 +589,78 @@ public class SanPhamService {
         Long sum = chiTietSanPhamRepository.sumSoLuongBySanPhamId(sp.getId());
         Integer tongSoLuong = sum != null ? sum.intValue() : 0;
         List<ChiTietSanPham> variants = chiTietSanPhamRepository.findByIdSanPham_Id(sp.getId());
+        int soMau = 0;
+        int soKichCo = 0;
+        if (variants != null && !variants.isEmpty()) {
+            soMau = (int) variants.stream()
+                    .map(v -> v.getIdMauSac() != null ? v.getIdMauSac().getId() : null)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .count();
+            soKichCo = (int) variants.stream()
+                    .map(v -> v.getIdKichCo() != null ? v.getIdKichCo().getId() : null)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .count();
+        }
+
+        // Kiểm tra và liên kết với đợt giảm giá đang hoạt động
+        Instant now = Instant.now();
+        List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsBySanPhamId(sp.getId(), now);
+
+        boolean coGiamGia = false;
+        BigDecimal minGiaSauGiam = null;
+        BigDecimal maxGiaSauGiam = null;
+        BigDecimal phanTramGiam = null;
+        String tenDotGiamGia = null;
+
+        if (activeDiscounts != null && !activeDiscounts.isEmpty()) {
+            coGiamGia = true;
+            ChiTietDotGiamGia firstDgg = activeDiscounts.get(0);
+            if (firstDgg.getIdDotGiamGia() != null) {
+                tenDotGiamGia = firstDgg.getIdDotGiamGia().getTenDotGiamGia();
+                phanTramGiam = firstDgg.getPhanTramGiamBienThe() != null 
+                        ? firstDgg.getPhanTramGiamBienThe() 
+                        : firstDgg.getIdDotGiamGia().getPhanTramGiam();
+            }
+
+            java.util.Map<Long, BigDecimal> discountMap = new java.util.HashMap<>();
+            for (ChiTietDotGiamGia c : activeDiscounts) {
+                if (c.getIdChiTietSanPham() != null) {
+                    BigDecimal pt = c.getPhanTramGiamBienThe() != null 
+                            ? c.getPhanTramGiamBienThe() 
+                            : (c.getIdDotGiamGia() != null ? c.getIdDotGiamGia().getPhanTramGiam() : BigDecimal.ZERO);
+                    discountMap.put(c.getIdChiTietSanPham().getId(), pt);
+                }
+            }
+
+            if (variants != null && !variants.isEmpty()) {
+                for (ChiTietSanPham v : variants) {
+                    if (v.getGiaBan() == null) continue;
+                    BigDecimal pt = discountMap.get(v.getId());
+                    if (pt == null) {
+                        pt = phanTramGiam != null ? phanTramGiam : BigDecimal.ZERO;
+                    }
+                    BigDecimal priceAfter = v.getGiaBan();
+                    if (pt != null && pt.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal factor = BigDecimal.valueOf(100).subtract(pt).max(BigDecimal.ZERO);
+                        priceAfter = v.getGiaBan().multiply(factor).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+                    }
+                    if (minGiaSauGiam == null || priceAfter.compareTo(minGiaSauGiam) < 0) {
+                        minGiaSauGiam = priceAfter;
+                    }
+                    if (maxGiaSauGiam == null || priceAfter.compareTo(maxGiaSauGiam) > 0) {
+                        maxGiaSauGiam = priceAfter;
+                    }
+                }
+            }
+
+            if (minGiaSauGiam != null && minGia != null && minGiaSauGiam.compareTo(minGia) >= 0) {
+                coGiamGia = false;
+                minGiaSauGiam = null;
+                maxGiaSauGiam = null;
+            }
+        }
 
         List<HinhAnh> images = hinhAnhRepository.findByIdSanPham_Id(sp.getId());
         String anhDaiDien = (images != null && !images.isEmpty()) ? images.get(0).getDuongDan() : null;
@@ -570,8 +696,15 @@ public class SanPhamService {
                 .tenHoaTiet(sp.getIdHoaTiet() != null ? sp.getIdHoaTiet().getTenHoaTiet() : null)
                 .minGia(minGia)
                 .maxGia(maxGia)
+                .coGiamGia(coGiamGia)
+                .minGiaSauGiam(minGiaSauGiam)
+                .maxGiaSauGiam(maxGiaSauGiam)
+                .phanTramGiam(phanTramGiam)
+                .tenDotGiamGia(tenDotGiamGia)
                 .tongSoLuong(tongSoLuong)
                 .soLuongBienThe(variants != null ? variants.size() : 0)
+                .soMau(soMau)
+                .soKichCo(soKichCo)
                 .anhDaiDien(anhDaiDien)
                 .hinhAnhs(hinhAnhs)
                 .build();

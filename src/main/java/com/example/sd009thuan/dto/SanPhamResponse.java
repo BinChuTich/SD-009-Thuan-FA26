@@ -49,6 +49,16 @@ public class SanPhamResponse {
     private BigDecimal maxGia;
     private Integer tongSoLuong;
     private Integer soLuongBienThe;
+    private Integer soMau;
+    private Integer soKichCo;
     private String anhDaiDien;
     private java.util.List<String> hinhAnhs;
+
+    // Thông tin đợt giảm giá liên kết
+    private Boolean coGiamGia;
+    private BigDecimal minGiaSauGiam;
+    private BigDecimal maxGiaSauGiam;
+    private BigDecimal phanTramGiam;
+    private String tenDotGiamGia;
 }
+

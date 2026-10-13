@@ -1,129 +1,231 @@
 <template>
   <div class="product-page-container">
-    <!-- Tiêu đề trang -->
-    <div class="page-header-row">
-      <div class="page-breadcrumb">
-        <router-link to="/san-pham" class="crumb-parent">Quản lý sản phẩm</router-link>
-        <span class="crumb-separator">/</span>
-        <span class="crumb-current">Danh sách sản phẩm</span>
+    <!-- 1. Header Trang: Breadcrumb bên trái, 3 nút hành động bên phải -->
+    <div class="page-top-header">
+      <div class="header-left-col">
+        <div class="page-breadcrumb">
+          <router-link to="/san-pham" class="crumb-parent">Quản lý sản phẩm</router-link>
+          <span class="crumb-separator">/</span>
+          <span class="crumb-current">Danh sách sản phẩm</span>
+        </div>
       </div>
-      <div v-if="toast.show" :class="['toast-notification', toast.type]">
-        {{ toast.message }}
+
+      <div class="header-right-col">
+        <button type="button" class="btn btn-header-outline" @click="goToVariantsPage" title="Quản lý biến thể sản phẩm">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <span>Biến thể</span>
+        </button>
+
+        <button type="button" class="btn btn-header-outline" @click="goToAttributesPage" title="Quản lý thuộc tính">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="21" x2="4" y2="14"></line>
+            <line x1="4" y1="10" x2="4" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12" y2="3"></line>
+            <line x1="20" y1="21" x2="20" y2="16"></line>
+            <line x1="20" y1="12" x2="20" y2="3"></line>
+            <line x1="1" y1="14" x2="7" y2="14"></line>
+            <line x1="9" y1="8" x2="15" y2="8"></line>
+            <line x1="17" y1="16" x2="23" y2="16"></line>
+          </svg>
+          <span>Thuộc tính</span>
+        </button>
+
+        <button type="button" class="btn btn-header-primary" @click="goToAddPage" title="Thêm mới sản phẩm">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Thêm sản phẩm</span>
+        </button>
       </div>
     </div>
 
-    <!-- Khối khung trắng bao bọc toàn bộ chức năng -->
-    <div class="product-card">
-      <!-- 1. Hàng tìm kiếm và các nút chính sắp xếp full theo mẫu -->
-      <div class="search-actions-bar">
-        <!-- Cột trái: Tìm kiếm full width -->
-        <div class="search-input-col">
-          <label class="search-label">Tìm kiếm</label>
-          <div class="input-inner-wrap">
-            <span class="prefix-search-icon">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-            </span>
+    <!-- Toast thông báo -->
+    <div v-if="toast.show" :class="['toast-notification', toast.type]">
+      {{ toast.message }}
+    </div>
+
+    <!-- 2. KHUNG 1: BỘ LỌC SẢN PHẨM -->
+    <div class="content-card filter-card">
+      <div class="card-header-filter">
+        <div class="filter-header-title">
+          <svg class="filter-funnel-svg" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+          </svg>
+          <span>Bộ lọc sản phẩm</span>
+        </div>
+      </div>
+
+      <div class="filter-form-grid">
+        <!-- 1. Mã / tên sản phẩm -->
+        <div class="filter-field-item">
+          <label class="filter-field-label">Mã / tên sản phẩm</label>
+          <div class="filter-input-wrap">
             <input
                 type="text"
                 v-model="filters.keyword"
                 @keyup.enter="handleSearch"
                 @input="onKeywordChange"
-                placeholder="Tìm theo mã SP / tên sản phẩm..."
-                class="input-search-full"
+                placeholder="Tìm kiếm sản phẩm..."
+                class="filter-text-input"
             />
           </div>
         </div>
 
-        <!-- Cột phải: 3 nút hành động (Đặt lại bộ lọc, Xuất Excel, + Thêm sản phẩm) -->
-        <div class="action-buttons-col">
-          <button class="btn btn-refresh" @click="resetFilters" title="Đặt lại bộ lọc">
-            Đặt lại bộ lọc
-          </button>
-          <button class="btn btn-export" @click="handleExportExcel" :disabled="exporting" title="Xuất danh sách ra file Excel">
-            {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
-          </button>
-          <button class="btn btn-add" @click="goToAddPage" title="Thêm mới sản phẩm">
-            Thêm sản phẩm
-          </button>
+        <!-- 2. Danh mục -->
+        <div class="filter-field-item">
+          <label class="filter-field-label">Danh mục</label>
+          <Select2Combobox
+            v-model="filters.idDanhMuc"
+            :options="attributes.danhMuc"
+            value-key="id"
+            label-key="tenDanhMuc"
+            placeholder="Tất cả"
+            search-placeholder="Tìm danh mục..."
+            @change="handleSearch"
+          />
+        </div>
+
+        <!-- 3. Thương hiệu -->
+        <div class="filter-field-item">
+          <label class="filter-field-label">Thương hiệu</label>
+          <Select2Combobox
+            v-model="filters.idThuongHieu"
+            :options="attributes.thuongHieu"
+            value-key="id"
+            label-key="tenThuongHieu"
+            placeholder="Tất cả"
+            search-placeholder="Tìm thương hiệu..."
+            @change="handleSearch"
+          />
+        </div>
+
+        <!-- 4. Chất liệu -->
+        <div class="filter-field-item">
+          <label class="filter-field-label">Chất liệu</label>
+          <Select2Combobox
+            v-model="filters.idChatLieu"
+            :options="attributes.chatLieu"
+            value-key="id"
+            label-key="tenChatLieu"
+            placeholder="Tất cả"
+            search-placeholder="Tìm chất liệu..."
+            @change="handleSearch"
+          />
+        </div>
+
+        <!-- 5. Cổ áo -->
+        <div class="filter-field-item">
+          <label class="filter-field-label">Cổ áo</label>
+          <Select2Combobox
+            v-model="filters.idCoAo"
+            :options="attributes.coAo"
+            value-key="id"
+            label-key="tenCoAo"
+            placeholder="Tất cả"
+            search-placeholder="Tìm cổ áo..."
+            @change="handleSearch"
+          />
+        </div>
+
+        <!-- 6. Tay áo -->
+        <div class="filter-field-item">
+          <label class="filter-field-label">Tay áo</label>
+          <Select2Combobox
+            v-model="filters.idTayAo"
+            :options="attributes.tayAo"
+            value-key="id"
+            label-key="tenTayAo"
+            placeholder="Tất cả"
+            search-placeholder="Tìm tay áo..."
+            @change="handleSearch"
+          />
+        </div>
+
+        <!-- 7. Xuất xứ -->
+        <div class="filter-field-item">
+          <label class="filter-field-label">Xuất xứ</label>
+          <Select2Combobox
+            v-model="filters.idXuatXu"
+            :options="attributes.xuatXu"
+            value-key="id"
+            label-key="tenXuatXu"
+            placeholder="Tất cả"
+            search-placeholder="Tìm xuất xứ..."
+            @change="handleSearch"
+          />
+        </div>
+
+        <!-- 8. Họa tiết -->
+        <div class="filter-field-item">
+          <label class="filter-field-label">Họa tiết</label>
+          <Select2Combobox
+            v-model="filters.idHoaTiet"
+            :options="attributes.hoaTiet"
+            value-key="id"
+            label-key="tenHoaTiet"
+            placeholder="Tất cả"
+            search-placeholder="Tìm họa tiết..."
+            @change="handleSearch"
+          />
         </div>
       </div>
 
-      <!-- 2. Khối 8 tiêu chí lọc thuộc tính -->
-      <div class="filter-attributes-section">
-        <div class="funnel-icon-wrap" title="Bộ lọc thuộc tính">
-          <span class="funnel-icon">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
-            </svg>
-          </span>
+      <!-- Hàng chân bộ lọc: Trạng thái bên trái, Các nút Đặt lại, Xuất Excel, Tìm kiếm bên phải -->
+      <div class="filter-footer-row">
+        <div class="filter-field-item filter-status-col">
+          <label class="filter-field-label">Trạng thái</label>
+          <Select2Combobox
+            v-model="filters.trangThai"
+            :options="trangThaiOptions"
+            value-key="id"
+            label-key="name"
+            placeholder="Tất cả trạng thái"
+            search-placeholder="Tìm trạng thái..."
+            @change="handleSearch"
+          />
         </div>
 
-        <div class="attribute-dropdowns-grid">
-          <!-- 1. Thương hiệu -->
-          <select v-model="filters.idThuongHieu" @change="handleSearch" class="filter-pill-select">
-            <option value="">-- Thương hiệu --</option>
-            <option v-for="item in attributes.thuongHieu" :key="item.id" :value="item.id">
-              {{ item.tenThuongHieu }}
-            </option>
-          </select>
+        <div class="filter-buttons-group">
+          <button type="button" class="btn btn-filter-reset" @click="resetFilters" title="Đặt lại bộ lọc">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+            </svg>
+            <span>Đặt lại</span>
+          </button>
 
-          <!-- 2. Danh mục -->
-          <select v-model="filters.idDanhMuc" @change="handleSearch" class="filter-pill-select">
-            <option value="">-- Danh mục --</option>
-            <option v-for="item in attributes.danhMuc" :key="item.id" :value="item.id">
-              {{ item.tenDanhMuc }}
-            </option>
-          </select>
+          <button type="button" class="btn btn-filter-export" @click="handleExportExcel" :disabled="exporting" title="Xuất danh sách ra file Excel">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span>{{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
 
-          <!-- 3. Xuất xứ -->
-          <select v-model="filters.idXuatXu" @change="handleSearch" class="filter-pill-select">
-            <option value="">-- Xuất xứ --</option>
-            <option v-for="item in attributes.xuatXu" :key="item.id" :value="item.id">
-              {{ item.tenXuatXu }}
-            </option>
-          </select>
-
-          <!-- 4. Chất liệu -->
-          <select v-model="filters.idChatLieu" @change="handleSearch" class="filter-pill-select">
-            <option value="">-- Chất liệu --</option>
-            <option v-for="item in attributes.chatLieu" :key="item.id" :value="item.id">
-              {{ item.tenChatLieu }}
-            </option>
-          </select>
-
-          <!-- 5. Cổ áo -->
-          <select v-model="filters.idCoAo" @change="handleSearch" class="filter-pill-select">
-            <option value="">-- Cổ áo --</option>
-            <option v-for="item in attributes.coAo" :key="item.id" :value="item.id">
-              {{ item.tenCoAo }}
-            </option>
-          </select>
-
-          <!-- 6. Tay áo -->
-          <select v-model="filters.idTayAo" @change="handleSearch" class="filter-pill-select">
-            <option value="">-- Tay áo --</option>
-            <option v-for="item in attributes.tayAo" :key="item.id" :value="item.id">
-              {{ item.tenTayAo }}
-            </option>
-          </select>
-
-          <!-- 7. Họa tiết -->
-          <select v-model="filters.idHoaTiet" @change="handleSearch" class="filter-pill-select">
-            <option value="">-- Họa tiết --</option>
-            <option v-for="item in attributes.hoaTiet" :key="item.id" :value="item.id">
-              {{ item.tenHoaTiet }}
-            </option>
-          </select>
-
-          <!-- 8. Trạng thái -->
-          <select v-model="filters.trangThai" @change="handleSearch" class="filter-pill-select">
-            <option value="">-- Trạng thái --</option>
-            <option :value="1">Đang kinh doanh</option>
-            <option :value="0">Ngừng kinh doanh</option>
-          </select>
+    <!-- 3. KHUNG 2: BẢNG DANH SÁCH SẢN PHẨM -->
+    <div class="content-card table-card">
+      <div class="table-card-header">
+        <div class="table-heading-title">
+          <span class="heading-box-icon">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+          </span>
+          <span>Danh sách sản phẩm</span>
+        </div>
+        <div class="table-heading-meta">
+          <span class="count-pill">{{ pageData.totalElements || products.length }} sản phẩm</span>
         </div>
       </div>
 
@@ -133,20 +235,22 @@
           <thead>
           <tr>
             <th style="width: 50px; text-align: center;">STT</th>
-            <th style="width: 100px; text-align: center;">Ảnh</th>
+            <th style="width: 90px; text-align: center;">Ảnh</th>
             <th style="width: 120px;">Mã SP</th>
             <th>Tên sản phẩm</th>
-            <th style="width: 180px;">Phân loại</th>
-            <th style="width: 150px;">Khoảng giá</th>
-            <th style="width: 110px; text-align: center;">Tồn kho</th>
-            <th style="width: 130px;">Ngày tạo</th>
-            <th style="width: 150px; text-align: center;">Trạng thái</th>
-            <th style="width: 140px; text-align: center;">Thao tác</th>
+            <th style="width: 170px;">Phân loại</th>
+            <th style="width: 80px; text-align: center;">Số màu</th>
+            <th style="width: 95px; text-align: center;">Số kích thước</th>
+            <th style="width: 165px;">Giá bán</th>
+            <th style="width: 90px; text-align: center;">Tồn kho</th>
+            <th style="width: 120px;">Ngày tạo</th>
+            <th style="width: 130px; text-align: center;">Trạng thái</th>
+            <th style="width: 120px; text-align: center;">Thao tác</th>
           </tr>
           </thead>
           <tbody>
           <tr v-if="loading">
-            <td colspan="10" class="empty-state">
+            <td colspan="12" class="empty-state">
               <div class="empty-box">
                 <div class="loading-spinner"></div>
                 <span class="empty-text">Đang tải dữ liệu sản phẩm...</span>
@@ -154,7 +258,7 @@
             </td>
           </tr>
           <tr v-else-if="products.length === 0">
-            <td colspan="10" class="empty-state">
+            <td colspan="12" class="empty-state">
               <div class="empty-box">
                 <span class="empty-icon">
                   <svg viewBox="0 0 24 24" width="38" height="38" fill="currentColor" opacity="0.45">
@@ -180,6 +284,14 @@
                     :alt="item.tenSanPham"
                     @error="onImgError"
                 />
+                <span
+                    v-if="item.coGiamGia && item.phanTramGiam"
+                    class="discount-badge-percent product-img-discount"
+                    style="position: absolute; top: -6px; right: -12px; left: auto; margin: 0;"
+                    :title="item.tenDotGiamGia ? `Đợt giảm: ${item.tenDotGiamGia}` : 'Đang áp dụng giảm giá'"
+                >
+                  -{{ item.phanTramGiam }}%
+                </span>
               </div>
             </td>
 
@@ -203,9 +315,33 @@
               </div>
             </td>
 
-            <!-- Giá tiền in đậm -->
+            <!-- Số màu (từ ảnh 1) -->
+            <td style="text-align: center;">
+              <span class="badge-mini-stat color-stat" title="Số màu sắc">
+                {{ item.soMau ?? (item.soLuongBienThe ? 1 : 0) }}
+              </span>
+            </td>
+
+            <!-- Số kích thước (từ ảnh 1) -->
+            <td style="text-align: center;">
+              <span class="badge-mini-stat size-stat" title="Số kích cỡ">
+                {{ item.soKichCo ?? (item.soLuongBienThe ? 1 : 0) }}
+              </span>
+            </td>
+
+            <!-- Giá bán (liên kết đợt giảm giá) -->
             <td class="price-cell">
-              <b>{{ formatPriceRange(item.minGia, item.maxGia) }}</b>
+              <div v-if="item.coGiamGia && item.minGiaSauGiam != null" class="discounted-price-wrapper">
+                <div class="original-price-strikethrough">
+                  {{ formatPriceRange(item.minGia, item.maxGia) }}
+                </div>
+                <div class="active-discount-price">
+                  <span class="sale-price-text">{{ formatPriceRange(item.minGiaSauGiam, item.maxGiaSauGiam) }}</span>
+                </div>
+              </div>
+              <div v-else class="normal-price-display">
+                <b>{{ formatPriceRange(item.minGia, item.maxGia) }}</b>
+              </div>
             </td>
 
             <!-- Số lượng tồn -->
@@ -225,28 +361,41 @@
               </span>
             </td>
 
-            <!-- Cột thao tác: Trạng thái kinh doanh, Xem chi tiết biến thể (Chỉ icon, không cần text) -->
+            <!-- Cột thao tác: Chuyển trạng thái kinh doanh, Xem chi tiết biến thể -->
             <td style="text-align: center;">
               <div class="action-buttons-group">
-                <!-- Icon trạng thái kinh doanh -->
+                <!-- 1. Icon chuyển trạng thái kinh doanh -->
                 <button
                     class="btn-action btn-status"
                     :class="{ 'is-active': item.trangThai === 1 }"
                     @click="toggleStatus(item)"
                     :title="item.trangThai === 1 ? 'Ngừng kinh doanh' : 'Mở kinh doanh'"
                 >
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
                     <line x1="12" y1="2" x2="12" y2="12"></line>
                   </svg>
                 </button>
-                <!-- Icon xem chi tiết biến thể -->
+
+                <!-- 2. Icon chỉnh sửa biến thể sản phẩm -->
+                <button
+                    class="btn-action btn-edit"
+                    @click="goToEditVariant(item)"
+                    title="Chỉnh sửa biến thể"
+                >
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                </button>
+
+                <!-- 3. Icon xem chi tiết sản phẩm -->
                 <button
                     class="btn-action btn-view"
-                    @click="goToVariants(item)"
-                    title="Xem chi tiết biến thể"
+                    @click="openProductDetail(item)"
+                    title="Xem chi tiết sản phẩm"
                 >
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                     <circle cx="12" cy="12" r="3"></circle>
                   </svg>
@@ -340,6 +489,199 @@
         </div>
       </div>
     </transition>
+
+    <!-- MODAL XEM CHI TIẾT SẢN PHẨM -->
+    <transition name="fade">
+      <div v-if="detailModal.show" class="confirm-modal-overlay" @click.self="closeProductDetail">
+        <div class="product-detail-modal-box" @click.stop>
+          <!-- Header Modal -->
+          <div class="pdm-header">
+            <div class="pdm-title-wrap">
+              <div class="pdm-icon-badge">👕</div>
+              <div>
+                <h3 class="pdm-title">{{ detailModal.product?.tenSanPham || 'Chi tiết sản phẩm' }}</h3>
+                <div class="pdm-subtitle">
+                  <span class="pdm-code">Mã: {{ detailModal.product?.maSanPham || '—' }}</span>
+                  <span class="pdm-dot">•</span>
+                  <span :class="['status-badge', detailModal.product?.trangThai === 1 ? 'status-active' : 'status-inactive']">
+                    {{ detailModal.product?.trangThai === 1 ? 'Kinh doanh' : 'Ngừng KD' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <button type="button" class="btn-pdm-close" @click="closeProductDetail" title="Đóng">&times;</button>
+          </div>
+
+          <!-- Body Modal -->
+          <div class="pdm-body">
+            <div v-if="detailModal.loading" class="pdm-loading">
+              <div class="loading-spinner"></div>
+              <span>Đang tải thông tin chi tiết sản phẩm...</span>
+            </div>
+
+            <div v-else-if="detailModal.product" class="pdm-content-scroll">
+              <!-- Hàng thông tin tổng quan -->
+              <div class="pdm-overview-row">
+                <!-- Cột trái: Ảnh sản phẩm & Giá -->
+                <div class="pdm-image-col">
+                  <div class="pdm-image-card">
+                    <img
+                      :src="formatImageUrl(detailModal.product.anhDaiDien)"
+                      :alt="detailModal.product.tenSanPham"
+                      class="pdm-image"
+                      @error="onImgError"
+                    />
+                  </div>
+                  <div class="pdm-price-summary">
+                    <div class="pdm-price-title">Giá bán sản phẩm</div>
+                    <div class="pdm-price-amount">
+                      {{ formatPriceRange(detailModal.product.minGia, detailModal.product.maxGia) }}
+                    </div>
+                    <div v-if="detailModal.product.coGiamGia" class="pdm-discount-tag">
+                      🔥 {{ detailModal.product.tenDotGiamGia || 'Đang có đợt giảm giá' }} (-{{ detailModal.product.phanTramGiam }}%)
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cột phải: Bảng thuộc tính chi tiết sản phẩm -->
+                <div class="pdm-details-col">
+                  <h4 class="pdm-section-heading">Thuộc tính sản phẩm</h4>
+                  <div class="pdm-grid-props">
+                    <div class="pdm-prop-item">
+                      <span class="prop-label">Danh mục:</span>
+                      <span class="prop-val">{{ detailModal.product.tenDanhMuc || '—' }}</span>
+                    </div>
+                    <div class="pdm-prop-item">
+                      <span class="prop-label">Thương hiệu:</span>
+                      <span class="prop-val">{{ detailModal.product.tenThuongHieu || '—' }}</span>
+                    </div>
+                    <div class="pdm-prop-item">
+                      <span class="prop-label">Chất liệu:</span>
+                      <span class="prop-val">{{ detailModal.product.tenChatLieu || '—' }}</span>
+                    </div>
+                    <div class="pdm-prop-item">
+                      <span class="prop-label">Xuất xứ:</span>
+                      <span class="prop-val">{{ detailModal.product.tenXuatXu || '—' }}</span>
+                    </div>
+                    <div class="pdm-prop-item">
+                      <span class="prop-label">Cổ áo:</span>
+                      <span class="prop-val">{{ detailModal.product.tenCoAo || '—' }}</span>
+                    </div>
+                    <div class="pdm-prop-item">
+                      <span class="prop-label">Tay áo:</span>
+                      <span class="prop-val">{{ detailModal.product.tenTayAo || '—' }}</span>
+                    </div>
+                    <div class="pdm-prop-item">
+                      <span class="prop-label">Họa tiết:</span>
+                      <span class="prop-val">{{ detailModal.product.tenHoaTiet || '—' }}</span>
+                    </div>
+                    <div class="pdm-prop-item">
+                      <span class="prop-label">Tổng tồn kho:</span>
+                      <span class="prop-val font-bold text-success">{{ detailModal.product.tongSoLuong ?? 0 }}</span>
+                    </div>
+                    <div class="pdm-prop-item">
+                      <span class="prop-label">Số màu sắc:</span>
+                      <span class="prop-val">{{ detailModal.product.soMau ?? 0 }} màu</span>
+                    </div>
+                    <div class="pdm-prop-item">
+                      <span class="prop-label">Số kích thước:</span>
+                      <span class="prop-val">{{ detailModal.product.soKichCo ?? 0 }} size</span>
+                    </div>
+                    <div class="pdm-prop-item">
+                      <span class="prop-label">Ngày tạo:</span>
+                      <span class="prop-val">{{ formatDate(detailModal.product.ngayTao) }}</span>
+                    </div>
+                    <div class="pdm-prop-item">
+                      <span class="prop-label">Người tạo:</span>
+                      <span class="prop-val">{{ detailModal.product.nguoiTao || '—' }}</span>
+                    </div>
+                  </div>
+
+                  <div class="pdm-description-box" v-if="detailModal.product.moTa">
+                    <span class="prop-label">Mô tả sản phẩm:</span>
+                    <p class="prop-desc-text">{{ detailModal.product.moTa }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Danh sách các biến thể của riêng sản phẩm này -->
+              <div class="pdm-variants-block">
+                <div class="pdm-variants-header">
+                  <h4 class="pdm-section-heading">Danh sách biến thể của sản phẩm ({{ detailModal.variants.length }})</h4>
+                </div>
+
+                <div class="pdm-table-wrap" v-if="detailModal.variants.length > 0">
+                  <table class="pdm-variants-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 45px; text-align: center;">STT</th>
+                        <th style="width: 140px;">Mã biến thể</th>
+                        <th style="width: 140px;">Màu sắc</th>
+                        <th style="width: 85px; text-align: center;">Kích cỡ</th>
+                        <th style="width: 130px; text-align: right;">Giá bán</th>
+                        <th style="width: 85px; text-align: center;">Tồn kho</th>
+                        <th style="width: 110px; text-align: center;">Trạng thái</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(v, vIdx) in detailModal.variants" :key="v.id || vIdx">
+                        <td style="text-align: center;" class="text-muted">{{ vIdx + 1 }}</td>
+                        <td class="font-bold text-code">{{ v.maChiTietSanPham || '—' }}</td>
+                        <td>
+                          <div class="pdm-color-cell">
+                            <span class="color-disc" :style="{ backgroundColor: v.maHex || '#888' }"></span>
+                            <span>{{ v.tenMauSac || '—' }}</span>
+                          </div>
+                        </td>
+                        <td style="text-align: center;">
+                          <span class="pdm-size-badge">{{ v.tenKichCo || '—' }}</span>
+                        </td>
+                        <td style="text-align: right;" class="font-bold text-price">
+                          <div v-if="v.coGiamGia">
+                            <span class="old-price">{{ Number(v.giaBan).toLocaleString('vi-VN') }} đ</span>
+                            <span class="discounted-price">{{ Number(v.giaSauGiam).toLocaleString('vi-VN') }} đ</span>
+                          </div>
+                          <span v-else>{{ Number(v.giaBan).toLocaleString('vi-VN') }} đ</span>
+                        </td>
+                        <td style="text-align: center;" class="font-bold">
+                          {{ v.soLuong ?? 0 }}
+                        </td>
+                        <td style="text-align: center;">
+                          <span :class="['status-badge', v.trangThai === 1 ? 'status-active' : 'status-inactive']">
+                            {{ v.trangThai === 1 ? 'Kinh doanh' : 'Ngừng KD' }}
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div v-else class="pdm-empty-variants">
+                  Sản phẩm này chưa có biến thể nào được tạo.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer Modal -->
+          <div class="pdm-footer">
+            <button
+              type="button"
+              class="btn btn-edit-product-action"
+              @click="goToEditPage(detailModal.product)"
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              Chỉnh sửa sản phẩm
+            </button>
+            <button type="button" class="btn btn-confirm-cancel" @click="closeProductDetail">
+              Đóng
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -347,10 +689,17 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const router = useRouter()
 
 const defaultImage = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80'
+
+// Tùy chọn trạng thái cho Select2 Combobox
+const trangThaiOptions = [
+  { id: 1, name: 'Đang kinh doanh' },
+  { id: 0, name: 'Ngừng kinh doanh' }
+]
 
 // Bộ lọc
 const filters = ref({
@@ -429,14 +778,68 @@ const goToAddPage = () => {
   router.push('/san-pham/them')
 }
 
+// Chuyển trang Biến thể sản phẩm
+const goToVariantsPage = () => {
+  router.push('/bien-the-san-pham')
+}
+
+// Chuyển trang Quản lý thuộc tính
+const goToAttributesPage = () => {
+  router.push('/thuoc-tinh')
+}
+
 // Chuyển trang Sửa sản phẩm
 const goToEditPage = (item) => {
+  if (!item || !item.id) return
   router.push(`/san-pham/chinh-sua/${item.id}`)
 }
 
-// Chuyển trang Biến thể sản phẩm (Xem chi tiết)
-const goToVariants = (item) => {
+// Chuyển trang Sửa biến thể sản phẩm
+const goToEditVariant = (item) => {
+  if (!item || !item.id) return
+  if (detailModal.value.show) {
+    closeProductDetail()
+  }
   router.push({ path: '/bien-the-san-pham', query: { sanPhamId: item.id } })
+}
+
+// Modal Xem chi tiết sản phẩm
+const detailModal = ref({
+  show: false,
+  loading: false,
+  product: null,
+  variants: []
+})
+
+const openProductDetail = async (item) => {
+  if (!item) return
+  detailModal.value.show = true
+  detailModal.value.loading = true
+  detailModal.value.product = { ...item }
+  detailModal.value.variants = []
+
+  try {
+    const [prodRes, varRes] = await Promise.all([
+      api.get(`/api/san-pham/${item.id}`).catch(() => ({ data: null })),
+      api.get(`/api/chi-tiet-san-pham/by-san-pham/${item.id}`).catch(() => ({ data: [] }))
+    ])
+    if (prodRes && prodRes.data) {
+      detailModal.value.product = prodRes.data
+    }
+    if (varRes && varRes.data) {
+      detailModal.value.variants = varRes.data || []
+    }
+  } catch (err) {
+    console.error('Lỗi tải chi tiết sản phẩm:', err)
+  } finally {
+    detailModal.value.loading = false
+  }
+}
+
+const closeProductDetail = () => {
+  detailModal.value.show = false
+  detailModal.value.product = null
+  detailModal.value.variants = []
 }
 
 // Toast
@@ -686,20 +1089,112 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
-.page-header-row {
+/* 1. Header Trang */
+.page-top-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
-/* Tiêu đề trang in hoa to rõ */
-.main-page-title {
-  font-size: 1.25rem;
+.header-left-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.page-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: #7f8c8d;
+  margin-bottom: 0;
+}
+
+.crumb-parent {
+  color: #7f8c8d;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.crumb-parent:hover {
+  color: var(--blue, #496883);
+}
+
+.crumb-separator {
+  color: #bdc3c7;
+}
+
+.crumb-current {
+  color: #496883;
+  font-weight: 600;
+}
+
+.page-main-title {
+  font-size: 1.65rem;
   font-weight: 800;
-  color: #1a1a1a;
-  letter-spacing: 0.3px;
+  color: #2c3e50;
+  letter-spacing: -0.3px;
+  margin: 0 0 0.25rem 0;
+}
+
+.page-sub-title {
+  font-size: 0.88rem;
+  color: #7f8c8d;
   margin: 0;
+}
+
+.header-right-col {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.btn-header-outline {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #3d4a50;
+  height: 38px;
+  padding: 0 14px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.btn-header-outline:hover {
+  background: #f7f5ee;
+  border-color: #496883;
+  color: #496883;
+  transform: translateY(-1px);
+}
+
+.btn-header-primary {
+  background: var(--blue, #496883);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  height: 38px;
+  padding: 0 16px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.25);
+}
+.btn-header-primary:hover {
+  background: #385269;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(73, 104, 131, 0.35);
 }
 
 /* Toast notification */
@@ -710,6 +1205,7 @@ onMounted(() => {
   font-size: 0.9rem;
   animation: slideIn 0.3s ease;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
 }
 .toast-notification.success {
   background: #d4edda;
@@ -728,198 +1224,239 @@ onMounted(() => {
 }
 
 /* Khối Card trắng */
-.product-card {
+.content-card {
   background: #ffffff;
   border-radius: 12px;
-  border: 1px solid var(--line, #e9e5db);
+  border: 1px solid var(--line, #e8e2d5);
   box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
-  padding: 1.5rem 1.75rem;
-}
-
-/* 1. Hàng tìm kiếm và các nút chính sắp xếp full */
-.search-actions-bar {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1.25rem;
   margin-bottom: 1.25rem;
-  width: 100%;
 }
 
-.search-input-col {
-  flex: 1;
+/* 2. KHUNG BỘ LỌC SẢN PHẨM */
+.filter-card {
+  padding: 1.25rem 1.5rem 1.15rem;
+}
+
+.card-header-filter {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.filter-header-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.filter-funnel-svg {
+  color: var(--blue, #496883);
+}
+
+.filter-form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.85rem 1.15rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 1200px) {
+  .filter-form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .filter-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.filter-field-item {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
   min-width: 0;
 }
 
-.search-label {
-  font-size: 0.85rem;
+.filter-field-label {
+  font-size: 0.82rem;
   font-weight: 600;
-  color: #64748b;
+  color: #475569;
   margin: 0;
 }
 
-.input-inner-wrap {
+.filter-input-wrap {
   position: relative;
-  display: flex;
-  align-items: center;
   width: 100%;
 }
 
-.prefix-search-icon {
-  position: absolute;
-  left: 0.95rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #94a3b8;
-  pointer-events: none;
-}
-
-.input-search-full {
+.filter-text-input {
   width: 100%;
-  height: 2.5rem;
-  background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 0 1rem 0 2.5rem;
-  font-size: 0.92rem;
+  height: 38px;
+  background-color: #ffffff;
+  border: 1px solid #dcd6c8;
+  border-radius: 7px;
+  padding: 0 0.85rem;
+  font-size: 0.88rem;
   color: #1e293b;
   outline: none;
-  transition: all 0.2s ease;
+  transition: all 0.18s ease;
+  box-sizing: border-box;
 }
 
-.input-search-full:focus {
+.filter-text-input:focus {
   border-color: var(--blue, #496883);
-  background-color: #ffffff;
   box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.12);
 }
 
-.action-buttons-col {
+.filter-footer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-top: 0.75rem;
+  border-top: 1px dashed #ede8dc;
+}
+
+.filter-status-col {
+  width: calc(25% - 0.85rem);
+  min-width: 200px;
+}
+
+@media (max-width: 1200px) {
+  .filter-status-col {
+    width: 100%;
+  }
+}
+
+.filter-buttons-group {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  flex-shrink: 0;
+  margin-left: auto;
+  flex-wrap: wrap;
 }
 
-/* Các loại nút bấm */
-.btn {
-  height: 2.5rem;
-  padding: 0 1rem;
-  border-radius: 8px;
-  font-size: 0.88rem;
-  font-weight: 700;
+.btn-filter-reset {
+  background: #ffffff;
+  border: 1px solid #d8d2c4;
+  color: #64748b;
+  border-radius: 7px;
+  height: 38px;
+  padding: 0 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  border: none;
+  gap: 5px;
+}
+.btn-filter-reset:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.btn-filter-export {
+  background: #edf5ef;
+  border: 1px solid #c8dfce;
+  color: #3f6e4d;
+  border-radius: 7px;
+  height: 38px;
+  padding: 0 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
   transition: all 0.2s ease;
-  white-space: nowrap;
-  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
-
-.btn-icon {
-  font-size: 0.9rem;
+.btn-filter-export:hover:not(:disabled) {
+  background: #deede1;
 }
-
-/* Nút Tìm kiếm */
-.btn-search {
-  background-color: var(--blue, #496883);
-  color: #ffffff;
-}
-.btn-search:hover {
-  background-color: #385269;
-}
-
-/* Nút Làm mới */
-.btn-refresh {
-  border: 1px solid #dfd5c2;
-  background-color: #fff8eb;
-  color: #957b48;
-}
-.btn-refresh:hover {
-  background-color: #faeed7;
-}
-
-.btn-export {
-  background-color: #edf5ef;
-  color: #558764;
-  border: 1px solid #d2e5d6;
-}
-.btn-export:hover:not(:disabled) {
-  background-color: #deede1;
-}
-.btn-export:disabled {
+.btn-filter-export:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-/* Nút + Thêm sản phẩm */
-.btn-add {
-  background-color: #3b596a;
-  border: 1px solid #324b5a;
-  border-radius: 9999px;
-  color: #ffffff;
-  padding: 0 1.4rem;
-  box-shadow: 0 2px 6px rgba(59, 89, 106, 0.25);
-  flex-shrink: 0;
-  margin-left: auto;
-}
-.btn-add:hover {
-  background-color: #2c4350;
-  border-color: #243742;
-  box-shadow: 0 4px 10px rgba(59, 89, 106, 0.35);
-  transform: translateY(-1px);
+
+/* 3. KHUNG BẢNG SẢN PHẨM */
+.table-card {
+  padding: 1.25rem 1.5rem;
 }
 
-/* 2. Cụm 8 tiêu chí lọc thuộc tính */
-.filter-attributes-section {
+.table-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #ebd9c8;
+}
+
+.table-heading-title {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  padding: 0.75rem 1rem;
-  background: #fbfaf7;
-  border: 1px solid #f0ede6;
-  border-radius: 10px;
+  gap: 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #2b353b;
 }
 
-.funnel-icon-wrap {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  font-size: 1.3rem;
-  flex-shrink: 0;
+.heading-box-icon {
+  display: flex;
+  align-items: center;
+  color: #496883;
 }
 
-.attribute-dropdowns-grid {
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.75rem 1rem;
+.table-heading-meta {
+  display: flex;
+  align-items: center;
 }
 
-.filter-pill-select {
-  height: 2.35rem;
-  background-color: #ffffff;
-  border: 1px solid #e2ded5;
-  border-radius: 8px;
-  padding: 0 0.85rem;
-  font-size: 0.88rem;
-  color: #4f5a60;
-  outline: none;
-  cursor: pointer;
-  transition: all 0.2s;
+.count-pill {
+  font-size: 0.8rem;
+  font-weight: 600;
+  background-color: #f7f5ef;
+  color: #496883;
+  padding: 3px 10px;
+  border-radius: 12px;
+  border: 1px solid #d6d0c3;
 }
 
-.filter-pill-select:focus {
-  border-color: var(--blue, #496883);
-  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.1);
+/* Badge thống kê Số màu và Số kích thước */
+.badge-mini-stat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #3b4b53;
+  background-color: #f7f5ee;
+  border: 1px solid #e2ddd4;
+}
+
+.badge-mini-stat.color-stat {
+  background-color: #f4f6f8;
+  color: #354e63;
+  border-color: #dbe4eb;
+}
+
+.badge-mini-stat.size-stat {
+  background-color: #fdf8f4;
+  color: #7a5035;
+  border-color: #eddcd1;
 }
 
 /* 3. Bảng danh sách sản phẩm */
@@ -1028,22 +1565,39 @@ onMounted(() => {
 
 /* Ô chứa ảnh sản phẩm */
 .product-img-box {
+  position: relative;
   width: 60px;
   height: 60px;
   margin: 0 auto;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
   background-color: #f5f5f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border: 1px solid #eae5db;
 }
 
 .product-img-box img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 7px;
+}
+
+.product-img-discount {
+  position: absolute !important;
+  top: -6px !important;
+  right: -12px !important;
+  left: auto !important;
+  bottom: auto !important;
+  margin: 0 !important;
+  font-size: 0.65rem !important;
+  font-weight: 800 !important;
+  padding: 1px 4px !important;
+  line-height: 1.15 !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 5px rgba(220, 38, 38, 0.25), 0 1px 3px rgba(0, 0, 0, 0.12);
+  z-index: 5;
+  white-space: nowrap;
 }
 
 .code-cell {
@@ -1090,11 +1644,57 @@ onMounted(() => {
   border: 1px solid #d4e2ed;
 }
 
-/* Giá tiền */
+/* Giá tiền & Đợt giảm giá */
 .price-cell {
   color: #1f272b;
   font-size: 0.95rem;
+  line-height: 1.35;
 }
+
+.discounted-price-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.original-price-strikethrough {
+  font-size: 0.8rem;
+  color: #8c9ba5;
+  text-decoration: line-through;
+  font-weight: 500;
+}
+
+.active-discount-price {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sale-price-text {
+  font-weight: 700;
+  color: #c94a29;
+  font-size: 0.93rem;
+}
+
+.discount-badge-percent {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #dc2626;
+  background-color: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  line-height: 1.2;
+}
+
+.normal-price-display {
+  color: #1f272b;
+  font-size: 0.93rem;
+}
+
 
 /* Tồn kho badge */
 .stock-badge {
@@ -1176,24 +1776,25 @@ onMounted(() => {
 
 /* Các nút hành động */
 .action-buttons-group {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 6px;
 }
 
 .btn-action {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--line, #e9e5db);
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
   background-color: #ffffff;
   border-radius: 6px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.18s ease;
   padding: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .btn-action svg {
@@ -1211,31 +1812,32 @@ onMounted(() => {
   border-color: #a7f3d0;
 }
 .btn-status:hover {
-  transform: scale(1.08);
+  transform: translateY(-1px);
+  filter: brightness(0.95);
 }
 
 .btn-edit {
   color: #496883;
-  background-color: #f7f5ee;
-  border: 1px solid #d8e2e8;
+  background-color: #ffffff;
+  border: 1px solid #e7e2d6;
 }
 .btn-edit:hover {
   background-color: #496883;
   color: #ffffff;
   border-color: #496883;
-  transform: scale(1.08);
+  transform: translateY(-1px);
 }
 
 .btn-view {
   color: #496883;
-  background-color: #f7f5ee;
-  border: 1px solid #d8e2e8;
+  background-color: #ffffff;
+  border: 1px solid #e7e2d6;
 }
 .btn-view:hover {
   background-color: #496883;
   color: #ffffff;
   border-color: #496883;
-  transform: scale(1.08);
+  transform: translateY(-1px);
 }
 
 .btn-delete {
@@ -1661,5 +2263,397 @@ textarea.form-control {
 
 .btn-confirm-danger:hover {
   background: #b91c1c;
+}
+
+/* ========================================= */
+/* CSS CHO MODAL XEM CHI TIẾT SẢN PHẨM      */
+/* ========================================= */
+.product-detail-modal-box {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 920px;
+  max-width: 95vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.22);
+  border: 1px solid #e2ddd3;
+  overflow: hidden;
+  animation: modalScaleIn 0.22s ease-out;
+}
+
+@keyframes modalScaleIn {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.pdm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.1rem 1.5rem;
+  background: #faf7f0;
+  border-bottom: 1px solid #e8e2d5;
+}
+
+.pdm-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.pdm-icon-badge {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #ede8dc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  border: 1px solid #ded7c8;
+}
+
+.pdm-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.pdm-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.pdm-code {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #496883;
+  background: #edf2f7;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.pdm-dot {
+  color: #cbd5e1;
+}
+
+.btn-pdm-close {
+  background: none;
+  border: none;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #8898aa;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.btn-pdm-close:hover {
+  background: #e2ddd3;
+  color: #1e293b;
+}
+
+.pdm-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.4rem 1.5rem;
+  background: #ffffff;
+}
+
+.pdm-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  gap: 1rem;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.pdm-content-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.pdm-overview-row {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.pdm-image-col {
+  width: 250px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pdm-image-card {
+  width: 100%;
+  height: 230px;
+  border-radius: 10px;
+  border: 1px solid #e7e2d6;
+  overflow: hidden;
+  background: #fdfcf9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdm-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pdm-price-summary {
+  background: #f7f5ee;
+  border: 1px solid #e8e2d5;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  text-align: center;
+}
+
+.pdm-price-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #7f8c8d;
+  margin-bottom: 0.25rem;
+}
+
+.pdm-price-amount {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #c0392b;
+}
+
+.pdm-discount-tag {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #dc2626;
+  background: #fee2e2;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.pdm-details-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.pdm-section-heading {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #2c3e50;
+  text-transform: uppercase;
+  margin: 0 0 0.75rem 0;
+  padding-bottom: 0.35rem;
+  border-bottom: 2px solid #ede8dc;
+  letter-spacing: 0.3px;
+}
+
+.pdm-grid-props {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem 1.25rem;
+  background: #faf8f3;
+  padding: 0.9rem 1.1rem;
+  border-radius: 8px;
+  border: 1px solid #ebe5d8;
+}
+
+.pdm-prop-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.88rem;
+}
+
+.prop-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.prop-val {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.pdm-description-box {
+  margin-top: 0.85rem;
+  padding: 0.75rem 1rem;
+  background: #faf8f3;
+  border-radius: 8px;
+  border: 1px solid #ebe5d8;
+  font-size: 0.85rem;
+}
+
+.prop-desc-text {
+  margin: 0.35rem 0 0 0;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.pdm-variants-block {
+  border-top: 1px solid #e7e2d6;
+  padding-top: 1.25rem;
+}
+
+.pdm-variants-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.btn-header-edit-variants {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #ffffff;
+  color: #496883;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.btn-header-edit-variants:hover {
+  background-color: #496883;
+  color: #ffffff;
+  border-color: #496883;
+}
+
+.pdm-table-wrap {
+  border: 1px solid #e2ddd3;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pdm-variants-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.pdm-variants-table th {
+  background: #f4f0e6;
+  padding: 0.65rem 0.85rem;
+  font-weight: 600;
+  color: #496883;
+  border-bottom: 1px solid #ded8cb;
+  text-align: left;
+}
+
+.pdm-variants-table td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid #f1ece1;
+  vertical-align: middle;
+}
+
+.pdm-variants-table tr:last-child td {
+  border-bottom: none;
+}
+
+.pdm-variants-table tr:hover td {
+  background: #faf8f3;
+}
+
+.pdm-color-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 500;
+}
+
+.color-disc {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.pdm-size-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  background: #edf2f7;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: #334155;
+}
+
+.old-price {
+  text-decoration: line-through;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  display: block;
+}
+
+.discounted-price {
+  color: #dc2626;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: block;
+}
+
+.pdm-empty-variants {
+  padding: 2rem;
+  text-align: center;
+  color: #94a3b8;
+  background: #faf8f3;
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+
+.pdm-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.9rem 1.5rem;
+  background: #faf7f0;
+  border-top: 1px solid #e8e2d5;
+}
+
+.btn-edit-product-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--blue, #496883);
+  color: #ffffff;
+  border: none;
+  padding: 0.6rem 1.3rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-edit-product-action:hover {
+  background: #385269;
 }
 </style>
