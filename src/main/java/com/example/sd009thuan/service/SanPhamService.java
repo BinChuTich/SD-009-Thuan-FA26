@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@Transactional(readOnly = true)
 public class SanPhamService {
 
     private final SanPhamRepository sanPhamRepository;
@@ -67,6 +68,10 @@ public class SanPhamService {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
+            if (req == null) {
+                return cb.conjunction();
+            }
+
             if (req.getKeyword() != null && !req.getKeyword().trim().isEmpty()) {
                 String pattern = "%" + req.getKeyword().trim().toLowerCase() + "%";
                 Predicate matchMa = cb.like(cb.lower(root.get("maSanPham")), pattern);
@@ -104,11 +109,18 @@ public class SanPhamService {
     }
 
     public PageResponse<SanPhamResponse> getAll(SanPhamFilterRequest req) {
+        String sortDir = (req != null && req.getSortDir() != null && !req.getSortDir().trim().isEmpty())
+                ? req.getSortDir().trim() : "desc";
+        String sortBy = (req != null && req.getSortBy() != null && !req.getSortBy().trim().isEmpty())
+                ? req.getSortBy().trim() : "id";
+        int page = (req != null && req.getPage() >= 0) ? req.getPage() : 0;
+        int size = (req != null && req.getSize() > 0) ? req.getSize() : 10;
+
         Sort sort = Sort.by(
-                req.getSortDir().equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC,
-                req.getSortBy()
+                sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC,
+                sortBy
         );
-        Pageable pageable = PageRequest.of(req.getPage(), req.getSize(), sort);
+        Pageable pageable = PageRequest.of(page, size, sort);
 
         Specification<SanPham> spec = buildSpecification(req);
 
@@ -514,17 +526,18 @@ public class SanPhamService {
     private SanPhamResponse convertToResponse(SanPham sp) {
         BigDecimal minGia = chiTietSanPhamRepository.findMinPriceBySanPhamId(sp.getId());
         BigDecimal maxGia = chiTietSanPhamRepository.findMaxPriceBySanPhamId(sp.getId());
-        Integer tongSoLuong = chiTietSanPhamRepository.sumSoLuongBySanPhamId(sp.getId());
+        Long sum = chiTietSanPhamRepository.sumSoLuongBySanPhamId(sp.getId());
+        Integer tongSoLuong = sum != null ? sum.intValue() : 0;
         List<ChiTietSanPham> variants = chiTietSanPhamRepository.findByIdSanPham_Id(sp.getId());
 
         List<HinhAnh> images = hinhAnhRepository.findByIdSanPham_Id(sp.getId());
-        String anhDaiDien = !images.isEmpty() ? images.get(0).getDuongDan() : null;
-        List<String> hinhAnhs = images.stream().map(ha -> {
+        String anhDaiDien = (images != null && !images.isEmpty()) ? images.get(0).getDuongDan() : null;
+        List<String> hinhAnhs = (images != null) ? images.stream().map(ha -> {
             if (ha.getTenAnh() != null && ha.getTenAnh().startsWith("COLOR_")) {
                 return ha.getTenAnh().substring(6) + "|" + ha.getDuongDan();
             }
             return ha.getDuongDan();
-        }).toList();
+        }).toList() : List.of();
 
         return SanPhamResponse.builder()
                 .id(sp.getId())

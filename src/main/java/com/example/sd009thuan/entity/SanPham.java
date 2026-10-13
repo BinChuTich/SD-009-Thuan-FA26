@@ -1,9 +1,13 @@
 package com.example.sd009thuan.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Nationalized;
@@ -12,8 +16,12 @@ import java.time.Instant;
 
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "san_pham")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class SanPham {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,14 +30,17 @@ public class SanPham {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_chat_lieu")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private ChatLieu idChatLieu;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_co_ao")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private CoAo idCoAo;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_tay_ao")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private TayAo idTayAo;
 
     @Size(max = 50)
@@ -72,18 +83,22 @@ public class SanPham {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_xuat_xu")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private XuatXu idXuatXu;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_thuong_hieu")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private ThuongHieu idThuongHieu;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_danh_muc")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private DanhMuc idDanhMuc;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_hoa_tiet")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private HoaTiet idHoaTiet;
 
     @PrePersist

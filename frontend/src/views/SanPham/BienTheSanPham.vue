@@ -651,12 +651,10 @@ watch(() => route.query.sanPhamId, async (newId) => {
     </transition>
 
     <!-- 1. Thanh Breadcrumb đầu trang -->
-    <div class="breadcrumb-nav-bar">
-      <div class="nav-breadcrumbs">
-        <span class="crumb-link" @click="goToProductList">Quản lý sản phẩm</span>
-        <span class="crumb-slash">/</span>
-        <span class="crumb-current">Biến thể sản phẩm</span>
-      </div>
+    <div class="page-breadcrumb">
+      <router-link to="/san-pham" class="crumb-parent">Quản lý sản phẩm</router-link>
+      <span class="crumb-separator">/</span>
+      <span class="crumb-current">Biến thể sản phẩm</span>
     </div>
 
     <!-- Khối thẻ chính bao bọc toàn bộ nội dung -->
@@ -1265,7 +1263,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
 }
 
 .variant-page-container {
-  padding: 1.25rem 1.75rem 2.5rem;
+  padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -1515,44 +1513,47 @@ watch(() => route.query.sanPhamId, async (newId) => {
   padding: 0 1rem;
   border-radius: 8px;
   font-size: 0.88rem;
-  font-weight: 600;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  background-color: #ffffff;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 
 .btn-outline-gold {
-  border: 1px solid #d2a764;
-  color: #b0823b;
+  border: 1px solid #dfd5c2;
+  background-color: #fff8eb;
+  color: #957b48;
 }
 
 .btn-outline-gold:hover {
-  background-color: #fdf9f3;
+  background-color: #faeed7;
   transform: translateY(-1px);
 }
 
 .btn-outline-qr {
-  border: 1px solid #e2e8f0;
-  color: #475569;
+  background-color: #f7f5ee;
+  border: 1px solid #d8e2e8;
+  color: #496883;
 }
 
 .btn-outline-qr:hover {
-  background-color: #f8fafc;
-  color: #0f172a;
+  background-color: #496883;
+  color: #ffffff;
+  border-color: #496883;
   transform: translateY(-1px);
 }
 
 .btn-outline-excel {
-  border: 1px solid #2e7d32;
-  color: #2e7d32;
+  background-color: #edf5ef;
+  color: #558764;
+  border: 1px solid #d2e5d6;
 }
 
 .btn-outline-excel:hover {
-  background-color: #f0fdf4;
+  background-color: #deede1;
   transform: translateY(-1px);
 }
 
@@ -1577,8 +1578,8 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
 .dropdown-select {
   height: 2.45rem;
-  background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background-color: #fcfbf8;
+  border: 1px solid var(--line, #e9e5db);
   border-radius: 8px;
   padding: 0 0.85rem;
   font-size: 0.88rem;
@@ -1596,7 +1597,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
 /* 4. Bảng danh sách dữ liệu */
 .variant-table-container {
   overflow-x: auto;
-  border: 1px solid #f1f5f9;
+  border: 1px solid var(--line, #e9e5db);
   border-radius: 8px;
   margin-bottom: 1.25rem;
 }
@@ -1608,24 +1609,27 @@ watch(() => route.query.sanPhamId, async (newId) => {
 }
 
 .variant-data-table th {
-  background-color: #f8fafc;
-  color: #475569;
+  background-color: #faf8f5;
+  color: #4a5568;
   font-weight: 700;
+  text-transform: uppercase;
   padding: 12px 14px;
   text-align: left;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 2px solid #e9e5db;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
   white-space: nowrap;
 }
 
 .variant-data-table td {
   padding: 12px 14px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #334155;
+  border-bottom: 1px solid #f2f0eb;
+  color: #4b585e;
   vertical-align: middle;
 }
 
 .variant-table-row:hover {
-  background-color: #fbfcfe;
+  background-color: #fcfbf8;
 }
 
 .table-chk {
@@ -1636,19 +1640,24 @@ watch(() => route.query.sanPhamId, async (newId) => {
 }
 
 .cell-stt {
-  font-weight: 700;
-  color: #64748b;
+  font-weight: 500;
+  color: #9aa0a0;
+  font-size: 0.95rem;
 }
 
 .cell-bold-code {
   font-weight: 700;
-  color: #0f172a;
+  color: #8c6a46;
+  font-family: monospace, sans-serif;
+  letter-spacing: 0.4px;
 }
 
 .cell-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: monospace, sans-serif;
   font-size: 0.85rem;
-  color: #475569;
+  color: #8c6a46;
+  font-weight: 700;
+  letter-spacing: 0.4px;
 }
 
 .thumb-img-box {
@@ -1703,7 +1712,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
 .cell-price {
   font-weight: 700;
-  color: #0f172a;
+  color: #2b353b;
 }
 
 .cell-discount {
@@ -1720,13 +1729,15 @@ watch(() => route.query.sanPhamId, async (newId) => {
 }
 
 .status-pill.status-active {
-  background-color: #ecfdf5;
-  color: #059669;
+  background-color: #eaf5ed;
+  color: #247541;
+  border: 1px solid #bce1c7;
 }
 
 .status-pill.status-inactive {
-  background-color: #fef2f2;
-  color: #dc2626;
+  background-color: #f7edeb;
+  color: #b34a3b;
+  border: 1px solid #ecc9c3;
 }
 
 /* Cột hành động: 3 icon tròn (kinh doanh, sửa, xóa) */
@@ -1757,15 +1768,15 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
 /* 1. Icon Kinh doanh (Power) */
 .btn-status-toggle {
-  color: #e11d48;
-  background-color: #fff1f2;
-  border-color: #ffe4e6;
+  color: #b34a3b;
+  background-color: #f7edeb;
+  border-color: #ecc9c3;
 }
 
 .btn-status-toggle.is-active {
-  color: #059669;
-  background-color: #ecfdf5;
-  border-color: #a7f3d0;
+  color: #247541;
+  background-color: #eaf5ed;
+  border-color: #bce1c7;
 }
 
 .btn-status-toggle:hover {
@@ -1775,30 +1786,32 @@ watch(() => route.query.sanPhamId, async (newId) => {
 
 /* 2. Icon Sửa (Pencil) */
 .btn-edit-variant {
-  color: var(--blue, #496883);
-  background-color: #f0f7fa;
-  border-color: #dbeafe;
+  color: #496883;
+  background-color: #f7f5ee;
+  border-color: #d8e2e8;
 }
 
 .btn-edit-variant:hover {
-  background-color: #e0f2fe;
-  color: #0284c7;
+  background-color: #496883;
+  color: #ffffff;
+  border-color: #496883;
   transform: scale(1.1);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 5px rgba(73, 104, 131, 0.2);
 }
 
 /* 3. Icon Xem chi tiết (Eye) */
 .btn-view-variant {
-  color: #0284c7;
-  background-color: #f0f9ff;
-  border-color: #bae6fd;
+  color: #496883;
+  background-color: #f7f5ee;
+  border-color: #d8e2e8;
 }
 
 .btn-view-variant:hover {
-  background-color: #e0f2fe;
-  color: #0369a1;
+  background-color: #496883;
+  color: #ffffff;
+  border-color: #496883;
   transform: scale(1.1);
-  box-shadow: 0 2px 5px rgba(2, 132, 199, 0.15);
+  box-shadow: 0 2px 5px rgba(73, 104, 131, 0.2);
 }
 
 .variant-tag-badge.view-badge {
@@ -1877,8 +1890,8 @@ watch(() => route.query.sanPhamId, async (newId) => {
 .btn-detail-edit {
   flex: 1;
   height: 2.5rem;
-  background-color: var(--blue, #496883);
-  border: 1px solid var(--blue, #496883);
+  background-color: #3b596a;
+  border: 1px solid #324b5a;
   border-radius: 8px;
   color: #ffffff;
   font-size: 0.88rem;
@@ -1892,18 +1905,18 @@ watch(() => route.query.sanPhamId, async (newId) => {
 }
 
 .btn-detail-edit:hover {
-  background-color: #3d576e;
-  border-color: #3d576e;
+  background-color: #2c4350;
+  border-color: #243742;
   transform: translateY(-1px);
 }
 
 .btn-detail-close {
   height: 2.5rem;
   padding: 0 1.25rem;
-  background-color: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfd5c2;
+  background-color: #fff8eb;
   border-radius: 8px;
-  color: #475569;
+  color: #957b48;
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
@@ -1911,7 +1924,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
 }
 
 .btn-detail-close:hover {
-  background-color: #f1f5f9;
+  background-color: #faeed7;
 }
 
 .empty-cell {
@@ -2012,9 +2025,9 @@ watch(() => route.query.sanPhamId, async (newId) => {
   height: 32px;
   padding: 0 6px;
   background-color: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--line, #e9e5db);
   border-radius: 6px;
-  color: #475569;
+  color: #496883;
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
@@ -2025,14 +2038,14 @@ watch(() => route.query.sanPhamId, async (newId) => {
 }
 
 .pg-box:hover:not(:disabled) {
-  border-color: var(--blue, #496883);
-  color: var(--blue, #496883);
+  border-color: #496883;
+  color: #496883;
   background-color: #f8fafc;
 }
 
 .pg-box.active {
-  background-color: var(--blue, #496883);
-  border-color: var(--blue, #496883);
+  background-color: #496883;
+  border-color: #496883;
   color: #ffffff;
 }
 
@@ -2084,14 +2097,14 @@ watch(() => route.query.sanPhamId, async (newId) => {
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #efeae0;
 }
 
 .modal-dialog-title {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 700;
-  color: #0f172a;
+  color: #3c4d55;
 }
 
 .modal-close-icon {
@@ -2175,8 +2188,8 @@ watch(() => route.query.sanPhamId, async (newId) => {
   justify-content: flex-end;
   gap: 0.75rem;
   padding: 1rem 1.5rem;
-  border-top: 1px solid #f1f5f9;
-  background-color: #f8fafc;
+  border-top: 1px solid #efeae0;
+  background-color: #faf8f5;
 }
 
 .btn {
@@ -2190,19 +2203,24 @@ watch(() => route.query.sanPhamId, async (newId) => {
 }
 
 .btn-cancel-modal {
-  background-color: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #475569;
+  border: 1px solid #dfd5c2;
+  background-color: #fff8eb;
+  color: #957b48;
 }
 
 .btn-cancel-modal:hover {
-  background-color: #f1f5f9;
+  background-color: #faeed7;
 }
 
 .btn-save-modal {
-  background-color: var(--blue, #496883);
-  border: 1px solid var(--blue, #496883);
+  background-color: #3b596a;
+  border: 1px solid #324b5a;
   color: #ffffff;
+}
+
+.btn-save-modal:hover {
+  background-color: #2c4350;
+  border-color: #243742;
 }
 
 .btn-save-modal:hover {

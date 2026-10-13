@@ -44,14 +44,48 @@ a {
     display: flex;
 }
 
+/* ================= GLOBAL PAGE BREADCRUMB ================= */
+.page-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem !important;
+    margin-bottom: 1.25rem;
+}
+
+.crumb-parent {
+    color: #7d8993 !important;
+    font-weight: 500 !important;
+    text-decoration: none !important;
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+
+.crumb-parent:hover {
+    color: #3e5c76 !important;
+    text-decoration: underline !important;
+}
+
+.crumb-separator {
+    color: #b8c1c8 !important;
+    font-weight: 300 !important;
+    margin: 0 4px;
+    user-select: none;
+}
+
+.crumb-current {
+    color: #3e5c76 !important;
+    font-weight: 700 !important;
+}
+
 /* ================= SIDEBAR & LOGO (ĐÃ NỚI RỘNG ĐỂ KHÔNG BỊ CẮT CHỮ) ================= */
 .sidebar {
     position: fixed;
     left: 0;
     top: 0;
     bottom: 0;
-    width: 225px;
-    min-width: 225px;
+    width: 14rem;
+    min-width: 14rem;
     background: #ffffff;
     border-right: 1px solid #e8e4dc;
     z-index: 5;
@@ -275,8 +309,8 @@ a {
 
 /* ================= MAIN CONTENT (TRÀN FULL MÀN HÌNH) ================= */
 .main-content {
-    margin-left: 225px;
-    width: calc(100% - 225px);
+    margin-left: 14rem;
+    width: calc(100% - 14rem);
     min-height: 100vh;
     background-color: var(--bg);
 }
@@ -320,10 +354,11 @@ a {
 .dashboard {
     width: 100% !important;
     max-width: 100% !important;
-    padding: 1.25rem 2rem 2.5rem !important;
+    padding: 1.25rem 2rem 3rem !important;
     margin: 0 !important;
     box-sizing: border-box;
     font-family: var(--system-font) !important;
+    min-height: calc(100vh - 48px);
 }
 
 /* Header tổng quan */

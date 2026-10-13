@@ -2,5 +2,5 @@ package com.example.sd009thuan.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ChiTietHoaDon extends JpaRepository<ChiTietHoaDon, Integer> {
+public interface ChiTietHoaDon extends JpaRepository<com.example.sd009thuan.entity.ChiTietHoaDon, Long> {
 }

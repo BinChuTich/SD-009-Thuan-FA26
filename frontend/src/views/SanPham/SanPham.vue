@@ -2,7 +2,11 @@
   <div class="product-page-container">
     <!-- Tiêu đề trang -->
     <div class="page-header-row">
-      <h2 class="main-page-title">QUẢN LÝ SẢN PHẨM</h2>
+      <div class="page-breadcrumb">
+        <router-link to="/san-pham" class="crumb-parent">Quản lý sản phẩm</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">Danh sách sản phẩm</span>
+      </div>
       <div v-if="toast.show" :class="['toast-notification', toast.type]">
         {{ toast.message }}
       </div>
@@ -467,7 +471,9 @@ const fetchProducts = async () => {
   try {
     const params = {
       page: filters.value.page,
-      size: filters.value.size
+      size: filters.value.size,
+      sortBy: 'id',
+      sortDir: 'desc'
     }
     if (filters.value.keyword?.trim()) params.keyword = filters.value.keyword.trim()
     if (filters.value.idThuongHieu) params.idThuongHieu = filters.value.idThuongHieu
@@ -490,8 +496,8 @@ const fetchProducts = async () => {
       }
     }
   } catch (err) {
-    console.error('Lỗi tải sản phẩm:', err)
-    showToast('Lỗi khi tải danh sách sản phẩm!', 'error')
+    console.error('Lỗi tải sản phẩm:', err.response?.data || err)
+    showToast(err.response?.data?.message || 'Lỗi khi tải danh sách sản phẩm!', 'error')
   } finally {
     loading.value = false
   }
@@ -673,7 +679,7 @@ onMounted(() => {
 <style scoped>
 /* Toàn bộ vùng hiển thị trang */
 .product-page-container {
-  padding: 1.25rem 1.5rem 2.5rem;
+  padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);
@@ -831,19 +837,21 @@ onMounted(() => {
 
 /* Nút Làm mới */
 .btn-refresh {
-  background-color: #d2a764;
-  color: #ffffff;
+  border: 1px solid #dfd5c2;
+  background-color: #fff8eb;
+  color: #957b48;
 }
 .btn-refresh:hover {
-  background-color: #be9453;
+  background-color: #faeed7;
 }
 
 .btn-export {
-  background-color: #2e7d32;
-  color: #ffffff;
+  background-color: #edf5ef;
+  color: #558764;
+  border: 1px solid #d2e5d6;
 }
 .btn-export:hover:not(:disabled) {
-  background-color: #256628;
+  background-color: #deede1;
 }
 .btn-export:disabled {
   opacity: 0.6;
@@ -852,13 +860,20 @@ onMounted(() => {
 
 /* Nút + Thêm sản phẩm */
 .btn-add {
-  background-color: #edd9b8;
-  color: #4a3e2e;
+  background-color: #3b596a;
+  border: 1px solid #324b5a;
+  border-radius: 9999px;
+  color: #ffffff;
+  padding: 0 1.4rem;
+  box-shadow: 0 2px 6px rgba(59, 89, 106, 0.25);
   flex-shrink: 0;
   margin-left: auto;
 }
 .btn-add:hover {
-  background-color: #e4cda7;
+  background-color: #2c4350;
+  border-color: #243742;
+  box-shadow: 0 4px 10px rgba(59, 89, 106, 0.35);
+  transform: translateY(-1px);
 }
 
 /* 2. Cụm 8 tiêu chí lọc thuộc tính */
@@ -920,25 +935,27 @@ onMounted(() => {
 }
 
 .product-table th {
-  background-color: #f8fafc;
-  color: #6c787f;
+  background-color: #faf8f5;
+  color: #4a5568;
   font-weight: 700;
-  padding: 0.9rem 1rem;
+  text-transform: uppercase;
+  padding: 0.95rem 1rem;
   text-align: left;
-  border-bottom: 2px solid #edf1f5;
-  font-size: 0.9rem;
+  border-bottom: 2px solid #e9e5db;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
   white-space: nowrap;
 }
 
 .product-table td {
-  padding: 0.9rem 1rem;
-  border-bottom: 1px solid #f1f4f7;
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid #f2f0eb;
   vertical-align: middle;
-  color: #4a565c;
+  color: #4b585e;
 }
 
 .product-table tr:hover td {
-  background-color: #faf9f5;
+  background-color: #fcfbf8;
 }
 
 .empty-state {
@@ -972,19 +989,18 @@ onMounted(() => {
 .btn-refresh-sm {
   margin-top: 0.25rem;
   padding: 0.4rem 0.9rem;
-  background-color: #eef3f6;
-  color: #496883;
+  background-color: #fff8eb;
+  color: #957b48;
   font-size: 0.82rem;
   font-weight: 600;
   border-radius: 6px;
-  border: 1px solid #d5e1e8;
+  border: 1px solid #dfd5c2;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-refresh-sm:hover {
-  background-color: #496883;
-  color: #ffffff;
+  background-color: #faeed7;
 }
 
 .loading-spinner {
@@ -1003,11 +1019,11 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* STT số đỏ đậm */
+/* STT */
 .stt-cell {
-  font-weight: 800;
-  color: #e65228;
-  font-size: 1rem;
+  font-weight: 500;
+  color: #9aa0a0;
+  font-size: 0.95rem;
 }
 
 /* Ô chứa ảnh sản phẩm */
@@ -1032,7 +1048,9 @@ onMounted(() => {
 
 .code-cell {
   font-size: 0.88rem;
-  color: #496883;
+  color: #8c6a46;
+  font-family: monospace, sans-serif;
+  letter-spacing: 0.4px;
 }
 
 /* Tên sản phẩm */
@@ -1064,12 +1082,12 @@ onMounted(() => {
 
 .attr-tag {
   display: inline-block;
-  background: #f1f4f8;
-  color: #556877;
+  background: #eaf2f6;
+  color: #496883;
   padding: 2px 7px;
   border-radius: 4px;
   font-size: 0.78rem;
-  border: 1px solid #e1e7ed;
+  border: 1px solid #d4e2ed;
 }
 
 /* Giá tiền */
@@ -1087,12 +1105,14 @@ onMounted(() => {
   font-size: 0.82rem;
 }
 .stock-badge.in-stock {
-  background-color: #e8f5e9;
-  color: #2e7d32;
+  background-color: #eaf5ed;
+  color: #247541;
+  border: 1px solid #bce1c7;
 }
 .stock-badge.out-of-stock {
-  background-color: #ffebee;
-  color: #c62828;
+  background-color: #f7edeb;
+  color: #b34a3b;
+  border: 1px solid #ecc9c3;
 }
 
 /* Ngày tạo */
@@ -1111,15 +1131,15 @@ onMounted(() => {
 }
 
 .status-badge.status-active {
-  background-color: #ecfdf5;
-  color: #059669;
-  border: 1px solid #a7f3d0;
+  background-color: #eaf5ed;
+  color: #247541;
+  border: 1px solid #bce1c7;
 }
 
 .status-badge.status-inactive {
-  background-color: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
+  background-color: #f7edeb;
+  color: #b34a3b;
+  border: 1px solid #ecc9c3;
 }
 
 .status-toggle-btn {
@@ -1135,23 +1155,23 @@ onMounted(() => {
 }
 
 .status-toggle-btn.status-active {
-  background-color: #edd9b8;
-  color: #453a29;
-  border-color: #d2a764;
+  background-color: #eaf5ed;
+  color: #247541;
+  border-color: #bce1c7;
 }
 
 .status-toggle-btn.status-active:hover {
-  background-color: #e2cba6;
+  background-color: #deede1;
 }
 
 .status-toggle-btn.status-inactive {
-  background-color: #f1f1f1;
-  color: #888888;
-  border-color: #cccccc;
+  background-color: #f7edeb;
+  color: #b34a3b;
+  border-color: #ecc9c3;
 }
 
 .status-toggle-btn.status-inactive:hover {
-  background-color: #e2e2e2;
+  background-color: #f0dedb;
 }
 
 /* Các nút hành động */
@@ -1195,29 +1215,38 @@ onMounted(() => {
 }
 
 .btn-edit {
-  color: var(--blue, #496883);
+  color: #496883;
+  background-color: #f7f5ee;
+  border: 1px solid #d8e2e8;
 }
 .btn-edit:hover {
-  background-color: #eaf1f4;
-  border-color: var(--blue, #496883);
+  background-color: #496883;
+  color: #ffffff;
+  border-color: #496883;
   transform: scale(1.08);
 }
 
 .btn-view {
-  color: #0284c7;
+  color: #496883;
+  background-color: #f7f5ee;
+  border: 1px solid #d8e2e8;
 }
 .btn-view:hover {
-  background-color: #e0f2fe;
-  border-color: #0284c7;
+  background-color: #496883;
+  color: #ffffff;
+  border-color: #496883;
   transform: scale(1.08);
 }
 
 .btn-delete {
-  color: #dc2626;
+  color: #b34a3b;
+  background-color: #f7edeb;
+  border: 1px solid #ecc9c3;
 }
 .btn-delete:hover {
-  background-color: #fef2f2;
-  border-color: #dc2626;
+  background-color: #b34a3b;
+  color: #ffffff;
+  border-color: #b34a3b;
   transform: scale(1.08);
 }
 
@@ -1310,9 +1339,9 @@ onMounted(() => {
 }
 
 .pg-box.active {
-  border-color: #d2a764;
+  border-color: #496883;
   color: #ffffff;
-  background-color: #d2a764;
+  background-color: #496883;
 }
 
 /* MODAL */
@@ -1425,19 +1454,22 @@ textarea.form-control {
 }
 
 .btn-secondary {
-  background-color: #f1f4f8;
-  color: #556877;
+  border: 1px solid #dfd5c2;
+  background-color: #fff8eb;
+  color: #957b48;
 }
 .btn-secondary:hover {
-  background-color: #e2e8f0;
+  background-color: #faeed7;
 }
 
 .btn-primary {
-  background-color: #496883;
+  background-color: #3b596a;
+  border: 1px solid #324b5a;
   color: #ffffff;
 }
 .btn-primary:hover:not(:disabled) {
-  background-color: #385269;
+  background-color: #2c4350;
+  border-color: #243742;
 }
 .btn-primary:disabled {
   opacity: 0.6;

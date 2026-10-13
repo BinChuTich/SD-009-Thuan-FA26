@@ -2,8 +2,16 @@ package com.example.sd009thuan;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
+@EntityScan(basePackages = "com.example.sd009thuan.entity")
+@EnableJpaRepositories(basePackages = "com.example.sd009thuan.repository")
+@EnableScheduling
+@EnableAsync
 public class Sd009ThuanApplication {
 
     public static void main(String[] args) {
@@ -11,3 +19,4 @@ public class Sd009ThuanApplication {
     }
 
 }
+

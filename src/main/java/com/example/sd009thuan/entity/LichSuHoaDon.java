@@ -1,5 +1,7 @@
 package com.example.sd009thuan.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -14,20 +16,20 @@ import java.time.Instant;
 @Setter
 @Entity
 @Table(name = "lich_su_hoa_don")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class LichSuHoaDon {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Long id;
 
+    @JsonIgnore
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_hoa_don", nullable = false)
     private HoaDon idHoaDon;
 
-    @Size(max = 255)
-    @Nationalized
-    @Column(name = "hanh_dong")
+    @Transient
     private String hanhDong;
 
     @NotNull
@@ -44,5 +46,17 @@ public class LichSuHoaDon {
     @Nationalized
     @Column(name = "vai_tro_nguoi_thuc_hien", length = 100)
     private String vaiTroNguoiThucHien;
+    @Column(name = "trang_thai")
+    private Integer trangThai;
+    @Nationalized
+    @Lob
+    @Column(name = "ghi_chu")
+    private String ghiChu;
 
+    public String getHanhDong() {
+        if (hanhDong != null && !hanhDong.trim().isEmpty()) {
+            return hanhDong;
+        }
+        return ghiChu != null && !ghiChu.trim().isEmpty() ? ghiChu : "Thao tác đơn hàng";
+    }
 }

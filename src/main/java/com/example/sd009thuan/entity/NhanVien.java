@@ -1,5 +1,5 @@
 package com.example.sd009thuan.entity;
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Nationalized;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashSet;
@@ -17,6 +17,7 @@ import java.util.Set;
 @Setter
 @Entity
 @Table(name = "nhan_vien")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class NhanVien {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -105,6 +106,7 @@ public class NhanVien {
     @Column(name = "nguoi_cap_nhat", length = 100)
     private String nguoiCapNhat;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "idNhanVien")
     private Set<HoaDon> hoaDons = new LinkedHashSet<>();
 
