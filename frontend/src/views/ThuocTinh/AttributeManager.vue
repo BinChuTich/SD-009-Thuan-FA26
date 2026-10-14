@@ -575,17 +575,9 @@ onMounted(() => {
       <!-- 4. Thanh phân trang tương tự trang sản phẩm -->
       <div class="pagination-footer" v-if="totalPages > 0">
         <div class="pagination-left">
-          <div class="page-size-selector">
-            <span class="page-size-label">Hiển thị:</span>
-            <select v-model.number="pageSize" @change="currentPage = 0" class="page-size-select">
-              <option :value="5">5</option>
-              <option :value="10">10</option>
-              <option :value="15">15</option>
-              <option :value="20">20</option>
-              <option :value="25">25</option>
-            </select>
-            <span class="page-size-unit">/ trang</span>
-          </div>
+          <span class="pagination-info">
+            Hiển thị {{ paginatedItems.length ? (currentPage * pageSize + 1) : 0 }} - {{ currentPage * pageSize + paginatedItems.length }} / {{ filteredItems.length }} thuộc tính
+          </span>
         </div>
         <div class="pagination-center">
           <button
@@ -766,25 +758,35 @@ onMounted(() => {
     <transition name="fade">
       <div v-if="confirmDialog.show" class="confirm-modal-overlay" @click="closeConfirm">
         <div class="confirm-modal-box" @click.stop>
-          <div class="confirm-icon-wrap" :class="confirmDialog.type">
-            <span v-if="confirmDialog.type === 'danger'">⚠️</span>
-            <span v-else-if="confirmDialog.type === 'info'">ℹ️</span>
-            <span v-else>❓</span>
+          <div class="confirm-modal-header" :class="{ 'header-danger': confirmDialog.type === 'danger' }">
+            <div class="confirm-warning-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+            </div>
+            <div class="confirm-title-wrap">
+              <h3 class="confirm-title">{{ confirmDialog.title || 'Xác nhận thao tác' }}</h3>
+              <p class="confirm-subtitle">Vui lòng xác nhận để tiếp tục thực hiện</p>
+            </div>
+            <button type="button" class="modal-close-btn" @click="closeConfirm">✕</button>
           </div>
 
-          <h3 class="confirm-title">{{ confirmDialog.title }}</h3>
-          <p class="confirm-message">{{ confirmDialog.message }}</p>
+          <div class="confirm-modal-body">
+            <p class="confirm-message-text">{{ confirmDialog.message }}</p>
+          </div>
 
-          <div class="confirm-actions">
-            <button type="button" class="btn btn-confirm-cancel" @click="closeConfirm">
+          <div class="confirm-modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeConfirm">
               Hủy bỏ
             </button>
             <button
                 type="button"
-                :class="['btn', confirmDialog.type === 'danger' ? 'btn-confirm-danger' : 'btn-confirm-primary']"
+                :class="['btn', confirmDialog.type === 'danger' ? 'btn-confirm-danger' : 'btn-save-confirm']"
                 @click="executeConfirm"
             >
-              {{ confirmDialog.confirmText || 'Đồng ý' }}
+              {{ confirmDialog.confirmText || 'Xác nhận' }}
             </button>
           </div>
         </div>
@@ -1258,6 +1260,14 @@ onMounted(() => {
   color: #64748b;
 }
 
+.pagination-info {
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #555e65;
+  line-height: 1.5;
+}
+
 .pagination-center {
   display: flex;
   gap: 0.35rem;
@@ -1444,15 +1454,15 @@ onMounted(() => {
   border-color: #243742;
 }
 
-/* Modal xác nhận chuyên nghiệp */
+/* Modal xác nhận chuẩn thiết kế */
 .confirm-modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(15, 23, 42, 0.55);
+  background-color: rgba(18, 25, 33, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 99990;
   backdrop-filter: blur(2px);
 }
 
@@ -1460,104 +1470,158 @@ onMounted(() => {
   background: #ffffff;
   border-radius: 14px;
   width: 90%;
-  max-width: 440px;
-  padding: 1.75rem 1.5rem 1.5rem;
-  text-align: center;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  max-width: 460px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  animation: modalScale 0.2s ease-out;
 }
 
-.confirm-icon-wrap {
-  width: 52px;
-  height: 52px;
+@keyframes modalScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.confirm-modal-header {
+  padding: 1.25rem 1.4rem;
+  background-color: #fff9f0;
+  border-bottom: 1px solid #faedd9;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  position: relative;
+}
+
+.confirm-modal-header.header-danger {
+  background-color: #fff5f5;
+  border-bottom: 1px solid #fed7d7;
+}
+
+.confirm-warning-icon {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  margin: 0 auto 1rem;
+  background-color: #eaf1f5;
+  color: #496883;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  flex-shrink: 0;
 }
 
-.confirm-icon-wrap.primary {
-  background: #eff6ff;
-  color: #2563eb;
+.header-danger .confirm-warning-icon {
+  background-color: #fdeded;
+  color: #c0392b;
 }
 
-.confirm-icon-wrap.danger {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
-.confirm-icon-wrap.info {
-  background: #f0fdf4;
-  color: #16a34a;
+.confirm-title-wrap {
+  flex: 1;
 }
 
 .confirm-title {
-  margin: 0 0 0.5rem;
-  font-size: 1.15rem;
+  margin: 0;
+  font-size: 1.08rem;
   font-weight: 700;
-  color: #1e293b;
+  color: #8c6328;
 }
 
-.confirm-message {
-  margin: 0 0 1.5rem;
-  font-size: 0.92rem;
-  color: #64748b;
+.header-danger .confirm-title {
+  color: #c0392b;
+}
+
+.confirm-subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.83rem;
+  color: #aa8651;
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  color: #9aa0a0;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.modal-close-btn:hover {
+  color: #8c6328;
+}
+
+.confirm-modal-body {
+  padding: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.confirm-message-text {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #435158;
   line-height: 1.5;
 }
 
-.confirm-actions {
+.confirm-modal-footer {
+  padding: 1rem 1.4rem;
+  border-top: 1px solid #eeebe3;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
+  align-items: center;
   gap: 0.75rem;
+  background-color: #faf9f6;
 }
 
-.btn-confirm-cancel {
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #cbd5e1;
-  padding: 0.6rem 1.4rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
+.btn-secondary {
+  background-color: #ffffff;
+  border: 1px solid #d8d2c6;
+  color: #616e75;
   font-weight: 600;
+  padding: 0.55rem 1.15rem;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
-.btn-confirm-cancel:hover {
-  background: #e2e8f0;
+.btn-secondary:hover {
+  background-color: #f0ece1;
 }
 
-.btn-confirm-primary {
-  background: var(--blue, #496883);
+.btn-save-confirm {
+  background-color: #b38e6e;
   color: #ffffff;
-  border: none;
-  padding: 0.6rem 1.4rem;
+  font-weight: 700;
+  padding: 0.55rem 1.25rem;
   border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 600;
+  border: none;
   cursor: pointer;
-  transition: background-color 0.2s;
+  box-shadow: 0 2px 6px rgba(179, 142, 110, 0.25);
+  transition: all 0.2s;
 }
 
-.btn-confirm-primary:hover {
-  background: #385269;
+.btn-save-confirm:hover:not(:disabled) {
+  background-color: #9c7857;
 }
 
 .btn-confirm-danger {
-  background: #dc2626;
+  background-color: #c0392b;
   color: #ffffff;
-  border: none;
-  padding: 0.6rem 1.4rem;
+  font-weight: 700;
+  padding: 0.55rem 1.25rem;
   border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 600;
+  border: none;
   cursor: pointer;
-  transition: background-color 0.2s;
+  box-shadow: 0 2px 6px rgba(192, 57, 43, 0.25);
+  transition: all 0.2s;
 }
 
-.btn-confirm-danger:hover {
-  background: #b91c1c;
+.btn-confirm-danger:hover:not(:disabled) {
+  background-color: #a93226;
 }
 
 @media (max-width: 992px) {

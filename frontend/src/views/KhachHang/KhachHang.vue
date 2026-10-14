@@ -1035,8 +1035,11 @@ onMounted(() => {
 }
 
 .pagination-info {
-  font-size: 0.88rem;
-  color: #7b888f;
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #555e65;
+  line-height: 1.5;
 }
 
 .pagination-buttons {

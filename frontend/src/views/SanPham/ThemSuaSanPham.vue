@@ -48,15 +48,14 @@
           <!-- Hàng 1: Mã SP | Tên SP -->
           <div class="form-item">
             <label class="item-label">
-              Mã sản phẩm <span class="text-danger" v-if="!isEdit">*</span>
-              <span class="tag-auto" v-if="!isEdit">(Tự sinh)</span>
+              Mã sản phẩm <span class="text-danger" v-if="isEdit">*</span>
             </label>
             <input
                 type="text"
                 v-model="form.maSanPham"
                 :disabled="isEdit"
                 :class="['form-input', { 'input-disabled': isEdit }]"
-                placeholder="Mã tự sinh theo thứ tự (VD: SP001)..."
+                placeholder="Nhập mã sản phẩm hoặc tự sinh"
             />
             <span v-if="isEdit" class="help-subtext">Mã được giữ nguyên khi sửa</span>
           </div>
@@ -188,7 +187,7 @@
             />
           </div>
 
-          <div class="form-item">
+          <div class="form-item" v-if="isEdit">
             <label class="item-label">Trạng thái <span class="text-danger">*</span></label>
             <Select2
               v-model="form.trangThai"
@@ -242,7 +241,7 @@
             </span>
             <div class="title-with-sub">
               <h3 class="card-title-text">Hình ảnh sản phẩm</h3>
-              <p class="card-subtitle-text">Ảnh được dùng chung cho các biến thể của sản phẩm. Chọn ảnh từ máy để xem trước khi lưu.</p>
+              <p class="card-subtitle-text">Ảnh đại diện chung của sản phẩm. Bạn cũng có thể chọn ảnh riêng biệt cho từng biến thể ở bảng bên dưới.</p>
             </div>
           </div>
         </div>
@@ -643,6 +642,15 @@
           </div>
         </div>
 
+        <!-- File input ẩn dùng chung cho upload ảnh từng biến thể -->
+        <input
+          type="file"
+          ref="variantFileInput"
+          accept="image/png, image/jpeg, image/webp"
+          style="display: none;"
+          @change="onVariantImageSelected"
+        />
+
         <!-- Nhóm các biến thể theo từng màu sắc -->
         <div
             v-for="group in groupedVariants"
@@ -655,6 +663,19 @@
               <strong class="color-group-title">{{ group.color.tenMauSac }}</strong>
             </div>
             <div class="group-header-right">
+              <button
+                type="button"
+                class="btn-apply-color-img"
+                @click="triggerUpload(group.color.id)"
+                :title="`Tải ảnh áp dụng cho toàn bộ kích cỡ màu ${group.color.tenMauSac}`"
+              >
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span>Ảnh màu {{ group.color.tenMauSac }}</span>
+              </button>
               <span class="size-summary">{{ group.sizesSummary }}</span>
             </div>
           </div>
@@ -671,7 +692,8 @@
                   />
                 </th>
                 <th style="width: 50px; text-align: center;">STT</th>
-                <th style="width: 130px;">Kích cỡ</th>
+                <th style="width: 75px; text-align: center;">Ảnh</th>
+                <th style="width: 120px;">Kích cỡ</th>
                 <th style="width: 180px;">Số lượng</th>
                 <th>Giá bán (VNĐ)</th>
                 <th style="width: 70px; text-align: center;">Xóa</th>
@@ -683,6 +705,37 @@
                   <input type="checkbox" v-model="vItem.selected" />
                 </td>
                 <td style="text-align: center;" class="cell-stt">{{ vIndex + 1 }}</td>
+                <td style="text-align: center;" class="cell-variant-img">
+                  <div
+                    class="variant-img-uploader"
+                    @click="triggerVariantImageUpload(vItem)"
+                    :title="vItem.anhDaiDien ? 'Nhấn để đổi ảnh riêng của biến thể' : 'Nhấn để chọn ảnh riêng cho biến thể này'"
+                  >
+                    <img
+                      v-if="vItem.anhDaiDien || colorImages[vItem.idMauSac]"
+                      :src="formatImageUrl(vItem.anhDaiDien || colorImages[vItem.idMauSac])"
+                      class="variant-table-img"
+                      alt="Ảnh biến thể"
+                    />
+                    <div v-else class="variant-img-empty">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                      </svg>
+                      <span>+ Ảnh</span>
+                    </div>
+                    <button
+                      v-if="vItem.anhDaiDien"
+                      type="button"
+                      class="btn-remove-var-img"
+                      @click.stop="removeVariantImage(vItem)"
+                      title="Gỡ ảnh riêng của biến thể"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                </td>
                 <td class="cell-size">
                   <strong>{{ vItem.tenKichCo }}</strong>
                 </td>
@@ -822,29 +875,39 @@
       </div>
     </form>
 
-    <!-- 8. Modal Xác nhận hành động (Xác nhận Lưu / Cập nhật / Xóa) -->
+    <!-- 8. Modal Xác nhận hành động (Chuẩn theo mẫu thiết kế) -->
     <transition name="fade">
       <div v-if="confirmDialog.show" class="confirm-modal-overlay" @click="closeConfirmDialog">
         <div class="confirm-modal-box" @click.stop>
-          <div class="confirm-icon-wrap" :class="confirmDialog.type">
-            <span v-if="confirmDialog.type === 'danger'">⚠️</span>
-            <span v-else-if="confirmDialog.type === 'info'">ℹ️</span>
-            <span v-else>❓</span>
+          <div class="confirm-modal-header" :class="{ 'header-danger': confirmDialog.type === 'danger' }">
+            <div class="confirm-warning-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+            </div>
+            <div class="confirm-title-wrap">
+              <h3 class="confirm-title">{{ confirmDialog.title || 'Xác nhận thao tác' }}</h3>
+              <p class="confirm-subtitle">Vui lòng xác nhận để tiếp tục thực hiện</p>
+            </div>
+            <button type="button" class="modal-close-btn" @click="closeConfirmDialog">✕</button>
           </div>
 
-          <h3 class="confirm-title">{{ confirmDialog.title }}</h3>
-          <p class="confirm-message">{{ confirmDialog.message }}</p>
+          <div class="confirm-modal-body">
+            <p class="confirm-message-text">{{ confirmDialog.message }}</p>
+          </div>
 
-          <div class="confirm-actions">
-            <button type="button" class="btn btn-confirm-cancel" @click="closeConfirmDialog">
+          <div class="confirm-modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeConfirmDialog">
               Hủy bỏ
             </button>
             <button
                 type="button"
-                :class="['btn', confirmDialog.type === 'danger' ? 'btn-confirm-danger' : 'btn-confirm-primary']"
+                class="btn btn-save-confirm"
                 @click="executeConfirmedAction"
             >
-              {{ confirmDialog.confirmText || 'Đồng ý' }}
+              {{ confirmDialog.confirmText || 'Xác nhận' }}
             </button>
           </div>
         </div>
@@ -1356,6 +1419,40 @@ const bulkQty = ref(0)
 const bulkPrice = ref(0)
 const submitting = ref(false)
 
+// Quản lý ảnh riêng biệt cho từng biến thể
+const variantFileInput = ref(null)
+const editingVariantItem = ref(null)
+
+const triggerVariantImageUpload = (vItem) => {
+  editingVariantItem.value = vItem
+  if (variantFileInput.value) {
+    variantFileInput.value.value = ''
+    variantFileInput.value.click()
+  }
+}
+
+const onVariantImageSelected = (e) => {
+  const file = e.target.files?.[0]
+  if (!file || !editingVariantItem.value) return
+
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('Ảnh quá lớn (tối đa 5MB)!', 'error')
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = (event) => {
+    editingVariantItem.value.anhDaiDien = event.target.result
+    showToast(`Đã chọn ảnh riêng cho biến thể (${editingVariantItem.value.tenMauSac} - ${editingVariantItem.value.tenKichCo})!`, 'success')
+  }
+  reader.readAsDataURL(file)
+}
+
+const removeVariantImage = (vItem) => {
+  vItem.anhDaiDien = ''
+  showToast(`Đã gỡ ảnh riêng của biến thể (${vItem.tenMauSac} - ${vItem.tenKichCo})!`)
+}
+
 // Lọc màu sắc & kích cỡ theo search
 const filteredColors = computed(() => {
   if (!colorSearch.value.trim()) return attributes.value.mauSac
@@ -1635,7 +1732,11 @@ const generateVariants = () => {
     selectedSizes.value.forEach(size => {
       const key = `${color.id}_${size.id}`
       if (existingMap.has(key)) {
-        newVariants.push(existingMap.get(key))
+        const item = existingMap.get(key)
+        if (!item.anhDaiDien && colorImages.value[color.id]) {
+          item.anhDaiDien = colorImages.value[color.id]
+        }
+        newVariants.push(item)
       } else {
         newVariants.push({
           key,
@@ -1652,6 +1753,7 @@ const generateVariants = () => {
             ? Math.floor(Number(bulkPrice.value))
             : 0,
           trangThai: 1,
+          anhDaiDien: colorImages.value[color.id] || '',
           selected: true
         })
       }
@@ -2155,8 +2257,15 @@ const onFileChange = (e, colorId) => {
 
   const reader = new FileReader()
   reader.onload = (event) => {
-    colorImages.value[colorId] = event.target.result
-    showToast('Tải ảnh thành công!')
+    const dataUrl = event.target.result
+    colorImages.value[colorId] = dataUrl
+    // Tự động đồng bộ sang các biến thể cùng màu nếu biến thể đó chưa có ảnh riêng
+    variantsList.value.forEach(v => {
+      if (v.idMauSac === colorId && !v.anhDaiDien) {
+        v.anhDaiDien = dataUrl
+      }
+    })
+    showToast('Tải ảnh theo màu thành công!')
   }
   reader.readAsDataURL(file)
 }
@@ -2298,7 +2407,7 @@ const submitForm = async () => {
       idCoAo: form.value.idCoAo || null,
       idTayAo: form.value.idTayAo || null,
       idHoaTiet: form.value.idHoaTiet || null,
-      trangThai: form.value.trangThai ?? 1
+      trangThai: isEdit.value ? (form.value.trangThai ?? 1) : 1
     }
 
     if (isEdit.value) {
@@ -2326,6 +2435,7 @@ const submitForm = async () => {
                 soLuong: Number(v.soLuong || 0),
                 giaBan: Number(v.giaBan || 0),
                 trangThai: Number(v.trangThai ?? 1),
+                anhDaiDien: v.anhDaiDien !== undefined ? v.anhDaiDien : undefined,
                 nguoiThaoTac: 'Admin'
               })
             } catch (vErr) {
@@ -2342,25 +2452,32 @@ const submitForm = async () => {
       return
     }
 
-    // Nếu có ảnh chung của sản phẩm thì sử dụng
+    // Thu thập danh sách ảnh khi Thêm mới: gồm cả ảnh chung và ảnh theo màu
+    const allImages = []
     if (productImages.value.length > 0) {
-      payload.hinhAnhs = productImages.value.map(img => img.url)
+      allImages.push(...productImages.value.map(img => img.url))
+    }
+    const activeColorIds = new Set(activeColorsForImages.value.map(c => String(c.id)))
+    Object.entries(colorImages.value).forEach(([cId, img]) => {
+      if (activeColorIds.has(String(cId)) && !!img) {
+        allImages.push(`${cId}|${img}`)
+      }
+    })
+    payload.hinhAnhs = allImages
+
+    if (productImages.value.length > 0) {
       const mainImg = productImages.value.find(img => img.isMain) || productImages.value[0]
       payload.anhDaiDien = mainImg.url
-    } else {
-      // Thu thập danh sách ảnh từ các màu thực sự còn tồn tại khi Thêm mới
-      const activeColorIds = new Set(activeColorsForImages.value.map(c => String(c.id)))
-      const imageList = Object.entries(colorImages.value)
-        .filter(([cId, img]) => activeColorIds.has(String(cId)) && !!img)
-        .map(([cId, img]) => `${cId}|${img}`)
-      payload.hinhAnhs = imageList
+    } else if (allImages.length > 0) {
+      const firstImg = allImages[0].includes('|') ? allImages[0].split('|')[1] : allImages[0]
+      payload.anhDaiDien = firstImg
     }
 
     const res = await api.post('/api/san-pham', payload)
     const savedProduct = res.data
     showToast('Thêm mới sản phẩm thành công!')
 
-    // Nếu có biến thể, lưu danh sách biến thể được chọn
+    // Lưu danh sách biến thể với ảnh riêng biệt cho từng biến thể
     const activeVariants = variantsList.value.filter(v => v.selected !== false)
     if (savedProduct && savedProduct.id && activeVariants.length > 0) {
       const variantPayloads = activeVariants.map(v => ({
@@ -2370,8 +2487,8 @@ const submitForm = async () => {
         idKichCo: v.idKichCo,
         soLuong: v.soLuong || 0,
         giaBan: v.giaBan || 0,
-        trangThai: v.trangThai ?? 1,
-        anhDaiDien: v.anhDaiDien || undefined
+        trangThai: 1, // Auto kinh doanh
+        anhDaiDien: v.anhDaiDien || colorImages.value[v.idMauSac] || undefined
       }))
 
       try {
@@ -2569,7 +2686,7 @@ const resetFormToAdd = async () => {
   pendingFiles.value = []
   bulkQty.value = 0
   bulkPrice.value = 0
-  await fetchNextCode()
+  // Ô mã sản phẩm để trống theo yêu cầu người dùng (nếu để trống backend tự sinh khi lưu)
 }
 
 onMounted(async () => {
@@ -3844,6 +3961,99 @@ watch(() => route.params.id, async (newId) => {
   color: #ffffff;
 }
 
+.btn-apply-color-img {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-right: 0.75rem;
+  transition: all 0.15s ease;
+}
+
+.btn-apply-color-img:hover {
+  background-color: #e2e8f0;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.cell-variant-img {
+  padding: 0.45rem 0.5rem !important;
+}
+
+.variant-img-uploader {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  border-radius: 8px;
+  border: 1.5px dashed #cbd5e1;
+  background-color: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.variant-img-uploader:hover {
+  border-color: var(--blue, #496883);
+  background-color: #f1f5f9;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+}
+
+.variant-table-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.variant-img-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: #94a3b8;
+  font-size: 0.65rem;
+  font-weight: 600;
+  user-select: none;
+}
+
+.btn-remove-var-img {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(220, 38, 38, 0.9);
+  color: #ffffff;
+  border: none;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: transform 0.15s ease;
+}
+
+.btn-remove-var-img:hover {
+  transform: scale(1.15);
+  background: #dc2626;
+}
+
 /* Card 4: Color Images */
 .images-header-wrap {
   margin-bottom: 1rem;
@@ -4057,11 +4267,11 @@ watch(() => route.params.id, async (newId) => {
   color: #ffffff;
 }
 
-/* Modal xác nhận chuyên nghiệp */
+/* Modal xác nhận chuẩn theo ảnh PhieuGiamGia */
 .confirm-modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(15, 23, 42, 0.55);
+  background-color: rgba(18, 25, 33, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4073,116 +4283,138 @@ watch(() => route.params.id, async (newId) => {
   background: #ffffff;
   border-radius: 14px;
   width: 90%;
-  max-width: 440px;
-  padding: 1.75rem 1.5rem 1.5rem;
-  text-align: center;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-  animation: modalScale 0.2s ease-out;
+  max-width: 460px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  animation: popIn 0.2s ease-out;
 }
 
-@keyframes modalScale {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-.confirm-icon-wrap {
-  width: 52px;
-  height: 52px;
+.confirm-modal-header {
+  padding: 1.25rem 1.4rem;
+  background-color: #fff9f0;
+  border-bottom: 1px solid #faedd9;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  position: relative;
+}
+
+.confirm-modal-header.header-danger {
+  background-color: #fff5f5;
+  border-bottom: 1px solid #fed7d7;
+}
+
+.confirm-warning-icon {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  margin: 0 auto 1rem;
+  background-color: #eaf1f5;
+  color: #496883;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  flex-shrink: 0;
 }
 
-.confirm-icon-wrap.primary {
-  background: #eff6ff;
-  color: #2563eb;
+.header-danger .confirm-warning-icon {
+  background-color: #fdeded;
+  color: #c0392b;
 }
 
-.confirm-icon-wrap.danger {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
-.confirm-icon-wrap.info {
-  background: #f0fdf4;
-  color: #16a34a;
+.confirm-title-wrap {
+  flex: 1;
 }
 
 .confirm-title {
-  margin: 0 0 0.5rem;
-  font-size: 1.15rem;
+  margin: 0;
+  font-size: 1.08rem;
   font-weight: 700;
-  color: #1e293b;
+  color: #8c6328;
 }
 
-.confirm-message {
-  margin: 0 0 1.5rem;
-  font-size: 0.92rem;
-  color: #64748b;
+.header-danger .confirm-title {
+  color: #c0392b;
+}
+
+.confirm-subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.83rem;
+  color: #aa8651;
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  color: #9aa0a0;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.modal-close-btn:hover {
+  color: #8c6328;
+}
+
+.confirm-modal-body {
+  padding: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.confirm-message-text {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #435158;
   line-height: 1.5;
 }
 
-.confirm-actions {
+.confirm-modal-footer {
+  padding: 1rem 1.4rem;
+  border-top: 1px solid #eeebe3;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
+  align-items: center;
   gap: 0.75rem;
+  background-color: #faf9f6;
 }
 
-.btn-confirm-cancel {
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #cbd5e1;
-  padding: 0.6rem 1.4rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
+.btn-secondary {
+  background-color: #ffffff;
+  border: 1px solid #d8d2c6;
+  color: #616e75;
   font-weight: 600;
+  padding: 0.55rem 1.15rem;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
-.btn-confirm-cancel:hover {
-  background: #e2e8f0;
+.btn-secondary:hover:not(:disabled) {
+  background-color: #f7f5ef;
+  color: #2b383e;
+  border-color: #c5bfae;
 }
 
-.btn-confirm-primary {
-  background: var(--blue, #496883);
+.btn-save-confirm {
+  background-color: #b38e6e;
   color: #ffffff;
-  border: none;
-  padding: 0.6rem 1.4rem;
+  font-weight: 700;
+  padding: 0.55rem 1.25rem;
   border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-confirm-primary:hover {
-  background: #385269;
-}
-
-.btn-confirm-danger {
-  background: #dc2626;
-  color: #ffffff;
   border: none;
-  padding: 0.6rem 1.4rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
+  box-shadow: 0 2px 6px rgba(179, 142, 110, 0.25);
 }
 
-.btn-confirm-danger:hover {
-  background: #b91c1c;
+.btn-save-confirm:hover:not(:disabled) {
+  background-color: #9c7857;
 }
 
 /* =========================================================

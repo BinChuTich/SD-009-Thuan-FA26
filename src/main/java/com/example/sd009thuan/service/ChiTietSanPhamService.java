@@ -354,7 +354,7 @@ public class ChiTietSanPhamService {
                         break;
                     }
                 }
-                // 2. Nếu chưa có ảnh riêng biến thể, lấy ảnh theo màu sắc
+                // 2. Nếu chưa có ảnh riêng biến thể, lấy ảnh theo ĐÚNG màu sắc của biến thể này
                 if (anhDaiDien == null && ct.getIdMauSac() != null) {
                     String colorTarget = "COLOR_" + ct.getIdMauSac().getId();
                     for (HinhAnh img : imgs) {
@@ -364,9 +364,16 @@ public class ChiTietSanPhamService {
                         }
                     }
                 }
-                // 3. Nếu vẫn chưa có, lấy ảnh đầu tiên của sản phẩm
-                if (anhDaiDien == null && !imgs.isEmpty()) {
-                    anhDaiDien = imgs.get(0).getDuongDan();
+                // 3. Nếu vẫn chưa có ảnh riêng và chưa có ảnh theo màu, chỉ lấy ảnh CHUNG của sản phẩm
+                // (chỉ áp dụng nếu ảnh chung không thuộc bất kỳ màu nào: tên ảnh không bắt đầu bằng COLOR_ hoặc CTSP_)
+                if (anhDaiDien == null) {
+                    for (HinhAnh img : imgs) {
+                        String tenAnh = img.getTenAnh();
+                        if (tenAnh != null && !tenAnh.startsWith("COLOR_") && !tenAnh.startsWith("CTSP_")) {
+                            anhDaiDien = img.getDuongDan();
+                            break;
+                        }
+                    }
                 }
             }
         }

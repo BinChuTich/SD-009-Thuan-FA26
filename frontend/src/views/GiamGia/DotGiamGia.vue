@@ -240,6 +240,9 @@
 
         <!-- Phân trang đáy bảng chuẩn ảnh mẫu -->
         <div class="pagination-footer-flex" v-if="totalPages > 0">
+          <span class="pagination-info">
+            Hiển thị {{ campaigns.length ? ((currentPage - 1) * pageSize + 1) : 0 }} - {{ (currentPage - 1) * pageSize + campaigns.length }} / {{ totalElements }} đợt giảm giá
+          </span>
           <div class="pagination-controls-right">
             <button
                 class="pg-btn-box"
@@ -571,13 +574,9 @@
 
           <!-- Phân trang bảng sản phẩm -->
           <div class="video-pagination-bar">
-            <div class="page-size-selector">
-              <select v-model.number="productPageSize" class="select-page-size">
-                <option :value="5">5</option>
-                <option :value="10">10</option>
-                <option :value="20">20</option>
-              </select>
-            </div>
+            <span class="pagination-info">
+              Hiển thị {{ paginatedSourceProducts.length ? ((productCurrentPage - 1) * productPageSize + 1) : 0 }} - {{ (productCurrentPage - 1) * productPageSize + paginatedSourceProducts.length }} / {{ filteredAvailableProducts.length }} sản phẩm
+            </span>
             <div class="page-nav-group">
               <button
                 class="btn-nav-arrow"
@@ -712,13 +711,9 @@
 
         <!-- Phân trang bảng biến thể -->
         <div class="video-pagination-bar">
-          <div class="page-size-selector">
-            <select v-model.number="variantPageSize" class="select-page-size">
-              <option :value="10">10</option>
-              <option :value="20">20</option>
-              <option :value="50">50</option>
-            </select>
-          </div>
+          <span class="pagination-info">
+            Hiển thị {{ paginatedSelectedVariants.length ? ((variantCurrentPage - 1) * variantPageSize + 1) : 0 }} - {{ (variantCurrentPage - 1) * variantPageSize + paginatedSelectedVariants.length }} / {{ displaySelectedVariants.length }} biến thể
+          </span>
           <div class="page-nav-group">
             <button
               class="btn-nav-arrow"
@@ -741,19 +736,30 @@
     <!-- ========================================================
          MODAL: XÁC NHẬN CẬP NHẬT / TẠO MỚI (Y NHƯ ẢNH MẪU 1)
     ======================================================== -->
-    <div v-if="showConfirmModal" class="modal-mask" @click.self="showConfirmModal = false">
+    <!-- ========================================================
+         MODAL 1: XÁC NHẬN LƯU / CẬP NHẬT ĐỢT GIẢM GIÁ
+    ======================================================== -->
+    <div v-if="showConfirmModal" class="modal-mask confirm-modal-overlay" @click.self="showConfirmModal = false">
       <div class="confirm-modal-box">
-        <div class="confirm-header">
-          <div class="confirm-title-left">
-            <h4>{{ isEditing ? 'Xác nhận cập nhật' : 'Xác nhận tạo mới' }}</h4>
+        <div class="confirm-modal-header">
+          <div class="confirm-warning-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
           </div>
-          <button class="btn-close" @click="showConfirmModal = false">✕</button>
+          <div class="confirm-title-wrap">
+            <h3 class="confirm-title">{{ isEditing ? 'Xác nhận cập nhật' : 'Xác nhận tạo mới' }}</h3>
+            <p class="confirm-subtitle">Vui lòng kiểm tra lại thông tin đợt giảm giá trước khi lưu</p>
+          </div>
+          <button class="modal-close-btn" @click="showConfirmModal = false">✕</button>
         </div>
 
-        <div class="confirm-body">
-          <p class="confirm-lead-text">
+        <div class="confirm-modal-body">
+          <p class="confirm-message-text">
             Bạn có chắc chắn muốn lưu các thay đổi cho đợt giảm giá
-            <b>[{{ formData.maDotGiamGia || 'MỚI' }}]</b> không?
+            <b class="text-blue">[{{ formData.maDotGiamGia || 'MỚI' }}]</b> không?
           </p>
 
           <div class="confirm-info-card">
@@ -794,12 +800,11 @@
           </div>
         </div>
 
-        <div class="confirm-footer">
-          <button class="btn btn-cancel-confirm" @click="showConfirmModal = false">
+        <div class="confirm-modal-footer">
+          <button class="btn btn-secondary" @click="showConfirmModal = false">
             Hủy bỏ
           </button>
-          <button class="btn btn-accept-confirm" :disabled="submitting" @click="doSubmitAPI">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><polyline points="20 6 9 17 4 12"/></svg>
+          <button class="btn btn-save-confirm" :disabled="submitting" @click="doSubmitAPI">
             {{ submitting ? 'Đang lưu...' : 'Xác nhận' }}
           </button>
         </div>
@@ -807,68 +812,58 @@
     </div>
 
     <!-- ========================================================
-         MODAL: XÁC NHẬN ĐỔI TRẠNG THÁI (CHUẨN HÌNH ẢNH MẪU)
+         MODAL 2: XÁC NHẬN ĐỔI TRẠNG THÁI (CHUẨN HÌNH ẢNH MẪU)
     ======================================================== -->
-    <div v-if="showToggleStatusModal && selectedToggleItem" class="modal-mask" @click.self="showToggleStatusModal = false">
-      <div class="toggle-status-modal-box">
+    <div v-if="showToggleStatusModal && selectedToggleItem" class="modal-mask confirm-modal-overlay" @click.self="showToggleStatusModal = false">
+      <div class="confirm-modal-box">
         <!-- Header -->
-        <div class="toggle-modal-header" :class="selectedToggleItem.trangThai === 1 ? 'header-deactivate' : 'header-activate'">
-          <div class="toggle-header-left">
-            <div class="toggle-title-wrap">
-              <h4 class="toggle-title-text" :class="selectedToggleItem.trangThai === 1 ? 'title-deactivate' : 'title-activate'">
-                {{ selectedToggleItem.trangThai === 1 ? 'Xác nhận ngừng hoạt động' : 'Xác nhận kích hoạt hoạt động' }}
-              </h4>
-              <p class="toggle-subtitle-text">
-                {{ selectedToggleItem.trangThai === 1 ? 'Tạm ngưng hiệu lực của đợt giảm giá' : 'Kích hoạt hiệu lực của đợt giảm giá' }}
-              </p>
-            </div>
+        <div class="confirm-modal-header">
+          <div class="confirm-warning-icon">
+            <svg v-if="selectedToggleItem.trangThai === 1" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+            </svg>
           </div>
-          <button class="btn-toggle-close" @click="showToggleStatusModal = false">✕</button>
+          <div class="confirm-title-wrap">
+            <h3 class="confirm-title">
+              {{ selectedToggleItem.trangThai === 1 ? 'Xác nhận ngừng hoạt động' : 'Xác nhận kích hoạt hoạt động' }}
+            </h3>
+            <p class="confirm-subtitle">
+              {{ selectedToggleItem.trangThai === 1 ? 'Tạm ngưng hiệu lực của đợt giảm giá' : 'Kích hoạt hiệu lực của đợt giảm giá' }}
+            </p>
+          </div>
+          <button class="modal-close-btn" @click="showToggleStatusModal = false" :disabled="togglingStatus">✕</button>
         </div>
 
         <!-- Body -->
-        <div class="toggle-modal-body">
-          <p class="toggle-lead-msg">
-            Bạn có chắc chắn muốn chuyển đợt giảm giá <b>[{{ selectedToggleItem.maDotGiamGia || '—' }}]</b> sang trạng thái
-            <b :class="selectedToggleItem.trangThai === 1 ? 'text-beige' : 'text-logo-brand'">
-              {{ selectedToggleItem.trangThai === 1 ? 'Ngừng hoạt động' : 'Hoạt động' }}
-            </b> không?
+        <div class="confirm-modal-body">
+          <p class="confirm-message-text" v-if="selectedToggleItem.trangThai === 1">
+            Bạn có chắc chắn muốn chuyển đợt giảm giá
+            <b class="text-blue">[{{ selectedToggleItem.maDotGiamGia || '—' }}]</b> sang trạng thái
+            <b class="text-highlight">Ngừng hoạt động</b> không?
           </p>
-
-          <!-- Bảng tóm tắt thông tin tinh gọn -->
-          <div class="toggle-info-card">
-            <div class="toggle-info-row">
-              <span class="toggle-info-label">Mã đợt:</span>
-              <span class="toggle-info-val font-bold text-dark">{{ selectedToggleItem.maDotGiamGia || '—' }}</span>
-            </div>
-            <div class="toggle-info-row">
-              <span class="toggle-info-label">Tên đợt:</span>
-              <span class="toggle-info-val font-medium text-dark">{{ selectedToggleItem.tenDotGiamGia || '—' }}</span>
-            </div>
-            <div class="toggle-info-row">
-              <span class="toggle-info-label">Trạng thái mới:</span>
-              <span class="toggle-info-val font-bold" :class="selectedToggleItem.trangThai === 1 ? 'text-beige' : 'text-logo-brand'">
-                {{ selectedToggleItem.trangThai === 1 ? 'Ngừng hoạt động' : 'Đang hoạt động' }}
-              </span>
-            </div>
-          </div>
+          <p class="confirm-message-text" v-else>
+            Bạn có chắc chắn muốn
+            <b class="text-activate">Kích hoạt lại</b> đợt giảm giá
+            <b class="text-blue">[{{ selectedToggleItem.maDotGiamGia || '—' }}]</b> để áp dụng cho sản phẩm không?
+          </p>
         </div>
 
         <!-- Footer -->
-        <div class="toggle-modal-footer">
-          <button class="btn btn-toggle-cancel" @click="showToggleStatusModal = false" :disabled="togglingStatus">
+        <div class="confirm-modal-footer">
+          <button class="btn btn-secondary" @click="showToggleStatusModal = false" :disabled="togglingStatus">
             Hủy bỏ
           </button>
           <button
-              class="btn btn-toggle-action"
-              :class="selectedToggleItem.trangThai === 1 ? 'btn-red-action' : 'btn-green-action'"
+              class="btn btn-save-confirm"
               :disabled="togglingStatus"
               @click="confirmToggleStatus"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-            <span>{{ togglingStatus ? 'Đang cập nhật...' : (selectedToggleItem.trangThai === 1 ? 'Ngừng hoạt động' : 'Hoạt động') }}</span>
+            {{ togglingStatus ? 'Đang cập nhật...' : (selectedToggleItem.trangThai === 1 ? 'Ngừng hoạt động' : 'Kích hoạt đợt') }}
           </button>
         </div>
       </div>
@@ -2415,7 +2410,7 @@ onUnmounted(() => {
   padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
-  font-family: var(--system-font, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: var(--text, #3d4a50);
   box-sizing: border-box;
 }
@@ -2911,7 +2906,7 @@ onUnmounted(() => {
 /* Phân trang đáy bảng (Màu Xanh dương & Be) */
 .pagination-footer-flex {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   margin-top: 1.25rem;
   padding-top: 0.85rem;
@@ -2931,6 +2926,13 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+.pagination-info {
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #555e65;
+  line-height: 1.5;
 }
 .pagination-total-info {
   font-size: 0.84rem;
@@ -3210,254 +3212,208 @@ onUnmounted(() => {
 .product-count-summary { font-size: 0.88rem; color: #8c9597; margin-top: 0.8rem; text-align: right; }
 .form-footer-bar { display: flex; justify-content: flex-end; gap: 0.85rem; padding: 1.25rem 0.5rem; }
 
-/* Modal Xác nhận lưu / cập nhật */
-.modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 10000; animation: fadeIn 0.15s ease-out; }
+/* Modal Xác nhận chuẩn thiết kế */
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(18, 25, 33, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99990;
+  backdrop-filter: blur(2px);
+}
+
 .confirm-modal-box {
   background: #ffffff;
-  border-radius: 12px;
-  width: 92%;
-  max-width: 520px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  border-radius: 14px;
+  width: 90%;
+  max-width: 480px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
   overflow: hidden;
-  border: 1px solid #e5e7eb;
+  animation: fadeIn 0.2s ease-out;
 }
-.confirm-header {
-  padding: 1.1rem 1.4rem;
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
+
+.confirm-modal-header {
+  padding: 1.25rem 1.4rem;
+  background-color: #fff9f0;
+  border-bottom: 1px solid #faedd9;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 0.85rem;
+  position: relative;
 }
-.confirm-title-left { display: flex; align-items: center; gap: 0.6rem; }
-.confirm-header h4 { margin: 0; font-size: 1.15rem; color: #111827; font-weight: 800; letter-spacing: -0.015em; }
-.btn-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #9ca3af; padding: 4px; border-radius: 4px; transition: color 0.15s; }
-.btn-close:hover { color: #111827; background-color: #f3f4f6; }
 
-.confirm-body { padding: 1.35rem 1.4rem 1rem; }
-.confirm-lead-text { font-size: 0.93rem; color: #374151; margin: 0 0 1rem 0; line-height: 1.5; }
-.confirm-lead-text b { color: #111827; font-weight: 700; }
+.confirm-modal-header.header-danger {
+  background-color: #fff5f5;
+  border-bottom: 1px solid #fed7d7;
+}
 
-.confirm-info-card {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 1rem 1.25rem;
+.confirm-warning-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #eaf1f5;
+  color: #496883;
   display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-.confirm-row { display: flex; justify-content: space-between; font-size: 0.88rem; }
-.confirm-label { color: #6b7280; font-weight: 500; }
-.confirm-val { color: #111827; font-weight: 600; }
-
-.confirm-footer {
-  padding: 1rem 1.4rem 1.25rem;
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  border-top: 1px solid #f3f4f6;
-}
-.btn-cancel-confirm {
-  background: #fff8eb;
-  border: 1px solid #dfd5c2;
-  color: #957b48;
-  font-weight: 600;
-  height: 2.5rem;
-  padding: 0 1.35rem;
-  border-radius: 7px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.btn-cancel-confirm:hover { background: #faeed7; color: #7a6336; border-color: #c8b99c; }
-.btn-accept-confirm {
-  background: #304b60;
-  color: #ffffff;
-  font-weight: 700;
-  height: 2.5rem;
-  padding: 0 1.45rem;
-  border-radius: 7px;
-  border: none;
-  cursor: pointer;
-  display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  transition: all 0.15s;
-}
-.btn-accept-confirm:hover { background: #1e3342; }
-
-/* ========================================================
-   MODAL XÁC NHẬN ĐỔI TRẠNG THÁI (ĐƠN GIẢN, KHÔNG MÀU MÈ)
-======================================================== */
-.toggle-status-modal-box {
-  background: #ffffff;
-  border-radius: 10px;
-  width: 92%;
-  max-width: 440px;
-  box-shadow: 0 16px 24px -5px rgba(0, 0, 0, 0.1), 0 6px 10px -6px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
-  animation: fadeIn 0.15s ease-out;
-  border: 1px solid #e5e7eb;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.toggle-modal-header {
-  padding: 0.85rem 1.15rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
+.header-danger .confirm-warning-icon {
+  background-color: #fdeded;
+  color: #c0392b;
 }
 
-.toggle-header-left {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
+.confirm-title-wrap {
+  flex: 1;
 }
-.toggle-title-wrap {
-  display: flex;
-  flex-direction: column;
-}
-.toggle-title-text {
+
+.confirm-title {
   margin: 0;
-  font-size: 1.02rem;
-  font-weight: 800;
-  letter-spacing: -0.015em;
-  color: #111827;
-}
-.title-deactivate { color: #b38a65; }
-.title-activate { color: #496883; }
-.text-logo-brand { color: #496883; }
-.text-beige { color: #b38a65; }
-.toggle-subtitle-text {
-  margin: 2px 0 0 0;
-  font-size: 0.78rem;
-  color: #6b7280;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: #8c6328;
 }
 
-.btn-toggle-close {
+.header-danger .confirm-title {
+  color: #c0392b;
+}
+
+.confirm-subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.83rem;
+  color: #aa8651;
+}
+
+.modal-close-btn {
   background: transparent;
   border: none;
-  font-size: 1.05rem;
+  font-size: 1.2rem;
+  color: #9aa0a0;
   cursor: pointer;
-  color: #9ca3af;
-  padding: 2px 4px;
-  border-radius: 4px;
-  line-height: 1;
-  transition: all 0.15s;
+  transition: color 0.15s;
 }
-.btn-toggle-close:hover { color: #111827; background-color: #f3f4f6; }
 
-.toggle-modal-body {
-  padding: 1rem 1.15rem 0.85rem;
+.modal-close-btn:hover {
+  color: #8c6328;
 }
-.toggle-lead-msg {
-  font-size: 0.86rem;
-  color: #374151;
-  margin: 0 0 0.85rem 0;
+
+.confirm-modal-body {
+  padding: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.confirm-message-text {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #435158;
   line-height: 1.5;
 }
 
-.toggle-info-card {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  padding: 0.75rem 0.95rem;
+.text-blue {
+  color: #496883;
+  font-weight: 700;
+}
+
+.text-highlight {
+  color: #8c6328;
+  font-weight: 700;
+}
+
+.text-activate {
+  color: #496883;
+  font-weight: 700;
+}
+
+.confirm-info-card {
+  background: #faf9f6;
+  border: 1px solid #efeae0;
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.55rem;
 }
-.toggle-info-row {
+
+.confirm-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
 }
-.toggle-info-label {
-  color: #6b7280;
-  font-weight: 500;
-}
-.toggle-info-val {
-  color: #111827;
+
+.confirm-label {
+  color: #7b888e;
   font-weight: 600;
-  text-align: right;
 }
 
-.toggle-warning-alert {
-  margin-top: 0.85rem;
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  padding: 0.7rem 0.85rem;
-}
-.alert-content {
-  font-size: 0.8rem;
-  color: #4b5563;
-  line-height: 1.4;
-}
-.alert-tag {
-  font-weight: 750;
-  color: #1f2937;
-  margin-right: 6px;
+.confirm-val {
+  color: #2b383e;
 }
 
-.toggle-modal-footer {
-  padding: 0.75rem 1.15rem 0.95rem;
+.confirm-modal-footer {
+  padding: 1rem 1.4rem;
+  border-top: 1px solid #eeebe3;
   display: flex;
   justify-content: flex-end;
-  gap: 0.6rem;
-  border-top: 1px solid #f3f4f6;
-}
-.btn-toggle-cancel {
-  background: #fff8eb;
-  border: 1px solid #dfd5c2;
-  color: #957b48;
-  font-weight: 600;
-  height: 2.2rem;
-  padding: 0 1.1rem;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.82rem;
-  transition: all 0.15s;
-}
-.btn-toggle-cancel:hover {
-  background: #faeed7;
-  color: #7a6336;
-  border-color: #c8b99c;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: #faf9f6;
 }
 
-.btn-toggle-action {
-  height: 2.2rem;
-  padding: 0 1.15rem;
-  border-radius: 6px;
-  border: none;
-  font-weight: 700;
-  font-size: 0.83rem;
+.btn-secondary {
+  background-color: #ffffff;
+  border: 1px solid #d8d2c6;
+  color: #616e75;
+  font-weight: 600;
+  padding: 0.55rem 1.15rem;
+  border-radius: 8px;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  transition: all 0.15s;
+  transition: all 0.2s;
 }
-.btn-red-action {
-  background: #b38a65;
+
+.btn-secondary:hover {
+  background-color: #f0ece1;
+}
+
+.btn-save-confirm {
+  background-color: #b38e6e;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(179, 138, 101, 0.25);
+  font-weight: 700;
+  padding: 0.55rem 1.25rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(179, 142, 110, 0.25);
+  transition: all 0.2s;
 }
-.btn-red-action:hover:not(:disabled) {
-  background: #9d7552;
+
+.btn-save-confirm:hover:not(:disabled) {
+  background-color: #9c7857;
 }
-.btn-green-action {
-  background: #496883;
-  color: #ffffff;
-  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.25);
-}
-.btn-green-action:hover:not(:disabled) {
-  background: #385268;
-}
-.btn-toggle-action:disabled {
+
+.btn-save-confirm:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+
+.btn-confirm-danger {
+  background-color: #c0392b;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 0.55rem 1.25rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(192, 57, 43, 0.25);
+  transition: all 0.2s;
+}
+
+.btn-confirm-danger:hover:not(:disabled) {
+  background-color: #a93226;
 }
 
 /* Styling cho Loại giảm giá & Giảm tối đa */

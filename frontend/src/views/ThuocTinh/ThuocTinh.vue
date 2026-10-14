@@ -573,7 +573,7 @@ watch(() => route.query.tab, (newTab) => {
       <!-- 4. Footer phân trang -->
       <div class="pagination-bar" v-if="filteredItems.length > 0">
         <div class="pagination-info">
-          Hiển thị <strong>{{ paginatedItems.length }}</strong> / <strong>{{ filteredItems.length }}</strong> {{ currentTabInfo.name.toLowerCase() }}
+          Hiển thị {{ paginatedItems.length ? (currentPage * pageSize + 1) : 0 }} - {{ currentPage * pageSize + paginatedItems.length }} / {{ filteredItems.length }} {{ currentTabInfo.name.toLowerCase() }}
         </div>
 
         <div class="pagination-pages" v-if="totalPages > 1">
@@ -683,31 +683,35 @@ watch(() => route.query.tab, (newTab) => {
     </div>
 
     <!-- Modal Xác Nhận -->
-    <div class="modal-backdrop" v-if="confirmDialog.show" @click.self="closeConfirm">
-      <div class="modal-box confirm-box">
-        <div class="confirm-content">
-          <div class="confirm-icon" :class="confirmDialog.type">
-            <svg v-if="confirmDialog.type === 'danger'" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="15" y1="9" x2="9" y2="15"></line>
-              <line x1="9" y1="9" x2="15" y2="15"></line>
-            </svg>
-            <svg v-else viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    <div class="modal-backdrop confirm-modal-overlay" v-if="confirmDialog.show" @click.self="closeConfirm">
+      <div class="confirm-modal-box">
+        <div class="confirm-modal-header" :class="{ 'header-danger': confirmDialog.type === 'danger' }">
+          <div class="confirm-warning-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
             </svg>
           </div>
-          <h4 class="confirm-title">{{ confirmDialog.title }}</h4>
-          <p class="confirm-desc">{{ confirmDialog.message }}</p>
+          <div class="confirm-title-wrap">
+            <h3 class="confirm-title">{{ confirmDialog.title || 'Xác nhận thao tác' }}</h3>
+            <p class="confirm-subtitle">Vui lòng xác nhận để tiếp tục thực hiện</p>
+          </div>
+          <button type="button" class="modal-close-btn" @click="closeConfirm">✕</button>
         </div>
-        <div class="modal-footer">
-          <button class="btn-cancel" @click="closeConfirm">Đóng</button>
+
+        <div class="confirm-modal-body">
+          <p class="confirm-message-text">{{ confirmDialog.message }}</p>
+        </div>
+
+        <div class="confirm-modal-footer">
+          <button type="button" class="btn btn-secondary" @click="closeConfirm">Đóng</button>
           <button
-              :class="['btn-submit', { 'btn-danger': confirmDialog.type === 'danger' }]"
+              type="button"
+              :class="['btn', confirmDialog.type === 'danger' ? 'btn-confirm-danger' : 'btn-save-confirm']"
               @click="executeConfirm"
           >
-            {{ confirmDialog.confirmText }}
+            {{ confirmDialog.confirmText || 'Xác nhận' }}
           </button>
         </div>
       </div>
@@ -1161,8 +1165,11 @@ watch(() => route.query.tab, (newTab) => {
 }
 
 .pagination-info {
-  font-size: 0.88rem;
-  color: #64748b;
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #555e65;
+  line-height: 1.5;
 }
 
 .pagination-pages {
@@ -1408,49 +1415,156 @@ watch(() => route.query.tab, (newTab) => {
   background-color: #b91c1c;
 }
 
-/* Confirm */
-.confirm-box {
-  max-width: 420px;
+/* Modal xác nhận chuẩn thiết kế */
+.confirm-modal-overlay {
+  z-index: 99990;
 }
 
-.confirm-content {
-  padding: 1.5rem;
-  text-align: center;
+.confirm-modal-box {
+  background: #ffffff;
+  border-radius: 14px;
+  width: 90%;
+  max-width: 460px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  animation: modalEnter 0.2s ease;
 }
 
-.confirm-icon {
-  width: 52px;
-  height: 52px;
+.confirm-modal-header {
+  padding: 1.25rem 1.4rem;
+  background-color: #fff9f0;
+  border-bottom: 1px solid #faedd9;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  position: relative;
+}
+
+.confirm-modal-header.header-danger {
+  background-color: #fff5f5;
+  border-bottom: 1px solid #fed7d7;
+}
+
+.confirm-warning-icon {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  margin: 0 auto 12px;
+  background-color: #eaf1f5;
+  color: #496883;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
-.confirm-icon.danger {
-  background-color: #fef2f2;
-  color: #dc2626;
+.header-danger .confirm-warning-icon {
+  background-color: #fdeded;
+  color: #c0392b;
 }
 
-.confirm-icon.info,
-.confirm-icon.primary {
-  background-color: #f0f7fa;
-  color: var(--blue, #496883);
+.confirm-title-wrap {
+  flex: 1;
 }
 
 .confirm-title {
-  margin: 0 0 6px 0;
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: #0f172a;
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: #8c6328;
 }
 
-.confirm-desc {
+.header-danger .confirm-title {
+  color: #c0392b;
+}
+
+.confirm-subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.83rem;
+  color: #aa8651;
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  color: #9aa0a0;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.modal-close-btn:hover {
+  color: #8c6328;
+}
+
+.confirm-modal-body {
+  padding: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.confirm-message-text {
   margin: 0;
-  font-size: 0.9rem;
-  color: #64748b;
-  line-height: 1.45;
+  font-size: 0.95rem;
+  color: #435158;
+  line-height: 1.5;
+}
+
+.confirm-modal-footer {
+  padding: 1rem 1.4rem;
+  border-top: 1px solid #eeebe3;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: #faf9f6;
+}
+
+.btn-secondary {
+  background-color: #ffffff;
+  border: 1px solid #d8d2c6;
+  color: #616e75;
+  font-weight: 600;
+  padding: 0.55rem 1.15rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: #f0ece1;
+}
+
+.btn-save-confirm {
+  background-color: #b38e6e;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 0.55rem 1.25rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(179, 142, 110, 0.25);
+  transition: all 0.2s;
+}
+
+.btn-save-confirm:hover:not(:disabled) {
+  background-color: #9c7857;
+}
+
+.btn-confirm-danger {
+  background-color: #c0392b;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 0.55rem 1.25rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(192, 57, 43, 0.25);
+  transition: all 0.2s;
+}
+
+.btn-confirm-danger:hover:not(:disabled) {
+  background-color: #a93226;
 }
 
 /* Toast */

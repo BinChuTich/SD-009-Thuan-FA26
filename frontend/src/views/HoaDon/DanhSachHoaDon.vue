@@ -933,9 +933,7 @@ onBeforeUnmount(() => {
         <!-- PHÂN TRANG -->
         <div v-if="filteredInvoiceList.length > 0" class="pagination-section">
           <div class="pagination-info">
-            Hiển thị <strong>{{ (currentPage - 1) * pageSize + 1 }}</strong> -
-            <strong>{{ Math.min(currentPage * pageSize, filteredInvoiceList.length) }}</strong> trên tổng
-            <strong>{{ filteredInvoiceList.length }}</strong> hóa đơn
+            Hiển thị {{ filteredInvoiceList.length ? ((currentPage - 1) * pageSize + 1) : 0 }} - {{ Math.min(currentPage * pageSize, filteredInvoiceList.length) }} / {{ filteredInvoiceList.length }} hóa đơn
           </div>
 
           <div class="pagination-buttons">
@@ -1396,8 +1394,11 @@ onBeforeUnmount(() => {
 }
 
 .pagination-info {
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 0.85rem;
+  font-weight: 500;
   color: #555e65;
+  line-height: 1.5;
 }
 
 .pagination-buttons {

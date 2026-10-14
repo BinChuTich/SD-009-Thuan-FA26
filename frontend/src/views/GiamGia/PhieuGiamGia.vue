@@ -195,6 +195,9 @@
 
       <!-- 4. Thanh phân trang dưới cùng bảng -->
       <div class="pagination-footer" v-if="filteredList.length > 0">
+        <span class="pagination-info">
+          Hiển thị {{ paginatedList.length ? startIndex : 0 }} - {{ endIndex }} / {{ filteredList.length }} phiếu giảm giá
+        </span>
         <div class="pagination-controls">
           <button
               class="pg-btn"
@@ -639,7 +642,7 @@ const openCreateModal = () => {
   padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
-  font-family: var(--system-font, sans-serif);
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: var(--text, #3d4a50);
   box-sizing: border-box;
 }
@@ -1452,7 +1455,7 @@ const openCreateModal = () => {
 /* Phân trang dưới cùng bảng */
 .pagination-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   padding: 1.1rem 1.25rem 0.5rem;
   margin-top: 0.5rem;
@@ -1492,11 +1495,11 @@ const openCreateModal = () => {
 }
 
 .pagination-info {
-  color: #616e75;
-}
-
-.pagination-info b {
-  color: #2b383e;
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #555e65;
+  line-height: 1.5;
 }
 
 .pagination-controls {
