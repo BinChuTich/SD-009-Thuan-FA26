@@ -10,7 +10,8 @@ import java.util.List;
 
 @Repository
 public interface KhachHangPhieuGiamGiaRepository extends JpaRepository<KhachHangPhieuGiamGia, Long> {
-    List<KhachHangPhieuGiamGia> findByIdPhieuGiamGia_Id(Long idPhieu);
+    @Query("SELECT kp FROM KhachHangPhieuGiamGia kp JOIN FETCH kp.idKhachHang WHERE kp.idPhieuGiamGia.id = :idPhieu")
+    List<KhachHangPhieuGiamGia> findByIdPhieuGiamGia_Id(@Param("idPhieu") Long idPhieu);
 
     @Query("SELECT kp.idKhachHang.id FROM KhachHangPhieuGiamGia kp WHERE kp.idPhieuGiamGia.id = :idPhieu")
     List<Long> findIdKhachHangByIdPhieu(@Param("idPhieu") Long idPhieu);

@@ -3,7 +3,10 @@ package com.example.sd009thuan.service;
 import com.example.sd009thuan.entity.KhachHang;
 import com.example.sd009thuan.entity.PhieuGiamGia;
 import jakarta.mail.internet.MimeMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -17,8 +20,13 @@ import java.time.format.DateTimeFormatter;
 @Service
 public class EmailService {
 
+    private static final Logger log = LoggerFactory.getLogger(EmailService.class);
+
     @Autowired(required = false)
     private JavaMailSender mailSender;
+
+    @org.springframework.beans.factory.annotation.Value("${spring.mail.username:thuanminh2908200334.1@gmail.com}")
+    private String senderEmail;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
@@ -59,6 +67,7 @@ public class EmailService {
     @Async
     public void sendVoucherIssuedEmail(KhachHang kh, PhieuGiamGia phieu) {
         if (kh == null || kh.getEmail() == null || kh.getEmail().trim().isEmpty()) {
+            System.out.println("==> [EmailService] Bỏ qua gửi email phát hành voucher vì khách hàng không có email hợp lệ.");
             return;
         }
         try {
@@ -70,7 +79,8 @@ public class EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setTo(kh.getEmail());
+            helper.setFrom(senderEmail, "FF T-Shirt");
+            helper.setTo(kh.getEmail().trim());
             helper.setSubject("[FF T-Shirt] Bạn vừa nhận được Phiếu giảm giá: " + phieu.getMaPhieuGiamGia());
 
             String html = """
@@ -113,7 +123,7 @@ public class EmailService {
                     </div>
                 </div>
             """.formatted(
-                    kh.getTenKhachHang(),
+                    kh.getTenKhachHang() != null ? kh.getTenKhachHang() : "Khách hàng",
                     phieu.getTenPhieuGiamGia(),
                     phieu.getMaPhieuGiamGia(),
                     formatGiaTriGiam(phieu),
@@ -128,7 +138,8 @@ public class EmailService {
             mailSender.send(message);
             System.out.println("==> [EmailService] Đã gửi email phát hành voucher THÀNH CÔNG tới: " + kh.getEmail());
         } catch (Exception e) {
-            System.err.println("==> [EmailService Lỗi] Không thể gửi email tới " + kh.getEmail() + ": " + e.getMessage());
+            System.err.println("==> [EmailService Lỗi] Không thể gửi email phát hành tới " + kh.getEmail() + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -138,6 +149,7 @@ public class EmailService {
     @Async
     public void sendVoucherUpdatedEmail(KhachHang kh, PhieuGiamGia phieu) {
         if (kh == null || kh.getEmail() == null || kh.getEmail().trim().isEmpty()) {
+            System.out.println("==> [EmailService] Bỏ qua gửi email cập nhật voucher vì khách hàng không có email hợp lệ.");
             return;
         }
         try {
@@ -149,7 +161,8 @@ public class EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setTo(kh.getEmail());
+            helper.setFrom(senderEmail, "FF T-Shirt");
+            helper.setTo(kh.getEmail().trim());
             helper.setSubject("[FF T-Shirt] Cập nhật thông tin ưu đãi Phiếu giảm giá: " + phieu.getMaPhieuGiamGia());
 
             String html = """
@@ -192,7 +205,7 @@ public class EmailService {
                     </div>
                 </div>
             """.formatted(
-                    kh.getTenKhachHang(),
+                    kh.getTenKhachHang() != null ? kh.getTenKhachHang() : "Khách hàng",
                     phieu.getTenPhieuGiamGia(),
                     phieu.getMaPhieuGiamGia(),
                     formatGiaTriGiam(phieu),
@@ -208,6 +221,7 @@ public class EmailService {
             System.out.println("==> [EmailService] Đã gửi email cập nhật voucher THÀNH CÔNG tới: " + kh.getEmail());
         } catch (Exception e) {
             System.err.println("==> [EmailService Lỗi] Không thể gửi email cập nhật tới " + kh.getEmail() + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -217,6 +231,7 @@ public class EmailService {
     @Async
     public void sendVoucherRevokedEmail(KhachHang kh, PhieuGiamGia phieu) {
         if (kh == null || kh.getEmail() == null || kh.getEmail().trim().isEmpty()) {
+            System.out.println("==> [EmailService] Bỏ qua gửi email thu hồi voucher vì khách hàng không có email hợp lệ.");
             return;
         }
         try {
@@ -228,7 +243,8 @@ public class EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setTo(kh.getEmail());
+            helper.setFrom(senderEmail, "FF T-Shirt");
+            helper.setTo(kh.getEmail().trim());
             helper.setSubject("[FF T-Shirt] Thông báo kết thúc áp dụng Phiếu giảm giá: " + phieu.getMaPhieuGiamGia());
 
             String html = """
@@ -249,7 +265,7 @@ public class EmailService {
                     </div>
                 </div>
             """.formatted(
-                    kh.getTenKhachHang(),
+                    kh.getTenKhachHang() != null ? kh.getTenKhachHang() : "Khách hàng",
                     phieu.getMaPhieuGiamGia(),
                     phieu.getTenPhieuGiamGia()
             );
@@ -260,6 +276,7 @@ public class EmailService {
             System.out.println("==> [EmailService] Đã gửi email thu hồi voucher THÀNH CÔNG tới: " + kh.getEmail());
         } catch (Exception e) {
             System.err.println("==> [EmailService Lỗi] Không thể gửi email thu hồi tới " + kh.getEmail() + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -269,6 +286,7 @@ public class EmailService {
     @Async
     public void sendVoucherDeactivatedEmail(KhachHang kh, PhieuGiamGia phieu) {
         if (kh == null || kh.getEmail() == null || kh.getEmail().trim().isEmpty()) {
+            System.out.println("==> [EmailService] Bỏ qua gửi email ngừng hoạt động: Khách hàng không có email hợp lệ.");
             return;
         }
         try {
@@ -280,7 +298,8 @@ public class EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setTo(kh.getEmail());
+            helper.setFrom(senderEmail, "FF T-Shirt");
+            helper.setTo(kh.getEmail().trim());
             helper.setSubject("[FF T-Shirt] Thông báo tạm ngừng hoạt động Phiếu giảm giá: " + phieu.getMaPhieuGiamGia());
 
             String html = """
@@ -319,7 +338,7 @@ public class EmailService {
                     </div>
                 </div>
             """.formatted(
-                    kh.getTenKhachHang(),
+                    kh.getTenKhachHang() != null ? kh.getTenKhachHang() : "Khách hàng",
                     phieu.getMaPhieuGiamGia(),
                     phieu.getTenPhieuGiamGia(),
                     phieu.getTenPhieuGiamGia(),
@@ -333,27 +352,27 @@ public class EmailService {
             System.out.println("==> [EmailService] Đã gửi email ngừng hoạt động voucher THÀNH CÔNG tới: " + kh.getEmail());
         } catch (Exception e) {
             System.err.println("==> [EmailService Lỗi] Không thể gửi email ngừng hoạt động tới " + kh.getEmail() + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     /**
      * Gửi email thông tin tài khoản và mật khẩu cho nhân viên mới
      */
-    @Async
-    public void sendAccountInfoEmail(String toEmail, String employeeName, String code, String account, String password) {
+    public boolean sendAccountInfoEmail(String toEmail, String employeeName, String code, String account, String password) {
         if (toEmail == null || toEmail.trim().isEmpty()) {
-            return;
+            return false;
         }
         try {
             if (mailSender == null) {
                 System.out.println("==> [EmailService Mock] Đã gửi thông tin tài khoản nhân viên " + code + " tới " + toEmail);
-                return;
+                return true;
             }
 
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setTo(toEmail);
+            helper.setTo(toEmail.trim());
             helper.setSubject("[FF T-Shirt] Cung cấp thông tin tài khoản nhân viên mới - " + code);
 
             String html = """
@@ -400,8 +419,66 @@ public class EmailService {
             System.out.println("==> [EmailService] Đang gửi thông tin tài khoản nhân viên tới: " + toEmail);
             mailSender.send(message);
             System.out.println("==> [EmailService] Đã gửi thông tin tài khoản nhân viên THÀNH CÔNG tới: " + toEmail);
+            return true;
         } catch (Exception e) {
             System.err.println("==> [EmailService Lỗi] Không thể gửi email tài khoản tới " + toEmail + ": " + e.getMessage());
+            return false;
+        }
+    }
+
+    public record AccountEmailDto(String email, String name, String code, String account, String password) {}
+
+    /**
+     * Gửi email danh sách thông tin tài khoản nhân viên mới bất đồng bộ (@Async ngầm không block request)
+     */
+    @Async
+    public void sendBulkAccountInfoEmailsAsync(java.util.List<AccountEmailDto> emailsToSend) {
+        if (emailsToSend == null || emailsToSend.isEmpty()) {
+            return;
+        }
+        log.info("==> [EmailService Async] Bắt đầu gửi email chạy ngầm cho {} nhân viên mới...", emailsToSend.size());
+        for (AccountEmailDto item : emailsToSend) {
+            try {
+                sendAccountInfoEmail(item.email(), item.name(), item.code(), item.account(), item.password());
+            } catch (Exception ex) {
+                log.warn("==> [EmailService Async] Không thể gửi email thông tin tài khoản tới {}: {}", item.email(), ex.getMessage());
+            }
+        }
+        log.info("==> [EmailService Async] Hoàn tất tiến trình gửi email chạy ngầm cho {} nhân viên mới.", emailsToSend.size());
+    }
+
+    public boolean sendCustomEmail(String toEmail, String fullName, String subject, String content) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("Không thể gửi email vì địa chỉ email trống.");
+            return false;
+        }
+
+        String actualSubject = (subject == null || subject.isBlank()) ? "[FF-Tshirt] Thông báo hệ thống" : subject.trim();
+        String fullContent = String.format(
+                "Xin chào %s,\n\n" +
+                "%s\n\n" +
+                "Trân trọng,\n" +
+                "Ban quản trị hệ thống FF-Tshirt",
+                (fullName != null && !fullName.isBlank()) ? fullName : "bạn",
+                (content != null && !content.isBlank()) ? content.trim() : "Bạn nhận được thông báo này từ hệ thống."
+        );
+
+        if (mailSender == null) {
+            log.warn("JavaMailSender chưa được cấu hình. Nội dung email gửi tới {}:\n{}", toEmail, fullContent);
+            return false;
+        }
+
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(toEmail.trim());
+            message.setSubject(actualSubject);
+            message.setText(fullContent);
+            mailSender.send(message);
+            log.info("Đã gửi email thông báo thành công tới: {}", toEmail);
+            return true;
+        } catch (Exception e) {
+            log.error("Gửi email thất bại cho {}: {}", toEmail, e.getMessage());
+            return false;
         }
     }
 }

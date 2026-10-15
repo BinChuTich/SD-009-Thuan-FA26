@@ -13,13 +13,10 @@ import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 @Getter
 @Setter
 @Entity
 @Table(name = "dot_giam_gia")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class DotGiamGia {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -67,6 +64,12 @@ public class DotGiamGia {
 
     @Transient
     private Integer soLuongSuDung; // Alias cho soLuong
+
+    @Transient
+    private java.util.List<Long> chiTietSanPhamIds;
+
+    @Transient
+    private java.util.List<Long> sanPhamIds;
 
     @com.fasterxml.jackson.annotation.JsonIgnore
     @OneToMany(mappedBy = "idDotGiamGia")

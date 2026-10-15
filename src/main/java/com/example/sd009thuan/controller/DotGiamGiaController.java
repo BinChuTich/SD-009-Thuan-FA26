@@ -1,5 +1,6 @@
 package com.example.sd009thuan.controller;
 
+import com.example.sd009thuan.entity.ChiTietDotGiamGia;
 import com.example.sd009thuan.entity.DotGiamGia;
 import com.example.sd009thuan.service.DotGiamGiaService;
 import org.springframework.data.domain.Page;
@@ -9,6 +10,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -24,12 +28,11 @@ public class DotGiamGiaController {
 
     /**
      * API Phân trang, Tìm kiếm và Lọc Đợt Giảm Giá
-     * GET /api/dot-giam-gia?keyword=...&trangThai=...&startDate=...&endDate=...&page=0&size=5
      */
     @GetMapping
     public ResponseEntity<Page<DotGiamGia>> search(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Integer trangThai,
+            @RequestParam(required = false) String trangThai,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             @RequestParam(defaultValue = "0") int page,
@@ -45,13 +48,47 @@ public class DotGiamGiaController {
     }
 
     /**
+     * Lấy bản đồ ID sản phẩm cha -> Đợt giảm giá đang áp dụng
+     */
+    @GetMapping("/active-products-map")
+    public ResponseEntity<Map<Long, DotGiamGia>> getActiveProductsMap(@RequestParam(required = false) Long excludeDotId) {
+        return ResponseEntity.ok(dotGiamGiaService.getActiveProductMap(excludeDotId));
+    }
+
+    /**
+     * Lấy đợt giảm giá đang áp dụng sản phẩm cha theo ID sản phẩm
+     */
+    @GetMapping("/by-product/{sanPhamId}")
+    public ResponseEntity<DotGiamGia> getByProductId(@PathVariable Long sanPhamId) {
+        return dotGiamGiaService.getActiveCampaignByProductId(sanPhamId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Lấy danh sách ID các sản phẩm cha đang nằm trong đợt giảm giá chưa kết thúc
+     */
+    @GetMapping("/active-product-ids")
+    public ResponseEntity<List<Long>> getActiveProductIds(@RequestParam(required = false) Long excludeDotId) {
+        return ResponseEntity.ok(dotGiamGiaService.getActiveProductIds(excludeDotId));
+    }
+
+    /**
      * Lấy chi tiết theo ID
      */
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     public ResponseEntity<DotGiamGia> getById(@PathVariable Long id) {
         return dotGiamGiaService.getById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Lấy danh sách chi tiết biến thể theo ID Đợt Giảm Giá
+     */
+    @GetMapping("/{id:\\d+}/chi-tiet")
+    public ResponseEntity<List<ChiTietDotGiamGia>> getChiTietByDotGiamGiaId(@PathVariable Long id) {
+        return ResponseEntity.ok(dotGiamGiaService.getChiTietByDotGiamGiaId(id));
     }
 
     /**
@@ -65,23 +102,29 @@ public class DotGiamGiaController {
     }
 
     /**
-     * Tạo mới đợt giảm giá
+     * Tạo mới đợt giảm giá (Kèm danh sách biến thể chi tiết)
      */
     @PostMapping
-    public ResponseEntity<DotGiamGia> create(@RequestBody DotGiamGia dotGiamGia) {
-        return ResponseEntity.ok(dotGiamGiaService.create(dotGiamGia));
+    public ResponseEntity<?> create(@RequestBody DotGiamGia dotGiamGia) {
+        try {
+            return ResponseEntity.ok(dotGiamGiaService.create(dotGiamGia));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Collections.singletonMap("message", e.getMessage()));
+        }
     }
 
     /**
-     * Cập nhật đợt giảm giá
+     * Cập nhật đợt giảm giá (Kèm danh sách biến thể chi tiết)
      */
     @PutMapping("/{id}")
-    public ResponseEntity<DotGiamGia> update(
+    public ResponseEntity<?> update(
             @PathVariable Long id,
             @RequestBody DotGiamGia dotGiamGia
     ) {
         try {
             return ResponseEntity.ok(dotGiamGiaService.update(id, dotGiamGia));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Collections.singletonMap("message", e.getMessage()));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }

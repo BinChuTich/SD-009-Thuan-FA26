@@ -87,10 +87,16 @@
             <!-- Cột trái: Loại giảm -->
             <div class="form-field">
               <label class="field-label">Loại giảm <span class="required">*</span></label>
-              <select v-model.number="form.loaiPhieuGiamGia" class="form-control form-select">
-                <option :value="1">Giảm theo %</option>
-                <option :value="2">Giảm tiền mặt trực tiếp</option>
-              </select>
+              <Select2Combobox
+                v-model="form.loaiPhieuGiamGia"
+                :options="loaiGiamOptions"
+                value-key="id"
+                label-key="name"
+                :show-all-option="false"
+                :allow-clear="false"
+                placeholder="-- Chọn loại giảm --"
+                search-placeholder="Tìm loại giảm..."
+              />
             </div>
 
             <!-- Cột phải: Giá trị giảm -->
@@ -243,7 +249,7 @@
               </div>
             </div>
 
-            <!-- Ô tìm kiếm & Bộ lọc Giới tính -->
+            <!-- Ô tìm kiếm & Bộ lọc Giới tính & Bộ lọc Ngày tháng năm sinh -->
             <div class="customers-filter-bar">
               <div class="cust-filter-item flex-search">
                 <input
@@ -254,12 +260,26 @@
                 />
               </div>
 
-              <div class="cust-filter-item">
-                <select v-model="custGenderFilter" class="form-control form-select-sm">
-                  <option value="">Tất cả giới tính</option>
-                  <option value="female">Nữ</option>
-                  <option value="male">Nam</option>
-                </select>
+              <div class="cust-filter-item filter-gender">
+                <Select2Combobox
+                  v-model="custGenderFilter"
+                  :options="custGenderOptions"
+                  value-key="id"
+                  label-key="name"
+                  placeholder="Tất cả giới tính"
+                  search-placeholder="Tìm giới tính..."
+                />
+              </div>
+
+              <div class="cust-filter-item filter-month">
+                <Select2Combobox
+                  v-model="custBirthMonthFilter"
+                  :options="custBirthMonthOptions"
+                  value-key="id"
+                  label-key="name"
+                  placeholder="Tất cả tháng sinh"
+                  search-placeholder="Tìm tháng sinh..."
+                />
               </div>
             </div>
 
@@ -273,7 +293,7 @@
                         type="checkbox"
                         :checked="isAllVisibleSelected"
                         @change="toggleSelectAllVisible"
-                        title="Chọn tất cả danh sách đang hiển thị"
+                        title="Chọn tất cả khách hàng trên trang này"
                     />
                   </th>
                   <th style="width: 100px;">Mã KH</th>
@@ -294,7 +314,7 @@
                 </tr>
                 <tr
                     v-else
-                    v-for="kh in filteredCustomerList"
+                    v-for="kh in paginatedCustomerList"
                     :key="kh.id"
                     :class="{ 'row-selected': selectedCustomerIds.includes(kh.id) }"
                     @click="toggleCustomerSelect(kh.id)"
@@ -326,6 +346,64 @@
               </table>
             </div>
 
+            <!-- Phân trang 5 khách hàng / trang -->
+            <div class="cust-pagination-footer" v-if="filteredCustomerList.length > 0">
+              <div class="cust-pagination-info">
+                Hiển thị <b>{{ paginatedCustomerList.length ? custStartIndex : 0 }}</b> - <b>{{ custEndIndex }}</b> trên tổng số <b>{{ filteredCustomerList.length }}</b> khách hàng
+              </div>
+              <div class="cust-pagination-controls">
+                <button
+                    type="button"
+                    class="cust-pg-btn"
+                    :disabled="custPage === 1"
+                    @click="goToCustPage(1)"
+                    title="Về trang đầu tiên"
+                >
+                  ⇤
+                </button>
+                <button
+                    type="button"
+                    class="cust-pg-btn"
+                    :disabled="custPage === 1"
+                    @click="prevCustPage"
+                    title="Trang trước"
+                >
+                  ‹
+                </button>
+
+                <template v-for="(p, idx) in custVisiblePages" :key="idx">
+                  <span v-if="p === '...'" class="cust-pg-dots">...</span>
+                  <button
+                      v-else
+                      type="button"
+                      :class="['cust-pg-btn', { active: custPage === p }]"
+                      @click="goToCustPage(p)"
+                  >
+                    {{ p }}
+                  </button>
+                </template>
+
+                <button
+                    type="button"
+                    class="cust-pg-btn"
+                    :disabled="custPage === custTotalPages"
+                    @click="nextCustPage"
+                    title="Trang tiếp theo"
+                >
+                  ›
+                </button>
+                <button
+                    type="button"
+                    class="cust-pg-btn"
+                    :disabled="custPage === custTotalPages"
+                    @click="goToCustPage(custTotalPages)"
+                    title="Đến trang cuối cùng"
+                >
+                  ⇥
+                </button>
+              </div>
+            </div>
+
             <div v-if="errors.customers" class="field-error-msg mt-3">
               {{ errors.customers }}
             </div>
@@ -349,10 +427,19 @@
     <div v-if="showConfirmModal" class="modal-overlay" @click.self="closeConfirmModal">
       <div class="modal-box confirm-modal-box">
         <div class="confirm-modal-header">
+          <div class="confirm-warning-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+          </div>
           <div class="confirm-title-wrap">
             <h3 class="confirm-title">Xác nhận tạo phiếu giảm giá</h3>
+            <p class="confirm-subtitle">Thao tác sẽ lưu phiếu giảm giá mới vào hệ thống</p>
           </div>
-          <button class="modal-close-btn" @click="closeConfirmModal">✕</button>
+          <button class="modal-close-btn" @click="closeConfirmModal" :disabled="saving">✕</button>
         </div>
 
         <div class="confirm-modal-body">
@@ -374,14 +461,38 @@
       </div>
     </div>
 
-    <!-- 5. TOAST THÀNH CÔNG -->
-    <div v-if="showSuccessToast" class="toast-success">
-      <div class="toast-text">
-        <b>Thành công!</b>
-        <p>Đã tạo mới phiếu giảm giá vào cơ sở dữ liệu thành công.</p>
+    <!-- 5. TOAST THÔNG BÁO ĐỒNG BỘ GIAO DIỆN PHIẾU GIẢM GIÁ -->
+    <transition name="toast-slide">
+      <div v-if="toast.show" :class="['toast-msg', `toast-${toast.type}`]">
+        <div class="toast-icon">
+          <svg v-if="toast.type === 'success'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <svg v-else-if="toast.type === 'error'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+          <svg v-else-if="toast.type === 'warning'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+        </div>
+        <div class="toast-content">
+          <span class="toast-title">
+            {{ toast.type === 'success' ? 'Thành công!' : (toast.type === 'error' ? 'Thao tác thất bại' : (toast.type === 'warning' ? 'Cảnh báo' : 'Thông báo')) }}
+          </span>
+          <span class="toast-text">{{ toast.message }}</span>
+        </div>
+        <button class="toast-btn-close" @click="closeToast" title="Đóng">✕</button>
       </div>
-      <button class="toast-close" @click="showSuccessToast = false">✕</button>
-    </div>
+    </transition>
   </div>
 </template>
 
@@ -389,17 +500,60 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../../api'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const router = useRouter()
 
 const saving = ref(false)
 const showConfirmModal = ref(false)
-const showSuccessToast = ref(false)
+const toast = ref({ show: false, message: '', type: 'success' })
+let toastTimer = null
+
+const showToastNotification = (message, type = 'success', duration = 3500) => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { show: true, message, type }
+  toastTimer = setTimeout(() => {
+    toast.value.show = false
+  }, duration)
+}
+
+const closeToast = () => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value.show = false
+}
 
 const customerList = ref([])
 const custSearchKeyword = ref('')
 const custGenderFilter = ref('')
+const custBirthMonthFilter = ref('')
 const selectedCustomerIds = ref([])
+
+const loaiGiamOptions = [
+  { id: 1, name: 'Giảm theo %' },
+  { id: 2, name: 'Giảm tiền mặt trực tiếp' }
+]
+
+const custGenderOptions = [
+  { id: '', name: 'Tất cả giới tính' },
+  { id: 'female', name: 'Nữ' },
+  { id: 'male', name: 'Nam' }
+]
+
+const custBirthMonthOptions = [
+  { id: '', name: 'Tất cả tháng sinh' },
+  { id: '01', name: 'Tháng 1' },
+  { id: '02', name: 'Tháng 2' },
+  { id: '03', name: 'Tháng 3' },
+  { id: '04', name: 'Tháng 4' },
+  { id: '05', name: 'Tháng 5' },
+  { id: '06', name: 'Tháng 6' },
+  { id: '07', name: 'Tháng 7' },
+  { id: '08', name: 'Tháng 8' },
+  { id: '09', name: 'Tháng 9' },
+  { id: '10', name: 'Tháng 10' },
+  { id: '11', name: 'Tháng 11' },
+  { id: '12', name: 'Tháng 12' }
+]
 
 const getTodayString = () => {
   const d = new Date()
@@ -602,13 +756,17 @@ onMounted(() => {
 
 const filteredCustomerList = computed(() => {
   return customerList.value.filter(kh => {
-    // 1. Lọc từ khóa
+    // 1. Lọc từ khóa (Mã, tên, SĐT, email, và ngày sinh)
     if (custSearchKeyword.value.trim()) {
       const kw = custSearchKeyword.value.toLowerCase().trim()
+      const formattedDob = kh.ngaySinh ? formatDateDisplay(kh.ngaySinh).toLowerCase() : ''
+      const rawDob = kh.ngaySinh ? String(kh.ngaySinh).toLowerCase() : ''
       const match = (kh.tenKhachHang && kh.tenKhachHang.toLowerCase().includes(kw)) ||
           (kh.soDienThoai && kh.soDienThoai.toLowerCase().includes(kw)) ||
           (kh.maKhachHang && kh.maKhachHang.toLowerCase().includes(kw)) ||
-          (kh.email && kh.email.toLowerCase().includes(kw))
+          (kh.email && kh.email.toLowerCase().includes(kw)) ||
+          (formattedDob && formattedDob.includes(kw)) ||
+          (rawDob && rawDob.includes(kw))
       if (!match) return false
     }
 
@@ -618,8 +776,89 @@ const filteredCustomerList = computed(() => {
       if (custGenderFilter.value === 'male' && kh.gioiTinh !== true) return false
     }
 
+    // 3. Lọc theo Tháng sinh (Tháng 1 -> Tháng 12)
+    if (custBirthMonthFilter.value) {
+      if (!kh.ngaySinh) return false
+      const parts = String(kh.ngaySinh).split('-')
+      if (parts.length < 2 || parts[1] !== custBirthMonthFilter.value) return false
+    }
+
     return true
   })
+})
+
+// Phân trang danh sách khách hàng: 5 khách hàng / trang
+const custPage = ref(1)
+const custPageSize = ref(5)
+
+const custTotalPages = computed(() => {
+  return Math.ceil(filteredCustomerList.value.length / custPageSize.value) || 1
+})
+
+const custStartIndex = computed(() => {
+  if (filteredCustomerList.value.length === 0) return 0
+  return (custPage.value - 1) * custPageSize.value + 1
+})
+
+const custEndIndex = computed(() => {
+  return Math.min(custPage.value * custPageSize.value, filteredCustomerList.value.length)
+})
+
+const paginatedCustomerList = computed(() => {
+  const start = (custPage.value - 1) * custPageSize.value
+  return filteredCustomerList.value.slice(start, start + custPageSize.value)
+})
+
+const custVisiblePages = computed(() => {
+  const total = custTotalPages.value
+  const current = custPage.value
+
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+
+  const pages = []
+  const left = Math.max(2, current - 1)
+  const right = Math.min(total - 1, current + 1)
+
+  pages.push(1)
+  if (left > 2) pages.push('...')
+  for (let i = left; i <= right; i++) {
+    pages.push(i)
+  }
+  if (right < total - 1) pages.push('...')
+  pages.push(total)
+
+  return pages
+})
+
+const goToCustPage = (page) => {
+  if (typeof page === 'number' && page >= 1 && page <= custTotalPages.value) {
+    custPage.value = page
+  }
+}
+
+const prevCustPage = () => {
+  if (custPage.value > 1) {
+    custPage.value--
+  }
+}
+
+const nextCustPage = () => {
+  if (custPage.value < custTotalPages.value) {
+    custPage.value++
+  }
+}
+
+// Tự động trở về trang 1 khi tìm kiếm hoặc thay đổi bộ lọc
+watch([custSearchKeyword, custGenderFilter, custBirthMonthFilter], () => {
+  custPage.value = 1
+})
+
+watch(custTotalPages, (newTotal) => {
+  if (custPage.value > newTotal) {
+    custPage.value = Math.max(1, newTotal)
+  }
 })
 
 // Tự động đồng bộ số lượng phiếu theo số khách hàng được chọn khi là Cá nhân
@@ -641,16 +880,16 @@ const toggleCustomerSelect = (id) => {
 }
 
 const isAllVisibleSelected = computed(() => {
-  if (filteredCustomerList.value.length === 0) return false
-  return filteredCustomerList.value.every(kh => selectedCustomerIds.value.includes(kh.id))
+  if (paginatedCustomerList.value.length === 0) return false
+  return paginatedCustomerList.value.every(kh => selectedCustomerIds.value.includes(kh.id))
 })
 
 const toggleSelectAllVisible = () => {
   if (isAllVisibleSelected.value) {
-    const visibleIds = filteredCustomerList.value.map(kh => kh.id)
-    selectedCustomerIds.value = selectedCustomerIds.value.filter(id => !visibleIds.includes(id))
+    const pageIds = paginatedCustomerList.value.map(kh => kh.id)
+    selectedCustomerIds.value = selectedCustomerIds.value.filter(id => !pageIds.includes(id))
   } else {
-    filteredCustomerList.value.forEach(kh => {
+    paginatedCustomerList.value.forEach(kh => {
       if (!selectedCustomerIds.value.includes(kh.id)) {
         selectedCustomerIds.value.push(kh.id)
       }
@@ -659,7 +898,7 @@ const toggleSelectAllVisible = () => {
 }
 
 const selectAllVisibleCustomers = () => {
-  filteredCustomerList.value.forEach(kh => {
+  paginatedCustomerList.value.forEach(kh => {
     if (!selectedCustomerIds.value.includes(kh.id)) {
       selectedCustomerIds.value.push(kh.id)
     }
@@ -895,7 +1134,7 @@ const submitCreate = async () => {
     await api.post('/api/phieu-giam-gia', payload)
 
     showConfirmModal.value = false
-    showSuccessToast.value = true
+    showToastNotification('Đã tạo mới phiếu giảm giá vào cơ sở dữ liệu thành công.', 'success')
 
     setTimeout(() => {
       router.push('/phieu-giam-gia')
@@ -904,7 +1143,7 @@ const submitCreate = async () => {
   } catch (error) {
     console.error('Lỗi khi tạo mới phiếu giảm giá:', error)
     const msg = error.response?.data?.message || error.response?.data || 'Không thể tạo mới phiếu giảm giá. Vui lòng thử lại!'
-    alert(typeof msg === 'string' ? msg : JSON.stringify(msg))
+    showToastNotification(typeof msg === 'string' ? msg : JSON.stringify(msg), 'error')
     showConfirmModal.value = false
   } finally {
     saving.value = false
@@ -1226,6 +1465,14 @@ const goBack = () => {
   flex: 1 1 240px;
 }
 
+.cust-filter-item.filter-gender {
+  min-width: 170px;
+}
+
+.cust-filter-item.filter-month {
+  min-width: 175px;
+}
+
 .form-select-sm {
   padding: 0.55rem 0.85rem;
   font-size: 0.85rem;
@@ -1345,6 +1592,79 @@ const goBack = () => {
   color: #9ca3af;
 }
 
+/* Phân trang danh sách khách hàng trong Thêm phiếu */
+.cust-pagination-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 0.5rem 0.25rem;
+  margin-top: 0.6rem;
+  border-top: 1px dashed #e5e7eb;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.cust-pagination-info {
+  font-size: 0.84rem;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.cust-pagination-info b {
+  color: #1f2937;
+}
+
+.cust-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.cust-pg-btn {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background-color: #ffffff;
+  color: #496883;
+  font-size: 0.84rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cust-pg-btn:hover:not(:disabled) {
+  border-color: #496883;
+  background-color: #f0f7fc;
+  color: #496883;
+}
+
+.cust-pg-btn.active {
+  background-color: #496883;
+  border-color: #496883;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.cust-pg-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background-color: #f9fafb;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+}
+
+.cust-pg-dots {
+  padding: 0 0.3rem;
+  color: #9ca3af;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
 /* Submit bar dưới cùng */
 .form-submit-footer {
   display: flex;
@@ -1424,44 +1744,62 @@ const goBack = () => {
 
 .confirm-modal-header,
 .error-modal-header {
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #f3f4f6;
+  padding: 1.25rem 1.4rem;
+  background-color: #fff9f0;
+  border-bottom: 1px solid #faedd9;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  gap: 0.85rem;
+  position: relative;
+}
+
+.confirm-warning-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #f7eee1;
+  color: #b38e6e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.confirm-title-wrap {
+  flex: 1;
 }
 
 .confirm-title,
 .error-title {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  color: #111827;
+  color: #8c6328;
 }
 
 .confirm-subtitle,
 .error-subtitle {
-  margin: 4px 0 0;
-  font-size: 0.85rem;
-  color: #6b7280;
+  margin: 0.2rem 0 0;
+  font-size: 0.83rem;
+  color: #aa8651;
 }
 
 .modal-close-btn {
-  background: none;
+  background: transparent;
   border: none;
-  font-size: 1.1rem;
-  color: #9ca3af;
+  font-size: 1.2rem;
+  color: #9aa0a0;
   cursor: pointer;
-  padding: 0;
+  transition: color 0.15s;
 }
 
 .modal-close-btn:hover {
-  color: #374151;
+  color: #c0392b;
 }
 
 .confirm-modal-body,
 .error-modal-body {
-  padding: 1.25rem 1.5rem;
+  padding: 1.4rem;
 }
 
 .confirm-modal-box {
@@ -1472,12 +1810,12 @@ const goBack = () => {
   margin: 0.25rem 0;
   font-size: 0.95rem;
   line-height: 1.5;
-  color: #374151;
+  color: #435158;
 }
 
 .confirm-summary-panel {
-  background-color: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background-color: #faf9f6;
+  border: 1px solid #efeae0;
   border-radius: 8px;
   padding: 0.85rem 1.1rem;
   display: flex;
@@ -1493,11 +1831,11 @@ const goBack = () => {
 }
 
 .s-label {
-  color: #6b7280;
+  color: #7b888e;
 }
 
 .s-val {
-  color: #111827;
+  color: #2b383e;
 }
 
 .confirm-note-box {
@@ -1509,16 +1847,16 @@ const goBack = () => {
 }
 
 .note-info {
-  background-color: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #1e40af;
+  background-color: #edf5fa;
+  border: 1px solid #d0e4f2;
+  color: #376384;
 }
 
 .confirm-modal-footer,
 .error-modal-footer {
-  padding: 1rem 1.5rem;
-  background-color: #f9fafb;
-  border-top: 1px solid #f3f4f6;
+  padding: 1rem 1.4rem;
+  background-color: #faf9f6;
+  border-top: 1px solid #eeebe3;
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
@@ -1535,47 +1873,128 @@ const goBack = () => {
   align-items: flex-start;
   gap: 0.5rem;
   font-size: 0.9rem;
-  color: #dc2626;
+  color: #c0392b;
 }
 
 .error-bullet {
   font-weight: 700;
 }
 
-/* Toast */
-.toast-success {
+/* Toast thông báo đồng bộ giao diện Phiếu giảm giá */
+.toast-msg {
   position: fixed;
-  bottom: 2rem;
-  right: 2rem;
+  bottom: 24px;
+  right: 28px;
   background-color: #ffffff;
-  border-left: 4px solid #10b981;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  padding: 1rem 1.25rem;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(65, 60, 50, 0.14), 0 8px 10px -6px rgba(65, 60, 50, 0.08);
+  border: 1px solid #efeae0;
+  padding: 12px 18px;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  z-index: 1000;
+  gap: 12px;
+  z-index: 99999;
+  max-width: 440px;
 }
 
-.toast-text b {
-  color: #065f46;
-  display: block;
-  font-size: 0.95rem;
+.toast-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
 }
 
-.toast-text p {
-  margin: 2px 0 0;
-  color: #4b5563;
-  font-size: 0.85rem;
+.toast-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
 }
 
-.toast-close {
-  background: none;
+.toast-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #2b383e;
+  line-height: 1.25;
+}
+
+.toast-text {
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: #616e75;
+  line-height: 1.4;
+}
+
+.toast-btn-close {
+  background: transparent;
   border: none;
-  color: #9ca3af;
-  cursor: pointer;
   font-size: 1rem;
+  color: #a0a8ab;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.toast-btn-close:hover {
+  color: #2b383e;
+  background-color: #f7f5ef;
+}
+
+/* Biến thể màu cho Toast theo phong cách ấm của Phiếu giảm giá */
+.toast-success {
+  border-left: 4px solid #4c8a5a;
+}
+.toast-success .toast-icon {
+  background-color: #edf5ef;
+  color: #4c8a5a;
+}
+
+.toast-warning {
+  border-left: 4px solid #b38e6e;
+}
+.toast-warning .toast-icon {
+  background-color: #fff9f0;
+  color: #b38e6e;
+}
+.toast-warning .toast-title {
+  color: #8c6328;
+}
+
+.toast-error {
+  border-left: 4px solid #c0392b;
+}
+.toast-error .toast-icon {
+  background-color: #fdeded;
+  color: #c0392b;
+}
+.toast-error .toast-title {
+  color: #c0392b;
+}
+
+.toast-info {
+  border-left: 4px solid #496883;
+}
+.toast-info .toast-icon {
+  background-color: #edf5fa;
+  color: #496883;
+}
+.toast-info .toast-title {
+  color: #496883;
+}
+
+/* Hiệu ứng trượt */
+.toast-slide-enter-active,
+.toast-slide-leave-active {
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.toast-slide-enter-from,
+.toast-slide-leave-to {
+  opacity: 0;
+  transform: translateY(20px) translateX(25px);
 }
 
 /* Typography Helpers */

@@ -238,7 +238,6 @@ CREATE TABLE khach_hang (
     nguoi_tao NVARCHAR(100),
     ngay_cap_nhat DATETIME2,
     nguoi_cap_nhat NVARCHAR(100),
-    anh_khach_hang VARCHAR(255),
     CONSTRAINT CK_khach_hang_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
@@ -587,3 +586,4 @@ UNION ALL SELECT 'phuong_thuc_thanh_toan', COUNT(*) FROM phuong_thuc_thanh_toan
 UNION ALL SELECT 'hinh_thuc_thanh_toan', COUNT(*) FROM hinh_thuc_thanh_toan
 UNION ALL SELECT 'lich_su_thanh_toan', COUNT(*) FROM lich_su_thanh_toan;
 GO
+

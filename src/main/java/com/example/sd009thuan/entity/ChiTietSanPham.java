@@ -4,24 +4,17 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Nationalized;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
 @Entity
 @Table(name = "chi_tiet_san_pham")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class ChiTietSanPham {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -79,6 +72,120 @@ public class ChiTietSanPham {
     @Column(name = "nguoi_cap_nhat", length = 100)
     private String nguoiCapNhat;
 
+    public ChiTietSanPham() {
+    }
+
+    public ChiTietSanPham(Long id, SanPham idSanPham, KichCo idKichCo, MauSac idMauSac, String maChiTietSanPham, Integer soLuong, BigDecimal giaBan, Integer trangThai, Instant ngayTao, String nguoiTao, Instant ngayCapNhat, String nguoiCapNhat) {
+        this.id = id;
+        this.idSanPham = idSanPham;
+        this.idKichCo = idKichCo;
+        this.idMauSac = idMauSac;
+        this.maChiTietSanPham = maChiTietSanPham;
+        this.soLuong = soLuong;
+        this.giaBan = giaBan;
+        this.trangThai = trangThai;
+        this.ngayTao = ngayTao;
+        this.nguoiTao = nguoiTao;
+        this.ngayCapNhat = ngayCapNhat;
+        this.nguoiCapNhat = nguoiCapNhat;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public SanPham getIdSanPham() {
+        return idSanPham;
+    }
+
+    public void setIdSanPham(SanPham idSanPham) {
+        this.idSanPham = idSanPham;
+    }
+
+    public KichCo getIdKichCo() {
+        return idKichCo;
+    }
+
+    public void setIdKichCo(KichCo idKichCo) {
+        this.idKichCo = idKichCo;
+    }
+
+    public MauSac getIdMauSac() {
+        return idMauSac;
+    }
+
+    public void setIdMauSac(MauSac idMauSac) {
+        this.idMauSac = idMauSac;
+    }
+
+    public String getMaChiTietSanPham() {
+        return maChiTietSanPham;
+    }
+
+    public void setMaChiTietSanPham(String maChiTietSanPham) {
+        this.maChiTietSanPham = maChiTietSanPham;
+    }
+
+    public Integer getSoLuong() {
+        return soLuong;
+    }
+
+    public void setSoLuong(Integer soLuong) {
+        this.soLuong = soLuong;
+    }
+
+    public BigDecimal getGiaBan() {
+        return giaBan;
+    }
+
+    public void setGiaBan(BigDecimal giaBan) {
+        this.giaBan = giaBan;
+    }
+
+    public Integer getTrangThai() {
+        return trangThai;
+    }
+
+    public void setTrangThai(Integer trangThai) {
+        this.trangThai = trangThai;
+    }
+
+    public Instant getNgayTao() {
+        return ngayTao;
+    }
+
+    public void setNgayTao(Instant ngayTao) {
+        this.ngayTao = ngayTao;
+    }
+
+    public String getNguoiTao() {
+        return nguoiTao;
+    }
+
+    public void setNguoiTao(String nguoiTao) {
+        this.nguoiTao = nguoiTao;
+    }
+
+    public Instant getNgayCapNhat() {
+        return ngayCapNhat;
+    }
+
+    public void setNgayCapNhat(Instant ngayCapNhat) {
+        this.ngayCapNhat = ngayCapNhat;
+    }
+
+    public String getNguoiCapNhat() {
+        return nguoiCapNhat;
+    }
+
+    public void setNguoiCapNhat(String nguoiCapNhat) {
+        this.nguoiCapNhat = nguoiCapNhat;
+    }
+
     @PrePersist
     public void prePersist() {
         if (this.ngayTao == null) {
@@ -99,5 +206,4 @@ public class ChiTietSanPham {
     public void preUpdate() {
         this.ngayCapNhat = Instant.now();
     }
-
 }

@@ -7,13 +7,14 @@ import com.example.sd009thuan.entity.ChiTietSanPham;
 import com.example.sd009thuan.entity.KichCo;
 import com.example.sd009thuan.entity.MauSac;
 import com.example.sd009thuan.entity.SanPham;
-import com.example.sd009thuan.entity.DotGiamGia;
-import com.example.sd009thuan.entity.ChiTietDotGiamGia;
 import com.example.sd009thuan.repository.ChiTietSanPhamRepository;
-import com.example.sd009thuan.repository.ChiTietDotGiamGiaRepository;
 import com.example.sd009thuan.repository.KichCoRepository;
 import com.example.sd009thuan.repository.MauSacRepository;
 import com.example.sd009thuan.repository.SanPhamRepository;
+import com.example.sd009thuan.repository.ChiTietDotGiamGiaRepository;
+import com.example.sd009thuan.repository.DotGiamGiaRepository;
+import com.example.sd009thuan.entity.ChiTietDotGiamGia;
+import com.example.sd009thuan.entity.DotGiamGia;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,14 +29,13 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 @Service
 @Transactional(readOnly = true)
 public class ChiTietSanPhamService {
@@ -46,6 +46,7 @@ public class ChiTietSanPhamService {
     private final MauSacRepository mauSacRepository;
     private final com.example.sd009thuan.repository.HinhAnhRepository hinhAnhRepository;
     private final ChiTietDotGiamGiaRepository chiTietDotGiamGiaRepository;
+    private final DotGiamGiaRepository dotGiamGiaRepository;
 
     public ChiTietSanPhamService(
             ChiTietSanPhamRepository chiTietSanPhamRepository,
@@ -53,7 +54,8 @@ public class ChiTietSanPhamService {
             KichCoRepository kichCoRepository,
             MauSacRepository mauSacRepository,
             com.example.sd009thuan.repository.HinhAnhRepository hinhAnhRepository,
-            ChiTietDotGiamGiaRepository chiTietDotGiamGiaRepository
+            ChiTietDotGiamGiaRepository chiTietDotGiamGiaRepository,
+            DotGiamGiaRepository dotGiamGiaRepository
     ) {
         this.chiTietSanPhamRepository = chiTietSanPhamRepository;
         this.sanPhamRepository = sanPhamRepository;
@@ -61,14 +63,17 @@ public class ChiTietSanPhamService {
         this.mauSacRepository = mauSacRepository;
         this.hinhAnhRepository = hinhAnhRepository;
         this.chiTietDotGiamGiaRepository = chiTietDotGiamGiaRepository;
+        this.dotGiamGiaRepository = dotGiamGiaRepository;
     }
 
+    @Transactional
     public List<ChiTietSanPhamResponse> getBySanPhamId(Long idSanPham) {
         return chiTietSanPhamRepository.findByIdSanPham_Id(idSanPham).stream()
                 .map(this::convertToResponse)
                 .toList();
     }
 
+    @Transactional
     public PageResponse<ChiTietSanPhamResponse> filterVariants(
             Long idSanPham,
             String keyword,
@@ -122,15 +127,60 @@ public class ChiTietSanPhamService {
         MauSac ms = mauSacRepository.findById(req.getIdMauSac())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy màu sắc có ID: " + req.getIdMauSac()));
 
-        List<ChiTietSanPham> existing = chiTietSanPhamRepository.findByIdSanPham_IdAndIdKichCo_IdAndIdMauSac_Id(
+        Optional<ChiTietSanPham> existing = chiTietSanPhamRepository.findByIdSanPham_IdAndIdKichCo_IdAndIdMauSac_Id(
                 req.getIdSanPham(), req.getIdKichCo(), req.getIdMauSac()
         );
-        if (existing != null && !existing.isEmpty()) {
-            throw new IllegalArgumentException("Biến thể với kích cỡ " + kc.getTenKichCo() + " và màu sắc " + ms.getTenMauSac() + " đã tồn tại cho sản phẩm này!");
+        if (existing.isPresent()) {
+            // BIẾN THỂ ĐÃ TỒN TẠI -> Tăng số lượng (cộng dồn) và cập nhật giá theo thông tin mới nhất
+            ChiTietSanPham ct = existing.get();
+            int currentQty = ct.getSoLuong() != null ? ct.getSoLuong() : 0;
+            int addQty = req.getSoLuong() != null ? req.getSoLuong() : 0;
+            long totalQty = (long) currentQty + addQty;
+            if (totalQty > 999999) {
+                throw new IllegalArgumentException("Tổng số lượng biến thể (" + ms.getTenMauSac() + " - " + kc.getTenKichCo() + ") sau khi cộng dồn không được vượt quá 999,999!");
+            }
+            ct.setSoLuong((int) totalQty);
+            ct.setGiaBan(req.getGiaBan()); // Cập nhật đơn giá mới nhất
+            ct.setTrangThai(1); // Đảm bảo trạng thái kinh doanh
+            ct.setNguoiCapNhat(req.getNguoiThaoTac() != null ? req.getNguoiThaoTac() : "Admin");
+
+            ChiTietSanPham saved = chiTietSanPhamRepository.save(ct);
+
+            // Cập nhật ảnh nếu có
+            String imgInput = req.getAnhDaiDien() != null ? req.getAnhDaiDien() : req.getHinhAnh();
+            if (imgInput != null && !imgInput.trim().isEmpty()) {
+                String processed = processImage(imgInput);
+                if (processed != null && !processed.trim().isEmpty()) {
+                    String targetTen = "CTSP_" + saved.getId();
+                    List<HinhAnh> existingImgs = hinhAnhRepository.findByIdSanPham_Id(saved.getIdSanPham().getId());
+                    HinhAnh found = null;
+                    if (existingImgs != null) {
+                        for (HinhAnh ha : existingImgs) {
+                            if (targetTen.equals(ha.getTenAnh())) {
+                                found = ha;
+                                break;
+                            }
+                        }
+                    }
+                    if (found != null) {
+                        found.setDuongDan(processed.trim());
+                        hinhAnhRepository.save(found);
+                    } else {
+                        HinhAnh ha = new HinhAnh();
+                        ha.setIdSanPham(saved.getIdSanPham());
+                        ha.setTenAnh(targetTen);
+                        ha.setDuongDan(processed.trim());
+                        ha.setTrangThai(1);
+                        hinhAnhRepository.save(ha);
+                    }
+                }
+            }
+
+            return convertToResponse(saved);
         }
 
         if (req.getMaChiTietSanPham() == null || req.getMaChiTietSanPham().trim().isEmpty()) {
-            req.setMaChiTietSanPham("CTSP" + System.currentTimeMillis());
+            req.setMaChiTietSanPham("CTSP" + System.currentTimeMillis() + "_" + (int)(Math.random() * 1000));
         } else if (chiTietSanPhamRepository.existsByMaChiTietSanPham(req.getMaChiTietSanPham().trim())) {
             throw new IllegalArgumentException("Mã chi tiết sản phẩm đã tồn tại: " + req.getMaChiTietSanPham());
         }
@@ -147,27 +197,18 @@ public class ChiTietSanPhamService {
 
         ChiTietSanPham saved = chiTietSanPhamRepository.save(ct);
 
-        // Lưu / cập nhật ảnh đại diện theo màu sắc của biến thể (nếu có truyền ảnh)
-        if (req.getAnhDaiDien() != null && !req.getAnhDaiDien().trim().isEmpty()) {
-            updateVariantImage(sp, ms.getId(), req.getAnhDaiDien().trim());
-        }
-
-        // Tự động liên kết với đợt giảm giá đang hoạt động của sản phẩm (nếu có)
-        try {
-            List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsBySanPhamId(sp.getId());
-            if (activeDiscounts != null && !activeDiscounts.isEmpty()) {
-                ChiTietDotGiamGia sample = activeDiscounts.get(0);
-                if (sample.getIdDotGiamGia() != null) {
-                    ChiTietDotGiamGia newCd = new ChiTietDotGiamGia();
-                    newCd.setIdDotGiamGia(sample.getIdDotGiamGia());
-                    newCd.setIdChiTietSanPham(saved);
-                    newCd.setPhanTramGiamBienThe(sample.getPhanTramGiamBienThe() != null ? sample.getPhanTramGiamBienThe() : sample.getIdDotGiamGia().getPhanTramGiam());
-                    newCd.setTrangThai(1);
-                    chiTietDotGiamGiaRepository.save(newCd);
-                }
+        // Lưu ảnh riêng cho biến thể nếu có
+        String imgInput = req.getAnhDaiDien() != null ? req.getAnhDaiDien() : req.getHinhAnh();
+        if (imgInput != null && !imgInput.trim().isEmpty()) {
+            String processed = processImage(imgInput);
+            if (processed != null && !processed.trim().isEmpty()) {
+                HinhAnh ha = new HinhAnh();
+                ha.setIdSanPham(saved.getIdSanPham());
+                ha.setTenAnh("CTSP_" + saved.getId());
+                ha.setDuongDan(processed.trim());
+                ha.setTrangThai(1);
+                hinhAnhRepository.save(ha);
             }
-        } catch (Exception ex) {
-            log.warn("Không thể tự động liên kết đợt giảm giá cho CTSP {}: {}", saved.getId(), ex.getMessage());
         }
 
         return convertToResponse(saved);
@@ -190,45 +231,11 @@ public class ChiTietSanPhamService {
         MauSac ms = mauSacRepository.findById(req.getIdMauSac())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy màu sắc có ID: " + req.getIdMauSac()));
 
-        // Kiểm tra xem biến thể có bị đổi sang (Kích cỡ, Màu sắc) khác với hiện tại của nó không
-        boolean isColorOrSizeChanged = ct.getIdKichCo() == null || !ct.getIdKichCo().getId().equals(req.getIdKichCo())
-                || ct.getIdMauSac() == null || !ct.getIdMauSac().getId().equals(req.getIdMauSac());
-
-        if (isColorOrSizeChanged) {
-            List<ChiTietSanPham> duplicates = chiTietSanPhamRepository.findByIdSanPham_IdAndIdKichCo_IdAndIdMauSac_Id(
-                    ct.getIdSanPham().getId(), req.getIdKichCo(), req.getIdMauSac()
-            );
-            ChiTietSanPham other = duplicates != null ? duplicates.stream()
-                    .filter(d -> !d.getId().equals(id))
-                    .findFirst()
-                    .orElse(null) : null;
-
-            if (other != null) {
-                // Nếu sản phẩm đã có biến thể khác cùng Màu sắc & Kích cỡ, tự động gộp số lượng và cập nhật giá, trạng thái
-                other.setSoLuong((other.getSoLuong() != null ? other.getSoLuong() : 0) + (req.getSoLuong() != null ? req.getSoLuong() : 0));
-                other.setGiaBan(req.getGiaBan());
-                if (req.getTrangThai() != null) {
-                    other.setTrangThai(req.getTrangThai());
-                }
-                other.setNguoiCapNhat(req.getNguoiThaoTac() != null ? req.getNguoiThaoTac() : "Admin");
-
-                if (req.getTenSanPham() != null && !req.getTenSanPham().trim().isEmpty()) {
-                    String newTenSp = req.getTenSanPham().trim();
-                    SanPham sp = ct.getIdSanPham();
-                    if (sp != null && !newTenSp.equalsIgnoreCase(sp.getTenSanPham())) {
-                        sp.setTenSanPham(newTenSp);
-                        sanPhamRepository.save(sp);
-                    }
-                }
-
-                if (req.getAnhDaiDien() != null) {
-                    updateVariantImage(ct.getIdSanPham(), ms.getId(), req.getAnhDaiDien().trim());
-                }
-
-                chiTietSanPhamRepository.delete(ct);
-                ChiTietSanPham merged = chiTietSanPhamRepository.save(other);
-                return convertToResponse(merged);
-            }
+        Optional<ChiTietSanPham> duplicate = chiTietSanPhamRepository.findByIdSanPham_IdAndIdKichCo_IdAndIdMauSac_Id(
+                ct.getIdSanPham().getId(), req.getIdKichCo(), req.getIdMauSac()
+        );
+        if (duplicate.isPresent() && !duplicate.get().getId().equals(id)) {
+            throw new IllegalArgumentException("Biến thể với kích cỡ " + kc.getTenKichCo() + " và màu sắc " + ms.getTenMauSac() + " đã tồn tại ở sản phẩm này!");
         }
 
         if (req.getMaChiTietSanPham() != null && !req.getMaChiTietSanPham().trim().isEmpty()) {
@@ -247,75 +254,47 @@ public class ChiTietSanPhamService {
         }
         ct.setNguoiCapNhat(req.getNguoiThaoTac() != null ? req.getNguoiThaoTac() : "Admin");
 
-        // Cập nhật tên sản phẩm nếu có thay đổi
-        if (req.getTenSanPham() != null && !req.getTenSanPham().trim().isEmpty()) {
-            String newTenSp = req.getTenSanPham().trim();
-            SanPham sp = ct.getIdSanPham();
-            if (sp != null && !newTenSp.equalsIgnoreCase(sp.getTenSanPham())) {
-                sp.setTenSanPham(newTenSp);
-                sanPhamRepository.save(sp);
-            }
-        }
-
-        // Cập nhật/thêm/xóa ảnh đại diện theo màu sắc của biến thể
-        if (req.getAnhDaiDien() != null) {
-            updateVariantImage(ct.getIdSanPham(), ms.getId(), req.getAnhDaiDien().trim());
-        }
-
         ChiTietSanPham updated = chiTietSanPhamRepository.save(ct);
-        return convertToResponse(updated);
-    }
 
-    private void updateVariantImage(SanPham sp, Long colorId, String imageInput) {
-        if (sp == null || colorId == null) {
-            return;
-        }
-        String targetTen = "COLOR_" + colorId;
-        List<HinhAnh> imgs = hinhAnhRepository.findByIdSanPham_Id(sp.getId());
-
-        // Nếu imageInput rỗng hoặc "REMOVE" -> Xóa ảnh của màu/biến thể này
-        if (imageInput == null || imageInput.trim().isEmpty() || "REMOVE".equalsIgnoreCase(imageInput.trim())) {
-            if (imgs != null) {
-                for (HinhAnh img : imgs) {
-                    if (targetTen.equals(img.getTenAnh())) {
-                        hinhAnhRepository.delete(img);
-                    }
-                }
-                // Nếu sản phẩm chỉ có duy nhất 1 ảnh chung và người dùng xóa ảnh ở biến thể
-                if (imgs.size() == 1) {
-                    HinhAnh single = imgs.get(0);
-                    if (single.getTenAnh() == null || !single.getTenAnh().startsWith("COLOR_")) {
-                        hinhAnhRepository.delete(single);
-                    }
-                }
-            }
-            return;
-        }
-
-        // Cập nhật hoặc thêm ảnh mới
-        String processedUrl = processImage(imageInput.trim());
-        if (processedUrl != null && !processedUrl.trim().isEmpty()) {
-            HinhAnh targetImg = null;
-            if (imgs != null) {
-                for (HinhAnh img : imgs) {
-                    if (targetTen.equals(img.getTenAnh())) {
-                        targetImg = img;
+        // Lưu / cập nhật / gỡ ảnh riêng cho biến thể nếu có
+        String imgInput = req.getAnhDaiDien() != null ? req.getAnhDaiDien() : req.getHinhAnh();
+        if (imgInput != null) {
+            String targetTen = "CTSP_" + id;
+            List<HinhAnh> existingImgs = hinhAnhRepository.findByIdSanPham_Id(ct.getIdSanPham().getId());
+            HinhAnh found = null;
+            if (existingImgs != null) {
+                for (HinhAnh ha : existingImgs) {
+                    if (targetTen.equals(ha.getTenAnh())) {
+                        found = ha;
                         break;
                     }
                 }
             }
-            if (targetImg != null) {
-                targetImg.setDuongDan(processedUrl.trim());
-                hinhAnhRepository.save(targetImg);
+
+            if (imgInput.trim().isEmpty()) {
+                // Người dùng gỡ ảnh riêng của biến thể
+                if (found != null) {
+                    hinhAnhRepository.delete(found);
+                }
             } else {
-                HinhAnh newImg = new HinhAnh();
-                newImg.setIdSanPham(sp);
-                newImg.setTenAnh(targetTen);
-                newImg.setDuongDan(processedUrl.trim());
-                newImg.setTrangThai(1);
-                hinhAnhRepository.save(newImg);
+                String processed = processImage(imgInput);
+                if (processed != null && !processed.trim().isEmpty()) {
+                    if (found != null) {
+                        found.setDuongDan(processed.trim());
+                        hinhAnhRepository.save(found);
+                    } else {
+                        HinhAnh ha = new HinhAnh();
+                        ha.setIdSanPham(ct.getIdSanPham());
+                        ha.setTenAnh(targetTen);
+                        ha.setDuongDan(processed.trim());
+                        ha.setTrangThai(1);
+                        hinhAnhRepository.save(ha);
+                    }
+                }
             }
         }
+
+        return convertToResponse(updated);
     }
 
     private String processImage(String imageInput) {
@@ -346,7 +325,7 @@ public class ChiTietSanPhamService {
                         java.nio.file.Files.createDirectories(uploadDir);
                     }
 
-                    String filename = "sp_" + System.currentTimeMillis() + "_" + java.util.UUID.randomUUID().toString().substring(0, 8) + extension;
+                    String filename = "ctsp_" + System.currentTimeMillis() + "_" + java.util.UUID.randomUUID().toString().substring(0, 8) + extension;
                     java.nio.file.Path filePath = uploadDir.resolve(filename);
                     java.nio.file.Files.write(filePath, imageBytes);
 
@@ -373,11 +352,21 @@ public class ChiTietSanPhamService {
 
     @Transactional
     public void delete(Long id) {
-        if (!chiTietSanPhamRepository.existsById(id)) {
-            throw new RuntimeException("Không tìm thấy biến thể có ID: " + id);
-        }
+        ChiTietSanPham ct = chiTietSanPhamRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy biến thể có ID: " + id));
         try {
-            chiTietSanPhamRepository.deleteById(id);
+            if (ct.getIdSanPham() != null) {
+                List<HinhAnh> imgs = hinhAnhRepository.findByIdSanPham_Id(ct.getIdSanPham().getId());
+                if (imgs != null) {
+                    String ctspTarget = "CTSP_" + id;
+                    for (HinhAnh img : imgs) {
+                        if (ctspTarget.equals(img.getTenAnh())) {
+                            hinhAnhRepository.delete(img);
+                        }
+                    }
+                }
+            }
+            chiTietSanPhamRepository.delete(ct);
             chiTietSanPhamRepository.flush();
         } catch (org.springframework.dao.DataIntegrityViolationException ex) {
             throw new IllegalArgumentException("Không thể xóa biến thể vì đã phát sinh giao dịch/hóa đơn trong hệ thống! Vui lòng đổi trạng thái sang 'Ngừng kinh doanh'.");
@@ -387,16 +376,13 @@ public class ChiTietSanPhamService {
     @Transactional
     public List<ChiTietSanPhamResponse> saveBatch(List<ChiTietSanPhamRequest> requests) {
         List<ChiTietSanPhamResponse> list = new ArrayList<>();
-        int counter = 0;
         for (ChiTietSanPhamRequest req : requests) {
             if (req.getId() != null) {
                 list.add(update(req.getId(), req));
             } else {
-                if (req.getMaChiTietSanPham() == null || req.getMaChiTietSanPham().trim().isEmpty()) {
-                    req.setMaChiTietSanPham("CTSP" + System.currentTimeMillis() + (counter++));
-                }
                 list.add(create(req));
             }
+            chiTietSanPhamRepository.flush();
         }
         return list;
     }
@@ -406,59 +392,66 @@ public class ChiTietSanPhamService {
         if (ct.getIdSanPham() != null) {
             List<HinhAnh> imgs = hinhAnhRepository.findByIdSanPham_Id(ct.getIdSanPham().getId());
             if (imgs != null && !imgs.isEmpty()) {
-                if (ct.getIdMauSac() != null) {
-                    String targetTen = "COLOR_" + ct.getIdMauSac().getId();
+                // 1. Ưu tiên ảnh riêng theo biến thể CTSP
+                String ctspTarget = "CTSP_" + ct.getId();
+                for (HinhAnh img : imgs) {
+                    if (ctspTarget.equals(img.getTenAnh())) {
+                        anhDaiDien = img.getDuongDan();
+                        break;
+                    }
+                }
+                // 2. Nếu chưa có ảnh riêng biến thể, lấy ảnh theo ĐÚNG màu sắc của biến thể này
+                if (anhDaiDien == null && ct.getIdMauSac() != null) {
+                    String colorTarget = "COLOR_" + ct.getIdMauSac().getId();
                     for (HinhAnh img : imgs) {
-                        if (targetTen.equals(img.getTenAnh())) {
+                        if (colorTarget.equals(img.getTenAnh())) {
                             anhDaiDien = img.getDuongDan();
                             break;
                         }
                     }
                 }
-                // Chỉ fallback về ảnh chung nếu sản phẩm có ảnh chung và KHÔNG có bất kỳ ảnh riêng nào theo màu khác
+                // 3. Nếu vẫn chưa có ảnh riêng và chưa có ảnh theo màu, chỉ lấy ảnh CHUNG của sản phẩm
+                // (chỉ áp dụng nếu ảnh chung không thuộc bất kỳ màu nào: tên ảnh không bắt đầu bằng COLOR_ hoặc CTSP_)
                 if (anhDaiDien == null) {
-                    boolean hasAnyColorSpecificImg = imgs.stream()
-                            .anyMatch(i -> i.getTenAnh() != null && i.getTenAnh().startsWith("COLOR_"));
-                    if (!hasAnyColorSpecificImg) {
-                        for (HinhAnh img : imgs) {
-                            if (img.getTenAnh() == null || !img.getTenAnh().startsWith("COLOR_")) {
-                                anhDaiDien = img.getDuongDan();
-                                break;
-                            }
+                    for (HinhAnh img : imgs) {
+                        String tenAnh = img.getTenAnh();
+                        if (tenAnh != null && !tenAnh.startsWith("COLOR_") && !tenAnh.startsWith("CTSP_")) {
+                            anhDaiDien = img.getDuongDan();
+                            break;
                         }
                     }
                 }
             }
         }
 
-        // Tính toán đợt giảm giá & giá bán sau giảm của biến thể
-        Long idDotGiamGia = null;
-        String tenDotGiamGia = null;
+        // Kiểm tra giảm giá liên kết (theo biến thể hoặc theo sản phẩm cha)
+        Instant now = Instant.now();
+        List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsByVariantId(ct.getId(), now);
+        if ((activeDiscounts == null || activeDiscounts.isEmpty()) && ct.getIdSanPham() != null && ct.getIdSanPham().getId() != null) {
+            activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsBySanPhamId(ct.getIdSanPham().getId(), now);
+        }
+        Boolean coGiamGia = false;
+        BigDecimal giaSauGiam = null;
         BigDecimal phanTramGiam = null;
-        BigDecimal giaSauGiam = ct.getGiaBan();
-        boolean coGiamGia = false;
+        String tenDotGiamGia = null;
 
-        List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsByCtspId(ct.getId());
         if (activeDiscounts != null && !activeDiscounts.isEmpty()) {
-            java.time.Instant now = java.time.Instant.now();
-            for (ChiTietDotGiamGia cd : activeDiscounts) {
-                DotGiamGia d = cd.getIdDotGiamGia();
-                if (d != null && d.getTrangThai() != null && d.getTrangThai() == 1) {
-                    boolean started = d.getNgayBatDau() == null || !now.isBefore(d.getNgayBatDau());
-                    boolean notEnded = d.getNgayKetThuc() == null || !now.isAfter(d.getNgayKetThuc());
-                    if (started && notEnded) {
-                        idDotGiamGia = d.getId();
-                        tenDotGiamGia = d.getTenDotGiamGia();
-                        phanTramGiam = cd.getPhanTramGiamBienThe() != null ? cd.getPhanTramGiamBienThe() : d.getPhanTramGiam();
-                        if (phanTramGiam != null && phanTramGiam.compareTo(BigDecimal.ZERO) > 0 && ct.getGiaBan() != null) {
-                            coGiamGia = true;
-                            BigDecimal factor = BigDecimal.valueOf(100).subtract(phanTramGiam).divide(BigDecimal.valueOf(100), 4, java.math.RoundingMode.HALF_UP);
-                            giaSauGiam = ct.getGiaBan().multiply(factor).setScale(0, java.math.RoundingMode.HALF_UP);
-                        }
-                        break;
-                    }
-                }
+            coGiamGia = true;
+            ChiTietDotGiamGia dgg = activeDiscounts.get(0);
+            if (dgg.getIdDotGiamGia() != null) {
+                tenDotGiamGia = dgg.getIdDotGiamGia().getTenDotGiamGia();
+                phanTramGiam = dgg.getPhanTramGiamBienThe() != null 
+                        ? dgg.getPhanTramGiamBienThe() 
+                        : dgg.getIdDotGiamGia().getPhanTramGiam();
             }
+            if (ct.getGiaBan() != null && phanTramGiam != null && phanTramGiam.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal factor = BigDecimal.valueOf(100).subtract(phanTramGiam).max(BigDecimal.ZERO);
+                giaSauGiam = ct.getGiaBan().multiply(factor).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+            } else {
+                giaSauGiam = ct.getGiaBan();
+            }
+        } else {
+            giaSauGiam = ct.getGiaBan();
         }
 
         return ChiTietSanPhamResponse.builder()
@@ -477,11 +470,10 @@ public class ChiTietSanPhamService {
                 .trangThai(ct.getTrangThai())
                 .ngayTao(ct.getNgayTao())
                 .anhDaiDien(anhDaiDien)
-                .idDotGiamGia(idDotGiamGia)
-                .tenDotGiamGia(tenDotGiamGia)
-                .phanTramGiam(phanTramGiam)
-                .giaSauGiam(giaSauGiam)
                 .coGiamGia(coGiamGia)
+                .giaSauGiam(giaSauGiam)
+                .phanTramGiam(phanTramGiam)
+                .tenDotGiamGia(tenDotGiamGia)
                 .build();
     }
 

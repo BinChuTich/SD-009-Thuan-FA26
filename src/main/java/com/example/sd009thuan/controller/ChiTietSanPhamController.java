@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/chi-tiet-san-pham")
@@ -21,6 +22,7 @@ public class ChiTietSanPhamController {
     public ChiTietSanPhamController(ChiTietSanPhamService chiTietSanPhamService) {
         this.chiTietSanPhamService = chiTietSanPhamService;
     }
+
 
     // GET /api/chi-tiet-san-pham/by-san-pham/{idSanPham}
     @GetMapping("/by-san-pham/{idSanPham}")

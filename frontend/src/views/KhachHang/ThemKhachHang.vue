@@ -1,212 +1,211 @@
 <template>
   <div class="customer-page-wrapper">
-    <!-- Header -->
+    <!-- 1. Thanh tiêu đề trên cùng & Nút quay lại -->
     <div class="page-top-header">
       <div class="page-breadcrumb">
         <router-link to="/khach-hang" class="crumb-parent">Quản lý khách hàng</router-link>
         <span class="crumb-separator">/</span>
         <span class="crumb-current">Thêm mới khách hàng</span>
       </div>
-      <button class="btn-back" @click="goBack">
-        <span>←</span> Quay lại danh sách
+      <button class="btn-back-pill" @click="goBack" title="Quay lại danh sách khách hàng">
+        ← Quay lại danh sách
       </button>
     </div>
 
-    <!-- Form Container -->
-    <div class="form-container-card">
-      <div class="form-layout-grid">
-        <!-- Cột trái: Ảnh đại diện -->
-        <div class="avatar-upload-panel">
-          <div class="avatar-card">
-            <h4 class="card-subtitle">Ảnh đại diện</h4>
-            <div class="avatar-integrated-wrapper">
-              <label class="avatar-uploader-box" title="Nhấp để chọn ảnh đại diện">
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/jpg,image/webp"
-                  @change="onImageSelected"
-                  style="display: none"
-                />
-                <img v-if="avatarPreview" :src="avatarPreview" class="avatar-preview-img" alt="avatar" />
-                <div v-else class="avatar-empty-placeholder">
-                  <span class="avatar-placeholder-text">Chọn ảnh</span>
-                </div>
-                <div class="avatar-hover-overlay">
-                  <span>Đổi ảnh</span>
-                </div>
-              </label>
-              <button v-if="avatarPreview" type="button" class="btn-remove-avatar-link" @click="removeAvatar">
-                Gỡ ảnh
-              </button>
-            </div>
-          </div>
+    <!-- 2. Form nội dung: Bố cục dạng phẳng các Card xếp dọc đồng bộ hệ thống -->
+    <form @submit.prevent="handleSubmit" class="form-content-container">
+      <!-- KHỐI 1: THÔNG TIN KHÁCH HÀNG (CARD 1) -->
+      <div class="content-card form-section-card">
+        <div class="card-section-header">
+          <h3 class="section-title">Thông tin khách hàng</h3>
         </div>
 
-        <!-- Cột phải: Thông tin chi tiết -->
-        <div class="form-fields-panel">
-          <!-- Phần 1: Thông tin khách hàng -->
-          <div class="section-card">
-            <h4 class="section-title">Thông tin khách hàng</h4>
-            <div class="form-grid">
-              <!-- Mã khách hàng (TỰ SINH - KHÓA) -->
-              <div class="form-field">
-                <label>Mã khách hàng <span class="tag-auto">(Tự sinh)</span></label>
-                <input
-                  v-model="form.maKhachHang"
-                  type="text"
-                  class="input-disabled"
-                  disabled
-                  placeholder="Hệ thống tự sinh mã..."
-                />
-              </div>
+        <div class="section-body">
+          <!-- Hàng 1 (2 Cột): Mã khách hàng & Họ và tên -->
+          <div class="form-grid-2">
+            <!-- Mã khách hàng (TỰ SINH - KHÓA) -->
+            <div class="form-field">
+              <label class="field-label">
+                Mã khách hàng
+                <span class="badge-lock">Tự sinh</span>
+              </label>
+              <input
+                v-model="form.maKhachHang"
+                type="text"
+                class="form-control input-disabled"
+                disabled
+                placeholder="Hệ thống tự sinh mã..."
+              />
+            </div>
 
-              <!-- Họ và tên khách hàng -->
-              <div class="form-field">
-                <label>Họ và tên khách hàng <span class="required">*</span></label>
-                <input
-                  v-model="form.tenKhachHang"
-                  type="text"
-                  placeholder="Nhập họ và tên khách hàng..."
-                  :class="{ 'has-error': errors.tenKhachHang }"
-                  @input="validateField('tenKhachHang')"
-                />
-                <span v-if="errors.tenKhachHang" class="error-inline-msg">{{ errors.tenKhachHang }}</span>
-              </div>
-
-              <!-- Email -->
-              <div class="form-field">
-                <label>Email <span class="required">*</span></label>
-                <input
-                  v-model="form.email"
-                  type="email"
-                  placeholder="example@gmail.com"
-                  :class="{ 'has-error': errors.email }"
-                  @input="validateField('email')"
-                />
-                <span v-if="errors.email" class="error-inline-msg">{{ errors.email }}</span>
-              </div>
-
-              <!-- Số điện thoại -->
-              <div class="form-field">
-                <label>Số điện thoại <span class="required">*</span></label>
-                <input
-                  v-model="form.soDienThoai"
-                  type="text"
-                  placeholder="VD: 0987654321 (10 - 11 số)"
-                  :class="{ 'has-error': errors.soDienThoai }"
-                  @input="validateField('soDienThoai')"
-                />
-                <span v-if="errors.soDienThoai" class="error-inline-msg">{{ errors.soDienThoai }}</span>
-              </div>
-
-              <!-- Giới tính (Radio) -->
-              <div class="form-field">
-                <label>Giới tính</label>
-                <div class="gender-radio-group">
-                  <label class="radio-label">
-                    <input type="radio" :value="true" v-model="form.gioiTinh" />
-                    <span>Nam</span>
-                  </label>
-                  <label class="radio-label">
-                    <input type="radio" :value="false" v-model="form.gioiTinh" />
-                    <span>Nữ</span>
-                  </label>
-                </div>
-              </div>
-
-              <!-- Ngày sinh -->
-              <div class="form-field">
-                <label>Ngày sinh <span class="required">*</span></label>
-                <input
-                  v-model="form.ngaySinh"
-                  type="date"
-                  :max="maxDate"
-                  :class="{ 'has-error': errors.ngaySinh }"
-                  @change="validateField('ngaySinh')"
-                />
-                <span v-if="errors.ngaySinh" class="error-inline-msg">{{ errors.ngaySinh }}</span>
-              </div>
+            <!-- Họ và tên khách hàng -->
+            <div class="form-field">
+              <label class="field-label">Họ và tên khách hàng <span class="required">*</span></label>
+              <input
+                v-model="form.tenKhachHang"
+                type="text"
+                placeholder="Nhập họ và tên khách hàng..."
+                class="form-control"
+                :class="{ 'input-error': errors.tenKhachHang }"
+                @input="onNameInput($event)"
+                @keyup="onNameInput($event)"
+                @compositionend="onNameInput($event)"
+              />
+              <span v-if="errors.tenKhachHang" class="field-error-msg">{{ errors.tenKhachHang }}</span>
             </div>
           </div>
 
-          <!-- Phần 2: Địa chỉ nhận hàng -->
-          <div class="section-card">
-            <h4 class="section-title">Địa chỉ nhận hàng</h4>
-            <div class="form-grid">
-              <!-- Tỉnh / Thành phố -->
-              <div class="form-field">
-                <label>Tỉnh / Thành phố <span class="required">*</span></label>
-                <select
-                  v-model="selectedProvinceCode"
-                  :class="{ 'has-error': errors.thanhPho }"
-                  @change="onProvinceChange"
-                >
-                  <option value="">-- Chọn Tỉnh / Thành phố --</option>
-                  <option v-for="p in provincesList" :key="p.code" :value="p.code">
-                    {{ p.name }}
-                  </option>
-                </select>
-                <span v-if="errors.thanhPho" class="error-inline-msg">{{ errors.thanhPho }}</span>
-              </div>
+          <!-- Hàng 2 (2 Cột): Số điện thoại & Email -->
+          <div class="form-grid-2">
+            <div class="form-field">
+              <label class="field-label">Số điện thoại <span class="required">*</span></label>
+              <input
+                v-model="form.soDienThoai"
+                type="text"
+                placeholder="VD: 0987654321 (10 - 11 số)"
+                class="form-control"
+                :class="{ 'input-error': errors.soDienThoai }"
+                @input="onPhoneInput($event)"
+                @keyup="onPhoneInput($event)"
+                @compositionend="onPhoneInput($event)"
+              />
+              <span v-if="errors.soDienThoai" class="field-error-msg">{{ errors.soDienThoai }}</span>
+            </div>
 
-              <!-- Phường / Xã -->
-              <div class="form-field">
-                <label>Phường / Xã <span class="required">*</span></label>
-                <select
-                  v-model="selectedWardCode"
-                  :disabled="!selectedProvinceCode"
-                  :class="{ 'has-error': errors.phuong }"
-                  @change="onWardChange"
-                >
-                  <option value="">-- Chọn Phường / Xã --</option>
-                  <option v-for="w in wardsList" :key="w.code" :value="w.code">
-                    {{ w.name }}
-                  </option>
-                </select>
-                <span v-if="errors.phuong" class="error-inline-msg">{{ errors.phuong }}</span>
-              </div>
-
-              <!-- Địa chỉ cụ thể -->
-              <div class="form-field full-width">
-                <label>Địa chỉ cụ thể <span class="required">*</span></label>
-                <input
-                  v-model="form.diaChiCuThe"
-                  type="text"
-                  placeholder="Số nhà, ngõ, ngách, tên đường..."
-                  :class="{ 'has-error': errors.diaChiCuThe }"
-                  @input="validateField('diaChiCuThe')"
-                />
-                <span v-if="errors.diaChiCuThe" class="error-inline-msg">{{ errors.diaChiCuThe }}</span>
-              </div>
+            <div class="form-field">
+              <label class="field-label">Email <span class="required">*</span></label>
+              <input
+                v-model="form.email"
+                type="email"
+                placeholder="example@gmail.com"
+                class="form-control"
+                :class="{ 'input-error': errors.email }"
+                @input="onEmailInput($event)"
+                @keyup="onEmailInput($event)"
+                @compositionend="onEmailInput($event)"
+              />
+              <span v-if="errors.email" class="field-error-msg">{{ errors.email }}</span>
             </div>
           </div>
 
-          <!-- Nút hành động -->
-          <div class="form-actions-bar">
-            <button class="btn btn-secondary" @click="goBack">
-              Hủy bỏ
-            </button>
-            <button class="btn btn-primary" :disabled="saving" @click="handleSubmit">
-              {{ saving ? 'Đang lưu...' : 'Thêm khách hàng' }}
-            </button>
+          <!-- Hàng 3 (2 Cột): Ngày sinh & Giới tính -->
+          <div class="form-grid-2">
+            <div class="form-field">
+              <label class="field-label">
+                Ngày sinh
+                <span class="sub-hint">(Từ 15 tuổi trở lên)</span>
+              </label>
+              <input
+                v-model="form.ngaySinh"
+                type="date"
+                :max="maxDate"
+                class="form-control"
+                :class="{ 'input-error': errors.ngaySinh }"
+                @input="onDobChange($event)"
+                @change="onDobChange($event)"
+              />
+              <span v-if="errors.ngaySinh" class="field-error-msg">{{ errors.ngaySinh }}</span>
+            </div>
+
+            <div class="form-field">
+              <label class="field-label">Giới tính</label>
+              <div class="gender-radio-group">
+                <label class="radio-label">
+                  <input type="radio" :value="true" v-model="form.gioiTinh" />
+                  <span>Nam</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" :value="false" v-model="form.gioiTinh" />
+                  <span>Nữ</span>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      <!-- KHỐI 2: ĐỊA CHỈ NHẬN HÀNG (CARD 2) -->
+      <div class="content-card form-section-card">
+        <div class="card-section-header">
+          <h3 class="section-title">Địa chỉ nhận hàng</h3>
+        </div>
+
+        <div class="section-body">
+          <!-- Hàng 1 (2 Cột): Tỉnh / Thành phố & Phường / Xã -->
+          <div class="form-grid-2">
+            <div class="form-field">
+              <label class="field-label">Tỉnh / Thành phố <span class="required">*</span></label>
+              <Select2Combobox
+                v-model="selectedProvinceCode"
+                :options="provincesList"
+                value-key="code"
+                label-key="name"
+                placeholder="-- Chọn Tỉnh / Thành phố --"
+                search-placeholder="Tìm kiếm Tỉnh / Thành phố..."
+                :has-error="!!errors.thanhPho"
+                @change="onProvinceChange"
+              />
+              <span v-if="errors.thanhPho" class="field-error-msg">{{ errors.thanhPho }}</span>
+            </div>
+
+            <div class="form-field">
+              <label class="field-label">Phường / Xã <span class="required">*</span></label>
+              <Select2Combobox
+                v-model="selectedWardCode"
+                :options="wardsList"
+                value-key="code"
+                label-key="name"
+                :disabled="!selectedProvinceCode"
+                placeholder="-- Chọn Phường / Xã --"
+                search-placeholder="Tìm kiếm Phường / Xã..."
+                :has-error="!!errors.phuong"
+                @change="onWardChange"
+              />
+              <span v-if="errors.phuong" class="field-error-msg">{{ errors.phuong }}</span>
+            </div>
+          </div>
+
+          <!-- Hàng 2: Địa chỉ cụ thể -->
+          <div class="form-field full-width">
+            <label class="field-label">Địa chỉ cụ thể <span class="required">*</span></label>
+            <input
+              v-model="form.diaChiCuThe"
+              type="text"
+              placeholder="Số nhà, ngõ, ngách, tên đường..."
+              class="form-control"
+              :class="{ 'input-error': errors.diaChiCuThe }"
+              @input="onAddressInput($event)"
+              @keyup="onAddressInput($event)"
+              @compositionend="onAddressInput($event)"
+            />
+            <span v-if="errors.diaChiCuThe" class="field-error-msg">{{ errors.diaChiCuThe }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- KHỐI 3: NÚT HÀNH ĐỘNG -->
+      <div class="form-actions-bar">
+        <button type="button" class="btn btn-secondary" @click="goBack">
+          Hủy bỏ
+        </button>
+        <button type="submit" class="btn btn-primary" :disabled="saving">
+          {{ saving ? 'Đang lưu...' : 'Thêm khách hàng' }}
+        </button>
+      </div>
+    </form>
   </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
 import { getProvinces, getWardsByProvince } from '@/services/provincesApi.js'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const router = useRouter()
 const saving = ref(false)
-const selectedFile = ref(null)
-const avatarPreview = ref('')
 const maxDate = new Date().toISOString().split('T')[0]
 
 // Danh mục hành chính (2 cấp)
@@ -268,9 +267,32 @@ function onWardChange() {
   validateField('phuong')
 }
 
-function validateField(fieldName) {
+function onNameInput(e) {
+  if (e?.target) {
+    form.tenKhachHang = e.target.value
+  }
+  validateField('tenKhachHang', form.tenKhachHang)
+}
+
+function onDobChange(e) {
+  if (e?.target) {
+    form.ngaySinh = e.target.value
+  }
+  validateField('ngaySinh', form.ngaySinh)
+}
+
+function onAddressInput(e) {
+  if (e?.target) {
+    form.diaChiCuThe = e.target.value
+  }
+  validateField('diaChiCuThe', form.diaChiCuThe)
+}
+
+function validateField(fieldName, overrideVal) {
   if (fieldName === 'tenKhachHang') {
-    if (!form.tenKhachHang || !form.tenKhachHang.trim()) {
+    const raw = overrideVal !== undefined ? overrideVal : form.tenKhachHang
+    const val = raw ? String(raw).trim() : ''
+    if (!val) {
       errors.tenKhachHang = 'Họ và tên khách hàng không được để trống!'
     } else {
       errors.tenKhachHang = ''
@@ -278,7 +300,8 @@ function validateField(fieldName) {
   }
 
   if (fieldName === 'email') {
-    const val = form.email ? form.email.trim() : ''
+    const raw = overrideVal !== undefined ? overrideVal : form.email
+    const val = raw ? String(raw).trim() : ''
     if (!val) {
       errors.email = 'Email khách hàng không được để trống!'
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
@@ -289,7 +312,8 @@ function validateField(fieldName) {
   }
 
   if (fieldName === 'soDienThoai') {
-    const val = form.soDienThoai ? form.soDienThoai.trim() : ''
+    const raw = overrideVal !== undefined ? overrideVal : form.soDienThoai
+    const val = raw ? String(raw).trim() : ''
     if (!val) {
       errors.soDienThoai = 'Số điện thoại không được để trống!'
     } else if (!/^\d+$/.test(val)) {
@@ -306,21 +330,33 @@ function validateField(fieldName) {
   }
 
   if (fieldName === 'ngaySinh') {
-    if (!form.ngaySinh) {
-      errors.ngaySinh = 'Ngày sinh khách hàng không được để trống!'
-    } else {
-      const bDate = new Date(form.ngaySinh)
+    const raw = overrideVal !== undefined ? overrideVal : form.ngaySinh
+    if (raw) {
+      const bDate = new Date(raw)
       const today = new Date()
       if (bDate > today) {
         errors.ngaySinh = 'Ngày sinh không được lớn hơn ngày hiện tại!'
       } else {
-        errors.ngaySinh = ''
+        // Kiểm tra đủ 15 tuổi
+        let age = today.getFullYear() - bDate.getFullYear()
+        const m = today.getMonth() - bDate.getMonth()
+        if (m < 0 || (m === 0 && today.getDate() < bDate.getDate())) {
+          age--
+        }
+        if (age < 15) {
+          errors.ngaySinh = 'Khách hàng phải từ 15 tuổi trở lên!'
+        } else {
+          errors.ngaySinh = ''
+        }
       }
+    } else {
+      errors.ngaySinh = ''
     }
   }
 
   if (fieldName === 'thanhPho') {
-    if (!form.thanhPho || !form.thanhPho.trim()) {
+    const raw = overrideVal !== undefined ? overrideVal : form.thanhPho
+    if (!raw || !String(raw).trim()) {
       errors.thanhPho = 'Vui lòng chọn Tỉnh / Thành phố!'
     } else {
       errors.thanhPho = ''
@@ -328,7 +364,8 @@ function validateField(fieldName) {
   }
 
   if (fieldName === 'phuong') {
-    if (!form.phuong || !form.phuong.trim()) {
+    const raw = overrideVal !== undefined ? overrideVal : form.phuong
+    if (!raw || !String(raw).trim()) {
       errors.phuong = 'Vui lòng chọn Phường / Xã!'
     } else {
       errors.phuong = ''
@@ -336,7 +373,8 @@ function validateField(fieldName) {
   }
 
   if (fieldName === 'diaChiCuThe') {
-    if (!form.diaChiCuThe || !form.diaChiCuThe.trim()) {
+    const raw = overrideVal !== undefined ? overrideVal : form.diaChiCuThe
+    if (!raw || !String(raw).trim()) {
       errors.diaChiCuThe = 'Địa chỉ cụ thể không được để trống!'
     } else {
       errors.diaChiCuThe = ''
@@ -344,7 +382,82 @@ function validateField(fieldName) {
   }
 }
 
-function validateAll() {
+let emailTimer = null
+let phoneTimer = null
+
+async function checkEmailRealtime() {
+  const val = form.email ? form.email.trim() : ''
+  if (!val || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return
+  try {
+    const res = await api.get('/api/khach-hang/check-email', { params: { email: val } })
+    if (form.email && form.email.trim() === val) {
+      if (res.data?.exists) {
+        errors.email = 'Email này đã tồn tại trong hệ thống!'
+      } else if (errors.email === 'Email này đã tồn tại trong hệ thống!') {
+        errors.email = ''
+      }
+    }
+  } catch (e) {
+    console.error('Lỗi check email:', e)
+  }
+}
+
+async function checkPhoneRealtime() {
+  const val = form.soDienThoai ? form.soDienThoai.trim() : ''
+  if (!val || !/^\d+$/.test(val) || !val.startsWith('0') || val.length < 10 || val.length > 11) return
+  try {
+    const res = await api.get('/api/khach-hang/check-phone', { params: { phone: val } })
+    if (form.soDienThoai && form.soDienThoai.trim() === val) {
+      if (res.data?.exists) {
+        errors.soDienThoai = 'Số điện thoại này đã được sử dụng!'
+      } else if (errors.soDienThoai === 'Số điện thoại này đã được sử dụng!') {
+        errors.soDienThoai = ''
+      }
+    }
+  } catch (e) {
+    console.error('Lỗi check phone:', e)
+  }
+}
+
+function onEmailInput(e) {
+  if (e?.target) {
+    form.email = e.target.value
+  }
+  validateField('email', form.email)
+  clearTimeout(emailTimer)
+  if (!errors.email) {
+    emailTimer = setTimeout(checkEmailRealtime, 200)
+  }
+}
+
+function onPhoneInput(e) {
+  if (e?.target) {
+    form.soDienThoai = e.target.value
+  }
+  validateField('soDienThoai', form.soDienThoai)
+  clearTimeout(phoneTimer)
+  if (!errors.soDienThoai) {
+    phoneTimer = setTimeout(checkPhoneRealtime, 200)
+  }
+}
+
+watch(() => form.soDienThoai, (newVal) => {
+  validateField('soDienThoai', newVal)
+  clearTimeout(phoneTimer)
+  if (!errors.soDienThoai) {
+    phoneTimer = setTimeout(checkPhoneRealtime, 200)
+  }
+})
+
+watch(() => form.email, (newVal) => {
+  validateField('email', newVal)
+  clearTimeout(emailTimer)
+  if (!errors.email) {
+    emailTimer = setTimeout(checkEmailRealtime, 200)
+  }
+})
+
+async function validateAll() {
   validateField('tenKhachHang')
   validateField('email')
   validateField('soDienThoai')
@@ -352,6 +465,13 @@ function validateAll() {
   validateField('thanhPho')
   validateField('phuong')
   validateField('diaChiCuThe')
+
+  if (!errors.email) {
+    await checkEmailRealtime()
+  }
+  if (!errors.soDienThoai) {
+    await checkPhoneRealtime()
+  }
 
   return !Object.values(errors).some(msg => msg !== '')
 }
@@ -367,49 +487,13 @@ async function fetchNextCode() {
   }
 }
 
-function onImageSelected(e) {
-  const file = e.target.files?.[0]
-  if (!file) return
-  if (!file.type.startsWith('image/')) {
-    showAlert({
-      title: 'Định dạng không hợp lệ',
-      message: 'Vui lòng chọn file hình ảnh (JPG, PNG, WEBP).',
-      type: 'warning'
-    })
-    e.target.value = ''
-    return
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    showAlert({
-      title: 'Dung lượng quá lớn',
-      message: 'Kích thước ảnh không được vượt quá 5MB.',
-      type: 'warning'
-    })
-    e.target.value = ''
-    return
-  }
-
-  selectedFile.value = file
-  if (avatarPreview.value) {
-    URL.revokeObjectURL(avatarPreview.value)
-  }
-  avatarPreview.value = URL.createObjectURL(file)
-}
-
-function removeAvatar() {
-  selectedFile.value = null
-  if (avatarPreview.value) {
-    URL.revokeObjectURL(avatarPreview.value)
-    avatarPreview.value = ''
-  }
-}
-
 function goBack() {
   router.push('/khach-hang')
 }
 
 async function handleSubmit() {
-  if (!validateAll()) {
+  const isValid = await validateAll()
+  if (!isValid) {
     return showAlert({
       title: 'Thông tin chưa hợp lệ',
       message: 'Vui lòng kiểm tra và hoàn thành các thông tin báo lỗi trên form!',
@@ -430,7 +514,7 @@ async function handleSubmit() {
   saving.value = true
   try {
     const payload = {
-      maKhachHang: form.maKhachHang ? form.maKhachHang.trim() : undefined,
+      maKhachHang: form.maKhachHang,
       tenKhachHang: form.tenKhachHang.trim(),
       email: form.email.trim(),
       soDienThoai: form.soDienThoai.trim(),
@@ -438,24 +522,12 @@ async function handleSubmit() {
       ngaySinh: form.ngaySinh || undefined,
       trangThai: 1,
       thanhPho: form.thanhPho.trim(),
-      huyen: form.huyen ? form.huyen.trim() : '',
+      huyen: form.huyen.trim(),
       phuong: form.phuong.trim(),
       diaChiCuThe: form.diaChiCuThe.trim()
     }
 
-    if (selectedFile.value) {
-      const formData = new FormData()
-      formData.append(
-        'data',
-        new Blob([JSON.stringify(payload)], { type: 'application/json' })
-      )
-      formData.append('file', selectedFile.value)
-      await api.post('/api/khach-hang', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
-    } else {
-      await api.post('/api/khach-hang', payload)
-    }
+    await api.post('/api/khach-hang', payload)
 
     showToast('Thêm mới khách hàng thành công!', 'success')
     router.push('/khach-hang')
@@ -477,6 +549,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Khung tổng thể bao ngoài căn lề chuẩn hệ thống */
 .customer-page-wrapper {
   padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
@@ -485,185 +558,105 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
+/* 1. Header trên cùng & Breadcrumb */
 .page-top-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.25rem;
-  width: 100%;
+  margin-bottom: 1.5rem;
 }
 
-.btn-back {
-  display: inline-flex;
+.page-breadcrumb {
+  font-size: 0.95rem;
+  display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: #ffffff;
-  border: 1px solid #d2d6dc;
-  padding: 0.45rem 1rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #4b5563;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  line-height: 1.4;
 }
 
-.btn-back:hover {
+.crumb-parent {
+  color: #6b7280;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.crumb-parent:hover {
+  color: #1f2937;
+  text-decoration: underline;
+}
+
+.crumb-separator {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.crumb-current {
+  color: var(--blue, #496883);
+  font-weight: 700;
+}
+
+.btn-back-pill {
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  border: 1px solid #d2d6dc;
+  background-color: #ffffff;
+  color: #4b5563;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-back-pill:hover {
   background-color: #f3f4f6;
   border-color: #9ca3af;
   color: #111827;
 }
 
-.form-container-card {
-  background: transparent;
-  border: none;
-  padding: 0;
-  box-shadow: none;
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
-}
-
-.form-layout-grid {
-  display: grid;
-  grid-template-columns: 280px 1fr;
+/* 2. Form nội dung: Bố cục dạng phẳng các Card xếp dọc */
+.form-content-container {
+  display: flex;
+  flex-direction: column;
   gap: 1.5rem;
-  align-items: start;
-  width: 100%;
 }
 
-/* Avatar Panel */
-.avatar-card {
+/* Thẻ Card trắng chuẩn */
+.content-card {
   background: #ffffff;
+  border-radius: 10px;
   border: 1px solid var(--line, #e9e5db);
-  border-radius: 12px;
-  padding: 1.6rem 1.25rem;
   box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
-  text-align: center;
-}
-
-.card-subtitle {
-  margin: 0 0 1.25rem;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #2c3e50;
-  border-bottom: 1px solid #f0eee6;
-  padding-bottom: 0.75rem;
-}
-
-.avatar-integrated-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.8rem;
-}
-
-.avatar-uploader-box {
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  margin: 0 auto;
-  background: #eaf1f5;
-  border: 3px solid #ffffff;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  position: relative;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.avatar-uploader-box:hover {
-  border-color: #496883;
-  transform: scale(1.02);
-  box-shadow: 0 6px 18px rgba(73, 104, 131, 0.2);
-}
-
-.avatar-preview-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.avatar-empty-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #647b8c;
-}
-
-.avatar-placeholder-text {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #496883;
-}
-
-.avatar-hover-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(43, 62, 79, 0.65);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.88rem;
-  font-weight: 600;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.avatar-uploader-box:hover .avatar-hover-overlay {
-  opacity: 1;
-}
-
-.btn-remove-avatar-link {
-  background: none;
-  border: none;
-  color: #c94a4a;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0.2rem 0.6rem;
-  border-radius: 4px;
-}
-
-.btn-remove-avatar-link:hover {
-  background-color: #fde8e8;
-}
-
-/* Form Fields Panel */
-.form-fields-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.section-card {
-  border: 1px solid var(--line, #e9e5db);
-  border-radius: 12px;
   padding: 1.5rem 1.85rem;
-  background-color: #ffffff;
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+}
+
+.card-section-header {
+  border-bottom: 1px solid #f0eee6;
+  padding-bottom: 0.85rem;
+  margin-bottom: 1.25rem;
 }
 
 .section-title {
-  margin: 0 0 1.25rem;
   font-size: 1.1rem;
   font-weight: 700;
   color: #2c3e50;
-  border-bottom: 1px solid #f0eee6;
-  padding-bottom: 0.75rem;
+  margin: 0;
 }
 
-.form-grid {
+.section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+/* Grid 2 cột */
+.form-grid-2 {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.4rem 1.8rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
 }
 
 .form-field {
@@ -672,28 +665,32 @@ onMounted(() => {
   gap: 0.45rem;
 }
 
-.form-field.full-width {
-  grid-column: span 2;
+.full-width {
+  width: 100%;
 }
 
-.form-field label {
+.field-label {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #414d55;
+  color: #374151;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
+}
+
+.badge-lock {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #6b7280;
+  background-color: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
 }
 
 .required {
-  color: #d9534f;
+  color: #dc2626;
   font-weight: bold;
-}
-
-.tag-auto {
-  font-size: 0.78rem;
-  color: #647b8c;
-  font-weight: normal;
 }
 
 .sub-hint {
@@ -702,49 +699,48 @@ onMounted(() => {
   font-weight: normal;
 }
 
-.form-field input,
-.form-field select {
-  height: 2.85rem;
-  border: 1px solid var(--line, #dfdcd3);
+.form-control {
+  width: 100%;
+  height: 2.7rem;
+  border: 1px solid var(--line, #e9e5db);
   border-radius: 8px;
   padding: 0 0.95rem;
   font-size: 0.95rem;
-  color: #2b383e;
-  background-color: #ffffff;
+  color: var(--text, #3d4a50);
+  background-color: #fcfbf8;
   outline: none;
   transition: all 0.2s;
   box-sizing: border-box;
 }
 
-.form-field input:focus,
-.form-field select:focus {
+.form-control:focus {
   border-color: #496883;
+  background-color: #ffffff;
   box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
 }
 
-.form-field input.has-error,
-.form-field select.has-error {
-  border-color: #e53e3e !important;
-  background-color: #fffaf9;
+.input-error {
+  border-color: #dc2626 !important;
+  background-color: #fffaf9 !important;
 }
 
-.form-field input.has-error:focus,
-.form-field select.has-error:focus {
-  box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.15) !important;
+.input-error:focus {
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important;
 }
 
-.error-inline-msg {
+.field-error-msg {
   font-size: 0.82rem;
-  color: #e53e3e;
+  color: #dc2626;
   font-weight: 500;
   line-height: 1.25;
 }
 
 .input-disabled {
-  background-color: #f1ede4 !important;
-  color: #7b868b !important;
+  background-color: #f3f4f6 !important;
+  color: #6b7280 !important;
   cursor: not-allowed;
   font-weight: 600;
+  border-color: #e5e7eb;
 }
 
 /* Radio Group */
@@ -752,7 +748,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 2rem;
-  height: 2.85rem;
+  height: 2.7rem;
 }
 
 .radio-label {
@@ -760,7 +756,7 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.95rem;
-  color: #384952;
+  color: #374151;
   cursor: pointer;
   font-weight: 500;
 }
@@ -773,20 +769,17 @@ onMounted(() => {
   margin: 0;
 }
 
+/* Form Actions */
 .form-actions-bar {
-  background: #ffffff;
-  border: 1px solid var(--line, #e9e5db);
-  border-radius: 12px;
-  padding: 1rem 1.5rem;
-  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
   display: flex;
   justify-content: flex-end;
-  gap: 0.85rem;
+  gap: 0.8rem;
+  padding-top: 0.5rem;
 }
 
 .btn {
-  height: 2.65rem;
-  padding: 0 1.6rem;
+  height: 2.6rem;
+  padding: 0 1.5rem;
   border-radius: 8px;
   font-size: 0.92rem;
   font-weight: 600;
@@ -794,45 +787,35 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   transition: all 0.2s;
   border: none;
 }
 
 .btn-secondary {
-  border: 1px solid #d1d5db;
-  background-color: #ffffff;
-  color: #4b5563;
+  background-color: #f4efe6;
+  color: #6d6352;
+  border: 1px solid #e2dacd;
 }
 .btn-secondary:hover {
-  background-color: #f3f4f6;
-  color: #111827;
+  background-color: #ebe3d6;
 }
 
 .btn-primary {
-  background-color: #496883;
+  background-color: #3b596a;
   color: #ffffff;
 }
-.btn-primary:hover:not(:disabled) {
-  background-color: #3b546b;
+.btn-primary:hover {
+  background-color: #2c4350;
 }
 .btn-primary:disabled {
-  opacity: 0.65;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
-@media (max-width: 900px) {
-  .form-layout-grid {
+@media (max-width: 768px) {
+  .form-grid-2 {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 600px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-  .form-field.full-width {
-    grid-column: span 1;
   }
 }
 </style>

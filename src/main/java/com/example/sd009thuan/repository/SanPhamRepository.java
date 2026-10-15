@@ -17,13 +17,21 @@ public interface SanPhamRepository extends JpaRepository<SanPham, Long>, JpaSpec
 
     boolean existsByMaSanPham(String maSanPham);
 
+    boolean existsByMaSanPhamIgnoreCase(String maSanPham);
+
     boolean existsByMaSanPhamAndIdNot(String maSanPham, Long id);
+
+    boolean existsByMaSanPhamIgnoreCaseAndIdNot(String maSanPham, Long id);
 
     boolean existsByTenSanPhamIgnoreCase(String tenSanPham);
 
     boolean existsByTenSanPhamIgnoreCaseAndIdNot(String tenSanPham, Long id);
 
     Optional<SanPham> findByMaSanPham(String maSanPham);
+
+    Optional<SanPham> findByMaSanPhamIgnoreCase(String maSanPham);
+
+    Optional<SanPham> findByTenSanPhamIgnoreCase(String tenSanPham);
 
     boolean existsByIdChatLieu_Id(Long idChatLieu);
 

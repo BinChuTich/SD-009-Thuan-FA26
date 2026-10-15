@@ -38,5 +38,5 @@ public class SanPhamRequest {
     private Integer trangThai;
     private String nguoiThaoTac;
     private List<String> hinhAnhs;
-    private Long idDotGiamGia;
+    private Boolean xacNhanGop;
 }

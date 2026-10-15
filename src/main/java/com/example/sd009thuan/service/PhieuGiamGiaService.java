@@ -345,10 +345,13 @@ public class PhieuGiamGiaService {
             if (isDeactivating) {
                 List<KhachHangPhieuGiamGia> currentLinks = khachHangPhieuGiamGiaRepository.findByIdPhieuGiamGia_Id(id);
                 for (KhachHangPhieuGiamGia link : currentLinks) {
-                    KhachHang kh = link.getIdKhachHang();
-                    if (kh != null && kh.getEmail() != null && !kh.getEmail().trim().isEmpty()) {
-                        emailService.sendVoucherDeactivatedEmail(kh, saved);
-                    }
+                    Long khId = link.getIdKhachHang().getId();
+                    Optional<KhachHang> khOpt = khachHangRepository.findById(khId);
+                    khOpt.ifPresent(kh -> {
+                        if (kh.getEmail() != null && !kh.getEmail().trim().isEmpty()) {
+                            emailService.sendVoucherDeactivatedEmail(kh, saved);
+                        }
+                    });
                 }
             }
 
@@ -364,15 +367,6 @@ public class PhieuGiamGiaService {
         Optional<PhieuGiamGia> optional = phieuGiamGiaRepository.findById(id);
         if (optional.isPresent()) {
             PhieuGiamGia phieu = optional.get();
-
-            // Kiểm tra xem thông tin cốt lõi của voucher có thay đổi không (để quyết định gửi email cập nhật)
-            boolean hasVoucherChanged = !Objects.equals(phieu.getTenPhieuGiamGia(), dto.getTenPhieuGiamGia().trim())
-                    || !Objects.equals(phieu.getLoaiPhieuGiamGia(), dto.getLoaiPhieuGiamGia())
-                    || phieu.getGiaTriGiamGia().compareTo(dto.getGiaTriGiamGia()) != 0
-                    || !Objects.equals(phieu.getNgayBatDau(), dto.getNgayBatDau())
-                    || !Objects.equals(phieu.getNgayKetThuc(), dto.getNgayKetThuc())
-                    || (dto.getGiamToiDa() != null && (phieu.getGiamToiDa() == null || phieu.getGiamToiDa().compareTo(dto.getGiamToiDa()) != 0))
-                    || phieu.getHoaDonToiThieu().compareTo(dto.getHoaDonToiThieu()) != 0;
 
             phieu.setTenPhieuGiamGia(dto.getTenPhieuGiamGia().trim());
             phieu.setLoaiPhieuGiamGia(dto.getLoaiPhieuGiamGia());
@@ -401,8 +395,9 @@ public class PhieuGiamGiaService {
             if (isPersonal) {
                 // Cá nhân: Số lượng tự động khóa và tính theo số khách hàng được chọn
                 phieu.setSoLuongSuDung(newCustomerIds.size());
+                PhieuGiamGia saved = phieuGiamGiaRepository.save(phieu);
 
-                // Khách hàng mới được thêm: Gửi email nhận voucher mới
+                // 1. Khách hàng mới được thêm: Gửi email nhận voucher mới
                 Set<Long> addedIds = new HashSet<>(newCustomerIds);
                 addedIds.removeAll(oldCustomerIds);
                 for (Long khId : addedIds) {
@@ -410,52 +405,56 @@ public class PhieuGiamGiaService {
                     if (khOpt.isPresent()) {
                         KhachHang kh = khOpt.get();
                         KhachHangPhieuGiamGia link = new KhachHangPhieuGiamGia();
-                        link.setIdPhieuGiamGia(phieu);
+                        link.setIdPhieuGiamGia(saved);
                         link.setIdKhachHang(kh);
                         link.setTrangThai(1);
                         khachHangPhieuGiamGiaRepository.save(link);
-                        emailService.sendVoucherIssuedEmail(kh, phieu);
+                        emailService.sendVoucherIssuedEmail(kh, saved);
                     }
                 }
 
-                // Khách hàng bị gỡ bỏ: Gửi email thông báo hủy/thu hồi voucher
+                // 2. Khách hàng bị gỡ bỏ: Gửi email thông báo hủy/thu hồi voucher
                 Set<Long> removedIds = new HashSet<>(oldCustomerIds);
                 removedIds.removeAll(newCustomerIds);
                 for (Long khId : removedIds) {
                     KhachHangPhieuGiamGia link = oldMap.get(khId);
                     if (link != null) {
-                        KhachHang kh = link.getIdKhachHang();
+                        Optional<KhachHang> khOpt = khachHangRepository.findById(khId);
                         khachHangPhieuGiamGiaRepository.delete(link);
-                        emailService.sendVoucherRevokedEmail(kh, phieu);
+                        khOpt.ifPresent(kh -> emailService.sendVoucherRevokedEmail(kh, saved));
                     }
                 }
 
-                // Khách hàng giữ nguyên: Nếu voucher có thay đổi thông tin thì gửi email cập nhật
-                if (hasVoucherChanged) {
-                    Set<Long> keptIds = new HashSet<>(oldCustomerIds);
-                    keptIds.retainAll(newCustomerIds);
-                    for (Long khId : keptIds) {
-                        KhachHang kh = oldMap.get(khId).getIdKhachHang();
-                        emailService.sendVoucherUpdatedEmail(kh, phieu);
+                // 3. Khách hàng giữ nguyên: Luôn gửi email thông báo cập nhật phiếu giảm giá mới
+                Set<Long> keptIds = new HashSet<>(oldCustomerIds);
+                keptIds.retainAll(newCustomerIds);
+                for (Long khId : keptIds) {
+                    Optional<KhachHang> khOpt = khachHangRepository.findById(khId);
+                    if (khOpt.isPresent()) {
+                        KhachHang kh = khOpt.get();
+                        emailService.sendVoucherUpdatedEmail(kh, saved);
                     }
                 }
+
+                return convertToDTO(saved);
             } else {
                 // Công khai: Số lượng nhập tay tự do
                 int soLuong = (dto.getSoLuongSuDung() != null && dto.getSoLuongSuDung() > 0) ? dto.getSoLuongSuDung() : 0;
                 phieu.setSoLuongSuDung(soLuong);
+                PhieuGiamGia saved = phieuGiamGiaRepository.save(phieu);
 
-                // Nếu chuyển từ Cá nhân sang Công khai: Thu hồi tất cả liên kết cũ
+                // Nếu chuyển từ Cá nhân sang Công khai: Thu hồi tất cả liên kết cũ và báo email
                 if (!oldCustomerIds.isEmpty()) {
                     for (KhachHangPhieuGiamGia link : currentLinks) {
-                        KhachHang kh = link.getIdKhachHang();
+                        Long khId = link.getIdKhachHang().getId();
+                        Optional<KhachHang> khOpt = khachHangRepository.findById(khId);
                         khachHangPhieuGiamGiaRepository.delete(link);
-                        emailService.sendVoucherRevokedEmail(kh, phieu);
+                        khOpt.ifPresent(kh -> emailService.sendVoucherRevokedEmail(kh, saved));
                     }
                 }
-            }
 
-            PhieuGiamGia saved = phieuGiamGiaRepository.save(phieu);
-            return convertToDTO(saved);
+                return convertToDTO(saved);
+            }
         }
         return null;
     }

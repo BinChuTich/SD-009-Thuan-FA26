@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 const router = useRouter()
 
 const xemChiTiet = (maHoaDon) => {
@@ -114,7 +115,7 @@ const exportExcel = () => {
             <td colspan="13" class="sheet-meta">
               Thời gian xuất: <strong>${nowStr}</strong> &nbsp;|&nbsp;
               Số lượng: <strong>${listToExport.length}</strong> hóa đơn &nbsp;|&nbsp;
-              Trạng thái lọc: <strong>${currentTab.value}</strong>
+              Trạng thái lọc: <strong>${filters.value.status ? getStatusText(filters.value.status) : 'Tất cả'}</strong>
             </td>
           </tr>
           <tr></tr>
@@ -170,23 +171,57 @@ const exportExcel = () => {
     exporting.value = false
   }
 }
-const currentTab = ref('Tất Cả')
-const statusTabs = [
-  'Tất Cả',
-  'Chờ Xác Nhận',
-  'Đã Xác Nhận',
-  'Chờ Vận Chuyển',
-  'Vận Chuyển',
-  'Đã Hoàn Thành',
-  'Hủy'
-]
+
+const getTodayString = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 const filters = ref({
   code: '',
-  startDate: '',
+  startDate: getTodayString(),
   endDate: '',
-  type: ''
+  type: '',
+  status: '',
+  paymentStatus: ''
 })
+
+watch(
+  () => [filters.value.startDate, filters.value.endDate],
+  ([start, end]) => {
+    if (start && end && start > end) {
+      showToast('Ngày bắt đầu không được lớn hơn ngày kết thúc!', 'warning')
+      filters.value.endDate = ''
+    }
+  }
+)
+
+const onStatusComboboxChange = () => {
+  resetPage()
+}
+
+const loaiDonOptions = [
+  { value: 'Tại cửa hàng', label: 'Tại cửa hàng' },
+  { value: 'Online', label: 'Online' }
+]
+
+const trangThaiDonOptions = [
+  { value: '1', label: 'Chờ xác nhận' },
+  { value: '2', label: 'Đã xác nhận' },
+  { value: '3', label: 'Chờ vận chuyển' },
+  { value: '4', label: 'Vận chuyển' },
+  { value: '5', label: 'Đã hoàn thành' },
+  { value: '7', label: 'Giao hàng thất bại' },
+  { value: '6', label: 'Hủy' }
+]
+
+const paymentStatusOptions = [
+  { value: '1', label: 'Đã thanh toán' },
+  { value: '0', label: 'Chưa thanh toán' }
+]
 
 const invoiceList = ref([])
 const loading = ref(false)
@@ -219,7 +254,8 @@ const getStatusText = (status) => {
     3: 'Chờ Vận Chuyển',
     4: 'Vận Chuyển',
     5: 'Đã Hoàn Thành',
-    6: 'Hủy'
+    6: 'Hủy',
+    7: 'Giao Hàng Thất Bại'
   }
   return statusMap[status] || 'Chưa cập nhật'
 }
@@ -238,6 +274,8 @@ const getStatusClass = (status) => {
       return 'status-completed'
     case 6:
       return 'status-cancelled'
+    case 7:
+      return 'status-failed'
     default:
       return 'status-default'
   }
@@ -308,11 +346,13 @@ const loadHoaDon = async () => {
 
       try {
         // 1. Tên khách hàng: ưu tiên lấy từ bảng khóa ngoại KhachHang
-        const khachHangObj = item.idKhachHang || item.khachHang
-        const customerName = khachHangObj?.tenKhachHang
+        const khachHangObj = item.idKhachHang || item.khachHang || {}
+        const rawCustName = String(item.tenKhachHang
             || item.tenKhachHangHienThi
-            || item.tenKhachHang
-            || (khachHangObj?.taiKhoan ? khachHangObj.taiKhoan : 'Khách lẻ')
+            || khachHangObj?.tenKhachHang
+            || khachHangObj?.taiKhoan
+            || '').trim()
+        const customerName = (!rawCustName || rawCustName === '---' || rawCustName === '—' || rawCustName.toLowerCase() === 'null') ? 'Khách lẻ' : rawCustName
 
         // 2. Tên nhân viên: ưu tiên lấy từ bảng khóa ngoại NhanVien
         const nhanVienObj = item.idNhanVien || item.nhanVien
@@ -423,7 +463,7 @@ const loadHoaDon = async () => {
           id: item.id,
           code: item.maHoaDon,
           customerName,
-          customerPhone: khachHangObj?.soDienThoai || item.soDienThoaiHienThi || item.soDienThoaiKhachHang || '',
+          customerPhone: item.soDienThoaiKhachHang || item.soDienThoaiHienThi || khachHangObj?.soDienThoai || '',
           address: item.diaChiNhanHang || '',
           employeeName,
           voucherName,
@@ -473,14 +513,15 @@ const loadHoaDon = async () => {
 const handleRefresh = async () => {
   filters.value = {
     code: '',
-    startDate: '',
+    startDate: getTodayString(),
     endDate: '',
-    type: ''
+    type: '',
+    status: '',
+    paymentStatus: ''
   }
-  currentTab.value = 'Tất Cả'
   currentPage.value = 1
   await loadHoaDon()
-  showToast('Đã làm mới danh sách hóa đơn!')
+  showToast('Đã đặt lại bộ lọc và làm mới dữ liệu!')
 }
 
 const filteredInvoiceList = computed(() => {
@@ -500,24 +541,33 @@ const filteredInvoiceList = computed(() => {
     }
 
     if (filters.value.startDate) {
+      if (!item.rawDate) return false
       const itemDate = new Date(item.rawDate)
-      const startDate = new Date(filters.value.startDate)
+      const [sYear, sMonth, sDay] = filters.value.startDate.split('-').map(Number)
+      const startDate = new Date(sYear, sMonth - 1, sDay, 0, 0, 0, 0)
       itemDate.setHours(0, 0, 0, 0)
-      startDate.setHours(0, 0, 0, 0)
       if (itemDate < startDate) return false
     }
 
     if (filters.value.endDate) {
+      if (!item.rawDate) return false
       const itemDate = new Date(item.rawDate)
-      const endDate = new Date(filters.value.endDate)
+      const [eYear, eMonth, eDay] = filters.value.endDate.split('-').map(Number)
+      const endDate = new Date(eYear, eMonth - 1, eDay, 0, 0, 0, 0)
       itemDate.setHours(0, 0, 0, 0)
-      endDate.setHours(0, 0, 0, 0)
       if (itemDate > endDate) return false
     }
 
-    if (currentTab.value !== 'Tất Cả') {
-      const statusText = getStatusText(item.status)
-      if (statusText !== currentTab.value) return false
+    if (filters.value.status) {
+      if (Number(item.status) !== Number(filters.value.status)) {
+        return false
+      }
+    }
+
+    if (filters.value.paymentStatus !== '' && filters.value.paymentStatus !== null && filters.value.paymentStatus !== undefined) {
+      if (Number(item.paymentStatus) !== Number(filters.value.paymentStatus)) {
+        return false
+      }
     }
 
     return true
@@ -595,18 +645,77 @@ onBeforeUnmount(() => {
 
     <!-- KHUNG 1: BỘ LỌC TÌM KIẾM -->
     <div class="card-box filter-card">
+      <div class="card-header-filter">
+        <h3 class="filter-title">Bộ lọc tìm kiếm</h3>
+      </div>
+
       <div class="filter-grid">
+        <!-- 1. Tìm kiếm từ khóa -->
+        <div class="form-group search-group">
+          <label>Tìm kiếm</label>
+          <div class="input-with-icon">
+            <span class="icon-prefix">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </span>
+            <input
+                v-model="filters.code"
+                @input="resetPage"
+                type="text"
+                placeholder="Tìm mã HĐ, tên KH, SĐT..."
+                class="form-control input-has-prefix"
+            />
+          </div>
+        </div>
+
+        <!-- 2. Loại đơn hàng (Combobox) -->
         <div class="form-group">
-          <label>Mã hóa đơn</label>
-          <input
-              v-model="filters.code"
-              @input="resetPage"
-              type="text"
-              placeholder="Tìm theo mã hóa đơn..."
-              class="form-control"
+          <label>Loại đơn hàng</label>
+          <Select2Combobox
+            v-model="filters.type"
+            :options="loaiDonOptions"
+            value-key="value"
+            label-key="label"
+            placeholder="Tất cả loại đơn"
+            all-label="Tất cả loại đơn"
+            search-placeholder="Tìm loại đơn..."
+            @change="resetPage"
           />
         </div>
 
+        <!-- 3. Trạng thái đơn hàng (Combobox) -->
+        <div class="form-group">
+          <label>Trạng thái đơn hàng</label>
+          <Select2Combobox
+            v-model="filters.status"
+            :options="trangThaiDonOptions"
+            value-key="value"
+            label-key="label"
+            placeholder="Tất cả trạng thái"
+            all-label="Tất cả trạng thái"
+            search-placeholder="Tìm trạng thái..."
+            @change="onStatusComboboxChange"
+          />
+        </div>
+
+        <!-- 4. Trạng thái thanh toán (Combobox) -->
+        <div class="form-group">
+          <label>Trạng thái thanh toán</label>
+          <Select2Combobox
+            v-model="filters.paymentStatus"
+            :options="paymentStatusOptions"
+            value-key="value"
+            label-key="label"
+            placeholder="Tất cả thanh toán"
+            all-label="Tất cả thanh toán"
+            search-placeholder="Tìm trạng thái thanh toán..."
+            @change="resetPage"
+          />
+        </div>
+
+        <!-- 5. Từ ngày -->
         <div class="form-group">
           <label>Từ ngày</label>
           <input
@@ -617,6 +726,7 @@ onBeforeUnmount(() => {
           />
         </div>
 
+        <!-- 6. Đến ngày -->
         <div class="form-group">
           <label>Đến ngày</label>
           <input
@@ -626,48 +736,37 @@ onBeforeUnmount(() => {
               class="form-control"
           />
         </div>
-
-        <div class="form-group">
-          <label>Loại đơn hàng</label>
-          <select
-              v-model="filters.type"
-              @change="resetPage"
-              class="form-control"
-          >
-            <option value="">Tất cả</option>
-            <option value="Tại cửa hàng">Tại cửa hàng</option>
-            <option value="Online">Online</option>
-          </select>
-        </div>
       </div>
 
       <!-- DÒNG CUỐI CÙNG: CỤM NÚT THAO TÁC -->
       <div class="filter-actions-bottom">
-        <button
-            class="btn-refresh"
-            type="button"
-            :disabled="loading"
-            @click="handleRefresh"
-        >
-          {{ loading ? 'Đang tải...' : '↻ Làm mới' }}
-        </button>
-
-        <button class="btn-export" type="button" :disabled="loading || exporting" @click="exportExcel">
-          <svg
-              class="icon-export"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+        <div class="actions-right">
+          <button
+              class="btn-refresh"
+              type="button"
+              :disabled="loading"
+              @click="loadHoaDon"
           >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
-        </button>
+            {{ loading ? 'Đang tải...' : '↻ Làm mới' }}
+          </button>
+
+          <button class="btn-export" type="button" :disabled="loading || exporting" @click="exportExcel">
+            <svg
+                class="icon-export"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            {{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -675,22 +774,11 @@ onBeforeUnmount(() => {
     <div class="card-box table-card">
       <!-- HEADER KHUNG BẢNG -->
       <div class="table-card-header">
-        <h3 class="card-heading">Danh sách hóa đơn</h3>
+        <div class="table-title-area">
+          <h3 class="card-heading">Danh sách hóa đơn</h3>
+          <span class="table-total-count">({{ filteredInvoiceList.length }} hóa đơn)</span>
+        </div>
       </div>
-
-      <!-- TABS TRẠNG THÁI -->
-      <div class="status-tabs">
-        <button
-            v-for="tab in statusTabs"
-            :key="tab"
-            class="tab-item"
-            :class="{ active: currentTab === tab }"
-            @click="currentTab = tab; resetPage()"
-        >
-          {{ tab }}
-        </button>
-      </div>
-
       <!-- LOADING & ERROR -->
       <div v-if="loading" class="state-message">
         Đang tải dữ liệu hóa đơn...
@@ -744,11 +832,13 @@ onBeforeUnmount(() => {
             </td>
             <td>
                 <span class="badge-status" :class="getStatusClass(item.status)">
+                  <span class="status-dot"></span>
                   {{ getStatusText(item.status) }}
                 </span>
             </td>
             <td>
                 <span class="badge-payment" :class="getPaymentClass(item.paymentStatus)">
+                  <span class="payment-dot"></span>
                   {{ getPaymentText(item.paymentStatus) }}
                 </span>
             </td>
@@ -771,9 +861,7 @@ onBeforeUnmount(() => {
         <!-- PHÂN TRANG -->
         <div v-if="filteredInvoiceList.length > 0" class="pagination-section">
           <div class="pagination-info">
-            Hiển thị <strong>{{ (currentPage - 1) * pageSize + 1 }}</strong> -
-            <strong>{{ Math.min(currentPage * pageSize, filteredInvoiceList.length) }}</strong> trên tổng
-            <strong>{{ filteredInvoiceList.length }}</strong> hóa đơn
+            Hiển thị {{ filteredInvoiceList.length ? ((currentPage - 1) * pageSize + 1) : 0 }} - {{ Math.min(currentPage * pageSize, filteredInvoiceList.length) }} / {{ filteredInvoiceList.length }} hóa đơn
           </div>
 
           <div class="pagination-buttons">
@@ -868,17 +956,54 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 14px;
+}
+
+.table-title-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.table-total-count {
+  font-size: 0.85rem;
+  color: #8c969e;
+  font-weight: 500;
+}
+
+.card-header-filter {
   margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f2eae1;
+}
+
+.filter-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #3e5c76;
+}
+
+.filter-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #3e5c76;
+  margin: 0;
 }
 
 .filter-actions-bottom {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 10px;
   margin-top: 18px;
   padding-top: 16px;
   border-top: 1px dashed #efeae0;
+}
+
+.actions-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .header-actions {
@@ -945,14 +1070,52 @@ onBeforeUnmount(() => {
 
 .filter-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px 20px;
+}
+
+@media (max-width: 992px) {
+  .filter-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.icon-prefix {
+  position: absolute;
+  left: 0.85rem;
+  color: #8c969e;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.input-has-prefix {
+  padding-left: 2.35rem !important;
+}
+
+.select-combobox {
+  cursor: pointer;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 7px;
+  width: 100%;
 }
 
 .form-group label {
@@ -962,48 +1125,29 @@ onBeforeUnmount(() => {
 }
 
 .form-control {
-  height: 38px;
-  padding: 0 12px;
-  border: 1px solid #d5c8b8;
-  border-radius: 7px;
-  background-color: #ffffff;
-  color: #333333;
-  font-size: 0.88rem;
+  width: 100%;
+  height: 2.6rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--line, #e9e5db);
+  border-radius: 8px;
+  background-color: #fcfbf8;
+  color: var(--text, #3d4a50);
+  font-size: 0.92rem;
+  font-family: inherit;
   outline: none;
-  transition: border-color 0.2s ease;
-}
-
-.form-control:focus {
-  border-color: #3e5c76;
-}
-
-.status-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 18px;
-  overflow-x: auto;
-}
-
-.tab-item {
-  padding: 7px 18px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: #4f5d68;
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
+  box-sizing: border-box;
   transition: all 0.2s ease;
 }
 
-.tab-item:hover {
-  background: #f4ede4;
+.form-control:hover {
+  border-color: #b8c3cc;
+  background-color: #ffffff;
 }
 
-.tab-item.active {
-  background: #e8f1f5;
-  color: #3e5c76;
+.form-control:focus {
+  border-color: var(--blue, #496883);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
 }
 
 .table-responsive {
@@ -1100,11 +1244,13 @@ onBeforeUnmount(() => {
 }
 
 .badge-status {
-  padding: 4px 12px;
+  padding: 4px 10px;
   border-radius: 6px;
   font-size: 0.76rem;
   font-weight: 600;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .status-waiting {
@@ -1137,6 +1283,12 @@ onBeforeUnmount(() => {
   color: #be2626;
 }
 
+.status-failed {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+
 .status-default {
   background: #f0e9df;
   color: #636b72;
@@ -1147,6 +1299,18 @@ onBeforeUnmount(() => {
   border-radius: 4px;
   font-size: 0.76rem;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot,
+.payment-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+  flex-shrink: 0;
 }
 
 .payment-paid {
@@ -1189,8 +1353,11 @@ onBeforeUnmount(() => {
 }
 
 .pagination-info {
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 0.85rem;
+  font-weight: 500;
   color: #555e65;
+  line-height: 1.5;
 }
 
 .pagination-buttons {

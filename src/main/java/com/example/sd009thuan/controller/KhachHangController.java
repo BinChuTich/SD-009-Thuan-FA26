@@ -16,8 +16,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import org.springframework.web.multipart.MultipartFile;
-
 import java.util.List;
 import java.util.Map;
 
@@ -61,79 +59,85 @@ public class KhachHangController {
         return ResponseEntity.ok(Map.of("code", service.nextCode()));
     }
 
+    @GetMapping("/check-email")
+    public ResponseEntity<Map<String, Boolean>> checkEmail(
+            @RequestParam String email,
+            @RequestParam(required = false) Long id) {
+        boolean exists = service.checkEmailExists(email, id);
+        return ResponseEntity.ok(Map.of("exists", exists));
+    }
+
+    @GetMapping("/check-phone")
+    public ResponseEntity<Map<String, Boolean>> checkPhone(
+            @RequestParam String phone,
+            @RequestParam(required = false) Long id) {
+        boolean exists = service.checkPhoneExists(phone, id);
+        return ResponseEntity.ok(Map.of("exists", exists));
+    }
+
     @GetMapping("/{id}")
-    public KhachHangResponse get(@PathVariable Long id) { return service.get(id); }
-
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<KhachHangResponse> createMultipart(
-            @RequestPart("data") KhachHangRequest req,
-            @RequestPart(value = "file", required = false) MultipartFile file) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, file));
+    public KhachHangResponse get(@PathVariable String id) {
+        return service.getByIdentifier(id);
     }
 
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<KhachHangResponse> createJson(@RequestBody KhachHangRequest req) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, null));
+    @PostMapping
+    public ResponseEntity<KhachHangResponse> create(@RequestBody KhachHangRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req));
     }
 
-    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public KhachHangResponse updateMultipart(
-            @PathVariable Long id,
-            @RequestPart("data") KhachHangRequest req,
-            @RequestPart(value = "file", required = false) MultipartFile file) {
-        return service.update(id, req, file);
-    }
-
-    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public KhachHangResponse updateJson(@PathVariable Long id, @RequestBody KhachHangRequest req) {
-        return service.update(id, req);
+    @PutMapping("/{id}")
+    public KhachHangResponse update(@PathVariable String id, @RequestBody KhachHangRequest req) {
+        com.example.sd009thuan.entity.KhachHang customer = service.findByIdentifier(id);
+        return service.update(customer.getId(), req);
     }
 
     @PatchMapping("/{id}/toggle-status")
-    public ResponseEntity<Void> toggle(@PathVariable Long id) {
-        service.toggleStatus(id);
+    public ResponseEntity<Void> toggle(@PathVariable String id) {
+        com.example.sd009thuan.entity.KhachHang customer = service.findByIdentifier(id);
+        service.toggleStatus(customer.getId());
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        service.deactivate(id);
+    public ResponseEntity<Void> delete(@PathVariable String id) {
+        com.example.sd009thuan.entity.KhachHang customer = service.findByIdentifier(id);
+        service.deactivate(customer.getId());
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/dia-chi")
-    public List<com.example.sd009thuan.dto.DiaChiKhachHangDto> getAddresses(@PathVariable Long id) {
-        return service.getAddresses(id);
+    public List<com.example.sd009thuan.dto.DiaChiKhachHangDto> getAddresses(@PathVariable String id) {
+        return service.getAddresses(service.findByIdentifier(id).getId());
     }
 
     @PostMapping("/{id}/dia-chi")
     public ResponseEntity<com.example.sd009thuan.dto.DiaChiKhachHangDto> addAddress(
-            @PathVariable Long id,
+            @PathVariable String id,
             @RequestBody com.example.sd009thuan.dto.DiaChiKhachHangDto dto) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.addAddress(id, dto));
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.addAddress(service.findByIdentifier(id).getId(), dto));
     }
 
     @PutMapping("/{id}/dia-chi/{addressId}")
     public com.example.sd009thuan.dto.DiaChiKhachHangDto updateAddress(
-            @PathVariable Long id,
+            @PathVariable String id,
             @PathVariable Long addressId,
             @RequestBody com.example.sd009thuan.dto.DiaChiKhachHangDto dto) {
-        return service.updateAddress(id, addressId, dto);
+        return service.updateAddress(service.findByIdentifier(id).getId(), addressId, dto);
     }
 
     @PutMapping("/{id}/dia-chi/{addressId}/mac-dinh")
     public ResponseEntity<Void> setDefaultAddress(
-            @PathVariable Long id,
+            @PathVariable String id,
             @PathVariable Long addressId) {
-        service.setDefaultAddress(id, addressId);
+        service.setDefaultAddress(service.findByIdentifier(id).getId(), addressId);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}/dia-chi/{addressId}")
     public ResponseEntity<Void> deleteAddress(
-            @PathVariable Long id,
+            @PathVariable String id,
             @PathVariable Long addressId) {
-        service.deleteAddress(id, addressId);
+        service.deleteAddress(service.findByIdentifier(id).getId(), addressId);
         return ResponseEntity.noContent().build();
     }
 }
