@@ -112,6 +112,24 @@ public class ExcelImportService {
     /**
      * Nhập danh sách nhân viên từ file Excel
      */
+    private static class ParsedEmployeeRow {
+        int displayRow;
+        String fullName;
+        String email;
+        String phone;
+        boolean gender;
+        LocalDate dob;
+        String queQuan;
+        String phuong;
+        String diaChiCuThe;
+        VaiTro role;
+    }
+
+    private record AccountEmailInfo(String email, String name, String code, String account, String password) {}
+
+    /**
+     * Nhập danh sách nhân viên từ file Excel theo cơ chế All-or-Nothing
+     */
     @Transactional
     public ExcelImportResult importEmployees(MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -124,10 +142,11 @@ public class ExcelImportService {
         }
 
         List<String> errors = new ArrayList<>();
-        int successCount = 0;
+        List<ParsedEmployeeRow> parsedRows = new ArrayList<>();
         int totalRows = 0;
 
-        Set<String> processedEmailsInFile = new HashSet<>();
+        Map<String, Integer> emailToFirstRow = new HashMap<>();
+        Map<String, Integer> phoneToFirstRow = new HashMap<>();
 
         try (InputStream is = file.getInputStream(); Workbook workbook = WorkbookFactory.create(is)) {
             Sheet sheet = workbook.getSheetAt(0);
@@ -144,6 +163,7 @@ public class ExcelImportService {
             VaiTro roleNV = roleRepo.findByMaVaiTroIgnoreCaseAndTrangThai("NV", 1).orElse(null);
             VaiTro roleAdmin = roleRepo.findByMaVaiTroIgnoreCaseAndTrangThai("ADMIN", 1).orElse(null);
 
+            // GIAI ĐOẠN 1: KIỂM TRA (VALIDATE) TOÀN BỘ CÁC DÒNG TRONG FILE EXCEL
             for (int i = 1; i <= lastRowNum; i++) {
                 Row row = sheet.getRow(i);
                 if (row == null || isRowEmpty(row)) {
@@ -152,122 +172,122 @@ public class ExcelImportService {
 
                 totalRows++;
                 int displayRow = i + 1;
+                boolean rowHasError = false;
 
-                String fullName = getCellValue(row.getCell(1));
-                String email = getCellValue(row.getCell(2));
-                String phone = getCellValue(row.getCell(3));
-                String genderStr = getCellValue(row.getCell(4));
-                String dobStr = getCellValue(row.getCell(5));
-                String queQuan = getCellValue(row.getCell(6));
-                String phuong = getCellValue(row.getCell(7));
-                String diaChiCuThe = getCellValue(row.getCell(8));
-                String roleStr = getCellValue(row.getCell(9));
+                String fullName = getCellValue(row.getCell(1)).trim();
+                String email = getCellValue(row.getCell(2)).trim();
+                String phoneRaw = getCellValue(row.getCell(3)).trim();
+                String genderStr = getCellValue(row.getCell(4)).trim();
+                String dobStr = getCellValue(row.getCell(5)).trim();
+                String queQuan = getCellValue(row.getCell(6)).trim();
+                String phuong = getCellValue(row.getCell(7)).trim();
+                String diaChiCuThe = getCellValue(row.getCell(8)).trim();
+                String roleStr = getCellValue(row.getCell(9)).trim();
 
-                // 1. Kiểm tra họ tên
+                // 1. Kiểm tra Họ và tên
                 if (fullName.isBlank()) {
                     errors.add(String.format("Dòng %d: Họ tên nhân viên không được để trống", displayRow));
-                    continue;
+                    rowHasError = true;
                 }
 
-                // 2. Kiểm tra email
+                // 2. Kiểm tra Email
+                String emailLower = email.toLowerCase();
                 if (email.isBlank()) {
-                    errors.add(String.format("Dòng %d (%s): Email không được để trống", displayRow, fullName));
-                    continue;
-                }
-                if (!email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
-                    errors.add(String.format("Dòng %d (%s): Email không đúng định dạng (%s)", displayRow, fullName, email));
-                    continue;
-                }
-                String emailLower = email.toLowerCase().trim();
-                if (processedEmailsInFile.contains(emailLower)) {
-                    errors.add(String.format("Dòng %d (%s): Email bị trùng lặp trong file Excel (%s)", displayRow, fullName, email));
-                    continue;
-                }
-                if (repo.findAll().stream().anyMatch(e -> emailLower.equalsIgnoreCase(e.getEmail()))) {
-                    errors.add(String.format("Dòng %d (%s): Email đã tồn tại trong hệ thống (%s)", displayRow, fullName, email));
-                    continue;
+                    errors.add(String.format("Dòng %d: Email không được để trống", displayRow));
+                    rowHasError = true;
+                } else if (!email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+                    errors.add(String.format("Dòng %d: Email '%s' không đúng định dạng chuẩn", displayRow, email));
+                    rowHasError = true;
+                } else {
+                    // Kiểm tra trùng lặp nội bộ trong file Excel
+                    if (emailToFirstRow.containsKey(emailLower)) {
+                        errors.add(String.format("Dòng %d: Email '%s' bị trùng lặp với Dòng %d trong file Excel",
+                                displayRow, email, emailToFirstRow.get(emailLower)));
+                        rowHasError = true;
+                    } else {
+                        emailToFirstRow.put(emailLower, displayRow);
+                    }
+
+                    // Kiểm tra trùng lặp với Database
+                    if (repo.existsByEmailIgnoreCase(emailLower)) {
+                        errors.add(String.format("Dòng %d: Email '%s' đã tồn tại trong hệ thống", displayRow, email));
+                        rowHasError = true;
+                    }
                 }
 
-                // 3. Kiểm tra số điện thoại
-                phone = normalizePhone(phone);
+                // 3. Kiểm tra Số điện thoại
+                String phone = normalizePhone(phoneRaw);
                 if (phone.isBlank()) {
-                    errors.add(String.format("Dòng %d (%s): Số điện thoại không được để trống", displayRow, fullName));
-                    continue;
-                }
-                if (!phone.matches("^0\\d{9,10}$")) {
-                    errors.add(String.format("Dòng %d (%s): Số điện thoại phải từ 10-11 số và bắt đầu bằng số 0 (%s)", displayRow, fullName, phone));
-                    continue;
+                    errors.add(String.format("Dòng %d: Số điện thoại không được để trống", displayRow));
+                    rowHasError = true;
+                } else if (!phone.matches("^0\\d{9,10}$")) {
+                    errors.add(String.format("Dòng %d: Số điện thoại '%s' không đúng định dạng (phải từ 10 - 11 số và bắt đầu bằng số 0)", displayRow, phoneRaw));
+                    rowHasError = true;
+                } else {
+                    // Kiểm tra trùng lặp nội bộ trong file Excel
+                    if (phoneToFirstRow.containsKey(phone)) {
+                        errors.add(String.format("Dòng %d: Số điện thoại '%s' bị trùng lặp với Dòng %d trong file Excel",
+                                displayRow, phone, phoneToFirstRow.get(phone)));
+                        rowHasError = true;
+                    } else {
+                        phoneToFirstRow.put(phone, displayRow);
+                    }
+
+                    // Kiểm tra trùng lặp với Database
+                    if (repo.existsBySoDienThoai(phone)) {
+                        errors.add(String.format("Dòng %d: Số điện thoại '%s' đã tồn tại trong hệ thống", displayRow, phone));
+                        rowHasError = true;
+                    }
                 }
 
                 // 4. Giới tính
-                boolean gender = true; // Mặc định Nam
-                if (genderStr != null && (genderStr.equalsIgnoreCase("Nữ") || genderStr.equalsIgnoreCase("Nu") || genderStr.equalsIgnoreCase("Female"))) {
+                boolean gender = true;
+                if (!genderStr.isBlank() && (genderStr.equalsIgnoreCase("Nữ") || genderStr.equalsIgnoreCase("Nu") || genderStr.equalsIgnoreCase("Female") || genderStr.equals("0"))) {
                     gender = false;
                 }
 
                 // 5. Ngày sinh
                 LocalDate dob = parseDate(dobStr);
                 if (dob == null) {
-                    errors.add(String.format("Dòng %d (%s): Ngày sinh không hợp lệ (%s). Định dạng đúng: yyyy-MM-dd hoặc dd/MM/yyyy", displayRow, fullName, dobStr));
-                    continue;
-                }
-                if (dob.isAfter(LocalDate.now())) {
-                    errors.add(String.format("Dòng %d (%s): Ngày sinh không được lớn hơn ngày hiện tại", displayRow, fullName));
-                    continue;
-                }
-                if (Period.between(dob, LocalDate.now()).getYears() < 18) {
-                    errors.add(String.format("Dòng %d (%s): Nhân viên phải từ đủ 18 tuổi trở lên", displayRow, fullName));
-                    continue;
+                    errors.add(String.format("Dòng %d: Ngày sinh '%s' không hợp lệ (định dạng chuẩn: yyyy-MM-dd hoặc dd/MM/yyyy)", displayRow, dobStr));
+                    rowHasError = true;
+                } else if (dob.isAfter(LocalDate.now())) {
+                    errors.add(String.format("Dòng %d: Ngày sinh (%s) không được lớn hơn ngày hiện tại", displayRow, dobStr));
+                    rowHasError = true;
+                } else if (Period.between(dob, LocalDate.now()).getYears() < 18) {
+                    errors.add(String.format("Dòng %d: Nhân viên phải từ đủ 18 tuổi trở lên (ngày sinh: %s)", displayRow, dobStr));
+                    rowHasError = true;
                 }
 
                 // 6. Địa chỉ
                 if (queQuan.isBlank()) {
-                    errors.add(String.format("Dòng %d (%s): Tỉnh / Thành phố không được để trống", displayRow, fullName));
-                    continue;
+                    errors.add(String.format("Dòng %d: Tỉnh / Thành phố không được để trống", displayRow));
+                    rowHasError = true;
                 }
                 if (phuong.isBlank()) {
-                    errors.add(String.format("Dòng %d (%s): Phường / Xã không được để trống", displayRow, fullName));
-                    continue;
+                    errors.add(String.format("Dòng %d: Phường / Xã không được để trống", displayRow));
+                    rowHasError = true;
                 }
 
-                // 7. Chức vụ
+                // 7. Chức vụ / Vai trò
                 VaiTro role = roleNV;
-                if (roleStr != null && (roleStr.toLowerCase().contains("quản trị") || roleStr.equalsIgnoreCase("ADMIN"))) {
+                if (!roleStr.isBlank() && (roleStr.toLowerCase().contains("quản trị") || roleStr.equalsIgnoreCase("ADMIN") || roleStr.toLowerCase().contains("quản lý"))) {
                     role = roleAdmin != null ? roleAdmin : roleNV;
                 }
 
-                // 8. Tạo mới nhân viên
-                try {
-                    String code = nhanVienService.generateEmployeeCode(fullName);
-                    String account = code.toLowerCase();
-                    String password = "NV@" + (100000 + new Random().nextInt(900000));
-
-                    NhanVien nv = new NhanVien();
-                    nv.setIdVaiTro(role);
-                    nv.setMaNhanVien(code);
-                    nv.setTenTaiKhoan(account);
-                    nv.setMatKhau(password);
-                    nv.setTenNhanVien(fullName);
-                    nv.setEmail(emailLower);
-                    nv.setSoDienThoai(phone);
-                    nv.setGioiTinh(gender);
-                    nv.setNgaySinh(dob);
-                    nv.setQueQuan(queQuan);
-                    nv.setPhuong(phuong);
-                    nv.setDiaChiCuThe(diaChiCuThe.isBlank() ? null : diaChiCuThe);
-                    nv.setTrangThai(1); // Mặc định Hoạt động
-                    nv.setNgayTao(Instant.now());
-                    nv.setNguoiTao("admin (import)");
-
-                    repo.save(nv);
-                    processedEmailsInFile.add(emailLower);
-                    successCount++;
-
-                    // Gửi email thông tin tài khoản cho nhân viên mới
-                    emailService.sendAccountInfoEmail(nv.getEmail(), nv.getTenNhanVien(), code, account, password);
-                } catch (Exception ex) {
-                    log.error("Lỗi khi lưu nhân viên dòng {}: {}", displayRow, ex.getMessage(), ex);
-                    errors.add(String.format("Dòng %d (%s): Lỗi hệ thống khi lưu - %s", displayRow, fullName, ex.getMessage()));
+                if (!rowHasError) {
+                    ParsedEmployeeRow p = new ParsedEmployeeRow();
+                    p.displayRow = displayRow;
+                    p.fullName = fullName;
+                    p.email = emailLower;
+                    p.phone = phone;
+                    p.gender = gender;
+                    p.dob = dob;
+                    p.queQuan = queQuan;
+                    p.phuong = phuong;
+                    p.diaChiCuThe = diaChiCuThe;
+                    p.role = role;
+                    parsedRows.add(p);
                 }
             }
 
@@ -276,11 +296,61 @@ public class ExcelImportService {
             throw new IllegalStateException("Lỗi khi xử lý file Excel: " + e.getMessage(), e);
         }
 
-        String summary = String.format("Đã nhập thành công %d/%d nhân viên. %s",
-                successCount, totalRows,
-                errors.isEmpty() ? "Tất cả các bản ghi đều hợp lệ." : "Có " + errors.size() + " lỗi được ghi nhận.");
+        if (totalRows == 0) {
+            return new ExcelImportResult(0, 0, 0, List.of("File Excel không có dòng dữ liệu nào để nhập."), "File Excel trống.");
+        }
 
-        return new ExcelImportResult(totalRows, successCount, errors.size(), errors, summary);
+        // GIAI ĐOẠN 2: NGUYÊN TẮC 'TẤT CẢ HOẶC KHÔNG CÓ GÌ' (ALL-OR-NOTHING)
+        // Nếu chỉ cần 1 lỗi xuất hiện ở bất kỳ dòng nào, KHÔNG LƯU BẤT KỲ DÒNG NÀO vào database!
+        if (!errors.isEmpty()) {
+            log.warn("Import Excel bị từ chối do có {} lỗi: {}", errors.size(), errors);
+            String summary = String.format("Nhập thất bại: Phát hiện %d lỗi trong file Excel. Toàn bộ file đã bị hủy, không có nhân viên nào được lưu vào hệ thống. Vui lòng sửa lại toàn bộ lỗi trước khi tải lên lại.", errors.size());
+            return new ExcelImportResult(totalRows, 0, errors.size(), errors, summary);
+        }
+
+        // 100% CÁC DÒNG ĐỀU HỢP LỆ -> LƯU HÀNG LOẠT VÀO DATABASE
+        List<NhanVien> entitiesToSave = new ArrayList<>();
+        List<AccountEmailInfo> emailsToSend = new ArrayList<>();
+
+        for (ParsedEmployeeRow r : parsedRows) {
+            String code = nhanVienService.generateEmployeeCode(r.fullName);
+            String account = code.toLowerCase();
+            String password = "NV@" + (100000 + new Random().nextInt(900000));
+
+            NhanVien nv = new NhanVien();
+            nv.setIdVaiTro(r.role);
+            nv.setMaNhanVien(code);
+            nv.setTenTaiKhoan(account);
+            nv.setMatKhau(password);
+            nv.setTenNhanVien(r.fullName);
+            nv.setEmail(r.email);
+            nv.setSoDienThoai(r.phone);
+            nv.setGioiTinh(r.gender);
+            nv.setNgaySinh(r.dob);
+            nv.setQueQuan(r.queQuan);
+            nv.setPhuong(r.phuong);
+            nv.setDiaChiCuThe(r.diaChiCuThe.isBlank() ? null : r.diaChiCuThe);
+            nv.setTrangThai(1); // Mặc định Hoạt động
+            nv.setNgayTao(Instant.now());
+            nv.setNguoiTao("admin (import)");
+
+            entitiesToSave.add(nv);
+            emailsToSend.add(new AccountEmailInfo(nv.getEmail(), nv.getTenNhanVien(), code, account, password));
+        }
+
+        repo.saveAll(entitiesToSave);
+
+        // Gửi email thông tin tài khoản cho từng nhân viên mới
+        for (AccountEmailInfo e : emailsToSend) {
+            try {
+                emailService.sendAccountInfoEmail(e.email(), e.name(), e.code(), e.account(), e.password());
+            } catch (Exception ex) {
+                log.warn("Không thể gửi email cho {}: {}", e.email(), ex.getMessage());
+            }
+        }
+
+        String summary = String.format("Nhập thành công toàn bộ %d/%d nhân viên vào hệ thống!", entitiesToSave.size(), totalRows);
+        return new ExcelImportResult(totalRows, entitiesToSave.size(), 0, Collections.emptyList(), summary);
     }
 
     private boolean isRowEmpty(Row row) {

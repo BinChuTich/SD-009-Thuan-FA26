@@ -56,6 +56,14 @@
         <button class="btn btn-reset" @click="resetFilters">
           Đặt lại bộ lọc
         </button>
+        <button class="btn btn-import" @click="openImportModal" :disabled="loading">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Nhập Excel
+        </button>
         <button class="btn btn-export" @click="exportExcel" :disabled="loading">
           Xuất Excel
         </button>
@@ -303,6 +311,139 @@
             </button>
             <button type="button" class="btn-submit-action" :disabled="bulkEmailSending" @click="handleSendBulkEmail">
               {{ bulkEmailSending ? 'Đang gửi email...' : 'Xác nhận gửi email' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Modal Nhập Excel Nhân Viên (All-or-Nothing) -->
+    <Teleport to="body">
+      <div v-if="showImportModal" class="modal-backdrop" @click.self="closeImportModal">
+        <div class="modal-card modal-import-excel">
+          <div class="modal-header">
+            <div class="modal-title-box">
+              <h3 class="modal-title">Nhập danh sách nhân viên từ Excel</h3>
+              <p class="modal-subtitle">Cơ chế kiểm soát Tất cả hoặc Không có gì (All-or-Nothing)</p>
+            </div>
+            <button type="button" class="btn-close-modal" @click="closeImportModal" :disabled="importUploading">✕</button>
+          </div>
+
+          <div class="modal-body">
+            <!-- Chú thích quy tắc All-or-Nothing -->
+            <div class="rule-alert-box">
+              <div class="rule-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </div>
+              <div class="rule-content">
+                <strong>Quy tắc Tất cả hoặc Không có gì:</strong> Toàn bộ các dòng trong file Excel phải hợp lệ 100% thì hệ thống mới lưu dữ liệu. Nếu chỉ cần 1 dòng bị lỗi (trùng SĐT, trùng Email, sai định dạng...), toàn bộ file sẽ bị từ chối và không có nhân viên nào được thêm vào hệ thống.
+              </div>
+            </div>
+
+            <!-- Tải file mẫu -->
+            <div class="template-box">
+              <div class="template-info">
+                <span class="template-title">Chưa có file mẫu Excel của hệ thống?</span>
+                <span class="template-desc">Tải file mẫu chuẩn đã định dạng sẵn các cột: Họ tên, Email, SĐT, Ngày sinh, Giới tính, Chức vụ, Quê quán, Phường/Xã...</span>
+              </div>
+              <button type="button" class="btn btn-outline-template" @click="downloadTemplate" :disabled="importUploading">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Tải file mẫu
+              </button>
+            </div>
+
+            <!-- Khu vực Upload kéo thả -->
+            <div
+              class="upload-dropzone"
+              :class="{ 'is-dragging': isDragging, 'has-file': !!selectedImportFile }"
+              @dragover.prevent="isDragging = true"
+              @dragleave.prevent="isDragging = false"
+              @drop.prevent="onFileDrop"
+              @click="triggerFileInput"
+            >
+              <input
+                ref="fileInputRef"
+                type="file"
+                accept=".xlsx, .xls"
+                class="hidden-file-input"
+                @change="onFileChange"
+              />
+              <div v-if="!selectedImportFile" class="dropzone-empty">
+                <div class="dropzone-icon">
+                  <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="12" y1="18" x2="12" y2="12" />
+                    <polyline points="9 15 12 12 15 15" />
+                  </svg>
+                </div>
+                <p class="dropzone-text-primary">Kéo thả file Excel vào đây hoặc <span>Duyệt file</span></p>
+                <p class="dropzone-text-sub">Chấp nhận file định dạng .xlsx, .xls</p>
+              </div>
+
+              <div v-else class="dropzone-file-selected" @click.stop>
+                <div class="file-icon-badge">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                </div>
+                <div class="file-details">
+                  <span class="file-name">{{ selectedImportFile.name }}</span>
+                  <span class="file-size">{{ (selectedImportFile.size / 1024).toFixed(1) }} KB</span>
+                </div>
+                <button type="button" class="btn-remove-file" title="Xóa file đã chọn" @click.stop="clearSelectedFile" :disabled="importUploading">✕</button>
+              </div>
+            </div>
+
+            <!-- Khối hiển thị lỗi chi tiết khi All-or-Nothing từ chối file -->
+            <div v-if="importErrors.length > 0" class="import-errors-card">
+              <div class="errors-header">
+                <div class="errors-title-wrap">
+                  <span class="errors-badge">{{ importErrors.length }} lỗi</span>
+                  <strong class="errors-heading">File không được nhập vào hệ thống!</strong>
+                </div>
+                <p class="errors-desc">Vui lòng kiểm tra và sửa lại các dòng lỗi cụ thể dưới đây trong file Excel rồi thực hiện nhập lại:</p>
+              </div>
+              <div class="errors-list-scroll">
+                <div v-for="(err, idx) in importErrors" :key="idx" class="error-item">
+                  <span class="error-bullet">•</span>
+                  <span class="error-message-text">{{ err }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Loading overlay khi đang xử lý import -->
+            <div v-if="importUploading" class="modal-loading-overlay">
+              <div class="modal-spinner"></div>
+              <span>Hệ thống đang kiểm tra toàn diện và nhập nhân viên, vui lòng chờ trong giây lát...</span>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-cancel" :disabled="importUploading" @click="closeImportModal">
+              Đóng
+            </button>
+            <button
+              type="button"
+              class="btn-submit-action btn-import-submit"
+              :disabled="!selectedImportFile || importUploading"
+              @click="handleImportExcel"
+            >
+              <svg v-if="!importUploading" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              {{ importUploading ? 'Đang kiểm tra & Nhập...' : 'Tiến hành Nhập Excel' }}
             </button>
           </div>
         </div>
@@ -638,6 +779,148 @@ async function exportExcel() {
       message: e?.response?.data?.message || 'Không thể tạo file Excel.',
       type: 'error'
     })
+  }
+}
+
+// --- QUẢN LÝ IMPORT EXCEL (ALL-OR-NOTHING) ---
+const showImportModal = ref(false)
+const selectedImportFile = ref(null)
+const importUploading = ref(false)
+const importErrors = ref([])
+const fileInputRef = ref(null)
+const isDragging = ref(false)
+
+function openImportModal() {
+  showImportModal.value = true
+  selectedImportFile.value = null
+  importErrors.value = []
+  isDragging.value = false
+}
+
+function closeImportModal() {
+  if (importUploading.value) return
+  showImportModal.value = false
+}
+
+function triggerFileInput() {
+  fileInputRef.value?.click()
+}
+
+function clearSelectedFile() {
+  selectedImportFile.value = null
+  importErrors.value = []
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
+  }
+}
+
+function validateAndSetFile(file) {
+  if (!file) return
+  const validExtensions = ['.xlsx', '.xls']
+  const fileName = file.name.toLowerCase()
+  const isValid = validExtensions.some(ext => fileName.endsWith(ext))
+  if (!isValid) {
+    return showAlert({
+      title: 'File không hợp lệ',
+      message: 'Vui lòng chọn file bảng tính Excel (.xlsx hoặc .xls)!',
+      type: 'warning'
+    })
+  }
+  selectedImportFile.value = file
+  importErrors.value = []
+}
+
+function onFileChange(e) {
+  const file = e.target.files?.[0]
+  if (file) {
+    validateAndSetFile(file)
+  }
+}
+
+function onFileDrop(e) {
+  isDragging.value = false
+  const file = e.dataTransfer?.files?.[0]
+  if (file) {
+    validateAndSetFile(file)
+  }
+}
+
+async function downloadTemplate() {
+  try {
+    const res = await api.get('/api/nhan-vien/excel-template', { responseType: 'blob' })
+    const url = URL.createObjectURL(res.data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'mau-nhap-nhan-vien.xlsx'
+    a.click()
+    URL.revokeObjectURL(url)
+    showToast('Tải file mẫu Excel thành công!', 'success')
+  } catch (e) {
+    showAlert({
+      title: 'Không thể tải file mẫu',
+      message: e?.response?.data?.message || 'Có lỗi xảy ra khi tải file mẫu Excel từ máy chủ.',
+      type: 'error'
+    })
+  }
+}
+
+async function handleImportExcel() {
+  if (!selectedImportFile.value) {
+    return showAlert({
+      title: 'Chưa chọn file',
+      message: 'Vui lòng chọn hoặc kéo thả một file Excel để nhập danh sách nhân viên.',
+      type: 'warning'
+    })
+  }
+
+  importUploading.value = true
+  importErrors.value = []
+
+  try {
+    const formData = new FormData()
+    formData.append('file', selectedImportFile.value)
+
+    const res = await api.post('/api/nhan-vien/import-excel', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+    const result = res.data
+    // Cơ chế All-or-Nothing:
+    // Nếu có lỗi: result.errors có phần tử và successCount = 0
+    if (result.errors && result.errors.length > 0) {
+      importErrors.value = result.errors
+      showAlert({
+        title: 'Nhập file không thành công',
+        message: `Phát hiện ${result.errors.length} lỗi trong file. Theo quy tắc "Tất cả hoặc Không có gì", không có bản ghi nào được lưu vào hệ thống. Vui lòng xem chi tiết lỗi bên dưới và sửa lại file!`,
+        type: 'error'
+      })
+    } else {
+      // 100% hợp lệ
+      showAlert({
+        title: 'Nhập Excel thành công!',
+        message: `Đã nhập thành công ${result.successCount} nhân viên vào hệ thống. Thông tin tài khoản đã được thiết lập mặc định.`,
+        type: 'success'
+      })
+      closeImportModal()
+      await loadEmployees()
+    }
+  } catch (e) {
+    console.error('Lỗi nhập Excel:', e)
+    const errData = e?.response?.data
+    if (errData?.errors && Array.isArray(errData.errors)) {
+      importErrors.value = errData.errors
+    } else if (errData?.message) {
+      importErrors.value = [errData.message]
+    } else {
+      importErrors.value = ['Có lỗi không xác định xảy ra trong quá trình xử lý file Excel.']
+    }
+    showAlert({
+      title: 'Lỗi xử lý file Excel',
+      message: errData?.message || 'Không thể nhập file Excel. Vui lòng kiểm tra lại cấu trúc file!',
+      type: 'error'
+    })
+  } finally {
+    importUploading.value = false
   }
 }
 
@@ -1536,5 +1819,285 @@ onMounted(async () => {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Nút Nhập Excel */
+.btn-import {
+  background-color: #f0f4f8;
+  color: #3b6b88;
+  border: 1px solid #d0deea;
+}
+.btn-import:hover:not(:disabled) {
+  background-color: #e2ecf4;
+  color: #274b62;
+}
+.btn-import:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Modal Import Excel */
+.modal-import-excel {
+  max-width: 640px;
+  width: 95%;
+}
+
+.modal-title-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.modal-subtitle {
+  font-size: 0.8rem;
+  color: #8c8273;
+  margin: 0;
+  font-weight: 500;
+}
+
+.rule-alert-box {
+  display: flex;
+  gap: 0.75rem;
+  background-color: #fffbeb;
+  border: 1px solid #fed7aa;
+  border-left: 4px solid #ea580c;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.1rem;
+  font-size: 0.86rem;
+  color: #9a3412;
+  line-height: 1.45;
+}
+
+.rule-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #ea580c;
+}
+
+.template-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #fbfbf9;
+  border: 1px dashed #dcd5c7;
+  padding: 0.85rem 1.1rem;
+  border-radius: 8px;
+  margin-bottom: 1.15rem;
+}
+
+.template-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.template-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #4a3e35;
+}
+
+.template-desc {
+  font-size: 0.79rem;
+  color: #7a7065;
+  line-height: 1.35;
+}
+
+.btn-outline-template {
+  flex-shrink: 0;
+  background: #ffffff;
+  border: 1px solid #bda88d;
+  color: #7b5936;
+  font-weight: 600;
+  font-size: 0.84rem;
+  padding: 0.5rem 0.95rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.2s;
+}
+
+.btn-outline-template:hover:not(:disabled) {
+  background: #fdf8f2;
+  border-color: #9c7b55;
+}
+
+.upload-dropzone {
+  border: 2px dashed #cfc7b8;
+  border-radius: 10px;
+  padding: 1.8rem 1.2rem;
+  text-align: center;
+  cursor: pointer;
+  background: #faf8f5;
+  transition: all 0.2s ease;
+  margin-bottom: 1.1rem;
+}
+
+.upload-dropzone:hover,
+.upload-dropzone.is-dragging {
+  border-color: #3b596a;
+  background: #f0f5f9;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.dropzone-empty .dropzone-icon {
+  color: #8a7e6f;
+  margin-bottom: 0.5rem;
+}
+
+.dropzone-text-primary {
+  font-size: 0.95rem;
+  color: #4b453d;
+  margin: 0 0 0.25rem;
+  font-weight: 500;
+}
+
+.dropzone-text-primary span {
+  color: #3b596a;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.dropzone-text-sub {
+  font-size: 0.8rem;
+  color: #8c8273;
+  margin: 0;
+}
+
+.dropzone-file-selected {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: #ffffff;
+  border: 1px solid #d4c8b6;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+.file-icon-badge {
+  color: #276749;
+}
+
+.file-details {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  flex: 1;
+  overflow: hidden;
+}
+
+.file-name {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: #2c3e50;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-size {
+  font-size: 0.78rem;
+  color: #888;
+}
+
+.btn-remove-file {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: #999;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.btn-remove-file:hover {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.import-errors-card {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 0.95rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.errors-header {
+  margin-bottom: 0.65rem;
+}
+
+.errors-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.25rem;
+}
+
+.errors-badge {
+  background-color: #dc2626;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+}
+
+.errors-heading {
+  color: #991b1b;
+  font-size: 0.92rem;
+}
+
+.errors-desc {
+  font-size: 0.82rem;
+  color: #b91c1c;
+  margin: 0;
+}
+
+.errors-list-scroll {
+  max-height: 190px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-right: 0.35rem;
+}
+
+.error-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  font-size: 0.84rem;
+  color: #7f1d1d;
+  background: #ffffff;
+  border: 1px solid #fee2e2;
+  border-radius: 6px;
+  padding: 0.45rem 0.65rem;
+  line-height: 1.4;
+}
+
+.error-bullet {
+  color: #dc2626;
+  font-weight: bold;
+}
+
+.error-message-text {
+  word-break: break-word;
+}
+
+.btn-import-submit {
+  background-color: #3b596a;
+  color: #ffffff;
+}
+
+.btn-import-submit:hover:not(:disabled) {
+  background-color: #2d4554;
 }
 </style>

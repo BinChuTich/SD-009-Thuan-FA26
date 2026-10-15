@@ -65,6 +65,22 @@ public class NhanVienController {
         return ResponseEntity.ok(Map.of("code", code));
     }
 
+    @GetMapping("/check-email")
+    public ResponseEntity<Map<String, Boolean>> checkEmail(
+            @RequestParam String email,
+            @RequestParam(required = false) Long id) {
+        boolean exists = service.checkEmailExists(email, id);
+        return ResponseEntity.ok(Map.of("exists", exists));
+    }
+
+    @GetMapping("/check-phone")
+    public ResponseEntity<Map<String, Boolean>> checkPhone(
+            @RequestParam String phone,
+            @RequestParam(required = false) Long id) {
+        boolean exists = service.checkPhoneExists(phone, id);
+        return ResponseEntity.ok(Map.of("exists", exists));
+    }
+
     @GetMapping({"/export-excel", "/export"})
     public ResponseEntity<byte[]> exportExcel(
             @RequestParam(required = false) String keyword,

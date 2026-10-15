@@ -304,8 +304,37 @@ public class NhanVienService {
 
     private void validateUnique(NhanVienRequest req, Long currentId) {
         String email = blank(req.email());
-        if (email != null) repo.findAll().stream().filter(x -> email.equalsIgnoreCase(x.getEmail()) && !x.getId().equals(currentId)).findAny()
-                .ifPresent(x -> { throw new IllegalArgumentException("Email đã tồn tại"); });
+        if (email != null) {
+            boolean exists = currentId == null
+                    ? repo.existsByEmailIgnoreCase(email)
+                    : repo.existsByEmailIgnoreCaseAndIdNot(email, currentId);
+            if (exists) throw new IllegalArgumentException("Email này đã tồn tại trong hệ thống");
+        }
+        String phone = blank(req.soDienThoai());
+        if (phone != null) {
+            boolean exists = currentId == null
+                    ? repo.existsBySoDienThoai(phone)
+                    : repo.existsBySoDienThoaiAndIdNot(phone, currentId);
+            if (exists) throw new IllegalArgumentException("Số điện thoại này đã được sử dụng");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public boolean checkEmailExists(String email, Long excludeId) {
+        String val = blank(email);
+        if (val == null) return false;
+        return excludeId == null
+                ? repo.existsByEmailIgnoreCase(val)
+                : repo.existsByEmailIgnoreCaseAndIdNot(val, excludeId);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean checkPhoneExists(String phone, Long excludeId) {
+        String val = blank(phone);
+        if (val == null) return false;
+        return excludeId == null
+                ? repo.existsBySoDienThoai(val)
+                : repo.existsBySoDienThoaiAndIdNot(val, excludeId);
     }
 
     public static String removeAccents(String text) {

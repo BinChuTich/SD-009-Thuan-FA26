@@ -117,7 +117,7 @@
                   placeholder="VD: 0987654321 (10 - 11 số)"
                   class="form-control"
                   :class="{ 'input-error': errors.soDienThoai }"
-                  @input="validateField('soDienThoai')"
+                  @input="onPhoneInput"
                 />
                 <span v-if="errors.soDienThoai" class="field-error-msg">{{ errors.soDienThoai }}</span>
               </div>
@@ -130,7 +130,7 @@
                   placeholder="example@gmail.com"
                   class="form-control"
                   :class="{ 'input-error': errors.email }"
-                  @input="validateField('email')"
+                  @input="onEmailInput"
                 />
                 <span v-if="errors.email" class="field-error-msg">{{ errors.email }}</span>
               </div>
@@ -538,7 +538,56 @@ function validateField(fieldName) {
   }
 }
 
-function validateAll() {
+let emailTimer = null
+let phoneTimer = null
+
+async function checkEmailRealtime() {
+  const val = form.email ? form.email.trim() : ''
+  if (!val || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return
+  try {
+    const res = await api.get('/api/nhan-vien/check-email', { params: { email: val } })
+    if (res.data?.exists) {
+      errors.email = 'Email này đã tồn tại trong hệ thống!'
+    } else if (errors.email === 'Email này đã tồn tại trong hệ thống!') {
+      errors.email = ''
+    }
+  } catch (e) {
+    console.error('Lỗi check email:', e)
+  }
+}
+
+async function checkPhoneRealtime() {
+  const val = form.soDienThoai ? form.soDienThoai.trim() : ''
+  if (!val || !/^\d+$/.test(val) || !val.startsWith('0') || val.length < 10 || val.length > 11) return
+  try {
+    const res = await api.get('/api/nhan-vien/check-phone', { params: { phone: val } })
+    if (res.data?.exists) {
+      errors.soDienThoai = 'Số điện thoại này đã được sử dụng!'
+    } else if (errors.soDienThoai === 'Số điện thoại này đã được sử dụng!') {
+      errors.soDienThoai = ''
+    }
+  } catch (e) {
+    console.error('Lỗi check phone:', e)
+  }
+}
+
+function onEmailInput() {
+  validateField('email')
+  clearTimeout(emailTimer)
+  if (!errors.email) {
+    emailTimer = setTimeout(checkEmailRealtime, 250)
+  }
+}
+
+function onPhoneInput() {
+  validateField('soDienThoai')
+  clearTimeout(phoneTimer)
+  if (!errors.soDienThoai) {
+    phoneTimer = setTimeout(checkPhoneRealtime, 250)
+  }
+}
+
+async function validateAll() {
   validateField('tenNhanVien')
   validateField('email')
   validateField('soDienThoai')
@@ -547,6 +596,12 @@ function validateAll() {
   validateField('queQuan')
   validateField('phuong')
 
+  if (Object.values(errors).some(msg => msg !== '')) {
+    return false
+  }
+
+  // Kiểm tra trùng lặp thời gian thực với database
+  await Promise.all([checkEmailRealtime(), checkPhoneRealtime()])
   return !Object.values(errors).some(msg => msg !== '')
 }
 
@@ -608,7 +663,8 @@ function goBack() {
 }
 
 async function handleSubmit() {
-  if (!validateAll()) {
+  const isValid = await validateAll()
+  if (!isValid) {
     return showAlert({
       title: 'Thông tin chưa hợp lệ',
       message: 'Vui lòng kiểm tra và sửa các trường thông tin báo lỗi trên form!',

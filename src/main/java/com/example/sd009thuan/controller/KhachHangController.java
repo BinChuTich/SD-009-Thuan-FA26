@@ -59,6 +59,22 @@ public class KhachHangController {
         return ResponseEntity.ok(Map.of("code", service.nextCode()));
     }
 
+    @GetMapping("/check-email")
+    public ResponseEntity<Map<String, Boolean>> checkEmail(
+            @RequestParam String email,
+            @RequestParam(required = false) Long id) {
+        boolean exists = service.checkEmailExists(email, id);
+        return ResponseEntity.ok(Map.of("exists", exists));
+    }
+
+    @GetMapping("/check-phone")
+    public ResponseEntity<Map<String, Boolean>> checkPhone(
+            @RequestParam String phone,
+            @RequestParam(required = false) Long id) {
+        boolean exists = service.checkPhoneExists(phone, id);
+        return ResponseEntity.ok(Map.of("exists", exists));
+    }
+
     @GetMapping("/{id}")
     public KhachHangResponse get(@PathVariable String id) {
         return service.getByIdentifier(id);
