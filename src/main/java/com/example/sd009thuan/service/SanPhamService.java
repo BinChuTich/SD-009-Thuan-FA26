@@ -25,6 +25,8 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 @Transactional(readOnly = true)
@@ -181,23 +183,140 @@ public class SanPhamService {
         return candidate;
     }
 
+    public java.util.Map<String, Object> checkDuplicate(String maSanPham, String tenSanPham) {
+        String trimmedMa = maSanPham != null ? maSanPham.trim() : "";
+        String trimmedTen = tenSanPham != null ? tenSanPham.trim() : "";
+
+        Optional<SanPham> existingByCode = !trimmedMa.isEmpty()
+                ? sanPhamRepository.findByMaSanPhamIgnoreCase(trimmedMa)
+                : Optional.empty();
+
+        Optional<SanPham> existingByName = !trimmedTen.isEmpty()
+                ? sanPhamRepository.findByTenSanPhamIgnoreCase(trimmedTen)
+                : Optional.empty();
+
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+
+        // Trường hợp xung đột: Mã SP thuộc về SP này, nhưng Tên SP lại thuộc về SP khác
+        if (existingByCode.isPresent() && existingByName.isPresent()
+                && !existingByCode.get().getId().equals(existingByName.get().getId())) {
+            response.put("conflict", true);
+            response.put("exists", true);
+            response.put("message", "Mã sản phẩm '" + trimmedMa + "' thuộc về sản phẩm '"
+                    + existingByCode.get().getTenSanPham() + "', nhưng tên sản phẩm '" + trimmedTen
+                    + "' lại thuộc về sản phẩm '" + existingByName.get().getMaSanPham() + "'. Vui lòng kiểm tra lại mã hoặc tên!");
+            return response;
+        }
+
+        Optional<SanPham> existingSpOpt = existingByCode.isPresent() ? existingByCode : existingByName;
+
+        if (existingSpOpt.isPresent()) {
+            SanPham sp = existingSpOpt.get();
+            response.put("exists", true);
+            response.put("conflict", false);
+            response.put("id", sp.getId());
+            response.put("maSanPham", sp.getMaSanPham());
+            response.put("tenSanPham", sp.getTenSanPham());
+
+            String matchedBy;
+            if (existingByCode.isPresent() && existingByName.isPresent()) {
+                matchedBy = "cả mã và tên sản phẩm";
+            } else if (existingByCode.isPresent()) {
+                matchedBy = "mã sản phẩm";
+            } else {
+                matchedBy = "tên sản phẩm";
+            }
+            response.put("matchedBy", matchedBy);
+
+            List<ChiTietSanPham> existingVariants = chiTietSanPhamRepository.findByIdSanPham_Id(sp.getId());
+            response.put("existingVariantCount", existingVariants != null ? existingVariants.size() : 0);
+            return response;
+        }
+
+        response.put("exists", false);
+        response.put("conflict", false);
+        return response;
+    }
+
     @Transactional
     public SanPhamResponse create(SanPhamRequest req) {
         String trimmedName = req.getTenSanPham() != null ? req.getTenSanPham().trim() : "";
         if (trimmedName.isEmpty()) {
             throw new IllegalArgumentException("Tên sản phẩm không được để trống!");
         }
-        if (sanPhamRepository.existsByTenSanPhamIgnoreCase(trimmedName)) {
-            throw new IllegalArgumentException("Tên sản phẩm '" + trimmedName + "' đã tồn tại trong hệ thống!");
+
+        String trimmedCode = req.getMaSanPham() != null ? req.getMaSanPham().trim() : "";
+
+        // Tìm sản phẩm trùng mã hoặc trùng tên
+        Optional<SanPham> existingByCode = !trimmedCode.isEmpty()
+                ? sanPhamRepository.findByMaSanPhamIgnoreCase(trimmedCode)
+                : Optional.empty();
+
+        Optional<SanPham> existingByName = sanPhamRepository.findByTenSanPhamIgnoreCase(trimmedName);
+
+        // Kiểm tra xung đột: Mã SP thuộc SP A nhưng Tên SP lại thuộc SP B
+        if (existingByCode.isPresent() && existingByName.isPresent()
+                && !existingByCode.get().getId().equals(existingByName.get().getId())) {
+            throw new IllegalArgumentException("Xung đột: Mã sản phẩm '" + trimmedCode + "' thuộc về sản phẩm '"
+                    + existingByCode.get().getTenSanPham() + "', nhưng tên sản phẩm '" + trimmedName
+                    + "' lại thuộc về sản phẩm '" + existingByName.get().getMaSanPham() + "'! Vui lòng kiểm tra lại.");
         }
 
-        if (req.getMaSanPham() == null || req.getMaSanPham().trim().isEmpty()) {
+        Optional<SanPham> existingSpOpt = existingByCode.isPresent() ? existingByCode : existingByName;
+
+        if (existingSpOpt.isPresent()) {
+            // Sản phẩm đã tồn tại trong hệ thống!
+            if (!Boolean.TRUE.equals(req.getXacNhanGop())) {
+                String reason = existingByCode.isPresent() && existingByName.isPresent()
+                        ? "cả mã '" + trimmedCode + "' và tên '" + trimmedName + "'"
+                        : (existingByCode.isPresent() ? "mã '" + trimmedCode + "'" : "tên '" + trimmedName + "'");
+                throw new IllegalArgumentException("Sản phẩm với " + reason + " đã tồn tại trong hệ thống! Vui lòng xác nhận gộp thông tin sản phẩm.");
+            }
+
+            // Người dùng ĐÃ XÁC NHẬN GỘP: Cập nhật thông tin mới nhất vào sản phẩm đã có
+            SanPham existingSp = existingSpOpt.get();
+
+            if (req.getMoTa() != null && !req.getMoTa().trim().isEmpty()) {
+                existingSp.setMoTa(req.getMoTa().trim());
+            }
+            if (req.getIdXuatXu() != null) {
+                xuatXuRepository.findById(req.getIdXuatXu()).ifPresent(existingSp::setIdXuatXu);
+            }
+            if (req.getIdChatLieu() != null) {
+                chatLieuRepository.findById(req.getIdChatLieu()).ifPresent(existingSp::setIdChatLieu);
+            }
+            if (req.getIdThuongHieu() != null) {
+                thuongHieuRepository.findById(req.getIdThuongHieu()).ifPresent(existingSp::setIdThuongHieu);
+            }
+            if (req.getIdDanhMuc() != null) {
+                danhMucRepository.findById(req.getIdDanhMuc()).ifPresent(existingSp::setIdDanhMuc);
+            }
+            if (req.getIdCoAo() != null) {
+                coAoRepository.findById(req.getIdCoAo()).ifPresent(existingSp::setIdCoAo);
+            }
+            if (req.getIdTayAo() != null) {
+                tayAoRepository.findById(req.getIdTayAo()).ifPresent(existingSp::setIdTayAo);
+            }
+            if (req.getIdHoaTiet() != null) {
+                hoaTietRepository.findById(req.getIdHoaTiet()).ifPresent(existingSp::setIdHoaTiet);
+            }
+
+            existingSp.setTrangThai(1);
+            existingSp.setNguoiCapNhat(req.getNguoiThaoTac() != null ? req.getNguoiThaoTac() : "Admin");
+
+            SanPham saved = sanPhamRepository.save(existingSp);
+
+            if (req.getHinhAnhs() != null && !req.getHinhAnhs().isEmpty()) {
+                saveProductImages(saved, req.getHinhAnhs());
+            }
+
+            return convertToResponse(saved);
+        }
+
+        // Tạo mới hoàn toàn nếu chưa tồn tại
+        if (trimmedCode.isEmpty()) {
             req.setMaSanPham(nextCode());
         } else {
-            String trimmedCode = req.getMaSanPham().trim();
-            if (sanPhamRepository.existsByMaSanPhamIgnoreCase(trimmedCode)) {
-                throw new IllegalArgumentException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại!");
-            }
             req.setMaSanPham(trimmedCode);
         }
 
@@ -233,30 +352,34 @@ public class SanPhamService {
         SanPham saved = sanPhamRepository.save(sp);
 
         if (req.getHinhAnhs() != null && !req.getHinhAnhs().isEmpty()) {
-            for (String rawItem : req.getHinhAnhs()) {
-                if (rawItem == null || rawItem.trim().isEmpty()) continue;
-                String item = rawItem.trim();
-                Long colorId = null;
-                if (item.contains("|")) {
-                    String[] parts = item.split("\\|", 2);
-                    try {
-                        colorId = Long.parseLong(parts[0].trim());
-                    } catch (Exception ignored) {}
-                    item = parts[1].trim();
-                }
-                String processedUrl = processImage(item);
-                if (processedUrl != null && !processedUrl.trim().isEmpty()) {
-                    HinhAnh ha = new HinhAnh();
-                    ha.setIdSanPham(saved);
-                    ha.setTenAnh(colorId != null ? "COLOR_" + colorId : saved.getTenSanPham());
-                    ha.setDuongDan(processedUrl.trim());
-                    ha.setTrangThai(1);
-                    hinhAnhRepository.save(ha);
-                }
-            }
+            saveProductImages(saved, req.getHinhAnhs());
         }
 
         return convertToResponse(saved);
+    }
+
+    private void saveProductImages(SanPham saved, List<String> hinhAnhs) {
+        for (String rawItem : hinhAnhs) {
+            if (rawItem == null || rawItem.trim().isEmpty()) continue;
+            String item = rawItem.trim();
+            Long colorId = null;
+            if (item.contains("|")) {
+                String[] parts = item.split("\\|", 2);
+                try {
+                    colorId = Long.parseLong(parts[0].trim());
+                } catch (Exception ignored) {}
+                item = parts[1].trim();
+            }
+            String processedUrl = processImage(item);
+            if (processedUrl != null && !processedUrl.trim().isEmpty()) {
+                HinhAnh ha = new HinhAnh();
+                ha.setIdSanPham(saved);
+                ha.setTenAnh(colorId != null ? "COLOR_" + colorId : saved.getTenSanPham());
+                ha.setDuongDan(processedUrl.trim());
+                ha.setTrangThai(1);
+                hinhAnhRepository.save(ha);
+            }
+        }
     }
 
     @Transactional

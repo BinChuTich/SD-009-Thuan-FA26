@@ -29,6 +29,10 @@ public interface SanPhamRepository extends JpaRepository<SanPham, Long>, JpaSpec
 
     Optional<SanPham> findByMaSanPham(String maSanPham);
 
+    Optional<SanPham> findByMaSanPhamIgnoreCase(String maSanPham);
+
+    Optional<SanPham> findByTenSanPhamIgnoreCase(String tenSanPham);
+
     boolean existsByIdChatLieu_Id(Long idChatLieu);
 
     boolean existsByIdThuongHieu_Id(Long idThuongHieu);
