@@ -47,7 +47,9 @@
                 placeholder="Nhập họ và tên khách hàng..."
                 class="form-control"
                 :class="{ 'input-error': errors.tenKhachHang }"
-                @input="validateField('tenKhachHang')"
+                @input="onNameInput($event)"
+                @keyup="onNameInput($event)"
+                @compositionend="onNameInput($event)"
               />
               <span v-if="errors.tenKhachHang" class="field-error-msg">{{ errors.tenKhachHang }}</span>
             </div>
@@ -63,7 +65,9 @@
                 placeholder="VD: 0987654321 (10 - 11 số)"
                 class="form-control"
                 :class="{ 'input-error': errors.soDienThoai }"
-                @input="onPhoneInput"
+                @input="onPhoneInput($event)"
+                @keyup="onPhoneInput($event)"
+                @compositionend="onPhoneInput($event)"
               />
               <span v-if="errors.soDienThoai" class="field-error-msg">{{ errors.soDienThoai }}</span>
             </div>
@@ -76,7 +80,9 @@
                 placeholder="example@gmail.com"
                 class="form-control"
                 :class="{ 'input-error': errors.email }"
-                @input="onEmailInput"
+                @input="onEmailInput($event)"
+                @keyup="onEmailInput($event)"
+                @compositionend="onEmailInput($event)"
               />
               <span v-if="errors.email" class="field-error-msg">{{ errors.email }}</span>
             </div>
@@ -95,7 +101,8 @@
                 :max="maxDate"
                 class="form-control"
                 :class="{ 'input-error': errors.ngaySinh }"
-                @change="validateField('ngaySinh')"
+                @input="onDobChange($event)"
+                @change="onDobChange($event)"
               />
               <span v-if="errors.ngaySinh" class="field-error-msg">{{ errors.ngaySinh }}</span>
             </div>
@@ -167,7 +174,9 @@
               placeholder="Số nhà, ngõ, ngách, tên đường..."
               class="form-control"
               :class="{ 'input-error': errors.diaChiCuThe }"
-              @input="validateField('diaChiCuThe')"
+              @input="onAddressInput($event)"
+              @keyup="onAddressInput($event)"
+              @compositionend="onAddressInput($event)"
             />
             <span v-if="errors.diaChiCuThe" class="field-error-msg">{{ errors.diaChiCuThe }}</span>
           </div>
@@ -258,9 +267,32 @@ function onWardChange() {
   validateField('phuong')
 }
 
-function validateField(fieldName) {
+function onNameInput(e) {
+  if (e?.target) {
+    form.tenKhachHang = e.target.value
+  }
+  validateField('tenKhachHang', form.tenKhachHang)
+}
+
+function onDobChange(e) {
+  if (e?.target) {
+    form.ngaySinh = e.target.value
+  }
+  validateField('ngaySinh', form.ngaySinh)
+}
+
+function onAddressInput(e) {
+  if (e?.target) {
+    form.diaChiCuThe = e.target.value
+  }
+  validateField('diaChiCuThe', form.diaChiCuThe)
+}
+
+function validateField(fieldName, overrideVal) {
   if (fieldName === 'tenKhachHang') {
-    if (!form.tenKhachHang || !form.tenKhachHang.trim()) {
+    const raw = overrideVal !== undefined ? overrideVal : form.tenKhachHang
+    const val = raw ? String(raw).trim() : ''
+    if (!val) {
       errors.tenKhachHang = 'Họ và tên khách hàng không được để trống!'
     } else {
       errors.tenKhachHang = ''
@@ -268,7 +300,8 @@ function validateField(fieldName) {
   }
 
   if (fieldName === 'email') {
-    const val = form.email ? form.email.trim() : ''
+    const raw = overrideVal !== undefined ? overrideVal : form.email
+    const val = raw ? String(raw).trim() : ''
     if (!val) {
       errors.email = 'Email khách hàng không được để trống!'
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
@@ -279,7 +312,8 @@ function validateField(fieldName) {
   }
 
   if (fieldName === 'soDienThoai') {
-    const val = form.soDienThoai ? form.soDienThoai.trim() : ''
+    const raw = overrideVal !== undefined ? overrideVal : form.soDienThoai
+    const val = raw ? String(raw).trim() : ''
     if (!val) {
       errors.soDienThoai = 'Số điện thoại không được để trống!'
     } else if (!/^\d+$/.test(val)) {
@@ -296,8 +330,9 @@ function validateField(fieldName) {
   }
 
   if (fieldName === 'ngaySinh') {
-    if (form.ngaySinh) {
-      const bDate = new Date(form.ngaySinh)
+    const raw = overrideVal !== undefined ? overrideVal : form.ngaySinh
+    if (raw) {
+      const bDate = new Date(raw)
       const today = new Date()
       if (bDate > today) {
         errors.ngaySinh = 'Ngày sinh không được lớn hơn ngày hiện tại!'
@@ -320,7 +355,8 @@ function validateField(fieldName) {
   }
 
   if (fieldName === 'thanhPho') {
-    if (!form.thanhPho || !form.thanhPho.trim()) {
+    const raw = overrideVal !== undefined ? overrideVal : form.thanhPho
+    if (!raw || !String(raw).trim()) {
       errors.thanhPho = 'Vui lòng chọn Tỉnh / Thành phố!'
     } else {
       errors.thanhPho = ''
@@ -328,7 +364,8 @@ function validateField(fieldName) {
   }
 
   if (fieldName === 'phuong') {
-    if (!form.phuong || !form.phuong.trim()) {
+    const raw = overrideVal !== undefined ? overrideVal : form.phuong
+    if (!raw || !String(raw).trim()) {
       errors.phuong = 'Vui lòng chọn Phường / Xã!'
     } else {
       errors.phuong = ''
@@ -336,7 +373,8 @@ function validateField(fieldName) {
   }
 
   if (fieldName === 'diaChiCuThe') {
-    if (!form.diaChiCuThe || !form.diaChiCuThe.trim()) {
+    const raw = overrideVal !== undefined ? overrideVal : form.diaChiCuThe
+    if (!raw || !String(raw).trim()) {
       errors.diaChiCuThe = 'Địa chỉ cụ thể không được để trống!'
     } else {
       errors.diaChiCuThe = ''
@@ -352,10 +390,12 @@ async function checkEmailRealtime() {
   if (!val || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return
   try {
     const res = await api.get('/api/khach-hang/check-email', { params: { email: val } })
-    if (res.data?.exists) {
-      errors.email = 'Email này đã tồn tại trong hệ thống!'
-    } else if (errors.email === 'Email này đã tồn tại trong hệ thống!') {
-      errors.email = ''
+    if (form.email && form.email.trim() === val) {
+      if (res.data?.exists) {
+        errors.email = 'Email này đã tồn tại trong hệ thống!'
+      } else if (errors.email === 'Email này đã tồn tại trong hệ thống!') {
+        errors.email = ''
+      }
     }
   } catch (e) {
     console.error('Lỗi check email:', e)
@@ -367,31 +407,55 @@ async function checkPhoneRealtime() {
   if (!val || !/^\d+$/.test(val) || !val.startsWith('0') || val.length < 10 || val.length > 11) return
   try {
     const res = await api.get('/api/khach-hang/check-phone', { params: { phone: val } })
-    if (res.data?.exists) {
-      errors.soDienThoai = 'Số điện thoại này đã được sử dụng!'
-    } else if (errors.soDienThoai === 'Số điện thoại này đã được sử dụng!') {
-      errors.soDienThoai = ''
+    if (form.soDienThoai && form.soDienThoai.trim() === val) {
+      if (res.data?.exists) {
+        errors.soDienThoai = 'Số điện thoại này đã được sử dụng!'
+      } else if (errors.soDienThoai === 'Số điện thoại này đã được sử dụng!') {
+        errors.soDienThoai = ''
+      }
     }
   } catch (e) {
     console.error('Lỗi check phone:', e)
   }
 }
 
-function onEmailInput() {
-  validateField('email')
+function onEmailInput(e) {
+  if (e?.target) {
+    form.email = e.target.value
+  }
+  validateField('email', form.email)
   clearTimeout(emailTimer)
   if (!errors.email) {
-    emailTimer = setTimeout(checkEmailRealtime, 250)
+    emailTimer = setTimeout(checkEmailRealtime, 200)
   }
 }
 
-function onPhoneInput() {
-  validateField('soDienThoai')
+function onPhoneInput(e) {
+  if (e?.target) {
+    form.soDienThoai = e.target.value
+  }
+  validateField('soDienThoai', form.soDienThoai)
   clearTimeout(phoneTimer)
   if (!errors.soDienThoai) {
-    phoneTimer = setTimeout(checkPhoneRealtime, 250)
+    phoneTimer = setTimeout(checkPhoneRealtime, 200)
   }
 }
+
+watch(() => form.soDienThoai, (newVal) => {
+  validateField('soDienThoai', newVal)
+  clearTimeout(phoneTimer)
+  if (!errors.soDienThoai) {
+    phoneTimer = setTimeout(checkPhoneRealtime, 200)
+  }
+})
+
+watch(() => form.email, (newVal) => {
+  validateField('email', newVal)
+  clearTimeout(emailTimer)
+  if (!errors.email) {
+    emailTimer = setTimeout(checkEmailRealtime, 200)
+  }
+})
 
 async function validateAll() {
   validateField('tenKhachHang')
