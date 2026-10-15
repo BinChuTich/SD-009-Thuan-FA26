@@ -249,7 +249,7 @@
               </div>
             </div>
 
-            <!-- Ô tìm kiếm & Bộ lọc Giới tính -->
+            <!-- Ô tìm kiếm & Bộ lọc Giới tính & Bộ lọc Ngày tháng năm sinh -->
             <div class="customers-filter-bar">
               <div class="cust-filter-item flex-search">
                 <input
@@ -260,7 +260,7 @@
                 />
               </div>
 
-              <div class="cust-filter-item">
+              <div class="cust-filter-item filter-gender">
                 <Select2Combobox
                   v-model="custGenderFilter"
                   :options="custGenderOptions"
@@ -268,6 +268,17 @@
                   label-key="name"
                   placeholder="Tất cả giới tính"
                   search-placeholder="Tìm giới tính..."
+                />
+              </div>
+
+              <div class="cust-filter-item filter-month">
+                <Select2Combobox
+                  v-model="custBirthMonthFilter"
+                  :options="custBirthMonthOptions"
+                  value-key="id"
+                  label-key="name"
+                  placeholder="Tất cả tháng sinh"
+                  search-placeholder="Tìm tháng sinh..."
                 />
               </div>
             </div>
@@ -282,7 +293,7 @@
                         type="checkbox"
                         :checked="isAllVisibleSelected"
                         @change="toggleSelectAllVisible"
-                        title="Chọn tất cả danh sách đang hiển thị"
+                        title="Chọn tất cả khách hàng trên trang này"
                     />
                   </th>
                   <th style="width: 100px;">Mã KH</th>
@@ -303,7 +314,7 @@
                 </tr>
                 <tr
                     v-else
-                    v-for="kh in filteredCustomerList"
+                    v-for="kh in paginatedCustomerList"
                     :key="kh.id"
                     :class="{ 'row-selected': selectedCustomerIds.includes(kh.id) }"
                     @click="toggleCustomerSelect(kh.id)"
@@ -333,6 +344,64 @@
                 </tr>
                 </tbody>
               </table>
+            </div>
+
+            <!-- Phân trang 5 khách hàng / trang -->
+            <div class="cust-pagination-footer" v-if="filteredCustomerList.length > 0">
+              <div class="cust-pagination-info">
+                Hiển thị <b>{{ paginatedCustomerList.length ? custStartIndex : 0 }}</b> - <b>{{ custEndIndex }}</b> trên tổng số <b>{{ filteredCustomerList.length }}</b> khách hàng
+              </div>
+              <div class="cust-pagination-controls">
+                <button
+                    type="button"
+                    class="cust-pg-btn"
+                    :disabled="custPage === 1"
+                    @click="goToCustPage(1)"
+                    title="Về trang đầu tiên"
+                >
+                  ⇤
+                </button>
+                <button
+                    type="button"
+                    class="cust-pg-btn"
+                    :disabled="custPage === 1"
+                    @click="prevCustPage"
+                    title="Trang trước"
+                >
+                  ‹
+                </button>
+
+                <template v-for="(p, idx) in custVisiblePages" :key="idx">
+                  <span v-if="p === '...'" class="cust-pg-dots">...</span>
+                  <button
+                      v-else
+                      type="button"
+                      :class="['cust-pg-btn', { active: custPage === p }]"
+                      @click="goToCustPage(p)"
+                  >
+                    {{ p }}
+                  </button>
+                </template>
+
+                <button
+                    type="button"
+                    class="cust-pg-btn"
+                    :disabled="custPage === custTotalPages"
+                    @click="nextCustPage"
+                    title="Trang tiếp theo"
+                >
+                  ›
+                </button>
+                <button
+                    type="button"
+                    class="cust-pg-btn"
+                    :disabled="custPage === custTotalPages"
+                    @click="goToCustPage(custTotalPages)"
+                    title="Đến trang cuối cùng"
+                >
+                  ⇥
+                </button>
+              </div>
             </div>
 
             <div v-if="errors.customers" class="field-error-msg mt-3">
@@ -456,6 +525,7 @@ const closeToast = () => {
 const customerList = ref([])
 const custSearchKeyword = ref('')
 const custGenderFilter = ref('')
+const custBirthMonthFilter = ref('')
 const selectedCustomerIds = ref([])
 
 const loaiGiamOptions = [
@@ -467,6 +537,22 @@ const custGenderOptions = [
   { id: '', name: 'Tất cả giới tính' },
   { id: 'female', name: 'Nữ' },
   { id: 'male', name: 'Nam' }
+]
+
+const custBirthMonthOptions = [
+  { id: '', name: 'Tất cả tháng sinh' },
+  { id: '01', name: 'Tháng 1' },
+  { id: '02', name: 'Tháng 2' },
+  { id: '03', name: 'Tháng 3' },
+  { id: '04', name: 'Tháng 4' },
+  { id: '05', name: 'Tháng 5' },
+  { id: '06', name: 'Tháng 6' },
+  { id: '07', name: 'Tháng 7' },
+  { id: '08', name: 'Tháng 8' },
+  { id: '09', name: 'Tháng 9' },
+  { id: '10', name: 'Tháng 10' },
+  { id: '11', name: 'Tháng 11' },
+  { id: '12', name: 'Tháng 12' }
 ]
 
 const getTodayString = () => {
@@ -670,13 +756,17 @@ onMounted(() => {
 
 const filteredCustomerList = computed(() => {
   return customerList.value.filter(kh => {
-    // 1. Lọc từ khóa
+    // 1. Lọc từ khóa (Mã, tên, SĐT, email, và ngày sinh)
     if (custSearchKeyword.value.trim()) {
       const kw = custSearchKeyword.value.toLowerCase().trim()
+      const formattedDob = kh.ngaySinh ? formatDateDisplay(kh.ngaySinh).toLowerCase() : ''
+      const rawDob = kh.ngaySinh ? String(kh.ngaySinh).toLowerCase() : ''
       const match = (kh.tenKhachHang && kh.tenKhachHang.toLowerCase().includes(kw)) ||
           (kh.soDienThoai && kh.soDienThoai.toLowerCase().includes(kw)) ||
           (kh.maKhachHang && kh.maKhachHang.toLowerCase().includes(kw)) ||
-          (kh.email && kh.email.toLowerCase().includes(kw))
+          (kh.email && kh.email.toLowerCase().includes(kw)) ||
+          (formattedDob && formattedDob.includes(kw)) ||
+          (rawDob && rawDob.includes(kw))
       if (!match) return false
     }
 
@@ -686,8 +776,89 @@ const filteredCustomerList = computed(() => {
       if (custGenderFilter.value === 'male' && kh.gioiTinh !== true) return false
     }
 
+    // 3. Lọc theo Tháng sinh (Tháng 1 -> Tháng 12)
+    if (custBirthMonthFilter.value) {
+      if (!kh.ngaySinh) return false
+      const parts = String(kh.ngaySinh).split('-')
+      if (parts.length < 2 || parts[1] !== custBirthMonthFilter.value) return false
+    }
+
     return true
   })
+})
+
+// Phân trang danh sách khách hàng: 5 khách hàng / trang
+const custPage = ref(1)
+const custPageSize = ref(5)
+
+const custTotalPages = computed(() => {
+  return Math.ceil(filteredCustomerList.value.length / custPageSize.value) || 1
+})
+
+const custStartIndex = computed(() => {
+  if (filteredCustomerList.value.length === 0) return 0
+  return (custPage.value - 1) * custPageSize.value + 1
+})
+
+const custEndIndex = computed(() => {
+  return Math.min(custPage.value * custPageSize.value, filteredCustomerList.value.length)
+})
+
+const paginatedCustomerList = computed(() => {
+  const start = (custPage.value - 1) * custPageSize.value
+  return filteredCustomerList.value.slice(start, start + custPageSize.value)
+})
+
+const custVisiblePages = computed(() => {
+  const total = custTotalPages.value
+  const current = custPage.value
+
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+
+  const pages = []
+  const left = Math.max(2, current - 1)
+  const right = Math.min(total - 1, current + 1)
+
+  pages.push(1)
+  if (left > 2) pages.push('...')
+  for (let i = left; i <= right; i++) {
+    pages.push(i)
+  }
+  if (right < total - 1) pages.push('...')
+  pages.push(total)
+
+  return pages
+})
+
+const goToCustPage = (page) => {
+  if (typeof page === 'number' && page >= 1 && page <= custTotalPages.value) {
+    custPage.value = page
+  }
+}
+
+const prevCustPage = () => {
+  if (custPage.value > 1) {
+    custPage.value--
+  }
+}
+
+const nextCustPage = () => {
+  if (custPage.value < custTotalPages.value) {
+    custPage.value++
+  }
+}
+
+// Tự động trở về trang 1 khi tìm kiếm hoặc thay đổi bộ lọc
+watch([custSearchKeyword, custGenderFilter, custBirthMonthFilter], () => {
+  custPage.value = 1
+})
+
+watch(custTotalPages, (newTotal) => {
+  if (custPage.value > newTotal) {
+    custPage.value = Math.max(1, newTotal)
+  }
 })
 
 // Tự động đồng bộ số lượng phiếu theo số khách hàng được chọn khi là Cá nhân
@@ -709,16 +880,16 @@ const toggleCustomerSelect = (id) => {
 }
 
 const isAllVisibleSelected = computed(() => {
-  if (filteredCustomerList.value.length === 0) return false
-  return filteredCustomerList.value.every(kh => selectedCustomerIds.value.includes(kh.id))
+  if (paginatedCustomerList.value.length === 0) return false
+  return paginatedCustomerList.value.every(kh => selectedCustomerIds.value.includes(kh.id))
 })
 
 const toggleSelectAllVisible = () => {
   if (isAllVisibleSelected.value) {
-    const visibleIds = filteredCustomerList.value.map(kh => kh.id)
-    selectedCustomerIds.value = selectedCustomerIds.value.filter(id => !visibleIds.includes(id))
+    const pageIds = paginatedCustomerList.value.map(kh => kh.id)
+    selectedCustomerIds.value = selectedCustomerIds.value.filter(id => !pageIds.includes(id))
   } else {
-    filteredCustomerList.value.forEach(kh => {
+    paginatedCustomerList.value.forEach(kh => {
       if (!selectedCustomerIds.value.includes(kh.id)) {
         selectedCustomerIds.value.push(kh.id)
       }
@@ -727,7 +898,7 @@ const toggleSelectAllVisible = () => {
 }
 
 const selectAllVisibleCustomers = () => {
-  filteredCustomerList.value.forEach(kh => {
+  paginatedCustomerList.value.forEach(kh => {
     if (!selectedCustomerIds.value.includes(kh.id)) {
       selectedCustomerIds.value.push(kh.id)
     }
@@ -1294,6 +1465,14 @@ const goBack = () => {
   flex: 1 1 240px;
 }
 
+.cust-filter-item.filter-gender {
+  min-width: 170px;
+}
+
+.cust-filter-item.filter-month {
+  min-width: 175px;
+}
+
 .form-select-sm {
   padding: 0.55rem 0.85rem;
   font-size: 0.85rem;
@@ -1411,6 +1590,79 @@ const goBack = () => {
   text-align: center;
   padding: 2rem !important;
   color: #9ca3af;
+}
+
+/* Phân trang danh sách khách hàng trong Thêm phiếu */
+.cust-pagination-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 0.5rem 0.25rem;
+  margin-top: 0.6rem;
+  border-top: 1px dashed #e5e7eb;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.cust-pagination-info {
+  font-size: 0.84rem;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.cust-pagination-info b {
+  color: #1f2937;
+}
+
+.cust-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.cust-pg-btn {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background-color: #ffffff;
+  color: #496883;
+  font-size: 0.84rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cust-pg-btn:hover:not(:disabled) {
+  border-color: #496883;
+  background-color: #f0f7fc;
+  color: #496883;
+}
+
+.cust-pg-btn.active {
+  background-color: #496883;
+  border-color: #496883;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.cust-pg-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background-color: #f9fafb;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+}
+
+.cust-pg-dots {
+  padding: 0 0.3rem;
+  color: #9ca3af;
+  font-weight: 600;
+  font-size: 0.85rem;
 }
 
 /* Submit bar dưới cùng */
