@@ -125,8 +125,6 @@ public class ExcelImportService {
         VaiTro role;
     }
 
-    private record AccountEmailInfo(String email, String name, String code, String account, String password) {}
-
     /**
      * Nhập danh sách nhân viên từ file Excel theo cơ chế All-or-Nothing
      */
@@ -310,7 +308,7 @@ public class ExcelImportService {
 
         // 100% CÁC DÒNG ĐỀU HỢP LỆ -> LƯU HÀNG LOẠT VÀO DATABASE
         List<NhanVien> entitiesToSave = new ArrayList<>();
-        List<AccountEmailInfo> emailsToSend = new ArrayList<>();
+        List<EmailService.AccountEmailDto> emailsToSend = new ArrayList<>();
 
         for (ParsedEmployeeRow r : parsedRows) {
             String code = nhanVienService.generateEmployeeCode(r.fullName);
@@ -335,19 +333,13 @@ public class ExcelImportService {
             nv.setNguoiTao("admin (import)");
 
             entitiesToSave.add(nv);
-            emailsToSend.add(new AccountEmailInfo(nv.getEmail(), nv.getTenNhanVien(), code, account, password));
+            emailsToSend.add(new EmailService.AccountEmailDto(nv.getEmail(), nv.getTenNhanVien(), code, account, password));
         }
 
         repo.saveAll(entitiesToSave);
 
-        // Gửi email thông tin tài khoản cho từng nhân viên mới
-        for (AccountEmailInfo e : emailsToSend) {
-            try {
-                emailService.sendAccountInfoEmail(e.email(), e.name(), e.code(), e.account(), e.password());
-            } catch (Exception ex) {
-                log.warn("Không thể gửi email cho {}: {}", e.email(), ex.getMessage());
-            }
-        }
+        // Kích hoạt gửi email tài khoản bất đồng bộ (@Async) chạy ngầm để không làm nghẽn/treo giao diện
+        emailService.sendBulkAccountInfoEmailsAsync(emailsToSend);
 
         String summary = String.format("Nhập thành công toàn bộ %d/%d nhân viên vào hệ thống!", entitiesToSave.size(), totalRows);
         return new ExcelImportResult(totalRows, entitiesToSave.size(), 0, Collections.emptyList(), summary);

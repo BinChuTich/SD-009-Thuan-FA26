@@ -322,27 +322,11 @@
       <div v-if="showImportModal" class="modal-backdrop" @click.self="closeImportModal">
         <div class="modal-card modal-import-excel">
           <div class="modal-header">
-            <div class="modal-title-box">
-              <h3 class="modal-title">Nhập danh sách nhân viên từ Excel</h3>
-              <p class="modal-subtitle">Cơ chế kiểm soát Tất cả hoặc Không có gì (All-or-Nothing)</p>
-            </div>
+            <h3 class="modal-title">Nhập danh sách nhân viên từ Excel</h3>
             <button type="button" class="btn-close-modal" @click="closeImportModal" :disabled="importUploading">✕</button>
           </div>
 
           <div class="modal-body">
-            <!-- Chú thích quy tắc All-or-Nothing -->
-            <div class="rule-alert-box">
-              <div class="rule-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-              </div>
-              <div class="rule-content">
-                <strong>Quy tắc Tất cả hoặc Không có gì:</strong> Toàn bộ các dòng trong file Excel phải hợp lệ 100% thì hệ thống mới lưu dữ liệu. Nếu chỉ cần 1 dòng bị lỗi (trùng SĐT, trùng Email, sai định dạng...), toàn bộ file sẽ bị từ chối và không có nhân viên nào được thêm vào hệ thống.
-              </div>
-            </div>
 
             <!-- Tải file mẫu -->
             <div class="template-box">
@@ -439,11 +423,9 @@
               @click="handleImportExcel"
             >
               <svg v-if="!importUploading" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
+                <path d="M12 5v14M5 12h14" />
               </svg>
-              {{ importUploading ? 'Đang kiểm tra & Nhập...' : 'Tiến hành Nhập Excel' }}
+              {{ importUploading ? 'Đang xử lý...' : 'Thêm nhân viên' }}
             </button>
           </div>
         </div>
@@ -890,15 +872,15 @@ async function handleImportExcel() {
     if (result.errors && result.errors.length > 0) {
       importErrors.value = result.errors
       showAlert({
-        title: 'Nhập file không thành công',
-        message: `Phát hiện ${result.errors.length} lỗi trong file. Theo quy tắc "Tất cả hoặc Không có gì", không có bản ghi nào được lưu vào hệ thống. Vui lòng xem chi tiết lỗi bên dưới và sửa lại file!`,
+        title: 'Thêm nhân viên không thành công',
+        message: `Phát hiện ${result.errors.length} lỗi trong file Excel. Toàn bộ file chưa được thêm vào hệ thống. Vui lòng xem chi tiết lỗi bên dưới và sửa lại file!`,
         type: 'error'
       })
     } else {
       // 100% hợp lệ
       showAlert({
-        title: 'Nhập Excel thành công!',
-        message: `Đã nhập thành công ${result.successCount} nhân viên vào hệ thống. Thông tin tài khoản đã được thiết lập mặc định.`,
+        title: 'Thêm nhân viên thành công!',
+        message: `Đã thêm thành công ${result.successCount} nhân viên vào hệ thống. Tài khoản và mật khẩu đã được tự động tạo và đang được gửi email đến từng nhân viên.`,
         type: 'success'
       })
       closeImportModal()

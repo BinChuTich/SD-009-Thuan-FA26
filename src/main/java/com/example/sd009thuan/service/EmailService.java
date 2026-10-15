@@ -426,6 +426,27 @@ public class EmailService {
         }
     }
 
+    public record AccountEmailDto(String email, String name, String code, String account, String password) {}
+
+    /**
+     * Gửi email danh sách thông tin tài khoản nhân viên mới bất đồng bộ (@Async ngầm không block request)
+     */
+    @Async
+    public void sendBulkAccountInfoEmailsAsync(java.util.List<AccountEmailDto> emailsToSend) {
+        if (emailsToSend == null || emailsToSend.isEmpty()) {
+            return;
+        }
+        log.info("==> [EmailService Async] Bắt đầu gửi email chạy ngầm cho {} nhân viên mới...", emailsToSend.size());
+        for (AccountEmailDto item : emailsToSend) {
+            try {
+                sendAccountInfoEmail(item.email(), item.name(), item.code(), item.account(), item.password());
+            } catch (Exception ex) {
+                log.warn("==> [EmailService Async] Không thể gửi email thông tin tài khoản tới {}: {}", item.email(), ex.getMessage());
+            }
+        }
+        log.info("==> [EmailService Async] Hoàn tất tiến trình gửi email chạy ngầm cho {} nhân viên mới.", emailsToSend.size());
+    }
+
     public boolean sendCustomEmail(String toEmail, String fullName, String subject, String content) {
         if (toEmail == null || toEmail.isBlank()) {
             log.warn("Không thể gửi email vì địa chỉ email trống.");
