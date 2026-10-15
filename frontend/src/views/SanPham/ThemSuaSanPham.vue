@@ -62,13 +62,42 @@
 
           <div class="form-item">
             <label class="item-label">Tên sản phẩm <span class="text-danger">*</span></label>
-            <input
-                type="text"
-                v-model="form.tenSanPham"
-                class="form-input"
-                placeholder="Nhập tên sản phẩm..."
-                required
-            />
+            <div class="input-with-feedback">
+              <input
+                  type="text"
+                  v-model="form.tenSanPham"
+                  :class="['form-input', { 'input-warning': duplicateCheck.exists, 'input-conflict': duplicateCheck.conflict }]"
+                  placeholder="Nhập tên sản phẩm..."
+                  required
+                  @blur="onTenSanPhamBlur"
+                  @input="onTenSanPhamInput"
+              />
+              <span v-if="duplicateCheck.loading" class="input-loading-spinner" title="Đang kiểm tra..."></span>
+            </div>
+
+            <!-- Cảnh báo khi phát hiện trùng tên / mã -->
+            <div v-if="duplicateCheck.exists && !isEdit" class="duplicate-alert-banner">
+              <div class="dup-alert-header">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <span class="dup-alert-title">
+                  {{ duplicateCheck.conflict ? 'Xung đột thông tin sản phẩm!' : 'Sản phẩm đã tồn tại trong hệ thống!' }}
+                </span>
+              </div>
+              <p class="dup-alert-desc">
+                <template v-if="duplicateCheck.conflict">
+                  {{ duplicateCheck.message }}
+                </template>
+                <template v-else>
+                  Tên sản phẩm trùng với <strong>{{ duplicateCheck.tenSanPham }}</strong> (Mã: <code>{{ duplicateCheck.maSanPham }}</code> - hiện có {{ duplicateCheck.existingVariantCount }} biến thể).
+                  <br/>
+                  <span class="dup-alert-hint">💡 Khi bấm <strong>Lưu</strong>, hệ thống sẽ hỗ trợ bạn <strong>Gộp số lượng & cập nhật giá</strong> vào sản phẩm này, hoặc bạn có thể đổi tên khác.</span>
+                </template>
+              </p>
+            </div>
           </div>
 
           <!-- Hàng 2: Danh mục | Thương hiệu -->
@@ -1330,6 +1359,84 @@ const form = ref({
   trangThai: 1,
   moTa: ''
 })
+
+// Trạng thái kiểm tra trùng lặp thời gian thực
+const duplicateCheck = ref({
+  loading: false,
+  exists: false,
+  conflict: false,
+  matchedBy: '',
+  id: null,
+  maSanPham: '',
+  tenSanPham: '',
+  existingVariantCount: 0,
+  message: ''
+})
+
+let dupDebounceTimer = null
+
+const executeDuplicateCheck = async () => {
+  if (isEdit.value) return
+  const ten = form.value.tenSanPham?.trim()
+  const ma = form.value.maSanPham?.trim()
+  if (!ten && !ma) {
+    duplicateCheck.value.exists = false
+    duplicateCheck.value.conflict = false
+    return
+  }
+
+  duplicateCheck.value.loading = true
+  try {
+    const res = await api.get('/api/san-pham/check-duplicate', {
+      params: {
+        maSanPham: ma || undefined,
+        tenSanPham: ten || undefined
+      }
+    })
+    if (res.data?.exists) {
+      duplicateCheck.value = {
+        loading: false,
+        exists: true,
+        conflict: !!res.data.conflict,
+        matchedBy: res.data.matchedBy || '',
+        id: res.data.id || null,
+        maSanPham: res.data.maSanPham || '',
+        tenSanPham: res.data.tenSanPham || '',
+        existingVariantCount: res.data.existingVariantCount || 0,
+        message: res.data.message || ''
+      }
+    } else {
+      duplicateCheck.value = {
+        loading: false,
+        exists: false,
+        conflict: false,
+        matchedBy: '',
+        id: null,
+        maSanPham: '',
+        tenSanPham: '',
+        existingVariantCount: 0,
+        message: ''
+      }
+    }
+  } catch (err) {
+    console.warn('Lỗi kiểm tra trùng sản phẩm:', err)
+    duplicateCheck.value.loading = false
+  }
+}
+
+const onTenSanPhamInput = () => {
+  if (isEdit.value) return
+  if (dupDebounceTimer) clearTimeout(dupDebounceTimer)
+  dupDebounceTimer = setTimeout(() => {
+    executeDuplicateCheck()
+  }, 450)
+}
+
+const onTenSanPhamBlur = () => {
+  if (isEdit.value) return
+  if (dupDebounceTimer) clearTimeout(dupDebounceTimer)
+  executeDuplicateCheck()
+}
 
 // Chọn màu sắc & kích cỡ
 const selectedColors = ref([])
@@ -4974,6 +5081,94 @@ watch(() => route.params.id, async (newId) => {
 .btn-modal-submit:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+
+/* Realtime Duplicate Check Styling */
+.input-with-feedback {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-with-feedback .form-input {
+  width: 100%;
+}
+
+.input-loading-spinner {
+  position: absolute;
+  right: 12px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #cbd5e1;
+  border-top-color: #496883;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.form-input.input-warning {
+  border-color: #f59e0b !important;
+  background-color: #fffbeb;
+}
+
+.form-input.input-conflict {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2;
+}
+
+.duplicate-alert-banner {
+  margin-top: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  animation: fadeInDown 0.2s ease-out;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dup-alert-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+  color: #b45309;
+  margin-bottom: 4px;
+}
+
+.dup-alert-desc {
+  margin: 0;
+  color: #78350f;
+}
+
+.dup-alert-desc code {
+  background-color: #fef3c7;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.dup-alert-hint {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.82rem;
+  color: #a16207;
 }
 
 @media (max-width: 768px) {
