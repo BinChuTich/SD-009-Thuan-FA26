@@ -115,7 +115,7 @@ const exportExcel = () => {
             <td colspan="13" class="sheet-meta">
               Thời gian xuất: <strong>${nowStr}</strong> &nbsp;|&nbsp;
               Số lượng: <strong>${listToExport.length}</strong> hóa đơn &nbsp;|&nbsp;
-              Trạng thái lọc: <strong>${currentTab.value}</strong>
+              Trạng thái lọc: <strong>${filters.value.status ? getStatusText(filters.value.status) : 'Tất cả'}</strong>
             </td>
           </tr>
           <tr></tr>
@@ -171,17 +171,6 @@ const exportExcel = () => {
     exporting.value = false
   }
 }
-const currentTab = ref('Tất Cả')
-const statusTabs = [
-  'Tất Cả',
-  'Chờ Xác Nhận',
-  'Đã Xác Nhận',
-  'Chờ Vận Chuyển',
-  'Vận Chuyển',
-  'Đã Hoàn Thành',
-  'Giao Hàng Thất Bại',
-  'Hủy'
-]
 
 const getTodayString = () => {
   const now = new Date()
@@ -210,42 +199,7 @@ watch(
   }
 )
 
-const mapStatusToTab = (statusVal) => {
-  if (!statusVal) return 'Tất Cả'
-  const map = {
-    '1': 'Chờ Xác Nhận',
-    '2': 'Đã Xác Nhận',
-    '3': 'Chờ Vận Chuyển',
-    '4': 'Vận Chuyển',
-    '5': 'Đã Hoàn Thành',
-    '6': 'Hủy',
-    '7': 'Giao Hàng Thất Bại'
-  }
-  return map[String(statusVal)] || 'Tất Cả'
-}
-
-const mapTabToStatus = (tabName) => {
-  if (!tabName || tabName === 'Tất Cả') return ''
-  const map = {
-    'Chờ Xác Nhận': '1',
-    'Đã Xác Nhận': '2',
-    'Chờ Vận Chuyển': '3',
-    'Vận Chuyển': '4',
-    'Đã Hoàn Thành': '5',
-    'Giao Hàng Thất Bại': '7',
-    'Hủy': '6'
-  }
-  return map[tabName] || ''
-}
-
-const selectTab = (tab) => {
-  currentTab.value = tab
-  filters.value.status = mapTabToStatus(tab)
-  resetPage()
-}
-
 const onStatusComboboxChange = () => {
-  currentTab.value = mapStatusToTab(filters.value.status)
   resetPage()
 }
 
@@ -268,39 +222,6 @@ const paymentStatusOptions = [
   { value: '1', label: 'Đã thanh toán' },
   { value: '0', label: 'Chưa thanh toán' }
 ]
-
-const getTabClass = (tab) => {
-  switch (tab) {
-    case 'Chờ Xác Nhận': return 'tab-pending'
-    case 'Đã Xác Nhận': return 'tab-confirmed'
-    case 'Chờ Vận Chuyển': return 'tab-waiting'
-    case 'Vận Chuyển': return 'tab-shipping'
-    case 'Đã Hoàn Thành': return 'tab-completed'
-    case 'Giao Hàng Thất Bại': return 'tab-failed'
-    case 'Hủy': return 'tab-cancelled'
-    default: return 'tab-all'
-  }
-}
-
-const statusCounts = computed(() => {
-  const counts = {
-    'Tất Cả': invoiceList.value.length,
-    'Chờ Xác Nhận': 0,
-    'Đã Xác Nhận': 0,
-    'Chờ Vận Chuyển': 0,
-    'Vận Chuyển': 0,
-    'Đã Hoàn Thành': 0,
-    'Giao Hàng Thất Bại': 0,
-    'Hủy': 0
-  }
-  invoiceList.value.forEach(item => {
-    const text = getStatusText(item.status)
-    if (counts[text] !== undefined) {
-      counts[text]++
-    }
-  })
-  return counts
-})
 
 const invoiceList = ref([])
 const loading = ref(false)
@@ -598,7 +519,6 @@ const handleRefresh = async () => {
     status: '',
     paymentStatus: ''
   }
-  currentTab.value = 'Tất Cả'
   currentPage.value = 1
   await loadHoaDon()
   showToast('Đã đặt lại bộ lọc và làm mới dữ liệu!')
@@ -642,9 +562,6 @@ const filteredInvoiceList = computed(() => {
       if (Number(item.status) !== Number(filters.value.status)) {
         return false
       }
-    } else if (currentTab.value !== 'Tất Cả') {
-      const statusText = getStatusText(item.status)
-      if (statusText !== currentTab.value) return false
     }
 
     if (filters.value.paymentStatus !== '' && filters.value.paymentStatus !== null && filters.value.paymentStatus !== undefined) {
@@ -862,28 +779,6 @@ onBeforeUnmount(() => {
           <span class="table-total-count">({{ filteredInvoiceList.length }} hóa đơn)</span>
         </div>
       </div>
-
-      <!-- TABS LỌC NHANH TRẠNG THÁI (HÀNG RIÊNG BIỆT, CĂN TRÁI, CUỘN MƯỢT MÀ) -->
-      <div class="status-tabs-wrapper">
-        <div class="status-tabs-container">
-          <button
-              v-for="tab in statusTabs"
-              :key="tab"
-              type="button"
-              class="status-tab-btn"
-              :class="{ 
-                active: currentTab === tab,
-                'has-count': (statusCounts[tab] || 0) > 0,
-                'zero-count': (statusCounts[tab] || 0) === 0
-              }"
-              @click="selectTab(tab)"
-          >
-            <span class="tab-label">{{ tab }}</span>
-            <span class="tab-badge-count">{{ statusCounts[tab] || 0 }}</span>
-          </button>
-        </div>
-      </div>
-
       <!-- LOADING & ERROR -->
       <div v-if="loading" class="state-message">
         Đang tải dữ liệu hóa đơn...
@@ -1195,19 +1090,21 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .icon-prefix {
   position: absolute;
-  left: 11px;
+  left: 0.85rem;
   color: #8c969e;
   display: flex;
   align-items: center;
   pointer-events: none;
+  z-index: 1;
 }
 
 .input-has-prefix {
-  padding-left: 34px !important;
+  padding-left: 2.35rem !important;
 }
 
 .select-combobox {
@@ -1218,6 +1115,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 7px;
+  width: 100%;
 }
 
 .form-group label {
@@ -1227,19 +1125,29 @@ onBeforeUnmount(() => {
 }
 
 .form-control {
-  height: 38px;
-  padding: 0 12px;
-  border: 1px solid #d5c8b8;
-  border-radius: 7px;
-  background-color: #ffffff;
-  color: #333333;
-  font-size: 0.88rem;
+  width: 100%;
+  height: 2.6rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--line, #e9e5db);
+  border-radius: 8px;
+  background-color: #fcfbf8;
+  color: var(--text, #3d4a50);
+  font-size: 0.92rem;
+  font-family: inherit;
   outline: none;
-  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.form-control:hover {
+  border-color: #b8c3cc;
+  background-color: #ffffff;
 }
 
 .form-control:focus {
-  border-color: #3e5c76;
+  border-color: var(--blue, #496883);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
 }
 
 .table-responsive {
@@ -1380,101 +1288,6 @@ onBeforeUnmount(() => {
   color: #dc2626;
 }
 
-/* KHUNG TABS TRẠNG THÁI RIÊNG BIỆT */
-.status-tabs-wrapper {
-  margin-bottom: 18px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid #ebd9c8;
-}
-
-.status-tabs-container {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  overflow-x: auto;
-  white-space: nowrap;
-  padding-bottom: 4px;
-  scrollbar-width: thin;
-  scrollbar-color: #d8c8b8 transparent;
-}
-
-.status-tabs-container::-webkit-scrollbar {
-  height: 4px;
-}
-
-.status-tabs-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.status-tabs-container::-webkit-scrollbar-thumb {
-  background: #d8c8b8;
-  border-radius: 4px;
-}
-
-.status-tab-btn {
-  padding: 8px 16px;
-  border-radius: 8px;
-  border: 1.5px solid #ebd9c8;
-  background: #ffffff;
-  color: #496883;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  white-space: nowrap;
-  user-select: none;
-}
-
-.status-tab-btn:hover {
-  background: #fdfaf6;
-  border-color: #496883;
-  color: #2c4356;
-  transform: translateY(-1px);
-}
-
-.status-tab-btn.active {
-  background: #3e5c76;
-  border-color: #3e5c76;
-  color: #ffffff;
-  box-shadow: 0 3px 8px rgba(62, 92, 118, 0.25);
-}
-
-.tab-label {
-  display: inline-block;
-}
-
-.tab-badge-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 10px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  background: #f0eae1;
-  color: #636b72;
-  transition: all 0.2s ease;
-}
-
-.status-tab-btn.has-count:not(.active) .tab-badge-count {
-  background: #faece1;
-  color: #c94a29;
-}
-
-.status-tab-btn.zero-count:not(.active) .tab-badge-count {
-  background: #f2ece4;
-  color: #9aa2a8;
-}
-
-.status-tab-btn.active .tab-badge-count {
-  background: rgba(255, 255, 255, 0.25);
-  color: #ffffff;
-}
 
 .status-default {
   background: #f0e9df;
