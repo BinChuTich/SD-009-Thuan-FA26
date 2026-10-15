@@ -295,8 +295,34 @@ public class KhachHangService {
             boolean exists = currentId == null
                     ? repo.existsByEmailIgnoreCase(email)
                     : repo.existsByEmailIgnoreCaseAndIdNot(email, currentId);
-            if (exists) throw new IllegalArgumentException("Email khách hàng đã tồn tại");
+            if (exists) throw new IllegalArgumentException("Email khách hàng đã tồn tại trong hệ thống");
         }
+
+        String phone = blankToNull(req.soDienThoai()) != null ? req.soDienThoai().trim() : blankToNull(req.soDienThoaiNhan());
+        if (phone != null) {
+            boolean exists = currentId == null
+                    ? repo.existsBySoDienThoai(phone)
+                    : repo.existsBySoDienThoaiAndIdNot(phone, currentId);
+            if (exists) throw new IllegalArgumentException("Số điện thoại này đã được sử dụng");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public boolean checkEmailExists(String email, Long excludeId) {
+        String val = blankToNull(email);
+        if (val == null) return false;
+        return excludeId == null
+                ? repo.existsByEmailIgnoreCase(val)
+                : repo.existsByEmailIgnoreCaseAndIdNot(val, excludeId);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean checkPhoneExists(String phone, Long excludeId) {
+        String val = blankToNull(phone);
+        if (val == null) return false;
+        return excludeId == null
+                ? repo.existsBySoDienThoai(val)
+                : repo.existsBySoDienThoaiAndIdNot(val, excludeId);
     }
 
     public String nextCode() {

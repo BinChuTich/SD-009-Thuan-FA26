@@ -10,8 +10,10 @@ public interface NhanVienRepository extends JpaRepository<NhanVien, Long>, JpaSp
     boolean existsByMaNhanVienIgnoreCase(String maNhanVien);
     boolean existsByTenTaiKhoanIgnoreCase(String tenTaiKhoan);
     boolean existsByEmailIgnoreCase(String email);
+    boolean existsBySoDienThoai(String soDienThoai);
     boolean existsByMaNhanVienIgnoreCaseAndIdNot(String maNhanVien, Long id);
     boolean existsByTenTaiKhoanIgnoreCaseAndIdNot(String tenTaiKhoan, Long id);
     boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
+    boolean existsBySoDienThoaiAndIdNot(String soDienThoai, Long id);
     Optional<NhanVien> findTopByOrderByIdDesc();
 }
