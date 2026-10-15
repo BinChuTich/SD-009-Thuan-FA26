@@ -72,9 +72,9 @@
           :class="{ active: selectedEmployeeIds.length > 0 }"
           :disabled="selectedEmployeeIds.length === 0"
           @click="openBulkEmailModal"
-          :title="selectedEmployeeIds.length === 0 ? 'Vui lòng tích chọn nhân viên đang hoạt động để gửi mail' : 'Gửi email đến ' + selectedEmployeeIds.length + ' nhân viên đã chọn'"
+          :title="selectedEmployeeIds.length === 0 ? 'Vui lòng tích chọn nhân viên đang hoạt động để gửi thông báo' : 'Gửi thông báo tới ' + selectedEmployeeIds.length + ' nhân viên đã chọn'"
         >
-          Gửi mail hàng loạt ({{ selectedEmployeeIds.length }})
+          Gửi thông báo tới nhân viên ({{ selectedEmployeeIds.length }})
         </button>
         <button class="btn btn-primary" @click="goToCreate">
           + Thêm nhân viên
@@ -232,12 +232,12 @@
       </div>
     </div>
 
-    <!-- Modal Gửi mail hàng loạt -->
+    <!-- Modal Gửi thông báo tới nhân viên -->
     <Teleport to="body">
       <div v-if="showBulkEmailModal" class="modal-backdrop" @click.self="closeBulkEmailModal">
         <div class="modal-card modal-bulk-email">
           <div class="modal-header">
-            <h3 class="modal-title">Gửi email hàng loạt cho nhân viên</h3>
+            <h3 class="modal-title">Gửi thông báo tới nhân viên</h3>
             <button type="button" class="btn-close-modal" @click="closeBulkEmailModal" :disabled="bulkEmailSending">✕</button>
           </div>
 
@@ -695,8 +695,8 @@ async function handleSendBulkEmail() {
   }
 
   const confirmed = await showConfirm({
-    title: 'Xác nhận gửi email hàng loạt',
-    message: `Bạn có chắc muốn gửi email đến ${selectedEmployeeIds.value.length} nhân viên đang hoạt động đã chọn?`,
+    title: 'Xác nhận gửi thông báo tới nhân viên',
+    message: `Bạn có chắc muốn gửi thông báo đến ${selectedEmployeeIds.value.length} nhân viên đang hoạt động đã chọn?`,
     type: 'question',
     confirmText: 'Gửi ngay',
     cancelText: 'Xem lại'
@@ -717,22 +717,22 @@ async function handleSendBulkEmail() {
 
     if (data.totalFailed === 0) {
       showAlert({
-        title: 'Gửi email thành công',
-        message: `Đã gửi thành công ${data.totalSent} email đến các nhân viên đang hoạt động.`,
+        title: 'Gửi thông báo thành công',
+        message: `Đã gửi thành công thông báo đến ${data.totalSent} nhân viên đang hoạt động.`,
         type: 'success'
       })
     } else {
       showAlert({
-        title: 'Kết quả gửi email',
-        message: `Đã gửi thành công ${data.totalSent} email. Thất bại ${data.totalFailed} email.\n${data.failedEmails && data.failedEmails.length ? 'Các email thất bại: ' + data.failedEmails.join(', ') : ''}`,
+        title: 'Kết quả gửi thông báo',
+        message: `Đã gửi thành công ${data.totalSent} thông báo. Thất bại ${data.totalFailed} thông báo.\n${data.failedEmails && data.failedEmails.length ? 'Các email thất bại: ' + data.failedEmails.join(', ') : ''}`,
         type: 'warning'
       })
     }
     clearSelection()
   } catch (e) {
     showAlert({
-      title: 'Gửi email thất bại',
-      message: e?.response?.data?.message || 'Có lỗi xảy ra trong quá trình gửi email hàng loạt.',
+      title: 'Gửi thông báo thất bại',
+      message: e?.response?.data?.message || 'Có lỗi xảy ra trong quá trình gửi thông báo tới nhân viên.',
       type: 'error'
     })
   } finally {
