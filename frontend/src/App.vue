@@ -516,4 +516,40 @@ const toggleMenu = (menu) => {
   flex: 1;
   width: 100%;
 }
+
+@media print {
+  .sidebar,
+  .top-header,
+  header {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .app-shell {
+    display: block !important;
+    min-height: auto !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .main-content {
+    margin: 0 !important;
+    margin-left: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: transparent !important;
+  }
+
+  .page-body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
 </style>

@@ -576,6 +576,10 @@ const handleCheckout = async () => {
   }
 
   if (currentInvoice.value.isDelivery) {
+    if (!currentInvoice.value.customerName?.trim() || currentInvoice.value.customerName.trim().toLowerCase() === 'khách lẻ') {
+      alert('Đơn giao hàng bắt buộc phải có tên người nhận cụ thể (không được để "Khách lẻ")!')
+      return
+    }
     if (!currentInvoice.value.customerPhone?.trim()) {
       alert('Vui lòng nhập số điện thoại người nhận khi chọn giao hàng!')
       return
@@ -653,8 +657,8 @@ const handleCheckout = async () => {
       activeInvoiceId.value = remaining[0].id
     }
 
-    // Chuyển hướng tới chi tiết hóa đơn vừa tạo
-    router.push(`/hoa-don/${savedCode}`)
+    // Chuyển hướng tới chi tiết hóa đơn vừa tạo và tự động in hóa đơn
+    router.push({ path: `/hoa-don/${savedCode}`, query: { autoPrint: 'true' } })
   } catch (error) {
     console.error('Lỗi khi thanh toán đơn hàng:', error)
     alert('Lỗi khi kết nối hệ thống thanh toán: ' + (error.response?.data?.message || error.message))
@@ -858,6 +862,24 @@ onMounted(async () => {
 
           <!-- Nhập địa chỉ & phí ship khi bật Giao hàng -->
           <div v-if="currentInvoice.isDelivery" class="delivery-box-expand">
+            <div class="pos-form-group" v-if="!currentInvoice.customerId">
+              <label class="group-label-gray">Tên người nhận hàng <span class="text-danger">*</span></label>
+              <input
+                  type="text"
+                  v-model="currentInvoice.customerName"
+                  placeholder="Nhập họ tên người nhận (không để Khách lẻ)..."
+                  class="pos-form-input"
+              />
+            </div>
+            <div class="pos-form-group" v-if="!currentInvoice.customerId">
+              <label class="group-label-gray">Số điện thoại người nhận <span class="text-danger">*</span></label>
+              <input
+                  type="text"
+                  v-model="currentInvoice.customerPhone"
+                  placeholder="VD: 0987654321..."
+                  class="pos-form-input"
+              />
+            </div>
             <div class="pos-form-group">
               <label class="group-label-gray">Địa chỉ nhận hàng <span class="text-danger">*</span></label>
               <input

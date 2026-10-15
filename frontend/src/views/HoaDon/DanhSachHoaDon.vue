@@ -179,6 +179,7 @@ const statusTabs = [
   'Chờ Vận Chuyển',
   'Vận Chuyển',
   'Đã Hoàn Thành',
+  'Giao Hàng Thất Bại',
   'Hủy'
 ]
 
@@ -217,7 +218,8 @@ const mapStatusToTab = (statusVal) => {
     '3': 'Chờ Vận Chuyển',
     '4': 'Vận Chuyển',
     '5': 'Đã Hoàn Thành',
-    '6': 'Hủy'
+    '6': 'Hủy',
+    '7': 'Giao Hàng Thất Bại'
   }
   return map[String(statusVal)] || 'Tất Cả'
 }
@@ -230,6 +232,7 @@ const mapTabToStatus = (tabName) => {
     'Chờ Vận Chuyển': '3',
     'Vận Chuyển': '4',
     'Đã Hoàn Thành': '5',
+    'Giao Hàng Thất Bại': '7',
     'Hủy': '6'
   }
   return map[tabName] || ''
@@ -257,6 +260,7 @@ const trangThaiDonOptions = [
   { value: '3', label: 'Chờ vận chuyển' },
   { value: '4', label: 'Vận chuyển' },
   { value: '5', label: 'Đã hoàn thành' },
+  { value: '7', label: 'Giao hàng thất bại' },
   { value: '6', label: 'Hủy' }
 ]
 
@@ -272,6 +276,7 @@ const getTabClass = (tab) => {
     case 'Chờ Vận Chuyển': return 'tab-waiting'
     case 'Vận Chuyển': return 'tab-shipping'
     case 'Đã Hoàn Thành': return 'tab-completed'
+    case 'Giao Hàng Thất Bại': return 'tab-failed'
     case 'Hủy': return 'tab-cancelled'
     default: return 'tab-all'
   }
@@ -285,6 +290,7 @@ const statusCounts = computed(() => {
     'Chờ Vận Chuyển': 0,
     'Vận Chuyển': 0,
     'Đã Hoàn Thành': 0,
+    'Giao Hàng Thất Bại': 0,
     'Hủy': 0
   }
   invoiceList.value.forEach(item => {
@@ -327,7 +333,8 @@ const getStatusText = (status) => {
     3: 'Chờ Vận Chuyển',
     4: 'Vận Chuyển',
     5: 'Đã Hoàn Thành',
-    6: 'Hủy'
+    6: 'Hủy',
+    7: 'Giao Hàng Thất Bại'
   }
   return statusMap[status] || 'Chưa cập nhật'
 }
@@ -346,6 +353,8 @@ const getStatusClass = (status) => {
       return 'status-completed'
     case 6:
       return 'status-cancelled'
+    case 7:
+      return 'status-failed'
     default:
       return 'status-default'
   }
@@ -848,7 +857,31 @@ onBeforeUnmount(() => {
     <div class="card-box table-card">
       <!-- HEADER KHUNG BẢNG -->
       <div class="table-card-header">
-        <h3 class="card-heading">Danh sách hóa đơn</h3>
+        <div class="table-title-area">
+          <h3 class="card-heading">Danh sách hóa đơn</h3>
+          <span class="table-total-count">({{ filteredInvoiceList.length }} hóa đơn)</span>
+        </div>
+      </div>
+
+      <!-- TABS LỌC NHANH TRẠNG THÁI (HÀNG RIÊNG BIỆT, CĂN TRÁI, CUỘN MƯỢT MÀ) -->
+      <div class="status-tabs-wrapper">
+        <div class="status-tabs-container">
+          <button
+              v-for="tab in statusTabs"
+              :key="tab"
+              type="button"
+              class="status-tab-btn"
+              :class="{ 
+                active: currentTab === tab,
+                'has-count': (statusCounts[tab] || 0) > 0,
+                'zero-count': (statusCounts[tab] || 0) === 0
+              }"
+              @click="selectTab(tab)"
+          >
+            <span class="tab-label">{{ tab }}</span>
+            <span class="tab-badge-count">{{ statusCounts[tab] || 0 }}</span>
+          </button>
+        </div>
       </div>
 
       <!-- LOADING & ERROR -->
@@ -1028,7 +1061,19 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+}
+
+.table-title-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.table-total-count {
+  font-size: 0.85rem;
+  color: #8c969e;
+  font-weight: 500;
 }
 
 .card-header-filter {
@@ -1328,6 +1373,107 @@ onBeforeUnmount(() => {
 .status-cancelled {
   background: #fee6e6;
   color: #be2626;
+}
+
+.status-failed {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* KHUNG TABS TRẠNG THÁI RIÊNG BIỆT */
+.status-tabs-wrapper {
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #ebd9c8;
+}
+
+.status-tabs-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #d8c8b8 transparent;
+}
+
+.status-tabs-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+.status-tabs-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.status-tabs-container::-webkit-scrollbar-thumb {
+  background: #d8c8b8;
+  border-radius: 4px;
+}
+
+.status-tab-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1.5px solid #ebd9c8;
+  background: #ffffff;
+  color: #496883;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.status-tab-btn:hover {
+  background: #fdfaf6;
+  border-color: #496883;
+  color: #2c4356;
+  transform: translateY(-1px);
+}
+
+.status-tab-btn.active {
+  background: #3e5c76;
+  border-color: #3e5c76;
+  color: #ffffff;
+  box-shadow: 0 3px 8px rgba(62, 92, 118, 0.25);
+}
+
+.tab-label {
+  display: inline-block;
+}
+
+.tab-badge-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #f0eae1;
+  color: #636b72;
+  transition: all 0.2s ease;
+}
+
+.status-tab-btn.has-count:not(.active) .tab-badge-count {
+  background: #faece1;
+  color: #c94a29;
+}
+
+.status-tab-btn.zero-count:not(.active) .tab-badge-count {
+  background: #f2ece4;
+  color: #9aa2a8;
+}
+
+.status-tab-btn.active .tab-badge-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
 }
 
 .status-default {

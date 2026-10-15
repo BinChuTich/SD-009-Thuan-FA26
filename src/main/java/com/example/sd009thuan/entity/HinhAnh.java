@@ -4,23 +4,14 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Nationalized;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 @Entity
 @Table(name = "hinh_anh")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class HinhAnh {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -44,5 +35,55 @@ public class HinhAnh {
     @ColumnDefault("1")
     @Column(name = "trang_thai", nullable = false)
     private Integer trangThai;
-//bdxv
+
+    public HinhAnh() {
+    }
+
+    public HinhAnh(Long id, SanPham idSanPham, String tenAnh, String duongDan, Integer trangThai) {
+        this.id = id;
+        this.idSanPham = idSanPham;
+        this.tenAnh = tenAnh;
+        this.duongDan = duongDan;
+        this.trangThai = trangThai;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public SanPham getIdSanPham() {
+        return idSanPham;
+    }
+
+    public void setIdSanPham(SanPham idSanPham) {
+        this.idSanPham = idSanPham;
+    }
+
+    public String getTenAnh() {
+        return tenAnh;
+    }
+
+    public void setTenAnh(String tenAnh) {
+        this.tenAnh = tenAnh;
+    }
+
+    public String getDuongDan() {
+        return duongDan;
+    }
+
+    public void setDuongDan(String duongDan) {
+        this.duongDan = duongDan;
+    }
+
+    public Integer getTrangThai() {
+        return trangThai;
+    }
+
+    public void setTrangThai(Integer trangThai) {
+        this.trangThai = trangThai;
+    }
 }

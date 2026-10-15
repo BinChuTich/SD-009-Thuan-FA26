@@ -1371,3 +1371,57 @@ a {
 .row-checkbox {
     accent-color: var(--blue, #496883) !important;
 }
+
+/* ==================== GLOBAL MEDIA PRINT ==================== */
+@media print {
+    /* Ẩn triệt để toàn bộ shell ứng dụng, sidebar, header admin, modal và popup */
+    .sidebar,
+    .top-header,
+    header,
+    .modal-backdrop,
+    .toast-popup,
+    .toast-notification,
+    .app-shell > aside,
+    .app-shell > header,
+    #app > aside,
+    #app > header {
+        display: none !important;
+        visibility: hidden !important;
+        width: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body, html {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        font-size: 13px !important;
+        color: #111827 !important;
+        width: 100% !important;
+    }
+
+    .app-shell {
+        display: block !important;
+        min-height: auto !important;
+        background: transparent !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .main-content {
+        margin: 0 !important;
+        margin-left: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        background: transparent !important;
+    }
+
+    .page-body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+}
