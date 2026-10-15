@@ -131,11 +131,56 @@ public class ChiTietSanPhamService {
                 req.getIdSanPham(), req.getIdKichCo(), req.getIdMauSac()
         );
         if (existing.isPresent()) {
-            throw new IllegalArgumentException("Biến thể với kích cỡ " + kc.getTenKichCo() + " và màu sắc " + ms.getTenMauSac() + " đã tồn tại cho sản phẩm này!");
+            // BIẾN THỂ ĐÃ TỒN TẠI -> Tăng số lượng (cộng dồn) và cập nhật giá theo thông tin mới nhất
+            ChiTietSanPham ct = existing.get();
+            int currentQty = ct.getSoLuong() != null ? ct.getSoLuong() : 0;
+            int addQty = req.getSoLuong() != null ? req.getSoLuong() : 0;
+            long totalQty = (long) currentQty + addQty;
+            if (totalQty > 999999) {
+                throw new IllegalArgumentException("Tổng số lượng biến thể (" + ms.getTenMauSac() + " - " + kc.getTenKichCo() + ") sau khi cộng dồn không được vượt quá 999,999!");
+            }
+            ct.setSoLuong((int) totalQty);
+            ct.setGiaBan(req.getGiaBan()); // Cập nhật đơn giá mới nhất
+            ct.setTrangThai(1); // Đảm bảo trạng thái kinh doanh
+            ct.setNguoiCapNhat(req.getNguoiThaoTac() != null ? req.getNguoiThaoTac() : "Admin");
+
+            ChiTietSanPham saved = chiTietSanPhamRepository.save(ct);
+
+            // Cập nhật ảnh nếu có
+            String imgInput = req.getAnhDaiDien() != null ? req.getAnhDaiDien() : req.getHinhAnh();
+            if (imgInput != null && !imgInput.trim().isEmpty()) {
+                String processed = processImage(imgInput);
+                if (processed != null && !processed.trim().isEmpty()) {
+                    String targetTen = "CTSP_" + saved.getId();
+                    List<HinhAnh> existingImgs = hinhAnhRepository.findByIdSanPham_Id(saved.getIdSanPham().getId());
+                    HinhAnh found = null;
+                    if (existingImgs != null) {
+                        for (HinhAnh ha : existingImgs) {
+                            if (targetTen.equals(ha.getTenAnh())) {
+                                found = ha;
+                                break;
+                            }
+                        }
+                    }
+                    if (found != null) {
+                        found.setDuongDan(processed.trim());
+                        hinhAnhRepository.save(found);
+                    } else {
+                        HinhAnh ha = new HinhAnh();
+                        ha.setIdSanPham(saved.getIdSanPham());
+                        ha.setTenAnh(targetTen);
+                        ha.setDuongDan(processed.trim());
+                        ha.setTrangThai(1);
+                        hinhAnhRepository.save(ha);
+                    }
+                }
+            }
+
+            return convertToResponse(saved);
         }
 
         if (req.getMaChiTietSanPham() == null || req.getMaChiTietSanPham().trim().isEmpty()) {
-            req.setMaChiTietSanPham("CTSP" + System.currentTimeMillis());
+            req.setMaChiTietSanPham("CTSP" + System.currentTimeMillis() + "_" + (int)(Math.random() * 1000));
         } else if (chiTietSanPhamRepository.existsByMaChiTietSanPham(req.getMaChiTietSanPham().trim())) {
             throw new IllegalArgumentException("Mã chi tiết sản phẩm đã tồn tại: " + req.getMaChiTietSanPham());
         }
@@ -337,6 +382,7 @@ public class ChiTietSanPhamService {
             } else {
                 list.add(create(req));
             }
+            chiTietSanPhamRepository.flush();
         }
         return list;
     }

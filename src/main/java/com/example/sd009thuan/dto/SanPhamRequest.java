@@ -38,4 +38,5 @@ public class SanPhamRequest {
     private Integer trangThai;
     private String nguoiThaoTac;
     private List<String> hinhAnhs;
+    private Boolean xacNhanGop;
 }

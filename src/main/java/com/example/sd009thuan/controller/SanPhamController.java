@@ -29,6 +29,14 @@ public class SanPhamController {
         return ResponseEntity.ok(Map.of("code", sanPhamService.nextCode()));
     }
 
+    @GetMapping("/check-duplicate")
+    public ResponseEntity<Map<String, Object>> checkDuplicate(
+            @RequestParam(required = false) String maSanPham,
+            @RequestParam(required = false) String tenSanPham
+    ) {
+        return ResponseEntity.ok(sanPhamService.checkDuplicate(maSanPham, tenSanPham));
+    }
+
     @GetMapping
     public ResponseEntity<PageResponse<SanPhamResponse>> getAll(
             @ModelAttribute SanPhamFilterRequest filter

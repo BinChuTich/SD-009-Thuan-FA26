@@ -2301,7 +2301,7 @@ const handleQuickAdd = (type) => {
 }
 
 // Xác nhận Lưu / Cập nhật sản phẩm
-const openSaveConfirm = () => {
+const openSaveConfirm = async () => {
   const ten = form.value.tenSanPham?.trim()
   if (!ten) {
     showToast('Vui lòng nhập tên sản phẩm!', 'error')
@@ -2381,6 +2381,36 @@ const openSaveConfirm = () => {
     }
   }
 
+  // Kiểm tra trùng mã hoặc trùng tên sản phẩm khi Thêm mới
+  if (!isEdit.value) {
+    try {
+      const checkRes = await api.get('/api/san-pham/check-duplicate', {
+        params: {
+          maSanPham: form.value.maSanPham?.trim() || undefined,
+          tenSanPham: form.value.tenSanPham?.trim()
+        }
+      })
+
+      if (checkRes.data?.conflict) {
+        showToast(checkRes.data.message, 'error')
+        return
+      }
+
+      if (checkRes.data?.exists) {
+        openConfirm({
+          title: 'Phát hiện sản phẩm đã tồn tại!',
+          type: 'warning',
+          confirmText: 'Xác nhận gộp',
+          message: `Sản phẩm "${checkRes.data.tenSanPham}" (Mã: "${checkRes.data.maSanPham}") đã tồn tại trong hệ thống (trùng khớp ${checkRes.data.matchedBy}).\n\nNếu bạn tiếp tục, hệ thống sẽ thực hiện:\n• Tăng số lượng: Cộng dồn số lượng biến thể nhập vào số lượng hiện có.\n• Cập nhật đơn giá: Cập nhật giá bán theo giá mới nhất vừa nhập.\n• Thêm mới các biến thể chưa có.\n\nBạn có chắc chắn muốn gộp vào sản phẩm này không?`,
+          onConfirm: () => submitForm(true)
+        })
+        return
+      }
+    } catch (checkErr) {
+      console.warn('Không thể kiểm tra trùng sản phẩm trước:', checkErr)
+    }
+  }
+
   openConfirm({
     title: isEdit.value ? 'Xác nhận cập nhật sản phẩm' : 'Xác nhận lưu sản phẩm',
     message: isEdit.value
@@ -2388,12 +2418,12 @@ const openSaveConfirm = () => {
       : `Bạn có muốn lưu sản phẩm "${ten}" cùng ${variantsList.value.filter(v => v.selected !== false).length} biến thể không?`,
     type: 'primary',
     confirmText: isEdit.value ? 'Lưu thay đổi' : 'Xác nhận lưu',
-    onConfirm: submitForm
+    onConfirm: () => submitForm(false)
   })
 }
 
 // Thực hiện gọi API lưu sản phẩm
-const submitForm = async () => {
+const submitForm = async (xacNhanGop = false) => {
   submitting.value = true
   try {
     const payload = {
@@ -2407,7 +2437,8 @@ const submitForm = async () => {
       idCoAo: form.value.idCoAo || null,
       idTayAo: form.value.idTayAo || null,
       idHoaTiet: form.value.idHoaTiet || null,
-      trangThai: isEdit.value ? (form.value.trangThai ?? 1) : 1
+      trangThai: isEdit.value ? (form.value.trangThai ?? 1) : 1,
+      xacNhanGop: xacNhanGop === true
     }
 
     if (isEdit.value) {
@@ -2475,7 +2506,11 @@ const submitForm = async () => {
 
     const res = await api.post('/api/san-pham', payload)
     const savedProduct = res.data
-    showToast('Thêm mới sản phẩm thành công!')
+    if (xacNhanGop) {
+      showToast('Gộp sản phẩm thành công! Đã cộng dồn số lượng và cập nhật giá mới nhất.', 'success')
+    } else {
+      showToast('Thêm mới sản phẩm thành công!', 'success')
+    }
 
     // Lưu danh sách biến thể với ảnh riêng biệt cho từng biến thể
     const activeVariants = variantsList.value.filter(v => v.selected !== false)
@@ -4372,6 +4407,7 @@ watch(() => route.params.id, async (newId) => {
   font-size: 0.95rem;
   color: #435158;
   line-height: 1.5;
+  white-space: pre-line;
 }
 
 .confirm-modal-footer {
