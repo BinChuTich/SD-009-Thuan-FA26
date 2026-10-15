@@ -693,35 +693,9 @@
                   {{ (variantCurrentPage - 1) * variantPageSize + idx + 1 }}
                 </td>
                 <td>
-                  <div class="product-cell-flex">
-                    <div class="product-thumb-box product-thumb-relative">
-                      <img
-                        :src="getProductImage(v)"
-                        :alt="v.spTen"
-                        class="product-thumb-img"
-                        @error="(e) => { e.target.src = defaultProductImages[0] }"
-                      />
-                      <!-- Góc trên phải ảnh: Giá trị giảm theo mã sản phẩm đang áp dụng mã giảm giá -->
-                      <span
-                        v-if="getActiveCampaignDiscountBadge(v)"
-                        class="thumb-corner-badge thumb-badge-top-right"
-                        :title="'Đang áp dụng giảm: ' + getActiveCampaignDiscountBadge(v)"
-                      >
-                        {{ getActiveCampaignDiscountBadge(v) }}
-                      </span>
-                      <!-- Góc dưới phải ảnh: Trừ phần trăm theo giá trị được nhập trong form -->
-                      <span
-                        v-if="currentFormDiscountBadge"
-                        class="thumb-corner-badge thumb-badge-bottom-right"
-                        :title="'Mức giảm mới nhập: ' + currentFormDiscountBadge"
-                      >
-                        {{ currentFormDiscountBadge }}
-                      </span>
-                    </div>
-                    <div class="product-cell-info">
-                      <div class="font-bold text-dark">{{ v.spTen }}</div>
-                      <div class="text-sub-code">{{ v.spMa }}</div>
-                    </div>
+                  <div class="product-cell-info">
+                    <div class="font-bold text-dark">{{ v.spTen }}</div>
+                    <div class="text-sub-code">{{ v.spMa }}</div>
                   </div>
                 </td>
                 <td>
