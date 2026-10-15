@@ -549,30 +549,60 @@
                     </td>
                     <td class="font-bold text-code">{{ p.ma }}</td>
                     <td class="font-medium text-name">
-                      <span>{{ p.ten }}</span>
-                      <span 
-                        v-if="isProductInActiveCampaign(p)" 
-                        class="badge-active-campaign"
-                        :title="'Đang áp dụng trong đợt [' + (getProductActiveCampaign(p)?.maDotGiamGia || '') + '] - Bấm để sao chép mã!'"
-                        @click.stop
-                      >
-                        <span>Đang áp dụng: </span>
-                        <strong class="badge-code-text" @click.stop="copyCampaignCode(getProductActiveCampaign(p)?.maDotGiamGia)">
-                          {{ getProductActiveCampaign(p)?.maDotGiamGia || 'Đợt khác' }}
-                        </strong>
-                        <button 
-                          v-if="getProductActiveCampaign(p)?.maDotGiamGia"
-                          type="button" 
-                          class="btn-badge-copy" 
-                          @click.stop="copyCampaignCode(getProductActiveCampaign(p)?.maDotGiamGia)"
-                          title="Sao chép mã đợt giảm giá này"
-                        >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                          </svg>
-                        </button>
-                      </span>
+                      <div class="product-cell-flex">
+                        <div class="product-thumb-box product-thumb-relative">
+                          <img
+                            :src="getProductImage(p)"
+                            :alt="p.ten"
+                            class="product-thumb-img"
+                            @error="(e) => { e.target.src = defaultProductImages[0] }"
+                          />
+                          <!-- Góc trên phải ảnh: Giá trị giảm theo mã sản phẩm đang áp dụng mã giảm giá -->
+                          <span
+                            v-if="getActiveCampaignDiscountBadge(p)"
+                            class="thumb-corner-badge thumb-badge-top-right"
+                            :title="'Đang áp dụng trong đợt khác giảm: ' + getActiveCampaignDiscountBadge(p)"
+                          >
+                            {{ getActiveCampaignDiscountBadge(p) }}
+                          </span>
+                          <!-- Góc dưới phải ảnh: Trừ phần trăm theo giá trị được nhập trong form (chỉ hiện khi sản phẩm được chọn) -->
+                          <span
+                            v-if="isProductSelected(p) && currentFormDiscountBadge"
+                            class="thumb-corner-badge thumb-badge-bottom-right"
+                            :title="'Mức giảm mới nhập: ' + currentFormDiscountBadge"
+                          >
+                            {{ currentFormDiscountBadge }}
+                          </span>
+                        </div>
+                        <div class="product-cell-info">
+                          <div class="product-name-row">
+                            <span class="product-title-text">{{ p.ten }}</span>
+                            <span 
+                              v-if="isProductInActiveCampaign(p)" 
+                              class="badge-active-campaign"
+                              :title="'Đang áp dụng trong đợt [' + (getProductActiveCampaign(p)?.maDotGiamGia || '') + '] - Bấm để sao chép mã!'"
+                              @click.stop
+                            >
+                              <span>Đang áp dụng: </span>
+                              <strong class="badge-code-text" @click.stop="copyCampaignCode(getProductActiveCampaign(p)?.maDotGiamGia)">
+                                {{ getProductActiveCampaign(p)?.maDotGiamGia || 'Đợt khác' }}
+                              </strong>
+                              <button 
+                                v-if="getProductActiveCampaign(p)?.maDotGiamGia"
+                                type="button" 
+                                class="btn-badge-copy" 
+                                @click.stop="copyCampaignCode(getProductActiveCampaign(p)?.maDotGiamGia)"
+                                title="Sao chép mã đợt giảm giá này"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                              </button>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </td>
                   <td class="text-sub font-medium">{{ p.thuongHieu || '—' }}</td>
                   <td class="text-sub font-medium">{{ p.chatLieu || '—' }}</td>
@@ -687,13 +717,29 @@
                 </td>
                 <td>
                   <div class="product-cell-flex">
-                    <div class="product-thumb-box">
+                    <div class="product-thumb-box product-thumb-relative">
                       <img
                         :src="getProductImage(v)"
                         :alt="v.spTen"
                         class="product-thumb-img"
                         @error="(e) => { e.target.src = defaultProductImages[0] }"
                       />
+                      <!-- Góc trên phải ảnh: Giá trị giảm theo mã sản phẩm đang áp dụng mã giảm giá -->
+                      <span
+                        v-if="getActiveCampaignDiscountBadge(v)"
+                        class="thumb-corner-badge thumb-badge-top-right"
+                        :title="'Đang áp dụng giảm: ' + getActiveCampaignDiscountBadge(v)"
+                      >
+                        {{ getActiveCampaignDiscountBadge(v) }}
+                      </span>
+                      <!-- Góc dưới phải ảnh: Trừ phần trăm theo giá trị được nhập trong form -->
+                      <span
+                        v-if="currentFormDiscountBadge"
+                        class="thumb-corner-badge thumb-badge-bottom-right"
+                        :title="'Mức giảm mới nhập: ' + currentFormDiscountBadge"
+                      >
+                        {{ currentFormDiscountBadge }}
+                      </span>
                     </div>
                     <div class="product-cell-info">
                       <div class="font-bold text-dark">{{ v.spTen }}</div>
@@ -1180,6 +1226,67 @@ const getProductActiveCampaign = (p) => {
 const isProductInActiveCampaign = (p) => {
   return getProductActiveCampaign(p) !== null
 }
+
+// Kiểm tra xem sản phẩm cha có đang được chọn áp dụng trong đợt này hay không
+const isProductSelected = (p) => {
+  if (!p) return false
+  return !!p.selected || selectedVariants.value.some(v => v.spId === p.id)
+}
+
+// Rút gọn số tiền hiển thị (ví dụ: 50.000 -> 50k, 1.500.000 -> 1.5tr)
+const formatShortMoney = (val) => {
+  if (!val) return '0'
+  const num = Number(val)
+  if (isNaN(num)) return String(val)
+  if (num >= 1000000) {
+    const tr = num / 1000000
+    return (tr % 1 === 0 ? tr : tr.toFixed(1)) + 'tr'
+  }
+  if (num >= 1000) {
+    const k = num / 1000
+    return (k % 1 === 0 ? k : k.toFixed(0)) + 'k'
+  }
+  return num.toLocaleString('vi-VN') + 'đ'
+}
+
+// Lấy giá trị giảm của đợt giảm giá đang áp dụng (hiển thị ở góc trên phải ảnh sản phẩm)
+const getActiveCampaignDiscountBadge = (pOrV) => {
+  if (!pOrV) return ''
+  const pId = pOrV.spId || pOrV.id
+  if (!pId) return ''
+  let camp = getProductActiveCampaign({ id: pId })
+  if (!camp) return ''
+  if (camp.phanTramGiam == null && campaigns.value && campaigns.value.length > 0) {
+    const fullCamp = campaigns.value.find(c => c.id === camp.id || (c.maDotGiamGia && c.maDotGiamGia === camp.maDotGiamGia))
+    if (fullCamp) camp = fullCamp
+  }
+  if (camp.loaiGiamGia === 2 && camp.giaTriGiam) {
+    return `-${formatShortMoney(camp.giaTriGiam)}`
+  }
+  if (camp.phanTramGiam != null && Number(camp.phanTramGiam) > 0) {
+    const num = Number(camp.phanTramGiam)
+    return `-${num % 1 === 0 ? num : num.toFixed(0)}%`
+  }
+  if (camp.giaTriGiam != null && Number(camp.giaTriGiam) > 0) {
+    return `-${formatShortMoney(camp.giaTriGiam)}`
+  }
+  return ''
+}
+
+// Mức trừ phần trăm theo giá trị được nhập trong form hiện tại (hiển thị ở góc dưới phải ảnh sản phẩm)
+const currentFormDiscountBadge = computed(() => {
+  const val = Number(formData.value.phanTramGiam)
+  if (val && val > 0) {
+    return `-${val % 1 === 0 ? val : val.toFixed(0)}%`
+  }
+  if (formData.value.loaiGiamGia === 2) {
+    const cashVal = Number(formData.value.giaTriGiam)
+    if (cashVal && cashVal > 0) {
+      return `-${formatShortMoney(cashVal)}`
+    }
+  }
+  return ''
+})
 
 // Tải danh sách sản phẩm cha đang trong thời gian đợt giảm giá (kèm đối tượng đợt giảm giá)
 const loadActiveCampaignProducts = async (excludeDotId = null) => {
@@ -4198,9 +4305,19 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.75rem;
 }
+.product-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.product-title-text {
+  font-weight: 500;
+  color: #1f2937;
+}
 .product-thumb-box {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
   background: #f9fafb;
@@ -4209,12 +4326,42 @@ onUnmounted(() => {
   justify-content: center;
   flex-shrink: 0;
   overflow: hidden;
+  position: relative;
+}
+.product-thumb-relative {
+  position: relative !important;
 }
 .product-thumb-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+}
+.thumb-corner-badge {
+  position: absolute;
+  right: 1.5px;
+  font-size: 8.5px;
+  font-weight: 800;
+  line-height: 1.1;
+  padding: 1.5px 3.5px;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  z-index: 2;
+  white-space: nowrap;
+  letter-spacing: -0.2px;
+}
+.thumb-badge-top-right {
+  top: 1.5px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #ffffff;
+  border: 0.5px solid rgba(255, 255, 255, 0.6);
+}
+.thumb-badge-bottom-right {
+  bottom: 1.5px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  border: 0.5px solid rgba(255, 255, 255, 0.6);
 }
 .product-cell-info {
   display: flex;
