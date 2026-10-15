@@ -555,7 +555,7 @@
                             :src="getProductImage(p)"
                             :alt="p.ten"
                             class="product-thumb-img"
-                            @error="(e) => { e.target.src = defaultProductImages[0] }"
+                            @error="onImgError"
                           />
                           <!-- Góc trên phải ảnh: Giá trị giảm theo mã sản phẩm đang áp dụng mã giảm giá -->
                           <span
@@ -722,7 +722,7 @@
                         :src="getProductImage(v)"
                         :alt="v.spTen"
                         class="product-thumb-img"
-                        @error="(e) => { e.target.src = defaultProductImages[0] }"
+                        @error="onImgError"
                       />
                       <!-- Góc trên phải ảnh: Giá trị giảm theo mã sản phẩm đang áp dụng mã giảm giá -->
                       <span
@@ -1069,126 +1069,47 @@ const selectedFilterColor = ref('')
 const selectedFilterSize = ref('')
 const selectedFilterKeyword = ref('')
 
-// Ảnh sản phẩm mặc định chuẩn áo phông
-const defaultProductImages = [
-  'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=300&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=300&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=300&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=300&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1622445262464-84b14e3295b6?w=300&auto=format&fit=crop&q=80'
-]
+// Ảnh placeholder chuẩn khi sản phẩm chưa có ảnh (đồng bộ với module Sản phẩm)
+const defaultProductImage = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'%3E%3C/circle%3E%3Cpolyline points='21 15 16 10 5 21'%3E%3C/polyline%3E%3C/svg%3E"
 
-const getFallbackProductImage = (id, code) => {
-  let num = typeof id === 'number' ? id : 0
-  if (!num && code) {
-    const digits = String(code).replace(/\D/g, '')
-    num = digits ? parseInt(digits.slice(-4)) : 0
+const resolveImageUrl = (url) => {
+  if (!url || typeof url !== 'string' || url.trim() === '') {
+    return defaultProductImage
   }
-  const idx = Math.abs(num) % defaultProductImages.length
-  return defaultProductImages[idx]
+  let cleanUrl = url.trim()
+  if (cleanUrl.includes('|')) {
+    cleanUrl = cleanUrl.split('|')[1].trim()
+  }
+  if (!cleanUrl) {
+    return defaultProductImage
+  }
+  if (cleanUrl.startsWith('data:') || cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+    return cleanUrl
+  }
+  return `http://localhost:8080${cleanUrl.startsWith('/') ? '' : '/'}${cleanUrl}`
 }
 
-const resolveImageUrl = (url, fallbackId, fallbackCode) => {
-  if (!url || typeof url !== 'string' || url.trim() === '') {
-    return getFallbackProductImage(fallbackId, fallbackCode)
-  }
-  const trimmed = url.trim()
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image')) {
-    return trimmed
-  }
-  if (trimmed.startsWith('/')) {
-    return `http://localhost:8080${trimmed}`
-  }
-  return `http://localhost:8080/${trimmed}`
+const onImgError = (e) => {
+  e.target.src = defaultProductImage
 }
 
 const getProductImage = (item) => {
-  if (!item) return defaultProductImages[0]
-  const rawImg = item.spHinhAnh || item.hinhAnh || item.anhDaiDien || item.image
+  if (!item) return defaultProductImage
+  const rawImg = item.hinhAnh || item.spHinhAnh || item.anhDaiDien || item.image
   if (rawImg && typeof rawImg === 'string' && rawImg.trim() !== '') {
-    return resolveImageUrl(rawImg, item.spId || item.id, item.spMa || item.ma)
+    return resolveImageUrl(rawImg)
   }
-  const found = productSourceList.value.find(p => p.id === (item.spId || item.id) || (p.ma && p.ma === (item.spMa || item.ma)))
+  const pId = item.spId || item.id
+  const pCode = item.spMa || item.ma
+  const found = productSourceList.value.find(p => p.id === pId || (p.ma && p.ma === pCode))
   if (found && (found.hinhAnh || found.anhDaiDien || found.image)) {
-    return resolveImageUrl(found.hinhAnh || found.anhDaiDien || found.image, item.spId || item.id, item.spMa || item.ma)
+    return resolveImageUrl(found.hinhAnh || found.anhDaiDien || found.image)
   }
-  return getFallbackProductImage(item.spId || item.id, item.spMa || item.ma)
+  return defaultProductImage
 }
 
-// Danh sách sản phẩm nguồn chuẩn theo CSDL FFTShirt (Áo thun)
-const productSourceList = ref([
-  {
-    id: 1,
-    ma: 'SP001',
-    ten: 'Áo Phông Nam Basic Cotton Cổ Tròn',
-    hinhAnh: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80',
-    thuongHieu: 'FF Shirt',
-    chatLieu: 'Cotton 100%',
-    gia: 199000,
-    selected: false,
-    variants: [
-      { id: 1, maBienThe: 'CTSP01', mauSac: 'Đen', kichCo: 'S', gia: 199000, soLuong: 50 },
-      { id: 2, maBienThe: 'CTSP02', mauSac: 'Đen', kichCo: 'M', gia: 199000, soLuong: 100 },
-      { id: 3, maBienThe: 'CTSP03', mauSac: 'Trắng', kichCo: 'M', gia: 199000, soLuong: 80 }
-    ]
-  },
-  {
-    id: 2,
-    ma: 'SP002',
-    ten: 'Áo Polo Nam Cổ Bẻ Cao Cấp',
-    hinhAnh: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=300&auto=format&fit=crop&q=80',
-    thuongHieu: 'FF Shirt',
-    chatLieu: 'CVC Cá Sấu',
-    gia: 299000,
-    selected: false,
-    variants: [
-      { id: 4, maBienThe: 'CTSP04', mauSac: 'Đen', kichCo: 'M', gia: 299000, soLuong: 60 },
-      { id: 5, maBienThe: 'CTSP05', mauSac: 'Xanh navy', kichCo: 'L', gia: 299000, soLuong: 40 }
-    ]
-  },
-  {
-    id: 3,
-    ma: 'SP003',
-    ten: 'Áo Phông Unisex In Hình Graphic',
-    hinhAnh: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=300&auto=format&fit=crop&q=80',
-    thuongHieu: 'Local Brand',
-    chatLieu: 'Cotton 100%',
-    gia: 250000,
-    selected: false,
-    variants: [
-      { id: 6, maBienThe: 'CTSP06', mauSac: 'Trắng', kichCo: 'L', gia: 250000, soLuong: 70 }
-    ]
-  },
-  {
-    id: 4,
-    ma: 'SP004',
-    ten: 'Áo Phông Cổ Tim Cotton Compact',
-    hinhAnh: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=300&auto=format&fit=crop&q=80',
-    thuongHieu: 'FF Shirt',
-    chatLieu: 'Cotton Compact',
-    gia: 220000,
-    selected: false,
-    variants: [
-      { id: 7, maBienThe: 'CTSP07', mauSac: 'Xám', kichCo: 'XL', gia: 220000, soLuong: 80 },
-      { id: 8, maBienThe: 'CTSP08', mauSac: 'Đen', kichCo: 'XXL', gia: 220000, soLuong: 50 }
-    ]
-  },
-  {
-    id: 5,
-    ma: 'SP005',
-    ten: 'Áo Polo Thể Thao Phối Kẻ Sọc',
-    hinhAnh: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=300&auto=format&fit=crop&q=80',
-    thuongHieu: 'Polo Pro',
-    chatLieu: 'Coolmax Co Giãn',
-    gia: 320000,
-    selected: false,
-    variants: [
-      { id: 9, maBienThe: 'CTSP09', mauSac: 'Đỏ', kichCo: 'L', gia: 320000, soLuong: 60 },
-      { id: 10, maBienThe: 'CTSP10', mauSac: 'Trắng', kichCo: 'XL', gia: 320000, soLuong: 45 }
-    ]
-  }
-])
+// Danh sách sản phẩm nguồn được nạp trực tiếp từ cơ sở dữ liệu và màn quản lý sản phẩm
+const productSourceList = ref([])
 
 // Danh sách biến thể đã chọn áp dụng
 const selectedVariants = ref([])
@@ -1374,19 +1295,11 @@ const copyCampaignCode = async (code) => {
   }
 }
 
-// Lọc và sắp xếp sản phẩm ở bảng chọn trên:
-// Sản phẩm chưa áp dụng đẩy lên trên, sản phẩm đã áp dụng đợt giảm giá khác đẩy xuống dưới
+// Lọc danh sách sản phẩm ở bảng chọn trên (giữ nguyên thứ tự thông thường, không xếp riêng ra nữa)
 const filteredAvailableProducts = computed(() => {
   const kw = productSearchText.value.trim().toLowerCase()
-  const list = productSourceList.value.filter(p => {
+  return productSourceList.value.filter(p => {
     return !kw || (p.ma && p.ma.toLowerCase().includes(kw)) || (p.ten && p.ten.toLowerCase().includes(kw))
-  })
-
-  // Sắp xếp: chưa áp dụng (0) lên TRÊN, đã áp dụng (1) xuống DƯỚI
-  return [...list].sort((a, b) => {
-    const aInCampaign = isProductInActiveCampaign(a) ? 1 : 0
-    const bInCampaign = isProductInActiveCampaign(b) ? 1 : 0
-    return aInCampaign - bInCampaign
   })
 })
 
@@ -1431,7 +1344,8 @@ const toggleProductSelection = (p) => {
           spId: p.id,
           spMa: p.ma,
           spTen: p.ten,
-          spHinhAnh: p.hinhAnh || p.image || p.anhDaiDien || v.hinhAnh || '',
+          spHinhAnh: v.hinhAnh || p.hinhAnh || p.image || p.anhDaiDien || '',
+          hinhAnh: v.hinhAnh || p.hinhAnh || p.image || p.anhDaiDien || '',
           maBienThe: v.maBienThe,
           mauSac: v.mauSac,
           kichCo: v.kichCo,
@@ -1463,7 +1377,8 @@ const addProductVariants = (p) => {
         spId: p.id,
         spMa: p.ma,
         spTen: p.ten,
-        spHinhAnh: p.hinhAnh || p.image || p.anhDaiDien || v.hinhAnh || '',
+        spHinhAnh: v.hinhAnh || p.hinhAnh || p.image || p.anhDaiDien || '',
+        hinhAnh: v.hinhAnh || p.hinhAnh || p.image || p.anhDaiDien || '',
         maBienThe: v.maBienThe,
         mauSac: v.mauSac,
         kichCo: v.kichCo,
@@ -1507,7 +1422,8 @@ const toggleSelectAllSourceProducts = () => {
             spId: p.id,
             spMa: p.ma,
             spTen: p.ten,
-            spHinhAnh: p.hinhAnh || p.image || p.anhDaiDien || v.hinhAnh || '',
+            spHinhAnh: v.hinhAnh || p.hinhAnh || p.image || p.anhDaiDien || '',
+            hinhAnh: v.hinhAnh || p.hinhAnh || p.image || p.anhDaiDien || '',
             maBienThe: v.maBienThe,
             mauSac: v.mauSac,
             kichCo: v.kichCo,
@@ -2148,7 +2064,9 @@ const exportToExcel = async () => {
 const openCreateView = async () => {
   errors.value = {}
   isEditing.value = false
+  // Luôn nạp dữ liệu mới nhất từ CSDL và màn quản lý sản phẩm
   try {
+    await fetchRealProductsFromDB()
     await loadActiveCampaignProducts(null)
   } catch (err) {
     console.warn('Lỗi tải sản phẩm đang áp dụng:', err)
@@ -2184,7 +2102,9 @@ const openCreateView = async () => {
 const openEditView = async (item) => {
   errors.value = {}
   isEditing.value = true
+  // Luôn nạp dữ liệu mới nhất từ CSDL và màn quản lý sản phẩm
   try {
+    await fetchRealProductsFromDB()
     await loadActiveCampaignProducts(item.id)
   } catch (err) {
     console.warn('Lỗi tải sản phẩm đang áp dụng:', err)
@@ -2233,12 +2153,15 @@ const openEditView = async (item) => {
         const ctsp = ct.idChiTietSanPham || {}
         const sp = ctsp.idSanPham || {}
         const matchedP = productSourceList.value.find(p => p.id === (sp.id || 1) || (p.ma && p.ma === sp.maSanPham))
+        const matchedV = matchedP?.variants?.find(v => v.id === ctsp.id || v.maBienThe === ctsp.maChiTietSanPham)
+        const variantImg = matchedV?.hinhAnh || matchedP?.hinhAnh || sp.anhDaiDien || ''
         return {
           id: ctsp.id || ct.id,
-          spId: sp.id || 1,
-          spMa: sp.maSanPham || ('SP' + (sp.id || '')),
-          spTen: sp.tenSanPham || 'Sản phẩm',
-          spHinhAnh: matchedP?.hinhAnh || sp.anhDaiDien || (sp.hinhAnhs && sp.hinhAnhs[0]) || ctsp.anhDaiDien || '',
+          spId: sp.id || matchedP?.id || 1,
+          spMa: sp.maSanPham || matchedP?.ma || ('SP' + (sp.id || '')),
+          spTen: sp.tenSanPham || matchedP?.ten || 'Sản phẩm',
+          spHinhAnh: variantImg,
+          hinhAnh: variantImg,
           maBienThe: ctsp.maChiTietSanPham || ('BT-' + ct.id),
           mauSac: ctsp.idMauSac?.tenMauSac || 'Xám',
           kichCo: ctsp.idKichCo?.tenKichCo || '37',
@@ -2262,7 +2185,8 @@ const openEditView = async (item) => {
           spId: p1.id,
           spMa: p1.ma,
           spTen: p1.ten,
-          spHinhAnh: p1.hinhAnh || p1.image || '',
+          spHinhAnh: v.hinhAnh || p1.hinhAnh || '',
+          hinhAnh: v.hinhAnh || p1.hinhAnh || '',
           maBienThe: v.maBienThe,
           mauSac: v.mauSac,
           kichCo: v.kichCo,
@@ -2462,27 +2386,46 @@ const doSubmitAPI = async () => {
   }
 }
 
-// Tải danh sách sản phẩm và biến thể thực tế từ CSDL backend (nếu có API)
+// Tải danh sách sản phẩm và biến thể thực tế từ CSDL backend (chỉ lấy chuẩn từ DB và màn sản phẩm)
 const fetchRealProductsFromDB = async () => {
   try {
-    const res = await api.get('/api/san-pham', { params: { page: 0, size: 50 } })
+    const res = await api.get('/api/san-pham', { params: { page: 0, size: 1000 } })
     const items = res.data?.content || res.data?.data || (Array.isArray(res.data) ? res.data : [])
     if (items && items.length > 0) {
       const prods = await Promise.all(items.map(async (sp) => {
         let variants = []
-        const spImg = sp.anhDaiDien || (sp.hinhAnhs && sp.hinhAnhs[0]) || sp.image || sp.hinhAnh || ''
+        let spImg = sp.anhDaiDien || (sp.hinhAnhs && sp.hinhAnhs[0]) || sp.image || sp.hinhAnh || ''
+        if (spImg && typeof spImg === 'string' && spImg.includes('|')) {
+          spImg = spImg.split('|')[1].trim()
+        }
         try {
           const varRes = await api.get(`/api/chi-tiet-san-pham/by-san-pham/${sp.id}`)
           if (varRes.data && varRes.data.length > 0) {
-            variants = varRes.data.map(v => ({
-              id: v.id,
-              maBienThe: v.maChiTietSanPham || ('CTSP' + v.id),
-              mauSac: v.tenMauSac || v.idMauSac?.tenMauSac || 'Đen',
-              kichCo: v.tenKichCo || v.idKichCo?.tenKichCo || 'M',
-              gia: v.giaBan || 199000,
-              soLuong: v.soLuong || 50,
-              hinhAnh: v.anhDaiDien || spImg || ''
-            }))
+            if (!spImg) {
+              const vWithImg = varRes.data.find(v => v.anhDaiDien)
+              if (vWithImg && vWithImg.anhDaiDien) {
+                spImg = vWithImg.anhDaiDien
+                if (spImg.includes('|')) spImg = spImg.split('|')[1].trim()
+              }
+            }
+            variants = varRes.data.map(v => {
+              let vImg = v.anhDaiDien || spImg || ''
+              if (vImg && typeof vImg === 'string' && vImg.includes('|')) {
+                vImg = vImg.split('|')[1].trim()
+              }
+              return {
+                id: v.id,
+                spId: sp.id,
+                spMa: sp.maSanPham || ('SP' + sp.id),
+                spTen: sp.tenSanPham || 'Sản phẩm',
+                maBienThe: v.maChiTietSanPham || ('CTSP' + v.id),
+                mauSac: v.tenMauSac || v.idMauSac?.tenMauSac || 'Đen',
+                kichCo: v.tenKichCo || v.idKichCo?.tenKichCo || 'M',
+                gia: v.giaBan || 199000,
+                soLuong: v.soLuong || 0,
+                hinhAnh: vImg
+              }
+            })
           }
         } catch (e) {
         }
@@ -2493,10 +2436,10 @@ const fetchRealProductsFromDB = async () => {
           hinhAnh: spImg,
           thuongHieu: sp.tenThuongHieu || sp.idThuongHieu?.tenThuongHieu || 'FF Shirt',
           chatLieu: sp.tenChatLieu || sp.idChatLieu?.tenChatLieu || 'Cotton 100%',
-          gia: sp.giaBan || (variants[0]?.gia || 199000),
+          gia: sp.minGia || sp.giaBan || (variants[0]?.gia || 199000),
           selected: false,
           variants: variants.length > 0 ? variants : [
-            { id: sp.id * 10 + 1, maBienThe: (sp.maSanPham || 'SP') + '-M', mauSac: 'Đen', kichCo: 'M', gia: 199000, soLuong: 50, hinhAnh: spImg }
+            { id: sp.id * 10 + 1, spId: sp.id, spMa: sp.maSanPham, spTen: sp.tenSanPham, maBienThe: (sp.maSanPham || 'SP') + '-M', mauSac: 'Đen', kichCo: 'M', gia: sp.minGia || sp.giaBan || 199000, soLuong: sp.tongSoLuong || 0, hinhAnh: spImg }
           ]
         }
       }))
