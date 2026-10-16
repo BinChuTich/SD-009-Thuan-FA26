@@ -2442,12 +2442,24 @@ const submitForm = async (xacNhanGop = false) => {
     }
 
     if (isEdit.value) {
-      // Đính kèm danh sách ảnh sản phẩm khi cập nhật
-      const imageList = productImages.value.map(img => img.url)
-      payload.hinhAnhs = imageList
+      // Đính kèm danh sách ảnh sản phẩm khi cập nhật (gồm cả ảnh chung và ảnh theo màu)
+      const allImages = []
+      if (productImages.value.length > 0) {
+        allImages.push(...productImages.value.map(img => img.url))
+      }
+      const activeColorIds = new Set(activeColorsForImages.value.map(c => String(c.id)))
+      Object.entries(colorImages.value).forEach(([cId, img]) => {
+        if (activeColorIds.has(String(cId)) && !!img) {
+          allImages.push(`${cId}|${img}`)
+        }
+      })
+      payload.hinhAnhs = allImages
       if (productImages.value.length > 0) {
         const mainImg = productImages.value.find(img => img.isMain) || productImages.value[0]
         payload.anhDaiDien = mainImg.url
+      } else if (allImages.length > 0) {
+        const firstImg = allImages[0].includes('|') ? allImages[0].split('|')[1] : allImages[0]
+        payload.anhDaiDien = firstImg
       }
 
       await api.put(`/api/san-pham/${productId.value}`, payload)

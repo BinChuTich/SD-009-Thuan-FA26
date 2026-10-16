@@ -739,12 +739,20 @@ public class SanPhamService {
 
         if (activeDiscounts != null && !activeDiscounts.isEmpty()) {
             coGiamGia = true;
-            ChiTietDotGiamGia firstDgg = activeDiscounts.get(0);
-            if (firstDgg.getIdDotGiamGia() != null) {
-                tenDotGiamGia = firstDgg.getIdDotGiamGia().getTenDotGiamGia();
-                phanTramGiam = firstDgg.getPhanTramGiamBienThe() != null 
-                        ? firstDgg.getPhanTramGiamBienThe() 
-                        : firstDgg.getIdDotGiamGia().getPhanTramGiam();
+            ChiTietDotGiamGia bestDgg = activeDiscounts.stream()
+                .max(java.util.Comparator.comparing(c -> {
+                    BigDecimal pt = c.getPhanTramGiamBienThe() != null 
+                            ? c.getPhanTramGiamBienThe() 
+                            : (c.getIdDotGiamGia() != null ? c.getIdDotGiamGia().getPhanTramGiam() : BigDecimal.ZERO);
+                    return pt != null ? pt : BigDecimal.ZERO;
+                }))
+                .orElse(activeDiscounts.get(0));
+
+            if (bestDgg.getIdDotGiamGia() != null) {
+                tenDotGiamGia = bestDgg.getIdDotGiamGia().getTenDotGiamGia();
+                phanTramGiam = bestDgg.getPhanTramGiamBienThe() != null 
+                        ? bestDgg.getPhanTramGiamBienThe() 
+                        : bestDgg.getIdDotGiamGia().getPhanTramGiam();
             }
 
             java.util.Map<Long, BigDecimal> discountMap = new java.util.HashMap<>();
@@ -753,7 +761,7 @@ public class SanPhamService {
                     BigDecimal pt = c.getPhanTramGiamBienThe() != null 
                             ? c.getPhanTramGiamBienThe() 
                             : (c.getIdDotGiamGia() != null ? c.getIdDotGiamGia().getPhanTramGiam() : BigDecimal.ZERO);
-                    discountMap.put(c.getIdChiTietSanPham().getId(), pt);
+                    discountMap.merge(c.getIdChiTietSanPham().getId(), pt, BigDecimal::max);
                 }
             }
 
@@ -762,7 +770,7 @@ public class SanPhamService {
                     if (v.getGiaBan() == null) continue;
                     BigDecimal pt = discountMap.get(v.getId());
                     if (pt == null) {
-                        pt = phanTramGiam != null ? phanTramGiam : BigDecimal.ZERO;
+                        pt = BigDecimal.ZERO;
                     }
                     BigDecimal priceAfter = v.getGiaBan();
                     if (pt != null && pt.compareTo(BigDecimal.ZERO) > 0) {

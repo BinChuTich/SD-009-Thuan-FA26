@@ -424,12 +424,9 @@ public class ChiTietSanPhamService {
             }
         }
 
-        // Kiểm tra giảm giá liên kết (theo biến thể hoặc theo sản phẩm cha)
+        // Kiểm tra giảm giá liên kết (chỉ theo chính biến thể này)
         Instant now = Instant.now();
         List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsByVariantId(ct.getId(), now);
-        if ((activeDiscounts == null || activeDiscounts.isEmpty()) && ct.getIdSanPham() != null && ct.getIdSanPham().getId() != null) {
-            activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsBySanPhamId(ct.getIdSanPham().getId(), now);
-        }
         Boolean coGiamGia = false;
         BigDecimal giaSauGiam = null;
         BigDecimal phanTramGiam = null;
@@ -437,12 +434,22 @@ public class ChiTietSanPhamService {
 
         if (activeDiscounts != null && !activeDiscounts.isEmpty()) {
             coGiamGia = true;
-            ChiTietDotGiamGia dgg = activeDiscounts.get(0);
-            if (dgg.getIdDotGiamGia() != null) {
-                tenDotGiamGia = dgg.getIdDotGiamGia().getTenDotGiamGia();
-                phanTramGiam = dgg.getPhanTramGiamBienThe() != null 
-                        ? dgg.getPhanTramGiamBienThe() 
-                        : dgg.getIdDotGiamGia().getPhanTramGiam();
+            // Thuật toán: Khi có nhiều đợt giảm giá chạy song song (chồng chéo thời gian),
+            // tự động chọn đợt giảm giá có % lớn nhất (Max) để tối ưu quyền lợi cho khách hàng
+            ChiTietDotGiamGia bestDgg = activeDiscounts.stream()
+                .max(java.util.Comparator.comparing(c -> {
+                    BigDecimal pt = c.getPhanTramGiamBienThe() != null 
+                            ? c.getPhanTramGiamBienThe() 
+                            : (c.getIdDotGiamGia() != null ? c.getIdDotGiamGia().getPhanTramGiam() : BigDecimal.ZERO);
+                    return pt != null ? pt : BigDecimal.ZERO;
+                }))
+                .orElse(activeDiscounts.get(0));
+
+            if (bestDgg.getIdDotGiamGia() != null) {
+                tenDotGiamGia = bestDgg.getIdDotGiamGia().getTenDotGiamGia();
+                phanTramGiam = bestDgg.getPhanTramGiamBienThe() != null 
+                        ? bestDgg.getPhanTramGiamBienThe() 
+                        : bestDgg.getIdDotGiamGia().getPhanTramGiam();
             }
             if (ct.getGiaBan() != null && phanTramGiam != null && phanTramGiam.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal factor = BigDecimal.valueOf(100).subtract(phanTramGiam).max(BigDecimal.ZERO);
