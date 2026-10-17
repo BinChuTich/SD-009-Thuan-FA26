@@ -183,32 +183,107 @@ public class SanPhamService {
         return candidate;
     }
 
+    private boolean isSameAttributes(
+            SanPham sp,
+            Long idDanhMuc,
+            Long idThuongHieu,
+            Long idChatLieu,
+            Long idCoAo,
+            Long idTayAo,
+            Long idXuatXu,
+            Long idHoaTiet
+    ) {
+        Long spDanhMuc = sp.getIdDanhMuc() != null ? sp.getIdDanhMuc().getId() : null;
+        Long spThuongHieu = sp.getIdThuongHieu() != null ? sp.getIdThuongHieu().getId() : null;
+        Long spChatLieu = sp.getIdChatLieu() != null ? sp.getIdChatLieu().getId() : null;
+        Long spCoAo = sp.getIdCoAo() != null ? sp.getIdCoAo().getId() : null;
+        Long spTayAo = sp.getIdTayAo() != null ? sp.getIdTayAo().getId() : null;
+        Long spXuatXu = sp.getIdXuatXu() != null ? sp.getIdXuatXu().getId() : null;
+        Long spHoaTiet = sp.getIdHoaTiet() != null ? sp.getIdHoaTiet().getId() : null;
+
+        return java.util.Objects.equals(spDanhMuc, idDanhMuc)
+                && java.util.Objects.equals(spThuongHieu, idThuongHieu)
+                && java.util.Objects.equals(spChatLieu, idChatLieu)
+                && java.util.Objects.equals(spCoAo, idCoAo)
+                && java.util.Objects.equals(spTayAo, idTayAo)
+                && java.util.Objects.equals(spXuatXu, idXuatXu)
+                && java.util.Objects.equals(spHoaTiet, idHoaTiet);
+    }
+
+    private Optional<SanPham> findIdenticalProduct(
+            String tenSanPham,
+            Long idDanhMuc,
+            Long idThuongHieu,
+            Long idChatLieu,
+            Long idCoAo,
+            Long idTayAo,
+            Long idXuatXu,
+            Long idHoaTiet
+    ) {
+        if (tenSanPham == null || tenSanPham.trim().isEmpty()) {
+            return Optional.empty();
+        }
+        List<SanPham> sameNameProducts = sanPhamRepository.findAllByTenSanPhamIgnoreCase(tenSanPham.trim());
+        for (SanPham sp : sameNameProducts) {
+            if (isSameAttributes(sp, idDanhMuc, idThuongHieu, idChatLieu, idCoAo, idTayAo, idXuatXu, idHoaTiet)) {
+                return Optional.of(sp);
+            }
+        }
+        return Optional.empty();
+    }
+
     public java.util.Map<String, Object> checkDuplicate(String maSanPham, String tenSanPham) {
+        return checkDuplicate(maSanPham, tenSanPham, null, null, null, null, null, null, null);
+    }
+
+    public java.util.Map<String, Object> checkDuplicate(
+            String maSanPham,
+            String tenSanPham,
+            Long idDanhMuc,
+            Long idThuongHieu,
+            Long idChatLieu,
+            Long idCoAo,
+            Long idTayAo,
+            Long idXuatXu,
+            Long idHoaTiet
+    ) {
         String trimmedMa = maSanPham != null ? maSanPham.trim() : "";
         String trimmedTen = tenSanPham != null ? tenSanPham.trim() : "";
 
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+
+        // Kiểm tra theo mã sản phẩm nếu người dùng có nhập mã
         Optional<SanPham> existingByCode = !trimmedMa.isEmpty()
                 ? sanPhamRepository.findByMaSanPhamIgnoreCase(trimmedMa)
                 : Optional.empty();
 
-        Optional<SanPham> existingByName = !trimmedTen.isEmpty()
-                ? sanPhamRepository.findByTenSanPhamIgnoreCase(trimmedTen)
+        // Tìm sản phẩm trùng CẢ TÊN VÀ TẤT CẢ THUỘC TÍNH
+        Optional<SanPham> existingIdentical = !trimmedTen.isEmpty()
+                ? findIdenticalProduct(trimmedTen, idDanhMuc, idThuongHieu, idChatLieu, idCoAo, idTayAo, idXuatXu, idHoaTiet)
                 : Optional.empty();
 
-        java.util.Map<String, Object> response = new java.util.HashMap<>();
-
-        // Trường hợp xung đột: Mã SP thuộc về SP này, nhưng Tên SP lại thuộc về SP khác
-        if (existingByCode.isPresent() && existingByName.isPresent()
-                && !existingByCode.get().getId().equals(existingByName.get().getId())) {
+        // Xung đột mã: Mã thuộc về SP khác nhưng bộ tên + thuộc tính lại trùng SP khác
+        if (existingByCode.isPresent() && existingIdentical.isPresent()
+                && !existingByCode.get().getId().equals(existingIdentical.get().getId())) {
             response.put("conflict", true);
             response.put("exists", true);
             response.put("message", "Mã sản phẩm '" + trimmedMa + "' thuộc về sản phẩm '"
-                    + existingByCode.get().getTenSanPham() + "', nhưng tên sản phẩm '" + trimmedTen
-                    + "' lại thuộc về sản phẩm '" + existingByName.get().getMaSanPham() + "'. Vui lòng kiểm tra lại mã hoặc tên!");
+                    + existingByCode.get().getTenSanPham() + "', nhưng bộ thông tin (tên + thuộc tính) lại trùng với sản phẩm '"
+                    + existingIdentical.get().getMaSanPham() + "'. Vui lòng kiểm tra lại mã hoặc để trống mã để hệ thống tự sinh!");
             return response;
         }
 
-        Optional<SanPham> existingSpOpt = existingByCode.isPresent() ? existingByCode : existingByName;
+        // Mã đã tồn tại ở SP khác nhưng thuộc tính không trùng hoàn toàn
+        if (existingByCode.isPresent() && existingIdentical.isEmpty()) {
+            response.put("conflict", true);
+            response.put("exists", true);
+            response.put("message", "Mã sản phẩm '" + trimmedMa + "' đã tồn tại trong hệ thống (thuộc sản phẩm '"
+                    + existingByCode.get().getTenSanPham() + "'). Vui lòng nhập mã khác hoặc để trống mã để hệ thống tự sinh!");
+            return response;
+        }
+
+        // Trùng cả tên và tất cả thuộc tính
+        Optional<SanPham> existingSpOpt = existingIdentical.isPresent() ? existingIdentical : (existingByCode.isPresent() ? existingByCode : Optional.empty());
 
         if (existingSpOpt.isPresent()) {
             SanPham sp = existingSpOpt.get();
@@ -217,22 +292,14 @@ public class SanPhamService {
             response.put("id", sp.getId());
             response.put("maSanPham", sp.getMaSanPham());
             response.put("tenSanPham", sp.getTenSanPham());
-
-            String matchedBy;
-            if (existingByCode.isPresent() && existingByName.isPresent()) {
-                matchedBy = "cả mã và tên sản phẩm";
-            } else if (existingByCode.isPresent()) {
-                matchedBy = "mã sản phẩm";
-            } else {
-                matchedBy = "tên sản phẩm";
-            }
-            response.put("matchedBy", matchedBy);
+            response.put("matchedBy", "cả tên và toàn bộ các thuộc tính");
 
             List<ChiTietSanPham> existingVariants = chiTietSanPhamRepository.findByIdSanPham_Id(sp.getId());
             response.put("existingVariantCount", existingVariants != null ? existingVariants.size() : 0);
             return response;
         }
 
+        // Có ít nhất 1 thuộc tính khác (hoặc tên khác) -> Thêm mới hoàn toàn
         response.put("exists", false);
         response.put("conflict", false);
         return response;
@@ -247,58 +314,48 @@ public class SanPhamService {
 
         String trimmedCode = req.getMaSanPham() != null ? req.getMaSanPham().trim() : "";
 
-        // Tìm sản phẩm trùng mã hoặc trùng tên
+        // Kiểm tra xem có sản phẩm nào trùng CẢ TÊN VÀ TẤT CẢ THUỘC TÍNH không
+        Optional<SanPham> existingIdentical = findIdenticalProduct(
+                trimmedName,
+                req.getIdDanhMuc(),
+                req.getIdThuongHieu(),
+                req.getIdChatLieu(),
+                req.getIdCoAo(),
+                req.getIdTayAo(),
+                req.getIdXuatXu(),
+                req.getIdHoaTiet()
+        );
+
         Optional<SanPham> existingByCode = !trimmedCode.isEmpty()
                 ? sanPhamRepository.findByMaSanPhamIgnoreCase(trimmedCode)
                 : Optional.empty();
 
-        Optional<SanPham> existingByName = sanPhamRepository.findByTenSanPhamIgnoreCase(trimmedName);
-
-        // Kiểm tra xung đột: Mã SP thuộc SP A nhưng Tên SP lại thuộc SP B
-        if (existingByCode.isPresent() && existingByName.isPresent()
-                && !existingByCode.get().getId().equals(existingByName.get().getId())) {
+        // Xung đột: Mã SP thuộc SP A nhưng bộ tên + thuộc tính lại thuộc SP B
+        if (existingByCode.isPresent() && existingIdentical.isPresent()
+                && !existingByCode.get().getId().equals(existingIdentical.get().getId())) {
             throw new IllegalArgumentException("Xung đột: Mã sản phẩm '" + trimmedCode + "' thuộc về sản phẩm '"
-                    + existingByCode.get().getTenSanPham() + "', nhưng tên sản phẩm '" + trimmedName
-                    + "' lại thuộc về sản phẩm '" + existingByName.get().getMaSanPham() + "'! Vui lòng kiểm tra lại.");
+                    + existingByCode.get().getTenSanPham() + "', nhưng bộ thông tin tên và thuộc tính lại trùng với sản phẩm '"
+                    + existingIdentical.get().getMaSanPham() + "'! Vui lòng kiểm tra lại mã.");
         }
 
-        Optional<SanPham> existingSpOpt = existingByCode.isPresent() ? existingByCode : existingByName;
+        // Mã đã tồn tại ở SP khác nhưng thuộc tính không trùng
+        if (existingByCode.isPresent() && existingIdentical.isEmpty()) {
+            throw new IllegalArgumentException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại trong hệ thống (thuộc sản phẩm '"
+                    + existingByCode.get().getTenSanPham() + "'). Vui lòng nhập mã khác hoặc để trống để hệ thống tự sinh mã!");
+        }
 
-        if (existingSpOpt.isPresent()) {
-            // Sản phẩm đã tồn tại trong hệ thống!
+        // TRƯỜNG HỢP 1: Trùng CẢ TÊN VÀ TẤT CẢ CÁC THUỘC TÍNH -> GỘP VÀ CỘNG DỒN BIẾN THỂ
+        if (existingIdentical.isPresent()) {
+            SanPham existingSp = existingIdentical.get();
+
             if (!Boolean.TRUE.equals(req.getXacNhanGop())) {
-                String reason = existingByCode.isPresent() && existingByName.isPresent()
-                        ? "cả mã '" + trimmedCode + "' và tên '" + trimmedName + "'"
-                        : (existingByCode.isPresent() ? "mã '" + trimmedCode + "'" : "tên '" + trimmedName + "'");
-                throw new IllegalArgumentException("Sản phẩm với " + reason + " đã tồn tại trong hệ thống! Vui lòng xác nhận gộp thông tin sản phẩm.");
+                throw new IllegalArgumentException("Sản phẩm '" + trimmedName + "' với cùng toàn bộ các thuộc tính đã tồn tại trong hệ thống (Mã: "
+                        + existingSp.getMaSanPham() + ")! Vui lòng xác nhận gộp để cộng dồn các biến thể.");
             }
 
-            // Người dùng ĐÃ XÁC NHẬN GỘP: Cập nhật thông tin mới nhất vào sản phẩm đã có
-            SanPham existingSp = existingSpOpt.get();
-
+            // Người dùng ĐÃ XÁC NHẬN GỘP: Cập nhật thông tin mô tả, trạng thái
             if (req.getMoTa() != null && !req.getMoTa().trim().isEmpty()) {
                 existingSp.setMoTa(req.getMoTa().trim());
-            }
-            if (req.getIdXuatXu() != null) {
-                xuatXuRepository.findById(req.getIdXuatXu()).ifPresent(existingSp::setIdXuatXu);
-            }
-            if (req.getIdChatLieu() != null) {
-                chatLieuRepository.findById(req.getIdChatLieu()).ifPresent(existingSp::setIdChatLieu);
-            }
-            if (req.getIdThuongHieu() != null) {
-                thuongHieuRepository.findById(req.getIdThuongHieu()).ifPresent(existingSp::setIdThuongHieu);
-            }
-            if (req.getIdDanhMuc() != null) {
-                danhMucRepository.findById(req.getIdDanhMuc()).ifPresent(existingSp::setIdDanhMuc);
-            }
-            if (req.getIdCoAo() != null) {
-                coAoRepository.findById(req.getIdCoAo()).ifPresent(existingSp::setIdCoAo);
-            }
-            if (req.getIdTayAo() != null) {
-                tayAoRepository.findById(req.getIdTayAo()).ifPresent(existingSp::setIdTayAo);
-            }
-            if (req.getIdHoaTiet() != null) {
-                hoaTietRepository.findById(req.getIdHoaTiet()).ifPresent(existingSp::setIdHoaTiet);
             }
 
             existingSp.setTrangThai(1);
@@ -313,10 +370,13 @@ public class SanPhamService {
             return convertToResponse(saved);
         }
 
-        // Tạo mới hoàn toàn nếu chưa tồn tại
+        // TRƯỜNG HỢP 2: CÓ ÍT NHẤT 1 THUỘC TÍNH KHÔNG TRÙNG (HOẶC TÊN MỚI) -> TẠO MỚI HOÀN TOÀN, KHÔNG CỘNG DỒN
         if (trimmedCode.isEmpty()) {
             req.setMaSanPham(nextCode());
         } else {
+            if (sanPhamRepository.existsByMaSanPhamIgnoreCase(trimmedCode)) {
+                throw new IllegalArgumentException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại trong hệ thống! Vui lòng nhập mã khác hoặc để trống để tự sinh mã.");
+            }
             req.setMaSanPham(trimmedCode);
         }
 
@@ -358,6 +418,7 @@ public class SanPhamService {
         return convertToResponse(saved);
     }
 
+
     private void saveProductImages(SanPham saved, List<String> hinhAnhs) {
         for (String rawItem : hinhAnhs) {
             if (rawItem == null || rawItem.trim().isEmpty()) continue;
@@ -391,8 +452,12 @@ public class SanPhamService {
         if (trimmedName.isEmpty()) {
             throw new IllegalArgumentException("Tên sản phẩm không được để trống!");
         }
-        if (sanPhamRepository.existsByTenSanPhamIgnoreCaseAndIdNot(trimmedName, id)) {
-            throw new IllegalArgumentException("Tên sản phẩm '" + trimmedName + "' đã được sử dụng ở sản phẩm khác!");
+        List<SanPham> sameNameOthers = sanPhamRepository.findAllByTenSanPhamIgnoreCaseAndIdNot(trimmedName, id);
+        for (SanPham other : sameNameOthers) {
+            if (isSameAttributes(other, req.getIdDanhMuc(), req.getIdThuongHieu(), req.getIdChatLieu(),
+                    req.getIdCoAo(), req.getIdTayAo(), req.getIdXuatXu(), req.getIdHoaTiet())) {
+                throw new IllegalArgumentException("Đã tồn tại một sản phẩm khác có cùng tên '" + trimmedName + "' và toàn bộ các thuộc tính này (Mã: " + other.getMaSanPham() + ")!");
+            }
         }
 
         if (req.getMaSanPham() != null && !req.getMaSanPham().trim().isEmpty()) {

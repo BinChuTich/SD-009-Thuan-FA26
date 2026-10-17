@@ -2381,13 +2381,20 @@ const openSaveConfirm = async () => {
     }
   }
 
-  // Kiểm tra trùng mã hoặc trùng tên sản phẩm khi Thêm mới
+  // Kiểm tra trùng sản phẩm khi Thêm mới (chỉ coi là trùng khi trùng cả tên và tất cả các thuộc tính)
   if (!isEdit.value) {
     try {
       const checkRes = await api.get('/api/san-pham/check-duplicate', {
         params: {
           maSanPham: form.value.maSanPham?.trim() || undefined,
-          tenSanPham: form.value.tenSanPham?.trim()
+          tenSanPham: form.value.tenSanPham?.trim(),
+          idDanhMuc: form.value.idDanhMuc || undefined,
+          idThuongHieu: form.value.idThuongHieu || undefined,
+          idChatLieu: form.value.idChatLieu || undefined,
+          idCoAo: form.value.idCoAo || undefined,
+          idTayAo: form.value.idTayAo || undefined,
+          idXuatXu: form.value.idXuatXu || undefined,
+          idHoaTiet: form.value.idHoaTiet || undefined
         }
       })
 
@@ -2401,7 +2408,7 @@ const openSaveConfirm = async () => {
           title: 'Phát hiện sản phẩm đã tồn tại!',
           type: 'warning',
           confirmText: 'Xác nhận gộp',
-          message: `Sản phẩm "${checkRes.data.tenSanPham}" (Mã: "${checkRes.data.maSanPham}") đã tồn tại trong hệ thống (trùng khớp ${checkRes.data.matchedBy}).\n\nNếu bạn tiếp tục, hệ thống sẽ thực hiện:\n• Tăng số lượng: Cộng dồn số lượng biến thể nhập vào số lượng hiện có.\n• Cập nhật đơn giá: Cập nhật giá bán theo giá mới nhất vừa nhập.\n• Thêm mới các biến thể chưa có.\n\nBạn có chắc chắn muốn gộp vào sản phẩm này không?`,
+          message: `Sản phẩm "${checkRes.data.tenSanPham}" (Mã: "${checkRes.data.maSanPham}") đã tồn tại trong hệ thống với cùng tất cả các thuộc tính.\n\nNếu bạn tiếp tục, hệ thống sẽ thực hiện:\n• Tăng số lượng: Cộng dồn số lượng biến thể nhập vào số lượng hiện có.\n• Cập nhật đơn giá: Cập nhật giá bán theo giá mới nhất vừa nhập.\n• Thêm mới các biến thể chưa có.\n\nBạn có chắc chắn muốn gộp vào sản phẩm này không?`,
           onConfirm: () => submitForm(true)
         })
         return

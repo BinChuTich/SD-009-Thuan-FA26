@@ -32,9 +32,18 @@ public class SanPhamController {
     @GetMapping("/check-duplicate")
     public ResponseEntity<Map<String, Object>> checkDuplicate(
             @RequestParam(required = false) String maSanPham,
-            @RequestParam(required = false) String tenSanPham
+            @RequestParam(required = false) String tenSanPham,
+            @RequestParam(required = false) Long idDanhMuc,
+            @RequestParam(required = false) Long idThuongHieu,
+            @RequestParam(required = false) Long idChatLieu,
+            @RequestParam(required = false) Long idCoAo,
+            @RequestParam(required = false) Long idTayAo,
+            @RequestParam(required = false) Long idXuatXu,
+            @RequestParam(required = false) Long idHoaTiet
     ) {
-        return ResponseEntity.ok(sanPhamService.checkDuplicate(maSanPham, tenSanPham));
+        return ResponseEntity.ok(sanPhamService.checkDuplicate(
+                maSanPham, tenSanPham, idDanhMuc, idThuongHieu, idChatLieu, idCoAo, idTayAo, idXuatXu, idHoaTiet
+        ));
     }
 
     @GetMapping

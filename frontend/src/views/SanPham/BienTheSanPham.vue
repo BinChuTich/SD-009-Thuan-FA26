@@ -742,8 +742,8 @@ const visiblePages = computed(() => {
 
 // Format tiền tệ & hình ảnh
 const formatPrice = (price) => {
-  if (price == null) return '0 đ'
-  return Number(price).toLocaleString('vi-VN') + ' đ'
+  if (price == null) return '0\u00A0đ'
+  return Number(price).toLocaleString('vi-VN') + '\u00A0đ'
 }
 
 const formatImageUrl = (url) => {
@@ -929,28 +929,27 @@ watch(() => route.query.sanPhamId, async (newId) => {
               <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll" class="table-chk" />
             </th>
             <th style="width: 50px; text-align: center;">STT</th>
+            <th style="width: 85px; text-align: center;">Ảnh</th>
             <th style="width: 90px;">Mã SP</th>
             <th style="width: 140px;">Mã CTSP</th>
-            <th style="width: 65px; text-align: center;">Ảnh</th>
             <th style="width: 120px;">Màu sắc</th>
             <th style="width: 80px; text-align: center;">Kích cỡ</th>
             <th style="width: 90px; text-align: center;">Số lượng</th>
-            <th style="width: 120px; text-align: right;">Giá bán</th>
-            <th style="width: 80px; text-align: center;">Giảm</th>
+            <th style="width: 130px; text-align: right; white-space: nowrap;">Giá bán</th>
             <th style="width: 110px; text-align: center;">Trạng thái</th>
             <th style="width: 130px; text-align: center;">Hành động</th>
           </tr>
           </thead>
           <tbody>
           <tr v-if="loading">
-            <td colspan="12" class="empty-cell">
+            <td colspan="11" class="empty-cell">
               <div class="loading-state">
                 <span class="loading-spinner"></span> Đang tải danh sách biến thể...
               </div>
             </td>
           </tr>
           <tr v-else-if="variants.length === 0">
-            <td colspan="12" class="empty-cell">
+            <td colspan="11" class="empty-cell">
               Không tìm thấy biến thể nào phù hợp!
             </td>
           </tr>
@@ -965,6 +964,26 @@ watch(() => route.query.sanPhamId, async (newId) => {
               {{ pageData.number * pageData.size + index + 1 }}
             </td>
 
+            <!-- Ảnh (nằm sau STT, kèm badge % giảm ở góc phải) -->
+            <td style="text-align: center;">
+              <div class="variant-img-wrapper">
+                <div class="thumb-img-box">
+                  <img
+                      :src="formatImageUrl(item.anhDaiDien)"
+                      @error="onImgError"
+                      alt="Variant thumbnail"
+                  />
+                </div>
+                <span
+                  v-if="item.coGiamGia && (item.phanTramGiam || (item.giaBan && item.giaSauGiam && item.giaBan > item.giaSauGiam))"
+                  class="discount-badge-percent variant-img-discount"
+                  :title="item.tenDotGiamGia ? `Đợt giảm: ${item.tenDotGiamGia}` : 'Đang áp dụng giảm giá'"
+                >
+                  -{{ item.phanTramGiam || Math.round((1 - item.giaSauGiam / item.giaBan) * 100) }}%
+                </span>
+              </div>
+            </td>
+
             <!-- Mã SP -->
             <td class="cell-bold-code">
               {{ item.maSanPham || currentProduct?.maSanPham || '—' }}
@@ -973,17 +992,6 @@ watch(() => route.query.sanPhamId, async (newId) => {
             <!-- Mã CTSP -->
             <td class="cell-code">
               {{ item.maChiTietSanPham }}
-            </td>
-
-            <!-- Ảnh -->
-            <td style="text-align: center;">
-              <div class="thumb-img-box">
-                <img
-                    :src="formatImageUrl(item.anhDaiDien)"
-                    @error="onImgError"
-                    alt="Variant thumbnail"
-                />
-              </div>
             </td>
 
             <!-- Màu sắc (Dấu chấm màu + Tên) -->
@@ -1004,7 +1012,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
               {{ item.soLuong ?? 0 }}
             </td>
 
-            <!-- Giá bán -->
+            <!-- Giá bán (không ngắt dòng) -->
             <td style="text-align: right;" class="cell-price">
               <div v-if="item.coGiamGia && item.giaSauGiam != null" class="variant-price-stack">
                 <span class="original-price-strike">{{ formatPrice(item.giaBan) }}</span>
@@ -1013,14 +1021,6 @@ watch(() => route.query.sanPhamId, async (newId) => {
               <div v-else>
                 {{ formatPrice(item.giaBan) }}
               </div>
-            </td>
-
-            <!-- Giảm -->
-            <td style="text-align: center;" class="cell-discount">
-              <span v-if="item.coGiamGia && item.phanTramGiam" class="discount-badge-percent" :title="item.tenDotGiamGia ? `Đợt giảm: ${item.tenDotGiamGia}` : 'Đang áp dụng giảm giá'">
-                -{{ item.phanTramGiam }}%
-              </span>
-              <span v-else class="text-muted">—</span>
             </td>
 
             <!-- Trạng thái -->
@@ -2052,6 +2052,26 @@ watch(() => route.query.sanPhamId, async (newId) => {
   letter-spacing: 0.4px;
 }
 
+.variant-img-wrapper {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.variant-img-discount {
+  position: absolute;
+  top: -6px;
+  right: -16px;
+  font-size: 0.65rem;
+  padding: 1px 4px;
+  font-weight: 700;
+  border-radius: 4px;
+  line-height: 1.1;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.25);
+  z-index: 2;
+  white-space: nowrap;
+}
+
 .thumb-img-box {
   width: 44px;
   height: 44px;
@@ -2105,6 +2125,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
 .cell-price {
   font-weight: 700;
   color: #2b353b;
+  white-space: nowrap;
 }
 
 .variant-price-stack {
@@ -2112,6 +2133,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
+  white-space: nowrap;
 }
 
 .original-price-strike {
@@ -2119,11 +2141,13 @@ watch(() => route.query.sanPhamId, async (newId) => {
   color: #94a3b8;
   text-decoration: line-through;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .sale-price-val {
   color: #c94a29;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .cell-discount {

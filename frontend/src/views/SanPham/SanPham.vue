@@ -235,13 +235,10 @@
           <thead>
           <tr>
             <th style="width: 50px; text-align: center;">STT</th>
-            <th style="width: 90px; text-align: center;">Ảnh</th>
-            <th style="width: 120px;">Mã SP</th>
+            <th style="width: 140px;">Mã SP</th>
             <th>Tên sản phẩm</th>
             <th style="width: 170px;">Phân loại</th>
-            <th style="width: 80px; text-align: center;">Số màu</th>
-            <th style="width: 95px; text-align: center;">Số kích thước</th>
-            <th style="width: 165px;">Giá bán</th>
+            <th style="width: 200px; white-space: nowrap;">Giá bán</th>
             <th style="width: 90px; text-align: center;">Tồn kho</th>
             <th style="width: 120px;">Ngày tạo</th>
             <th style="width: 130px; text-align: center;">Trạng thái</th>
@@ -250,7 +247,7 @@
           </thead>
           <tbody>
           <tr v-if="loading">
-            <td colspan="12" class="empty-state">
+            <td colspan="9" class="empty-state">
               <div class="empty-box">
                 <div class="loading-spinner"></div>
                 <span class="empty-text">Đang tải dữ liệu sản phẩm...</span>
@@ -258,7 +255,7 @@
             </td>
           </tr>
           <tr v-else-if="products.length === 0">
-            <td colspan="12" class="empty-state">
+            <td colspan="9" class="empty-state">
               <div class="empty-box">
                 <span class="empty-icon">
                   <svg viewBox="0 0 24 24" width="38" height="38" fill="currentColor" opacity="0.45">
@@ -276,28 +273,18 @@
               {{ pageData.number * pageData.size + index + 1 }}
             </td>
 
-            <!-- Ảnh sản phẩm -->
-            <td style="text-align: center;">
-              <div class="product-img-box">
-                <img
-                    :src="formatImageUrl(item.anhDaiDien) || defaultImage"
-                    :alt="item.tenSanPham"
-                    @error="onImgError"
-                />
+            <!-- Mã sản phẩm (kèm badge % giảm ở góc phải khi có đợt giảm) -->
+            <td class="code-cell">
+              <div class="code-badge-wrapper">
+                <b class="code-text">{{ item.maSanPham }}</b>
                 <span
-                    v-if="item.coGiamGia && item.phanTramGiam"
-                    class="discount-badge-percent product-img-discount"
-                    style="position: absolute; top: -6px; right: -12px; left: auto; margin: 0;"
-                    :title="item.tenDotGiamGia ? `Đợt giảm: ${item.tenDotGiamGia}` : 'Đang áp dụng giảm giá'"
+                  v-if="item.coGiamGia && (item.phanTramGiam || (item.minGia && item.minGiaSauGiam && item.minGia > item.minGiaSauGiam))"
+                  class="discount-badge-percent code-discount-badge"
+                  :title="item.tenDotGiamGia ? `Đợt giảm: ${item.tenDotGiamGia}` : 'Đang áp dụng giảm giá'"
                 >
-                  -{{ item.phanTramGiam }}%
+                  -{{ item.phanTramGiam || Math.round((1 - item.minGiaSauGiam / item.minGia) * 100) }}%
                 </span>
               </div>
-            </td>
-
-            <!-- Mã sản phẩm -->
-            <td class="code-cell">
-              <b>{{ item.maSanPham }}</b>
             </td>
 
             <!-- Tên sản phẩm -->
@@ -315,21 +302,7 @@
               </div>
             </td>
 
-            <!-- Số màu (từ ảnh 1) -->
-            <td style="text-align: center;">
-              <span class="badge-mini-stat color-stat" title="Số màu sắc">
-                {{ item.soMau ?? (item.soLuongBienThe ? 1 : 0) }}
-              </span>
-            </td>
-
-            <!-- Số kích thước (từ ảnh 1) -->
-            <td style="text-align: center;">
-              <span class="badge-mini-stat size-stat" title="Số kích cỡ">
-                {{ item.soKichCo ?? (item.soLuongBienThe ? 1 : 0) }}
-              </span>
-            </td>
-
-            <!-- Giá bán (liên kết đợt giảm giá) -->
+            <!-- Giá bán (không ngắt dòng) -->
             <td class="price-cell">
               <div v-if="item.coGiamGia && item.minGiaSauGiam != null" class="discounted-price-wrapper">
                 <div class="original-price-strikethrough">
@@ -998,15 +971,15 @@ const visiblePages = computed(() => {
   return pages
 })
 
-// Định dạng giá tiền
+// Định dạng giá tiền (dùng khoảng trắng không ngắt \u00A0 để không bao giờ bị rớt chữ đ xuống dòng)
 const formatPriceRange = (min, max) => {
   if (min == null && max == null) return 'Chưa có biến thể'
   if (min != null && max != null && min === max) {
-    return Number(min).toLocaleString('vi-VN') + ' đ'
+    return Number(min).toLocaleString('vi-VN') + '\u00A0đ'
   }
   const minStr = min != null ? Number(min).toLocaleString('vi-VN') : '0'
   const maxStr = max != null ? Number(max).toLocaleString('vi-VN') : '0'
-  return `${minStr} - ${maxStr} đ`
+  return `${minStr} - ${maxStr}\u00A0đ`
 }
 
 // Định dạng ngày
@@ -1607,6 +1580,30 @@ onMounted(() => {
   color: #8c6a46;
   font-family: monospace, sans-serif;
   letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.code-badge-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.code-text {
+  font-size: 0.92rem;
+  color: #1f272b;
+}
+
+.code-discount-badge {
+  position: relative;
+  top: -8px;
+  margin-left: 4px;
+  font-size: 0.65rem;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-weight: 700;
+  line-height: 1.1;
+  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.15);
 }
 
 /* Tên sản phẩm */
@@ -1651,12 +1648,14 @@ onMounted(() => {
   color: #1f272b;
   font-size: 0.95rem;
   line-height: 1.35;
+  white-space: nowrap;
 }
 
 .discounted-price-wrapper {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  white-space: nowrap;
 }
 
 .original-price-strikethrough {
@@ -1664,19 +1663,22 @@ onMounted(() => {
   color: #8c9ba5;
   text-decoration: line-through;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .active-discount-price {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .sale-price-text {
   font-weight: 700;
   color: #c94a29;
   font-size: 0.93rem;
+  white-space: nowrap;
 }
 
 .discount-badge-percent {
@@ -1695,6 +1697,7 @@ onMounted(() => {
 .normal-price-display {
   color: #1f272b;
   font-size: 0.93rem;
+  white-space: nowrap;
 }
 
 
