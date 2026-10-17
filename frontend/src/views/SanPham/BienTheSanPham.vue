@@ -31,8 +31,19 @@ const formattedProducts = computed(() => {
   }))
 })
 
+// Danh sách mã sản phẩm định dạng cho Select2Combobox lọc
+const productCodeOptions = computed(() => {
+  return productsList.value.map(p => ({
+    id: p.id,
+    maSanPham: p.maSanPham,
+    tenSanPham: p.tenSanPham,
+    label: p.maSanPham ? `${p.maSanPham} (${p.tenSanPham})` : p.tenSanPham
+  }))
+})
+
 // Dữ liệu bộ lọc
 const filters = ref({
+  idSanPham: '',
   keyword: '',
   idMauSac: '',
   idKichCo: '',
@@ -542,6 +553,16 @@ const fetchAttributes = async () => {
   }
 }
 
+// Lấy danh sách sản phẩm để đưa vào bộ lọc Select2Combobox
+const fetchProductsList = async () => {
+  try {
+    const res = await api.get('/api/san-pham', { params: { size: 1000 } })
+    productsList.value = res.data?.content || []
+  } catch (err) {
+    console.error('Lỗi tải danh sách sản phẩm:', err)
+  }
+}
+
 // Lấy thông tin sản phẩm chính
 const fetchProductInfo = async (id) => {
   try {
@@ -555,6 +576,21 @@ const fetchProductInfo = async (id) => {
   }
 }
 
+// Lắng nghe thay đổi chọn mã sản phẩm trong Select2Combobox
+const onProductFilterChange = (selectedId) => {
+  if (selectedId) {
+    const p = productsList.value.find(item => item.id === selectedId)
+    if (p) {
+      currentProduct.value = p
+    } else {
+      fetchProductInfo(selectedId)
+    }
+  } else {
+    currentProduct.value = null
+  }
+  handleFilterChange()
+}
+
 // Lấy danh sách biến thể
 const fetchVariants = async () => {
   loading.value = true
@@ -563,7 +599,7 @@ const fetchVariants = async () => {
       page: filters.value.page,
       size: filters.value.size
     }
-    const productId = route.query.sanPhamId || route.params.id
+    const productId = filters.value.idSanPham || route.query.sanPhamId || route.params.id
     if (productId) {
       params.idSanPham = productId
     }
@@ -613,13 +649,21 @@ const handleFilterChange = () => {
 }
 
 const resetFilters = () => {
+  const defaultPid = route.query.sanPhamId ? Number(route.query.sanPhamId) : ''
   filters.value = {
+    idSanPham: defaultPid,
     keyword: '',
     idMauSac: '',
     idKichCo: '',
     trangThai: '',
     page: 0,
     size: 10
+  }
+  if (!defaultPid) {
+    currentProduct.value = null
+  } else {
+    const found = productsList.value.find(p => p.id === defaultPid)
+    if (found) currentProduct.value = found
   }
   fetchVariants()
 }
@@ -630,7 +674,7 @@ const handleExportExcel = async () => {
   exporting.value = true
   try {
     const params = {}
-    const productId = route.query.sanPhamId || route.params.id
+    const productId = filters.value.idSanPham || route.query.sanPhamId || route.params.id
     if (productId) params.idSanPham = productId
     if (filters.value.keyword?.trim()) params.keyword = filters.value.keyword.trim()
     if (filters.value.idMauSac) params.idMauSac = filters.value.idMauSac
@@ -767,9 +811,10 @@ const goToProductList = () => {
 
 // Khởi tạo
 onMounted(async () => {
-  await fetchAttributes()
+  await Promise.all([fetchAttributes(), fetchProductsList()])
   const productId = route.query.sanPhamId || route.params.id
   if (productId) {
+    filters.value.idSanPham = Number(productId) || productId
     await fetchProductInfo(productId)
   }
   await fetchVariants()
@@ -777,7 +822,13 @@ onMounted(async () => {
 
 watch(() => route.query.sanPhamId, async (newId) => {
   if (newId) {
+    filters.value.idSanPham = Number(newId) || newId
     await fetchProductInfo(newId)
+    filters.value.page = 0
+    fetchVariants()
+  } else {
+    filters.value.idSanPham = ''
+    currentProduct.value = null
     filters.value.page = 0
     fetchVariants()
   }
@@ -874,8 +925,22 @@ watch(() => route.query.sanPhamId, async (newId) => {
           </div>
         </div>
 
-        <!-- Hàng 2: Ba bộ chọn Dropdown Select2 (Màu sắc, Kích cỡ, Trạng thái) -->
+        <!-- Hàng 2: Bốn bộ chọn Dropdown Select2 (Mã sản phẩm, Màu sắc, Kích cỡ, Trạng thái) -->
         <div class="filter-bottom-row">
+          <div class="dropdown-filter-item">
+            <label class="dropdown-label">Mã sản phẩm</label>
+            <Select2Combobox
+              v-model="filters.idSanPham"
+              :options="productCodeOptions"
+              value-key="id"
+              label-key="label"
+              placeholder="Tất cả mã sản phẩm"
+              all-label="Tất cả mã sản phẩm"
+              search-placeholder="Tìm kiếm mã sản phẩm..."
+              @change="onProductFilterChange"
+            />
+          </div>
+
           <div class="dropdown-filter-item">
             <label class="dropdown-label">Màu sắc</label>
             <Select2Combobox
@@ -1952,7 +2017,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
 /* Hàng bộ chọn dropdown 2 */
 .filter-bottom-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1.25rem;
 }
 
@@ -3268,12 +3333,15 @@ watch(() => route.query.sanPhamId, async (newId) => {
     flex-wrap: wrap;
   }
   .filter-bottom-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
   }
 }
 
 @media (max-width: 600px) {
+  .filter-bottom-row {
+    grid-template-columns: 1fr;
+  }
   .variant-page-container {
     padding: 1rem;
   }

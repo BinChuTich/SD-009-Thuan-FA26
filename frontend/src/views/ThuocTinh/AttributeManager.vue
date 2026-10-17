@@ -629,22 +629,14 @@ onMounted(() => {
         <div class="modal-form">
           <div class="form-grid">
             <div class="form-group full-width">
-              <label class="form-label">Mã {{ title }} <span class="required">*</span></label>
-              <input
-                  type="text"
-                  v-model="formData.ma"
-                  class="form-control"
-                  placeholder="Hệ thống tự sinh mã..."
-              />
-            </div>
-
-            <div class="form-group full-width">
               <label class="form-label">Tên {{ title }} <span class="required">*</span></label>
               <input
                   type="text"
                   v-model="formData.ten"
                   class="form-control"
                   :placeholder="`Nhập tên ${title.toLowerCase()}...`"
+                  @keyup.enter="promptSaveNew"
+                  autofocus
               />
               <span class="field-error-msg" v-if="formErrors.ten">{{ formErrors.ten }}</span>
             </div>
@@ -661,20 +653,6 @@ onMounted(() => {
                 />
               </div>
               <span class="field-error-msg" v-if="formErrors.maHex">{{ formErrors.maHex }}</span>
-            </div>
-
-            <div class="form-group full-width">
-              <label class="form-label">Trạng thái hoạt động</label>
-              <Select2Combobox
-                v-model="formData.trangThai"
-                :options="formStatusOptions"
-                value-key="id"
-                label-key="name"
-                :show-all-option="false"
-                :allow-clear="false"
-                placeholder="-- Chọn trạng thái --"
-                search-placeholder="Tìm trạng thái..."
-              />
             </div>
           </div>
 
