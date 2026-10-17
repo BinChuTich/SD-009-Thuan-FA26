@@ -1,5 +1,7 @@
 package com.example.sd009thuan.service;
 
+import com.example.sd009thuan.dto.BulkEmailRequest;
+import com.example.sd009thuan.dto.BulkEmailResponse;
 import com.example.sd009thuan.dto.NhanVienRequest;
 import com.example.sd009thuan.dto.NhanVienResponse;
 import com.example.sd009thuan.entity.NhanVien;
@@ -16,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -217,6 +220,72 @@ public class NhanVienService {
         repo.save(x);
     }
 
+    /**
+     * Gửi email hàng loạt cho nhân viên
+     * RÀNG BUỘC: Chỉ gửi đến những nhân viên đang ở trạng thái Hoạt động (trangThai == 1)
+     */
+    @Transactional(readOnly = true)
+    public BulkEmailResponse sendBulkEmail(BulkEmailRequest req) {
+        if (req.employeeIds() == null || req.employeeIds().isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng chọn ít nhất một nhân viên để gửi email");
+        }
+
+        List<NhanVien> employees = repo.findAllById(req.employeeIds());
+
+        // Lọc nghiêm ngặt: Chỉ những nhân viên ĐANG HOẠT ĐỘNG (trangThai == 1) và có email hợp lệ
+        List<NhanVien> activeEmployees = employees.stream()
+                .filter(e -> e.getTrangThai() != null && e.getTrangThai() == 1)
+                .filter(e -> e.getEmail() != null && !e.getEmail().isBlank())
+                .toList();
+
+        if (activeEmployees.isEmpty()) {
+            return new BulkEmailResponse(
+                    req.employeeIds().size(),
+                    0,
+                    0,
+                    List.of(),
+                    "Không tìm thấy nhân viên nào đang hoạt động có địa chỉ email hợp lệ trong danh sách đã chọn."
+            );
+        }
+
+        int sentCount = 0;
+        int failedCount = 0;
+        List<String> failedEmails = new ArrayList<>();
+
+        boolean isAccountInfo = "account_info".equalsIgnoreCase(req.emailType());
+
+        for (NhanVien emp : activeEmployees) {
+            boolean success;
+            if (isAccountInfo) {
+                String pwd = (emp.getMatKhau() != null && !emp.getMatKhau().isBlank()) ? emp.getMatKhau() : "NV@123456";
+                success = emailService.sendAccountInfoEmail(
+                        emp.getEmail(),
+                        emp.getTenNhanVien(),
+                        emp.getMaNhanVien(),
+                        emp.getTenTaiKhoan(),
+                        pwd
+                );
+            } else {
+                success = emailService.sendCustomEmail(
+                        emp.getEmail(),
+                        emp.getTenNhanVien(),
+                        req.subject(),
+                        req.content()
+                );
+            }
+
+            if (success) {
+                sentCount++;
+            } else {
+                failedCount++;
+                failedEmails.add(emp.getEmail());
+            }
+        }
+
+        String msg = String.format("Đã gửi email thành công tới %d/%d nhân viên đang hoạt động.", sentCount, activeEmployees.size());
+        return new BulkEmailResponse(req.employeeIds().size(), sentCount, failedCount, failedEmails, msg);
+    }
+
     @Transactional(readOnly = true)
     public List<NhanVienResponse> findAllForExport(String keyword, Long roleId, Integer status) {
         Specification<NhanVien> spec = Specification.where(NhanVienSpecification.keyword(keyword))
@@ -235,8 +304,37 @@ public class NhanVienService {
 
     private void validateUnique(NhanVienRequest req, Long currentId) {
         String email = blank(req.email());
-        if (email != null) repo.findAll().stream().filter(x -> email.equalsIgnoreCase(x.getEmail()) && !x.getId().equals(currentId)).findAny()
-                .ifPresent(x -> { throw new IllegalArgumentException("Email đã tồn tại"); });
+        if (email != null) {
+            boolean exists = currentId == null
+                    ? repo.existsByEmailIgnoreCase(email)
+                    : repo.existsByEmailIgnoreCaseAndIdNot(email, currentId);
+            if (exists) throw new IllegalArgumentException("Email này đã tồn tại trong hệ thống");
+        }
+        String phone = blank(req.soDienThoai());
+        if (phone != null) {
+            boolean exists = currentId == null
+                    ? repo.existsBySoDienThoai(phone)
+                    : repo.existsBySoDienThoaiAndIdNot(phone, currentId);
+            if (exists) throw new IllegalArgumentException("Số điện thoại này đã được sử dụng");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public boolean checkEmailExists(String email, Long excludeId) {
+        String val = blank(email);
+        if (val == null) return false;
+        return excludeId == null
+                ? repo.existsByEmailIgnoreCase(val)
+                : repo.existsByEmailIgnoreCaseAndIdNot(val, excludeId);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean checkPhoneExists(String phone, Long excludeId) {
+        String val = blank(phone);
+        if (val == null) return false;
+        return excludeId == null
+                ? repo.existsBySoDienThoai(val)
+                : repo.existsBySoDienThoaiAndIdNot(val, excludeId);
     }
 
     public static String removeAccents(String text) {

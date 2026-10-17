@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -52,4 +53,9 @@ public interface DotGiamGiaRepository extends JpaRepository<DotGiamGia, Long> {
     @Modifying
     @Query("UPDATE DotGiamGia d SET d.trangThai = 0 WHERE d.trangThai = 1 AND d.ngayKetThuc <= :now")
     int updateHetHan(@Param("now") Instant now);
+
+    @Query("SELECT d FROM DotGiamGia d WHERE d.trangThai = 1 " +
+           "AND (d.ngayBatDau IS NULL OR d.ngayBatDau <= :now) " +
+           "AND (d.ngayKetThuc IS NULL OR d.ngayKetThuc >= :now)")
+    List<DotGiamGia> findActiveCampaigns(@Param("now") Instant now);
 }

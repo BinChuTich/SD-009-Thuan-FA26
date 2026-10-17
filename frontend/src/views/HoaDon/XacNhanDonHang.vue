@@ -56,7 +56,7 @@ const actionText = computed(() => {
   if (!hoaDon.value) return ''
   switch (Number(hoaDon.value.trangThai)) {
     case 1:
-      return '✓ Xác nhận đơn hàng'
+      return '✓ Xác nhận đơn hàng & In hóa đơn'
     case 2:
       return '✓ Chuyển chờ vận chuyển'
     case 3:
@@ -163,6 +163,12 @@ const xacNhanDon = () => {
         await api.put(`/api/hoa-don/${hoaDon.value.id}`, { trangThai: status })
         hoaDon.value.trangThai = status
         showToast(`Đã chuyển đơn hàng sang "${getStatusText(status)}"!`)
+        // Tự động chuyển đến chi tiết hóa đơn và in theo mẫu chuẩn
+        if (status === 2) {
+          setTimeout(() => {
+            router.push({ path: `/hoa-don/${maHoaDon}`, query: { autoPrint: 'true' } })
+          }, 500)
+        }
       } catch (error) {
         console.error('Lỗi cập nhật trạng thái:', error)
         showToast(error.response?.data?.message || 'Không thể cập nhật trạng thái đơn hàng!', 'warning')
@@ -179,8 +185,8 @@ const thanhToan = () => {
   openConfirmModal({
     title: 'Xác Nhận Thanh Toán',
     message: 'Bạn có chắc hóa đơn này đã được hoàn tất thanh toán?',
-    subText: 'Hóa đơn sẽ được chuyển sang trạng thái "Đã thanh toán".',
-    confirmText: 'Xác nhận thanh toán',
+    subText: 'Hóa đơn sẽ được chuyển sang trạng thái "Đã thanh toán" và tự động mở hộp thoại in hóa đơn.',
+    confirmText: 'Xác nhận & In hóa đơn',
     cancelText: 'Hủy bỏ',
     type: 'primary',
     onConfirm: async () => {
@@ -189,6 +195,10 @@ const thanhToan = () => {
         await api.put(`/api/hoa-don/${hoaDon.value.id}`, { trangThaiThanhToan: 1 })
         hoaDon.value.trangThaiThanhToan = 1
         showToast('Thanh toán hóa đơn thành công!')
+        // Tự động chuyển đến chi tiết hóa đơn và in theo mẫu chuẩn
+        setTimeout(() => {
+          router.push({ path: `/hoa-don/${maHoaDon}`, query: { autoPrint: 'true' } })
+        }, 500)
       } catch (error) {
         console.error('Lỗi cập nhật thanh toán:', error)
         showToast(error.response?.data?.message || 'Không thể cập nhật trạng thái thanh toán!', 'warning')
@@ -302,7 +312,7 @@ onMounted(() => {
           </div>
 
           <button class="btn-payment" @click="thanhToan" :disabled="paying">
-            {{ paying ? 'Đang xử lý...' : '✓ Xác nhận đã thanh toán' }}
+            {{ paying ? 'Đang xử lý...' : '✓ Xác nhận đã thanh toán & In hóa đơn' }}
           </button>
         </div>
       </div>

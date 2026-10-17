@@ -20,10 +20,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 @Transactional(readOnly = true)
@@ -39,6 +42,8 @@ public class SanPhamService {
     private final CoAoRepository coAoRepository;
     private final TayAoRepository tayAoRepository;
     private final HoaTietRepository hoaTietRepository;
+    private final ChiTietDotGiamGiaRepository chiTietDotGiamGiaRepository;
+    private final DotGiamGiaRepository dotGiamGiaRepository;
 
     public SanPhamService(
             SanPhamRepository sanPhamRepository,
@@ -50,7 +55,9 @@ public class SanPhamService {
             DanhMucRepository danhMucRepository,
             CoAoRepository coAoRepository,
             TayAoRepository tayAoRepository,
-            HoaTietRepository hoaTietRepository
+            HoaTietRepository hoaTietRepository,
+            ChiTietDotGiamGiaRepository chiTietDotGiamGiaRepository,
+            DotGiamGiaRepository dotGiamGiaRepository
     ) {
         this.sanPhamRepository = sanPhamRepository;
         this.chiTietSanPhamRepository = chiTietSanPhamRepository;
@@ -62,6 +69,8 @@ public class SanPhamService {
         this.coAoRepository = coAoRepository;
         this.tayAoRepository = tayAoRepository;
         this.hoaTietRepository = hoaTietRepository;
+        this.chiTietDotGiamGiaRepository = chiTietDotGiamGiaRepository;
+        this.dotGiamGiaRepository = dotGiamGiaRepository;
     }
 
     private Specification<SanPham> buildSpecification(SanPhamFilterRequest req) {
@@ -145,23 +154,169 @@ public class SanPhamService {
         return convertToResponse(sp);
     }
 
+    public String nextCode() {
+        List<SanPham> all = sanPhamRepository.findAll();
+        int maxIndex = 0;
+        for (SanPham sp : all) {
+            String code = sp.getMaSanPham();
+            if (code != null) {
+                String trimmed = code.trim().toUpperCase();
+                if (trimmed.startsWith("SP")) {
+                    String numPart = trimmed.substring(2).trim();
+                    if (numPart.matches("\\d{1,4}")) {
+                        try {
+                            int val = Integer.parseInt(numPart);
+                            if (val > maxIndex) {
+                                maxIndex = val;
+                            }
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
+        }
+        int next = maxIndex + 1;
+        String candidate = String.format("SP%03d", next);
+        while (sanPhamRepository.existsByMaSanPhamIgnoreCase(candidate)) {
+            next++;
+            candidate = String.format("SP%03d", next);
+        }
+        return candidate;
+    }
+
+    public java.util.Map<String, Object> checkDuplicate(String maSanPham, String tenSanPham) {
+        String trimmedMa = maSanPham != null ? maSanPham.trim() : "";
+        String trimmedTen = tenSanPham != null ? tenSanPham.trim() : "";
+
+        Optional<SanPham> existingByCode = !trimmedMa.isEmpty()
+                ? sanPhamRepository.findByMaSanPhamIgnoreCase(trimmedMa)
+                : Optional.empty();
+
+        Optional<SanPham> existingByName = !trimmedTen.isEmpty()
+                ? sanPhamRepository.findByTenSanPhamIgnoreCase(trimmedTen)
+                : Optional.empty();
+
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+
+        // Trường hợp xung đột: Mã SP thuộc về SP này, nhưng Tên SP lại thuộc về SP khác
+        if (existingByCode.isPresent() && existingByName.isPresent()
+                && !existingByCode.get().getId().equals(existingByName.get().getId())) {
+            response.put("conflict", true);
+            response.put("exists", true);
+            response.put("message", "Mã sản phẩm '" + trimmedMa + "' thuộc về sản phẩm '"
+                    + existingByCode.get().getTenSanPham() + "', nhưng tên sản phẩm '" + trimmedTen
+                    + "' lại thuộc về sản phẩm '" + existingByName.get().getMaSanPham() + "'. Vui lòng kiểm tra lại mã hoặc tên!");
+            return response;
+        }
+
+        Optional<SanPham> existingSpOpt = existingByCode.isPresent() ? existingByCode : existingByName;
+
+        if (existingSpOpt.isPresent()) {
+            SanPham sp = existingSpOpt.get();
+            response.put("exists", true);
+            response.put("conflict", false);
+            response.put("id", sp.getId());
+            response.put("maSanPham", sp.getMaSanPham());
+            response.put("tenSanPham", sp.getTenSanPham());
+
+            String matchedBy;
+            if (existingByCode.isPresent() && existingByName.isPresent()) {
+                matchedBy = "cả mã và tên sản phẩm";
+            } else if (existingByCode.isPresent()) {
+                matchedBy = "mã sản phẩm";
+            } else {
+                matchedBy = "tên sản phẩm";
+            }
+            response.put("matchedBy", matchedBy);
+
+            List<ChiTietSanPham> existingVariants = chiTietSanPhamRepository.findByIdSanPham_Id(sp.getId());
+            response.put("existingVariantCount", existingVariants != null ? existingVariants.size() : 0);
+            return response;
+        }
+
+        response.put("exists", false);
+        response.put("conflict", false);
+        return response;
+    }
+
     @Transactional
     public SanPhamResponse create(SanPhamRequest req) {
         String trimmedName = req.getTenSanPham() != null ? req.getTenSanPham().trim() : "";
         if (trimmedName.isEmpty()) {
             throw new IllegalArgumentException("Tên sản phẩm không được để trống!");
         }
-        if (sanPhamRepository.existsByTenSanPhamIgnoreCase(trimmedName)) {
-            throw new IllegalArgumentException("Tên sản phẩm '" + trimmedName + "' đã tồn tại trong hệ thống!");
+
+        String trimmedCode = req.getMaSanPham() != null ? req.getMaSanPham().trim() : "";
+
+        // Tìm sản phẩm trùng mã hoặc trùng tên
+        Optional<SanPham> existingByCode = !trimmedCode.isEmpty()
+                ? sanPhamRepository.findByMaSanPhamIgnoreCase(trimmedCode)
+                : Optional.empty();
+
+        Optional<SanPham> existingByName = sanPhamRepository.findByTenSanPhamIgnoreCase(trimmedName);
+
+        // Kiểm tra xung đột: Mã SP thuộc SP A nhưng Tên SP lại thuộc SP B
+        if (existingByCode.isPresent() && existingByName.isPresent()
+                && !existingByCode.get().getId().equals(existingByName.get().getId())) {
+            throw new IllegalArgumentException("Xung đột: Mã sản phẩm '" + trimmedCode + "' thuộc về sản phẩm '"
+                    + existingByCode.get().getTenSanPham() + "', nhưng tên sản phẩm '" + trimmedName
+                    + "' lại thuộc về sản phẩm '" + existingByName.get().getMaSanPham() + "'! Vui lòng kiểm tra lại.");
         }
 
-        if (req.getMaSanPham() == null || req.getMaSanPham().trim().isEmpty()) {
-            req.setMaSanPham("SP" + System.currentTimeMillis());
-        } else {
-            String trimmedCode = req.getMaSanPham().trim();
-            if (sanPhamRepository.existsByMaSanPham(trimmedCode)) {
-                throw new IllegalArgumentException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại!");
+        Optional<SanPham> existingSpOpt = existingByCode.isPresent() ? existingByCode : existingByName;
+
+        if (existingSpOpt.isPresent()) {
+            // Sản phẩm đã tồn tại trong hệ thống!
+            if (!Boolean.TRUE.equals(req.getXacNhanGop())) {
+                String reason = existingByCode.isPresent() && existingByName.isPresent()
+                        ? "cả mã '" + trimmedCode + "' và tên '" + trimmedName + "'"
+                        : (existingByCode.isPresent() ? "mã '" + trimmedCode + "'" : "tên '" + trimmedName + "'");
+                throw new IllegalArgumentException("Sản phẩm với " + reason + " đã tồn tại trong hệ thống! Vui lòng xác nhận gộp thông tin sản phẩm.");
             }
+
+            // Người dùng ĐÃ XÁC NHẬN GỘP: Cập nhật thông tin mới nhất vào sản phẩm đã có
+            SanPham existingSp = existingSpOpt.get();
+
+            if (req.getMoTa() != null && !req.getMoTa().trim().isEmpty()) {
+                existingSp.setMoTa(req.getMoTa().trim());
+            }
+            if (req.getIdXuatXu() != null) {
+                xuatXuRepository.findById(req.getIdXuatXu()).ifPresent(existingSp::setIdXuatXu);
+            }
+            if (req.getIdChatLieu() != null) {
+                chatLieuRepository.findById(req.getIdChatLieu()).ifPresent(existingSp::setIdChatLieu);
+            }
+            if (req.getIdThuongHieu() != null) {
+                thuongHieuRepository.findById(req.getIdThuongHieu()).ifPresent(existingSp::setIdThuongHieu);
+            }
+            if (req.getIdDanhMuc() != null) {
+                danhMucRepository.findById(req.getIdDanhMuc()).ifPresent(existingSp::setIdDanhMuc);
+            }
+            if (req.getIdCoAo() != null) {
+                coAoRepository.findById(req.getIdCoAo()).ifPresent(existingSp::setIdCoAo);
+            }
+            if (req.getIdTayAo() != null) {
+                tayAoRepository.findById(req.getIdTayAo()).ifPresent(existingSp::setIdTayAo);
+            }
+            if (req.getIdHoaTiet() != null) {
+                hoaTietRepository.findById(req.getIdHoaTiet()).ifPresent(existingSp::setIdHoaTiet);
+            }
+
+            existingSp.setTrangThai(1);
+            existingSp.setNguoiCapNhat(req.getNguoiThaoTac() != null ? req.getNguoiThaoTac() : "Admin");
+
+            SanPham saved = sanPhamRepository.save(existingSp);
+
+            if (req.getHinhAnhs() != null && !req.getHinhAnhs().isEmpty()) {
+                saveProductImages(saved, req.getHinhAnhs());
+            }
+
+            return convertToResponse(saved);
+        }
+
+        // Tạo mới hoàn toàn nếu chưa tồn tại
+        if (trimmedCode.isEmpty()) {
+            req.setMaSanPham(nextCode());
+        } else {
             req.setMaSanPham(trimmedCode);
         }
 
@@ -197,30 +352,34 @@ public class SanPhamService {
         SanPham saved = sanPhamRepository.save(sp);
 
         if (req.getHinhAnhs() != null && !req.getHinhAnhs().isEmpty()) {
-            for (String rawItem : req.getHinhAnhs()) {
-                if (rawItem == null || rawItem.trim().isEmpty()) continue;
-                String item = rawItem.trim();
-                Long colorId = null;
-                if (item.contains("|")) {
-                    String[] parts = item.split("\\|", 2);
-                    try {
-                        colorId = Long.parseLong(parts[0].trim());
-                    } catch (Exception ignored) {}
-                    item = parts[1].trim();
-                }
-                String processedUrl = processImage(item);
-                if (processedUrl != null && !processedUrl.trim().isEmpty()) {
-                    HinhAnh ha = new HinhAnh();
-                    ha.setIdSanPham(saved);
-                    ha.setTenAnh(colorId != null ? "COLOR_" + colorId : saved.getTenSanPham());
-                    ha.setDuongDan(processedUrl.trim());
-                    ha.setTrangThai(1);
-                    hinhAnhRepository.save(ha);
-                }
-            }
+            saveProductImages(saved, req.getHinhAnhs());
         }
 
         return convertToResponse(saved);
+    }
+
+    private void saveProductImages(SanPham saved, List<String> hinhAnhs) {
+        for (String rawItem : hinhAnhs) {
+            if (rawItem == null || rawItem.trim().isEmpty()) continue;
+            String item = rawItem.trim();
+            Long colorId = null;
+            if (item.contains("|")) {
+                String[] parts = item.split("\\|", 2);
+                try {
+                    colorId = Long.parseLong(parts[0].trim());
+                } catch (Exception ignored) {}
+                item = parts[1].trim();
+            }
+            String processedUrl = processImage(item);
+            if (processedUrl != null && !processedUrl.trim().isEmpty()) {
+                HinhAnh ha = new HinhAnh();
+                ha.setIdSanPham(saved);
+                ha.setTenAnh(colorId != null ? "COLOR_" + colorId : saved.getTenSanPham());
+                ha.setDuongDan(processedUrl.trim());
+                ha.setTrangThai(1);
+                hinhAnhRepository.save(ha);
+            }
+        }
     }
 
     @Transactional
@@ -238,7 +397,7 @@ public class SanPhamService {
 
         if (req.getMaSanPham() != null && !req.getMaSanPham().trim().isEmpty()) {
             String trimmedCode = req.getMaSanPham().trim();
-            if (sanPhamRepository.existsByMaSanPhamAndIdNot(trimmedCode, id)) {
+            if (sanPhamRepository.existsByMaSanPhamIgnoreCaseAndIdNot(trimmedCode, id)) {
                 throw new IllegalArgumentException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại ở sản phẩm khác!");
             }
             sp.setMaSanPham(trimmedCode);
@@ -435,7 +594,9 @@ public class SanPhamService {
             String[] headers = {
                     "STT", "Mã sản phẩm", "Tên sản phẩm", "Danh mục", "Thương hiệu",
                     "Xuất xứ", "Chất liệu", "Cổ áo", "Tay áo", "Họa tiết",
-                    "Giá thấp nhất (VNĐ)", "Giá cao nhất (VNĐ)", "Số lượng tồn", "Số biến thể",
+                    "Số màu", "Số kích thước",
+                    "Giá bán (VNĐ)", "Giá sau giảm (VNĐ)", "Đợt giảm giá",
+                    "Số lượng tồn", "Số biến thể",
                     "Trạng thái", "Ngày tạo"
             };
 
@@ -494,28 +655,44 @@ public class SanPhamService {
                 c9.setCellStyle(dataStyle);
 
                 Cell c10 = row.createCell(10);
-                c10.setCellValue(sp.getMinGia() != null ? sp.getMinGia().doubleValue() : 0);
-                c10.setCellStyle(numberStyle);
+                c10.setCellValue(sp.getSoMau() != null ? sp.getSoMau() : 0);
+                c10.setCellStyle(centerStyle);
 
                 Cell c11 = row.createCell(11);
-                c11.setCellValue(sp.getMaxGia() != null ? sp.getMaxGia().doubleValue() : 0);
-                c11.setCellStyle(numberStyle);
+                c11.setCellValue(sp.getSoKichCo() != null ? sp.getSoKichCo() : 0);
+                c11.setCellStyle(centerStyle);
 
                 Cell c12 = row.createCell(12);
-                c12.setCellValue(sp.getTongSoLuong() != null ? sp.getTongSoLuong() : 0);
-                c12.setCellStyle(centerStyle);
+                c12.setCellValue(sp.getMinGia() != null ? sp.getMinGia().doubleValue() : 0);
+                c12.setCellStyle(numberStyle);
 
                 Cell c13 = row.createCell(13);
-                c13.setCellValue(sp.getSoLuongBienThe() != null ? sp.getSoLuongBienThe() : 0);
-                c13.setCellStyle(centerStyle);
+                if (Boolean.TRUE.equals(sp.getCoGiamGia()) && sp.getMinGiaSauGiam() != null) {
+                    c13.setCellValue(sp.getMinGiaSauGiam().doubleValue());
+                } else {
+                    c13.setCellValue(sp.getMinGia() != null ? sp.getMinGia().doubleValue() : 0);
+                }
+                c13.setCellStyle(numberStyle);
 
                 Cell c14 = row.createCell(14);
-                c14.setCellValue(sp.getTrangThai() != null && sp.getTrangThai() == 1 ? "Đang kinh doanh" : "Ngừng kinh doanh");
+                c14.setCellValue(Boolean.TRUE.equals(sp.getCoGiamGia()) && sp.getTenDotGiamGia() != null ? sp.getTenDotGiamGia() : "Không áp dụng");
                 c14.setCellStyle(centerStyle);
 
                 Cell c15 = row.createCell(15);
-                c15.setCellValue(sp.getNgayTao() != null ? formatter.format(sp.getNgayTao()) : "");
+                c15.setCellValue(sp.getTongSoLuong() != null ? sp.getTongSoLuong() : 0);
                 c15.setCellStyle(centerStyle);
+
+                Cell c16 = row.createCell(16);
+                c16.setCellValue(sp.getSoLuongBienThe() != null ? sp.getSoLuongBienThe() : 0);
+                c16.setCellStyle(centerStyle);
+
+                Cell c17 = row.createCell(17);
+                c17.setCellValue(sp.getTrangThai() != null && sp.getTrangThai() == 1 ? "Đang kinh doanh" : "Ngừng kinh doanh");
+                c17.setCellStyle(centerStyle);
+
+                Cell c18 = row.createCell(18);
+                c18.setCellValue(sp.getNgayTao() != null ? formatter.format(sp.getNgayTao()) : "");
+                c18.setCellStyle(centerStyle);
             }
 
             for (int i = 0; i < headers.length; i++) {
@@ -535,6 +712,86 @@ public class SanPhamService {
         Long sum = chiTietSanPhamRepository.sumSoLuongBySanPhamId(sp.getId());
         Integer tongSoLuong = sum != null ? sum.intValue() : 0;
         List<ChiTietSanPham> variants = chiTietSanPhamRepository.findByIdSanPham_Id(sp.getId());
+        int soMau = 0;
+        int soKichCo = 0;
+        if (variants != null && !variants.isEmpty()) {
+            soMau = (int) variants.stream()
+                    .map(v -> v.getIdMauSac() != null ? v.getIdMauSac().getId() : null)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .count();
+            soKichCo = (int) variants.stream()
+                    .map(v -> v.getIdKichCo() != null ? v.getIdKichCo().getId() : null)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .count();
+        }
+
+        // Kiểm tra và liên kết với đợt giảm giá đang hoạt động
+        Instant now = Instant.now();
+        List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsBySanPhamId(sp.getId(), now);
+
+        boolean coGiamGia = false;
+        BigDecimal minGiaSauGiam = null;
+        BigDecimal maxGiaSauGiam = null;
+        BigDecimal phanTramGiam = null;
+        String tenDotGiamGia = null;
+
+        if (activeDiscounts != null && !activeDiscounts.isEmpty()) {
+            coGiamGia = true;
+            ChiTietDotGiamGia bestDgg = activeDiscounts.stream()
+                .max(java.util.Comparator.comparing(c -> {
+                    BigDecimal pt = c.getPhanTramGiamBienThe() != null 
+                            ? c.getPhanTramGiamBienThe() 
+                            : (c.getIdDotGiamGia() != null ? c.getIdDotGiamGia().getPhanTramGiam() : BigDecimal.ZERO);
+                    return pt != null ? pt : BigDecimal.ZERO;
+                }))
+                .orElse(activeDiscounts.get(0));
+
+            if (bestDgg.getIdDotGiamGia() != null) {
+                tenDotGiamGia = bestDgg.getIdDotGiamGia().getTenDotGiamGia();
+                phanTramGiam = bestDgg.getPhanTramGiamBienThe() != null 
+                        ? bestDgg.getPhanTramGiamBienThe() 
+                        : bestDgg.getIdDotGiamGia().getPhanTramGiam();
+            }
+
+            java.util.Map<Long, BigDecimal> discountMap = new java.util.HashMap<>();
+            for (ChiTietDotGiamGia c : activeDiscounts) {
+                if (c.getIdChiTietSanPham() != null) {
+                    BigDecimal pt = c.getPhanTramGiamBienThe() != null 
+                            ? c.getPhanTramGiamBienThe() 
+                            : (c.getIdDotGiamGia() != null ? c.getIdDotGiamGia().getPhanTramGiam() : BigDecimal.ZERO);
+                    discountMap.merge(c.getIdChiTietSanPham().getId(), pt, BigDecimal::max);
+                }
+            }
+
+            if (variants != null && !variants.isEmpty()) {
+                for (ChiTietSanPham v : variants) {
+                    if (v.getGiaBan() == null) continue;
+                    BigDecimal pt = discountMap.get(v.getId());
+                    if (pt == null) {
+                        pt = BigDecimal.ZERO;
+                    }
+                    BigDecimal priceAfter = v.getGiaBan();
+                    if (pt != null && pt.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal factor = BigDecimal.valueOf(100).subtract(pt).max(BigDecimal.ZERO);
+                        priceAfter = v.getGiaBan().multiply(factor).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+                    }
+                    if (minGiaSauGiam == null || priceAfter.compareTo(minGiaSauGiam) < 0) {
+                        minGiaSauGiam = priceAfter;
+                    }
+                    if (maxGiaSauGiam == null || priceAfter.compareTo(maxGiaSauGiam) > 0) {
+                        maxGiaSauGiam = priceAfter;
+                    }
+                }
+            }
+
+            if (minGiaSauGiam != null && minGia != null && minGiaSauGiam.compareTo(minGia) >= 0) {
+                coGiamGia = false;
+                minGiaSauGiam = null;
+                maxGiaSauGiam = null;
+            }
+        }
 
         List<HinhAnh> images = hinhAnhRepository.findByIdSanPham_Id(sp.getId());
         String anhDaiDien = (images != null && !images.isEmpty()) ? images.get(0).getDuongDan() : null;
@@ -570,8 +827,15 @@ public class SanPhamService {
                 .tenHoaTiet(sp.getIdHoaTiet() != null ? sp.getIdHoaTiet().getTenHoaTiet() : null)
                 .minGia(minGia)
                 .maxGia(maxGia)
+                .coGiamGia(coGiamGia)
+                .minGiaSauGiam(minGiaSauGiam)
+                .maxGiaSauGiam(maxGiaSauGiam)
+                .phanTramGiam(phanTramGiam)
+                .tenDotGiamGia(tenDotGiamGia)
                 .tongSoLuong(tongSoLuong)
                 .soLuongBienThe(variants != null ? variants.size() : 0)
+                .soMau(soMau)
+                .soKichCo(soKichCo)
                 .anhDaiDien(anhDaiDien)
                 .hinhAnhs(hinhAnhs)
                 .build();

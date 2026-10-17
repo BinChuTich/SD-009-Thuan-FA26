@@ -11,6 +11,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/san-pham")
 @CrossOrigin("*")
@@ -20,6 +22,19 @@ public class SanPhamController {
 
     public SanPhamController(SanPhamService sanPhamService) {
         this.sanPhamService = sanPhamService;
+    }
+
+    @GetMapping("/next-code")
+    public ResponseEntity<Map<String, String>> nextCode() {
+        return ResponseEntity.ok(Map.of("code", sanPhamService.nextCode()));
+    }
+
+    @GetMapping("/check-duplicate")
+    public ResponseEntity<Map<String, Object>> checkDuplicate(
+            @RequestParam(required = false) String maSanPham,
+            @RequestParam(required = false) String tenSanPham
+    ) {
+        return ResponseEntity.ok(sanPhamService.checkDuplicate(maSanPham, tenSanPham));
     }
 
     @GetMapping

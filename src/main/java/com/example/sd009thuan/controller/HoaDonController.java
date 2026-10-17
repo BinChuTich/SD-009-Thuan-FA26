@@ -1,5 +1,6 @@
 package com.example.sd009thuan.controller;
 
+import com.example.sd009thuan.dto.HoaDonPosDTO;
 import com.example.sd009thuan.entity.ChiTietHoaDon;
 import com.example.sd009thuan.entity.HoaDon;
 import com.example.sd009thuan.service.HoaDonService;
@@ -24,6 +25,12 @@ public class HoaDonController {
     @GetMapping
     public ResponseEntity<List<HoaDon>> getAll() {
         return ResponseEntity.ok(hoaDonService.getAll());
+    }
+
+    // Lấy mã hóa đơn tiếp theo không trùng lặp
+    @GetMapping("/next-code")
+    public ResponseEntity<Map<String, String>> getNextCode() {
+        return ResponseEntity.ok(Map.of("code", hoaDonService.generateNextMaHoaDon()));
     }
 
     // Lấy hóa đơn theo ID
@@ -84,6 +91,12 @@ public class HoaDonController {
     @PostMapping
     public ResponseEntity<HoaDon> create(@RequestBody HoaDon hoaDon) {
         return ResponseEntity.ok(hoaDonService.create(hoaDon));
+    }
+
+    // Tạo đơn hàng bán tại quầy (POS) kèm danh sách sản phẩm chi tiết, trừ tồn kho và thanh toán
+    @PostMapping("/pos")
+    public ResponseEntity<HoaDon> createPos(@RequestBody HoaDonPosDTO dto) {
+        return ResponseEntity.ok(hoaDonService.createHoaDonPos(dto));
     }
 
     // Cập nhật thông tin hóa đơn

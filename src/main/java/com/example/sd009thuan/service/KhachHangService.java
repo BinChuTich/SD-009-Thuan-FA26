@@ -14,7 +14,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -26,12 +25,10 @@ import java.util.Optional;
 public class KhachHangService {
     private final KhachHangRepository repo;
     private final DiaChiKhachHangRepository addressRepo;
-    private final FileStorageService fileStorageService;
 
-    public KhachHangService(KhachHangRepository repo, DiaChiKhachHangRepository addressRepo, FileStorageService fileStorageService) {
+    public KhachHangService(KhachHangRepository repo, DiaChiKhachHangRepository addressRepo) {
         this.repo = repo;
         this.addressRepo = addressRepo;
-        this.fileStorageService = fileStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -46,8 +43,30 @@ public class KhachHangService {
         return toResponse(find(id));
     }
 
+    @Transactional(readOnly = true)
+    public KhachHangResponse getByIdentifier(String identifier) {
+        return toResponse(findByIdentifier(identifier));
+    }
+
+    public KhachHang findByIdentifier(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            throw new EntityNotFoundException("Mã hoặc ID khách hàng không hợp lệ");
+        }
+        try {
+            Long id = Long.parseLong(identifier.trim());
+            Optional<KhachHang> byId = repo.findById(id);
+            if (byId.isPresent()) {
+                return byId.get();
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        return repo.findByMaKhachHangIgnoreCase(identifier.trim())
+                .or(() -> repo.findByMaKhachHang(identifier.trim()))
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy khách hàng: " + identifier));
+    }
+
     @Transactional
-    public KhachHangResponse create(KhachHangRequest req, MultipartFile file) {
+    public KhachHangResponse create(KhachHangRequest req) {
         validateRequired(req);
         validateUnique(req, null);
         KhachHang x = new KhachHang();
@@ -60,8 +79,6 @@ public class KhachHangService {
         x.setMatKhau(blankToNull(req.matKhau()) != null ? req.matKhau() : "123456");
         String phone = blankToNull(req.soDienThoai()) != null ? req.soDienThoai() : req.soDienThoaiNhan();
         x.setSoDienThoai(blankToNull(phone));
-        String imageUrl = fileStorageService.storeCustomerImage(file);
-        x.setAnhKhachHang(imageUrl != null ? imageUrl : blankToNull(req.anhKhachHang()));
         x.setNgaySinh(req.ngaySinh());
         x.setGioiTinh(req.gioiTinh() == null ? true : req.gioiTinh());
         x.setTrangThai(req.trangThai() == null ? 1 : req.trangThai());
@@ -73,12 +90,7 @@ public class KhachHangService {
     }
 
     @Transactional
-    public KhachHangResponse create(KhachHangRequest req) {
-        return create(req, null);
-    }
-
-    @Transactional
-    public KhachHangResponse update(Long id, KhachHangRequest req, MultipartFile file) {
+    public KhachHangResponse update(Long id, KhachHangRequest req) {
         KhachHang x = find(id);
         validateUnique(req, id);
         if (blankToNull(req.maKhachHang()) != null) x.setMaKhachHang(req.maKhachHang().trim());
@@ -104,14 +116,6 @@ public class KhachHangService {
             validateSoDienThoai(phone);
             x.setSoDienThoai(blankToNull(phone));
         }
-        String oldImage = x.getAnhKhachHang();
-        String imageUrl = fileStorageService.storeCustomerImage(file);
-        if (imageUrl != null) {
-            x.setAnhKhachHang(imageUrl);
-            fileStorageService.deleteIfLocal(oldImage);
-        } else if (blankToNull(req.anhKhachHang()) != null) {
-            x.setAnhKhachHang(blankToNull(req.anhKhachHang()));
-        }
         if (req.ngaySinh() != null) {
             if (req.ngaySinh().isAfter(LocalDate.now())) {
                 throw new IllegalArgumentException("Ngày sinh không được lớn hơn ngày hiện tại");
@@ -125,11 +129,6 @@ public class KhachHangService {
         x = repo.save(x);
         saveDefaultAddress(x, req);
         return toResponse(x);
-    }
-
-    @Transactional
-    public KhachHangResponse update(Long id, KhachHangRequest req) {
-        return update(id, req, null);
     }
 
     @Transactional
@@ -270,28 +269,15 @@ public class KhachHangService {
         if (blankToNull(req.tenKhachHang()) == null) {
             throw new IllegalArgumentException("Họ tên khách hàng không được để trống");
         }
-        if (blankToNull(req.email()) == null) {
-            throw new IllegalArgumentException("Email khách hàng không được để trống");
-        }
-        if (!req.email().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+        if (blankToNull(req.email()) != null && !req.email().trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
             throw new IllegalArgumentException("Email khách hàng không đúng định dạng");
         }
         String phone = blankToNull(req.soDienThoai()) != null ? req.soDienThoai() : req.soDienThoaiNhan();
-        validateSoDienThoai(phone);
-        if (req.ngaySinh() == null) {
-            throw new IllegalArgumentException("Ngày sinh khách hàng không được để trống");
+        if (phone != null) {
+            validateSoDienThoai(phone);
         }
-        if (req.ngaySinh().isAfter(LocalDate.now())) {
+        if (req.ngaySinh() != null && req.ngaySinh().isAfter(LocalDate.now())) {
             throw new IllegalArgumentException("Ngày sinh không được lớn hơn ngày hiện tại");
-        }
-        if (blankToNull(req.thanhPho()) == null) {
-            throw new IllegalArgumentException("Tỉnh / Thành phố không được để trống");
-        }
-        if (blankToNull(req.phuong()) == null) {
-            throw new IllegalArgumentException("Phường / Xã không được để trống");
-        }
-        if (blankToNull(req.diaChiCuThe()) == null) {
-            throw new IllegalArgumentException("Địa chỉ cụ thể không được để trống");
         }
     }
 
@@ -309,8 +295,34 @@ public class KhachHangService {
             boolean exists = currentId == null
                     ? repo.existsByEmailIgnoreCase(email)
                     : repo.existsByEmailIgnoreCaseAndIdNot(email, currentId);
-            if (exists) throw new IllegalArgumentException("Email khách hàng đã tồn tại");
+            if (exists) throw new IllegalArgumentException("Email khách hàng đã tồn tại trong hệ thống");
         }
+
+        String phone = blankToNull(req.soDienThoai()) != null ? req.soDienThoai().trim() : blankToNull(req.soDienThoaiNhan());
+        if (phone != null) {
+            boolean exists = currentId == null
+                    ? repo.existsBySoDienThoai(phone)
+                    : repo.existsBySoDienThoaiAndIdNot(phone, currentId);
+            if (exists) throw new IllegalArgumentException("Số điện thoại này đã được sử dụng");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public boolean checkEmailExists(String email, Long excludeId) {
+        String val = blankToNull(email);
+        if (val == null) return false;
+        return excludeId == null
+                ? repo.existsByEmailIgnoreCase(val)
+                : repo.existsByEmailIgnoreCaseAndIdNot(val, excludeId);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean checkPhoneExists(String phone, Long excludeId) {
+        String val = blankToNull(phone);
+        if (val == null) return false;
+        return excludeId == null
+                ? repo.existsBySoDienThoai(val)
+                : repo.existsBySoDienThoaiAndIdNot(val, excludeId);
     }
 
     public String nextCode() {
@@ -361,8 +373,7 @@ public class KhachHangService {
                 a == null ? null : a.getPhuong(),
                 a == null ? null : a.getDiaChiCuThe(),
                 a == null ? null : a.getTenNguoiNhan(),
-                a == null ? null : a.getSoDienThoaiNhan(),
-                x.getAnhKhachHang()
+                a == null ? null : a.getSoDienThoaiNhan()
         );
     }
 

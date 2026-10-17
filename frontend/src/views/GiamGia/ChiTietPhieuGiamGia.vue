@@ -116,10 +116,16 @@
             <!-- Cột trái: Loại giảm -->
             <div class="form-field">
               <label class="field-label">Loại giảm <span class="required">*</span></label>
-              <select v-model.number="form.loaiPhieuGiamGia" class="form-control form-select">
-                <option :value="1">Giảm theo %</option>
-                <option :value="2">Giảm tiền mặt trực tiếp</option>
-              </select>
+              <Select2Combobox
+                v-model="form.loaiPhieuGiamGia"
+                :options="loaiGiamOptions"
+                value-key="id"
+                label-key="name"
+                :show-all-option="false"
+                :allow-clear="false"
+                placeholder="-- Chọn loại giảm --"
+                search-placeholder="Tìm loại giảm..."
+              />
             </div>
 
             <!-- Cột phải: Giá trị giảm -->
@@ -265,18 +271,27 @@
               </div>
 
               <div class="cust-filter-item">
-                <select v-model="custScopeFilter" class="form-control form-select-sm font-bold text-blue">
-                  <option value="selected">Khách hàng đang áp dụng</option>
-                  <option value="all">Tất cả khách hàng</option>
-                </select>
+                <Select2Combobox
+                  v-model="custScopeFilter"
+                  :options="custScopeOptions"
+                  value-key="id"
+                  label-key="name"
+                  :show-all-option="false"
+                  :allow-clear="false"
+                  placeholder="-- Phạm vi hiển thị --"
+                  search-placeholder="Tìm phạm vi..."
+                />
               </div>
 
               <div class="cust-filter-item">
-                <select v-model="custGenderFilter" class="form-control form-select-sm">
-                  <option value="">Tất cả giới tính</option>
-                  <option value="female">Nữ</option>
-                  <option value="male">Nam</option>
-                </select>
+                <Select2Combobox
+                  v-model="custGenderFilter"
+                  :options="custGenderOptions"
+                  value-key="id"
+                  label-key="name"
+                  placeholder="Tất cả giới tính"
+                  search-placeholder="Tìm giới tính..."
+                />
               </div>
             </div>
 
@@ -366,10 +381,17 @@
     <div v-if="showConfirmModal" class="modal-overlay" @click.self="closeConfirmModal">
       <div class="modal-box confirm-modal-box">
         <div class="confirm-modal-header">
+          <div class="confirm-warning-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </div>
           <div class="confirm-title-wrap">
             <h3 class="confirm-title">Xác nhận cập nhật phiếu giảm giá</h3>
+            <p class="confirm-subtitle">Thao tác sẽ lưu các thay đổi vào hệ thống</p>
           </div>
-          <button class="modal-close-btn" @click="closeConfirmModal">✕</button>
+          <button class="modal-close-btn" @click="closeConfirmModal" :disabled="saving">✕</button>
         </div>
 
         <div class="confirm-modal-body">
@@ -391,14 +413,38 @@
       </div>
     </div>
 
-    <!-- 4. THÔNG BÁO THÀNH CÔNG (TOAST NOTIFICATION) -->
-    <div v-if="showSuccessToast" class="toast-success">
-      <div class="toast-text">
-        <b>Thành công!</b>
-        <p>Đã cập nhật thông tin phiếu giảm giá vào cơ sở dữ liệu.</p>
+    <!-- 4. TOAST THÔNG BÁO ĐỒNG BỘ GIAO DIỆN PHIẾU GIẢM GIÁ -->
+    <transition name="toast-slide">
+      <div v-if="toast.show" :class="['toast-msg', `toast-${toast.type}`]">
+        <div class="toast-icon">
+          <svg v-if="toast.type === 'success'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <svg v-else-if="toast.type === 'error'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+          <svg v-else-if="toast.type === 'warning'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+        </div>
+        <div class="toast-content">
+          <span class="toast-title">
+            {{ toast.type === 'success' ? 'Thành công!' : (toast.type === 'error' ? 'Thao tác thất bại' : (toast.type === 'warning' ? 'Cảnh báo' : 'Thông báo')) }}
+          </span>
+          <span class="toast-text">{{ toast.message }}</span>
+        </div>
+        <button class="toast-btn-close" @click="closeToast" title="Đóng">✕</button>
       </div>
-      <button class="toast-close" @click="showSuccessToast = false">✕</button>
-    </div>
+    </transition>
   </div>
 </template>
 
@@ -406,6 +452,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import api from '../../api'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -416,7 +463,37 @@ const loading = ref(false)
 const saving = ref(false)
 const errorMessage = ref('')
 const showConfirmModal = ref(false)
-const showSuccessToast = ref(false)
+const toast = ref({ show: false, message: '', type: 'success' })
+let toastTimer = null
+
+const showToastNotification = (message, type = 'success', duration = 3500) => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { show: true, message, type }
+  toastTimer = setTimeout(() => {
+    toast.value.show = false
+  }, duration)
+}
+
+const closeToast = () => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value.show = false
+}
+
+const loaiGiamOptions = [
+  { id: 1, name: 'Giảm theo %' },
+  { id: 2, name: 'Giảm tiền mặt trực tiếp' }
+]
+
+const custScopeOptions = [
+  { id: 'selected', name: 'Khách hàng đang áp dụng' },
+  { id: 'all', name: 'Tất cả khách hàng' }
+]
+
+const custGenderOptions = [
+  { id: '', name: 'Tất cả giới tính' },
+  { id: 'female', name: 'Nữ' },
+  { id: 'male', name: 'Nam' }
+]
 
 const form = ref(null)
 const errors = ref({})
@@ -983,9 +1060,8 @@ const submitUpdate = async () => {
   try {
     await api.put(`/api/phieu-giam-gia/${form.value.id}`, payload)
     showConfirmModal.value = false
-    showSuccessToast.value = true
+    showToastNotification('Đã cập nhật thông tin phiếu giảm giá vào cơ sở dữ liệu thành công.', 'success')
     setTimeout(() => {
-      showSuccessToast.value = false
       router.push('/phieu-giam-gia')
     }, 1200)
   } catch (err) {
@@ -998,7 +1074,7 @@ const submitUpdate = async () => {
         msg = err.response.data.message
       }
     }
-    alert(msg)
+    showToastNotification(msg, 'error')
     showConfirmModal.value = false
   } finally {
     saving.value = false
@@ -1562,41 +1638,59 @@ onMounted(async () => {
 }
 
 .confirm-modal-header {
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #f3f4f6;
+  padding: 1.25rem 1.4rem;
+  background-color: #fff9f0;
+  border-bottom: 1px solid #faedd9;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  gap: 0.85rem;
+  position: relative;
+}
+
+.confirm-warning-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #f7eee1;
+  color: #b38e6e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.confirm-title-wrap {
+  flex: 1;
 }
 
 .confirm-title {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  color: #111827;
+  color: #8c6328;
 }
 
 .confirm-subtitle {
-  margin: 4px 0 0;
-  font-size: 0.85rem;
-  color: #6b7280;
+  margin: 0.2rem 0 0;
+  font-size: 0.83rem;
+  color: #aa8651;
 }
 
 .modal-close-btn {
-  background: none;
+  background: transparent;
   border: none;
-  font-size: 1.1rem;
-  color: #9ca3af;
+  font-size: 1.2rem;
+  color: #9aa0a0;
   cursor: pointer;
-  padding: 0;
+  transition: color 0.15s;
 }
 
 .modal-close-btn:hover {
-  color: #374151;
+  color: #c0392b;
 }
 
 .confirm-modal-body {
-  padding: 1.25rem 1.5rem;
+  padding: 1.4rem;
 }
 
 .confirm-modal-box {
@@ -1607,12 +1701,12 @@ onMounted(async () => {
   margin: 0.25rem 0;
   font-size: 0.95rem;
   line-height: 1.5;
-  color: #374151;
+  color: #435158;
 }
 
 .confirm-summary-panel {
-  background-color: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background-color: #faf9f6;
+  border: 1px solid #efeae0;
   border-radius: 8px;
   padding: 0.85rem 1.1rem;
   display: flex;
@@ -1628,11 +1722,11 @@ onMounted(async () => {
 }
 
 .s-label {
-  color: #6b7280;
+  color: #7b888e;
 }
 
 .s-val {
-  color: #111827;
+  color: #2b383e;
 }
 
 .confirm-note-box {
@@ -1644,54 +1738,158 @@ onMounted(async () => {
 }
 
 .note-info {
-  background-color: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #1e40af;
+  background-color: #edf5fa;
+  border: 1px solid #d0e4f2;
+  color: #376384;
 }
 
 .confirm-modal-footer {
-  padding: 1rem 1.5rem;
-  background-color: #f9fafb;
-  border-top: 1px solid #f3f4f6;
+  padding: 1rem 1.4rem;
+  background-color: #faf9f6;
+  border-top: 1px solid #eeebe3;
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
 }
 
-/* Toast */
-.toast-success {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
+.btn-secondary {
   background-color: #ffffff;
-  border-left: 4px solid #10b981;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  padding: 1rem 1.25rem;
+  border: 1px solid #d8d2c6;
+  color: #616e75;
+  font-weight: 600;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #f7f5ef;
+  color: #2b383e;
+  border-color: #c5bfae;
+}
+
+.btn-save-confirm {
+  background-color: #496883;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.btn-save-confirm:hover:not(:disabled) {
+  background-color: #38536b;
+}
+
+/* Toast thông báo đồng bộ giao diện Phiếu giảm giá */
+.toast-msg {
+  position: fixed;
+  bottom: 24px;
+  right: 28px;
+  background-color: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(65, 60, 50, 0.14), 0 8px 10px -6px rgba(65, 60, 50, 0.08);
+  border: 1px solid #efeae0;
+  padding: 12px 18px;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  z-index: 1000;
+  gap: 12px;
+  z-index: 99999;
+  max-width: 440px;
 }
 
-.toast-text b {
-  color: #065f46;
-  display: block;
-  font-size: 0.95rem;
+.toast-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
 }
 
-.toast-text p {
-  margin: 2px 0 0;
-  color: #4b5563;
-  font-size: 0.85rem;
+.toast-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
 }
 
-.toast-close {
-  background: none;
+.toast-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #2b383e;
+  line-height: 1.25;
+}
+
+.toast-text {
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: #616e75;
+  line-height: 1.4;
+}
+
+.toast-btn-close {
+  background: transparent;
   border: none;
-  color: #9ca3af;
-  cursor: pointer;
   font-size: 1rem;
+  color: #a0a8ab;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.toast-btn-close:hover {
+  color: #2b383e;
+  background-color: #f7f5ef;
+}
+
+/* Biến thể màu cho Toast theo phong cách ấm của Phiếu giảm giá */
+.toast-success {
+  border-left: 4px solid #4c8a5a;
+}
+.toast-success .toast-icon {
+  background-color: #edf5ef;
+  color: #4c8a5a;
+}
+
+.toast-warning {
+  border-left: 4px solid #b38e6e;
+}
+.toast-warning .toast-icon {
+  background-color: #fff9f0;
+  color: #b38e6e;
+}
+.toast-warning .toast-title {
+  color: #8c6328;
+}
+
+.toast-error {
+  border-left: 4px solid #c0392b;
+}
+.toast-error .toast-icon {
+  background-color: #fdeded;
+  color: #c0392b;
+}
+.toast-error .toast-title {
+  color: #c0392b;
+}
+
+.toast-info {
+  border-left: 4px solid #496883;
+}
+.toast-info .toast-icon {
+  background-color: #edf5fa;
+  color: #496883;
+}
+.toast-info .toast-title {
+  color: #496883;
+}
+
+/* Hiệu ứng trượt */
+.toast-slide-enter-active,
+.toast-slide-leave-active {
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.toast-slide-enter-from,
+.toast-slide-leave-to {
+  opacity: 0;
+  transform: translateY(20px) translateX(25px);
 }
 
 /* Typography Helpers */

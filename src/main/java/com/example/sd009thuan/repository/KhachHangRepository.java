@@ -17,10 +17,14 @@ public interface KhachHangRepository extends JpaRepository<KhachHang, Long>, Jpa
     boolean existsByMaKhachHangIgnoreCaseAndIdNot(String maKhachHang, Long id);
     boolean existsByEmailIgnoreCase(String email);
     boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
+    boolean existsBySoDienThoai(String soDienThoai);
+    boolean existsBySoDienThoaiAndIdNot(String soDienThoai, Long id);
     Optional<KhachHang> findTopByOrderByIdDesc();
     Optional<KhachHang> findByMaKhachHang(String maKhachHang);
+    Optional<KhachHang> findByMaKhachHangIgnoreCase(String maKhachHang);
     Optional<KhachHang> findByTaiKhoan(String taiKhoan);
     Optional<KhachHang> findByEmail(String email);
+    Optional<KhachHang> findBySoDienThoai(String soDienThoai);
 
     @Query(value = "SELECT kh.id, kh.ma_khach_hang, kh.ten_khach_hang, kh.so_dien_thoai, kh.email, " +
             "kh.ngay_sinh, kh.gioi_tinh, kh.trang_thai, " +

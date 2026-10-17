@@ -1,9 +1,13 @@
 package com.example.sd009thuan.controller;
 
+import com.example.sd009thuan.dto.BulkEmailRequest;
+import com.example.sd009thuan.dto.BulkEmailResponse;
+import com.example.sd009thuan.dto.ExcelImportResult;
 import com.example.sd009thuan.dto.NhanVienRequest;
 import com.example.sd009thuan.dto.NhanVienResponse;
 import com.example.sd009thuan.entity.VaiTro;
 import com.example.sd009thuan.service.ExcelExportService;
+import com.example.sd009thuan.service.ExcelImportService;
 import com.example.sd009thuan.service.NhanVienService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,10 +29,12 @@ import java.util.Map;
 public class NhanVienController {
     private final NhanVienService service;
     private final ExcelExportService excelExportService;
+    private final ExcelImportService excelImportService;
 
-    public NhanVienController(NhanVienService service, ExcelExportService excelExportService) {
+    public NhanVienController(NhanVienService service, ExcelExportService excelExportService, ExcelImportService excelImportService) {
         this.service = service;
         this.excelExportService = excelExportService;
+        this.excelImportService = excelImportService;
     }
 
     @GetMapping
@@ -59,6 +65,22 @@ public class NhanVienController {
         return ResponseEntity.ok(Map.of("code", code));
     }
 
+    @GetMapping("/check-email")
+    public ResponseEntity<Map<String, Boolean>> checkEmail(
+            @RequestParam String email,
+            @RequestParam(required = false) Long id) {
+        boolean exists = service.checkEmailExists(email, id);
+        return ResponseEntity.ok(Map.of("exists", exists));
+    }
+
+    @GetMapping("/check-phone")
+    public ResponseEntity<Map<String, Boolean>> checkPhone(
+            @RequestParam String phone,
+            @RequestParam(required = false) Long id) {
+        boolean exists = service.checkPhoneExists(phone, id);
+        return ResponseEntity.ok(Map.of("exists", exists));
+    }
+
     @GetMapping({"/export-excel", "/export"})
     public ResponseEntity<byte[]> exportExcel(
             @RequestParam(required = false) String keyword,
@@ -67,6 +89,25 @@ public class NhanVienController {
         byte[] bytes = excelExportService.exportEmployees(service.findAllForExport(keyword, idVaiTro, trangThai));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename("danh-sach-nhan-vien.xlsx").build().toString())
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(bytes);
+    }
+
+    @PostMapping("/bulk-email")
+    public ResponseEntity<BulkEmailResponse> bulkEmail(@RequestBody BulkEmailRequest req) {
+        return ResponseEntity.ok(service.sendBulkEmail(req));
+    }
+
+    @PostMapping(value = "/import-excel", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ExcelImportResult> importExcel(@RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(excelImportService.importEmployees(file));
+    }
+
+    @GetMapping("/excel-template")
+    public ResponseEntity<byte[]> getExcelTemplate() {
+        byte[] bytes = excelImportService.generateEmployeeTemplate();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename("mau-nhap-nhan-vien.xlsx").build().toString())
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(bytes);
     }

@@ -56,6 +56,14 @@ public class DotGiamGiaController {
     }
 
     /**
+     * Lấy bản đồ ID biến thể -> Đợt giảm giá đang áp dụng chi tiết
+     */
+    @GetMapping("/active-variants-map")
+    public ResponseEntity<Map<Long, Map<String, Object>>> getActiveVariantsMap(@RequestParam(required = false) Long excludeDotId) {
+        return ResponseEntity.ok(dotGiamGiaService.getActiveVariantMap(excludeDotId));
+    }
+
+    /**
      * Lấy đợt giảm giá đang áp dụng sản phẩm cha theo ID sản phẩm
      */
     @GetMapping("/by-product/{sanPhamId}")

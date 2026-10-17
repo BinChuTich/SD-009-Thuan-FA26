@@ -18,9 +18,11 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class DotGiamGiaService {
@@ -160,43 +162,6 @@ public class DotGiamGiaService {
         if (!dotGiamGia.getNgayKetThuc().isAfter(dotGiamGia.getNgayBatDau())) {
             throw new IllegalArgumentException("Thời gian kết thúc phải sau thời gian bắt đầu!");
         }
-
-        // Kiểm tra quy tắc: 1 sản phẩm chỉ được tạo 1 đợt giảm giá, khi kết thúc mới tạo lại được
-        if (dotGiamGia.getChiTietSanPhamIds() != null && !dotGiamGia.getChiTietSanPhamIds().isEmpty()) {
-            List<Long> ctspIds = dotGiamGia.getChiTietSanPhamIds();
-            List<Long> spIds = new ArrayList<>();
-            for (Long ctspId : ctspIds) {
-                chiTietSanPhamRepository.findById(ctspId).ifPresent(ctsp -> {
-                    if (ctsp.getIdSanPham() != null) {
-                        spIds.add(ctsp.getIdSanPham().getId());
-                    }
-                });
-            }
-            if (spIds.isEmpty()) {
-                spIds.add(-1L);
-            }
-
-            List<ChiTietDotGiamGia> conflicts = chiTietDotGiamGiaRepository.findUnendedCampaignConflicts(
-                    ctspIds,
-                    spIds,
-                    currentId,
-                    Instant.now()
-            );
-
-            if (!conflicts.isEmpty()) {
-                ChiTietDotGiamGia conflict = conflicts.get(0);
-                String tenSp = "sản phẩm";
-                if (conflict.getIdChiTietSanPham() != null) {
-                    if (conflict.getIdChiTietSanPham().getIdSanPham() != null) {
-                        tenSp = conflict.getIdChiTietSanPham().getIdSanPham().getTenSanPham();
-                    } else if (conflict.getIdChiTietSanPham().getMaChiTietSanPham() != null) {
-                        tenSp = conflict.getIdChiTietSanPham().getMaChiTietSanPham();
-                    }
-                }
-                String tenDot = conflict.getIdDotGiamGia() != null ? conflict.getIdDotGiamGia().getTenDotGiamGia() : "đợt khác";
-                throw new IllegalArgumentException("Sản phẩm [" + tenSp + "] đang trong đợt giảm giá [" + tenDot + "] chưa kết thúc. Chỉ khi đợt giảm giá kết thúc mới có thể tạo đợt mới cho sản phẩm này!");
-            }
-        }
     }
 
     public Map<Long, DotGiamGia> getActiveProductMap(Long excludeDotId) {
@@ -207,7 +172,50 @@ public class DotGiamGiaService {
                     && ct.getIdChiTietSanPham().getIdSanPham() != null
                     && ct.getIdDotGiamGia() != null) {
                 Long spId = ct.getIdChiTietSanPham().getIdSanPham().getId();
-                map.putIfAbsent(spId, ct.getIdDotGiamGia());
+                if (map.containsKey(spId)) {
+                    DotGiamGia existing = map.get(spId);
+                    BigDecimal existingPt = existing.getPhanTramGiam() != null ? existing.getPhanTramGiam() : BigDecimal.ZERO;
+                    BigDecimal currentPt = ct.getIdDotGiamGia().getPhanTramGiam() != null ? ct.getIdDotGiamGia().getPhanTramGiam() : BigDecimal.ZERO;
+                    if (currentPt.compareTo(existingPt) > 0) {
+                        map.put(spId, ct.getIdDotGiamGia());
+                    }
+                } else {
+                    map.put(spId, ct.getIdDotGiamGia());
+                }
+            }
+        }
+        return map;
+    }
+
+    public Map<Long, Map<String, Object>> getActiveVariantMap(Long excludeDotId) {
+        List<ChiTietDotGiamGia> chiTiets = chiTietDotGiamGiaRepository.findActiveChiTiets(Instant.now(), excludeDotId);
+        Map<Long, Map<String, Object>> map = new HashMap<>();
+        for (ChiTietDotGiamGia ct : chiTiets) {
+            if (ct.getIdChiTietSanPham() != null && ct.getIdDotGiamGia() != null) {
+                Long variantId = ct.getIdChiTietSanPham().getId();
+                BigDecimal currentPt = ct.getPhanTramGiamBienThe() != null ? ct.getPhanTramGiamBienThe() : ct.getIdDotGiamGia().getPhanTramGiam();
+                if (currentPt == null) currentPt = BigDecimal.ZERO;
+
+                // Nếu biến thể nằm trong nhiều đợt giảm giá đang chạy, tự động lấy đợt có % giảm lớn nhất (MAX discount)
+                if (map.containsKey(variantId)) {
+                    Map<String, Object> existing = map.get(variantId);
+                    Object existingPtObj = existing.get("phanTramGiam");
+                    BigDecimal existingPt = BigDecimal.ZERO;
+                    if (existingPtObj instanceof BigDecimal) existingPt = (BigDecimal) existingPtObj;
+                    else if (existingPtObj instanceof Number) existingPt = BigDecimal.valueOf(((Number) existingPtObj).doubleValue());
+                    if (currentPt.compareTo(existingPt) <= 0) {
+                        continue;
+                    }
+                }
+
+                Map<String, Object> info = new HashMap<>();
+                info.put("dotId", ct.getIdDotGiamGia().getId());
+                info.put("maDotGiamGia", ct.getIdDotGiamGia().getMaDotGiamGia());
+                info.put("tenDotGiamGia", ct.getIdDotGiamGia().getTenDotGiamGia());
+                info.put("phanTramGiam", currentPt);
+                info.put("ngayBatDau", ct.getIdDotGiamGia().getNgayBatDau());
+                info.put("ngayKetThuc", ct.getIdDotGiamGia().getNgayKetThuc());
+                map.put(variantId, info);
             }
         }
         return map;
@@ -229,10 +237,23 @@ public class DotGiamGiaService {
         return Optional.empty();
     }
 
-    private void saveChiTiet(DotGiamGia dotGiamGia, List<Long> chiTietSanPhamIds) {
-        if (chiTietSanPhamIds == null || chiTietSanPhamIds.isEmpty()) return;
+    private void saveChiTiet(DotGiamGia dotGiamGia, List<Long> chiTietSanPhamIds, List<Long> sanPhamIds) {
+        Set<Long> finalCtspIds = new LinkedHashSet<>();
+        // Ưu tiên lưu danh sách biến thể cụ thể đã được người dùng chọn
+        if (chiTietSanPhamIds != null && !chiTietSanPhamIds.isEmpty()) {
+            finalCtspIds.addAll(chiTietSanPhamIds);
+        } else if (sanPhamIds != null && !sanPhamIds.isEmpty()) {
+            // Nếu người dùng chọn cả sản phẩm mà không chỉ định biến thể riêng lẻ
+            for (Long spId : sanPhamIds) {
+                List<ChiTietSanPham> variants = chiTietSanPhamRepository.findByIdSanPham_Id(spId);
+                for (ChiTietSanPham v : variants) {
+                    finalCtspIds.add(v.getId());
+                }
+            }
+        }
+        if (finalCtspIds.isEmpty()) return;
         List<ChiTietDotGiamGia> list = new ArrayList<>();
-        for (Long ctspId : chiTietSanPhamIds) {
+        for (Long ctspId : finalCtspIds) {
             Optional<ChiTietSanPham> opt = chiTietSanPhamRepository.findById(ctspId);
             if (opt.isPresent()) {
                 ChiTietDotGiamGia ct = new ChiTietDotGiamGia();
@@ -258,7 +279,7 @@ public class DotGiamGiaService {
             dotGiamGia.setTrangThai(1);
         }
         DotGiamGia saved = dotGiamGiaRepository.save(dotGiamGia);
-        saveChiTiet(saved, dotGiamGia.getChiTietSanPhamIds());
+        saveChiTiet(saved, dotGiamGia.getChiTietSanPhamIds(), dotGiamGia.getSanPhamIds());
         return saved;
     }
 
@@ -279,9 +300,9 @@ public class DotGiamGiaService {
         }
 
         DotGiamGia saved = dotGiamGiaRepository.save(cu);
-        if (moi.getChiTietSanPhamIds() != null) {
+        if (moi.getChiTietSanPhamIds() != null || moi.getSanPhamIds() != null) {
             chiTietDotGiamGiaRepository.deleteByIdDotGiamGiaId(id);
-            saveChiTiet(saved, moi.getChiTietSanPhamIds());
+            saveChiTiet(saved, moi.getChiTietSanPhamIds(), moi.getSanPhamIds());
         }
         return saved;
     }
@@ -291,6 +312,16 @@ public class DotGiamGiaService {
         DotGiamGia item = dotGiamGiaRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đợt giảm giá với ID: " + id));
 
+        Instant now = Instant.now();
+        // Nếu đã quá hạn kết thúc thì không thể kích hoạt lại
+        if (item.getNgayKetThuc() != null && now.isAfter(item.getNgayKetThuc())) {
+            item.setTrangThai(0);
+            return dotGiamGiaRepository.save(item);
+        }
+
+        // Tương tự PGG: Nếu đang hoạt động (1) -> chuyển sang Ngừng hoạt động (0).
+        // Nếu đang ngừng hoạt động (0) và chưa hết hạn -> Kích hoạt lại (1).
+        // (Không cần gửi mail cho khách hàng như PGG)
         int newStatus = (item.getTrangThai() != null && item.getTrangThai() == 1) ? 0 : 1;
         item.setTrangThai(newStatus);
         return dotGiamGiaRepository.save(item);

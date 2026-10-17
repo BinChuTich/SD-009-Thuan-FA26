@@ -11,7 +11,15 @@
     --muted: #8a9292;
     --line: #e9e5db;
     --white: #fff;
-    --system-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --system-font: 'Be Vietnam Pro', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.pagination-info {
+    font-family: 'Be Vietnam Pro', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #555e65;
+    line-height: 1.5;
 }
 
 *, *::before, *::after {
@@ -1292,5 +1300,128 @@ a {
     }
     .stat-grid, .mini-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+/* ================= GLOBAL STATUS TOGGLE SWITCH TOKEN ================= */
+.switch-toggle {
+    position: relative;
+    display: inline-block;
+    width: 38px;
+    height: 22px;
+    cursor: pointer;
+    margin: 0;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+.switch-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.slider-round {
+    position: absolute;
+    inset: 0;
+    background-color: #d1d5db;
+    border-radius: 22px;
+    transition: all 0.25s ease;
+}
+
+.slider-round::before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    border-radius: 50%;
+    transition: all 0.25s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.switch-toggle input:checked + .slider-round,
+.status-switch.is-active .switch-track,
+.delivery-switch-wrap input:checked + .switch-ui {
+    background-color: var(--blue, #496883) !important;
+}
+
+.switch-toggle input:checked + .slider-round::before {
+    transform: translateX(16px);
+}
+
+.switch-toggle.switch-disabled,
+.switch-toggle input:disabled + .slider-round {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.switch-toggle:hover:not(.switch-disabled) .slider-round {
+    box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.15);
+}
+
+.switch-toggle input:focus + .slider-round,
+.status-switch:focus-within .switch-track {
+    box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.2);
+}
+
+.row-checkbox {
+    accent-color: var(--blue, #496883) !important;
+}
+
+/* ==================== GLOBAL MEDIA PRINT ==================== */
+@media print {
+    /* Ẩn triệt để toàn bộ shell ứng dụng, sidebar, header admin, modal và popup */
+    .sidebar,
+    .top-header,
+    header,
+    .modal-backdrop,
+    .toast-popup,
+    .toast-notification,
+    .app-shell > aside,
+    .app-shell > header,
+    #app > aside,
+    #app > header {
+        display: none !important;
+        visibility: hidden !important;
+        width: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body, html {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        font-size: 13px !important;
+        color: #111827 !important;
+        width: 100% !important;
+    }
+
+    .app-shell {
+        display: block !important;
+        min-height: auto !important;
+        background: transparent !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .main-content {
+        margin: 0 !important;
+        margin-left: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        background: transparent !important;
+    }
+
+    .page-body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
     }
 }
