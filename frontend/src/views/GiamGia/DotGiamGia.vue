@@ -372,7 +372,6 @@
                   :min="minStartDateTime"
                   :class="['video-input', { 'input-has-error': errors.ngayBatDau }]"
                   @change="handleNgayBatDauChange"
-                  @input="handleNgayBatDauChange"
                 />
                 <span v-if="errors.ngayBatDau" class="field-error-msg">{{ errors.ngayBatDau }}</span>
               </div>
@@ -382,10 +381,9 @@
                 <input
                   type="datetime-local"
                   v-model="formData.ngayKetThuc"
-                  :min="formData.ngayBatDau || minStartDateTime || undefined"
+                  :min="minEndDateTime"
                   :class="['video-input', { 'input-has-error': errors.ngayKetThuc }]"
                   @change="handleNgayKetThucChange"
-                  @input="handleNgayKetThucChange"
                 />
                 <span v-if="errors.ngayKetThuc" class="field-error-msg">{{ errors.ngayKetThuc }}</span>
               </div>
@@ -935,6 +933,8 @@ const totalElements = ref(0)
 // Modal xác nhận lưu/tạo
 const showConfirmModal = ref(false)
 const isEditing = ref(false)
+const originalNgayBatDau = ref('')
+const originalNgayKetThuc = ref('')
 const submitting = ref(false)
 const exporting = ref(false)
 
@@ -965,15 +965,21 @@ const clearError = (field) => {
   }
 }
 
+// Mốc thời gian tối thiểu cho form Từ ngày & Đến ngày (ổn định, không giật theo giây để lịch mở mượt mà)
+const formMinDateTime = ref('')
 
-// Mốc thời gian tối thiểu cho Từ ngày (không trước thời điểm hiện tại khi tạo mới)
 const minStartDateTime = computed(() => {
-  if (isEditing.value) return undefined
-  const now = new Date()
-  const pad = n => String(n).padStart(2, '0')
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
+  return formMinDateTime.value || undefined
 })
 const minStartDate = minStartDateTime
+
+// Mốc thời gian tối thiểu cho Đến ngày (phải từ ngày bắt đầu hoặc mốc tối thiểu)
+const minEndDateTime = computed(() => {
+  if (formData.value.ngayBatDau && formData.value.ngayBatDau.length >= 10) {
+    return formData.value.ngayBatDau.slice(0, 10) + 'T00:00'
+  }
+  return formMinDateTime.value || undefined
+})
 
 // Hàm tự sinh mã đợt ngẫu nhiên (nút xoay tròn)
 const generateRandomMa = () => {
@@ -1673,16 +1679,18 @@ const handleNgayBatDauChange = () => {
     errors.value.ngayBatDau = 'Từ ngày không được để trống!'
     return
   }
-  if (!isEditing.value) {
-    const startMs = new Date(formData.value.ngayBatDau).getTime()
-    // Dung sai 10 phút để người dùng thoải mái thao tác mà không bị chặn
-    if (startMs < Date.now() - 10 * 60 * 1000) {
+  const startMs = new Date(formData.value.ngayBatDau).getTime()
+  const isOriginalStart = isEditing.value && originalNgayBatDau.value && formData.value.ngayBatDau === toInputDateTime(originalNgayBatDau.value)
+  if (!isOriginalStart) {
+    // Cho phép dung sai 5 phút để người dùng có thời gian nhập form thoải mái
+    if (startMs < Date.now() - 5 * 60 * 1000) {
       errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
       return
     }
   }
   if (formData.value.ngayKetThuc) {
-    if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
+    const endMs = new Date(formData.value.ngayKetThuc).getTime()
+    if (!isNaN(endMs) && endMs <= startMs) {
       errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
     } else {
       clearError('ngayKetThuc')
@@ -1697,8 +1705,16 @@ const handleNgayKetThucChange = () => {
     errors.value.ngayKetThuc = 'Đến ngày không được để trống!'
     return
   }
+  const endMs = new Date(formData.value.ngayKetThuc).getTime()
+  if (isNaN(endMs)) return
+
+  if (endMs < Date.now() - 5 * 60 * 1000) {
+    errors.value.ngayKetThuc = 'Thời gian kết thúc không được trước thời gian hiện tại!'
+    return
+  }
   if (formData.value.ngayBatDau) {
-    if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
+    const startMs = new Date(formData.value.ngayBatDau).getTime()
+    if (!isNaN(startMs) && endMs <= startMs) {
       errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
     } else {
       clearError('ngayKetThuc')
@@ -1769,26 +1785,34 @@ const filters = ref({
 
 let searchTimeout = null
 
-// Helper ngày giờ
-const toInputDateTime = (val) => {
-  if (!val) return ''
+// Helper ngày giờ an toàn hỗ trợ cả chuỗi ISO, timestamp và mảng Java LocalDateTime [yyyy, mm, dd, hh, mm]
+const parseDateHelper = (val) => {
+  if (!val) return null
+  if (Array.isArray(val)) {
+    const [y, m, d, h = 0, min = 0, s = 0] = val
+    return new Date(y, m - 1, d, h, min, s)
+  }
   const d = new Date(val)
-  if (isNaN(d.getTime())) return ''
+  return isNaN(d.getTime()) ? null : d
+}
+
+const toInputDateTime = (val) => {
+  const d = parseDateHelper(val)
+  if (!d) return ''
   const pad = n => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 const toInputDate = (val) => {
-  if (!val) return ''
-  const d = new Date(val)
-  if (isNaN(d.getTime())) return ''
+  const d = parseDateHelper(val)
+  if (!d) return ''
   const pad = n => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 const formatDate = (val) => {
   if (!val) return '—'
-  const date = new Date(val)
-  if (isNaN(date.getTime())) return val
+  const date = parseDateHelper(val)
+  if (!date) return val
   const day = date.getDate()
   const month = date.getMonth() + 1
   const year = date.getFullYear()
@@ -1797,8 +1821,8 @@ const formatDate = (val) => {
 
 const formatDateTime = (val) => {
   if (!val) return '—'
-  const date = new Date(val)
-  if (isNaN(date.getTime())) return val
+  const date = parseDateHelper(val)
+  if (!date) return val
   const pad = n => String(n).padStart(2, '0')
   const hours = pad(date.getHours())
   const minutes = pad(date.getMinutes())
@@ -2202,7 +2226,13 @@ const exportToExcel = async () => {
 const openCreateView = async () => {
   errors.value = {}
   isEditing.value = false
+  originalNgayBatDau.value = ''
+  originalNgayKetThuc.value = ''
   currentView.value = 'form'
+
+  const now = new Date()
+  const pad = n => String(n).padStart(2, '0')
+  formMinDateTime.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T00:00`
 
   formData.value = {
     id: null,
@@ -2242,7 +2272,23 @@ const openCreateView = async () => {
 const openEditView = async (item) => {
   errors.value = {}
   isEditing.value = true
+  originalNgayBatDau.value = item.ngayBatDau || ''
+  originalNgayKetThuc.value = item.ngayKetThuc || ''
   currentView.value = 'form'
+
+  const now = new Date()
+  const pad = n => String(n).padStart(2, '0')
+  const todayStart = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T00:00`
+  if (item.ngayBatDau) {
+    const origStr = toInputDateTime(item.ngayBatDau)
+    if (origStr && origStr < todayStart) {
+      formMinDateTime.value = origStr.slice(0, 10) + 'T00:00'
+    } else {
+      formMinDateTime.value = todayStart
+    }
+  } else {
+    formMinDateTime.value = todayStart
+  }
 
   formData.value = {
     id: item.id,
@@ -2280,8 +2326,18 @@ const openEditView = async (item) => {
       if (res.data.loaiGiamGia != null) formData.value.loaiGiamGia = res.data.loaiGiamGia
       if (res.data.giaTriGiam != null) formData.value.giaTriGiam = res.data.giaTriGiam
       if (res.data.giamToiDa != null) formData.value.giamToiDa = res.data.giamToiDa
-      if (res.data.ngayBatDau) formData.value.ngayBatDau = toInputDateTime(res.data.ngayBatDau)
-      if (res.data.ngayKetThuc) formData.value.ngayKetThuc = toInputDateTime(res.data.ngayKetThuc)
+      if (res.data.ngayBatDau) {
+        formData.value.ngayBatDau = toInputDateTime(res.data.ngayBatDau)
+        originalNgayBatDau.value = res.data.ngayBatDau
+        const origStr = toInputDateTime(res.data.ngayBatDau)
+        if (origStr && origStr < todayStart) {
+          formMinDateTime.value = origStr.slice(0, 10) + 'T00:00'
+        }
+      }
+      if (res.data.ngayKetThuc) {
+        formData.value.ngayKetThuc = toInputDateTime(res.data.ngayKetThuc)
+        originalNgayKetThuc.value = res.data.ngayKetThuc
+      }
       if (res.data.trangThai != null) formData.value.trangThai = res.data.trangThai
     }
   } catch (e) {
@@ -2380,16 +2436,29 @@ const onSaveClick = () => {
   if (!formData.value.ngayBatDau || formData.value.ngayBatDau.trim() === '') {
     errors.value.ngayBatDau = 'Từ ngày không được để trống!'
     hasError = true
+  } else {
+    const startMs = new Date(formData.value.ngayBatDau).getTime()
+    const isOriginalStart = isEditing.value && originalNgayBatDau.value && formData.value.ngayBatDau === toInputDateTime(originalNgayBatDau.value)
+    if (!isOriginalStart && startMs < Date.now() - 5 * 60 * 1000) {
+      errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
+      hasError = true
+    }
   }
 
   // 4. Kiểm tra Đến ngày (Bắt buộc, không cho để trống)
   if (!formData.value.ngayKetThuc || formData.value.ngayKetThuc.trim() === '') {
     errors.value.ngayKetThuc = 'Đến ngày không được để trống!'
     hasError = true
-  } else if (formData.value.ngayBatDau) {
-    if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
-      errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
+  } else {
+    const endMs = new Date(formData.value.ngayKetThuc).getTime()
+    if (endMs < Date.now() - 5 * 60 * 1000) {
+      errors.value.ngayKetThuc = 'Thời gian kết thúc không được trước thời gian hiện tại!'
       hasError = true
+    } else if (formData.value.ngayBatDau) {
+      if (endMs <= new Date(formData.value.ngayBatDau).getTime()) {
+        errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
+        hasError = true
+      }
     }
   }
 
