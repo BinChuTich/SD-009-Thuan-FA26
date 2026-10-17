@@ -7,7 +7,43 @@ import Select2Combobox from '@/components/Select2Combobox.vue'
 const router = useRouter()
 
 /* ==========================================================
-   1. QUẢN LÝ HÓA ĐƠN CHỜ (Mặc định có 1 hóa đơn, tối đa 5)
+   TOAST & MODAL SYSTEM (Thay thế hoàn toàn alert/confirm)
+========================================================== */
+const toast = ref({
+  show: false,
+  message: '',
+  type: 'success'
+})
+let toastTimer = null
+const showToast = (message, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { show: true, message, type }
+  toastTimer = setTimeout(() => {
+    toast.value.show = false
+    toastTimer = null
+  }, 2800)
+}
+
+const showConfirmModal = ref(false)
+const confirmModalData = ref({
+  title: '',
+  message: '',
+  onConfirm: () => {}
+})
+const openConfirm = (title, message, onConfirm) => {
+  confirmModalData.value = {
+    title,
+    message,
+    onConfirm: () => {
+      showConfirmModal.value = false
+      onConfirm()
+    }
+  }
+  showConfirmModal.value = true
+}
+
+/* ==========================================================
+   1. QUẢN LÝ HÓA ĐƠN CHỜ TRÊN CSDL (Tối đa 5 hóa đơn)
 ========================================================== */
 const createEmptyInvoice = (id, code) => ({
   id,
@@ -25,91 +61,177 @@ const createEmptyInvoice = (id, code) => ({
   note: ''
 })
 
-const existingInvoiceCodes = ref(new Set())
-
-const waitingInvoices = ref([
-  createEmptyInvoice(1, 'HD001')
-])
-
-const activeInvoiceId = ref(1)
+const waitingInvoices = ref([])
+const activeInvoiceId = ref(null)
+const isLoadingInvoices = ref(false)
 
 // Hóa đơn hiện tại đang chọn
 const currentInvoice = computed(() => {
+  if (waitingInvoices.value.length === 0) {
+    return createEmptyInvoice(null, '---')
+  }
   return waitingInvoices.value.find(inv => inv.id === activeInvoiceId.value) || waitingInvoices.value[0]
 })
 
-// Sinh mã hóa đơn tiếp theo đảm bảo KHÔNG TRÙNG với danh sách hóa đơn trong CSDL
-const generateNextCode = () => {
-  const activeCodes = waitingInvoices.value.map(i => i.code?.toUpperCase()).filter(Boolean)
-  let maxNum = 0
-
-  // Quét toàn bộ mã hóa đơn đã có trong CSDL (danh sách hóa đơn)
-  for (const c of existingInvoiceCodes.value) {
-    if (c && typeof c === 'string' && c.toUpperCase().startsWith('HD')) {
-      const n = parseInt(c.substring(2), 10)
-      if (!isNaN(n) && n > maxNum) {
-        maxNum = n
-      }
-    }
-  }
-
-  // Quét các mã hóa đơn chờ đang mở trên giao diện
-  for (const c of activeCodes) {
-    if (c && typeof c === 'string' && c.toUpperCase().startsWith('HD')) {
-      const n = parseInt(c.substring(2), 10)
-      if (!isNaN(n) && n > maxNum) {
-        maxNum = n
-      }
-    }
-  }
-
-  let nextNum = Math.max(maxNum + 1, 1)
-  let candidate = `HD${String(nextNum).padStart(3, '0')}`
-
-  while (existingInvoiceCodes.value.has(candidate) || activeCodes.includes(candidate)) {
-    nextNum++
-    candidate = `HD${String(nextNum).padStart(3, '0')}`
-  }
-
-  return candidate
-}
-
-// Lấy danh sách mã hóa đơn từ CSDL để đảm bảo không trùng
-const fetchExistingInvoiceCodes = async () => {
+// Tải danh sách hóa đơn chờ từ CSDL
+const loadWaitingInvoices = async () => {
   try {
-    const res = await api.get('/api/hoa-don')
-    const list = Array.isArray(res.data) ? res.data : []
-    const codes = new Set()
-    list.forEach(item => {
-      const code = item.maHoaDon || item.code
-      if (code) {
-        codes.add(code.trim().toUpperCase())
+    isLoadingInvoices.value = true
+    let res = null
+    try {
+      res = await api.get('/api/hoa-don/waiting')
+    } catch (err) {
+      console.warn('API /api/hoa-don/waiting chưa hỗ trợ, fallback /api/hoa-don:', err)
+      const allRes = await api.get('/api/hoa-don')
+      const all = Array.isArray(allRes.data) ? allRes.data : []
+      res = {
+        data: all.filter(h => Number(h.loaiDon) === 1 && Number(h.trangThai) === 1 && (h.trangThaiThanhToan == null || Number(h.trangThaiThanhToan) === 0))
       }
-    })
-    existingInvoiceCodes.value = codes
+    }
 
-    // Kiểm tra và gán mã không trùng cho các hóa đơn chờ hiện có
-    waitingInvoices.value.forEach(inv => {
-      if (codes.has(inv.code.toUpperCase())) {
-        inv.code = generateNextCode()
+    let list = Array.isArray(res?.data) ? res.data : []
+
+    // Nếu chưa có bất kỳ hóa đơn chờ nào trong CSDL, tự động tạo mới 1 hóa đơn chờ
+    if (list.length === 0) {
+      try {
+        const createRes = await api.post('/api/hoa-don/waiting')
+        if (createRes?.data) {
+          list = [createRes.data]
+        }
+      } catch (err) {
+        // Fallback tạo qua /api/hoa-don
+        const createRes = await api.post('/api/hoa-don', {
+          loaiDon: 1,
+          trangThai: 1,
+          trangThaiThanhToan: 0,
+          tenKhachHang: 'Khách lẻ',
+          diaChiNhanHang: 'Bán tại quầy',
+          tongTien: 0,
+          phiVanChuyen: 0,
+          tienSauGiamGia: 0,
+          ghiChu: 'Hóa đơn chờ tại quầy'
+        })
+        if (createRes?.data) {
+          list = [createRes.data]
+        }
       }
-    })
+    }
+
+    // Giới hạn tối đa 5 hóa đơn chờ
+    list = list.slice(0, 5)
+
+    // Tải chi tiết sản phẩm cho từng hóa đơn chờ
+    const loadedTabs = await Promise.all(list.map(async (inv) => {
+      let cartItems = []
+      try {
+        const detailRes = await api.get(`/api/hoa-don/${inv.id}/chi-tiet`)
+        const items = Array.isArray(detailRes.data) ? detailRes.data : []
+        cartItems = items.map(ct => {
+          const ctsp = ct.idChiTietSanPham || {}
+          const sp = ctsp.idSanPham || {}
+          const ms = ctsp.idMauSac || {}
+          const kc = ctsp.idKichCo || {}
+          return {
+            id: ctsp.id || ct.id,
+            chiTietHoaDonId: ct.id,
+            code: sp.maSanPham || ctsp.maChiTietSanPham || '',
+            variantCode: ctsp.maChiTietSanPham || '',
+            name: sp.tenSanPham || 'Áo phông',
+            color: ms.tenMau || ms.tenMauSac || ct.tenMauSac || 'Mặc định',
+            size: kc.tenKichCo || ct.tenKichCo || 'Freesize',
+            stock: ctsp.soLuong != null ? Number(ctsp.soLuong) : 50,
+            price: ct.donGia != null ? Number(ct.donGia) : (ctsp.giaBan != null ? Number(ctsp.giaBan) : 0),
+            quantity: ct.soLuong || 1,
+            image: ct.anhDaiDien || ctsp.anhDaiDien || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
+          }
+        })
+      } catch (e) {
+        console.warn(`Không tải được chi tiết cho HĐ ${inv.maHoaDon}:`, e)
+      }
+
+      const rawCust = inv.tenKhachHang
+      const isKhachLe = !rawCust || rawCust.trim().toLowerCase() === 'khách lẻ'
+
+      return {
+        id: inv.id,
+        code: inv.maHoaDon,
+        cart: cartItems,
+        customerId: inv.idKhachHang?.id || null,
+        customerName: isKhachLe ? '' : rawCust,
+        customerPhone: inv.soDienThoaiKhachHang || '',
+        isDelivery: Number(inv.loaiDon) === 2,
+        deliveryAddress: (inv.diaChiNhanHang && inv.diaChiNhanHang !== 'Bán tại quầy') ? inv.diaChiNhanHang : '',
+        shippingFee: Number(inv.phiVanChuyen || 0),
+        voucher: inv.idPhieuGiamGia || null,
+        paymentMethod: 'TIEN_MAT',
+        customerPay: null,
+        note: (inv.ghiChu && inv.ghiChu !== 'Hóa đơn chờ tại quầy') ? inv.ghiChu : ''
+      }
+    }))
+
+    waitingInvoices.value = loadedTabs
+    if (loadedTabs.length > 0) {
+      activeInvoiceId.value = loadedTabs[0].id
+    }
   } catch (err) {
-    console.warn('Không tải được danh sách mã hóa đơn từ backend:', err)
+    console.error('Lỗi khi tải hóa đơn chờ từ CSDL:', err)
+    showToast('Lỗi khi tải danh sách hóa đơn chờ từ hệ thống!', 'warning')
+  } finally {
+    isLoadingInvoices.value = false
   }
 }
 
-// Thêm hóa đơn chờ mới (tối đa 5 hóa đơn)
-const addWaitingInvoice = () => {
+// Thêm hóa đơn chờ mới (lưu thẳng vào CSDL, tối đa 5 hóa đơn)
+const addWaitingInvoice = async () => {
   if (waitingInvoices.value.length >= 5) {
-    alert('Chỉ được tạo tối đa 5 hóa đơn chờ cùng lúc!')
+    showToast('Chỉ được tạo tối đa 5 hóa đơn chờ cùng lúc!', 'warning')
     return
   }
 
-  const newId = Date.now()
-  const newCode = generateNextCode()
-  waitingInvoices.value.push(createEmptyInvoice(newId, newCode))
-  activeInvoiceId.value = newId
+  try {
+    let newInv = null
+    try {
+      const res = await api.post('/api/hoa-don/waiting')
+      newInv = res.data
+    } catch {
+      const res = await api.post('/api/hoa-don', {
+        loaiDon: 1,
+        trangThai: 1,
+        trangThaiThanhToan: 0,
+        tenKhachHang: 'Khách lẻ',
+        diaChiNhanHang: 'Bán tại quầy',
+        tongTien: 0,
+        phiVanChuyen: 0,
+        tienSauGiamGia: 0,
+        ghiChu: 'Hóa đơn chờ tại quầy'
+      })
+      newInv = res.data
+    }
+
+    if (newInv) {
+      const newTab = {
+        id: newInv.id,
+        code: newInv.maHoaDon,
+        cart: [],
+        customerId: null,
+        customerName: '',
+        customerPhone: '',
+        isDelivery: false,
+        deliveryAddress: '',
+        shippingFee: 0,
+        voucher: null,
+        paymentMethod: 'TIEN_MAT',
+        customerPay: null,
+        note: ''
+      }
+      waitingInvoices.value.push(newTab)
+      activeInvoiceId.value = newInv.id
+      showToast(`Đã tạo hóa đơn chờ ${newInv.maHoaDon}!`)
+    }
+  } catch (err) {
+    console.error('Lỗi khi tạo hóa đơn chờ:', err)
+    showToast('Không thể tạo hóa đơn chờ mới trong CSDL!', 'warning')
+  }
 }
 
 // Chuyển tab hóa đơn
@@ -117,23 +239,41 @@ const selectInvoice = (id) => {
   activeInvoiceId.value = id
 }
 
-// Hủy / làm mới hóa đơn chờ hiện tại
-const removeCurrentInvoice = () => {
-  if (waitingInvoices.value.length === 1) {
-    const confirmClear = confirm(`Bạn có muốn làm mới và xóa toàn bộ sản phẩm của ${currentInvoice.value.code}?`)
-    if (confirmClear) {
-      const idx = waitingInvoices.value.findIndex(inv => inv.id === activeInvoiceId.value)
-      waitingInvoices.value[idx] = createEmptyInvoice(activeInvoiceId.value, currentInvoice.value.code)
+// Hủy hóa đơn chờ cụ thể
+const confirmRemoveInvoice = (inv) => {
+  if (!inv) return
+  openConfirm(
+    'Xác nhận hủy hóa đơn',
+    `Bạn có chắc chắn muốn hủy hóa đơn chờ "${inv.code}" không? Hóa đơn này sẽ được xóa hoàn toàn khỏi cơ sở dữ liệu.`,
+    async () => {
+      try {
+        if (inv.id) {
+          await api.delete(`/api/hoa-don/${inv.id}`)
+        }
+        waitingInvoices.value = waitingInvoices.value.filter(i => i.id !== inv.id)
+        showToast(`Đã hủy thành công hóa đơn ${inv.code}!`)
+
+        // Nếu đã xóa hết, tự động tạo mới 1 hóa đơn chờ trên DB
+        if (waitingInvoices.value.length === 0) {
+          await addWaitingInvoice()
+        } else {
+          if (activeInvoiceId.value === inv.id) {
+            activeInvoiceId.value = waitingInvoices.value[0].id
+          }
+        }
+      } catch (err) {
+        console.error('Lỗi khi hủy hóa đơn:', err)
+        showToast('Không thể hủy hóa đơn khỏi cơ sở dữ liệu!', 'warning')
+      }
     }
-    return
+  )
+}
+
+// Nút Hủy hóa đơn ở góc dưới bên phải
+const removeCurrentInvoice = () => {
+  if (currentInvoice.value) {
+    confirmRemoveInvoice(currentInvoice.value)
   }
-
-  const confirmDelete = confirm(`Bạn có chắc muốn hủy hóa đơn ${currentInvoice.value.code}?`)
-  if (!confirmDelete) return
-
-  const idx = waitingInvoices.value.findIndex(inv => inv.id === activeInvoiceId.value)
-  waitingInvoices.value = waitingInvoices.value.filter(inv => inv.id !== activeInvoiceId.value)
-  activeInvoiceId.value = waitingInvoices.value[Math.max(0, idx - 1)].id
 }
 
 /* ==========================================================
@@ -143,105 +283,55 @@ const showProductModal = ref(false)
 const searchProductText = ref('')
 const barcodeInput = ref('')
 const isLoadingProducts = ref(false)
+const productList = ref([])
 
-// Danh mục mẫu dự phòng chuẩn hóa theo CSDL FF T-Shirt
-const fallbackProducts = [
-  {
-    id: 1,
-    code: 'SP001',
-    variantCode: 'CTSP01',
-    name: 'Áo Phông Nam Basic Cotton Cổ Tròn',
-    color: 'Đen',
-    size: 'S',
-    stock: 45,
-    price: 199000,
-    image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 2,
-    code: 'SP001',
-    variantCode: 'CTSP02',
-    name: 'Áo Phông Nam Basic Cotton Cổ Tròn',
-    color: 'Đen',
-    size: 'M',
-    stock: 20,
-    price: 199000,
-    image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 3,
-    code: 'SP001',
-    variantCode: 'CTSP03',
-    name: 'Áo Phông Nam Basic Cotton Cổ Tròn',
-    color: 'Trắng',
-    size: 'M',
-    stock: 35,
-    price: 199000,
-    image: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=100&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 4,
-    code: 'SP002',
-    variantCode: 'CTSP04',
-    name: 'Áo Polo Nam Cổ Bẻ Cao Cấp',
-    color: 'Đen',
-    size: 'M',
-    stock: 25,
-    price: 299000,
-    image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=100&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 5,
-    code: 'SP002',
-    variantCode: 'CTSP05',
-    name: 'Áo Polo Nam Cổ Bẻ Cao Cấp',
-    color: 'Xanh navy',
-    size: 'L',
-    stock: 18,
-    price: 299000,
-    image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=100&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 6,
-    code: 'SP003',
-    variantCode: 'CTSP06',
-    name: 'Áo Phông Unisex In Hình Graphic',
-    color: 'Trắng',
-    size: 'L',
-    stock: 30,
-    price: 250000,
-    image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
-  }
-]
-
-const productList = ref([...fallbackProducts])
-
-// Gọi API lấy toàn bộ biến thể sản phẩm đang bán
+// Gọi API lấy toàn bộ biến thể sản phẩm đang bán (HOÀN TOÀN TỪ CSDL, KHÔNG DÙNG MOCK)
 const fetchProductVariants = async () => {
   try {
     isLoadingProducts.value = true
     const res = await api.get('/api/chi-tiet-san-pham/filter', {
-      params: { trangThai: 1, size: 200 }
+      params: { trangThai: 1, size: 300 }
     })
     const content = res.data?.content || (Array.isArray(res.data) ? res.data : [])
-    if (content.length > 0) {
-      productList.value = content.map((item, idx) => ({
-        id: item.id || (idx + 1),
-        code: item.maSanPham || item.maChiTietSanPham || `SP00${idx + 1}`,
-        variantCode: item.maChiTietSanPham || `CTSP0${idx + 1}`,
-        name: item.tenSanPham || 'Áo Phông Cao Cấp',
-        color: item.tenMauSac || 'Mặc định',
-        size: item.tenKichCo || 'Freesize',
-        stock: item.soLuong != null ? Number(item.soLuong) : 50,
-        price: item.giaBan != null ? Number(item.giaBan) : 199000,
-        image: item.anhDaiDien || fallbackProducts[idx % fallbackProducts.length].image
-      }))
-    }
+    productList.value = content.map((item, idx) => ({
+      id: item.id,
+      sanPhamId: item.idSanPham?.id || item.id,
+      code: item.idSanPham?.maSanPham || item.maSanPham || item.maChiTietSanPham || `SP00${idx + 1}`,
+      variantCode: item.maChiTietSanPham || `CTSP0${idx + 1}`,
+      name: item.idSanPham?.tenSanPham || item.tenSanPham || 'Áo Phông Cao Cấp',
+      color: item.idMauSac?.tenMau || item.idMauSac?.tenMauSac || item.tenMauSac || 'Mặc định',
+      size: item.idKichCo?.tenKichCo || item.tenKichCo || 'Freesize',
+      stock: item.soLuong != null ? Number(item.soLuong) : 0,
+      price: item.giaBan != null ? Number(item.giaBan) : 0,
+      image: item.anhDaiDien || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
+    }))
   } catch (e) {
-    console.warn('Không tải được danh sách CTSP từ API, sử dụng danh mục mẫu chuẩn:', e)
+    console.error('Không tải được danh sách CTSP từ CSDL:', e)
+    productList.value = []
   } finally {
     isLoadingProducts.value = false
   }
+}
+
+// Tự động đồng bộ giỏ hàng hóa đơn chờ với CSDL (debounced)
+let syncCartTimer = null
+const syncCurrentCartToDb = () => {
+  clearTimeout(syncCartTimer)
+  if (!currentInvoice.value || !currentInvoice.value.id) return
+  syncCartTimer = setTimeout(async () => {
+    try {
+      const itemsPayload = currentInvoice.value.cart.map(item => ({
+        idChiTietSanPham: item.id,
+        sanPhamId: item.id,
+        soLuong: item.quantity,
+        donGia: item.price,
+        giaDuocTinh: item.price
+      }))
+      await api.post(`/api/hoa-don/${currentInvoice.value.id}/sync-cart`, itemsPayload)
+    } catch (err) {
+      console.warn('Đồng bộ giỏ hàng với CSDL:', err)
+    }
+  }, 400)
 }
 
 const filteredProducts = computed(() => {
@@ -258,14 +348,14 @@ const filteredProducts = computed(() => {
 
 const selectProduct = (prod) => {
   if (prod.stock <= 0) {
-    alert('Sản phẩm đã hết hàng trong kho!')
+    showToast('Sản phẩm đã hết hàng trong kho!', 'warning')
     return
   }
 
   const exist = currentInvoice.value.cart.find(i => i.id === prod.id)
   if (exist) {
     if (exist.quantity >= prod.stock) {
-      alert(`Trong kho chỉ còn tối đa ${prod.stock} sản phẩm!`)
+      showToast(`Trong kho chỉ còn tối đa ${prod.stock} sản phẩm!`, 'warning')
       return
     }
     exist.quantity++
@@ -275,9 +365,12 @@ const selectProduct = (prod) => {
       quantity: 1
     })
   }
+
+  syncCurrentCartToDb()
+  showToast(`Đã thêm "${prod.name} (${prod.color} - ${prod.size})" vào giỏ hàng!`)
 }
 
-// Xử lý quét barcode / nhập mã nhanh
+// Quét barcode / nhập mã nhanh
 const handleBarcodeScan = () => {
   const code = barcodeInput.value?.trim().toLowerCase()
   if (!code) return
@@ -290,7 +383,7 @@ const handleBarcodeScan = () => {
     selectProduct(found)
     barcodeInput.value = ''
   } else {
-    alert(`Không tìm thấy sản phẩm có mã "${barcodeInput.value}"!`)
+    showToast(`Không tìm thấy sản phẩm có mã "${barcodeInput.value}" trong kho!`, 'warning')
   }
 }
 
@@ -301,10 +394,11 @@ const updateQuantity = (item, delta) => {
     return
   }
   if (newQty > item.stock) {
-    alert(`Số lượng trong kho chỉ còn tối đa ${item.stock}!`)
+    showToast(`Số lượng trong kho chỉ còn tối đa ${item.stock}!`, 'warning')
     return
   }
   item.quantity = newQty
+  syncCurrentCartToDb()
 }
 
 const handleQuantityInput = (item, event) => {
@@ -312,19 +406,22 @@ const handleQuantityInput = (item, event) => {
   if (isNaN(val) || val <= 0) {
     item.quantity = 1
   } else if (val > item.stock) {
-    alert(`Số lượng trong kho chỉ còn tối đa ${item.stock}!`)
+    showToast(`Số lượng trong kho chỉ còn tối đa ${item.stock}!`, 'warning')
     item.quantity = item.stock
   } else {
     item.quantity = val
   }
+  syncCurrentCartToDb()
 }
 
 const removeFromCart = (item) => {
   currentInvoice.value.cart = currentInvoice.value.cart.filter(i => i.id !== item.id)
+  syncCurrentCartToDb()
+  showToast('Đã xóa sản phẩm khỏi giỏ hàng!')
 }
 
 /* ==========================================================
-   3. TÌM KIẾM & THÊM NHANH KHÁCH HÀNG
+   3. TÌM KIẾM & THÊM NHANH KHÁCH HÀNG (HOÀN TOÀN CSDL)
 ========================================================== */
 const customerSearchResults = ref([])
 const showCustomerDropdown = ref(false)
@@ -337,12 +434,6 @@ const newCustomerForm = ref({
   diaChi: ''
 })
 const newCustomerErrors = ref({})
-
-const fallbackCustomers = [
-  { id: 1, maKhachHang: 'KH001', tenKhachHang: 'Nguyễn Văn An', soDienThoai: '0911111111', diaChi: 'Hà Nội' },
-  { id: 2, maKhachHang: 'KH002', tenKhachHang: 'Trần Thị Bình', soDienThoai: '0922222222', diaChi: 'Đà Nẵng' },
-  { id: 3, maKhachHang: 'KH003', tenKhachHang: 'Lê Văn Cường', soDienThoai: '0933333333', diaChi: 'TP. Hồ Chí Minh' }
-]
 
 let searchCustomerTimer = null
 const onCustomerInput = () => {
@@ -357,24 +448,14 @@ const onCustomerInput = () => {
   searchCustomerTimer = setTimeout(async () => {
     try {
       const res = await api.get('/api/khach-hang', {
-        params: { keyword: query, size: 5 }
+        params: { keyword: query, size: 8 }
       })
       const list = res.data?.content || (Array.isArray(res.data) ? res.data : [])
-      if (list.length > 0) {
-        customerSearchResults.value = list
-      } else {
-        customerSearchResults.value = fallbackCustomers.filter(c =>
-          c.tenKhachHang.toLowerCase().includes(query.toLowerCase()) ||
-          c.soDienThoai.includes(query)
-        )
-      }
-      showCustomerDropdown.value = customerSearchResults.value.length > 0
+      customerSearchResults.value = list
+      showCustomerDropdown.value = list.length > 0
     } catch (e) {
-      customerSearchResults.value = fallbackCustomers.filter(c =>
-        c.tenKhachHang.toLowerCase().includes(query.toLowerCase()) ||
-        c.soDienThoai.includes(query)
-      )
-      showCustomerDropdown.value = customerSearchResults.value.length > 0
+      customerSearchResults.value = []
+      showCustomerDropdown.value = false
     }
   }, 250)
 }
@@ -387,6 +468,7 @@ const selectCustomer = (cust) => {
     currentInvoice.value.deliveryAddress = cust.diaChi
   }
   showCustomerDropdown.value = false
+  showToast(`Đã chọn khách hàng "${cust.tenKhachHang}"!`)
 }
 
 const clearSelectedCustomer = () => {
@@ -410,7 +492,7 @@ const openQuickAddModal = () => {
 const submitQuickAddCustomer = async () => {
   newCustomerErrors.value = {}
   if (!newCustomerForm.value.tenKhachHang?.trim()) {
-    newCustomerErrors.value.tenKhachHang = 'Vui lòng nhập tên khách hàng'
+    newCustomerErrors.value.tenKhachHang = 'Vui lòng nhập họ và tên khách hàng'
   }
   const phone = newCustomerForm.value.soDienThoai?.trim() || ''
   if (!phone) {
@@ -430,50 +512,65 @@ const submitQuickAddCustomer = async () => {
       trangThai: 1
     })
     const created = res.data || {}
-    currentInvoice.value.customerId = created.id || Date.now()
+    currentInvoice.value.customerId = created.id
     currentInvoice.value.customerName = created.tenKhachHang || newCustomerForm.value.tenKhachHang.trim()
     currentInvoice.value.customerPhone = created.soDienThoai || phone
     if (newCustomerForm.value.diaChi) {
       currentInvoice.value.deliveryAddress = newCustomerForm.value.diaChi
     }
     showQuickAddCustomerModal.value = false
-    alert('Thêm mới khách hàng thành công!')
+    showToast('Đã thêm mới khách hàng vào cơ sở dữ liệu!')
   } catch (err) {
-    currentInvoice.value.customerId = Date.now()
-    currentInvoice.value.customerName = newCustomerForm.value.tenKhachHang.trim()
-    currentInvoice.value.customerPhone = phone
-    if (newCustomerForm.value.diaChi) {
-      currentInvoice.value.deliveryAddress = newCustomerForm.value.diaChi
-    }
-    showQuickAddCustomerModal.value = false
-    alert('Đã áp dụng thông tin khách hàng cho đơn!')
+    console.error('Lỗi khi thêm khách hàng:', err)
+    showToast(err.response?.data?.message || 'Không thể lưu khách hàng vào CSDL!', 'warning')
   }
 }
 
 /* ==========================================================
-   4. QUẢN LÝ PHIẾU GIẢM GIÁ (VOUCHER)
+   4. QUẢN LÝ PHIẾU GIẢM GIÁ (VOUCHER TỪ CSDL)
 ========================================================== */
-const availableVouchers = ref([
-  { id: 1, maPhieuGiamGia: 'PGG01', tenPhieuGiamGia: 'Voucher Giảm 50k', loaiPhieuGiamGia: 1, giaTriGiamGia: 50000, hoaDonToiThieu: 200000 },
-  { id: 2, maPhieuGiamGia: 'PGG02', tenPhieuGiamGia: 'Voucher Giảm 15% khách mới', loaiPhieuGiamGia: 2, giaTriGiamGia: 15, giamToiDa: 100000, hoaDonToiThieu: 150000 }
-])
+const availableVouchers = ref([])
 
 const fetchVouchers = async () => {
   try {
     const res = await api.get('/api/phieu-giam-gia')
     const list = Array.isArray(res.data) ? res.data : (res.data?.content || [])
-    if (list.length > 0) {
-      availableVouchers.value = list.filter(v => Number(v.trangThai) === 1 || v.trangThai == null)
-    }
+    availableVouchers.value = list.filter(v => Number(v.trangThai) === 1 || v.trangThai == null)
+
+    // Đồng bộ lại object voucher đầy đủ cho các tab hóa đơn nếu đã có voucher
+    waitingInvoices.value.forEach(inv => {
+      if (inv.voucher && inv.voucher.id) {
+        const fullV = availableVouchers.value.find(v => v.id === inv.voucher.id)
+        if (fullV) inv.voucher = fullV
+      }
+    })
   } catch (e) {
-    console.warn('Không tải được phiếu giảm giá từ API, sử dụng voucher mẫu:', e)
+    console.warn('Không tải được phiếu giảm giá từ API:', e)
+    availableVouchers.value = []
   }
+}
+
+// 1 = Giảm theo % | 2 = Giảm theo tiền mặt (VNĐ)
+const isPercentVoucher = (v) => {
+  if (!v) return false
+  const loai = Number(v.loaiPhieuGiamGia)
+  if (loai === 1) return true
+  if (loai === 2) return false
+  const val = Number(v.giaTriGiamGia || 0)
+  return val > 0 && val <= 100
+}
+
+const formatVoucherDiscountLabel = (v) => {
+  if (isPercentVoucher(v)) {
+    return `-${v.giaTriGiamGia}%`
+  }
+  return `-${formatMoney(v.giaTriGiamGia)}`
 }
 
 const formattedVouchers = computed(() => {
   return availableVouchers.value.map(v => ({
     id: v.id,
-    label: `${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${Number(v.loaiPhieuGiamGia) === 2 ? `-${v.giaTriGiamGia}%` : `-${formatMoney(v.giaTriGiamGia)}`})`
+    label: `${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
   }))
 })
 
@@ -498,7 +595,7 @@ const voucherDiscount = computed(() => {
     return 0
   }
 
-  if (Number(v.loaiPhieuGiamGia) === 2) {
+  if (isPercentVoucher(v)) {
     const percent = Number(v.giaTriGiamGia || 0)
     let amount = (subtotal * percent) / 100
     if (v.giamToiDa && amount > Number(v.giamToiDa)) {
@@ -548,9 +645,43 @@ const addQuickCash = (delta) => {
   currentInvoice.value.customerPay = current + delta
 }
 
+// Tự động mặc định số tiền khách đưa bằng tổng tiền cần thanh toán
+watch(
+  finalTotal,
+  (newTotal, oldTotal) => {
+    if (!currentInvoice.value) return
+    const curPay = currentInvoice.value.customerPay
+    // Nếu chưa nhập tiền, hoặc bằng 0, hoặc trước đó đang bằng đúng oldTotal thì tự động cập nhật theo newTotal
+    if (curPay === null || curPay === undefined || curPay === '' || curPay === 0 || (oldTotal != null && Number(curPay) === Number(oldTotal))) {
+      currentInvoice.value.customerPay = newTotal > 0 ? newTotal : null
+    }
+  },
+  { immediate: true }
+)
+
+// Khi chuyển tab hóa đơn, nếu hóa đơn đó chưa có số tiền khách đưa thì tự động điền bằng finalTotal
+watch(
+  () => currentInvoice.value?.id,
+  () => {
+    if (!currentInvoice.value) return
+    const curPay = currentInvoice.value.customerPay
+    if (curPay === null || curPay === undefined || curPay === '' || curPay === 0) {
+      if (finalTotal.value > 0) {
+        currentInvoice.value.customerPay = finalTotal.value
+      }
+    }
+  },
+  { immediate: true }
+)
+
 watch(() => currentInvoice.value?.paymentMethod, (newVal) => {
   if (newVal === 'CHUYEN_KHOAN') {
     currentInvoice.value.customerPay = finalTotal.value
+  } else if (newVal === 'TIEN_MAT') {
+    const curPay = currentInvoice.value.customerPay
+    if (curPay === null || curPay === undefined || curPay === '' || curPay === 0) {
+      currentInvoice.value.customerPay = finalTotal.value > 0 ? finalTotal.value : null
+    }
   }
 })
 
@@ -571,21 +702,21 @@ const isProcessing = ref(false)
 
 const handleCheckout = async () => {
   if (currentInvoice.value.cart.length === 0) {
-    alert('Giỏ hàng trống! Vui lòng chọn sản phẩm trước khi thanh toán.')
+    showToast('Giỏ hàng trống! Vui lòng chọn sản phẩm trước khi thanh toán.', 'warning')
     return
   }
 
   if (currentInvoice.value.isDelivery) {
     if (!currentInvoice.value.customerName?.trim() || currentInvoice.value.customerName.trim().toLowerCase() === 'khách lẻ') {
-      alert('Đơn giao hàng bắt buộc phải có tên người nhận cụ thể (không được để "Khách lẻ")!')
+      showToast('Đơn giao hàng bắt buộc phải có tên người nhận cụ thể (không được để "Khách lẻ")!', 'warning')
       return
     }
     if (!currentInvoice.value.customerPhone?.trim()) {
-      alert('Vui lòng nhập số điện thoại người nhận khi chọn giao hàng!')
+      showToast('Vui lòng nhập số điện thoại người nhận khi chọn giao hàng!', 'warning')
       return
     }
     if (!currentInvoice.value.deliveryAddress?.trim()) {
-      alert('Vui lòng nhập địa chỉ nhận hàng khi chọn giao hàng!')
+      showToast('Vui lòng nhập địa chỉ nhận hàng khi chọn giao hàng!', 'warning')
       return
     }
   }
@@ -593,7 +724,7 @@ const handleCheckout = async () => {
   if (currentInvoice.value.customerPhone?.trim()) {
     const phone = currentInvoice.value.customerPhone.trim()
     if (!/^(0[3|5|7|8|9])[0-9]{8}$/.test(phone)) {
-      alert('Số điện thoại không đúng định dạng 10 số (VD: 0912345678)!')
+      showToast('Số điện thoại không đúng định dạng 10 số (VD: 0912345678)!', 'warning')
       return
     }
   }
@@ -601,7 +732,7 @@ const handleCheckout = async () => {
   if (currentInvoice.value.paymentMethod === 'TIEN_MAT') {
     const pay = Number(currentInvoice.value.customerPay || 0)
     if (pay < finalTotal.value) {
-      alert(`Khách thanh toán chưa đủ! Cần thanh toán: ${formatMoney(finalTotal.value)} (Còn thiếu: ${formatMoney(finalTotal.value - pay)})`)
+      showToast(`Khách thanh toán chưa đủ! Cần thanh toán: ${formatMoney(finalTotal.value)} (Còn thiếu: ${formatMoney(finalTotal.value - pay)})`, 'warning')
       return
     }
   }
@@ -642,33 +773,35 @@ const handleCheckout = async () => {
     }
 
     const savedCode = res?.data?.maHoaDon || currentInvoice.value.code
-    if (savedCode) {
-      existingInvoiceCodes.value.add(savedCode.toUpperCase())
-    }
-    alert(`Thanh toán đơn hàng ${savedCode} thành công!`)
+    showToast(`Thanh toán đơn hàng ${savedCode} thành công!`)
 
-    // Reset hoặc chuyển tab hóa đơn
-    if (waitingInvoices.value.length === 1) {
-      waitingInvoices.value = [createEmptyInvoice(Date.now(), generateNextCode())]
-      activeInvoiceId.value = waitingInvoices.value[0].id
+    // Chuyển tab hóa đơn hoặc tạo mới nếu là hóa đơn duy nhất
+    const completedId = currentInvoice.value.id
+    waitingInvoices.value = waitingInvoices.value.filter(inv => inv.id !== completedId)
+
+    if (waitingInvoices.value.length === 0) {
+      await addWaitingInvoice()
     } else {
-      const remaining = waitingInvoices.value.filter(inv => inv.id !== activeInvoiceId.value)
-      waitingInvoices.value = remaining
-      activeInvoiceId.value = remaining[0].id
+      activeInvoiceId.value = waitingInvoices.value[0].id
     }
 
-    // Chuyển hướng tới chi tiết hóa đơn vừa tạo và tự động in hóa đơn
-    router.push({ path: `/hoa-don/${savedCode}`, query: { autoPrint: 'true' } })
+    // Cập nhật lại tồn kho sản phẩm hiển thị trên client
+    fetchProductVariants()
+
+    // Chuyển hướng tới chi tiết hóa đơn vừa tạo và tự động in hóa đơn với mẫu chuẩn FF T-SHIRT STORE
+    setTimeout(() => {
+      router.push({ path: `/hoa-don/${savedCode}`, query: { autoPrint: 'true' } })
+    }, 400)
   } catch (error) {
     console.error('Lỗi khi thanh toán đơn hàng:', error)
-    alert('Lỗi khi kết nối hệ thống thanh toán: ' + (error.response?.data?.message || error.message))
+    showToast('Lỗi khi thanh toán: ' + (error.response?.data?.message || error.message), 'warning')
   } finally {
     isProcessing.value = false
   }
 }
 
 onMounted(async () => {
-  await fetchExistingInvoiceCodes()
+  await loadWaitingInvoices()
   fetchProductVariants()
   fetchVouchers()
 })
@@ -676,6 +809,29 @@ onMounted(async () => {
 
 <template>
   <div class="pos-page-wrapper">
+    <!-- TOAST THÔNG BÁO TỔNG THỂ -->
+    <transition name="toast-fade">
+      <div v-if="toast.show" class="toast-popup" :class="toast.type">
+        <span class="toast-icon">{{ toast.type === 'warning' ? '⚠️' : '✓' }}</span>
+        <span class="toast-text">{{ toast.message }}</span>
+      </div>
+    </transition>
+
+    <!-- MODAL XÁC NHẬN HỦY / THAO TÁC HÓA ĐƠN -->
+    <div v-if="showConfirmModal" class="pos-modal-backdrop" @click.self="showConfirmModal = false">
+      <div class="pos-modal-card confirm-modal-card">
+        <div class="confirm-modal-header">
+          <span class="confirm-icon">⚠️</span>
+          <h4>{{ confirmModalData.title }}</h4>
+        </div>
+        <p class="confirm-modal-desc">{{ confirmModalData.message }}</p>
+        <div class="confirm-modal-actions">
+          <button class="btn-modal-back" @click="showConfirmModal = false">Hủy bỏ</button>
+          <button class="btn-modal-danger" @click="confirmModalData.onConfirm">Xác nhận</button>
+        </div>
+      </div>
+    </div>
+
     <!-- TIÊU ĐỀ TRANG -->
     <div class="page-breadcrumb">
       <router-link to="/ban-hang" class="crumb-parent">Quản lý bán hàng</router-link>
@@ -690,7 +846,7 @@ onMounted(async () => {
         <!-- Card 1: Hóa đơn chờ -->
         <div class="pos-panel-card">
           <div class="waiting-bar-top">
-            <button class="btn-create-invoice" @click="addWaitingInvoice">
+            <button class="btn-create-invoice" @click="addWaitingInvoice" :disabled="isLoadingInvoices">
               + Thêm hóa đơn chờ
             </button>
             <span class="counter-text">{{ waitingInvoices.length }}/5 hóa đơn</span>
@@ -698,7 +854,11 @@ onMounted(async () => {
 
           <!-- Danh sách tab hóa đơn chờ -->
           <div class="tabs-scroll-wrapper">
+            <div v-if="isLoadingInvoices" class="tab-loading-indicator">
+              <span>Đang tải hóa đơn chờ từ CSDL...</span>
+            </div>
             <div
+                v-else
                 v-for="inv in waitingInvoices"
                 :key="inv.id"
                 class="inv-tab-pill"
@@ -709,6 +869,11 @@ onMounted(async () => {
               <span class="inv-tab-count" v-if="inv.cart.length > 0">
                 ({{ inv.cart.reduce((sum, item) => sum + item.quantity, 0) }})
               </span>
+              <button
+                class="btn-close-tab"
+                @click.stop="confirmRemoveInvoice(inv)"
+                title="Hủy hóa đơn này"
+              >✕</button>
             </div>
           </div>
         </div>
@@ -834,15 +999,21 @@ onMounted(async () => {
             </div>
 
             <!-- Autocomplete danh sách khách hàng tìm thấy -->
-            <div v-if="showCustomerDropdown && customerSearchResults.length > 0" class="customer-dropdown-menu">
-              <div
-                  v-for="c in customerSearchResults"
-                  :key="c.id"
-                  class="customer-dropdown-item"
-                  @click="selectCustomer(c)"
-              >
-                <div class="c-name">{{ c.tenKhachHang }}</div>
-                <div class="c-meta">{{ c.soDienThoai }} <span v-if="c.maKhachHang">({{ c.maKhachHang }})</span></div>
+            <div v-if="showCustomerDropdown" class="customer-dropdown-menu">
+              <template v-if="customerSearchResults.length > 0">
+                <div
+                    v-for="c in customerSearchResults"
+                    :key="c.id"
+                    class="customer-dropdown-item"
+                    @click="selectCustomer(c)"
+                >
+                  <div class="c-name">{{ c.tenKhachHang }}</div>
+                  <div class="c-meta">{{ c.soDienThoai }} <span v-if="c.maKhachHang">({{ c.maKhachHang }})</span></div>
+                </div>
+              </template>
+              <div v-else class="customer-dropdown-empty">
+                <span>Không tìm thấy khách hàng trong CSDL.</span>
+                <button type="button" class="btn-quick-create-cust" @click="openQuickAddModal">+ Thêm mới</button>
               </div>
             </div>
           </div>
@@ -912,6 +1083,12 @@ onMounted(async () => {
               all-label="-- Không áp dụng voucher --"
               search-placeholder="Tìm kiếm mã hoặc tên voucher..."
             />
+            <small
+              v-if="currentInvoice.voucher && currentInvoice.voucher.hoaDonToiThieu && totalAmount < Number(currentInvoice.voucher.hoaDonToiThieu)"
+              style="color: #c94a29; font-size: 0.78rem; margin-top: 4px; display: block;"
+            >
+              ⚠️ Đơn hàng tối thiểu {{ formatMoney(currentInvoice.voucher.hoaDonToiThieu) }} để áp dụng voucher này
+            </small>
           </div>
 
           <!-- Dòng tóm tắt tiền tệ -->
@@ -970,6 +1147,7 @@ onMounted(async () => {
             <input
                 type="number"
                 v-model="currentInvoice.customerPay"
+                @focus="$event.target.select()"
                 placeholder="Nhập số tiền khách đưa..."
                 class="pos-form-input input-money"
             />
@@ -1043,7 +1221,20 @@ onMounted(async () => {
         </div>
 
         <div class="modal-product-list">
+          <div v-if="isLoadingProducts" class="modal-loading-box">
+            <div class="spinner-dot"></div>
+            <span>Đang tải danh sách sản phẩm từ kho CSDL...</span>
+          </div>
+          <div v-else-if="filteredProducts.length === 0" class="empty-product-box">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">📦</div>
+            <p style="font-weight: 600; color: #496883; margin: 0 0 6px;">{{ searchProductText ? 'Không tìm thấy sản phẩm phù hợp với từ khóa!' : 'Chưa có biến thể sản phẩm nào trong cơ sở dữ liệu.' }}</p>
+            <p style="font-size: 0.85rem; color: #8a9292; margin: 0 0 12px;">Dữ liệu sản phẩm được đồng bộ trực tiếp từ CSDL hệ thống.</p>
+            <router-link to="/san-pham/them" class="btn-create-product-link" v-if="!searchProductText">
+              + Thêm mới sản phẩm vào kho
+            </router-link>
+          </div>
           <div
+              v-else
               v-for="p in filteredProducts"
               :key="p.id"
               class="modal-product-card"
@@ -2031,6 +2222,195 @@ onMounted(async () => {
 .text-center { text-align: center; }
 .text-right { text-align: right; }
 .text-muted { color: #8a9292; }
+
+/* TOAST POPUP NOTIFICATION */
+.toast-popup {
+  position: fixed;
+  top: 24px;
+  right: 28px;
+  background-color: #36536b;
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  z-index: 99999;
+  border: 1px solid #4a6880;
+}
+
+.toast-popup.warning {
+  background-color: #d97706;
+  border-color: #b45309;
+}
+
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toast-fade-enter-from,
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-12px);
+}
+
+/* NÚT ĐÓNG TAB HÓA ĐƠN */
+.btn-close-tab {
+  background: transparent;
+  border: none;
+  color: #a0aab0;
+  font-size: 0.8rem;
+  padding: 0 3px;
+  margin-left: 2px;
+  cursor: pointer;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.btn-close-tab:hover {
+  background: rgba(201, 74, 41, 0.15);
+  color: #c94a29;
+}
+
+.tab-loading-indicator {
+  font-size: 0.82rem;
+  color: #8a9292;
+  font-style: italic;
+  padding: 6px 10px;
+}
+
+/* MODAL XÁC NHẬN HỦY */
+.confirm-modal-card {
+  max-width: 420px;
+  padding: 22px;
+}
+
+.confirm-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.confirm-modal-header h4 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #1e3a5f;
+  font-weight: 700;
+}
+
+.confirm-icon {
+  font-size: 1.3rem;
+}
+
+.confirm-modal-desc {
+  font-size: 0.88rem;
+  color: #556066;
+  line-height: 1.45;
+  margin: 0 0 18px;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn-modal-back {
+  background: #f0ebe1;
+  color: #5c686d;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-modal-danger {
+  background: #c94a29;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-modal-danger:hover {
+  background: #b03a1a;
+}
+
+/* CUSTOMER DROPDOWN EMPTY */
+.customer-dropdown-empty {
+  padding: 12px 14px;
+  font-size: 0.83rem;
+  color: #8a9292;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.btn-quick-create-cust {
+  background: #496883;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* MODAL PRODUCT EMPTY & LOADING */
+.modal-loading-box, .empty-product-box {
+  padding: 32px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-create-product-link {
+  display: inline-block;
+  background-color: #496883;
+  color: #ffffff;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 6px;
+  transition: background-color 0.2s;
+}
+
+.btn-create-product-link:hover {
+  background-color: #38536b;
+}
+
+.spinner-dot {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #e0e5ea;
+  border-top-color: #496883;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 10px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
 @media (max-width: 1024px) {
   .pos-grid-container {

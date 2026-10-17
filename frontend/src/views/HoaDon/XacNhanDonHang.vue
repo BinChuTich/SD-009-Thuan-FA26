@@ -41,7 +41,8 @@ const getStatusText = (status) => {
     3: 'Chờ vận chuyển',
     4: 'Vận chuyển',
     5: 'Đã hoàn thành',
-    6: 'Hủy'
+    6: 'Hủy',
+    7: 'Giao hàng thất bại'
   }
   return map[Number(status)] || 'Chưa cập nhật'
 }

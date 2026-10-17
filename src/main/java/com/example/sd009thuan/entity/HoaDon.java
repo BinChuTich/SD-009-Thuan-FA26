@@ -198,26 +198,48 @@ public class HoaDon {
 
     @JsonProperty("tenKhachHangHienThi")
     public String getTenKhachHangHienThi() {
-        if (idKhachHang != null && idKhachHang.getTenKhachHang() != null && !idKhachHang.getTenKhachHang().trim().isEmpty()) {
-            return idKhachHang.getTenKhachHang();
-        }
         if (tenKhachHang != null && !tenKhachHang.trim().isEmpty()) {
             return tenKhachHang;
+        }
+        if (idKhachHang != null && idKhachHang.getTenKhachHang() != null && !idKhachHang.getTenKhachHang().trim().isEmpty()) {
+            return idKhachHang.getTenKhachHang();
         }
         return "Khách lẻ";
     }
 
     @JsonProperty("soDienThoaiHienThi")
     public String getSoDienThoaiHienThi() {
+        if (soDienThoaiKhachHang != null && !soDienThoaiKhachHang.trim().isEmpty()) {
+            return soDienThoaiKhachHang;
+        }
         if (idKhachHang != null && idKhachHang.getSoDienThoai() != null && !idKhachHang.getSoDienThoai().trim().isEmpty()) {
             return idKhachHang.getSoDienThoai();
         }
-        return soDienThoaiKhachHang;
+        return null;
     }
 
     @JsonProperty("tenPhieuGiamGia")
     public String getTenPhieuGiamGia() {
         return idPhieuGiamGia != null ? idPhieuGiamGia.getTenPhieuGiamGia() : null;
+    }
+
+    @JsonProperty("maPhieuGiamGia")
+    public String getMaPhieuGiamGia() {
+        return idPhieuGiamGia != null ? idPhieuGiamGia.getMaPhieuGiamGia() : null;
+    }
+
+    @JsonProperty("trangThaiHienThi")
+    public Integer getTrangThaiHienThi() {
+        if (Integer.valueOf(6).equals(this.trangThai) && this.ghiChu != null) {
+            String lower = this.ghiChu.toLowerCase();
+            if (lower.contains("tối đa 3 lần") || lower.contains("hủy đơn do giao lại")) {
+                return 6;
+            }
+            if (lower.contains("giao hàng thất bại")) {
+                return 7;
+            }
+        }
+        return this.trangThai;
     }
 
     @com.fasterxml.jackson.annotation.JsonSetter("idPhieuGiamGia")
