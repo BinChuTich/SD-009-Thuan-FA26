@@ -1,8 +1,6 @@
 package com.example.sd009thuan.dto;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
@@ -10,8 +8,6 @@ import java.time.LocalDate;
 
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
 public class KhachHangDTO {
     private Long id;
     private String maKhachHang;
@@ -23,5 +19,22 @@ public class KhachHangDTO {
     private Long tongDonMua;
     private Instant ngayMuaGanNhat;
     private Integer trangThai;
-}
 
+    public KhachHangDTO() {
+        super();
+    }
+
+    public KhachHangDTO(Long id, String maKhachHang, String tenKhachHang, String soDienThoai, String email, LocalDate ngaySinh, Boolean gioiTinh, Long tongDonMua, Instant ngayMuaGanNhat, Integer trangThai) {
+        super();
+        this.id = id;
+        this.maKhachHang = maKhachHang;
+        this.tenKhachHang = tenKhachHang;
+        this.soDienThoai = soDienThoai;
+        this.email = email;
+        this.ngaySinh = ngaySinh;
+        this.gioiTinh = gioiTinh;
+        this.tongDonMua = tongDonMua;
+        this.ngayMuaGanNhat = ngayMuaGanNhat;
+        this.trangThai = trangThai;
+    }
+}

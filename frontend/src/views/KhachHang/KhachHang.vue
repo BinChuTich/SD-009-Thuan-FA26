@@ -558,7 +558,7 @@ function cancelAddressForm() {
 }
 
 async function onAddrProvinceChange() {
-  const p = provincesList.value.find(item => item.code === addrProvinceCode.value)
+  const p = provincesList.value.find(item => String(item.code) === String(addrProvinceCode.value))
   addrForm.thanhPho = p ? p.name : ''
   addrWardCode.value = ''
   addrForm.huyen = ''
@@ -570,7 +570,7 @@ async function onAddrProvinceChange() {
 }
 
 function onAddrWardChange() {
-  const w = addrWardsList.value.find(item => item.code === addrWardCode.value)
+  const w = addrWardsList.value.find(item => String(item.code) === String(addrWardCode.value))
   addrForm.phuong = w ? w.name : ''
   if (w && w.districtName) {
     addrForm.huyen = w.districtName
