@@ -162,6 +162,23 @@ public class DotGiamGiaService {
         if (!dotGiamGia.getNgayKetThuc().isAfter(dotGiamGia.getNgayBatDau())) {
             throw new IllegalArgumentException("Thời gian kết thúc phải sau thời gian bắt đầu!");
         }
+
+        Instant nowThreshold = Instant.now().minus(java.time.Duration.ofMinutes(5));
+        if (currentId == null) {
+            if (dotGiamGia.getNgayBatDau().isBefore(nowThreshold)) {
+                throw new IllegalArgumentException("Thời gian bắt đầu không được trước thời gian hiện tại!");
+            }
+        } else {
+            DotGiamGia old = dotGiamGiaRepository.findById(currentId).orElse(null);
+            if (old != null && !old.getNgayBatDau().equals(dotGiamGia.getNgayBatDau())) {
+                if (dotGiamGia.getNgayBatDau().isBefore(nowThreshold)) {
+                    throw new IllegalArgumentException("Thời gian bắt đầu không được trước thời gian hiện tại!");
+                }
+            }
+        }
+        if (dotGiamGia.getNgayKetThuc().isBefore(nowThreshold)) {
+            throw new IllegalArgumentException("Thời gian kết thúc không được trước thời gian hiện tại!");
+        }
     }
 
     public Map<Long, DotGiamGia> getActiveProductMap(Long excludeDotId) {
