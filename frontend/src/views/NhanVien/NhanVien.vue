@@ -189,15 +189,11 @@
                 </td>
                 <td style="text-align: center">
                   <div class="action-buttons">
+                    <!-- Bỏ nút switch khi là Quản trị viên (chỉ hiển thị cho Nhân viên thông thường) -->
                     <label
+                      v-if="!isAdmin(item)"
                       class="switch-toggle"
-                      :class="{
-                        'switch-self': isCurrentLoggedIn(item),
-                        'switch-guard-locked': isCurrentLoggedIn(item) && item.status === 'active'
-                      }"
-                      :title="isCurrentLoggedIn(item) && item.status === 'active'
-                        ? 'Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống'
-                        : (item.status === 'active' ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)')"
+                      :title="item.status === 'active' ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)'"
                       @click.stop.prevent="toggleStatus(item)"
                     >
                       <input
@@ -206,13 +202,7 @@
                         readonly
                         tabindex="-1"
                       />
-                      <span
-                        class="slider-round"
-                        :class="{
-                          'slider-self': isCurrentLoggedIn(item),
-                          'slider-guard-locked': isCurrentLoggedIn(item) && item.status === 'active'
-                        }"
-                      ></span>
+                      <span class="slider-round"></span>
                     </label>
                     <button
                       class="btn-circle-action btn-edit"
@@ -549,6 +539,13 @@ const roles = ref([])
 function isCurrentLoggedIn(emp) {
   return isCurrentLoggedInUser(emp)
 }
+
+function isAdmin(emp) {
+  if (!emp) return false
+  const roleName = (emp.role || emp.tenVaiTro || '').trim().toLowerCase()
+  const roleCode = (emp.maVaiTro || emp.idVaiTro?.maVaiTro || '').trim().toUpperCase()
+  return roleName.includes('quản trị') || roleCode === 'ADMIN' || isCurrentLoggedIn(emp)
+}
 const trangThaiOptions = [
   { value: '1', label: 'Hoạt động' },
   { value: '0', label: 'Ngừng hoạt động' }
@@ -673,12 +670,12 @@ async function toggleStatus(item) {
   const isLocking = item.status === 'active'
   const actionText = isLocking ? 'khóa tài khoản' : 'mở khóa tài khoản'
 
-  // Ràng buộc bảo mật đối với Tài khoản đang đăng nhập (Active User Guard):
-  // Chặn thao tác 'Ngừng hoạt động' chính mình
-  if (isSelf && isLocking) {
+  // Ràng buộc bảo mật đối với Quản trị viên:
+  // Tuyệt đối không cho phép chuyển trạng thái 'Ngừng hoạt động' đối với tài khoản Quản trị viên
+  if (isAdmin(item)) {
     showAlert({
       title: 'Hành động không được phép',
-      message: 'Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống',
+      message: 'Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản Quản trị viên',
       type: 'warning'
     })
     return

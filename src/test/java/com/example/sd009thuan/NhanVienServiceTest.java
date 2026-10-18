@@ -131,4 +131,77 @@ public class NhanVienServiceTest {
 
         assertEquals("Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống", ex.getMessage());
     }
+
+    @Test
+    void testAdminCannotToggleStatus() {
+        NhanVienRepository repo = Mockito.mock(NhanVienRepository.class);
+        NhanVien nv = new NhanVien();
+        nv.setId(5L);
+        nv.setTrangThai(1);
+        com.example.sd009thuan.entity.VaiTro role = new com.example.sd009thuan.entity.VaiTro();
+        role.setMaVaiTro("ADMIN");
+        role.setTenVaiTro("Quản trị viên");
+        nv.setIdVaiTro(role);
+
+        when(repo.findById(5L)).thenReturn(Optional.of(nv));
+
+        NhanVienService service = new NhanVienService(repo, null, null, null);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            service.toggleStatus(5L);
+        });
+
+        assertEquals("Không thể thay đổi trạng thái đối với tài khoản Quản trị viên", ex.getMessage());
+    }
+
+    @Test
+    void testAdminCannotDeactivate() {
+        NhanVienRepository repo = Mockito.mock(NhanVienRepository.class);
+        NhanVien nv = new NhanVien();
+        nv.setId(5L);
+        nv.setTrangThai(1);
+        com.example.sd009thuan.entity.VaiTro role = new com.example.sd009thuan.entity.VaiTro();
+        role.setMaVaiTro("ADMIN");
+        role.setTenVaiTro("Quản trị viên");
+        nv.setIdVaiTro(role);
+
+        when(repo.findById(5L)).thenReturn(Optional.of(nv));
+
+        NhanVienService service = new NhanVienService(repo, null, null, null);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            service.deactivate(5L);
+        });
+
+        assertEquals("Không thể chuyển trạng thái ngừng hoạt động đối với tài khoản Quản trị viên", ex.getMessage());
+    }
+
+    @Test
+    void testAdminCannotUpdateToInactive() {
+        NhanVienRepository repo = Mockito.mock(NhanVienRepository.class);
+        NhanVien nv = new NhanVien();
+        nv.setId(5L);
+        nv.setTrangThai(1);
+        com.example.sd009thuan.entity.VaiTro role = new com.example.sd009thuan.entity.VaiTro();
+        role.setMaVaiTro("ADMIN");
+        role.setTenVaiTro("Quản trị viên");
+        nv.setIdVaiTro(role);
+
+        when(repo.findById(5L)).thenReturn(Optional.of(nv));
+
+        NhanVienService service = new NhanVienService(repo, null, null, null);
+
+        NhanVienRequest req = new NhanVienRequest(
+                "NV001", "admin", "Nguyễn Văn Admin", null,
+                "admin@ffshirt.com", "0901234567", null, true,
+                LocalDate.of(1990, 1, 1), "Thành phố Hà Nội",
+                "Phường Ba Đình", "Số 1", null, 0
+        );
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            service.update(5L, req, null);
+        });
+
+        assertEquals("Không thể chuyển trạng thái ngừng hoạt động đối với tài khoản Quản trị viên", ex.getMessage());
+    }
 }

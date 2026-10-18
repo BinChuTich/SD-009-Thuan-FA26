@@ -187,23 +187,23 @@
               <div class="form-field">
                 <div class="field-label-row flex items-center justify-between mb-1">
                   <label class="field-label mb-0">Trạng thái</label>
-                  <span v-if="isSelf" class="badge-guard-tag" title="Tài khoản bạn đang đăng nhập">
+                  <span v-if="isAdminEmployee" class="badge-guard-tag" title="Tài khoản Quản trị viên luôn hoạt động">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                    Tài khoản đang đăng nhập
+                    Quản trị viên
                   </span>
                 </div>
                 <Select2Combobox
                   v-model="form.trangThai"
-                  :options="isSelf ? [{ value: 1, label: 'Hoạt động (Đang đăng nhập)' }] : statusOptions"
+                  :options="isAdminEmployee ? [{ value: 1, label: 'Hoạt động (Quản trị viên)' }] : statusOptions"
                   value-key="value"
                   label-key="label"
                   :allow-clear="false"
                   :searchable="false"
-                  :disabled="isSelf"
+                  :disabled="isAdminEmployee"
                   placeholder="Chọn trạng thái..."
                 />
-                <span v-if="isSelf" class="field-guard-note">
-                  Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống
+                <span v-if="isAdminEmployee" class="field-guard-note">
+                  Tài khoản Quản trị viên luôn ở trạng thái Hoạt động
                 </span>
               </div>
 
@@ -343,12 +343,20 @@ const form = reactive({
 // Active User Guard: Kiểm tra xem tài khoản này có phải chính là người dùng đang đăng nhập hay không
 const isSelf = computed(() => isCurrentLoggedInUser({ id, ...form }))
 
-// Chặn ngay lập tức nếu có bất kỳ hành động đổi sang Ngừng hoạt động (trangThai = 0)
+// Kiểm tra xem tài khoản này có vai trò Quản trị viên hay không
+const isAdminEmployee = computed(() => {
+  const selectedRole = roles.value.find(r => String(r.id) === String(form.idVaiTro))
+  const roleName = (selectedRole?.tenVaiTro || '').toLowerCase()
+  const roleCode = (selectedRole?.maVaiTro || '').toUpperCase()
+  return roleName.includes('quản trị') || roleCode === 'ADMIN' || isSelf.value
+})
+
+// Chặn ngay lập tức nếu có bất kỳ hành động đổi sang Ngừng hoạt động (trangThai = 0) cho Quản trị viên
 watch(() => form.trangThai, (newVal) => {
-  if (isSelf.value && Number(newVal) === 0) {
+  if (isAdminEmployee.value && Number(newVal) === 0) {
     showAlert({
       title: 'Hành động không được phép',
-      message: 'Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống',
+      message: 'Không thể chuyển trạng thái ngừng hoạt động đối với tài khoản Quản trị viên',
       type: 'warning'
     })
     form.trangThai = 1

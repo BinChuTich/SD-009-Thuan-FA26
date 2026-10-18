@@ -171,6 +171,9 @@ public class NhanVienService {
             VaiTro role = roleRepo.findById(req.idVaiTro()).orElseThrow(() -> new EntityNotFoundException("Không tìm thấy vai trò"));
             x.setIdVaiTro(role);
         }
+        if (isAdmin(x) && req.trangThai() != null && req.trangThai() == 0) {
+            throw new IllegalArgumentException("Không thể chuyển trạng thái ngừng hoạt động đối với tài khoản Quản trị viên");
+        }
         // Mã nhân viên, tên tài khoản, mật khẩu do hệ thống cấp, KHÔNG THỂ THAY ĐỔI
         if (blank(req.tenNhanVien()) != null) x.setTenNhanVien(req.tenNhanVien().trim());
         if (blank(req.email()) != null) {
@@ -212,7 +215,20 @@ public class NhanVienService {
 
     @Transactional
     public void toggleStatus(Long id) {
+        toggleStatus(id, null);
+    }
+
+    @Transactional
+    public void toggleStatus(Long id, Long currentUserId) {
         NhanVien x = find(id);
+        if (currentUserId != null && currentUserId.equals(id)) {
+            if (x.getTrangThai() != null && x.getTrangThai() == 1) {
+                throw new IllegalArgumentException("Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống");
+            }
+        }
+        if (isAdmin(x)) {
+            throw new IllegalArgumentException("Không thể thay đổi trạng thái đối với tài khoản Quản trị viên");
+        }
         x.setTrangThai(x.getTrangThai() != null && x.getTrangThai() == 1 ? 0 : 1);
         x.setNgayCapNhat(Instant.now());
         x.setNguoiCapNhat("admin");
@@ -220,23 +236,8 @@ public class NhanVienService {
     }
 
     @Transactional
-    public void toggleStatus(Long id, Long currentUserId) {
-        if (currentUserId != null && currentUserId.equals(id)) {
-            NhanVien x = find(id);
-            if (x.getTrangThai() != null && x.getTrangThai() == 1) {
-                throw new IllegalArgumentException("Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống");
-            }
-        }
-        toggleStatus(id);
-    }
-
-    @Transactional
     public void deactivate(Long id) {
-        NhanVien x = find(id);
-        x.setTrangThai(0);
-        x.setNgayCapNhat(Instant.now());
-        x.setNguoiCapNhat("admin");
-        repo.save(x);
+        deactivate(id, null);
     }
 
     @Transactional
@@ -244,7 +245,14 @@ public class NhanVienService {
         if (currentUserId != null && currentUserId.equals(id)) {
             throw new IllegalArgumentException("Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống");
         }
-        deactivate(id);
+        NhanVien x = find(id);
+        if (isAdmin(x)) {
+            throw new IllegalArgumentException("Không thể chuyển trạng thái ngừng hoạt động đối với tài khoản Quản trị viên");
+        }
+        x.setTrangThai(0);
+        x.setNgayCapNhat(Instant.now());
+        x.setNguoiCapNhat("admin");
+        repo.save(x);
     }
 
     /**
@@ -458,6 +466,14 @@ public class NhanVienService {
         if (phone.length() > 11) {
             throw new IllegalArgumentException("Số điện thoại không được trên 11 số");
         }
+    }
+
+    public boolean isAdmin(NhanVien x) {
+        if (x == null || x.getIdVaiTro() == null) return false;
+        String maVaiTro = x.getIdVaiTro().getMaVaiTro();
+        String tenVaiTro = x.getIdVaiTro().getTenVaiTro();
+        return (maVaiTro != null && "ADMIN".equalsIgnoreCase(maVaiTro.trim()))
+                || (tenVaiTro != null && tenVaiTro.toLowerCase().contains("quản trị"));
     }
 
     private String blank(String value) { return value == null || value.isBlank() ? null : value.trim(); }
