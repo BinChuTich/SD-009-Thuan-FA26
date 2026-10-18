@@ -6,7 +6,8 @@ import { getCurrentUser, setCurrentUser, logout } from '@/utils/auth.js'
 const openMenus = ref({
   sanPham: true,
   thuocTinh: true,
-  giamGia: false
+  giamGia: false,
+  lichLamViec: true
 })
 
 const toggleMenu = (menu) => {
@@ -220,6 +221,33 @@ function handleLoginAdmin() {
             <router-link to="/phieu-giam-gia" class="tree-item" active-class="active">
               <span class="tree-branch">└─</span>
               <span>Phiếu giảm giá</span>
+            </router-link>
+          </div>
+        </div>
+
+        <!-- 8. Lịch Làm Việc -->
+        <div class="menu-group">
+          <div class="menu-item has-sub" @click="toggleMenu('lichLamViec')">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+              </svg>
+            </span>
+            <span class="menu-text">Lịch Làm Việc</span>
+            <span class="arrow-icon" :class="{ open: openMenus.lichLamViec }">⌄</span>
+          </div>
+          <div class="submenu-tree" v-show="openMenus.lichLamViec">
+            <router-link to="/ca-lam-viec" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Quản lý ca làm việc</span>
+            </router-link>
+            <router-link to="/xep-lich" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Xếp lịch nhân viên</span>
+            </router-link>
+            <router-link to="/lich-su-ca" class="tree-item" active-class="active">
+              <span class="tree-branch">└─</span>
+              <span>Lịch sử hoạt động</span>
             </router-link>
           </div>
         </div>

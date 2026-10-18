@@ -225,6 +225,23 @@ const routes = [
         path: '/nhan-vien/:id',
         name: 'ChiTietNhanVien',
         component: ChiTietNhanVien
+    },
+
+    // Lịch làm việc
+    {
+        path: '/ca-lam-viec',
+        name: 'QuanLyCa',
+        component: () => import('@/views/LichLamViec/QuanLyCa.vue')
+    },
+    {
+        path: '/xep-lich',
+        name: 'XepLich',
+        component: () => import('@/views/LichLamViec/XepLich.vue')
+    },
+    {
+        path: '/lich-su-ca',
+        name: 'LichSuHoatDong',
+        component: () => import('@/views/LichLamViec/LichSuHoatDong.vue')
     }
 ]
 

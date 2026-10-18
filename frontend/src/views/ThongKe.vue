@@ -103,6 +103,7 @@
               type="date"
               v-model="filters.fromDate"
               class="form-control-minimal"
+              :class="{ 'input-error-border': dateFilterError }"
               @change="onCustomDateChange"
             />
           </div>
@@ -116,6 +117,7 @@
               type="date"
               v-model="filters.toDate"
               class="form-control-minimal"
+              :class="{ 'input-error-border': dateFilterError }"
               @change="onCustomDateChange"
             />
           </div>
@@ -180,6 +182,16 @@
             <span>Đặt lại</span>
           </button>
         </div>
+      </div>
+
+      <!-- Báo lỗi khoảng ngày nếu Từ ngày > Đến ngày -->
+      <div v-if="dateFilterError" class="filter-error-msg">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        <span>{{ dateFilterError }}</span>
       </div>
 
       <!-- Hàng dưới cùng: Chấm xanh dương & Dòng trạng thái ngày -->
@@ -710,6 +722,7 @@ const defaultProductImage = 'https://images.unsplash.com/photo-1521572267360-ee0
 // 1. Quản lý Bộ lọc thống kê
 const quickFilter = ref('today')
 const brandOptions = ref([])
+const dateFilterError = ref('')
 
 const filters = reactive({
   fromDate: getTodayDateString(),
@@ -735,6 +748,7 @@ function formatDateDisplay(dStr) {
 
 function setQuickFilter(type) {
   quickFilter.value = type
+  dateFilterError.value = ''
   const now = new Date()
   const todayStr = getTodayDateString()
 
@@ -768,6 +782,11 @@ function setQuickFilter(type) {
 }
 
 function onCustomDateChange() {
+  if (filters.fromDate && filters.toDate && filters.fromDate > filters.toDate) {
+    dateFilterError.value = 'Từ ngày không được lớn hơn Đến ngày!'
+    return
+  }
+  dateFilterError.value = ''
   quickFilter.value = 'custom'
   applyFilters()
 }
@@ -789,6 +808,7 @@ function resetFilters() {
 }
 
 function applyFilters() {
+  if (dateFilterError.value) return
   recomputeAllDashboardData()
 }
 
@@ -1489,6 +1509,21 @@ onMounted(async () => {
   border-color: #8c7355;
   background-color: #ffffff;
   box-shadow: 0 0 0 3px rgba(140, 115, 85, 0.12);
+}
+
+.input-error-border {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+}
+
+.filter-error-msg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #dc2626;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-top: 4px;
 }
 
 .input-with-prefix-icon {
