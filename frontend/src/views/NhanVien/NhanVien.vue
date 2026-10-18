@@ -198,12 +198,13 @@
                       :title="isCurrentLoggedIn(item) && item.status === 'active'
                         ? 'Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống'
                         : (item.status === 'active' ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)')"
+                      @click.stop.prevent="toggleStatus(item)"
                     >
                       <input
                         type="checkbox"
                         :checked="item.status === 'active'"
-                        :disabled="isCurrentLoggedIn(item) && item.status === 'active'"
-                        @click.prevent="toggleStatus(item)"
+                        readonly
+                        tabindex="-1"
                       />
                       <span
                         class="slider-round"
@@ -670,6 +671,7 @@ function goToEdit(id) {
 async function toggleStatus(item) {
   const isSelf = isCurrentLoggedIn(item)
   const isLocking = item.status === 'active'
+  const actionText = isLocking ? 'khóa tài khoản' : 'mở khóa tài khoản'
 
   // Ràng buộc bảo mật đối với Tài khoản đang đăng nhập (Active User Guard):
   // Chặn thao tác 'Ngừng hoạt động' chính mình
@@ -2253,12 +2255,7 @@ onMounted(async () => {
 
 .switch-guard-locked {
   cursor: not-allowed !important;
-  opacity: 0.65;
-}
-
-.switch-guard-locked input {
-  cursor: not-allowed !important;
-  pointer-events: none;
+  opacity: 0.8;
 }
 
 .switch-guard-locked .slider-round.slider-guard-locked {
