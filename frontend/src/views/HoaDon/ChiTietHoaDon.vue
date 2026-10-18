@@ -2151,14 +2151,6 @@ onBeforeUnmount(() => {
           <div class="print-meta-code">Mã HĐ: <strong>{{ invoiceData.code }}</strong></div>
           <div class="print-meta-date">Ngày lập: {{ invoiceData.paymentHistory?.time || (invoiceData.createTime + ' ' + invoiceData.createDate) }}</div>
         </div>
-
-        <div class="print-qr-code-box">
-          <img
-            :src="invoiceQrDataUrl"
-            alt="Mã QR Hóa Đơn"
-            class="print-qr-img"
-          />
-        </div>
       </div>
 
       <div class="print-divider"></div>
@@ -2231,13 +2223,24 @@ onBeforeUnmount(() => {
       <div class="print-bottom-summary">
         <div class="print-payment-info">
           <div class="print-box-title">PHƯƠNG THỨC THANH TOÁN</div>
-          <div class="print-data-line">
-            <span class="p-label">Hình thức:</span>
-            <span class="p-val font-bold">{{ invoiceData.paymentHistory.method }}</span>
-          </div>
-          <div class="print-data-line">
-            <span class="p-label">Trạng thái:</span>
-            <span class="p-val font-bold text-success">{{ invoiceData.paymentHistory.status }}</span>
+          <div class="print-payment-layout">
+            <div class="print-payment-details">
+              <div class="print-data-line">
+                <span class="p-label">Hình thức:</span>
+                <span class="p-val font-bold">{{ invoiceData.paymentHistory.method }}</span>
+              </div>
+              <div class="print-data-line">
+                <span class="p-label">Trạng thái:</span>
+                <span class="p-val font-bold text-success">{{ invoiceData.paymentHistory.status }}</span>
+              </div>
+            </div>
+            <div class="print-payment-qr">
+              <img
+                :src="invoiceQrDataUrl"
+                alt="Mã QR Hóa Đơn"
+                class="print-qr-img"
+              />
+            </div>
           </div>
         </div>
 
@@ -4008,31 +4011,35 @@ onBeforeUnmount(() => {
   color: #b45309;
 }
 
-.print-qr-code-box {
+.print-payment-layout {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.print-payment-details {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.print-payment-qr {
+  display: flex;
   align-items: center;
   justify-content: center;
-  text-align: center;
+  flex-shrink: 0;
 }
 
 .print-qr-img {
-  width: 90px;
-  height: 90px;
+  width: 68px;
+  height: 68px;
   object-fit: contain;
   border: 1px solid #d1d5db;
   border-radius: 4px;
   padding: 2px;
   background: #ffffff;
-}
-
-.print-qr-caption {
-  font-size: 10px;
-  font-weight: 700;
-  color: #4b5563;
-  margin-top: 3px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 /* Printable Invoice Styles & Media Print */
@@ -4131,38 +4138,6 @@ onBeforeUnmount(() => {
 
   .print-invoice-title-block {
     text-align: right;
-  }
-
-  .print-qr-code-box {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    text-align: center !important;
-    margin-left: 14px !important;
-  }
-
-  .print-qr-img {
-    width: 82px !important;
-    height: 82px !important;
-    object-fit: contain !important;
-    border: 1px solid #94a3b8 !important;
-    border-radius: 4px !important;
-    padding: 2px !important;
-    background: #ffffff !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  .print-qr-caption {
-    font-size: 9px !important;
-    font-weight: 700 !important;
-    color: #4b5563 !important;
-    margin-top: 3px !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
   }
 
   .print-main-title {
@@ -4292,6 +4267,39 @@ onBeforeUnmount(() => {
     border-radius: 6px;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  .print-payment-layout {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 14px !important;
+  }
+
+  .print-payment-details {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    flex: 1 !important;
+  }
+
+  .print-payment-qr {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  .print-payment-qr .print-qr-img {
+    width: 68px !important;
+    height: 68px !important;
+    object-fit: contain !important;
+    border: 1px solid #94a3b8 !important;
+    border-radius: 4px !important;
+    padding: 2px !important;
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .text-success {
