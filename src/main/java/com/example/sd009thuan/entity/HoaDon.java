@@ -163,6 +163,29 @@ public class HoaDon {
     @Lob
     @Column(name = "ghi_chu")
     private String ghiChu;
+
+    // Email nhận thông báo / xác nhận đơn (Transient - không lưu vào bảng hoa_don)
+    @Transient
+    private String email;
+
+    @JsonProperty("emailKhachHang")
+    public String getEmailKhachHang() {
+        if (this.email != null && !this.email.trim().isEmpty()) {
+            return this.email.trim();
+        }
+        if (idKhachHang != null && idKhachHang.getEmail() != null && !idKhachHang.getEmail().trim().isEmpty()) {
+            return idKhachHang.getEmail().trim();
+        }
+        return null;
+    }
+
+    public String getEmail() {
+        return this.email != null ? this.email : getEmailKhachHang();
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
     // Chi tiết hóa đơn
     @JsonIgnore
     @OneToMany(mappedBy = "idHoaDon")

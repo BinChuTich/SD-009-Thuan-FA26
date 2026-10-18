@@ -18,6 +18,8 @@ public class HoaDonPosDTO {
     private Integer trangThai; // 5: Hoàn thành, 1: Chờ xử lý
     private Integer trangThaiThanhToan; // 1: Đã thanh toán
     private String phuongThucThanhToan;
+    private BigDecimal tienMat;
+    private BigDecimal tienChuyenKhoan;
     private String ghiChu;
     private List<ItemChiTietDTO> chiTietList;
 
@@ -65,6 +67,12 @@ public class HoaDonPosDTO {
 
     public String getPhuongThucThanhToan() { return phuongThucThanhToan; }
     public void setPhuongThucThanhToan(String phuongThucThanhToan) { this.phuongThucThanhToan = phuongThucThanhToan; }
+
+    public BigDecimal getTienMat() { return tienMat; }
+    public void setTienMat(BigDecimal tienMat) { this.tienMat = tienMat; }
+
+    public BigDecimal getTienChuyenKhoan() { return tienChuyenKhoan; }
+    public void setTienChuyenKhoan(BigDecimal tienChuyenKhoan) { this.tienChuyenKhoan = tienChuyenKhoan; }
 
     public String getGhiChu() { return ghiChu; }
     public void setGhiChu(String ghiChu) { this.ghiChu = ghiChu; }

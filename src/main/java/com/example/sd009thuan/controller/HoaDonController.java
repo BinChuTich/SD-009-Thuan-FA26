@@ -153,10 +153,13 @@ public class HoaDonController {
             @PathVariable Long id,
             @RequestBody(required = false) Map<String, Object> body,
             @RequestParam(name = "trangThai", required = false)
-            Integer paramTrangThai
+            Integer paramTrangThai,
+            @RequestParam(name = "email", required = false)
+            String paramEmail
     ) {
         Integer trangThai = paramTrangThai;
         String ghiChu = null;
+        String email = paramEmail;
 
         if (body != null) {
             if (body.get("trangThai") != null) {
@@ -172,6 +175,12 @@ public class HoaDonController {
             if (body.get("ghiChu") != null) {
                 ghiChu = body.get("ghiChu").toString();
             }
+
+            if (body.get("email") != null && !body.get("email").toString().trim().isEmpty()) {
+                email = body.get("email").toString().trim();
+            } else if (body.get("emailKhachHang") != null && !body.get("emailKhachHang").toString().trim().isEmpty()) {
+                email = body.get("emailKhachHang").toString().trim();
+            }
         }
 
         if (trangThai == null) {
@@ -184,13 +193,14 @@ public class HoaDonController {
 
         try {
             return ResponseEntity.ok(
-                    hoaDonService.updateTrangThai(id, trangThai, ghiChu)
+                    hoaDonService.updateTrangThai(id, trangThai, ghiChu, email)
             );
         } catch (Exception e) {
             try {
                 HoaDon hd = new HoaDon();
                 hd.setTrangThai(trangThai);
                 if (ghiChu != null) hd.setGhiChu(ghiChu);
+                if (email != null) hd.setEmail(email);
                 return ResponseEntity.ok(hoaDonService.update(id, hd));
             } catch (Exception ex) {
                 return ResponseEntity.badRequest().body(Map.of(
@@ -207,10 +217,13 @@ public class HoaDonController {
             @PathVariable String maHoaDon,
             @RequestBody(required = false) Map<String, Object> body,
             @RequestParam(name = "trangThai", required = false)
-            Integer paramTrangThai
+            Integer paramTrangThai,
+            @RequestParam(name = "email", required = false)
+            String paramEmail
     ) {
         Integer trangThai = paramTrangThai;
         String ghiChu = null;
+        String email = paramEmail;
 
         if (body != null) {
             if (body.get("trangThai") != null) {
@@ -225,6 +238,12 @@ public class HoaDonController {
 
             if (body.get("ghiChu") != null) {
                 ghiChu = body.get("ghiChu").toString();
+            }
+
+            if (body.get("email") != null && !body.get("email").toString().trim().isEmpty()) {
+                email = body.get("email").toString().trim();
+            } else if (body.get("emailKhachHang") != null && !body.get("emailKhachHang").toString().trim().isEmpty()) {
+                email = body.get("emailKhachHang").toString().trim();
             }
         }
 
@@ -241,7 +260,8 @@ public class HoaDonController {
                     hoaDonService.updateTrangThaiByMa(
                             maHoaDon,
                             trangThai,
-                            ghiChu
+                            ghiChu,
+                            email
                     )
             );
         } catch (Exception e) {
@@ -251,13 +271,56 @@ public class HoaDonController {
                     HoaDon hd = new HoaDon();
                     hd.setTrangThai(trangThai);
                     if (ghiChu != null) hd.setGhiChu(ghiChu);
+                    if (email != null) hd.setEmail(email);
                     return ResponseEntity.ok(hoaDonService.update(opt.get().getId(), hd));
                 }
             } catch (Exception ignored) {}
             return ResponseEntity.badRequest().body(Map.of(
                     "message",
                     e.getMessage() != null ? e.getMessage() : "Cập nhật trạng thái thất bại"
-            ));
+                ));
+        }
+    }
+
+    // Gửi email xác nhận đơn hàng theo ID
+    @PostMapping("/{id}/send-email")
+    public ResponseEntity<?> sendConfirmationEmail(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body
+    ) {
+        String email = (body != null && body.get("email") != null) ? body.get("email").toString().trim() : null;
+        try {
+            boolean sent = hoaDonService.sendConfirmationEmail(id, email);
+            if (sent) {
+                return ResponseEntity.ok(Map.of("message", "Đã gửi email xác nhận đơn hàng thành công!"));
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("message", "Không thể gửi email. Vui lòng kiểm tra lại địa chỉ email người nhận!"));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage() != null ? e.getMessage() : "Gửi email thất bại!"));
+        }
+    }
+
+    // Gửi email xác nhận đơn hàng theo mã hóa đơn
+    @PostMapping("/code/{maHoaDon}/send-email")
+    public ResponseEntity<?> sendConfirmationEmailByCode(
+            @PathVariable String maHoaDon,
+            @RequestBody(required = false) Map<String, Object> body
+    ) {
+        Optional<HoaDon> opt = hoaDonService.getByMaHoaDon(maHoaDon);
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        String email = (body != null && body.get("email") != null) ? body.get("email").toString().trim() : null;
+        try {
+            boolean sent = hoaDonService.sendConfirmationEmail(opt.get().getId(), email);
+            if (sent) {
+                return ResponseEntity.ok(Map.of("message", "Đã gửi email xác nhận đơn hàng thành công!"));
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("message", "Không thể gửi email. Vui lòng kiểm tra lại địa chỉ email người nhận!"));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage() != null ? e.getMessage() : "Gửi email thất bại!"));
         }
     }
 

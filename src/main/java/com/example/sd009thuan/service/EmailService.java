@@ -1,5 +1,7 @@
 package com.example.sd009thuan.service;
 
+import com.example.sd009thuan.entity.ChiTietHoaDon;
+import com.example.sd009thuan.entity.HoaDon;
 import com.example.sd009thuan.entity.KhachHang;
 import com.example.sd009thuan.entity.PhieuGiamGia;
 import jakarta.mail.internet.MimeMessage;
@@ -479,6 +481,240 @@ public class EmailService {
         } catch (Exception e) {
             log.error("Gửi email thất bại cho {}: {}", toEmail, e.getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Gửi email xác nhận đơn hàng tự động cho khách hàng khi đơn hàng được xác nhận
+     */
+    @Async
+    public void sendOrderConfirmationEmail(HoaDon hoaDon, java.util.List<ChiTietHoaDon> items, String recipientEmail) {
+        if (recipientEmail == null || recipientEmail.trim().isEmpty() || !recipientEmail.contains("@")) {
+            log.info("==> [EmailService] Bỏ qua gửi email xác nhận: Địa chỉ email người nhận không hợp lệ ('{}')", recipientEmail);
+            return;
+        }
+        if (hoaDon == null) {
+            return;
+        }
+
+        try {
+            if (mailSender == null) {
+                log.info("==> [EmailService Mock] Đã gửi email xác nhận đơn hàng {} tới {}", hoaDon.getMaHoaDon(), recipientEmail);
+                return;
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(senderEmail, "FF T-Shirt");
+            helper.setTo(recipientEmail.trim());
+            helper.setSubject("[FF T-Shirt] Xác nhận đơn hàng thành công #" + (hoaDon.getMaHoaDon() != null ? hoaDon.getMaHoaDon() : ""));
+
+            // Build item rows HTML
+            StringBuilder itemsHtml = new StringBuilder();
+            if (items != null && !items.isEmpty()) {
+                int idx = 1;
+                for (ChiTietHoaDon item : items) {
+                    String productName = "Sản phẩm";
+                    String variantInfo = "";
+                    String productCode = item.getMaHoaDonChiTiet() != null ? item.getMaHoaDonChiTiet() : "";
+                    if (item.getIdChiTietSanPham() != null) {
+                        var ctsp = item.getIdChiTietSanPham();
+                        if (ctsp.getIdSanPham() != null && ctsp.getIdSanPham().getTenSanPham() != null) {
+                            productName = ctsp.getIdSanPham().getTenSanPham();
+                        }
+                        if (ctsp.getMaChiTietSanPham() != null) {
+                            productCode = ctsp.getMaChiTietSanPham();
+                        }
+                        String color = (ctsp.getIdMauSac() != null && ctsp.getIdMauSac().getTenMauSac() != null) ? ctsp.getIdMauSac().getTenMauSac() : "";
+                        String size = (ctsp.getIdKichCo() != null && ctsp.getIdKichCo().getTenKichCo() != null) ? ctsp.getIdKichCo().getTenKichCo() : "";
+                        if (!color.isEmpty() || !size.isEmpty()) {
+                            variantInfo = (color.isEmpty() ? "" : color) + (!color.isEmpty() && !size.isEmpty() ? " / " : "") + (!size.isEmpty() ? ("Size " + size) : "");
+                        }
+                    }
+
+                    int qty = item.getSoLuong() != null ? item.getSoLuong() : 1;
+                    BigDecimal price = item.getDonGia() != null ? item.getDonGia() : BigDecimal.ZERO;
+                    BigDecimal total = item.getThanhTien() != null ? item.getThanhTien() : price.multiply(BigDecimal.valueOf(qty));
+
+                    itemsHtml.append("<tr style=\"border-bottom: 1px solid #f0eae1;\">")
+                            .append("<td style=\"padding: 10px 8px; text-align: center; color: #777; font-size: 13px;\">").append(idx++).append("</td>")
+                            .append("<td style=\"padding: 10px 8px; text-align: left;\">")
+                            .append("<div style=\"font-weight: 600; color: #2b353b; font-size: 13.5px;\">").append(productName).append("</div>");
+                    if (!variantInfo.isEmpty()) {
+                        itemsHtml.append("<div style=\"font-size: 12.5px; color: #666; margin: 2px 0;\">Phân loại: ").append(variantInfo).append("</div>");
+                    }
+                    if (!productCode.isEmpty()) {
+                        itemsHtml.append("<div style=\"font-size: 12px; color: #888; font-family: monospace;\">Mã: ").append(productCode).append("</div>");
+                    }
+                    itemsHtml.append("</td>")
+                            .append("<td style=\"padding: 10px 8px; text-align: center; font-weight: 600; color: #333; font-size: 13.5px;\">").append(qty).append("</td>")
+                            .append("<td style=\"padding: 10px 8px; text-align: right; color: #555; font-size: 13.5px;\">").append(formatMoney(price)).append("</td>")
+                            .append("<td style=\"padding: 10px 8px; text-align: right; font-weight: 700; color: #3e5c76; font-size: 13.5px;\">").append(formatMoney(total)).append("</td>")
+                            .append("</tr>");
+                }
+            } else {
+                itemsHtml.append("<tr><td colspan=\"5\" style=\"padding: 16px; text-align: center; color: #888;\">Chi tiết sản phẩm đơn hàng đang được cập nhật</td></tr>");
+            }
+
+            // Calculation values
+            BigDecimal subtotal = hoaDon.getTongTien() != null ? hoaDon.getTongTien() : BigDecimal.ZERO;
+            BigDecimal shipping = hoaDon.getPhiVanChuyen() != null ? hoaDon.getPhiVanChuyen() : BigDecimal.ZERO;
+            BigDecimal finalTotal = hoaDon.getTienSauGiamGia() != null ? hoaDon.getTienSauGiamGia() : subtotal.add(shipping);
+            BigDecimal discount = subtotal.add(shipping).subtract(finalTotal);
+            if (discount.compareTo(BigDecimal.ZERO) < 0) discount = BigDecimal.ZERO;
+
+            String voucherRowHtml = "";
+            if (discount.compareTo(BigDecimal.ZERO) > 0) {
+                String voucherName = hoaDon.getIdPhieuGiamGia() != null ? hoaDon.getIdPhieuGiamGia().getTenPhieuGiamGia() : "Phiếu giảm giá";
+                voucherRowHtml = "<div style=\"display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13.5px; color: #16a34a;\">" +
+                        "<span>Giảm giá (" + voucherName + "):</span>" +
+                        "<span style=\"font-weight: 600;\">-" + formatMoney(discount) + "</span>" +
+                        "</div>";
+            }
+
+            String customerName = hoaDon.getTenKhachHangHienThi() != null ? hoaDon.getTenKhachHangHienThi() : "Quý khách";
+            String paymentStatusText = (hoaDon.getTrangThaiThanhToan() != null && hoaDon.getTrangThaiThanhToan() == 1)
+                    ? "<span style=\"color: #16a34a; font-weight: 700;\">Đã thanh toán</span>"
+                    : "<span style=\"color: #d97706; font-weight: 700;\">Chưa thanh toán (COD / Chờ thanh toán)</span>";
+
+            String deliveryAddress = (hoaDon.getDiaChiNhanHang() != null && !hoaDon.getDiaChiNhanHang().isBlank())
+                    ? hoaDon.getDiaChiNhanHang()
+                    : (Integer.valueOf(1).equals(hoaDon.getLoaiDon()) ? "Nhận trực tiếp tại quầy" : "Chưa cập nhật");
+
+            String phone = (hoaDon.getSoDienThoaiKhachHang() != null && !hoaDon.getSoDienThoaiKhachHang().isBlank())
+                    ? hoaDon.getSoDienThoaiKhachHang()
+                    : "---";
+
+            String maDon = hoaDon.getMaHoaDon() != null ? hoaDon.getMaHoaDon() : "";
+            String orderDate = formatTime(hoaDon.getNgayTao());
+
+            String template = """
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 620px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,0.06); color: #333333; line-height: 1.6;">
+                    
+                    <!-- Header -->
+                    <div style="background: linear-gradient(135deg, #4a3427 0%, #7b5943 100%); padding: 28px 32px; text-align: center; color: #ffffff;">
+                        <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">FF T-SHIRT STORE</h1>
+                        <p style="margin: 6px 0 0; font-size: 13.5px; opacity: 0.9;">Thời trang áo phông cao cấp • Hotline: 0988.888.888</p>
+                    </div>
+
+                    <!-- Main body -->
+                    <div style="padding: 32px 30px;">
+                        
+                        <!-- Confirmation Banner -->
+                        <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 16px 20px; margin-bottom: 24px; text-align: center;">
+                            <div style="font-size: 18px; font-weight: 700; color: #065f46; margin-bottom: 4px;">
+                                Đơn hàng đã được xác nhận thành công!
+                            </div>
+                            <div style="font-size: 13.5px; color: #047857;">
+                                Cảm ơn bạn đã mua sắm tại <b>FF T-Shirt</b>. Chúng tôi đang chuẩn bị đơn hàng để giao đến bạn sớm nhất.
+                            </div>
+                        </div>
+
+                        <!-- Greeting -->
+                        <p style="margin: 0 0 16px; font-size: 14.5px; color: #333;">
+                            Xin chào <b>{{customerName}}</b>,
+                        </p>
+
+                        <!-- Order info summary -->
+                        <div style="background-color: #faf7f2; border: 1px solid #f0eae1; border-radius: 10px; padding: 18px 20px; margin-bottom: 24px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13.5px;">
+                                <span style="color: #666;">Mã đơn hàng:</span>
+                                <span style="font-weight: 700; color: #4a3427; font-family: monospace; font-size: 14px;">{{maDon}}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13.5px;">
+                                <span style="color: #666;">Thời gian đặt:</span>
+                                <span style="font-weight: 600; color: #333;">{{orderDate}}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13.5px;">
+                                <span style="color: #666;">Trạng thái thanh toán:</span>
+                                <span>{{paymentStatusText}}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13.5px;">
+                                <span style="color: #666;">Số điện thoại:</span>
+                                <span style="font-weight: 600; color: #333;">{{phone}}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 13.5px;">
+                                <span style="color: #666; flex-shrink: 0; margin-right: 12px;">Địa chỉ nhận hàng:</span>
+                                <span style="font-weight: 600; color: #333; text-align: right;">{{deliveryAddress}}</span>
+                            </div>
+                        </div>
+
+                        <!-- Product List Table -->
+                        <div style="margin-bottom: 24px;">
+                            <div style="font-weight: 700; font-size: 15px; color: #4a3427; margin-bottom: 12px;">
+                                Chi tiết sản phẩm đã đặt:
+                            </div>
+                            <table style="width: 100%; border-collapse: collapse; border: 1px solid #ebd9c8; border-radius: 8px; overflow: hidden;">
+                                <thead>
+                                    <tr style="background-color: #f7f2ea; border-bottom: 2px solid #ebd9c8; font-size: 13px; color: #4a3427;">
+                                        <th style="padding: 10px 8px; text-align: center; width: 35px;">#</th>
+                                        <th style="padding: 10px 8px; text-align: left;">Sản phẩm</th>
+                                        <th style="padding: 10px 8px; text-align: center; width: 50px;">SL</th>
+                                        <th style="padding: 10px 8px; text-align: right; width: 85px;">Đơn giá</th>
+                                        <th style="padding: 10px 8px; text-align: right; width: 95px;">Thành tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{itemsHtml}}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Price calculation summary -->
+                        <div style="background-color: #faf7f2; border: 1px solid #f0eae1; border-radius: 10px; padding: 18px 20px; margin-bottom: 28px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13.5px; color: #555;">
+                                <span>Tiền hàng:</span>
+                                <span style="font-weight: 600;">{{subtotal}}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13.5px; color: #555;">
+                                <span>Phí vận chuyển:</span>
+                                <span style="font-weight: 600;">{{shipping}}</span>
+                            </div>
+                            {{voucherRowHtml}}
+                            <div style="border-top: 1px dashed #d5cbc1; margin: 10px 0;"></div>
+                            <div style="display: flex; justify-content: space-between; font-size: 15.5px;">
+                                <span style="font-weight: 700; color: #2b353b;">Tổng thanh toán:</span>
+                                <span style="font-weight: 800; color: #b91c1c; font-size: 17px;">{{finalTotal}}</span>
+                            </div>
+                        </div>
+
+                        <!-- Button CTA -->
+                        <div style="text-align: center; margin-bottom: 10px;">
+                            <a href="http://localhost:5173/hoa-don/{{maDon}}" style="display: inline-block; background-color: #7b5943; color: #ffffff; text-decoration: none; font-size: 14.5px; font-weight: 600; padding: 12px 36px; border-radius: 24px; box-shadow: 0 2px 8px rgba(123,89,67,0.3);">
+                                Xem chi tiết đơn hàng
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="background-color: #f7f5ef; border-top: 1px solid #e8e4de; padding: 20px 30px; text-align: center; font-size: 12.5px; color: #777;">
+                        <p style="margin: 0 0 6px;">Mọi thắc mắc về đơn hàng, vui lòng liên hệ Hotline: <b>0988.888.888</b> hoặc email hỗ trợ.</p>
+                        <p style="margin: 0; color: #999;">© 2026 FF T-Shirt Store. All rights reserved.</p>
+                    </div>
+                </div>
+            """;
+
+            String html = template
+                    .replace("{{customerName}}", customerName)
+                    .replace("{{maDon}}", maDon)
+                    .replace("{{orderDate}}", orderDate)
+                    .replace("{{paymentStatusText}}", paymentStatusText)
+                    .replace("{{phone}}", phone)
+                    .replace("{{deliveryAddress}}", deliveryAddress)
+                    .replace("{{itemsHtml}}", itemsHtml.toString())
+                    .replace("{{subtotal}}", formatMoney(subtotal))
+                    .replace("{{shipping}}", formatMoney(shipping))
+                    .replace("{{voucherRowHtml}}", voucherRowHtml)
+                    .replace("{{finalTotal}}", formatMoney(finalTotal));
+
+            helper.setText(html, true);
+            log.info("==> [EmailService] Đang kết nối SMTP gửi email xác nhận đơn hàng {} tới {}", maDon, recipientEmail);
+            mailSender.send(message);
+            log.info("==> [EmailService] Đã gửi email xác nhận đơn hàng {} THÀNH CÔNG tới {}", maDon, recipientEmail);
+        } catch (Exception e) {
+            log.error("==> [EmailService Lỗi] Không thể gửi email xác nhận đơn hàng tới {}: {}", recipientEmail, e.getMessage());
+            e.printStackTrace();
         }
     }
 }

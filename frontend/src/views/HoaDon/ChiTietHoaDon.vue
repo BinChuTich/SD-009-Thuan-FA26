@@ -855,13 +855,40 @@ const loadDetail = async (identifier) => {
     const transCode = data['maGiaoDich'] || data['transactionCode'] || ''
     const noteThanhToan = data['ghiChuThanhToan'] || ''
 
+    let paymentMethodResolved = getString(data['hinhThucThanhToan'], data['phuongThucThanhToan'], defaultMethod)
+    let paymentTransactions = []
+
+    try {
+      let payRes = null
+      if (resolvedId) {
+        payRes = await api.get(`/api/hoa-don/${resolvedId}/thanh-toan`)
+      } else if (returnedCode) {
+        payRes = await api.get(`/api/hoa-don/code/${encodeURIComponent(returnedCode)}/thanh-toan`)
+      }
+      if (payRes && Array.isArray(payRes.data) && payRes.data.length > 0) {
+        paymentTransactions = payRes.data.map(p => ({
+          id: p.id,
+          method: p.tenPhuongThuc || p.idPhuongThuc?.tenPhuongThuc || 'Thanh toán',
+          amount: Number(p.soTien || 0),
+          time: formatDateTime(p.thoiGian),
+          code: p.maGiaoDich || ''
+        }))
+        if (paymentTransactions.length > 1) {
+          paymentMethodResolved = 'Kết hợp'
+        }
+      }
+    } catch (e) {
+      console.warn('Không tải được danh sách thanh toán chi tiết:', e)
+    }
+
     invoiceData.value.paymentHistory = {
-      method: getString(data['hinhThucThanhToan'], data['phuongThucThanhToan'], defaultMethod),
+      method: paymentMethodResolved,
       description: noteThanhToan,
       time: formatDateTime(data['thoiGianThanhToan'] || data['ngayTao']),
       status: isPaid ? 'Đã thanh toán' : 'Chưa thanh toán',
       amount: totalPayment,
-      transCode
+      transCode,
+      transactions: paymentTransactions
     }
 
     const noteText = String(data['ghiChu'] || data['note'] || '')
@@ -1029,7 +1056,7 @@ const nextStatusInfo = computed(() => {
   }
 })
 
-const saveStatusChange = async (newStatusOverride = null, customNote = null) => {
+const saveStatusChange = async (newStatusOverride = null, customNote = null, customerEmail = null) => {
   const newStatus = Number(newStatusOverride !== null ? newStatusOverride : 1)
   const note = customNote !== null ? customNote : ''
   const id = invoiceId.value || invoiceData.value.id
@@ -1045,13 +1072,17 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null) => 
     let success = false
     let lastError = null
 
+    const payload = {
+      trangThai: newStatus,
+      ghiChu: note || undefined,
+      email: customerEmail ? customerEmail.trim() : undefined
+    }
+    const emailQuery = customerEmail ? `&email=${encodeURIComponent(customerEmail.trim())}` : ''
+
     // Bước 1: Thử gọi PUT /api/hoa-don/{id}/trang-thai
     if (id) {
       try {
-        await api.put(`/api/hoa-don/${id}/trang-thai?trangThai=${newStatus}`, {
-          trangThai: newStatus,
-          ghiChu: note || undefined
-        })
+        await api.put(`/api/hoa-don/${id}/trang-thai?trangThai=${newStatus}${emailQuery}`, payload)
         success = true
       } catch (err) {
         lastError = err
@@ -1062,10 +1093,7 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null) => 
     // Bước 2: Thử gọi PUT /api/hoa-don/{id} (cập nhật trực tiếp thực thể)
     if (!success && id) {
       try {
-        await api.put(`/api/hoa-don/${id}`, {
-          trangThai: newStatus,
-          ghiChu: note || undefined
-        })
+        await api.put(`/api/hoa-don/${id}`, payload)
         success = true
       } catch (err) {
         lastError = err
@@ -1076,10 +1104,7 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null) => 
     // Bước 3: Thử gọi theo mã hóa đơn /api/hoa-don/code/{code}/trang-thai
     if (!success && code) {
       try {
-        await api.put(`/api/hoa-don/code/${encodeURIComponent(code)}/trang-thai?trangThai=${newStatus}`, {
-          trangThai: newStatus,
-          ghiChu: note || undefined
-        })
+        await api.put(`/api/hoa-don/code/${encodeURIComponent(code)}/trang-thai?trangThai=${newStatus}${emailQuery}`, payload)
         success = true
       } catch (err) {
         lastError = err
@@ -1093,7 +1118,11 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null) => 
       invoiceData.value.status = newStatus
       const option = statusOptions.find(o => o.value === newStatus)
       const labelText = option ? option.label : (newStatus === 7 ? 'Giao hàng thất bại' : newStatus)
-      showToast(`Đã cập nhật trạng thái hóa đơn thành "${labelText}"!`)
+      if (customerEmail && newStatus === 2) {
+        showToast(`Đã xác nhận đơn hàng và gửi email thông báo tới ${customerEmail}!`)
+      } else {
+        showToast(`Đã cập nhật trạng thái hóa đơn thành "${labelText}"!`)
+      }
       if (code) {
         await loadDetail(code)
       } else if (id) {
@@ -1132,6 +1161,9 @@ const confirmModal = ref({
   showReasonInput: false,
   reasonPlaceholder: 'Nhập lý do...',
   reason: '',
+  showEmailInput: false,
+  sendEmail: true,
+  customerEmail: '',
   onConfirm: null
 })
 
@@ -1146,6 +1178,9 @@ const openConfirmModal = ({
                             printPdf = true,
                             showReasonInput = false,
                             reasonPlaceholder = 'Nhập lý do...',
+                            showEmailInput = false,
+                            sendEmail = true,
+                            customerEmail = '',
                             onConfirm = null
                           }) => {
   confirmModal.value = {
@@ -1161,6 +1196,9 @@ const openConfirmModal = ({
     showReasonInput,
     reasonPlaceholder,
     reason: '',
+    showEmailInput,
+    sendEmail,
+    customerEmail,
     onConfirm
   }
 }
@@ -1172,6 +1210,12 @@ const closeConfirmModal = () => {
 const handleConfirmAccept = async () => {
   const cb = confirmModal.value.onConfirm
   const shouldPrint = confirmModal.value.printPdf && confirmModal.value.showPrintPdfOption
+  const emailInput = confirmModal.value.customerEmail ? confirmModal.value.customerEmail.trim() : ''
+  const willSendEmail = confirmModal.value.sendEmail && confirmModal.value.showEmailInput
+  if (willSendEmail && emailInput && !emailInput.includes('@')) {
+    showToast('Vui lòng nhập định dạng email hợp lệ (VD: khachhang@gmail.com)!', 'warning')
+    return
+  }
   confirmModal.value.show = false
   if (cb) {
     await cb()
@@ -1184,6 +1228,43 @@ const handleConfirmAccept = async () => {
   }
 }
 
+// Gửi lại email xác nhận đơn hàng chủ động
+const sendingEmail = ref(false)
+const handleSendConfirmationEmail = async (targetEmail = null) => {
+  const id = invoiceId.value || invoiceData.value.id
+  const code = invoiceCode.value || invoiceData.value.code
+  const email = targetEmail || (invoiceData.value.customer?.email && invoiceData.value.customer?.email !== '---' && invoiceData.value.customer?.email !== '—' ? invoiceData.value.customer.email.trim() : null)
+  if (!email || !email.includes('@')) {
+    showToast('Khách hàng chưa có địa chỉ email hợp lệ để gửi thông báo!', 'warning')
+    return
+  }
+  sendingEmail.value = true
+  try {
+    let success = false
+    if (id) {
+      try {
+        await api.post(`/api/hoa-don/${id}/send-email`, { email })
+        success = true
+      } catch (err) {}
+    }
+    if (!success && code) {
+      try {
+        await api.post(`/api/hoa-don/code/${encodeURIComponent(code)}/send-email`, { email })
+        success = true
+      } catch (err) {}
+    }
+    if (success) {
+      showToast(`Đã gửi email xác nhận đơn hàng tới ${email} thành công!`)
+    } else {
+      showToast('Gửi email xác nhận thất bại. Vui lòng kiểm tra lại!', 'warning')
+    }
+  } catch (e) {
+    showToast('Lỗi khi gửi email xác nhận đơn hàng!', 'warning')
+  } finally {
+    sendingEmail.value = false
+  }
+}
+
 // Bấm chuyển trạng thái tiếp theo từ nút / nốt tròn
 const handleNextStatus = () => {
   if (!nextStatusInfo.value || updatingStatus.value) return
@@ -1191,6 +1272,9 @@ const handleNextStatus = () => {
   const cur = Number(invoiceData.value.status)
   const isConfirming = cur === 1 || info.nextStatus === 2
   const isOnlineWaiting = isOnlineDelivery.value && cur === 1
+  const existingEmail = (invoiceData.value.customer?.email && invoiceData.value.customer?.email !== '---' && invoiceData.value.customer?.email !== '—')
+      ? invoiceData.value.customer.email.trim()
+      : ''
   openConfirmModal({
     title: isConfirming ? 'Xác Nhận Đơn Hàng' : 'Xác Nhận Chuyển Trạng Thái',
     message: isConfirming
@@ -1198,16 +1282,22 @@ const handleNextStatus = () => {
       : `Bạn có chắc chắn muốn chuyển trạng thái đơn hàng sang "${info.label}" không?`,
     subText: isConfirming
       ? (isOnlineWaiting
-          ? 'Hệ thống sẽ cập nhật trạng thái đơn hàng sang "Đã xác nhận".'
-          : 'Hệ thống sẽ cập nhật trạng thái đơn hàng và hỗ trợ xuất in hóa đơn (PDF) ngay sau khi xác nhận.')
+          ? 'Hệ thống sẽ cập nhật trạng thái đơn hàng sang "Đã xác nhận" và gửi email thông báo chi tiết cho khách hàng.'
+          : 'Hệ thống sẽ cập nhật trạng thái đơn hàng, gửi email xác nhận và hỗ trợ xuất in hóa đơn (PDF).')
       : 'Hệ thống sẽ cập nhật trạng thái đơn hàng và mở bước tiếp theo trên tiến trình.',
     confirmText: isConfirming ? 'Xác nhận đơn' : 'Đồng ý chuyển',
     cancelText: 'Hủy bỏ',
     type: 'primary',
     showPrintPdfOption: isConfirming && !isOnlineWaiting,
     printPdf: !isOnlineWaiting,
+    showEmailInput: isConfirming,
+    sendEmail: true,
+    customerEmail: existingEmail,
     onConfirm: async () => {
-      await saveStatusChange(info.nextStatus, `Chuyển tiếp trạng thái: ${info.label}`)
+      const emailToSend = (confirmModal.value.showEmailInput && confirmModal.value.sendEmail && confirmModal.value.customerEmail)
+          ? confirmModal.value.customerEmail.trim()
+          : null
+      await saveStatusChange(info.nextStatus, `Chuyển tiếp trạng thái: ${info.label}`, emailToSend)
     }
   })
 }
@@ -1764,9 +1854,21 @@ onBeforeUnmount(() => {
               </div>
               <div class="info-list-row">
                 <span class="info-row-label">Email</span>
-                <span class="info-row-val" :class="{ 'text-muted': !invoiceData.customer.email || invoiceData.customer.email === '---' }">
-                  {{ invoiceData.customer.email || '—' }}
-                </span>
+                <div class="email-val-wrap">
+                  <span class="info-row-val" :class="{ 'text-muted': !invoiceData.customer.email || invoiceData.customer.email === '---' || invoiceData.customer.email === '—' }">
+                    {{ invoiceData.customer.email || '—' }}
+                  </span>
+                  <button
+                    v-if="invoiceData.customer.email && invoiceData.customer.email.includes('@')"
+                    type="button"
+                    class="btn-send-email-pill"
+                    :disabled="sendingEmail"
+                    @click="handleSendConfirmationEmail()"
+                    title="Gửi lại email xác nhận đơn hàng"
+                  >
+                    {{ sendingEmail ? 'Đang gửi...' : '✉ Gửi lại mail' }}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1882,6 +1984,18 @@ onBeforeUnmount(() => {
             <div class="pay-amount-row">
               <span class="pay-label-sub">Số tiền</span>
               <span class="pay-amount-bold">{{ formatMoney(invoiceData.paymentHistory.amount) }}</span>
+            </div>
+
+            <!-- Chi tiết các khoản thanh toán khi thanh toán kết hợp -->
+            <div v-if="invoiceData.paymentHistory.transactions && invoiceData.paymentHistory.transactions.length > 1" class="multi-payment-subbox" style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #d6d0c3;">
+              <div v-for="t in invoiceData.paymentHistory.transactions" :key="t.id" class="multi-pay-line" style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; margin-bottom: 4px;">
+                <span style="color: #647074;">
+                  <span v-if="t.method.toLowerCase().includes('tiền mặt')">💵 Tiền mặt:</span>
+                  <span v-else-if="t.method.toLowerCase().includes('chuyển khoản') || t.method.toLowerCase().includes('ngân hàng')">🏦 Chuyển khoản:</span>
+                  <span v-else>{{ t.method }}:</span>
+                </span>
+                <span style="font-weight: 700; color: #333;">{{ formatMoney(t.amount) }}</span>
+              </div>
             </div>
           </div>
 
@@ -2106,6 +2220,25 @@ onBeforeUnmount(() => {
             <p class="confirm-main-message">{{ confirmModal.message }}</p>
             <p v-if="confirmModal.subText" class="confirm-sub-message">{{ confirmModal.subText }}</p>
 
+            <!-- Nhập email khách hàng khi xác nhận đơn hàng -->
+            <div v-if="confirmModal.showEmailInput" class="confirm-email-box">
+              <label class="confirm-checkbox-label">
+                <input type="checkbox" v-model="confirmModal.sendEmail" />
+                <span class="checkbox-text font-bold">✉ Gửi email thông báo xác nhận đơn hàng cho khách</span>
+              </label>
+              <div v-if="confirmModal.sendEmail" class="email-input-subgroup">
+                <label class="modal-label">Địa chỉ email nhận thông báo <span class="text-danger">*</span></label>
+                <input
+                  type="email"
+                  v-model="confirmModal.customerEmail"
+                  placeholder="Nhập email khách hàng (VD: khachhang@gmail.com)..."
+                  class="modal-input-field"
+                  maxlength="100"
+                />
+                <p class="email-guide-text">Hệ thống sẽ tự động gửi email xác nhận chi tiết đơn hàng cho khách hàng qua địa chỉ email này.</p>
+              </div>
+            </div>
+
             <!-- Lựa chọn in PDF khi xác nhận -->
             <div v-if="confirmModal.showPrintPdfOption" class="confirm-print-option-box">
               <label class="confirm-checkbox-label">
@@ -2125,7 +2258,11 @@ onBeforeUnmount(() => {
           <div class="modal-footer confirm-footer">
             <button class="btn-modal-cancel" type="button" @click="closeConfirmModal">{{ confirmModal.cancelText }}</button>
             <button class="btn-confirm-accept" :class="confirmModal.type" type="button" :disabled="updatingStatus" @click="handleConfirmAccept">
-              {{ updatingStatus ? 'Đang xử lý...' : (confirmModal.showPrintPdfOption && confirmModal.printPdf ? '✓ Xác nhận & In PDF' : confirmModal.confirmText) }}
+              {{ updatingStatus ? 'Đang xử lý...' : (
+                confirmModal.showEmailInput && confirmModal.sendEmail && confirmModal.customerEmail
+                  ? (confirmModal.showPrintPdfOption && confirmModal.printPdf ? '✓ Xác nhận, Gửi mail & In PDF' : '✓ Xác nhận & Gửi mail')
+                  : (confirmModal.showPrintPdfOption && confirmModal.printPdf ? '✓ Xác nhận & In PDF' : confirmModal.confirmText)
+              ) }}
             </button>
           </div>
         </div>
@@ -2150,14 +2287,6 @@ onBeforeUnmount(() => {
           <h1 class="print-main-title">HÓA ĐƠN BÁN HÀNG</h1>
           <div class="print-meta-code">Mã HĐ: <strong>{{ invoiceData.code }}</strong></div>
           <div class="print-meta-date">Ngày lập: {{ invoiceData.paymentHistory?.time || (invoiceData.createTime + ' ' + invoiceData.createDate) }}</div>
-        </div>
-
-        <div class="print-qr-code-box">
-          <img
-            :src="invoiceQrDataUrl"
-            alt="Mã QR Hóa Đơn"
-            class="print-qr-img"
-          />
         </div>
       </div>
 
@@ -2231,13 +2360,31 @@ onBeforeUnmount(() => {
       <div class="print-bottom-summary">
         <div class="print-payment-info">
           <div class="print-box-title">PHƯƠNG THỨC THANH TOÁN</div>
-          <div class="print-data-line">
-            <span class="p-label">Hình thức:</span>
-            <span class="p-val font-bold">{{ invoiceData.paymentHistory.method }}</span>
-          </div>
-          <div class="print-data-line">
-            <span class="p-label">Trạng thái:</span>
-            <span class="p-val font-bold text-success">{{ invoiceData.paymentHistory.status }}</span>
+          <div class="print-payment-layout">
+            <div class="print-payment-details">
+              <div class="print-data-line">
+                <span class="p-label">Hình thức:</span>
+                <span class="p-val font-bold">
+                  {{ invoiceData.paymentHistory.method }}
+                  <template v-if="invoiceData.paymentHistory.transactions && invoiceData.paymentHistory.transactions.length > 1">
+                    <span style="font-size: 0.82rem; font-weight: 500; display: block; margin-top: 2px; color: #444;">
+                      (Tiền mặt: {{ formatMoney(invoiceData.paymentHistory.transactions.find(x => x.method.toLowerCase().includes('tiền mặt'))?.amount || 0) }} • CK: {{ formatMoney(invoiceData.paymentHistory.transactions.find(x => !x.method.toLowerCase().includes('tiền mặt'))?.amount || 0) }})
+                    </span>
+                  </template>
+                </span>
+              </div>
+              <div class="print-data-line">
+                <span class="p-label">Trạng thái:</span>
+                <span class="p-val font-bold text-success">{{ invoiceData.paymentHistory.status }}</span>
+              </div>
+            </div>
+            <div class="print-payment-qr">
+              <img
+                :src="invoiceQrDataUrl"
+                alt="Mã QR Hóa Đơn"
+                class="print-qr-img"
+              />
+            </div>
           </div>
         </div>
 
@@ -3864,6 +4011,62 @@ onBeforeUnmount(() => {
   margin-top: 14px;
 }
 
+.confirm-email-box {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: #fbf7f4;
+  border: 1.5px solid #ebd9c8;
+  border-radius: 8px;
+}
+
+.confirm-email-box .confirm-checkbox-label {
+  color: #7b5943;
+}
+
+.email-input-subgroup {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.email-guide-text {
+  font-size: 0.76rem;
+  color: #8c7664;
+  margin: 2px 0 0;
+  line-height: 1.4;
+}
+
+.email-val-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-send-email-pill {
+  background: #fdf8f4;
+  border: 1px solid #d5c8b8;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #7b5943;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-send-email-pill:hover:not(:disabled) {
+  background: #7b5943;
+  color: #ffffff;
+  border-color: #7b5943;
+}
+
+.btn-send-email-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Badge trạng thái voucher trong Header Tổng kết thanh toán */
 .badge-voucher-applied-small {
   font-size: 0.7rem;
@@ -4008,31 +4211,35 @@ onBeforeUnmount(() => {
   color: #b45309;
 }
 
-.print-qr-code-box {
+.print-payment-layout {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.print-payment-details {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.print-payment-qr {
+  display: flex;
   align-items: center;
   justify-content: center;
-  text-align: center;
+  flex-shrink: 0;
 }
 
 .print-qr-img {
-  width: 90px;
-  height: 90px;
+  width: 68px;
+  height: 68px;
   object-fit: contain;
   border: 1px solid #d1d5db;
   border-radius: 4px;
   padding: 2px;
   background: #ffffff;
-}
-
-.print-qr-caption {
-  font-size: 10px;
-  font-weight: 700;
-  color: #4b5563;
-  margin-top: 3px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 /* Printable Invoice Styles & Media Print */
@@ -4131,38 +4338,6 @@ onBeforeUnmount(() => {
 
   .print-invoice-title-block {
     text-align: right;
-  }
-
-  .print-qr-code-box {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    text-align: center !important;
-    margin-left: 14px !important;
-  }
-
-  .print-qr-img {
-    width: 82px !important;
-    height: 82px !important;
-    object-fit: contain !important;
-    border: 1px solid #94a3b8 !important;
-    border-radius: 4px !important;
-    padding: 2px !important;
-    background: #ffffff !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  .print-qr-caption {
-    font-size: 9px !important;
-    font-weight: 700 !important;
-    color: #4b5563 !important;
-    margin-top: 3px !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
   }
 
   .print-main-title {
@@ -4292,6 +4467,39 @@ onBeforeUnmount(() => {
     border-radius: 6px;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  .print-payment-layout {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 14px !important;
+  }
+
+  .print-payment-details {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    flex: 1 !important;
+  }
+
+  .print-payment-qr {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  .print-payment-qr .print-qr-img {
+    width: 68px !important;
+    height: 68px !important;
+    object-fit: contain !important;
+    border: 1px solid #94a3b8 !important;
+    border-radius: 4px !important;
+    padding: 2px !important;
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .text-success {

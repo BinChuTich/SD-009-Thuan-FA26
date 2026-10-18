@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
+import { getProvinces, getWardsByProvince } from '@/services/provincesApi.js'
 
 const router = useRouter()
 
@@ -53,8 +54,14 @@ const createEmptyInvoice = (id, code) => ({
   customerName: '',
   customerPhone: '',
   isDelivery: false,
+  deliveryProvinceCode: '',
+  deliveryWardCode: '',
+  deliveryProvince: '',
+  deliveryDistrict: '',
+  deliveryWard: '',
+  deliveryDetail: '',
   deliveryAddress: '',
-  shippingFee: 0,
+  shippingFee: null,
   voucher: null,
   paymentMethod: 'TIEN_MAT', // TIEN_MAT | CHUYEN_KHOAN | KET_HOP
   customerPay: null,
@@ -165,6 +172,8 @@ const loadWaitingInvoices = async () => {
         voucher: inv.idPhieuGiamGia || null,
         paymentMethod: 'TIEN_MAT',
         customerPay: null,
+        cashAmount: null,
+        transferAmount: null,
         note: (inv.ghiChu && inv.ghiChu !== 'Hóa đơn chờ tại quầy') ? inv.ghiChu : ''
       }
     }))
@@ -222,6 +231,8 @@ const addWaitingInvoice = async () => {
         voucher: null,
         paymentMethod: 'TIEN_MAT',
         customerPay: null,
+        cashAmount: null,
+        transferAmount: null,
         note: ''
       }
       waitingInvoices.value.push(newTab)
@@ -427,13 +438,271 @@ const customerSearchResults = ref([])
 const showCustomerDropdown = ref(false)
 const showQuickAddCustomerModal = ref(false)
 
+// Danh mục hành chính (Tỉnh/Thành & Phường/Xã) cho Bán Hàng
+const provincesList = ref([])
+const quickCustomerWardsList = ref([])
+const quickCustomerProvinceCode = ref('')
+const quickCustomerWardCode = ref('')
+
+const loadProvincesData = async () => {
+  if (provincesList.value.length === 0) {
+    provincesList.value = await getProvinces()
+  }
+}
+
+const onQuickCustomerProvinceChange = async () => {
+  const p = provincesList.value.find(item => item.code === quickCustomerProvinceCode.value)
+  newCustomerForm.value.thanhPho = p ? p.name : ''
+  quickCustomerWardCode.value = ''
+  newCustomerForm.value.huyen = ''
+  newCustomerForm.value.phuong = ''
+  quickCustomerWardsList.value = []
+  if (quickCustomerProvinceCode.value) {
+    quickCustomerWardsList.value = await getWardsByProvince(quickCustomerProvinceCode.value)
+  }
+}
+
+const onQuickCustomerWardChange = () => {
+  const w = quickCustomerWardsList.value.find(item => item.code === quickCustomerWardCode.value)
+  newCustomerForm.value.phuong = w ? w.name : ''
+  if (w && w.districtName) {
+    newCustomerForm.value.huyen = w.districtName
+  }
+}
+
 const newCustomerForm = ref({
   tenKhachHang: '',
   soDienThoai: '',
   email: '',
-  diaChi: ''
+  thanhPho: '',
+  huyen: '',
+  phuong: '',
+  diaChiCuThe: ''
 })
 const newCustomerErrors = ref({})
+
+// Quản lý địa chỉ khách hàng trong Bán hàng
+const customerAddressesList = ref([])
+const showAddAddressModal = ref(false)
+const showSelectAddressModal = ref(false)
+const savingCustomerAddress = ref(false)
+
+const newAddressForm = ref({
+  thanhPho: '',
+  huyen: '',
+  phuong: '',
+  diaChiCuThe: '',
+  macDinh: false
+})
+const addrModalProvinceCode = ref('')
+const addrModalWardCode = ref('')
+const addrModalWardsList = ref([])
+
+const formatAddrObj = (a) => {
+  if (!a) return ''
+  return [a.diaChiCuThe, a.phuong, a.huyen, a.thanhPho].filter(Boolean).join(', ')
+}
+
+const loadCustomerAddressesForCurrent = async (customerId) => {
+  if (!customerId) {
+    customerAddressesList.value = []
+    return
+  }
+  try {
+    const res = await api.get(`/api/khach-hang/${customerId}/dia-chi`)
+    customerAddressesList.value = res.data || []
+    if (!currentInvoice.value.deliveryAddress && customerAddressesList.value.length > 0) {
+      const def = customerAddressesList.value.find(a => a.macDinh) || customerAddressesList.value[0]
+      await syncInvoiceDeliveryFromAddress(currentInvoice.value, def)
+    }
+  } catch (e) {
+    customerAddressesList.value = []
+  }
+}
+
+// Quản lý địa chỉ giao hàng trực tiếp trên hóa đơn
+const deliveryWardsList = ref([])
+
+const updateCombinedDeliveryAddress = () => {
+  if (!currentInvoice.value) return
+  const parts = [
+    currentInvoice.value.deliveryDetail?.trim(),
+    currentInvoice.value.deliveryWard?.trim(),
+    currentInvoice.value.deliveryProvince?.trim()
+  ].filter(Boolean)
+  currentInvoice.value.deliveryAddress = parts.join(', ')
+}
+
+const onDeliveryProvinceChange = async () => {
+  if (!currentInvoice.value) return
+  const p = provincesList.value.find(item => item.code === currentInvoice.value.deliveryProvinceCode)
+  currentInvoice.value.deliveryProvince = p ? p.name : ''
+  currentInvoice.value.deliveryWardCode = ''
+  currentInvoice.value.deliveryDistrict = ''
+  currentInvoice.value.deliveryWard = ''
+  deliveryWardsList.value = []
+  if (currentInvoice.value.deliveryProvinceCode) {
+    deliveryWardsList.value = await getWardsByProvince(currentInvoice.value.deliveryProvinceCode)
+  }
+  updateCombinedDeliveryAddress()
+}
+
+const onDeliveryWardChange = () => {
+  if (!currentInvoice.value) return
+  const w = deliveryWardsList.value.find(item => item.code === currentInvoice.value.deliveryWardCode)
+  currentInvoice.value.deliveryWard = w ? w.name : ''
+  if (w && w.districtName) {
+    currentInvoice.value.deliveryDistrict = w.districtName
+  }
+  updateCombinedDeliveryAddress()
+}
+
+const onDeliveryDetailInput = () => {
+  updateCombinedDeliveryAddress()
+}
+
+const syncInvoiceDeliveryFromAddress = async (inv, addrObj) => {
+  if (!inv || !addrObj) return
+  await loadProvincesData()
+
+  if (typeof addrObj === 'object') {
+    inv.deliveryDetail = addrObj.diaChiCuThe || ''
+    inv.deliveryProvince = addrObj.thanhPho || ''
+    inv.deliveryDistrict = addrObj.huyen || ''
+    inv.deliveryWard = addrObj.phuong || ''
+    inv.deliveryAddress = formatAddrObj(addrObj)
+
+    const cleanStr = (s) => (s || '').toLowerCase()
+      .replace(/^(tỉnh|thành phố|tp\.|tp|quận|huyện|thị xã|tx\.|tx|phường|xã|thị trấn|tt\.|tt)\s+/gi, '')
+      .trim()
+
+    const matchP = provincesList.value.find(p =>
+      p.name.toLowerCase() === (addrObj.thanhPho || '').toLowerCase() ||
+      cleanStr(p.name) === cleanStr(addrObj.thanhPho) ||
+      p.name.toLowerCase().includes(cleanStr(addrObj.thanhPho)) ||
+      (addrObj.thanhPho || '').toLowerCase().includes(cleanStr(p.name))
+    )
+
+    if (matchP) {
+      inv.deliveryProvinceCode = matchP.code
+      const wards = await getWardsByProvince(matchP.code)
+      if (inv.id === currentInvoice.value?.id) {
+        deliveryWardsList.value = wards
+      }
+
+      const matchW = wards.find(w =>
+        w.name.toLowerCase() === (addrObj.phuong || '').toLowerCase() ||
+        cleanStr(w.name) === cleanStr(addrObj.phuong) ||
+        w.name.toLowerCase().includes(cleanStr(addrObj.phuong)) ||
+        (addrObj.phuong || '').toLowerCase().includes(cleanStr(w.name))
+      )
+      if (matchW) {
+        inv.deliveryWardCode = matchW.code
+      }
+    }
+  } else if (typeof addrObj === 'string') {
+    inv.deliveryAddress = addrObj
+    inv.deliveryDetail = addrObj
+  }
+}
+
+watch(activeInvoiceId, async () => {
+  if (currentInvoice.value?.deliveryProvinceCode) {
+    deliveryWardsList.value = await getWardsByProvince(currentInvoice.value.deliveryProvinceCode)
+  } else {
+    deliveryWardsList.value = []
+  }
+})
+
+const openCustomerAddAddressModal = async () => {
+  if (!currentInvoice.value.customerId) {
+    showToast('Vui lòng chọn hoặc thêm khách hàng trước khi thêm địa chỉ!', 'warning')
+    return
+  }
+  await loadProvincesData()
+  newAddressForm.value = {
+    thanhPho: '',
+    huyen: '',
+    phuong: '',
+    diaChiCuThe: '',
+    macDinh: customerAddressesList.value.length === 0
+  }
+  addrModalProvinceCode.value = ''
+  addrModalWardCode.value = ''
+  addrModalWardsList.value = []
+  showAddAddressModal.value = true
+}
+
+const onAddrModalProvinceChange = async () => {
+  const p = provincesList.value.find(item => item.code === addrModalProvinceCode.value)
+  newAddressForm.value.thanhPho = p ? p.name : ''
+  addrModalWardCode.value = ''
+  newAddressForm.value.huyen = ''
+  newAddressForm.value.phuong = ''
+  addrModalWardsList.value = []
+  if (addrModalProvinceCode.value) {
+    addrModalWardsList.value = await getWardsByProvince(addrModalProvinceCode.value)
+  }
+}
+
+const onAddrModalWardChange = () => {
+  const w = addrModalWardsList.value.find(item => item.code === addrModalWardCode.value)
+  newAddressForm.value.phuong = w ? w.name : ''
+  if (w && w.districtName) {
+    newAddressForm.value.huyen = w.districtName
+  }
+}
+
+const submitAddCustomerAddress = async () => {
+  if (!newAddressForm.value.thanhPho?.trim()) {
+    showToast('Vui lòng chọn Tỉnh / Thành phố!', 'warning')
+    return
+  }
+  if (!newAddressForm.value.phuong?.trim()) {
+    showToast('Vui lòng chọn Phường / Xã!', 'warning')
+    return
+  }
+  if (!newAddressForm.value.diaChiCuThe?.trim()) {
+    showToast('Vui lòng nhập địa chỉ cụ thể!', 'warning')
+    return
+  }
+
+  savingCustomerAddress.value = true
+  try {
+    const payload = {
+      thanhPho: newAddressForm.value.thanhPho.trim(),
+      huyen: newAddressForm.value.huyen?.trim() || '',
+      phuong: newAddressForm.value.phuong.trim(),
+      diaChiCuThe: newAddressForm.value.diaChiCuThe.trim(),
+      macDinh: newAddressForm.value.macDinh
+    }
+    const custId = currentInvoice.value.customerId
+    const res = await api.post(`/api/khach-hang/${custId}/dia-chi`, payload)
+    showToast('Thêm địa chỉ cho khách hàng thành công!')
+    showAddAddressModal.value = false
+    await loadCustomerAddressesForCurrent(custId)
+    await syncInvoiceDeliveryFromAddress(currentInvoice.value, res.data || payload)
+  } catch (err) {
+    console.error('Lỗi khi thêm địa chỉ cho khách:', err)
+    showToast(err.response?.data?.message || 'Không thể lưu địa chỉ vào CSDL!', 'warning')
+  } finally {
+    savingCustomerAddress.value = false
+  }
+}
+
+const openSelectAddressModal = () => {
+  if (customerAddressesList.value.length === 0) {
+    showToast('Khách hàng này chưa có địa chỉ nào được lưu!', 'warning')
+    return
+  }
+  showSelectAddressModal.value = true
+}
+
+const chooseSavedAddress = async (addr) => {
+  await syncInvoiceDeliveryFromAddress(currentInvoice.value, addr)
+  showSelectAddressModal.value = false
+  showToast('Đã áp dụng địa chỉ nhận hàng!')
+}
 
 let searchCustomerTimer = null
 const onCustomerInput = () => {
@@ -460,14 +729,18 @@ const onCustomerInput = () => {
   }, 250)
 }
 
-const selectCustomer = (cust) => {
+const selectCustomer = async (cust) => {
   currentInvoice.value.customerId = cust.id
   currentInvoice.value.customerName = cust.tenKhachHang
   currentInvoice.value.customerPhone = cust.soDienThoai
-  if (cust.diaChi && !currentInvoice.value.deliveryAddress) {
-    currentInvoice.value.deliveryAddress = cust.diaChi
-  }
   showCustomerDropdown.value = false
+
+  // Tải danh sách địa chỉ đã lưu của khách hàng
+  await loadCustomerAddressesForCurrent(cust.id)
+
+  if (!currentInvoice.value.deliveryAddress && (cust.thanhPho || cust.diaChiCuThe)) {
+    await syncInvoiceDeliveryFromAddress(currentInvoice.value, cust)
+  }
 
   // Kiểm tra số voucher cá nhân dành riêng cho khách hàng này
   const personalCount = availableVouchers.value.filter(v => isVoucherPersonal(v) && isVoucherForCustomer(v, cust.id)).length
@@ -483,6 +756,14 @@ const clearSelectedCustomer = () => {
   currentInvoice.value.customerName = ''
   currentInvoice.value.customerPhone = ''
   currentInvoice.value.deliveryAddress = ''
+  currentInvoice.value.deliveryProvinceCode = ''
+  currentInvoice.value.deliveryWardCode = ''
+  currentInvoice.value.deliveryProvince = ''
+  currentInvoice.value.deliveryDistrict = ''
+  currentInvoice.value.deliveryWard = ''
+  currentInvoice.value.deliveryDetail = ''
+  deliveryWardsList.value = []
+  customerAddressesList.value = []
 
   // Nếu hóa đơn đang áp dụng phiếu cá nhân thì hủy áp dụng
   if (currentInvoice.value.voucher && isVoucherPersonal(currentInvoice.value.voucher)) {
@@ -494,13 +775,20 @@ const clearSelectedCustomer = () => {
   }
 }
 
-const openQuickAddModal = () => {
+const openQuickAddModal = async () => {
+  await loadProvincesData()
   newCustomerForm.value = {
     tenKhachHang: '',
     soDienThoai: currentInvoice.value.customerPhone || '',
     email: '',
-    diaChi: currentInvoice.value.deliveryAddress || ''
+    thanhPho: '',
+    huyen: '',
+    phuong: '',
+    diaChiCuThe: ''
   }
+  quickCustomerProvinceCode.value = ''
+  quickCustomerWardCode.value = ''
+  quickCustomerWardsList.value = []
   newCustomerErrors.value = {}
   showQuickAddCustomerModal.value = true
 }
@@ -520,21 +808,34 @@ const submitQuickAddCustomer = async () => {
   if (Object.keys(newCustomerErrors.value).length > 0) return
 
   try {
+    const fullDiaChi = [
+      newCustomerForm.value.diaChiCuThe?.trim(),
+      newCustomerForm.value.phuong?.trim(),
+      newCustomerForm.value.thanhPho?.trim()
+    ].filter(Boolean).join(', ')
+
     const res = await api.post('/api/khach-hang', {
       tenKhachHang: newCustomerForm.value.tenKhachHang.trim(),
       soDienThoai: phone,
       email: newCustomerForm.value.email?.trim() || null,
-      diaChiCuThe: newCustomerForm.value.diaChi?.trim() || null,
+      thanhPho: newCustomerForm.value.thanhPho?.trim() || null,
+      huyen: newCustomerForm.value.huyen?.trim() || null,
+      phuong: newCustomerForm.value.phuong?.trim() || null,
+      diaChiCuThe: newCustomerForm.value.diaChiCuThe?.trim() || null,
       trangThai: 1
     })
     const created = res.data || {}
     currentInvoice.value.customerId = created.id
     currentInvoice.value.customerName = created.tenKhachHang || newCustomerForm.value.tenKhachHang.trim()
     currentInvoice.value.customerPhone = created.soDienThoai || phone
-    if (newCustomerForm.value.diaChi) {
-      currentInvoice.value.deliveryAddress = newCustomerForm.value.diaChi
-    }
+    await syncInvoiceDeliveryFromAddress(currentInvoice.value, {
+      thanhPho: newCustomerForm.value.thanhPho,
+      huyen: newCustomerForm.value.huyen,
+      phuong: newCustomerForm.value.phuong,
+      diaChiCuThe: newCustomerForm.value.diaChiCuThe
+    })
     showQuickAddCustomerModal.value = false
+    await loadCustomerAddressesForCurrent(created.id)
     showToast('Đã thêm mới khách hàng vào cơ sở dữ liệu!')
   } catch (err) {
     console.error('Lỗi khi thêm khách hàng:', err)
@@ -773,16 +1074,41 @@ const totalAmount = computed(() => {
 
 const shippingFee = computed(() => {
   if (!currentInvoice.value || !currentInvoice.value.isDelivery) return 0
-  return Number(currentInvoice.value.shippingFee || 30000)
+  const fee = currentInvoice.value.shippingFee
+  if (fee === '' || fee == null || isNaN(fee)) return 0
+  return Math.max(0, Number(fee))
 })
 
 const finalTotal = computed(() => {
   return Math.max(0, totalAmount.value + shippingFee.value - voucherDiscount.value)
 })
 
+const combinedTotalPaid = computed(() => {
+  if (!currentInvoice.value) return 0
+  if (currentInvoice.value.paymentMethod === 'KET_HOP') {
+    return (Number(currentInvoice.value.cashAmount) || 0) + (Number(currentInvoice.value.transferAmount) || 0)
+  }
+  if (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN') {
+    return finalTotal.value
+  }
+  return Number(currentInvoice.value.customerPay || 0)
+})
+
+const missingAmount = computed(() => {
+  if (!currentInvoice.value) return 0
+  if (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN') return 0
+  const totalPaid = combinedTotalPaid.value
+  return Math.max(0, finalTotal.value - totalPaid)
+})
+
 const changeAmount = computed(() => {
   if (!currentInvoice.value) return 0
   if (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN') return 0
+  if (currentInvoice.value.paymentMethod === 'KET_HOP') {
+    const cash = Number(currentInvoice.value.cashAmount || 0)
+    const transfer = Number(currentInvoice.value.transferAmount || 0)
+    return Math.max(0, (cash + transfer) - finalTotal.value)
+  }
   const pay = Number(currentInvoice.value.customerPay || 0)
   return Math.max(0, pay - finalTotal.value)
 })
@@ -796,7 +1122,71 @@ const addQuickCash = (delta) => {
   currentInvoice.value.customerPay = current + delta
 }
 
-// Tự động mặc định số tiền khách đưa bằng tổng tiền cần thanh toán
+// Khởi tạo các giá trị tiền khi chọn phương thức thanh toán kết hợp
+const initKetHopAmounts = () => {
+  if (!currentInvoice.value) return
+  const total = finalTotal.value
+  const curCash = currentInvoice.value.cashAmount
+  const curTransfer = currentInvoice.value.transferAmount
+
+  if ((curCash == null || curCash === '') && (curTransfer == null || curTransfer === '')) {
+    currentInvoice.value.transferAmount = total > 0 ? total : 0
+    currentInvoice.value.cashAmount = null
+  } else if (curCash != null && (curTransfer == null || curTransfer === '')) {
+    currentInvoice.value.transferAmount = Math.max(0, total - Number(curCash))
+  } else if (curTransfer != null && (curCash == null || curCash === '')) {
+    currentInvoice.value.cashAmount = Math.max(0, total - Number(curTransfer))
+  }
+}
+
+// Tự động tính phần còn lại khi thu ngân gõ số tiền mặt
+const onCashAmountInput = () => {
+  if (!currentInvoice.value) return
+  const total = finalTotal.value
+  const cash = currentInvoice.value.cashAmount
+  if (cash === '' || cash == null) {
+    currentInvoice.value.transferAmount = total
+  } else {
+    const cashNum = Math.max(0, Number(cash) || 0)
+    currentInvoice.value.transferAmount = Math.max(0, total - cashNum)
+  }
+}
+
+// Tự động tính phần còn lại khi thu ngân gõ số tiền chuyển khoản
+const onTransferAmountInput = () => {
+  if (!currentInvoice.value) return
+  const total = finalTotal.value
+  const transfer = currentInvoice.value.transferAmount
+  if (transfer === '' || transfer == null) {
+    currentInvoice.value.cashAmount = total
+  } else {
+    const transNum = Math.max(0, Number(transfer) || 0)
+    if (transNum <= total) {
+      currentInvoice.value.cashAmount = Math.max(0, total - transNum)
+    }
+  }
+}
+
+const fillCashRemaining = () => {
+  if (!currentInvoice.value) return
+  const trans = Number(currentInvoice.value.transferAmount || 0)
+  currentInvoice.value.cashAmount = Math.max(0, finalTotal.value - trans)
+}
+
+const fillTransferRemaining = () => {
+  if (!currentInvoice.value) return
+  const cash = Number(currentInvoice.value.cashAmount || 0)
+  currentInvoice.value.transferAmount = Math.max(0, finalTotal.value - cash)
+}
+
+// Tạo URL mã VietQR động theo số tiền và mã hóa đơn
+const getVietQrUrl = (amount) => {
+  const code = currentInvoice.value?.code || 'POS'
+  const amt = Math.max(0, Math.round(Number(amount) || 0))
+  return `https://img.vietqr.io/image/MB-0988888888-compact2.png?amount=${amt}&addInfo=${encodeURIComponent('Thanh toan ' + code)}&accountName=FF%20TSHIRT%20STORE`
+}
+
+// Tự động cập nhật số tiền khách đưa khi tổng tiền hóa đơn thay đổi
 watch(
   finalTotal,
   (newTotal, oldTotal) => {
@@ -805,6 +1195,15 @@ watch(
     // Nếu chưa nhập tiền, hoặc bằng 0, hoặc trước đó đang bằng đúng oldTotal thì tự động cập nhật theo newTotal
     if (curPay === null || curPay === undefined || curPay === '' || curPay === 0 || (oldTotal != null && Number(curPay) === Number(oldTotal))) {
       currentInvoice.value.customerPay = newTotal > 0 ? newTotal : null
+    }
+
+    if (currentInvoice.value.paymentMethod === 'KET_HOP') {
+      const curCash = currentInvoice.value.cashAmount
+      if (curCash != null && curCash !== '' && Number(curCash) > 0) {
+        currentInvoice.value.transferAmount = Math.max(0, newTotal - Number(curCash))
+      } else {
+        currentInvoice.value.transferAmount = newTotal
+      }
     }
   },
   { immediate: true }
@@ -821,6 +1220,9 @@ watch(
         currentInvoice.value.customerPay = finalTotal.value
       }
     }
+    if (currentInvoice.value.paymentMethod === 'KET_HOP') {
+      initKetHopAmounts()
+    }
   },
   { immediate: true }
 )
@@ -833,14 +1235,12 @@ watch(() => currentInvoice.value?.paymentMethod, (newVal) => {
     if (curPay === null || curPay === undefined || curPay === '' || curPay === 0) {
       currentInvoice.value.customerPay = finalTotal.value > 0 ? finalTotal.value : null
     }
+  } else if (newVal === 'KET_HOP') {
+    initKetHopAmounts()
   }
 })
 
-watch(() => currentInvoice.value?.isDelivery, (isDel) => {
-  if (isDel && (!currentInvoice.value.shippingFee || currentInvoice.value.shippingFee === 0)) {
-    currentInvoice.value.shippingFee = 30000
-  }
-})
+
 
 // Tự động kiểm tra và hủy phiếu cá nhân nếu đổi hoặc xóa khách hàng trên hóa đơn
 watch(
@@ -918,10 +1318,30 @@ const handleCheckout = async () => {
       showToast(`Khách thanh toán chưa đủ! Cần thanh toán: ${formatMoney(finalTotal.value)} (Còn thiếu: ${formatMoney(finalTotal.value - pay)})`, 'warning')
       return
     }
+  } else if (currentInvoice.value.paymentMethod === 'KET_HOP') {
+    const cash = Number(currentInvoice.value.cashAmount || 0)
+    const transfer = Number(currentInvoice.value.transferAmount || 0)
+    if (cash + transfer < finalTotal.value) {
+      showToast(`Khách thanh toán kết hợp chưa đủ! Cần: ${formatMoney(finalTotal.value)} (Còn thiếu: ${formatMoney(finalTotal.value - (cash + transfer))})`, 'warning')
+      return
+    }
   }
 
   try {
     isProcessing.value = true
+
+    const isKetHop = currentInvoice.value.paymentMethod === 'KET_HOP'
+    const cashVal = isKetHop
+      ? Number(currentInvoice.value.cashAmount || 0)
+      : (currentInvoice.value.paymentMethod === 'TIEN_MAT' ? Number(currentInvoice.value.customerPay || finalTotal.value) : 0)
+    const transferVal = isKetHop
+      ? Number(currentInvoice.value.transferAmount || 0)
+      : (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN' ? finalTotal.value : 0)
+
+    let noteExtra = ''
+    if (isKetHop) {
+      noteExtra = ` [Thanh toán kết hợp: Tiền mặt ${formatMoney(cashVal)}, Chuyển khoản ${formatMoney(transferVal)}]`
+    }
 
     const payload = {
       maHoaDon: currentInvoice.value.code,
@@ -937,7 +1357,9 @@ const handleCheckout = async () => {
       trangThai: currentInvoice.value.isDelivery ? 1 : 5,
       trangThaiThanhToan: 1,
       phuongThucThanhToan: currentInvoice.value.paymentMethod === 'TIEN_MAT' ? 'Tiền mặt' : (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN' ? 'Chuyển khoản' : 'Kết hợp'),
-      ghiChu: currentInvoice.value.note?.trim() || (currentInvoice.value.isDelivery ? 'Đơn giao hàng từ POS' : 'Thanh toán tại quầy'),
+      tienMat: cashVal,
+      tienChuyenKhoan: transferVal,
+      ghiChu: (currentInvoice.value.note?.trim() || (currentInvoice.value.isDelivery ? 'Đơn giao hàng từ POS' : 'Thanh toán tại quầy')) + noteExtra,
       chiTietList: currentInvoice.value.cart.map(item => ({
         sanPhamId: item.id,
         idChiTietSanPham: item.id,
@@ -987,6 +1409,7 @@ onMounted(async () => {
   await loadWaitingInvoices()
   fetchProductVariants()
   fetchVouchers()
+  loadProvincesData()
 })
 </script>
 
@@ -1159,12 +1582,31 @@ onMounted(async () => {
           </div>
 
           <!-- Đã chọn khách hàng cụ thể -->
-          <div v-if="currentInvoice.customerId || currentInvoice.customerName" class="selected-customer-pill" style="margin-top: 10px;">
-            <div class="cust-info">
-              <span class="cust-name">👤 {{ currentInvoice.customerName }}</span>
-              <span class="cust-phone" v-if="currentInvoice.customerPhone">({{ currentInvoice.customerPhone }})</span>
+          <div v-if="currentInvoice.customerId || currentInvoice.customerName" class="selected-customer-pill-wrap" style="margin-top: 10px;">
+            <div class="selected-customer-pill">
+              <div class="cust-info">
+                <span class="cust-name">👤 {{ currentInvoice.customerName }}</span>
+                <span class="cust-phone" v-if="currentInvoice.customerPhone">({{ currentInvoice.customerPhone }})</span>
+              </div>
+              <button class="btn-clear-cust" @click="clearSelectedCustomer" title="Đổi sang Khách lẻ">✕ Bỏ chọn</button>
             </div>
-            <button class="btn-clear-cust" @click="clearSelectedCustomer" title="Đổi sang Khách lẻ">✕ Bỏ chọn</button>
+            <div v-if="currentInvoice.deliveryAddress" class="cust-address-preview">
+              <span class="addr-pin-icon">📍</span>
+              <span class="addr-preview-text">{{ currentInvoice.deliveryAddress }}</span>
+            </div>
+            <div v-if="currentInvoice.customerId" class="cust-addr-quick-actions">
+              <button type="button" class="btn-sub-addr-action" @click="openCustomerAddAddressModal">
+                + Thêm địa chỉ mới
+              </button>
+              <button
+                v-if="customerAddressesList.length > 0"
+                type="button"
+                class="btn-sub-addr-action"
+                @click="openSelectAddressModal"
+              >
+                Sổ địa chỉ ({{ customerAddressesList.length }})
+              </button>
+            </div>
           </div>
 
           <!-- Tìm kiếm khách hàng -->
@@ -1234,21 +1676,73 @@ onMounted(async () => {
                   class="pos-form-input"
               />
             </div>
+            <!-- Địa chỉ nhận hàng với API hành chính -->
+            <div class="pos-form-group" style="margin-bottom: 6px;">
+              <div class="label-with-action-row">
+                <label class="group-label-gray" style="margin: 0;">Địa chỉ nhận hàng <span class="text-danger">*</span></label>
+                <div class="addr-link-btns" v-if="currentInvoice.customerId">
+                  <button type="button" class="link-btn-addr" @click="openCustomerAddAddressModal">+ Thêm địa chỉ mới</button>
+                  <span v-if="customerAddressesList.length > 0" class="addr-link-divider">•</span>
+                  <button v-if="customerAddressesList.length > 0" type="button" class="link-btn-addr" @click="openSelectAddressModal">Sổ địa chỉ ({{ customerAddressesList.length }})</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="pos-form-grid-2">
+              <div class="pos-form-group">
+                <label class="group-label-gray" style="font-size: 0.78rem;">Tỉnh / Thành phố <span class="text-danger">*</span></label>
+                <Select2Combobox
+                  v-model="currentInvoice.deliveryProvinceCode"
+                  :options="provincesList"
+                  value-key="code"
+                  label-key="name"
+                  placeholder="-- Tỉnh / Thành phố --"
+                  search-placeholder="Tìm Tỉnh / TP..."
+                  @change="onDeliveryProvinceChange"
+                />
+              </div>
+
+              <div class="pos-form-group">
+                <label class="group-label-gray" style="font-size: 0.78rem;">Phường / Xã <span class="text-danger">*</span></label>
+                <Select2Combobox
+                  v-model="currentInvoice.deliveryWardCode"
+                  :options="deliveryWardsList"
+                  value-key="code"
+                  label-key="name"
+                  :disabled="!currentInvoice.deliveryProvinceCode"
+                  placeholder="-- Phường / Xã --"
+                  search-placeholder="Tìm Phường / Xã..."
+                  @change="onDeliveryWardChange"
+                />
+              </div>
+            </div>
+
             <div class="pos-form-group">
-              <label class="group-label-gray">Địa chỉ nhận hàng <span class="text-danger">*</span></label>
+              <label class="group-label-gray" style="font-size: 0.78rem;">Số nhà, tên đường (Địa chỉ cụ thể) <span class="text-danger">*</span></label>
               <input
                   type="text"
-                  v-model="currentInvoice.deliveryAddress"
-                  placeholder="Nhập số nhà, tên đường, phường xã..."
+                  v-model="currentInvoice.deliveryDetail"
+                  @input="onDeliveryDetailInput"
+                  placeholder="Số nhà, ngõ, tên đường..."
                   class="pos-form-input"
               />
+            </div>
+
+            <div class="pos-form-group" v-if="currentInvoice.deliveryAddress">
+              <div class="cust-address-preview" style="margin-top: 0; background: #ffffff; border-style: solid;">
+                <span class="addr-pin-icon">📍</span>
+                <span class="addr-preview-text"><strong>Địa chỉ giao:</strong> {{ currentInvoice.deliveryAddress }}</span>
+              </div>
             </div>
             <div class="pos-form-group">
               <label class="group-label-gray">Phí vận chuyển (đ)</label>
               <input
                   type="number"
+                  min="0"
+                  step="1000"
                   v-model.number="currentInvoice.shippingFee"
-                  placeholder="30000"
+                  @focus="$event.target.select()"
+                  placeholder="Nhập phí vận chuyển..."
                   class="pos-form-input"
               />
             </div>
@@ -1361,7 +1855,80 @@ onMounted(async () => {
           </div>
 
           <!-- Khách thanh toán -->
-          <div class="pos-form-group">
+          <!-- ==================== KHU VỰC NHẬP THANH TOÁN ==================== -->
+          <!-- 1. Thanh toán KẾT HỢP: 2 phần Tiền mặt & Chuyển khoản tối giản, không icon -->
+          <template v-if="currentInvoice.paymentMethod === 'KET_HOP'">
+            <div class="pos-form-group">
+              <label class="group-label-gray">Tiền mặt</label>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                v-model.number="currentInvoice.cashAmount"
+                @input="onCashAmountInput"
+                @focus="$event.target.select()"
+                placeholder="Nhập số tiền mặt..."
+                class="pos-form-input input-money"
+              />
+            </div>
+
+            <div class="pos-form-group">
+              <label class="group-label-gray">Chuyển khoản</label>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                v-model.number="currentInvoice.transferAmount"
+                @input="onTransferAmountInput"
+                @focus="$event.target.select()"
+                placeholder="Nhập số tiền chuyển khoản..."
+                class="pos-form-input input-money"
+              />
+
+              <!-- Mã QR chuyển khoản tối giản khi transferAmount > 0 -->
+              <div v-if="currentInvoice.transferAmount > 0" class="minimal-qr-box">
+                <img
+                  :src="getVietQrUrl(currentInvoice.transferAmount)"
+                  :alt="`QR chuyển khoản ${formatMoney(currentInvoice.transferAmount)}`"
+                  class="minimal-qr-img"
+                />
+                <div class="minimal-qr-meta">
+                  <div>Ngân hàng: <strong>MBBank</strong></div>
+                  <div>STK: <strong>0988888888</strong></div>
+                  <div>Chủ TK: <strong>FF T-SHIRT STORE</strong></div>
+                  <div>Số tiền: <strong class="text-accent-red">{{ formatMoney(currentInvoice.transferAmount) }}</strong></div>
+                  <div>Nội dung: <strong>{{ currentInvoice.code }}</strong></div>
+                  <a :href="getVietQrUrl(currentInvoice.transferAmount)" target="_blank" class="minimal-qr-link">Lưu mã QR</a>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- 2. Thanh toán CHUYỂN KHOẢN TOÀN BỘ -->
+          <div v-else-if="currentInvoice.paymentMethod === 'CHUYEN_KHOAN'" class="pos-form-group">
+            <div class="pay-input-header">
+              <label class="group-label-gray">Chuyển khoản</label>
+              <span class="font-bold-dark">{{ formatMoney(finalTotal) }}</span>
+            </div>
+            <div class="minimal-qr-box">
+              <img
+                :src="getVietQrUrl(finalTotal)"
+                :alt="`QR chuyển khoản ${formatMoney(finalTotal)}`"
+                class="minimal-qr-img"
+              />
+              <div class="minimal-qr-meta">
+                <div>Ngân hàng: <strong>MBBank</strong></div>
+                <div>STK: <strong>0988888888</strong></div>
+                <div>Chủ TK: <strong>FF T-SHIRT STORE</strong></div>
+                <div>Số tiền: <strong class="text-accent-red">{{ formatMoney(finalTotal) }}</strong></div>
+                <div>Nội dung: <strong>{{ currentInvoice.code }}</strong></div>
+                <a :href="getVietQrUrl(finalTotal)" target="_blank" class="minimal-qr-link">Lưu mã QR</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Thanh toán TIỀN MẶT TOÀN BỘ -->
+          <div v-else class="pos-form-group">
             <div class="pay-input-header">
               <label class="group-label-gray">Khách thanh toán</label>
               <button
@@ -1375,12 +1942,11 @@ onMounted(async () => {
 
             <input
                 type="number"
-                v-model="currentInvoice.customerPay"
+                v-model.number="currentInvoice.customerPay"
                 @focus="$event.target.select()"
                 placeholder="Nhập số tiền khách đưa..."
                 class="pos-form-input input-money"
             />
-
           </div>
 
           <!-- Tiền thừa trả khách -->
@@ -1389,10 +1955,10 @@ onMounted(async () => {
             <div class="change-val-wrap">
               <span class="line-value text-change-bold">{{ formatMoney(changeAmount) }}</span>
               <span
-                  v-if="currentInvoice.paymentMethod === 'TIEN_MAT' && (currentInvoice.customerPay || 0) < finalTotal"
+                  v-if="missingAmount > 0"
                   class="text-missing-warning"
               >
-                (Thiếu {{ formatMoney(finalTotal - (currentInvoice.customerPay || 0)) }})
+                (Còn thiếu {{ formatMoney(missingAmount) }})
               </span>
             </div>
           </div>
@@ -1532,12 +2098,41 @@ onMounted(async () => {
             />
           </div>
 
+          <!-- Địa chỉ với API hành chính chuẩn 2 cấp -->
+          <div class="pos-form-grid-2">
+            <div class="pos-form-group">
+              <label class="group-label-gray">Tỉnh / Thành phố</label>
+              <Select2Combobox
+                v-model="quickCustomerProvinceCode"
+                :options="provincesList"
+                value-key="code"
+                label-key="name"
+                placeholder="-- Chọn Tỉnh / Thành phố --"
+                search-placeholder="Tìm Tỉnh / Thành phố..."
+                @change="onQuickCustomerProvinceChange"
+              />
+            </div>
+            <div class="pos-form-group">
+              <label class="group-label-gray">Phường / Xã</label>
+              <Select2Combobox
+                v-model="quickCustomerWardCode"
+                :options="quickCustomerWardsList"
+                value-key="code"
+                label-key="name"
+                :disabled="!quickCustomerProvinceCode"
+                placeholder="-- Chọn Phường / Xã --"
+                search-placeholder="Tìm Phường / Xã..."
+                @change="onQuickCustomerWardChange"
+              />
+            </div>
+          </div>
+
           <div class="pos-form-group">
-            <label class="group-label-gray">Địa chỉ</label>
+            <label class="group-label-gray">Địa chỉ cụ thể</label>
             <input
                 type="text"
-                v-model="newCustomerForm.diaChi"
-                placeholder="Nhập địa chỉ khách hàng..."
+                v-model="newCustomerForm.diaChiCuThe"
+                placeholder="Số nhà, ngõ, tên đường..."
                 class="pos-form-input"
             />
           </div>
@@ -1546,6 +2141,103 @@ onMounted(async () => {
         <div class="modal-actions-bottom">
           <button class="btn-cancel-modal" @click="showQuickAddCustomerModal = false">Đóng</button>
           <button class="btn-submit-modal" @click="submitQuickAddCustomer">Lưu khách hàng</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== POPUP THÊM ĐỊA CHỈ CHO KHÁCH HÀNG ==================== -->
+    <div v-if="showAddAddressModal" class="pos-modal-backdrop" @click.self="showAddAddressModal = false">
+      <div class="pos-modal-card quick-customer-card">
+        <div class="modal-top">
+          <h3>Thêm địa chỉ cho khách: {{ currentInvoice.customerName }}</h3>
+          <button class="btn-modal-close" @click="showAddAddressModal = false">✕</button>
+        </div>
+
+        <div class="modal-body-form">
+          <div class="pos-form-grid-2">
+            <div class="pos-form-group">
+              <label class="group-label-gray">Tỉnh / Thành phố <span class="text-danger">*</span></label>
+              <Select2Combobox
+                v-model="addrModalProvinceCode"
+                :options="provincesList"
+                value-key="code"
+                label-key="name"
+                placeholder="-- Chọn Tỉnh / TP --"
+                search-placeholder="Tìm Tỉnh / Thành phố..."
+                @change="onAddrModalProvinceChange"
+              />
+            </div>
+            <div class="pos-form-group">
+              <label class="group-label-gray">Phường / Xã <span class="text-danger">*</span></label>
+              <Select2Combobox
+                v-model="addrModalWardCode"
+                :options="addrModalWardsList"
+                value-key="code"
+                label-key="name"
+                :disabled="!addrModalProvinceCode"
+                placeholder="-- Chọn Phường / Xã --"
+                search-placeholder="Tìm Phường / Xã..."
+                @change="onAddrModalWardChange"
+              />
+            </div>
+          </div>
+
+          <div class="pos-form-group">
+            <label class="group-label-gray">Địa chỉ cụ thể <span class="text-danger">*</span></label>
+            <input
+              type="text"
+              v-model="newAddressForm.diaChiCuThe"
+              placeholder="Số nhà, ngõ, tên đường..."
+              class="pos-form-input"
+            />
+          </div>
+
+          <div class="pos-form-group" style="margin-top: 4px;">
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" v-model="newAddressForm.macDinh" />
+              <span style="font-size: 0.85rem; color: #496883; font-weight: 500;">Đặt làm địa chỉ mặc định của khách hàng</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-actions-bottom">
+          <button class="btn-cancel-modal" @click="showAddAddressModal = false">Đóng</button>
+          <button class="btn-submit-modal" :disabled="savingCustomerAddress" @click="submitAddCustomerAddress">
+            {{ savingCustomerAddress ? 'Đang lưu...' : 'Lưu địa chỉ' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== POPUP SỔ ĐỊA CHỈ KHÁCH HÀNG ==================== -->
+    <div v-if="showSelectAddressModal" class="pos-modal-backdrop" @click.self="showSelectAddressModal = false">
+      <div class="pos-modal-card quick-customer-card" style="max-width: 520px;">
+        <div class="modal-top">
+          <h3>Sổ địa chỉ: {{ currentInvoice.customerName }}</h3>
+          <button class="btn-modal-close" @click="showSelectAddressModal = false">✕</button>
+        </div>
+
+        <div class="modal-body-form" style="max-height: 52vh; overflow-y: auto; padding-right: 4px;">
+          <div
+            v-for="addr in customerAddressesList"
+            :key="addr.id"
+            class="addr-item-card"
+            :class="{ 'addr-active': currentInvoice.deliveryAddress === formatAddrObj(addr) }"
+            @click="chooseSavedAddress(addr)"
+          >
+            <div class="addr-item-content">
+              <div class="addr-item-text">{{ formatAddrObj(addr) }}</div>
+              <span v-if="addr.macDinh" class="addr-badge-default">Mặc định</span>
+            </div>
+            <button type="button" class="btn-pick-addr">Chọn</button>
+          </div>
+        </div>
+
+        <div class="modal-actions-bottom" style="justify-content: space-between;">
+          <button class="btn-submit-modal" style="background-color: #647074;" @click="openCustomerAddAddressModal">
+            + Thêm địa chỉ mới
+          </button>
+          <button class="btn-cancel-modal" @click="showSelectAddressModal = false">Đóng</button>
         </div>
       </div>
     </div>
@@ -2317,6 +3009,48 @@ onMounted(async () => {
   border-color: #496883;
 }
 
+/* ==================== MÃ QR CHUYỂN KHOẢN TỐI GIẢN ==================== */
+.minimal-qr-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fbfaf7;
+  border: 1px solid #e9e5db;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-top: 8px;
+}
+
+.minimal-qr-img {
+  width: 78px;
+  height: 78px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  object-fit: contain;
+  background: #ffffff;
+  flex-shrink: 0;
+}
+
+.minimal-qr-meta {
+  font-size: 0.76rem;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.minimal-qr-link {
+  display: inline-block;
+  margin-top: 2px;
+  color: #496883;
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.minimal-qr-link:hover {
+  color: #1e3a5f;
+}
+
 .pos-form-input, .pos-form-textarea, .pos-form-select {
   width: 100%;
   padding: 8px 12px;
@@ -2776,5 +3510,153 @@ onMounted(async () => {
   .pos-grid-container {
     grid-template-columns: 1fr;
   }
+}
+
+/* ==================== ĐỊA CHỈ & HÀNH CHÍNH TRONG POS ==================== */
+.pos-form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.selected-customer-pill-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.cust-address-preview {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: #647074;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  line-height: 1.35;
+  background: #f7f5ef;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px dashed #d6d0c3;
+}
+
+.addr-pin-icon {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+}
+
+.addr-preview-text {
+  flex: 1;
+  word-break: break-word;
+}
+
+.cust-addr-quick-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btn-sub-addr-action {
+  background: #ffffff;
+  color: #496883;
+  border: 1px solid #c9d6df;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-sub-addr-action:hover {
+  background: #496883;
+  color: #ffffff;
+  border-color: #496883;
+}
+
+.label-with-action-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.addr-link-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.addr-link-divider {
+  font-size: 0.75rem;
+  color: #c4c4c4;
+}
+
+.link-btn-addr {
+  background: none;
+  border: none;
+  color: #496883;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.link-btn-addr:hover {
+  color: #1e3a5f;
+}
+
+.addr-item-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e9e5db;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: all 0.2s;
+}
+
+.addr-item-card:hover {
+  background-color: #f7f5ef;
+  border-color: #496883;
+}
+
+.addr-item-card.addr-active {
+  background-color: #eaf1f4;
+  border-color: #496883;
+}
+
+.addr-item-content {
+  flex: 1;
+}
+
+.addr-item-text {
+  font-size: 0.85rem;
+  color: #3d4a50;
+  line-height: 1.4;
+}
+
+.addr-badge-default {
+  display: inline-block;
+  background-color: #e6f4ea;
+  color: #137333;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+.btn-pick-addr {
+  background-color: #496883;
+  color: #ffffff;
+  border: none;
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
 }
 </style>
