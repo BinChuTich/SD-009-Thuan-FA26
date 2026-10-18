@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
@@ -468,7 +468,14 @@ const selectCustomer = (cust) => {
     currentInvoice.value.deliveryAddress = cust.diaChi
   }
   showCustomerDropdown.value = false
-  showToast(`Đã chọn khách hàng "${cust.tenKhachHang}"!`)
+
+  // Kiểm tra số voucher cá nhân dành riêng cho khách hàng này
+  const personalCount = availableVouchers.value.filter(v => isVoucherPersonal(v) && isVoucherForCustomer(v, cust.id)).length
+  if (personalCount > 0) {
+    showToast(`Đã chọn "${cust.tenKhachHang}" (Có ${personalCount} phiếu giảm giá cá nhân khả dụng)!`)
+  } else {
+    showToast(`Đã chọn khách hàng "${cust.tenKhachHang}"!`)
+  }
 }
 
 const clearSelectedCustomer = () => {
@@ -476,6 +483,15 @@ const clearSelectedCustomer = () => {
   currentInvoice.value.customerName = ''
   currentInvoice.value.customerPhone = ''
   currentInvoice.value.deliveryAddress = ''
+
+  // Nếu hóa đơn đang áp dụng phiếu cá nhân thì hủy áp dụng
+  if (currentInvoice.value.voucher && isVoucherPersonal(currentInvoice.value.voucher)) {
+    const vCode = currentInvoice.value.voucher.maPhieuGiamGia
+    currentInvoice.value.voucher = null
+    showToast(`Đã chuyển sang Khách lẻ và hủy phiếu cá nhân "${vCode}"!`, 'warning')
+  } else {
+    showToast('Đã chuyển sang Khách lẻ!')
+  }
 }
 
 const openQuickAddModal = () => {
@@ -527,9 +543,34 @@ const submitQuickAddCustomer = async () => {
 }
 
 /* ==========================================================
-   4. QUẢN LÝ PHIẾU GIẢM GIÁ (VOUCHER TỪ CSDL)
+   4. QUẢN LÝ PHIẾU GIẢM GIÁ (CÔNG KHAI & CÁ NHÂN TỪ CSDL)
 ========================================================== */
 const availableVouchers = ref([])
+
+// Helper: Phân biệt phiếu Cá nhân vs phiếu Công khai
+const isVoucherPersonal = (v) => {
+  if (!v) return false
+  if (v.hinhThuc) {
+    const h = String(v.hinhThuc).trim().toLowerCase()
+    if (h.includes('nhân') || h.includes('nhan')) return true
+    if (h.includes('khai')) return false
+  }
+  if (Array.isArray(v.idKhachHangList) && v.idKhachHangList.length > 0) return true
+  if (Array.isArray(v.danhSachKhachHang) && v.danhSachKhachHang.length > 0) return true
+  if (Number(v.soKhachHang || 0) > 0) return true
+  return false
+}
+
+// Helper: Kiểm tra voucher có được phép áp dụng cho khách hàng hiện tại hay không
+const isVoucherForCustomer = (v, customerId) => {
+  if (!v) return false
+  if (!isVoucherPersonal(v)) return true // Phiếu công khai: áp dụng cho tất cả
+  if (!customerId) return false // Phiếu cá nhân: yêu cầu phải có khách hàng thành viên
+  if (Array.isArray(v.idKhachHangList) && v.idKhachHangList.length > 0) {
+    return v.idKhachHangList.some(id => String(id) === String(customerId))
+  }
+  return false
+}
 
 const fetchVouchers = async () => {
   try {
@@ -541,7 +582,13 @@ const fetchVouchers = async () => {
     waitingInvoices.value.forEach(inv => {
       if (inv.voucher && inv.voucher.id) {
         const fullV = availableVouchers.value.find(v => v.id === inv.voucher.id)
-        if (fullV) inv.voucher = fullV
+        if (fullV) {
+          if (isVoucherPersonal(fullV) && !isVoucherForCustomer(fullV, inv.customerId)) {
+            inv.voucher = null
+          } else {
+            inv.voucher = fullV
+          }
+        }
       }
     })
   } catch (e) {
@@ -567,11 +614,73 @@ const formatVoucherDiscountLabel = (v) => {
   return `-${formatMoney(v.giaTriGiamGia)}`
 }
 
+// Thống kê số lượng phiếu công khai & cá nhân
+const publicVouchers = computed(() => {
+  return availableVouchers.value.filter(v => !isVoucherPersonal(v))
+})
+const publicVouchersCount = computed(() => publicVouchers.value.length)
+
+const personalVouchers = computed(() => {
+  return availableVouchers.value.filter(v => isVoucherPersonal(v))
+})
+const personalVouchersCount = computed(() => personalVouchers.value.length)
+
+const customerPersonalVouchers = computed(() => {
+  const custId = currentInvoice.value?.customerId
+  if (!custId) return []
+  return availableVouchers.value.filter(v => isVoucherPersonal(v) && isVoucherForCustomer(v, custId))
+})
+const customerPersonalCount = computed(() => customerPersonalVouchers.value.length)
+
+// Danh sách voucher hiển thị trong combobox (phân loại rõ ràng [Công khai] và [Cá nhân])
 const formattedVouchers = computed(() => {
-  return availableVouchers.value.map(v => ({
-    id: v.id,
-    label: `${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
-  }))
+  const currentCustId = currentInvoice.value?.customerId
+
+  if (currentCustId) {
+    const personalForCust = []
+    const publicList = []
+    const otherPersonal = []
+
+    availableVouchers.value.forEach(v => {
+      if (!isVoucherPersonal(v)) {
+        publicList.push({
+          id: v.id,
+          label: `[Công khai] ${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
+        })
+      } else if (isVoucherForCustomer(v, currentCustId)) {
+        personalForCust.push({
+          id: v.id,
+          label: `[Cá nhân] ${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
+        })
+      } else {
+        otherPersonal.push({
+          id: v.id,
+          label: `[Cá nhân - KH khác] ${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
+        })
+      }
+    })
+
+    return [...personalForCust, ...publicList, ...otherPersonal]
+  } else {
+    const publicList = []
+    const personalList = []
+
+    availableVouchers.value.forEach(v => {
+      if (!isVoucherPersonal(v)) {
+        publicList.push({
+          id: v.id,
+          label: `[Công khai] ${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
+        })
+      } else {
+        personalList.push({
+          id: v.id,
+          label: `[Cá nhân - Cần chọn KH] ${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
+        })
+      }
+    })
+
+    return [...publicList, ...personalList]
+  }
 })
 
 const selectedVoucherId = computed({
@@ -580,8 +689,45 @@ const selectedVoucherId = computed({
     if (!currentInvoice.value) return
     if (!val) {
       currentInvoice.value.voucher = null
+      return
+    }
+
+    const found = availableVouchers.value.find(v => v.id === val || String(v.id) === String(val))
+    if (!found) {
+      currentInvoice.value.voucher = null
+      return
+    }
+
+    // Kiểm tra tính hợp lệ nếu chọn phiếu cá nhân
+    if (isVoucherPersonal(found)) {
+      if (!currentInvoice.value.customerId) {
+        showToast(`Phiếu "${found.maPhieuGiamGia}" là phiếu CÁ NHÂN. Vui lòng chọn khách hàng thành viên trước khi áp dụng!`, 'warning')
+        const prev = currentInvoice.value.voucher
+        currentInvoice.value.voucher = null
+        nextTick(() => {
+          currentInvoice.value.voucher = prev
+        })
+        return
+      }
+
+      if (!isVoucherForCustomer(found, currentInvoice.value.customerId)) {
+        const targetNames = (found.danhSachKhachHang && found.danhSachKhachHang.length > 0)
+          ? found.danhSachKhachHang.join(', ')
+          : 'khách hàng khác'
+        showToast(`Phiếu "${found.maPhieuGiamGia}" là phiếu CÁ NHÂN chỉ dành riêng cho: ${targetNames}!`, 'warning')
+        const prev = currentInvoice.value.voucher
+        currentInvoice.value.voucher = null
+        nextTick(() => {
+          currentInvoice.value.voucher = prev
+        })
+        return
+      }
+
+      currentInvoice.value.voucher = found
+      showToast(`Đã áp dụng phiếu cá nhân "${found.maPhieuGiamGia}" cho khách hàng ${currentInvoice.value.customerName}!`)
     } else {
-      currentInvoice.value.voucher = availableVouchers.value.find(v => v.id === val || String(v.id) === String(val)) || null
+      currentInvoice.value.voucher = found
+      showToast(`Đã áp dụng phiếu giảm giá công khai "${found.maPhieuGiamGia}"!`)
     }
   }
 })
@@ -590,6 +736,11 @@ const voucherDiscount = computed(() => {
   if (!currentInvoice.value || !currentInvoice.value.voucher) return 0
   const v = currentInvoice.value.voucher
   const subtotal = totalAmount.value
+
+  // Nếu là phiếu cá nhân mà khách hàng không hợp lệ -> không tính giảm giá
+  if (isVoucherPersonal(v) && !isVoucherForCustomer(v, currentInvoice.value.customerId)) {
+    return 0
+  }
 
   if (v.hoaDonToiThieu && subtotal < Number(v.hoaDonToiThieu)) {
     return 0
@@ -691,6 +842,25 @@ watch(() => currentInvoice.value?.isDelivery, (isDel) => {
   }
 })
 
+// Tự động kiểm tra và hủy phiếu cá nhân nếu đổi hoặc xóa khách hàng trên hóa đơn
+watch(
+  () => currentInvoice.value?.customerId,
+  (newCustId, oldCustId) => {
+    if (newCustId === oldCustId) return
+    const curVoucher = currentInvoice.value?.voucher
+    if (curVoucher && isVoucherPersonal(curVoucher)) {
+      if (!newCustId || !isVoucherForCustomer(curVoucher, newCustId)) {
+        currentInvoice.value.voucher = null
+        if (!newCustId) {
+          showToast(`Đã hủy phiếu giảm giá cá nhân "${curVoucher.maPhieuGiamGia}" vì chuyển sang Khách lẻ!`, 'warning')
+        } else {
+          showToast(`Đã hủy phiếu giảm giá cá nhân "${curVoucher.maPhieuGiamGia}" vì không thuộc khách hàng mới!`, 'warning')
+        }
+      }
+    }
+  }
+)
+
 const formatMoney = (val) => {
   return Number(val || 0).toLocaleString('vi-VN') + ' đ'
 }
@@ -704,6 +874,19 @@ const handleCheckout = async () => {
   if (currentInvoice.value.cart.length === 0) {
     showToast('Giỏ hàng trống! Vui lòng chọn sản phẩm trước khi thanh toán.', 'warning')
     return
+  }
+
+  // Kiểm tra tính hợp lệ của phiếu giảm giá trước khi thanh toán
+  if (currentInvoice.value.voucher) {
+    const v = currentInvoice.value.voucher
+    if (isVoucherPersonal(v) && !isVoucherForCustomer(v, currentInvoice.value.customerId)) {
+      showToast(`Phiếu giảm giá "${v.maPhieuGiamGia}" là phiếu CÁ NHÂN không thuộc khách hàng này!`, 'warning')
+      return
+    }
+    if (v.hoaDonToiThieu && totalAmount.value < Number(v.hoaDonToiThieu)) {
+      showToast(`Đơn hàng chưa đạt mức tối thiểu ${formatMoney(v.hoaDonToiThieu)} để áp dụng voucher "${v.maPhieuGiamGia}"!`, 'warning')
+      return
+    }
   }
 
   if (currentInvoice.value.isDelivery) {
@@ -1072,8 +1255,23 @@ onMounted(async () => {
           </div>
 
           <!-- Chọn phiếu giảm giá (Voucher) -->
-          <div class="pos-form-group">
-            <label class="group-label-gray">Phiếu giảm giá (Voucher)</label>
+          <div class="pos-form-group voucher-group-wrapper">
+            <div class="voucher-label-row">
+              <label class="group-label-gray">Phiếu giảm giá (Voucher)</label>
+              <div class="voucher-stat-badges">
+                <span class="badge-v-stat public-stat" title="Phiếu giảm giá công khai áp dụng cho mọi khách hàng">
+                  {{ publicVouchersCount }} công khai
+                </span>
+                <span
+                  class="badge-v-stat personal-stat"
+                  :class="{ 'has-personal': customerPersonalCount > 0 }"
+                  :title="currentInvoice.customerId ? `Có ${customerPersonalCount} phiếu cá nhân của khách hàng này` : `Có ${personalVouchersCount} phiếu cá nhân trong hệ thống`"
+                >
+                  {{ currentInvoice.customerId ? `${customerPersonalCount} của KH` : `${personalVouchersCount} cá nhân` }}
+                </span>
+              </div>
+            </div>
+
             <Select2Combobox
               v-model="selectedVoucherId"
               :options="formattedVouchers"
@@ -1081,14 +1279,45 @@ onMounted(async () => {
               label-key="label"
               placeholder="-- Không áp dụng voucher --"
               all-label="-- Không áp dụng voucher --"
-              search-placeholder="Tìm kiếm mã hoặc tên voucher..."
+              search-placeholder="Tìm kiếm mã hoặc tên voucher (Công khai / Cá nhân)..."
             />
+
+            <!-- Huy hiệu hiển thị chi tiết khi áp dụng voucher -->
+            <div v-if="currentInvoice.voucher" class="selected-voucher-badge-box">
+              <div v-if="isVoucherPersonal(currentInvoice.voucher)" class="v-pill-personal">
+                <div class="v-pill-content">
+                  <div class="v-pill-title">
+                    <span class="pill-tag pill-tag-personal">CÁ NHÂN</span>
+                    <strong>{{ currentInvoice.voucher.tenPhieuGiamGia }}</strong> ({{ currentInvoice.voucher.maPhieuGiamGia }})
+                  </div>
+                  <div class="v-pill-sub">
+                    Dành riêng cho: <strong>{{ currentInvoice.customerName || 'Khách hàng thành viên' }}</strong> • Mức giảm: <strong class="text-accent-red">{{ formatVoucherDiscountLabel(currentInvoice.voucher) }}</strong>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="v-pill-public">
+                <div class="v-pill-content">
+                  <div class="v-pill-title">
+                    <span class="pill-tag pill-tag-public">CÔNG KHAI</span>
+                    <strong>{{ currentInvoice.voucher.tenPhieuGiamGia }}</strong> ({{ currentInvoice.voucher.maPhieuGiamGia }})
+                  </div>
+                  <div class="v-pill-sub">
+                    Áp dụng cho mọi khách hàng • Mức giảm: <strong class="text-accent-red">{{ formatVoucherDiscountLabel(currentInvoice.voucher) }}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <small
               v-if="currentInvoice.voucher && currentInvoice.voucher.hoaDonToiThieu && totalAmount < Number(currentInvoice.voucher.hoaDonToiThieu)"
-              style="color: #c94a29; font-size: 0.78rem; margin-top: 4px; display: block;"
+              class="voucher-min-alert"
             >
-              ⚠️ Đơn hàng tối thiểu {{ formatMoney(currentInvoice.voucher.hoaDonToiThieu) }} để áp dụng voucher này
+              Đơn hàng tối thiểu {{ formatMoney(currentInvoice.voucher.hoaDonToiThieu) }} để áp dụng voucher này (Hiện tại: {{ formatMoney(totalAmount) }})
             </small>
+
+            <div v-if="!currentInvoice.customerId && personalVouchersCount > 0" class="voucher-guest-hint">
+              <em>Đang là Khách lẻ. Hãy chọn khách hàng để mở khóa các phiếu giảm giá cá nhân.</em>
+            </div>
           </div>
 
           <!-- Dòng tóm tắt tiền tệ -->
@@ -1152,13 +1381,6 @@ onMounted(async () => {
                 class="pos-form-input input-money"
             />
 
-            <!-- Các nút gợi ý tiền nhanh -->
-            <div class="quick-cash-row">
-              <button type="button" class="btn-cash-chip" @click="addQuickCash(50000)">+50k</button>
-              <button type="button" class="btn-cash-chip" @click="addQuickCash(100000)">+100k</button>
-              <button type="button" class="btn-cash-chip" @click="addQuickCash(200000)">+200k</button>
-              <button type="button" class="btn-cash-chip" @click="addQuickCash(500000)">+500k</button>
-            </div>
           </div>
 
           <!-- Tiền thừa trả khách -->
@@ -1896,6 +2118,144 @@ onMounted(async () => {
   font-size: 0.82rem;
   color: #647074;
   font-weight: 600;
+}
+
+/* ==================== PHIẾU GIẢM GIÁ (CÔNG KHAI & CÁ NHÂN) ==================== */
+.voucher-group-wrapper {
+  margin-bottom: 14px;
+}
+
+.voucher-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.voucher-stat-badges {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.badge-v-stat {
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.badge-v-stat.public-stat {
+  background-color: #e8f4fd;
+  color: #1976d2;
+  border: 1px solid #bbdefb;
+}
+
+.badge-v-stat.personal-stat {
+  background-color: #f5f3ff;
+  color: #7c3aed;
+  border: 1px solid #ddd6fe;
+}
+
+.badge-v-stat.personal-stat.has-personal {
+  background-color: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(180, 83, 9, 0.15);
+}
+
+.selected-voucher-badge-box {
+  margin-top: 6px;
+}
+
+.v-pill-personal,
+.v-pill-public {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  transition: all 0.2s ease;
+}
+
+.v-pill-personal {
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.v-pill-public {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.v-pill-content {
+  flex: 1;
+}
+
+.v-pill-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  margin-bottom: 2px;
+  color: #1e293b;
+}
+
+.pill-tag {
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.pill-tag-personal {
+  background-color: #ea580c;
+  color: #ffffff;
+}
+
+.pill-tag-public {
+  background-color: #0284c7;
+  color: #ffffff;
+}
+
+.v-pill-sub {
+  font-size: 0.74rem;
+  color: #64748b;
+}
+
+.text-accent-red {
+  color: #c94a29;
+  font-weight: 700;
+}
+
+.voucher-min-alert {
+  color: #c94a29;
+  font-size: 0.78rem;
+  margin-top: 6px;
+  display: block;
+  font-weight: 500;
+  background: #fff5f5;
+  padding: 5px 8px;
+  border-radius: 4px;
+  border-left: 3px solid #c94a29;
+}
+
+.voucher-guest-hint {
+  margin-top: 6px;
+  font-size: 0.76rem;
+  color: #64748b;
+  background: #f8fafc;
+  padding: 5px 9px;
+  border-radius: 5px;
+  border: 1px dashed #cbd5e1;
 }
 
 .payment-radio-group {
