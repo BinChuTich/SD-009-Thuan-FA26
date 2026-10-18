@@ -404,7 +404,7 @@ public class HoaDonController {
     // Xóa hóa đơn theo ID
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (hoaDonService.getById(id).isEmpty()) {
+        if (!hoaDonService.existsById(id)) {
             return ResponseEntity.notFound().build();
         }
         hoaDonService.delete(id);

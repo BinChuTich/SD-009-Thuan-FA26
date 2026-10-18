@@ -188,16 +188,16 @@ public class HoaDon {
     }
     // Chi tiết hóa đơn
     @JsonIgnore
-    @OneToMany(mappedBy = "idHoaDon")
+    @OneToMany(mappedBy = "idHoaDon", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ChiTietHoaDon> chiTietHoaDons = new LinkedHashSet<>();
 
     // Hình thức thanh toán
     @JsonIgnore
-    @OneToMany(mappedBy = "idHoaDon")
+    @OneToMany(mappedBy = "idHoaDon", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<HinhThucThanhToan> hinhThucThanhToan = new LinkedHashSet<>();
 
     @JsonIgnore
-    @OneToMany(mappedBy = "idHoaDon")
+    @OneToMany(mappedBy = "idHoaDon", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<LichSuHoaDon> lichSuHoaDons = new LinkedHashSet<>();
 
     // Các trường tiện ích lấy trực tiếp từ bảng khóa ngoại

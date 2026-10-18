@@ -742,12 +742,20 @@ const selectCustomer = async (cust) => {
     await syncInvoiceDeliveryFromAddress(currentInvoice.value, cust)
   }
 
-  // Kiểm tra số voucher cá nhân dành riêng cho khách hàng này
-  const personalCount = availableVouchers.value.filter(v => isVoucherPersonal(v) && isVoucherForCustomer(v, cust.id)).length
-  if (personalCount > 0) {
-    showToast(`Đã chọn "${cust.tenKhachHang}" (Có ${personalCount} phiếu giảm giá cá nhân khả dụng)!`)
+  // Tự động kiểm tra và áp dụng phiếu cá nhân tốt nhất cho khách hàng
+  const bestVoucher = findBestPersonalVoucherForCustomer(cust.id, cust.tenKhachHang, totalAmount.value)
+  if (bestVoucher) {
+    currentInvoice.value.voucher = bestVoucher
+    const discount = calculateDiscountAmount(bestVoucher, totalAmount.value)
+    showToast(`Đã chọn "${cust.tenKhachHang}" và tự động áp dụng phiếu cá nhân "${bestVoucher.maPhieuGiamGia}" (-${formatMoney(discount)})!`)
   } else {
-    showToast(`Đã chọn khách hàng "${cust.tenKhachHang}"!`)
+    // Kiểm tra số voucher cá nhân dành riêng cho khách hàng này
+    const personalCount = availableVouchers.value.filter(v => isVoucherPersonal(v) && isVoucherForCustomer(v, cust.id, cust.tenKhachHang)).length
+    if (personalCount > 0) {
+      showToast(`Đã chọn "${cust.tenKhachHang}" (Có ${personalCount} phiếu cá nhân khả dụng)!`)
+    } else {
+      showToast(`Đã chọn khách hàng "${cust.tenKhachHang}"!`)
+    }
   }
 }
 
@@ -836,6 +844,7 @@ const submitQuickAddCustomer = async () => {
     })
     showQuickAddCustomerModal.value = false
     await loadCustomerAddressesForCurrent(created.id)
+    autoApplyBestPersonalVoucher(false)
     showToast('Đã thêm mới khách hàng vào cơ sở dữ liệu!')
   } catch (err) {
     console.error('Lỗi khi thêm khách hàng:', err)
@@ -849,7 +858,7 @@ const submitQuickAddCustomer = async () => {
 const availableVouchers = ref([])
 
 // Helper: Phân biệt phiếu Cá nhân vs phiếu Công khai
-const isVoucherPersonal = (v) => {
+function isVoucherPersonal(v) {
   if (!v) return false
   if (v.hinhThuc) {
     const h = String(v.hinhThuc).trim().toLowerCase()
@@ -863,14 +872,92 @@ const isVoucherPersonal = (v) => {
 }
 
 // Helper: Kiểm tra voucher có được phép áp dụng cho khách hàng hiện tại hay không
-const isVoucherForCustomer = (v, customerId) => {
+function isVoucherForCustomer(v, customerId, customerName) {
   if (!v) return false
   if (!isVoucherPersonal(v)) return true // Phiếu công khai: áp dụng cho tất cả
   if (!customerId) return false // Phiếu cá nhân: yêu cầu phải có khách hàng thành viên
   if (Array.isArray(v.idKhachHangList) && v.idKhachHangList.length > 0) {
-    return v.idKhachHangList.some(id => String(id) === String(customerId))
+    if (v.idKhachHangList.some(id => String(id) === String(customerId))) return true
+  }
+  if (customerName && Array.isArray(v.danhSachKhachHang) && v.danhSachKhachHang.length > 0) {
+    const cName = String(customerName).trim().toLowerCase()
+    if (v.danhSachKhachHang.some(name => String(name).trim().toLowerCase() === cName)) return true
   }
   return false
+}
+
+// Helper: Tính mức tiền giảm giá thực tế của một voucher dựa vào tổng giá trị đơn hàng
+function calculateDiscountAmount(v, subtotal) {
+  if (!v || subtotal <= 0) return 0
+  if (v.hoaDonToiThieu && subtotal < Number(v.hoaDonToiThieu)) return 0
+
+  if (isPercentVoucher(v)) {
+    const percent = Number(v.giaTriGiamGia || 0)
+    let amount = (subtotal * percent) / 100
+    if (v.giamToiDa && amount > Number(v.giamToiDa)) {
+      amount = Number(v.giamToiDa)
+    }
+    return Math.min(amount, subtotal)
+  } else {
+    return Math.min(Number(v.giaTriGiamGia || 0), subtotal)
+  }
+}
+
+// Helper: Tìm phiếu giảm giá cá nhân hợp lệ mang lại mức giảm cao nhất cho khách hàng
+function findBestPersonalVoucherForCustomer(customerId, customerName, subtotal) {
+  if (!customerId) return null
+  const now = new Date()
+
+  const eligible = availableVouchers.value.filter(v => {
+    // Phải là phiếu cá nhân
+    if (!isVoucherPersonal(v)) return false
+    // Phải thuộc quyền sở hữu của khách hàng này
+    if (!isVoucherForCustomer(v, customerId, customerName)) return false
+    // Trạng thái đang hoạt động (1 hoặc null)
+    if (v.trangThai != null && Number(v.trangThai) !== 1) return false
+    // Còn số lượt sử dụng
+    if (v.soLuongSuDung != null && Number(v.soLuongSuDung) <= 0) return false
+    // Còn hạn sử dụng
+    if (v.ngayBatDau && new Date(v.ngayBatDau) > now) return false
+    if (v.ngayKetThuc && new Date(v.ngayKetThuc) < now) return false
+    // Thỏa mãn giá trị đơn hàng tối thiểu
+    if (v.hoaDonToiThieu && Number(subtotal) < Number(v.hoaDonToiThieu)) return false
+
+    return true
+  })
+
+  if (eligible.length === 0) return null
+
+  // Sắp xếp ưu tiên: mức giảm cao nhất
+  eligible.sort((a, b) => {
+    const discountA = calculateDiscountAmount(a, subtotal)
+    const discountB = calculateDiscountAmount(b, subtotal)
+    if (discountB !== discountA) {
+      return discountB - discountA
+    }
+    return (Number(b.id) || 0) - (Number(a.id) || 0)
+  })
+
+  return eligible[0]
+}
+
+function autoApplyBestPersonalVoucher(silent = false) {
+  if (!currentInvoice.value) return
+  const custId = currentInvoice.value.customerId
+  if (!custId) return
+
+  const subtotal = totalAmount.value
+  const bestVoucher = findBestPersonalVoucherForCustomer(custId, currentInvoice.value.customerName, subtotal)
+
+  if (bestVoucher) {
+    if (!currentInvoice.value.voucher || currentInvoice.value.voucher.id !== bestVoucher.id) {
+      currentInvoice.value.voucher = bestVoucher
+      const discount = calculateDiscountAmount(bestVoucher, subtotal)
+      if (!silent) {
+        showToast(`Tự động áp dụng phiếu cá nhân "${bestVoucher.maPhieuGiamGia}" (-${formatMoney(discount)})!`)
+      }
+    }
+  }
 }
 
 const fetchVouchers = async () => {
@@ -884,7 +971,7 @@ const fetchVouchers = async () => {
       if (inv.voucher && inv.voucher.id) {
         const fullV = availableVouchers.value.find(v => v.id === inv.voucher.id)
         if (fullV) {
-          if (isVoucherPersonal(fullV) && !isVoucherForCustomer(fullV, inv.customerId)) {
+          if (isVoucherPersonal(fullV) && !isVoucherForCustomer(fullV, inv.customerId, inv.customerName)) {
             inv.voucher = null
           } else {
             inv.voucher = fullV
@@ -899,7 +986,7 @@ const fetchVouchers = async () => {
 }
 
 // 1 = Giảm theo % | 2 = Giảm theo tiền mặt (VNĐ)
-const isPercentVoucher = (v) => {
+function isPercentVoucher(v) {
   if (!v) return false
   const loai = Number(v.loaiPhieuGiamGia)
   if (loai === 1) return true
@@ -908,7 +995,7 @@ const isPercentVoucher = (v) => {
   return val > 0 && val <= 100
 }
 
-const formatVoucherDiscountLabel = (v) => {
+function formatVoucherDiscountLabel(v) {
   if (isPercentVoucher(v)) {
     return `-${v.giaTriGiamGia}%`
   }
@@ -929,18 +1016,20 @@ const personalVouchersCount = computed(() => personalVouchers.value.length)
 const customerPersonalVouchers = computed(() => {
   const custId = currentInvoice.value?.customerId
   if (!custId) return []
-  return availableVouchers.value.filter(v => isVoucherPersonal(v) && isVoucherForCustomer(v, custId))
+  return availableVouchers.value.filter(v => isVoucherPersonal(v) && isVoucherForCustomer(v, custId, currentInvoice.value?.customerName))
 })
 const customerPersonalCount = computed(() => customerPersonalVouchers.value.length)
 
-// Danh sách voucher hiển thị trong combobox (phân loại rõ ràng [Công khai] và [Cá nhân])
+// Danh sách voucher hiển thị trong combobox:
+// - Khi KHÔNG chọn khách hàng: TUYỆT ĐỐI CHỈ hiển thị các phiếu giảm giá CÔNG KHAI.
+// - Khi ĐÃ chọn khách hàng: Chỉ hiển thị phiếu cá nhân thuộc khách hàng đó + phiếu công khai.
 const formattedVouchers = computed(() => {
   const currentCustId = currentInvoice.value?.customerId
+  const currentCustName = currentInvoice.value?.customerName
 
   if (currentCustId) {
     const personalForCust = []
     const publicList = []
-    const otherPersonal = []
 
     availableVouchers.value.forEach(v => {
       if (!isVoucherPersonal(v)) {
@@ -948,23 +1037,19 @@ const formattedVouchers = computed(() => {
           id: v.id,
           label: `[Công khai] ${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
         })
-      } else if (isVoucherForCustomer(v, currentCustId)) {
+      } else if (isVoucherForCustomer(v, currentCustId, currentCustName)) {
         personalForCust.push({
           id: v.id,
           label: `[Cá nhân] ${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
         })
-      } else {
-        otherPersonal.push({
-          id: v.id,
-          label: `[Cá nhân - KH khác] ${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
-        })
       }
+      // Tuyệt đối KHÔNG hiển thị phiếu cá nhân của khách hàng khác
     })
 
-    return [...personalForCust, ...publicList, ...otherPersonal]
+    return [...personalForCust, ...publicList]
   } else {
+    // Khi chưa chọn khách hàng (Khách lẻ / vãng lai): CHỈ hiển thị phiếu CÔNG KHAI
     const publicList = []
-    const personalList = []
 
     availableVouchers.value.forEach(v => {
       if (!isVoucherPersonal(v)) {
@@ -972,15 +1057,10 @@ const formattedVouchers = computed(() => {
           id: v.id,
           label: `[Công khai] ${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
         })
-      } else {
-        personalList.push({
-          id: v.id,
-          label: `[Cá nhân - Cần chọn KH] ${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
-        })
       }
     })
 
-    return [...publicList, ...personalList]
+    return publicList
   }
 })
 
@@ -1011,7 +1091,7 @@ const selectedVoucherId = computed({
         return
       }
 
-      if (!isVoucherForCustomer(found, currentInvoice.value.customerId)) {
+      if (!isVoucherForCustomer(found, currentInvoice.value.customerId, currentInvoice.value.customerName)) {
         const targetNames = (found.danhSachKhachHang && found.danhSachKhachHang.length > 0)
           ? found.danhSachKhachHang.join(', ')
           : 'khách hàng khác'
@@ -1039,24 +1119,11 @@ const voucherDiscount = computed(() => {
   const subtotal = totalAmount.value
 
   // Nếu là phiếu cá nhân mà khách hàng không hợp lệ -> không tính giảm giá
-  if (isVoucherPersonal(v) && !isVoucherForCustomer(v, currentInvoice.value.customerId)) {
+  if (isVoucherPersonal(v) && !isVoucherForCustomer(v, currentInvoice.value.customerId, currentInvoice.value.customerName)) {
     return 0
   }
 
-  if (v.hoaDonToiThieu && subtotal < Number(v.hoaDonToiThieu)) {
-    return 0
-  }
-
-  if (isPercentVoucher(v)) {
-    const percent = Number(v.giaTriGiamGia || 0)
-    let amount = (subtotal * percent) / 100
-    if (v.giamToiDa && amount > Number(v.giamToiDa)) {
-      amount = Number(v.giamToiDa)
-    }
-    return Math.min(amount, subtotal)
-  } else {
-    return Math.min(Number(v.giaTriGiamGia || 0), subtotal)
-  }
+  return calculateDiscountAmount(v, subtotal)
 })
 
 /* ==========================================================
@@ -1249,7 +1316,7 @@ watch(
     if (newCustId === oldCustId) return
     const curVoucher = currentInvoice.value?.voucher
     if (curVoucher && isVoucherPersonal(curVoucher)) {
-      if (!newCustId || !isVoucherForCustomer(curVoucher, newCustId)) {
+      if (!newCustId || !isVoucherForCustomer(curVoucher, newCustId, currentInvoice.value?.customerName)) {
         currentInvoice.value.voucher = null
         if (!newCustId) {
           showToast(`Đã hủy phiếu giảm giá cá nhân "${curVoucher.maPhieuGiamGia}" vì chuyển sang Khách lẻ!`, 'warning')
@@ -1258,10 +1325,31 @@ watch(
         }
       }
     }
+    // Nếu chọn khách hàng mới và chưa có voucher, tự động áp dụng phiếu cá nhân tốt nhất
+    if (newCustId && !currentInvoice.value?.voucher) {
+      autoApplyBestPersonalVoucher(false)
+    }
   }
 )
 
-const formatMoney = (val) => {
+// Khi thêm hoặc bớt sản phẩm làm thay đổi tổng tiền:
+// Nếu đơn hàng có khách hàng và chưa có voucher, tự động áp dụng phiếu cá nhân thỏa mãn điều kiện tối thiểu
+watch(totalAmount, (newSubtotal) => {
+  if (!currentInvoice.value) return
+  const custId = currentInvoice.value.customerId
+  if (custId && newSubtotal > 0) {
+    if (!currentInvoice.value.voucher) {
+      const best = findBestPersonalVoucherForCustomer(custId, currentInvoice.value.customerName, newSubtotal)
+      if (best) {
+        currentInvoice.value.voucher = best
+        const discount = calculateDiscountAmount(best, newSubtotal)
+        showToast(`Đơn hàng đủ điều kiện tối thiểu, tự động áp dụng phiếu cá nhân "${best.maPhieuGiamGia}" (-${formatMoney(discount)})!`)
+      }
+    }
+  }
+})
+
+function formatMoney(val) {
   return Number(val || 0).toLocaleString('vi-VN') + ' đ'
 }
 
@@ -1279,7 +1367,7 @@ const handleCheckout = async () => {
   // Kiểm tra tính hợp lệ của phiếu giảm giá trước khi thanh toán
   if (currentInvoice.value.voucher) {
     const v = currentInvoice.value.voucher
-    if (isVoucherPersonal(v) && !isVoucherForCustomer(v, currentInvoice.value.customerId)) {
+    if (isVoucherPersonal(v) && !isVoucherForCustomer(v, currentInvoice.value.customerId, currentInvoice.value.customerName)) {
       showToast(`Phiếu giảm giá "${v.maPhieuGiamGia}" là phiếu CÁ NHÂN không thuộc khách hàng này!`, 'warning')
       return
     }
@@ -1757,11 +1845,12 @@ onMounted(async () => {
                   {{ publicVouchersCount }} công khai
                 </span>
                 <span
+                  v-if="currentInvoice.customerId"
                   class="badge-v-stat personal-stat"
                   :class="{ 'has-personal': customerPersonalCount > 0 }"
-                  :title="currentInvoice.customerId ? `Có ${customerPersonalCount} phiếu cá nhân của khách hàng này` : `Có ${personalVouchersCount} phiếu cá nhân trong hệ thống`"
+                  :title="`Có ${customerPersonalCount} phiếu cá nhân của khách hàng này`"
                 >
-                  {{ currentInvoice.customerId ? `${customerPersonalCount} của KH` : `${personalVouchersCount} cá nhân` }}
+                  {{ `${customerPersonalCount} của KH` }}
                 </span>
               </div>
             </div>
@@ -1808,10 +1897,6 @@ onMounted(async () => {
             >
               Đơn hàng tối thiểu {{ formatMoney(currentInvoice.voucher.hoaDonToiThieu) }} để áp dụng voucher này (Hiện tại: {{ formatMoney(totalAmount) }})
             </small>
-
-            <div v-if="!currentInvoice.customerId && personalVouchersCount > 0" class="voucher-guest-hint">
-              <em>Đang là Khách lẻ. Hãy chọn khách hàng để mở khóa các phiếu giảm giá cá nhân.</em>
-            </div>
           </div>
 
           <!-- Dòng tóm tắt tiền tệ -->

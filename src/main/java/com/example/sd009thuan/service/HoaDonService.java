@@ -834,17 +834,62 @@ public class HoaDonService {
         return updateTrangThaiThanhToan(hoaDon.getId(), trangThaiThanhToan, ghiChu);
     }
 
-    // Xóa hóa đơn theo ID
+    // Kiểm tra hóa đơn tồn tại theo ID
+    public boolean existsById(Long id) {
+        return id != null && hoaDonRepository.existsById(id);
+    }
+
+    // Xóa hóa đơn theo ID kèm các dữ liệu chi tiết, lịch sử, hình thức thanh toán liên quan
     @Transactional
     public void delete(Long id) {
+        if (id == null) return;
+        Optional<HoaDon> opt = hoaDonRepository.findById(id);
+        if (opt.isEmpty()) {
+            throw new RuntimeException("Không tìm thấy hóa đơn có ID: " + id);
+        }
+        HoaDon hoaDon = opt.get();
 
-        if (!hoaDonRepository.existsById(id)) {
-            throw new RuntimeException(
-                    "Không tìm thấy hóa đơn có ID: " + id
-            );
+        // 1. Xóa chi tiết hóa đơn
+        try {
+            List<ChiTietHoaDon> chiTiets = chiTietHoaDonRepository.findByHoaDonIdSimple(id);
+            if (chiTiets != null && !chiTiets.isEmpty()) {
+                chiTietHoaDonRepository.deleteAll(chiTiets);
+                chiTietHoaDonRepository.flush();
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi khi xóa ChiTietHoaDon: " + e.getMessage());
         }
 
-        hoaDonRepository.deleteById(id);
+        // 2. Xóa lịch sử hóa đơn
+        try {
+            List<LichSuHoaDon> lichSus = lichSuHoaDonRepository.findByIdHoaDon_IdOrderByThoiGianDesc(id);
+            if (lichSus != null && !lichSus.isEmpty()) {
+                lichSuHoaDonRepository.deleteAll(lichSus);
+                lichSuHoaDonRepository.flush();
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi khi xóa LichSuHoaDon: " + e.getMessage());
+        }
+
+        // 3. Xóa hình thức thanh toán
+        try {
+            List<HinhThucThanhToan> hinhThucs = hinhThucThanhToanRepository.findByIdHoaDon_Id(id);
+            if (hinhThucs != null && !hinhThucs.isEmpty()) {
+                hinhThucThanhToanRepository.deleteAll(hinhThucs);
+                hinhThucThanhToanRepository.flush();
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi khi xóa HinhThucThanhToan: " + e.getMessage());
+        }
+
+        // 4. Xóa tham chiếu bộ nhớ nếu có
+        if (hoaDon.getChiTietHoaDons() != null) hoaDon.getChiTietHoaDons().clear();
+        if (hoaDon.getLichSuHoaDons() != null) hoaDon.getLichSuHoaDons().clear();
+        if (hoaDon.getHinhThucThanhToan() != null) hoaDon.getHinhThucThanhToan().clear();
+
+        // 5. Xóa hóa đơn
+        hoaDonRepository.delete(hoaDon);
+        hoaDonRepository.flush();
     }
 
     // Tạo và xử lý đơn hàng POS tại quầy kèm lưu sản phẩm chi tiết, trừ tồn kho và ghi nhận thanh toán
