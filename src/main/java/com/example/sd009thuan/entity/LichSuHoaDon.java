@@ -29,13 +29,18 @@ public class LichSuHoaDon {
     @JoinColumn(name = "id_hoa_don", nullable = false)
     private HoaDon idHoaDon;
 
-    @Transient
-    private String hanhDong;
+    @Column(name = "trang_thai")
+    private Integer trangThai;
 
     @NotNull
     @ColumnDefault("getdate()")
     @Column(name = "thoi_gian", nullable = false)
     private Instant thoiGian;
+
+    @Nationalized
+    @Lob
+    @Column(name = "ghi_chu")
+    private String ghiChu;
 
     @Size(max = 100)
     @Nationalized
@@ -46,17 +51,35 @@ public class LichSuHoaDon {
     @Nationalized
     @Column(name = "vai_tro_nguoi_thuc_hien", length = 100)
     private String vaiTroNguoiThucHien;
-    @Column(name = "trang_thai")
-    private Integer trangThai;
-    @Nationalized
-    @Lob
-    @Column(name = "ghi_chu")
-    private String ghiChu;
+
+    @Transient
+    private String hanhDong;
 
     public String getHanhDong() {
         if (hanhDong != null && !hanhDong.trim().isEmpty()) {
             return hanhDong;
         }
         return ghiChu != null && !ghiChu.trim().isEmpty() ? ghiChu : "Thao tác đơn hàng";
+    }
+
+    public void setHanhDong(String hanhDong) {
+        this.hanhDong = hanhDong;
+        if (this.ghiChu == null || this.ghiChu.trim().isEmpty()) {
+            this.ghiChu = hanhDong;
+        }
+    }
+
+    public String getGhiChu() {
+        if (ghiChu != null && !ghiChu.trim().isEmpty()) {
+            return ghiChu;
+        }
+        return hanhDong != null && !hanhDong.trim().isEmpty() ? hanhDong : "Thao tác đơn hàng";
+    }
+
+    public void setGhiChu(String ghiChu) {
+        this.ghiChu = ghiChu;
+        if (this.hanhDong == null || this.hanhDong.trim().isEmpty()) {
+            this.hanhDong = ghiChu;
+        }
     }
 }

@@ -3,7 +3,18 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
+import QrScannerModal from '@/components/QrScannerModal.vue'
+
 const router = useRouter()
+
+const showQrScanner = ref(false)
+
+const handleQrScanSuccess = (scannedCode) => {
+  showQrScanner.value = false
+  if (!scannedCode) return
+  showToast(`Đã nhận diện hóa đơn: ${scannedCode}`)
+  router.push(`/hoa-don/${encodeURIComponent(scannedCode)}`)
+}
 
 const xemChiTiet = (maHoaDon) => {
   if (!maHoaDon) {
@@ -317,6 +328,17 @@ const extractInvoiceArray = (resData) => {
   return []
 }
 
+// Kiểm tra hóa đơn chờ tại quầy (không hiển thị trong danh sách hóa đơn)
+const isWaitingInvoice = (item) => {
+  if (!item || typeof item !== 'object') return false
+  const isStoreWaiting = Number(item.loaiDon) === 1
+    && Number(item.trangThai) === 1
+    && (item.trangThaiThanhToan == null || Number(item.trangThaiThanhToan) === 0)
+  const note = String(item.ghiChu || '').toLowerCase()
+  const isWaitingNote = note.includes('hóa đơn chờ') || note.includes('hoa don cho')
+  return isStoreWaiting || isWaitingNote
+}
+
 const loadHoaDon = async () => {
   try {
     loading.value = true
@@ -341,8 +363,17 @@ const loadHoaDon = async () => {
       return
     }
 
-    const invoicePromises = dataList.map(async (item) => {
-      if (!item || typeof item !== 'object') return null
+    // Lọc bỏ toàn bộ hóa đơn chờ tại quầy khỏi danh sách hóa đơn
+    const validDataList = dataList.filter(item => !isWaitingInvoice(item))
+
+    if (validDataList.length === 0) {
+      invoiceList.value = []
+      currentPage.value = 1
+      return
+    }
+
+    const invoicePromises = validDataList.map(async (item) => {
+      if (!item || typeof item !== 'object' || isWaitingInvoice(item)) return null
 
       try {
         // 1. Tên khách hàng: ưu tiên lấy từ bảng khóa ngoại KhachHang
@@ -491,7 +522,15 @@ const loadHoaDon = async () => {
           createDate: formatDate(item.ngayTao),
           rawDate: item.ngayTao,
           type: Number(item.loaiDon) === 1 ? 'Tại cửa hàng' : 'Online',
-          status: Number(item.trangThai || 1),
+          status: (() => {
+            let st = Number(item.trangThaiHienThi || item.trangThai || 1)
+            const n = String(item.ghiChu || '').toLowerCase()
+            if (st === 6) {
+              if (n.includes('tối đa 3 lần') || n.includes('hủy đơn do giao lại')) return 6
+              if (n.includes('giao hàng thất bại')) return 7
+            }
+            return st
+          })(),
           paymentStatus: Number(item.trangThaiThanhToan ?? 0),
           note: item.ghiChu || ''
         }
@@ -667,6 +706,19 @@ onBeforeUnmount(() => {
                 placeholder="Tìm mã HĐ, tên KH, SĐT..."
                 class="form-control input-has-prefix"
             />
+            <button
+              class="btn-qr-inline"
+              type="button"
+              title="Quét QR Hóa Đơn"
+              @click="showQrScanner = true"
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -741,6 +793,16 @@ onBeforeUnmount(() => {
       <!-- DÒNG CUỐI CÙNG: CỤM NÚT THAO TÁC -->
       <div class="filter-actions-bottom">
         <div class="actions-right">
+          <button class="btn-scan-qr" type="button" @click="showQrScanner = true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            Quét QR Hóa Đơn
+          </button>
+
           <button
               class="btn-refresh"
               type="button"
@@ -831,10 +893,15 @@ onBeforeUnmount(() => {
               <div class="time-sub">{{ item.createTime }}</div>
             </td>
             <td>
+              <div class="status-cell-wrap">
                 <span class="badge-status" :class="getStatusClass(item.status)">
                   <span class="status-dot"></span>
                   {{ getStatusText(item.status) }}
                 </span>
+                <span v-if="item.type !== 'Tại cửa hàng' && Number(item.status) === 1" class="badge-unprinted-list" title="Đơn online chờ xác nhận là chưa in hóa đơn">
+                  Chưa in HĐ
+                </span>
+              </div>
             </td>
             <td>
                 <span class="badge-payment" :class="getPaymentClass(item.paymentStatus)">
@@ -895,6 +962,12 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+    <!-- Modal Quét QR Hóa Đơn -->
+    <QrScannerModal
+      :show="showQrScanner"
+      @close="showQrScanner = false"
+      @scan-success="handleQrScanSuccess"
+    />
   </div>
 </template>
 
@@ -1103,8 +1176,55 @@ onBeforeUnmount(() => {
   z-index: 1;
 }
 
+.btn-scan-qr {
+  background-color: #f0f7ff;
+  color: #0369a1;
+  border: 1.5px solid #bae6fd;
+  height: 35px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.2s ease;
+}
+
+.btn-scan-qr:hover {
+  background-color: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0284c7;
+  transform: translateY(-1px);
+}
+
+.btn-qr-inline {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #3e5c76;
+  padding: 5px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  z-index: 2;
+}
+
+.btn-qr-inline:hover {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
 .input-has-prefix {
   padding-left: 2.35rem !important;
+  padding-right: 2.5rem !important;
 }
 
 .select-combobox {
@@ -1241,6 +1361,25 @@ onBeforeUnmount(() => {
   border-radius: 4px;
   font-size: 0.76rem;
   font-weight: 600;
+}
+
+.status-cell-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.badge-unprinted-list {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background-color: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  white-space: nowrap;
 }
 
 .badge-status {

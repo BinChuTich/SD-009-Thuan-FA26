@@ -163,6 +163,29 @@ public class HoaDon {
     @Lob
     @Column(name = "ghi_chu")
     private String ghiChu;
+
+    // Email nhận thông báo / xác nhận đơn (Transient - không lưu vào bảng hoa_don)
+    @Transient
+    private String email;
+
+    @JsonProperty("emailKhachHang")
+    public String getEmailKhachHang() {
+        if (this.email != null && !this.email.trim().isEmpty()) {
+            return this.email.trim();
+        }
+        if (idKhachHang != null && idKhachHang.getEmail() != null && !idKhachHang.getEmail().trim().isEmpty()) {
+            return idKhachHang.getEmail().trim();
+        }
+        return null;
+    }
+
+    public String getEmail() {
+        return this.email != null ? this.email : getEmailKhachHang();
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
     // Chi tiết hóa đơn
     @JsonIgnore
     @OneToMany(mappedBy = "idHoaDon")
@@ -198,26 +221,48 @@ public class HoaDon {
 
     @JsonProperty("tenKhachHangHienThi")
     public String getTenKhachHangHienThi() {
-        if (idKhachHang != null && idKhachHang.getTenKhachHang() != null && !idKhachHang.getTenKhachHang().trim().isEmpty()) {
-            return idKhachHang.getTenKhachHang();
-        }
         if (tenKhachHang != null && !tenKhachHang.trim().isEmpty()) {
             return tenKhachHang;
+        }
+        if (idKhachHang != null && idKhachHang.getTenKhachHang() != null && !idKhachHang.getTenKhachHang().trim().isEmpty()) {
+            return idKhachHang.getTenKhachHang();
         }
         return "Khách lẻ";
     }
 
     @JsonProperty("soDienThoaiHienThi")
     public String getSoDienThoaiHienThi() {
+        if (soDienThoaiKhachHang != null && !soDienThoaiKhachHang.trim().isEmpty()) {
+            return soDienThoaiKhachHang;
+        }
         if (idKhachHang != null && idKhachHang.getSoDienThoai() != null && !idKhachHang.getSoDienThoai().trim().isEmpty()) {
             return idKhachHang.getSoDienThoai();
         }
-        return soDienThoaiKhachHang;
+        return null;
     }
 
     @JsonProperty("tenPhieuGiamGia")
     public String getTenPhieuGiamGia() {
         return idPhieuGiamGia != null ? idPhieuGiamGia.getTenPhieuGiamGia() : null;
+    }
+
+    @JsonProperty("maPhieuGiamGia")
+    public String getMaPhieuGiamGia() {
+        return idPhieuGiamGia != null ? idPhieuGiamGia.getMaPhieuGiamGia() : null;
+    }
+
+    @JsonProperty("trangThaiHienThi")
+    public Integer getTrangThaiHienThi() {
+        if (Integer.valueOf(6).equals(this.trangThai) && this.ghiChu != null) {
+            String lower = this.ghiChu.toLowerCase();
+            if (lower.contains("tối đa 3 lần") || lower.contains("hủy đơn do giao lại")) {
+                return 6;
+            }
+            if (lower.contains("giao hàng thất bại")) {
+                return 7;
+            }
+        }
+        return this.trangThai;
     }
 
     @com.fasterxml.jackson.annotation.JsonSetter("idPhieuGiamGia")
