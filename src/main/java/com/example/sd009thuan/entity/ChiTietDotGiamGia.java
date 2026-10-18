@@ -14,7 +14,6 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 @Entity
 @Table(name = "chi_tiet_dot_giam_gia")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})

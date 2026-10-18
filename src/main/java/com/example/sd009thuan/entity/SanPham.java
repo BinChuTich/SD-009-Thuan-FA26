@@ -17,8 +17,6 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
-@Builder
 @Entity
 @Table(name = "san_pham")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})

@@ -64,3 +64,4 @@ public class AdministrativeRegionServiceTest {
         assertEquals(2, res.errors().size());
     }
 }
+

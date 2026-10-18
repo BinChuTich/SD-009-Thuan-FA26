@@ -3,17 +3,13 @@ package com.example.sd009thuan.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.util.List;
 
 @Data
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class SanPhamRequest {
 
     @Size(max = 50, message = "Mã sản phẩm không được vượt quá 50 ký tự")
@@ -38,4 +34,25 @@ public class SanPhamRequest {
     private Integer trangThai;
     private String nguoiThaoTac;
     private List<String> hinhAnhs;
+
+    public SanPhamRequest() {
+        super();
+    }
+
+    public SanPhamRequest(String maSanPham, String tenSanPham, String moTa, Long idXuatXu, Long idChatLieu, Long idThuongHieu, Long idDanhMuc, Long idCoAo, Long idTayAo, Long idHoaTiet, Integer trangThai, String nguoiThaoTac, List<String> hinhAnhs) {
+        super();
+        this.maSanPham = maSanPham;
+        this.tenSanPham = tenSanPham;
+        this.moTa = moTa;
+        this.idXuatXu = idXuatXu;
+        this.idChatLieu = idChatLieu;
+        this.idThuongHieu = idThuongHieu;
+        this.idDanhMuc = idDanhMuc;
+        this.idCoAo = idCoAo;
+        this.idTayAo = idTayAo;
+        this.idHoaTiet = idHoaTiet;
+        this.trangThai = trangThai;
+        this.nguoiThaoTac = nguoiThaoTac;
+        this.hinhAnhs = hinhAnhs;
+    }
 }

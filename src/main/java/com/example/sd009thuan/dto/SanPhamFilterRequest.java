@@ -1,16 +1,12 @@
 package com.example.sd009thuan.dto;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
 @Data
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class SanPhamFilterRequest {
     private String keyword;
     private Long idThuongHieu;
@@ -38,6 +34,35 @@ public class SanPhamFilterRequest {
 
     @Builder.Default
     private String sortDir = "desc";
+
+    public SanPhamFilterRequest() {
+        super();
+        this.page = 0;
+        this.size = 10;
+        this.sortBy = "id";
+        this.sortDir = "desc";
+    }
+
+    public SanPhamFilterRequest(String keyword, Long idThuongHieu, Long idXuatXu, Long idDanhMuc, Long idChatLieu, Long idCoAo, Long idTayAo, Long idHoaTiet, Long idKichCo, Long idMauSac, Integer trangThai, BigDecimal minGia, BigDecimal maxGia, int page, int size, String sortBy, String sortDir) {
+        super();
+        this.keyword = keyword;
+        this.idThuongHieu = idThuongHieu;
+        this.idXuatXu = idXuatXu;
+        this.idDanhMuc = idDanhMuc;
+        this.idChatLieu = idChatLieu;
+        this.idCoAo = idCoAo;
+        this.idTayAo = idTayAo;
+        this.idHoaTiet = idHoaTiet;
+        this.idKichCo = idKichCo;
+        this.idMauSac = idMauSac;
+        this.trangThai = trangThai;
+        this.minGia = minGia;
+        this.maxGia = maxGia;
+        this.page = page;
+        this.size = size > 0 ? size : 10;
+        this.sortBy = (sortBy != null && !sortBy.trim().isEmpty()) ? sortBy : "id";
+        this.sortDir = (sortDir != null && !sortDir.trim().isEmpty()) ? sortDir : "desc";
+    }
 
     public String getSortBy() {
         return (sortBy != null && !sortBy.trim().isEmpty()) ? sortBy : "id";

@@ -15,8 +15,6 @@ import org.hibernate.annotations.Nationalized;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
-@Builder
 @Entity
 @Table(name = "hinh_anh")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})

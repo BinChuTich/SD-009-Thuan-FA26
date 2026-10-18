@@ -1,17 +1,13 @@
 package com.example.sd009thuan.dto;
 
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
 @Data
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class ChiTietSanPhamRequest {
     private Long id;
 
@@ -47,4 +43,23 @@ public class ChiTietSanPhamRequest {
     private String anhDaiDien;
 
     private String hinhAnh;
+
+    public ChiTietSanPhamRequest() {
+        super();
+    }
+
+    public ChiTietSanPhamRequest(Long id, Long idSanPham, Long idKichCo, Long idMauSac, String maChiTietSanPham, Integer soLuong, BigDecimal giaBan, Integer trangThai, String nguoiThaoTac, String anhDaiDien, String hinhAnh) {
+        super();
+        this.id = id;
+        this.idSanPham = idSanPham;
+        this.idKichCo = idKichCo;
+        this.idMauSac = idMauSac;
+        this.maChiTietSanPham = maChiTietSanPham;
+        this.soLuong = soLuong;
+        this.giaBan = giaBan;
+        this.trangThai = trangThai;
+        this.nguoiThaoTac = nguoiThaoTac;
+        this.anhDaiDien = anhDaiDien;
+        this.hinhAnh = hinhAnh;
+    }
 }

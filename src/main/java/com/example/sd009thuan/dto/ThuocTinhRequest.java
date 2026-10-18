@@ -1,15 +1,11 @@
 package com.example.sd009thuan.dto;
 
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
 public class ThuocTinhRequest {
 
     @Size(max = 50, message = "Mã thuộc tính không được vượt quá 50 ký tự!")
@@ -26,4 +22,16 @@ public class ThuocTinhRequest {
     @Min(value = 0, message = "Trạng thái chỉ có thể là 0 (Ngừng dùng) hoặc 1 (Đang dùng)!")
     @Max(value = 1, message = "Trạng thái chỉ có thể là 0 (Ngừng dùng) hoặc 1 (Đang dùng)!")
     private Integer trangThai;
+
+    public ThuocTinhRequest() {
+        super();
+    }
+
+    public ThuocTinhRequest(String ma, String ten, String maHex, Integer trangThai) {
+        super();
+        this.ma = ma;
+        this.ten = ten;
+        this.maHex = maHex;
+        this.trangThai = trangThai;
+    }
 }
