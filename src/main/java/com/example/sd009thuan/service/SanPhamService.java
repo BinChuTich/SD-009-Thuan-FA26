@@ -210,7 +210,7 @@ public class SanPhamService {
                 && java.util.Objects.equals(spHoaTiet, idHoaTiet);
     }
 
-    private Optional<SanPham> findIdenticalProduct(
+    public Optional<SanPham> findIdenticalProduct(
             String tenSanPham,
             Long idDanhMuc,
             Long idThuongHieu,

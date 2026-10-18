@@ -1,15 +1,18 @@
 package com.example.sd009thuan.controller;
 
+import com.example.sd009thuan.dto.ExcelImportResult;
 import com.example.sd009thuan.dto.PageResponse;
 import com.example.sd009thuan.dto.SanPhamFilterRequest;
 import com.example.sd009thuan.dto.SanPhamRequest;
 import com.example.sd009thuan.dto.SanPhamResponse;
+import com.example.sd009thuan.service.ExcelImportService;
 import com.example.sd009thuan.service.SanPhamService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -19,9 +22,11 @@ import java.util.Map;
 public class SanPhamController {
 
     private final SanPhamService sanPhamService;
+    private final ExcelImportService excelImportService;
 
-    public SanPhamController(SanPhamService sanPhamService) {
+    public SanPhamController(SanPhamService sanPhamService, ExcelImportService excelImportService) {
         this.sanPhamService = sanPhamService;
+        this.excelImportService = excelImportService;
     }
 
     @GetMapping("/next-code")
@@ -62,7 +67,24 @@ public class SanPhamController {
                 .body(excelBytes);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/excel-template")
+    public ResponseEntity<byte[]> getExcelTemplate() {
+        byte[] bytes = excelImportService.generateProductTemplate();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Mau_Import_SanPham.xlsx")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(bytes);
+    }
+
+    @PostMapping(value = "/import-excel", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ExcelImportResult> importExcel(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "xacNhanGop", defaultValue = "false") boolean xacNhanGop
+    ) {
+        return ResponseEntity.ok(excelImportService.importProducts(file, xacNhanGop));
+    }
+
+    @GetMapping("/{id:\\d+}")
     public ResponseEntity<SanPhamResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(sanPhamService.getById(id));
     }
@@ -72,7 +94,7 @@ public class SanPhamController {
         return ResponseEntity.ok(sanPhamService.create(request));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{id:\\d+}")
     public ResponseEntity<SanPhamResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody SanPhamRequest request
@@ -80,7 +102,7 @@ public class SanPhamController {
         return ResponseEntity.ok(sanPhamService.update(id, request));
     }
 
-    @PatchMapping("/{id}/status")
+    @PatchMapping("/{id:\\d+}/status")
     public ResponseEntity<Void> changeStatus(
             @PathVariable Long id,
             @RequestParam Integer trangThai
@@ -89,7 +111,7 @@ public class SanPhamController {
         return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:\\d+}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         sanPhamService.delete(id);
         return ResponseEntity.ok().build();
