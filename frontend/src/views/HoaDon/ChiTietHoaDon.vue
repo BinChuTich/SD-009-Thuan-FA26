@@ -335,6 +335,55 @@ const voucherDisplayName = computed(() => {
   return name
 })
 
+// Danh sách chi tiết các khoản thanh toán (dành cho thanh toán kết hợp trên màn hình & mẫu in)
+const printSubTransactions = computed(() => {
+  const trans = invoiceData.value?.paymentHistory?.transactions
+  if (Array.isArray(trans) && trans.length > 1) {
+    // Sắp xếp chuyển khoản lên trước, tiền mặt phía sau giống ảnh mẫu
+    return [...trans]
+      .sort((a, b) => {
+        const isAck = a.method?.toLowerCase().includes('chuyển khoản') || a.method?.toLowerCase().includes('ngân hàng')
+        const isBck = b.method?.toLowerCase().includes('chuyển khoản') || b.method?.toLowerCase().includes('ngân hàng')
+        if (isAck && !isBck) return -1
+        if (!isAck && isBck) return 1
+        return 0
+      })
+      .map(t => {
+        let label = t.method || 'Thanh toán'
+        if (label.toLowerCase().includes('chuyển khoản') || label.toLowerCase().includes('ngân hàng')) {
+          label = 'Chuyển khoản'
+        } else if (label.toLowerCase().includes('tiền mặt')) {
+          label = 'Tiền mặt'
+        }
+        return {
+          id: t.id,
+          label,
+          amount: t.amount
+        }
+      })
+  }
+
+  // Fallback: nếu phương thức là Kết hợp mà danh sách chưa kịp load, trích xuất từ ghi chú
+  const method = String(invoiceData.value?.paymentHistory?.method || '')
+  const note = String(invoiceData.value?.ghiChu || invoiceData.value?.note || invoiceData.value?.paymentHistory?.description || '')
+  if (method.toLowerCase().includes('kết hợp') || note.toLowerCase().includes('thanh toán kết hợp')) {
+    const list = []
+    const transferMatch = note.match(/Chuyển khoản\s*[:\s]?\s*([0-9.,]+)/i)
+    const cashMatch = note.match(/Tiền mặt\s*[:\s]?\s*([0-9.,]+)/i)
+    if (transferMatch) {
+      const val = Number(transferMatch[1].replace(/[^0-9]/g, ''))
+      if (val > 0) list.push({ id: 'ck', label: 'Chuyển khoản', amount: val })
+    }
+    if (cashMatch) {
+      const val = Number(cashMatch[1].replace(/[^0-9]/g, ''))
+      if (val > 0) list.push({ id: 'cash', label: 'Tiền mặt', amount: val })
+    }
+    if (list.length > 0) return list
+  }
+
+  return []
+})
+
 const getString = (...values) => {
   for (let i = 0; i < values.length; i++) {
     const v = values[i]
@@ -1978,7 +2027,7 @@ onBeforeUnmount(() => {
 
             <div class="pay-method-title">{{ invoiceData.paymentHistory.method }}</div>
             <div class="pay-time-trans" v-if="invoiceData.paymentHistory.time">
-              <span class="time-clock-icon">🕒</span> {{ invoiceData.paymentHistory.time }}
+              {{ invoiceData.paymentHistory.time }}
             </div>
 
             <div class="pay-amount-row">
@@ -1987,13 +2036,9 @@ onBeforeUnmount(() => {
             </div>
 
             <!-- Chi tiết các khoản thanh toán khi thanh toán kết hợp -->
-            <div v-if="invoiceData.paymentHistory.transactions && invoiceData.paymentHistory.transactions.length > 1" class="multi-payment-subbox" style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #d6d0c3;">
-              <div v-for="t in invoiceData.paymentHistory.transactions" :key="t.id" class="multi-pay-line" style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; margin-bottom: 4px;">
-                <span style="color: #647074;">
-                  <span v-if="t.method.toLowerCase().includes('tiền mặt')">💵 Tiền mặt:</span>
-                  <span v-else-if="t.method.toLowerCase().includes('chuyển khoản') || t.method.toLowerCase().includes('ngân hàng')">🏦 Chuyển khoản:</span>
-                  <span v-else>{{ t.method }}:</span>
-                </span>
+            <div v-if="printSubTransactions.length > 0" class="multi-payment-subbox" style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #d6d0c3;">
+              <div v-for="t in printSubTransactions" :key="t.id || t.label" class="multi-pay-line" style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; margin-bottom: 4px;">
+                <span style="color: #647074;">{{ t.label }}:</span>
                 <span style="font-weight: 700; color: #333;">{{ formatMoney(t.amount) }}</span>
               </div>
             </div>
@@ -2180,7 +2225,7 @@ onBeforeUnmount(() => {
               <div class="log-detail-wrapper">
                 <div class="log-top-line">
                   <span class="log-action-text font-bold">{{ log.hanhDong || log.action }}</span>
-                  <span class="log-time-text">🕒 {{ formatDateTime(log.thoiGian) }}</span>
+                  <span class="log-time-text">{{ formatDateTime(log.thoiGian) }}</span>
                 </div>
                 <div class="log-sub-info">
                   <span>Người thực hiện: <strong>{{ log.nguoiThucHien }}</strong></span>
@@ -2362,21 +2407,22 @@ onBeforeUnmount(() => {
           <div class="print-box-title">PHƯƠNG THỨC THANH TOÁN</div>
           <div class="print-payment-layout">
             <div class="print-payment-details">
-              <div class="print-data-line">
-                <span class="p-label">Hình thức:</span>
-                <span class="p-val font-bold">
-                  {{ invoiceData.paymentHistory.method }}
-                  <template v-if="invoiceData.paymentHistory.transactions && invoiceData.paymentHistory.transactions.length > 1">
-                    <span style="font-size: 0.82rem; font-weight: 500; display: block; margin-top: 2px; color: #444;">
-                      (Tiền mặt: {{ formatMoney(invoiceData.paymentHistory.transactions.find(x => x.method.toLowerCase().includes('tiền mặt'))?.amount || 0) }} • CK: {{ formatMoney(invoiceData.paymentHistory.transactions.find(x => !x.method.toLowerCase().includes('tiền mặt'))?.amount || 0) }})
-                    </span>
-                  </template>
-                </span>
+              <div class="print-pay-method-name">{{ invoiceData.paymentHistory.method }}</div>
+              <div class="print-pay-timestamp" v-if="invoiceData.paymentHistory.time">{{ invoiceData.paymentHistory.time }}</div>
+
+              <div class="print-pay-line-row">
+                <span class="print-pay-txt">Số tiền</span>
+                <span class="print-pay-val-bold">{{ formatMoney(invoiceData.paymentHistory.amount || invoiceData.summary.totalPayment) }}</span>
               </div>
-              <div class="print-data-line">
-                <span class="p-label">Trạng thái:</span>
-                <span class="p-val font-bold text-success">{{ invoiceData.paymentHistory.status }}</span>
-              </div>
+
+              <!-- Chi tiết các khoản thanh toán con (Chuyển khoản / Tiền mặt) giống hệt ảnh mẫu -->
+              <template v-if="printSubTransactions.length > 0">
+                <div class="print-pay-dashed-line"></div>
+                <div v-for="t in printSubTransactions" :key="t.id || t.label" class="print-pay-subitem-row">
+                  <span class="print-pay-subitem-label">{{ t.label }}:</span>
+                  <span class="print-pay-subitem-val">{{ formatMoney(t.amount) }}</span>
+                </div>
+              </template>
             </div>
             <div class="print-payment-qr">
               <img
@@ -4214,15 +4260,71 @@ onBeforeUnmount(() => {
 .print-payment-layout {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 14px;
 }
 
 .print-payment-details {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
   flex: 1;
+}
+
+.print-pay-method-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e3a5f;
+  margin-bottom: 2px;
+}
+
+.print-pay-timestamp {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.print-pay-line-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.88rem;
+  color: #475569;
+  margin-bottom: 2px;
+}
+
+.print-pay-txt {
+  color: #475569;
+}
+
+.print-pay-val-bold {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.92rem;
+}
+
+.print-pay-dashed-line {
+  border-top: 1px dashed #cbd5e1;
+  margin: 6px 0;
+  width: 100%;
+}
+
+.print-pay-subitem-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.84rem;
+  color: #475569;
+  margin-bottom: 3px;
+}
+
+.print-pay-subitem-label {
+  color: #475569;
+}
+
+.print-pay-subitem-val {
+  font-weight: 700;
+  color: #0f172a;
 }
 
 .print-payment-qr {
@@ -4472,15 +4574,89 @@ onBeforeUnmount(() => {
   .print-payment-layout {
     display: flex !important;
     justify-content: space-between !important;
-    align-items: center !important;
+    align-items: flex-start !important;
     gap: 14px !important;
   }
 
   .print-payment-details {
     display: flex !important;
     flex-direction: column !important;
-    gap: 6px !important;
+    gap: 2px !important;
     flex: 1 !important;
+  }
+
+  .print-pay-method-name {
+    font-size: 1.05rem !important;
+    font-weight: 700 !important;
+    color: #1e3a5f !important;
+    margin-bottom: 2px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-pay-timestamp {
+    font-size: 0.82rem !important;
+    color: #64748b !important;
+    margin-bottom: 6px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-pay-line-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    font-size: 0.88rem !important;
+    color: #475569 !important;
+    margin-bottom: 2px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-pay-txt {
+    color: #475569 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-pay-val-bold {
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    font-size: 0.92rem !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-pay-dashed-line {
+    border-top: 1px dashed #cbd5e1 !important;
+    margin: 6px 0 !important;
+    width: 100% !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-pay-subitem-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    font-size: 0.84rem !important;
+    color: #475569 !important;
+    margin-bottom: 3px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-pay-subitem-label {
+    color: #475569 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-pay-subitem-val {
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .print-payment-qr {
