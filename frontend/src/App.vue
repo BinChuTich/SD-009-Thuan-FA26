@@ -1,6 +1,7 @@
 <script setup>
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import GlobalDialog from '@/components/GlobalDialog.vue'
+import { getCurrentUser, setCurrentUser, logout } from '@/utils/auth.js'
 
 const openMenus = ref({
   sanPham: true,
@@ -10,6 +11,42 @@ const openMenus = ref({
 
 const toggleMenu = (menu) => {
   openMenus.value[menu] = !openMenus.value[menu]
+}
+
+const currentUser = ref(getCurrentUser())
+const showUserDropdown = ref(false)
+
+function onAuthChanged(e) {
+  currentUser.value = e.detail
+}
+
+onMounted(() => {
+  currentUser.value = getCurrentUser()
+  window.addEventListener('auth-changed', onAuthChanged)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('auth-changed', onAuthChanged)
+})
+
+function handleLogout() {
+  logout()
+  showUserDropdown.value = false
+}
+
+function handleLoginAdmin() {
+  const defaultAdmin = {
+    id: 1,
+    maNhanVien: 'NV001',
+    tenNhanVien: 'Nguyễn Văn Admin',
+    tenTaiKhoan: 'admin',
+    email: 'admin@ffshirt.com',
+    soDienThoai: '0900000001',
+    role: 'Quản trị viên',
+    trangThai: 1
+  }
+  setCurrentUser(defaultAdmin)
+  showUserDropdown.value = false
 }
 </script>
 
@@ -192,13 +229,43 @@ const toggleMenu = (menu) => {
     <main class="main-content">
       <header class="top-header">
         <div class="header-right">
-          <div class="admin-badge">
-            <div class="admin-avatar">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-              </svg>
+          <!-- Người dùng đang đăng nhập -->
+          <div v-if="currentUser" class="user-profile-menu">
+            <div class="admin-badge" @click="showUserDropdown = !showUserDropdown" title="Tài khoản đang đăng nhập">
+              <div class="admin-avatar">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+              </div>
+              <div class="admin-info-text">
+                <span class="admin-name">{{ currentUser.tenNhanVien || currentUser.tenTaiKhoan || 'Admin' }}</span>
+                <span class="admin-role">{{ currentUser.role || 'Quản trị viên' }}</span>
+              </div>
+              <span class="dropdown-caret" :class="{ open: showUserDropdown }">▾</span>
             </div>
-            <span class="admin-name">Admin</span>
+
+            <!-- Menu dropdown cá nhân -->
+            <div v-if="showUserDropdown" class="user-dropdown-popover">
+              <div class="popover-user-detail">
+                <strong class="popover-name">{{ currentUser.tenNhanVien }}</strong>
+                <small class="popover-email">{{ currentUser.email || 'Chưa có email' }}</small>
+                <div class="popover-code-badge">Mã NV: {{ currentUser.maNhanVien || '-' }}</div>
+              </div>
+              <hr class="popover-divider" />
+              <button type="button" class="btn-popover-logout" @click="handleLogout">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Đăng xuất
+              </button>
+            </div>
+          </div>
+
+          <!-- Trạng thái chưa đăng nhập / đã đăng xuất -->
+          <div v-else class="logged-out-header-box">
+            <button class="btn-re-login" @click="handleLoginAdmin">Đăng nhập Quản trị viên</button>
           </div>
         </div>
       </header>
@@ -207,6 +274,27 @@ const toggleMenu = (menu) => {
         <router-view />
       </div>
     </main>
+
+    <!-- Overlay khi bị đăng xuất hoặc tài khoản bị khóa -->
+    <div v-if="!currentUser" class="logged-out-modal-overlay">
+      <div class="logged-out-modal-card">
+        <div class="logged-out-icon-wrap">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </div>
+        <h3 class="logged-out-title">Bạn đã đăng xuất khỏi hệ thống</h3>
+        <p class="logged-out-desc">
+          Tài khoản của bạn đã được chuyển sang trạng thái ngừng hoạt động hoặc phiên làm việc đã kết thúc.
+          Vui lòng đăng nhập lại để tiếp tục sử dụng hệ thống!
+        </p>
+        <button class="btn-relogin-action" @click="handleLoginAdmin">
+          Đăng nhập lại ngay (Quản trị viên)
+        </button>
+      </div>
+    </div>
+
     <GlobalDialog />
   </div>
 </template>
@@ -470,17 +558,22 @@ const toggleMenu = (menu) => {
   align-items: center;
 }
 
+.user-profile-menu {
+  position: relative;
+}
+
 .admin-badge {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 5px 16px 5px 6px;
+  padding: 5px 14px 5px 6px;
   border-radius: 30px;
   background: #ffffff;
   border: 1.5px solid #e3ded2;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   cursor: pointer;
   transition: all 0.2s ease;
+  user-select: none;
 }
 
 .admin-badge:hover {
@@ -505,11 +598,201 @@ const toggleMenu = (menu) => {
   height: 20px;
 }
 
+.admin-info-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
 .admin-name {
-  font-size: 0.95rem !important;
+  font-size: 0.9rem !important;
   font-weight: 700;
   color: #3e5c76;
-  letter-spacing: 0.3px;
+}
+
+.admin-role {
+  font-size: 0.74rem;
+  color: #8c979d;
+  font-weight: 500;
+}
+
+.dropdown-caret {
+  font-size: 11px;
+  color: #8c979d;
+  transition: transform 0.2s ease;
+  margin-left: 2px;
+}
+
+.dropdown-caret.open {
+  transform: rotate(180deg);
+}
+
+.user-dropdown-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 220px;
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid #e3ded2;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  padding: 12px 14px;
+  z-index: 1000;
+  animation: dropdownIn 0.2s ease;
+}
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.popover-user-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.popover-name {
+  font-size: 0.92rem;
+  color: #2c3e50;
+}
+
+.popover-email {
+  font-size: 0.78rem;
+  color: #7f8c8d;
+  word-break: break-all;
+}
+
+.popover-code-badge {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #2b6cb0;
+  background: #ebf8ff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+.popover-divider {
+  border: none;
+  border-top: 1px solid #edf2f7;
+  margin: 10px 0 8px;
+}
+
+.btn-popover-logout {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+  color: #dc2626;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-popover-logout:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.logged-out-header-box {
+  display: flex;
+  align-items: center;
+}
+
+.btn-re-login {
+  background: #496883;
+  color: #ffffff;
+  border: none;
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-re-login:hover {
+  background: #3a546b;
+}
+
+/* Modal overlay khi bị đăng xuất */
+.logged-out-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+}
+
+.logged-out-modal-card {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 2.2rem 2rem;
+  text-align: center;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+  animation: cardZoomIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes cardZoomIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.logged-out-icon-wrap {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 1.25rem;
+  border-radius: 50%;
+  background: #fee2e2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logged-out-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.65rem;
+}
+
+.logged-out-desc {
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0 0 1.6rem;
+}
+
+.btn-relogin-action {
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.75rem 1.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
+  transition: all 0.2s;
+}
+
+.btn-relogin-action:hover {
+  background: #b91c1c;
+  box-shadow: 0 6px 16px rgba(185, 28, 28, 0.35);
 }
 
 .page-body {

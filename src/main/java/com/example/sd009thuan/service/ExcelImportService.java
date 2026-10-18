@@ -30,13 +30,16 @@ public class ExcelImportService {
     private final VaiTroRepository roleRepo;
     private final NhanVienService nhanVienService;
     private final EmailService emailService;
+    private final AdministrativeRegionService administrativeRegionService;
 
     public ExcelImportService(NhanVienRepository repo, VaiTroRepository roleRepo,
-                              NhanVienService nhanVienService, EmailService emailService) {
+                              NhanVienService nhanVienService, EmailService emailService,
+                              AdministrativeRegionService administrativeRegionService) {
         this.repo = repo;
         this.roleRepo = roleRepo;
         this.nhanVienService = nhanVienService;
         this.emailService = emailService;
+        this.administrativeRegionService = administrativeRegionService;
     }
 
     /**
@@ -186,6 +189,9 @@ public class ExcelImportService {
                 if (fullName.isBlank()) {
                     errors.add(String.format("Dòng %d: Họ tên nhân viên không được để trống", displayRow));
                     rowHasError = true;
+                } else if (!fullName.matches("^[\\p{L}\\s'.-]+$")) {
+                    errors.add(String.format("Dòng %d: Họ tên '%s' không hợp lệ (không được chứa chữ số hoặc ký tự đặc biệt)", displayRow, fullName));
+                    rowHasError = true;
                 }
 
                 // 2. Kiểm tra Email
@@ -194,7 +200,7 @@ public class ExcelImportService {
                     errors.add(String.format("Dòng %d: Email không được để trống", displayRow));
                     rowHasError = true;
                 } else if (!email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
-                    errors.add(String.format("Dòng %d: Email '%s' không đúng định dạng chuẩn", displayRow, email));
+                    errors.add(String.format("Dòng %d: Email '%s' không đúng định dạng chuẩn (ví dụ: example@gmail.com)", displayRow, email));
                     rowHasError = true;
                 } else {
                     // Kiểm tra trùng lặp nội bộ trong file Excel
@@ -245,26 +251,39 @@ public class ExcelImportService {
                 }
 
                 // 5. Ngày sinh
-                LocalDate dob = parseDate(dobStr);
-                if (dob == null) {
-                    errors.add(String.format("Dòng %d: Ngày sinh '%s' không hợp lệ (định dạng chuẩn: yyyy-MM-dd hoặc dd/MM/yyyy)", displayRow, dobStr));
+                LocalDate dob = null;
+                if (dobStr.isBlank()) {
+                    errors.add(String.format("Dòng %d: Ngày sinh không được để trống", displayRow));
                     rowHasError = true;
-                } else if (dob.isAfter(LocalDate.now())) {
-                    errors.add(String.format("Dòng %d: Ngày sinh (%s) không được lớn hơn ngày hiện tại", displayRow, dobStr));
-                    rowHasError = true;
-                } else if (Period.between(dob, LocalDate.now()).getYears() < 18) {
-                    errors.add(String.format("Dòng %d: Nhân viên phải từ đủ 18 tuổi trở lên (ngày sinh: %s)", displayRow, dobStr));
-                    rowHasError = true;
+                } else {
+                    dob = parseDate(dobStr);
+                    if (dob == null) {
+                        errors.add(String.format("Dòng %d: Ngày sinh '%s' không hợp lệ (định dạng chuẩn: yyyy-MM-dd hoặc dd/MM/yyyy)", displayRow, dobStr));
+                        rowHasError = true;
+                    } else if (dob.isAfter(LocalDate.now())) {
+                        errors.add(String.format("Dòng %d: Ngày sinh (%s) không được lớn hơn ngày hiện tại", displayRow, dobStr));
+                        rowHasError = true;
+                    } else if (Period.between(dob, LocalDate.now()).getYears() < 18) {
+                        errors.add(String.format("Dòng %d: Nhân viên phải từ đủ 18 tuổi trở lên (ngày sinh: %s)", displayRow, dobStr));
+                        rowHasError = true;
+                    }
                 }
 
-                // 6. Địa chỉ
-                if (queQuan.isBlank()) {
-                    errors.add(String.format("Dòng %d: Tỉnh / Thành phố không được để trống", displayRow));
+                // 6. Địa chỉ: Kiểm tra Tỉnh/Thành phố hợp lệ và Phường/Xã có thuộc Tỉnh/Thành phố đó không
+                AdministrativeRegionService.AddressValidationResult addrResult = administrativeRegionService.validateAddress(queQuan, phuong);
+                if (!addrResult.valid()) {
+                    for (String addrErr : addrResult.errors()) {
+                        errors.add(String.format("Dòng %d: %s", displayRow, addrErr));
+                    }
                     rowHasError = true;
-                }
-                if (phuong.isBlank()) {
-                    errors.add(String.format("Dòng %d: Phường / Xã không được để trống", displayRow));
-                    rowHasError = true;
+                } else {
+                    // Chuẩn hóa tên theo danh mục chính thức sau sáp nhập 2025
+                    if (addrResult.matchedProvince() != null) {
+                        queQuan = addrResult.matchedProvince().name();
+                    }
+                    if (addrResult.matchedWard() != null) {
+                        phuong = addrResult.matchedWard().name();
+                    }
                 }
 
                 // 7. Chức vụ / Vai trò
