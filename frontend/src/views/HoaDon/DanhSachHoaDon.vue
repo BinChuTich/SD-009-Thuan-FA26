@@ -328,6 +328,17 @@ const extractInvoiceArray = (resData) => {
   return []
 }
 
+// Kiểm tra hóa đơn chờ tại quầy (không hiển thị trong danh sách hóa đơn)
+const isWaitingInvoice = (item) => {
+  if (!item || typeof item !== 'object') return false
+  const isStoreWaiting = Number(item.loaiDon) === 1
+    && Number(item.trangThai) === 1
+    && (item.trangThaiThanhToan == null || Number(item.trangThaiThanhToan) === 0)
+  const note = String(item.ghiChu || '').toLowerCase()
+  const isWaitingNote = note.includes('hóa đơn chờ') || note.includes('hoa don cho')
+  return isStoreWaiting || isWaitingNote
+}
+
 const loadHoaDon = async () => {
   try {
     loading.value = true
@@ -352,8 +363,17 @@ const loadHoaDon = async () => {
       return
     }
 
-    const invoicePromises = dataList.map(async (item) => {
-      if (!item || typeof item !== 'object') return null
+    // Lọc bỏ toàn bộ hóa đơn chờ tại quầy khỏi danh sách hóa đơn
+    const validDataList = dataList.filter(item => !isWaitingInvoice(item))
+
+    if (validDataList.length === 0) {
+      invoiceList.value = []
+      currentPage.value = 1
+      return
+    }
+
+    const invoicePromises = validDataList.map(async (item) => {
+      if (!item || typeof item !== 'object' || isWaitingInvoice(item)) return null
 
       try {
         // 1. Tên khách hàng: ưu tiên lấy từ bảng khóa ngoại KhachHang

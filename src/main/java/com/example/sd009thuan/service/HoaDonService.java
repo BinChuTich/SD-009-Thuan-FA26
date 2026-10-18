@@ -120,7 +120,17 @@ public class HoaDonService {
         }
     }
 
-    // Lấy danh sách tất cả hóa đơn (kèm theo các bảng khóa ngoại NhanVien, KhachHang, PhieuGiamGia)
+    // Kiểm tra xem hóa đơn có phải là hóa đơn chờ tại quầy hay không
+    public boolean isWaitingInvoice(HoaDon h) {
+        if (h == null) return false;
+        boolean isStoreDraft = Integer.valueOf(1).equals(h.getLoaiDon())
+                && Integer.valueOf(1).equals(h.getTrangThai())
+                && (h.getTrangThaiThanhToan() == null || Integer.valueOf(0).equals(h.getTrangThaiThanhToan()));
+        boolean isWaitingNote = h.getGhiChu() != null && h.getGhiChu().toLowerCase().contains("hóa đơn chờ");
+        return isStoreDraft || isWaitingNote;
+    }
+
+    // Lấy danh sách tất cả hóa đơn (loại trừ các hóa đơn chờ tại quầy)
     public List<HoaDon> getAll() {
         List<HoaDon> list;
         try {
@@ -128,10 +138,13 @@ public class HoaDonService {
         } catch (Exception e) {
             list = hoaDonRepository.findAll();
         }
-        for (HoaDon h : list) {
+        List<HoaDon> filtered = list.stream()
+                .filter(h -> !isWaitingInvoice(h))
+                .toList();
+        for (HoaDon h : filtered) {
             syncInvoiceTotals(h);
         }
-        return list;
+        return filtered;
     }
 
     // Lấy hóa đơn theo ID kèm các khóa ngoại
@@ -257,9 +270,7 @@ public class HoaDonService {
             all = hoaDonRepository.findAll();
         }
         return all.stream()
-                .filter(h -> Integer.valueOf(1).equals(h.getLoaiDon())
-                          && Integer.valueOf(1).equals(h.getTrangThai())
-                          && (h.getTrangThaiThanhToan() == null || Integer.valueOf(0).equals(h.getTrangThaiThanhToan())))
+                .filter(this::isWaitingInvoice)
                 .toList();
     }
 
