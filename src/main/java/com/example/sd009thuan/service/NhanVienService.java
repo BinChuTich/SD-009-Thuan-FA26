@@ -203,6 +203,14 @@ public class NhanVienService {
     }
 
     @Transactional
+    public NhanVienResponse update(Long id, NhanVienRequest req, MultipartFile file, Long currentUserId) {
+        if (currentUserId != null && currentUserId.equals(id) && req.trangThai() != null && req.trangThai() == 0) {
+            throw new IllegalArgumentException("Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống");
+        }
+        return update(id, req, file);
+    }
+
+    @Transactional
     public void toggleStatus(Long id) {
         NhanVien x = find(id);
         x.setTrangThai(x.getTrangThai() != null && x.getTrangThai() == 1 ? 0 : 1);
@@ -212,12 +220,31 @@ public class NhanVienService {
     }
 
     @Transactional
+    public void toggleStatus(Long id, Long currentUserId) {
+        if (currentUserId != null && currentUserId.equals(id)) {
+            NhanVien x = find(id);
+            if (x.getTrangThai() != null && x.getTrangThai() == 1) {
+                throw new IllegalArgumentException("Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống");
+            }
+        }
+        toggleStatus(id);
+    }
+
+    @Transactional
     public void deactivate(Long id) {
         NhanVien x = find(id);
         x.setTrangThai(0);
         x.setNgayCapNhat(Instant.now());
         x.setNguoiCapNhat("admin");
         repo.save(x);
+    }
+
+    @Transactional
+    public void deactivate(Long id, Long currentUserId) {
+        if (currentUserId != null && currentUserId.equals(id)) {
+            throw new IllegalArgumentException("Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống");
+        }
+        deactivate(id);
     }
 
     /**

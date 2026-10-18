@@ -185,16 +185,26 @@
             <!-- Hàng 4 (2 Cột): Trạng thái & Giới tính -->
             <div class="form-grid-2">
               <div class="form-field">
-                <label class="field-label">Trạng thái</label>
+                <div class="field-label-row flex items-center justify-between mb-1">
+                  <label class="field-label mb-0">Trạng thái</label>
+                  <span v-if="isSelf" class="badge-guard-tag" title="Tài khoản bạn đang đăng nhập">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    Tài khoản đang đăng nhập
+                  </span>
+                </div>
                 <Select2Combobox
                   v-model="form.trangThai"
-                  :options="statusOptions"
+                  :options="isSelf ? [{ value: 1, label: 'Hoạt động (Đang đăng nhập)' }] : statusOptions"
                   value-key="value"
                   label-key="label"
                   :allow-clear="false"
                   :searchable="false"
+                  :disabled="isSelf"
                   placeholder="Chọn trạng thái..."
                 />
+                <span v-if="isSelf" class="field-guard-note">
+                  Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống
+                </span>
               </div>
 
               <div class="form-field">
@@ -282,7 +292,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
@@ -328,6 +338,21 @@ const form = reactive({
   queQuan: '',
   phuong: '',
   diaChiCuThe: ''
+})
+
+// Active User Guard: Kiểm tra xem tài khoản này có phải chính là người dùng đang đăng nhập hay không
+const isSelf = computed(() => isCurrentLoggedInUser({ id, ...form }))
+
+// Chặn ngay lập tức nếu có bất kỳ hành động đổi sang Ngừng hoạt động (trangThai = 0)
+watch(() => form.trangThai, (newVal) => {
+  if (isSelf.value && Number(newVal) === 0) {
+    showAlert({
+      title: 'Hành động không được phép',
+      message: 'Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống',
+      type: 'warning'
+    })
+    form.trangThai = 1
+  }
 })
 
 const errors = reactive({
@@ -752,28 +777,25 @@ async function handleUpdate() {
     })
   }
 
-  const isSelf = isCurrentLoggedInUser({ id, ...form })
-  const isDeactivatingSelf = isSelf && Number(form.trangThai) === 0
-
-  if (isDeactivatingSelf) {
-    const confirmed = await showConfirm({
-      title: 'Cảnh báo: Tài khoản đang đăng nhập!',
-      message: `Bạn đang đổi trạng thái của chính tài khoản đang đăng nhập (${form.tenNhanVien}) thành "Ngừng hoạt động".\n\nSau khi lưu thành công, hệ thống sẽ LẬP TỨC ĐĂNG XUẤT bạn ra ngoài!\n\nBạn có chắc chắn muốn thực hiện không?`,
-      type: 'warning',
-      confirmText: 'Lưu thay đổi & Đăng xuất ngay',
-      cancelText: 'Hủy bỏ'
+  const isSelfUser = isCurrentLoggedInUser({ id, ...form })
+  if (isSelfUser && Number(form.trangThai) === 0) {
+    showAlert({
+      title: 'Hành động không được phép',
+      message: 'Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống',
+      type: 'warning'
     })
-    if (!confirmed) return
-  } else {
-    const confirmed = await showConfirm({
-      title: 'Xác nhận cập nhật nhân viên',
-      message: `Bạn có chắc chắn muốn lưu các thay đổi cho nhân viên "${form.tenNhanVien.trim()}" không?`,
-      type: 'question',
-      confirmText: 'Lưu thay đổi',
-      cancelText: 'Hủy bỏ'
-    })
-    if (!confirmed) return
+    form.trangThai = 1
+    return
   }
+
+  const confirmed = await showConfirm({
+    title: 'Xác nhận cập nhật nhân viên',
+    message: `Bạn có chắc chắn muốn lưu các thay đổi cho nhân viên "${form.tenNhanVien.trim()}" không?`,
+    type: 'question',
+    confirmText: 'Lưu thay đổi',
+    cancelText: 'Hủy bỏ'
+  })
+  if (!confirmed) return
 
   saving.value = true
   try {
@@ -805,15 +827,7 @@ async function handleUpdate() {
       await api.put(`/api/nhan-vien/${id}`, payload)
     }
 
-    if (isDeactivatingSelf) {
-      showToast('Tài khoản của bạn đã bị ngừng hoạt động. Hệ thống đang tự động đăng xuất...', 'info')
-      setTimeout(() => {
-        logout()
-      }, 500)
-      return
-    }
-
-    if (isSelf) {
+    if (isSelfUser) {
       const current = getCurrentUser() || {}
       setCurrentUser({
         ...current,
@@ -1268,5 +1282,27 @@ onMounted(() => {
   .form-grid-2 {
     grid-template-columns: 1fr;
   }
+}
+
+.badge-guard-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #854d0e;
+  background-color: #fef9c3;
+  border: 1px solid #fef08a;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  letter-spacing: 0.2px;
+}
+
+.field-guard-note {
+  display: block;
+  font-size: 0.78rem;
+  color: #b45309;
+  margin-top: 5px;
+  font-weight: 500;
 }
 </style>

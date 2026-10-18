@@ -191,15 +191,27 @@
                   <div class="action-buttons">
                     <label
                       class="switch-toggle"
-                      :class="{ 'switch-self': isCurrentLoggedIn(item) }"
-                      :title="isCurrentLoggedIn(item) ? (item.status === 'active' ? 'Tài khoản đang đăng nhập (khóa sẽ đăng xuất)' : 'Tài khoản đang đăng nhập (nhấn để mở lại)') : (item.status === 'active' ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)')"
+                      :class="{
+                        'switch-self': isCurrentLoggedIn(item),
+                        'switch-guard-locked': isCurrentLoggedIn(item) && item.status === 'active'
+                      }"
+                      :title="isCurrentLoggedIn(item) && item.status === 'active'
+                        ? 'Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống'
+                        : (item.status === 'active' ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)')"
                     >
                       <input
                         type="checkbox"
                         :checked="item.status === 'active'"
+                        :disabled="isCurrentLoggedIn(item) && item.status === 'active'"
                         @click.prevent="toggleStatus(item)"
                       />
-                      <span class="slider-round" :class="{ 'slider-self': isCurrentLoggedIn(item) }"></span>
+                      <span
+                        class="slider-round"
+                        :class="{
+                          'slider-self': isCurrentLoggedIn(item),
+                          'slider-guard-locked': isCurrentLoggedIn(item) && item.status === 'active'
+                        }"
+                      ></span>
                     </label>
                     <button
                       class="btn-circle-action btn-edit"
@@ -656,35 +668,18 @@ function goToEdit(id) {
 }
 
 async function toggleStatus(item) {
-  const isLocking = item.status === 'active'
-  const actionText = isLocking ? 'khóa tài khoản' : 'mở khóa tài khoản'
   const isSelf = isCurrentLoggedIn(item)
+  const isLocking = item.status === 'active'
 
+  // Ràng buộc bảo mật đối với Tài khoản đang đăng nhập (Active User Guard):
+  // Chặn thao tác 'Ngừng hoạt động' chính mình
   if (isSelf && isLocking) {
-    const confirmed = await showConfirm({
-      title: 'Cảnh báo: Tài khoản đang đăng nhập!',
-      message: `Bạn đang thao tác khóa tài khoản của chính bạn đang đăng nhập (${item.fullName} - ${item.code}).\n\nSau khi khóa tài khoản này thành "Ngừng hoạt động", hệ thống sẽ LẬP TỨC ĐĂNG XUẤT phiên làm việc của bạn ra ngoài!\n\nBạn có chắc chắn muốn khóa tài khoản và đăng xuất ngay bây giờ không?`,
-      type: 'warning',
-      confirmText: 'Khóa tài khoản & Đăng xuất ngay',
-      cancelText: 'Hủy bỏ'
+    showAlert({
+      title: 'Hành động không được phép',
+      message: 'Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản đang đăng nhập hệ thống',
+      type: 'warning'
     })
-    if (!confirmed) return
-
-    try {
-      await api.patch(`/api/nhan-vien/${item.id}/toggle-status`)
-      showToast('Tài khoản đã bị khóa. Hệ thống đang tự động đăng xuất...', 'info')
-      setTimeout(() => {
-        logout()
-      }, 500)
-      return
-    } catch (e) {
-      showAlert({
-        title: 'Thao tác thất bại',
-        message: e?.response?.data?.message || 'Không thể thay đổi trạng thái nhân viên.',
-        type: 'error'
-      })
-      return
-    }
+    return
   }
 
   const confirmed = await showConfirm({
@@ -2254,6 +2249,22 @@ onMounted(async () => {
 
 .switch-self .slider-round.slider-self {
   box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.35);
+}
+
+.switch-guard-locked {
+  cursor: not-allowed !important;
+  opacity: 0.65;
+}
+
+.switch-guard-locked input {
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
+
+.switch-guard-locked .slider-round.slider-guard-locked {
+  cursor: not-allowed !important;
+  background-color: #8c7355 !important;
+  box-shadow: 0 0 0 2px rgba(140, 115, 85, 0.45);
 }
 
 .error-item {
