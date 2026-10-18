@@ -3,7 +3,7 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
-import { generateQrDataUrl } from '@/utils/qrcode.js'
+import { generateQrDataUrl, generateQrSvg } from '@/utils/qrcode.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -254,6 +254,47 @@ const invoiceQrDataUrl = computed(() => {
   const code = invoiceData.value?.code || 'HD'
   return generateQrDataUrl(code, { margin: 1 })
 })
+
+const downloadInvoiceQr = () => {
+  const code = invoiceData.value?.code || invoiceCode.value || 'HD'
+  try {
+    const svgString = generateQrSvg(code, { margin: 2 })
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    const img = new Image()
+
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(svgBlob)
+
+    img.onload = () => {
+      canvas.width = 500
+      canvas.height = 500
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, 500, 500)
+      ctx.drawImage(img, 0, 0, 500, 500)
+      URL.revokeObjectURL(url)
+
+      const pngUrl = canvas.toDataURL('image/png')
+      const link = document.createElement('a')
+      link.href = pngUrl
+      link.download = `QR_${code}.png`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      showToast(`Đã tải xuống mã QR của hóa đơn ${code}!`)
+    }
+    img.src = url
+  } catch (err) {
+    console.error('Lỗi tải mã QR:', err)
+    const link = document.createElement('a')
+    link.href = invoiceQrDataUrl.value
+    link.download = `QR_${code}.svg`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    showToast(`Đã tải xuống mã QR của hóa đơn ${code}!`)
+  }
+}
 
 const getProductQrUrl = (item) => {
   const code = item?.variantCode || item?.code || `SP-${item?.id || '01'}`
@@ -1512,7 +1553,11 @@ onBeforeUnmount(() => {
 
         <!-- Cột Mã QR Hóa Đơn -->
         <div class="meta-info-col col-qr">
-          <div class="meta-qr-container" :title="'Mã QR hóa đơn: ' + invoiceData.code">
+          <div
+            class="meta-qr-container"
+            :title="'Nhấp để tải mã QR hóa đơn ' + (invoiceData.code || '') + ' về máy'"
+            @click="downloadInvoiceQr"
+          >
             <img :src="invoiceQrDataUrl" alt="Mã QR Hóa Đơn" class="meta-qr-img" />
           </div>
         </div>
@@ -1855,19 +1900,6 @@ onBeforeUnmount(() => {
               {{ isOnlineWaitingConfirm ? 'Xác nhận thanh toán' : 'Xác nhận thanh toán & In hóa đơn' }}
             </button>
 
-            <!-- Nút Sửa trạng thái thanh toán (ẩn khi hoàn thành đơn hoặc đã hủy) -->
-            <button
-              v-if="Number(invoiceData.status) !== 5 && Number(invoiceData.status) !== 6"
-              class="btn-blue-action"
-              type="button"
-              :disabled="updatingPaymentStatus"
-              @click="openPaymentModal"
-            >
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-              </svg>
-              Sửa trạng thái thanh toán
-            </button>
 
             <!-- Nút In hóa đơn - khả dụng khi đã xác nhận hoặc đơn tại quầy (đơn online chờ xác nhận là CHƯA in hóa đơn) -->
             <button
@@ -2530,6 +2562,10 @@ onBeforeUnmount(() => {
   z-index: 100;
   position: relative;
   border-color: #3e5c76;
+}
+
+.meta-qr-img:active {
+  transform: scale(1.95);
 }
 
 .meta-qr-label {
