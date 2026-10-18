@@ -522,24 +522,14 @@
                     </td>
                     <td class="font-bold text-code">{{ p.ma }}</td>
                     <td class="font-medium text-name">
-                      <div class="product-cell-flex">
-                        <div class="product-thumb-box">
-                          <img
-                            :src="getProductImage(p)"
-                            :alt="p.ten"
-                            class="product-thumb-img"
-                            @error="(e) => { e.target.src = defaultProductImages[0] }"
-                          />
+                      <div class="product-cell-info">
+                        <div class="product-name-row">
+                          <span class="product-title-text">{{ p.ten }}</span>
                         </div>
-                        <div class="product-cell-info">
-                          <div class="product-name-row">
-                            <span class="product-title-text">{{ p.ten }}</span>
-                          </div>
-                          <div class="product-sub-info">
-                            <span v-if="getSelectedVariantCountForProduct(p) > 0" class="badge-selected-count">
-                              Đã chọn {{ getSelectedVariantCountForProduct(p) }}/{{ p.variants ? p.variants.length : 0 }} biến thể
-                            </span>
-                          </div>
+                        <div v-if="getSelectedVariantCountForProduct(p) > 0" class="product-sub-info">
+                          <span class="badge-selected-count">
+                            Đã chọn {{ getSelectedVariantCountForProduct(p) }}/{{ p.variants ? p.variants.length : 0 }} biến thể
+                          </span>
                         </div>
                       </div>
                     </td>
@@ -691,10 +681,7 @@
                   {{ formatMoney(v.gia) }}
                 </td>
                 <td class="font-bold text-discounted-price">
-                  <div>{{ formatMoney(calculateVariantDiscountedPrice(v)) }}</div>
-                  <div v-if="calculateVariantDiscountPercent(v) > 0" class="text-discount-badge">
-                    (-{{ calculateVariantDiscountPercent(v) }}%)
-                  </div>
+                  {{ formatMoney(calculateVariantDiscountedPrice(v)) }}
                 </td>
                 <td style="text-align: center;">
                   <span class="badge-pill badge-qty">{{ v.soLuong }}</span>
