@@ -36,3 +36,4 @@ public interface LichLamViecRepository extends JpaRepository<LichLamViec, Long> 
     @Query("SELECT l FROM LichLamViec l WHERE l.nhanVien.id = :nhanVienId AND l.ngayLamViec >= :today AND l.trangThai = 1 ORDER BY l.ngayLamViec ASC, l.caLamViec.gioBatDau ASC")
     List<LichLamViec> findUpcomingActiveByNhanVien(@Param("nhanVienId") Long nhanVienId, @Param("today") LocalDate today);
 }
+

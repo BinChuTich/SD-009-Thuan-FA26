@@ -195,3 +195,4 @@ public class CaLamViecServiceImpl implements CaLamViecService {
         caLamViecRepository.delete(ca);
     }
 }
+

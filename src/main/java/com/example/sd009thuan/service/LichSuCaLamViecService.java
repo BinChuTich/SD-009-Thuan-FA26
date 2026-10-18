@@ -17,3 +17,4 @@ public interface LichSuCaLamViecService {
 
     Optional<LichSuCaLamViec> getCurrentOpenShift(Long nhanVienId);
 }
+

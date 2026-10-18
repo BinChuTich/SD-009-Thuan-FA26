@@ -26,3 +26,4 @@ public interface CaLamViecService {
 
     void validateCa(CaLamViecRequest req, Long excludeId);
 }
+

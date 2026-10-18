@@ -35,3 +35,4 @@ public interface CaLamViecRepository extends JpaRepository<CaLamViec, Long> {
             @Param("gioKetThuc") LocalTime gioKetThuc
     );
 }
+
