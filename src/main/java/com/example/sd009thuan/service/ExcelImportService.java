@@ -46,6 +46,12 @@ public class ExcelImportService {
 
     public ExcelImportService(NhanVienRepository repo, VaiTroRepository roleRepo,
                               NhanVienService nhanVienService, EmailService emailService,
+                              com.example.sd009thuan.service.AdministrativeRegionService regionService) {
+        this(repo, roleRepo, nhanVienService, emailService, null, null, null, null, null, null, null, null, null, null, null, null, null);
+    }
+
+    public ExcelImportService(NhanVienRepository repo, VaiTroRepository roleRepo,
+                              NhanVienService nhanVienService, EmailService emailService,
                               SanPhamRepository sanPhamRepository, SanPhamService sanPhamService,
                               ChiTietSanPhamRepository chiTietSanPhamRepository, HinhAnhRepository hinhAnhRepository,
                               DanhMucRepository danhMucRepository, ThuongHieuRepository thuongHieuRepository,

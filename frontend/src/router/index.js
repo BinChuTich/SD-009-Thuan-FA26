@@ -33,7 +33,6 @@ import ChiTietPhieuGiamGia from '../views/GiamGia/ChiTietPhieuGiamGia.vue'
 import TaoPhieuGiamGia from '../views/GiamGia/TaoPhieuGiamGia.vue'
 
 // Thuộc tính
-import ThuocTinh from '../views/ThuocTinh/ThuocTinh.vue'
 import DanhMuc from '../views/ThuocTinh/DanhMuc.vue'
 import ThuongHieu from '../views/ThuocTinh/ThuongHieu.vue'
 import ChatLieu from '../views/ThuocTinh/ChatLieu.vue'
