@@ -230,6 +230,9 @@ public class DotGiamGiaService {
                 info.put("maDotGiamGia", ct.getIdDotGiamGia().getMaDotGiamGia());
                 info.put("tenDotGiamGia", ct.getIdDotGiamGia().getTenDotGiamGia());
                 info.put("phanTramGiam", currentPt);
+                info.put("loaiGiamGia", ct.getIdDotGiamGia().getLoaiGiamGia());
+                info.put("giaTriGiam", ct.getIdDotGiamGia().getGiaTriGiam());
+                info.put("giamToiDa", ct.getIdDotGiamGia().getGiamToiDa());
                 info.put("ngayBatDau", ct.getIdDotGiamGia().getNgayBatDau());
                 info.put("ngayKetThuc", ct.getIdDotGiamGia().getNgayKetThuc());
                 map.put(variantId, info);
