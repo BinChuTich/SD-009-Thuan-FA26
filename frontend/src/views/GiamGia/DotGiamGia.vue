@@ -522,24 +522,14 @@
                     </td>
                     <td class="font-bold text-code">{{ p.ma }}</td>
                     <td class="font-medium text-name">
-                      <div class="product-cell-flex">
-                        <div class="product-thumb-box">
-                          <img
-                            :src="getProductImage(p)"
-                            :alt="p.ten"
-                            class="product-thumb-img"
-                            @error="(e) => { e.target.src = defaultProductImages[0] }"
-                          />
+                      <div class="product-cell-info">
+                        <div class="product-name-row">
+                          <span class="product-title-text">{{ p.ten }}</span>
                         </div>
-                        <div class="product-cell-info">
-                          <div class="product-name-row">
-                            <span class="product-title-text">{{ p.ten }}</span>
-                          </div>
-                          <div class="product-sub-info">
-                            <span v-if="getSelectedVariantCountForProduct(p) > 0" class="badge-selected-count">
-                              Đã chọn {{ getSelectedVariantCountForProduct(p) }}/{{ p.variants ? p.variants.length : 0 }} biến thể
-                            </span>
-                          </div>
+                        <div v-if="getSelectedVariantCountForProduct(p) > 0" class="product-sub-info">
+                          <span class="badge-selected-count">
+                            Đã chọn {{ getSelectedVariantCountForProduct(p) }}/{{ p.variants ? p.variants.length : 0 }} biến thể
+                          </span>
                         </div>
                       </div>
                     </td>
@@ -639,18 +629,23 @@
           <table class="video-table">
             <thead>
               <tr>
-                <th style="width: 55px; text-align: center;">STT</th>
+                <th style="width: 50px; text-align: center;">STT</th>
                 <th style="width: 75px; text-align: center;">Ảnh biến thể</th>
-                <th style="width: 250px;">Sản phẩm</th>
-                <th style="width: 230px;">Biến thể</th>
-                <th style="width: 140px;">Giá bán</th>
-                <th style="width: 150px;">Giá sau giảm</th>
-                <th style="width: 110px; text-align: center;">Số lượng</th>
+                <th style="width: 230px;">Sản phẩm</th>
+                <th style="width: 200px;">Biến thể</th>
+                <th style="width: 130px;">Giá bán</th>
+                <th style="width: 135px;">Giá hiện tại</th>
+                <th style="width: 175px;">Giá sau giảm</th>
+                <th style="width: 90px; text-align: center;">Số lượng</th>
                 <th style="width: 50px; text-align: center;"></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(v, idx) in paginatedSelectedVariants" :key="v.id">
+              <tr
+                v-for="(v, idx) in paginatedSelectedVariants"
+                :key="v.id"
+                :class="{ 'row-has-active-campaign': !!getVariantCampaignInfo(v) }"
+              >
                 <td style="text-align: center;" class="text-sub">
                   {{ (variantCurrentPage - 1) * variantPageSize + idx + 1 }}
                 </td>
@@ -662,7 +657,7 @@
                       class="applied-variant-thumb"
                       @error="(e) => { e.target.src = defaultVariantSvg }"
                     />
-                    <!-- Badge phần trăm giảm giá hiển thị trực tiếp trên ảnh biến thể (ví dụ -30%, -25%) theo ảnh mẫu -->
+                    <!-- Badge phần trăm giảm giá hiển thị trực tiếp trên ảnh biến thể (ví dụ -30%, -20%) theo ảnh mẫu -->
                     <span
                       v-if="getVariantThumbBadge(v)"
                       class="variant-thumb-discount-badge"
@@ -690,10 +685,17 @@
                 <td class="font-medium text-dark">
                   {{ formatMoney(v.gia) }}
                 </td>
+                <td class="font-medium text-dark">
+                  <div class="current-price-col">
+                    <span class="current-price-num">{{ formatMoney(calculateCurrentVariantPrice(v)) }}</span>
+                  </div>
+                </td>
                 <td class="font-bold text-discounted-price">
-                  <div>{{ formatMoney(calculateVariantDiscountedPrice(v)) }}</div>
-                  <div v-if="calculateVariantDiscountPercent(v) > 0" class="text-discount-badge">
-                    (-{{ calculateVariantDiscountPercent(v) }}%)
+                  <div class="discounted-price-amount">
+                    {{ formatMoney(calculateVariantDiscountedPrice(v)) }}
+                  </div>
+                  <div v-if="getAppliedDiscountNotice(v)" class="applied-campaign-notice">
+                    {{ getAppliedDiscountNotice(v) }}
                   </div>
                 </td>
                 <td style="text-align: center;">
@@ -706,7 +708,7 @@
                 </td>
               </tr>
               <tr v-if="displaySelectedVariants.length === 0">
-                <td colspan="8" class="empty-cell">Chưa có biến thể nào được chọn áp dụng!</td>
+                <td colspan="9" class="empty-cell">Chưa có biến thể nào được chọn áp dụng!</td>
               </tr>
             </tbody>
           </table>
@@ -1545,6 +1547,31 @@ const getVariantCampaignDiscountText = (v) => {
   return ''
 }
 
+// Tính giá hiện tại của biến thể (thể hiện mức giá sau khi đã giảm của đợt cũ đang áp dụng nếu có)
+const calculateCurrentVariantPrice = (v) => {
+  if (!v) return 0
+  const originalPrice = Number(v.gia) || 0
+  if (originalPrice <= 0) return 0
+
+  const activeCamp = getVariantCampaignInfo(v)
+  if (!activeCamp) return originalPrice
+
+  let activeDiscountAmount = 0
+  const activePercent = Number(activeCamp.phanTramGiam) || 0
+  const activeCash = Number(activeCamp.giaTriGiam) || 0
+
+  if (activeCamp.loaiGiamGia === 2 && activeCash > 0) {
+    activeDiscountAmount = activeCash
+  } else if (activePercent > 0) {
+    activeDiscountAmount = (originalPrice * activePercent) / 100
+    if (activeCamp.giamToiDa && Number(activeCamp.giamToiDa) > 0) {
+      activeDiscountAmount = Math.min(activeDiscountAmount, Number(activeCamp.giamToiDa))
+    }
+  }
+
+  return Math.max(0, Math.round(originalPrice - activeDiscountAmount))
+}
+
 // Tính giá sau giảm cho từng biến thể cụ thể (xét cả đợt đang tạo/sửa và đợt đang chạy)
 const calculateVariantDiscountedPrice = (v) => {
   if (!v) return 0
@@ -1586,6 +1613,75 @@ const calculateVariantDiscountedPrice = (v) => {
   return Math.max(0, Math.round(originalPrice - finalDiscount))
 }
 
+// Thể hiện rõ biến thể đang được áp dụng đợt giảm giá nào và mức giảm ra sao
+const getAppliedDiscountNotice = (v) => {
+  if (!v) return ''
+  const originalPrice = Number(v.gia) || 0
+  if (originalPrice <= 0) return ''
+
+  // Mức giảm từ form hiện tại
+  let formDiscountAmount = 0
+  const formPercent = Number(formData.value.phanTramGiam) || 0
+  const formCash = Number(formData.value.giaTriGiam) || 0
+
+  if (formData.value.loaiGiamGia === 2 && formCash > 0) {
+    formDiscountAmount = formCash
+  } else if (formPercent > 0) {
+    formDiscountAmount = (originalPrice * formPercent) / 100
+    if (formData.value.giamToiDa && Number(formData.value.giamToiDa) > 0) {
+      formDiscountAmount = Math.min(formDiscountAmount, Number(formData.value.giamToiDa))
+    }
+  }
+
+  // Mức giảm từ đợt cũ đang áp dụng
+  let activeDiscountAmount = 0
+  const activeCamp = getVariantCampaignInfo(v)
+  if (activeCamp) {
+    const activePercent = Number(activeCamp.phanTramGiam) || 0
+    const activeCash = Number(activeCamp.giaTriGiam) || 0
+    if (activeCamp.loaiGiamGia === 2 && activeCash > 0) {
+      activeDiscountAmount = activeCash
+    } else if (activePercent > 0) {
+      activeDiscountAmount = (originalPrice * activePercent) / 100
+      if (activeCamp.giamToiDa && Number(activeCamp.giamToiDa) > 0) {
+        activeDiscountAmount = Math.min(activeDiscountAmount, Number(activeCamp.giamToiDa))
+      }
+    }
+  }
+
+  const formText = formData.value.loaiGiamGia === 2 && formCash > 0
+    ? formatShortMoney(formCash)
+    : (formPercent > 0 ? `${formPercent}%` : '')
+
+  let activeText = ''
+  if (activeCamp) {
+    if (activeCamp.loaiGiamGia === 2 && activeCash > 0) {
+      activeText = formatShortMoney(activeCash)
+    } else if (activeCamp.phanTramGiam != null && Number(activeCamp.phanTramGiam) > 0) {
+      activeText = `${activeCamp.phanTramGiam}%`
+    }
+  }
+
+  // Trường hợp có đợt cũ trùng
+  if (activeCamp && activeDiscountAmount > 0) {
+    if (formDiscountAmount > activeDiscountAmount) {
+      return `Áp dụng ${formText} (cao hơn đợt khác)`
+    }
+    if (formDiscountAmount < activeDiscountAmount) {
+      const campCode = activeCamp.maDotGiamGia ? ` (${activeCamp.maDotGiamGia})` : ''
+      return `Áp dụng ${activeText} (đợt cũ${campCode} cao hơn)`
+    }
+    return `Áp dụng ${formText} (bằng mức đợt khác)`
+  }
+
+  // Trường hợp không có đợt cũ trùng (chỉ có đợt trong form)
+  if (formDiscountAmount > 0) {
+    return `Áp dụng ${formText}`
+  }
+
+  return ''
+}
+
 // Tính phần trăm giảm thực tế đang được hưởng
 const calculateVariantDiscountPercent = (v) => {
   if (!v || !v.gia) return 0
@@ -1596,13 +1692,9 @@ const calculateVariantDiscountPercent = (v) => {
   return pct % 1 === 0 ? pct : Number(pct.toFixed(1))
 }
 
-// Lấy nhãn phần trăm giảm giá hiển thị trên ảnh biến thể, luôn lấy mức giảm sâu nhất (MAX discount)
+// Lấy nhãn phần trăm giảm giá hiển thị trên ảnh biến thể (ưu tiên đợt cũ đang áp dụng)
 const getVariantThumbBadge = (v) => {
   if (!v) return ''
-  // 1. Luôn ưu tiên mức giảm sâu nhất thực tế đang được hưởng (giữa đợt trong form và đợt khác)
-  const pct = calculateVariantDiscountPercent(v)
-  if (pct > 0) return `-${pct}%`
-  // 2. Dự phòng nếu không tính được % từ giá thì lấy từ đợt đang áp dụng
   const activeText = getVariantCampaignDiscountText(v)
   if (activeText) return activeText
   return ''
@@ -4850,5 +4942,34 @@ onUnmounted(() => {
   white-space: nowrap;
   z-index: 5;
   letter-spacing: -0.2px;
+}
+
+/* ==================== STYLE CHO BIẾN THỂ TRÙNG / ĐANG ÁP DỤNG ĐỢT GIẢM GIÁ ==================== */
+.row-has-active-campaign {
+  background-color: #fff8f8 !important;
+}
+.row-has-active-campaign:hover {
+  background-color: #fee2e2 !important;
+}
+.current-price-col {
+  display: flex;
+  flex-direction: column;
+}
+.current-price-num {
+  font-weight: 500;
+  color: #1e293b;
+}
+.discounted-price-amount {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #dc2626;
+  line-height: 1.2;
+}
+.applied-campaign-notice {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  margin-top: 3px;
+  line-height: 1.25;
 }
 </style>

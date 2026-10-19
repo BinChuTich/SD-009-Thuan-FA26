@@ -287,6 +287,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
 import { getProvinces, getWardsByProvince, matchAddressHierarchy, lookupLegacyWard } from '@/services/provincesApi.js'
+import { getCurrentUser, setCurrentUser, logout, isCurrentLoggedInUser } from '@/utils/auth.js'
 import CccdScannerModal from '@/components/CccdScannerModal.vue'
 import Select2Combobox from '@/components/Select2Combobox.vue'
 
@@ -340,7 +341,7 @@ const errors = reactive({
 })
 
 async function onProvinceChange() {
-  const p = provincesList.value.find(item => item.code === selectedProvinceCode.value)
+  const p = provincesList.value.find(item => String(item.code) === String(selectedProvinceCode.value))
   form.queQuan = p ? p.name : ''
   selectedWardCode.value = ''
   form.phuong = ''
@@ -354,7 +355,7 @@ async function onProvinceChange() {
 }
 
 function onWardChange() {
-  const w = wardsList.value.find(item => item.code === selectedWardCode.value)
+  const w = wardsList.value.find(item => String(item.code) === String(selectedWardCode.value))
   form.phuong = w ? w.name : ''
   validateField('phuong')
 }
@@ -751,15 +752,28 @@ async function handleUpdate() {
     })
   }
 
-  const confirmed = await showConfirm({
-    title: 'Xác nhận cập nhật nhân viên',
-    message: `Bạn có chắc chắn muốn lưu các thay đổi cho nhân viên "${form.tenNhanVien.trim()}" không?`,
-    type: 'question',
-    confirmText: 'Lưu thay đổi',
-    cancelText: 'Hủy bỏ'
-  })
+  const isSelf = isCurrentLoggedInUser({ id, ...form })
+  const isDeactivatingSelf = isSelf && Number(form.trangThai) === 0
 
-  if (!confirmed) return
+  if (isDeactivatingSelf) {
+    const confirmed = await showConfirm({
+      title: 'Cảnh báo: Tài khoản đang đăng nhập!',
+      message: `Bạn đang đổi trạng thái của chính tài khoản đang đăng nhập (${form.tenNhanVien}) thành "Ngừng hoạt động".\n\nSau khi lưu thành công, hệ thống sẽ LẬP TỨC ĐĂNG XUẤT bạn ra ngoài!\n\nBạn có chắc chắn muốn thực hiện không?`,
+      type: 'warning',
+      confirmText: 'Lưu thay đổi & Đăng xuất ngay',
+      cancelText: 'Hủy bỏ'
+    })
+    if (!confirmed) return
+  } else {
+    const confirmed = await showConfirm({
+      title: 'Xác nhận cập nhật nhân viên',
+      message: `Bạn có chắc chắn muốn lưu các thay đổi cho nhân viên "${form.tenNhanVien.trim()}" không?`,
+      type: 'question',
+      confirmText: 'Lưu thay đổi',
+      cancelText: 'Hủy bỏ'
+    })
+    if (!confirmed) return
+  }
 
   saving.value = true
   try {
@@ -789,6 +803,24 @@ async function handleUpdate() {
       })
     } else {
       await api.put(`/api/nhan-vien/${id}`, payload)
+    }
+
+    if (isDeactivatingSelf) {
+      showToast('Tài khoản của bạn đã bị ngừng hoạt động. Hệ thống đang tự động đăng xuất...', 'info')
+      setTimeout(() => {
+        logout()
+      }, 500)
+      return
+    }
+
+    if (isSelf) {
+      const current = getCurrentUser() || {}
+      setCurrentUser({
+        ...current,
+        tenNhanVien: payload.tenNhanVien,
+        email: payload.email,
+        soDienThoai: payload.soDienThoai
+      })
     }
 
     showToast('Cập nhật thông tin nhân viên thành công!', 'success')

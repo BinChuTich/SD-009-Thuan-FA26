@@ -166,7 +166,14 @@
                   </div>
                 </td>
                 <td class="font-bold text-blue">{{ item.code }}</td>
-                <td class="font-medium text-dark">{{ item.fullName }}</td>
+                <td class="font-medium text-dark">
+                  <div class="name-col-cell">
+                    <span>{{ item.fullName }}</span>
+                    <span v-if="isCurrentLoggedIn(item)" class="badge-current-user-tag" title="Tài khoản bạn đang đăng nhập">
+                      Đang đăng nhập
+                    </span>
+                  </div>
+                </td>
                 <td class="text-dark">{{ item.phone || '-' }}</td>
                 <td class="text-email" :title="item.email">{{ item.email || '-' }}</td>
                 <td class="text-address">{{ item.address || '-' }}</td>
@@ -183,16 +190,16 @@
                 <td style="text-align: center">
                   <div class="action-buttons">
                     <label
-                      v-if="item.role !== 'Quản trị viên'"
                       class="switch-toggle"
-                      :title="item.status === 'active' ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)'"
+                      :class="{ 'switch-self': isCurrentLoggedIn(item) }"
+                      :title="isCurrentLoggedIn(item) ? (item.status === 'active' ? 'Tài khoản đang đăng nhập (khóa sẽ đăng xuất)' : 'Tài khoản đang đăng nhập (nhấn để mở lại)') : (item.status === 'active' ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)')"
                     >
                       <input
                         type="checkbox"
                         :checked="item.status === 'active'"
                         @click.prevent="toggleStatus(item)"
                       />
-                      <span class="slider-round"></span>
+                      <span class="slider-round" :class="{ 'slider-self': isCurrentLoggedIn(item) }"></span>
                     </label>
                     <button
                       class="btn-circle-action btn-edit"
@@ -439,11 +446,16 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { showConfirm, showAlert, showToast } from '@/utils/dialog.js'
+import { getCurrentUser, logout, isCurrentLoggedInUser } from '@/utils/auth.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const router = useRouter()
 const employees = ref([])
 const roles = ref([])
+
+function isCurrentLoggedIn(emp) {
+  return isCurrentLoggedInUser(emp)
+}
 const trangThaiOptions = [
   { value: '1', label: 'Hoạt động' },
   { value: '0', label: 'Ngừng hoạt động' }
@@ -566,12 +578,41 @@ function goToEdit(id) {
 async function toggleStatus(item) {
   const isLocking = item.status === 'active'
   const actionText = isLocking ? 'khóa tài khoản' : 'mở khóa tài khoản'
-  
+  const isSelf = isCurrentLoggedIn(item)
+
+  if (isSelf && isLocking) {
+    const confirmed = await showConfirm({
+      title: 'Cảnh báo: Tài khoản đang đăng nhập!',
+      message: `Bạn đang thao tác khóa tài khoản của chính bạn đang đăng nhập (${item.fullName} - ${item.code}).\n\nSau khi khóa tài khoản này thành "Ngừng hoạt động", hệ thống sẽ LẬP TỨC ĐĂNG XUẤT phiên làm việc của bạn ra ngoài!\n\nBạn có chắc chắn muốn khóa tài khoản và đăng xuất ngay bây giờ không?`,
+      type: 'warning',
+      confirmText: 'Khóa tài khoản & Đăng xuất ngay',
+      cancelText: 'Hủy bỏ'
+    })
+    if (!confirmed) return
+
+    try {
+      await api.patch(`/api/nhan-vien/${item.id}/toggle-status`)
+      showToast('Tài khoản đã bị khóa. Hệ thống đang tự động đăng xuất...', 'info')
+      setTimeout(() => {
+        logout()
+      }, 500)
+      return
+    } catch (e) {
+      showAlert({
+        title: 'Thao tác thất bại',
+        message: e?.response?.data?.message || 'Không thể thay đổi trạng thái nhân viên.',
+        type: 'error'
+      })
+      return
+    }
+  }
+
   const confirmed = await showConfirm({
     title: isLocking ? 'Xác nhận khóa tài khoản' : 'Xác nhận mở khóa tài khoản',
     message: `Bạn có chắc chắn muốn ${actionText} của nhân viên "${item.fullName}" (${item.code}) không?`,
     type: isLocking ? 'warning' : 'question',
-    confirmText: isLocking ? 'Khóa tài khoản' : 'Mở khóa'
+    confirmText: isLocking ? 'Khóa tài khoản' : 'Mở khóa',
+    cancelText: 'Hủy bỏ'
   })
 
   if (!confirmed) return
@@ -2044,12 +2085,36 @@ onMounted(async () => {
 }
 
 .errors-list-scroll {
-  max-height: 190px;
+  max-height: 260px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.4rem;
   padding-right: 0.35rem;
+}
+
+.name-col-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.badge-current-user-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #0369a1;
+  background-color: #e0f2fe;
+  border: 1px solid #bae6fd;
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.2px;
+}
+
+.switch-self .slider-round.slider-self {
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.35);
 }
 
 .error-item {

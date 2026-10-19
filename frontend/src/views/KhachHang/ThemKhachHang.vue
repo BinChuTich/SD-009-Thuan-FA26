@@ -244,7 +244,7 @@ async function loadProvinces() {
 }
 
 async function onProvinceChange() {
-  const p = provincesList.value.find(item => item.code === selectedProvinceCode.value)
+  const p = provincesList.value.find(item => String(item.code) === String(selectedProvinceCode.value))
   form.thanhPho = p ? p.name : ''
   selectedWardCode.value = ''
   form.huyen = ''
@@ -259,7 +259,7 @@ async function onProvinceChange() {
 }
 
 function onWardChange() {
-  const w = wardsList.value.find(item => item.code === selectedWardCode.value)
+  const w = wardsList.value.find(item => String(item.code) === String(selectedWardCode.value))
   form.phuong = w ? w.name : ''
   if (w && w.districtName) {
     form.huyen = w.districtName
