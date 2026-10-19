@@ -1,8 +1,13 @@
 package com.example.sd009thuan.dto;
 
 import jakarta.validation.constraints.*;
+import lombok.Builder;
+import lombok.Data;
+
 import java.math.BigDecimal;
 
+@Data
+@Builder
 public class ChiTietSanPhamRequest {
     private Long id;
 
@@ -34,13 +39,17 @@ public class ChiTietSanPhamRequest {
     private Integer trangThai;
 
     private String nguoiThaoTac;
+
     private String anhDaiDien;
+
     private String hinhAnh;
 
     public ChiTietSanPhamRequest() {
+        super();
     }
 
     public ChiTietSanPhamRequest(Long id, Long idSanPham, Long idKichCo, Long idMauSac, String maChiTietSanPham, Integer soLuong, BigDecimal giaBan, Integer trangThai, String nguoiThaoTac, String anhDaiDien, String hinhAnh) {
+        super();
         this.id = id;
         this.idSanPham = idSanPham;
         this.idKichCo = idKichCo;
@@ -52,127 +61,5 @@ public class ChiTietSanPhamRequest {
         this.nguoiThaoTac = nguoiThaoTac;
         this.anhDaiDien = anhDaiDien;
         this.hinhAnh = hinhAnh;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Long getIdSanPham() {
-        return idSanPham;
-    }
-
-    public void setIdSanPham(Long idSanPham) {
-        this.idSanPham = idSanPham;
-    }
-
-    public Long getIdKichCo() {
-        return idKichCo;
-    }
-
-    public void setIdKichCo(Long idKichCo) {
-        this.idKichCo = idKichCo;
-    }
-
-    public Long getIdMauSac() {
-        return idMauSac;
-    }
-
-    public void setIdMauSac(Long idMauSac) {
-        this.idMauSac = idMauSac;
-    }
-
-    public String getMaChiTietSanPham() {
-        return maChiTietSanPham;
-    }
-
-    public void setMaChiTietSanPham(String maChiTietSanPham) {
-        this.maChiTietSanPham = maChiTietSanPham;
-    }
-
-    public Integer getSoLuong() {
-        return soLuong;
-    }
-
-    public void setSoLuong(Integer soLuong) {
-        this.soLuong = soLuong;
-    }
-
-    public BigDecimal getGiaBan() {
-        return giaBan;
-    }
-
-    public void setGiaBan(BigDecimal giaBan) {
-        this.giaBan = giaBan;
-    }
-
-    public Integer getTrangThai() {
-        return trangThai;
-    }
-
-    public void setTrangThai(Integer trangThai) {
-        this.trangThai = trangThai;
-    }
-
-    public String getNguoiThaoTac() {
-        return nguoiThaoTac;
-    }
-
-    public void setNguoiThaoTac(String nguoiThaoTac) {
-        this.nguoiThaoTac = nguoiThaoTac;
-    }
-
-    public String getAnhDaiDien() {
-        return anhDaiDien;
-    }
-
-    public void setAnhDaiDien(String anhDaiDien) {
-        this.anhDaiDien = anhDaiDien;
-    }
-
-    public String getHinhAnh() {
-        return hinhAnh;
-    }
-
-    public void setHinhAnh(String hinhAnh) {
-        this.hinhAnh = hinhAnh;
-    }
-
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    public static class Builder {
-        private Long id;
-        private Long idSanPham;
-        private Long idKichCo;
-        private Long idMauSac;
-        private String maChiTietSanPham;
-        private Integer soLuong;
-        private BigDecimal giaBan;
-        private Integer trangThai;
-        private String nguoiThaoTac;
-        private String anhDaiDien;
-        private String hinhAnh;
-
-        public Builder id(Long id) { this.id = id; return this; }
-        public Builder idSanPham(Long idSanPham) { this.idSanPham = idSanPham; return this; }
-        public Builder idKichCo(Long idKichCo) { this.idKichCo = idKichCo; return this; }
-        public Builder idMauSac(Long idMauSac) { this.idMauSac = idMauSac; return this; }
-        public Builder maChiTietSanPham(String maChiTietSanPham) { this.maChiTietSanPham = maChiTietSanPham; return this; }
-        public Builder soLuong(Integer soLuong) { this.soLuong = soLuong; return this; }
-        public Builder giaBan(BigDecimal giaBan) { this.giaBan = giaBan; return this; }
-        public Builder trangThai(Integer trangThai) { this.trangThai = trangThai; return this; }
-        public Builder nguoiThaoTac(String nguoiThaoTac) { this.nguoiThaoTac = nguoiThaoTac; return this; }
-        public Builder anhDaiDien(String anhDaiDien) { this.anhDaiDien = anhDaiDien; return this; }
-        public Builder hinhAnh(String hinhAnh) { this.hinhAnh = hinhAnh; return this; }
-
-        public ChiTietSanPhamRequest build() {
-            return new ChiTietSanPhamRequest(id, idSanPham, idKichCo, idMauSac, maChiTietSanPham, soLuong, giaBan, trangThai, nguoiThaoTac, anhDaiDien, hinhAnh);
-        }
     }
 }

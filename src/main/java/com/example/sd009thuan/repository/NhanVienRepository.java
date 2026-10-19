@@ -15,5 +15,7 @@ public interface NhanVienRepository extends JpaRepository<NhanVien, Long>, JpaSp
     boolean existsByTenTaiKhoanIgnoreCaseAndIdNot(String tenTaiKhoan, Long id);
     boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
     boolean existsBySoDienThoaiAndIdNot(String soDienThoai, Long id);
+    Optional<NhanVien> findByMaNhanVien(String maNhanVien);
+    Optional<NhanVien> findByMaNhanVienIgnoreCase(String maNhanVien);
     Optional<NhanVien> findTopByOrderByIdDesc();
 }
