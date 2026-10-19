@@ -4,23 +4,16 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Nationalized;
 
 import java.time.Instant;
 
-@Getter
-@Setter
-@NoArgsConstructor
 @Entity
 @Table(name = "san_pham")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class SanPham {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -99,6 +92,137 @@ public class SanPham {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private HoaTiet idHoaTiet;
 
+    public SanPham() {
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public ChatLieu getIdChatLieu() {
+        return idChatLieu;
+    }
+
+    public void setIdChatLieu(ChatLieu idChatLieu) {
+        this.idChatLieu = idChatLieu;
+    }
+
+    public CoAo getIdCoAo() {
+        return idCoAo;
+    }
+
+    public void setIdCoAo(CoAo idCoAo) {
+        this.idCoAo = idCoAo;
+    }
+
+    public TayAo getIdTayAo() {
+        return idTayAo;
+    }
+
+    public void setIdTayAo(TayAo idTayAo) {
+        this.idTayAo = idTayAo;
+    }
+
+    public String getMaSanPham() {
+        return maSanPham;
+    }
+
+    public void setMaSanPham(String maSanPham) {
+        this.maSanPham = maSanPham;
+    }
+
+    public String getTenSanPham() {
+        return tenSanPham;
+    }
+
+    public void setTenSanPham(String tenSanPham) {
+        this.tenSanPham = tenSanPham;
+    }
+
+    public Instant getNgayTao() {
+        return ngayTao;
+    }
+
+    public void setNgayTao(Instant ngayTao) {
+        this.ngayTao = ngayTao;
+    }
+
+    public Instant getNgayCapNhat() {
+        return ngayCapNhat;
+    }
+
+    public void setNgayCapNhat(Instant ngayCapNhat) {
+        this.ngayCapNhat = ngayCapNhat;
+    }
+
+    public String getNguoiTao() {
+        return nguoiTao;
+    }
+
+    public void setNguoiTao(String nguoiTao) {
+        this.nguoiTao = nguoiTao;
+    }
+
+    public String getNguoiCapNhat() {
+        return nguoiCapNhat;
+    }
+
+    public void setNguoiCapNhat(String nguoiCapNhat) {
+        this.nguoiCapNhat = nguoiCapNhat;
+    }
+
+    public String getMoTa() {
+        return moTa;
+    }
+
+    public void setMoTa(String moTa) {
+        this.moTa = moTa;
+    }
+
+    public Integer getTrangThai() {
+        return trangThai;
+    }
+
+    public void setTrangThai(Integer trangThai) {
+        this.trangThai = trangThai;
+    }
+
+    public XuatXu getIdXuatXu() {
+        return idXuatXu;
+    }
+
+    public void setIdXuatXu(XuatXu idXuatXu) {
+        this.idXuatXu = idXuatXu;
+    }
+
+    public ThuongHieu getIdThuongHieu() {
+        return idThuongHieu;
+    }
+
+    public void setIdThuongHieu(ThuongHieu idThuongHieu) {
+        this.idThuongHieu = idThuongHieu;
+    }
+
+    public DanhMuc getIdDanhMuc() {
+        return idDanhMuc;
+    }
+
+    public void setIdDanhMuc(DanhMuc idDanhMuc) {
+        this.idDanhMuc = idDanhMuc;
+    }
+
+    public HoaTiet getIdHoaTiet() {
+        return idHoaTiet;
+    }
+
+    public void setIdHoaTiet(HoaTiet idHoaTiet) {
+        this.idHoaTiet = idHoaTiet;
+    }
+
     @PrePersist
     public void prePersist() {
         if (this.ngayTao == null) {
@@ -113,5 +237,4 @@ public class SanPham {
     public void preUpdate() {
         this.ngayCapNhat = Instant.now();
     }
-
 }

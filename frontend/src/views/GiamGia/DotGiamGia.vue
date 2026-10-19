@@ -371,8 +371,9 @@
                   v-model="formData.ngayBatDau"
                   :min="minStartDateTime"
                   :class="['video-input', { 'input-has-error': errors.ngayBatDau }]"
+                  @focus="refreshMinDateTime"
+                  @input="handleNgayBatDauInput"
                   @change="handleNgayBatDauChange"
-                  @input="handleNgayBatDauChange"
                 />
                 <span v-if="errors.ngayBatDau" class="field-error-msg">{{ errors.ngayBatDau }}</span>
               </div>
@@ -382,10 +383,11 @@
                 <input
                   type="datetime-local"
                   v-model="formData.ngayKetThuc"
-                  :min="formData.ngayBatDau || minStartDateTime || undefined"
+                  :min="minEndDateTime"
                   :class="['video-input', { 'input-has-error': errors.ngayKetThuc }]"
+                  @focus="refreshMinDateTime"
+                  @input="handleNgayKetThucInput"
                   @change="handleNgayKetThucChange"
-                  @input="handleNgayKetThucChange"
                 />
                 <span v-if="errors.ngayKetThuc" class="field-error-msg">{{ errors.ngayKetThuc }}</span>
               </div>
@@ -520,24 +522,14 @@
                     </td>
                     <td class="font-bold text-code">{{ p.ma }}</td>
                     <td class="font-medium text-name">
-                      <div class="product-cell-flex">
-                        <div class="product-thumb-box">
-                          <img
-                            :src="getProductImage(p)"
-                            :alt="p.ten"
-                            class="product-thumb-img"
-                            @error="(e) => { e.target.src = defaultProductImages[0] }"
-                          />
+                      <div class="product-cell-info">
+                        <div class="product-name-row">
+                          <span class="product-title-text">{{ p.ten }}</span>
                         </div>
-                        <div class="product-cell-info">
-                          <div class="product-name-row">
-                            <span class="product-title-text">{{ p.ten }}</span>
-                          </div>
-                          <div class="product-sub-info">
-                            <span v-if="getSelectedVariantCountForProduct(p) > 0" class="badge-selected-count">
-                              Đã chọn {{ getSelectedVariantCountForProduct(p) }}/{{ p.variants ? p.variants.length : 0 }} biến thể
-                            </span>
-                          </div>
+                        <div v-if="getSelectedVariantCountForProduct(p) > 0" class="product-sub-info">
+                          <span class="badge-selected-count">
+                            Đã chọn {{ getSelectedVariantCountForProduct(p) }}/{{ p.variants ? p.variants.length : 0 }} biến thể
+                          </span>
                         </div>
                       </div>
                     </td>
@@ -637,18 +629,23 @@
           <table class="video-table">
             <thead>
               <tr>
-                <th style="width: 55px; text-align: center;">STT</th>
+                <th style="width: 50px; text-align: center;">STT</th>
                 <th style="width: 75px; text-align: center;">Ảnh biến thể</th>
-                <th style="width: 250px;">Sản phẩm</th>
-                <th style="width: 230px;">Biến thể</th>
-                <th style="width: 140px;">Giá bán</th>
-                <th style="width: 150px;">Giá sau giảm</th>
-                <th style="width: 110px; text-align: center;">Số lượng</th>
+                <th style="width: 230px;">Sản phẩm</th>
+                <th style="width: 200px;">Biến thể</th>
+                <th style="width: 130px;">Giá bán</th>
+                <th style="width: 135px;">Giá hiện tại</th>
+                <th style="width: 175px;">Giá sau giảm</th>
+                <th style="width: 90px; text-align: center;">Số lượng</th>
                 <th style="width: 50px; text-align: center;"></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(v, idx) in paginatedSelectedVariants" :key="v.id">
+              <tr
+                v-for="(v, idx) in paginatedSelectedVariants"
+                :key="v.id"
+                :class="{ 'row-has-active-campaign': !!getVariantCampaignInfo(v) }"
+              >
                 <td style="text-align: center;" class="text-sub">
                   {{ (variantCurrentPage - 1) * variantPageSize + idx + 1 }}
                 </td>
@@ -660,7 +657,7 @@
                       class="applied-variant-thumb"
                       @error="(e) => { e.target.src = defaultVariantSvg }"
                     />
-                    <!-- Badge phần trăm giảm giá hiển thị trực tiếp trên ảnh biến thể (ví dụ -30%, -25%) theo ảnh mẫu -->
+                    <!-- Badge phần trăm giảm giá hiển thị trực tiếp trên ảnh biến thể (ví dụ -30%, -20%) theo ảnh mẫu -->
                     <span
                       v-if="getVariantThumbBadge(v)"
                       class="variant-thumb-discount-badge"
@@ -688,10 +685,17 @@
                 <td class="font-medium text-dark">
                   {{ formatMoney(v.gia) }}
                 </td>
+                <td class="font-medium text-dark">
+                  <div class="current-price-col">
+                    <span class="current-price-num">{{ formatMoney(calculateCurrentVariantPrice(v)) }}</span>
+                  </div>
+                </td>
                 <td class="font-bold text-discounted-price">
-                  <div>{{ formatMoney(calculateVariantDiscountedPrice(v)) }}</div>
-                  <div v-if="calculateVariantDiscountPercent(v) > 0" class="text-discount-badge">
-                    (-{{ calculateVariantDiscountPercent(v) }}%)
+                  <div class="discounted-price-amount">
+                    {{ formatMoney(calculateVariantDiscountedPrice(v)) }}
+                  </div>
+                  <div v-if="getAppliedDiscountNotice(v)" class="applied-campaign-notice">
+                    {{ getAppliedDiscountNotice(v) }}
                   </div>
                 </td>
                 <td style="text-align: center;">
@@ -704,7 +708,7 @@
                 </td>
               </tr>
               <tr v-if="displaySelectedVariants.length === 0">
-                <td colspan="8" class="empty-cell">Chưa có biến thể nào được chọn áp dụng!</td>
+                <td colspan="9" class="empty-cell">Chưa có biến thể nào được chọn áp dụng!</td>
               </tr>
             </tbody>
           </table>
@@ -935,6 +939,8 @@ const totalElements = ref(0)
 // Modal xác nhận lưu/tạo
 const showConfirmModal = ref(false)
 const isEditing = ref(false)
+const originalNgayBatDau = ref('')
+const originalNgayKetThuc = ref('')
 const submitting = ref(false)
 const exporting = ref(false)
 
@@ -965,15 +971,43 @@ const clearError = (field) => {
   }
 }
 
-
-// Mốc thời gian tối thiểu cho Từ ngày (không trước thời điểm hiện tại khi tạo mới)
-const minStartDateTime = computed(() => {
-  if (isEditing.value) return undefined
+// Lấy chuỗi ngày giờ hiện tại chuẩn YYYY-MM-DDTHH:mm
+const getCurrentDateTimeString = () => {
   const now = new Date()
   const pad = n => String(n).padStart(2, '0')
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
+}
+
+// Lấy mốc timestamp đầu phút hiện tại (bỏ qua giây để so khớp chuẩn từng phút)
+const getCurrentMinuteFloorMs = () => {
+  const d = new Date()
+  d.setSeconds(0, 0)
+  return d.getTime()
+}
+
+// Mốc thời gian tối thiểu cho form Từ ngày & Đến ngày (khóa không cho chọn trước giờ hiện tại)
+const formMinDateTime = ref('')
+
+const refreshMinDateTime = () => {
+  formMinDateTime.value = getCurrentDateTimeString()
+}
+
+const minStartDateTime = computed(() => {
+  return formMinDateTime.value || getCurrentDateTimeString()
 })
 const minStartDate = minStartDateTime
+
+// Mốc thời gian tối thiểu cho Đến ngày (phải từ ngày bắt đầu hoặc mốc thời gian hiện tại)
+const minEndDateTime = computed(() => {
+  if (formData.value.ngayBatDau) {
+    const startMs = new Date(formData.value.ngayBatDau).getTime()
+    const nowMs = getCurrentMinuteFloorMs()
+    if (!isNaN(startMs) && startMs > nowMs) {
+      return formData.value.ngayBatDau
+    }
+  }
+  return formMinDateTime.value || getCurrentDateTimeString()
+})
 
 // Hàm tự sinh mã đợt ngẫu nhiên (nút xoay tròn)
 const generateRandomMa = () => {
@@ -1513,6 +1547,31 @@ const getVariantCampaignDiscountText = (v) => {
   return ''
 }
 
+// Tính giá hiện tại của biến thể (thể hiện mức giá sau khi đã giảm của đợt cũ đang áp dụng nếu có)
+const calculateCurrentVariantPrice = (v) => {
+  if (!v) return 0
+  const originalPrice = Number(v.gia) || 0
+  if (originalPrice <= 0) return 0
+
+  const activeCamp = getVariantCampaignInfo(v)
+  if (!activeCamp) return originalPrice
+
+  let activeDiscountAmount = 0
+  const activePercent = Number(activeCamp.phanTramGiam) || 0
+  const activeCash = Number(activeCamp.giaTriGiam) || 0
+
+  if (activeCamp.loaiGiamGia === 2 && activeCash > 0) {
+    activeDiscountAmount = activeCash
+  } else if (activePercent > 0) {
+    activeDiscountAmount = (originalPrice * activePercent) / 100
+    if (activeCamp.giamToiDa && Number(activeCamp.giamToiDa) > 0) {
+      activeDiscountAmount = Math.min(activeDiscountAmount, Number(activeCamp.giamToiDa))
+    }
+  }
+
+  return Math.max(0, Math.round(originalPrice - activeDiscountAmount))
+}
+
 // Tính giá sau giảm cho từng biến thể cụ thể (xét cả đợt đang tạo/sửa và đợt đang chạy)
 const calculateVariantDiscountedPrice = (v) => {
   if (!v) return 0
@@ -1554,6 +1613,75 @@ const calculateVariantDiscountedPrice = (v) => {
   return Math.max(0, Math.round(originalPrice - finalDiscount))
 }
 
+// Thể hiện rõ biến thể đang được áp dụng đợt giảm giá nào và mức giảm ra sao
+const getAppliedDiscountNotice = (v) => {
+  if (!v) return ''
+  const originalPrice = Number(v.gia) || 0
+  if (originalPrice <= 0) return ''
+
+  // Mức giảm từ form hiện tại
+  let formDiscountAmount = 0
+  const formPercent = Number(formData.value.phanTramGiam) || 0
+  const formCash = Number(formData.value.giaTriGiam) || 0
+
+  if (formData.value.loaiGiamGia === 2 && formCash > 0) {
+    formDiscountAmount = formCash
+  } else if (formPercent > 0) {
+    formDiscountAmount = (originalPrice * formPercent) / 100
+    if (formData.value.giamToiDa && Number(formData.value.giamToiDa) > 0) {
+      formDiscountAmount = Math.min(formDiscountAmount, Number(formData.value.giamToiDa))
+    }
+  }
+
+  // Mức giảm từ đợt cũ đang áp dụng
+  let activeDiscountAmount = 0
+  const activeCamp = getVariantCampaignInfo(v)
+  if (activeCamp) {
+    const activePercent = Number(activeCamp.phanTramGiam) || 0
+    const activeCash = Number(activeCamp.giaTriGiam) || 0
+    if (activeCamp.loaiGiamGia === 2 && activeCash > 0) {
+      activeDiscountAmount = activeCash
+    } else if (activePercent > 0) {
+      activeDiscountAmount = (originalPrice * activePercent) / 100
+      if (activeCamp.giamToiDa && Number(activeCamp.giamToiDa) > 0) {
+        activeDiscountAmount = Math.min(activeDiscountAmount, Number(activeCamp.giamToiDa))
+      }
+    }
+  }
+
+  const formText = formData.value.loaiGiamGia === 2 && formCash > 0
+    ? formatShortMoney(formCash)
+    : (formPercent > 0 ? `${formPercent}%` : '')
+
+  let activeText = ''
+  if (activeCamp) {
+    if (activeCamp.loaiGiamGia === 2 && activeCash > 0) {
+      activeText = formatShortMoney(activeCash)
+    } else if (activeCamp.phanTramGiam != null && Number(activeCamp.phanTramGiam) > 0) {
+      activeText = `${activeCamp.phanTramGiam}%`
+    }
+  }
+
+  // Trường hợp có đợt cũ trùng
+  if (activeCamp && activeDiscountAmount > 0) {
+    if (formDiscountAmount > activeDiscountAmount) {
+      return `Áp dụng ${formText} (cao hơn đợt khác)`
+    }
+    if (formDiscountAmount < activeDiscountAmount) {
+      const campCode = activeCamp.maDotGiamGia ? ` (${activeCamp.maDotGiamGia})` : ''
+      return `Áp dụng ${activeText} (đợt cũ${campCode} cao hơn)`
+    }
+    return `Áp dụng ${formText} (bằng mức đợt khác)`
+  }
+
+  // Trường hợp không có đợt cũ trùng (chỉ có đợt trong form)
+  if (formDiscountAmount > 0) {
+    return `Áp dụng ${formText}`
+  }
+
+  return ''
+}
+
 // Tính phần trăm giảm thực tế đang được hưởng
 const calculateVariantDiscountPercent = (v) => {
   if (!v || !v.gia) return 0
@@ -1564,13 +1692,9 @@ const calculateVariantDiscountPercent = (v) => {
   return pct % 1 === 0 ? pct : Number(pct.toFixed(1))
 }
 
-// Lấy nhãn phần trăm giảm giá hiển thị trên ảnh biến thể, luôn lấy mức giảm sâu nhất (MAX discount)
+// Lấy nhãn phần trăm giảm giá hiển thị trên ảnh biến thể (ưu tiên đợt cũ đang áp dụng)
 const getVariantThumbBadge = (v) => {
   if (!v) return ''
-  // 1. Luôn ưu tiên mức giảm sâu nhất thực tế đang được hưởng (giữa đợt trong form và đợt khác)
-  const pct = calculateVariantDiscountPercent(v)
-  if (pct > 0) return `-${pct}%`
-  // 2. Dự phòng nếu không tính được % từ giá thì lấy từ đợt đang áp dụng
   const activeText = getVariantCampaignDiscountText(v)
   if (activeText) return activeText
   return ''
@@ -1666,23 +1790,34 @@ const handleGiaTriGiamInput = () => {
   }
 }
 
-// Kiểm tra Từ ngày
-const handleNgayBatDauChange = () => {
+// Kiểm tra Từ ngày ngay khi người dùng chọn/nhập
+const validateNgayBatDauValue = (rawVal, isFromInput = false) => {
   clearError('ngayBatDau')
-  if (!formData.value.ngayBatDau || formData.value.ngayBatDau.trim() === '') {
-    errors.value.ngayBatDau = 'Từ ngày không được để trống!'
+  if (!rawVal || rawVal.trim() === '') {
+    if (!isFromInput) {
+      errors.value.ngayBatDau = 'Từ ngày không được để trống!'
+    }
     return
   }
-  if (!isEditing.value) {
-    const startMs = new Date(formData.value.ngayBatDau).getTime()
-    // Dung sai 10 phút để người dùng thoải mái thao tác mà không bị chặn
-    if (startMs < Date.now() - 10 * 60 * 1000) {
+  const startMs = new Date(rawVal).getTime()
+  if (isNaN(startMs)) return
+
+  const isOriginalStart = isEditing.value && originalNgayBatDau.value && rawVal === toInputDateTime(originalNgayBatDau.value)
+  if (!isOriginalStart) {
+    const minMs = getCurrentMinuteFloorMs()
+    if (startMs < minMs) {
+      // Lập tức khóa cứng không cho chọn ngược lại thời gian hiện tại
+      const currentStr = getCurrentDateTimeString()
+      formData.value.ngayBatDau = currentStr
       errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
+      showToast('Thời gian bắt đầu không được trước thời gian hiện tại!', 'error')
       return
     }
   }
+
   if (formData.value.ngayKetThuc) {
-    if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
+    const endMs = new Date(formData.value.ngayKetThuc).getTime()
+    if (!isNaN(endMs) && endMs <= startMs) {
       errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
     } else {
       clearError('ngayKetThuc')
@@ -1690,20 +1825,57 @@ const handleNgayBatDauChange = () => {
   }
 }
 
-// Kiểm tra Đến ngày (bắt buộc, không cho để trống)
-const handleNgayKetThucChange = () => {
+const handleNgayBatDauInput = (e) => {
+  const val = e?.target?.value || formData.value.ngayBatDau
+  validateNgayBatDauValue(val, true)
+}
+
+const handleNgayBatDauChange = (e) => {
+  const val = e?.target?.value || formData.value.ngayBatDau
+  validateNgayBatDauValue(val, false)
+}
+
+// Kiểm tra Đến ngày ngay khi người dùng chọn/nhập
+const validateNgayKetThucValue = (rawVal, isFromInput = false) => {
   clearError('ngayKetThuc')
-  if (!formData.value.ngayKetThuc || formData.value.ngayKetThuc.trim() === '') {
-    errors.value.ngayKetThuc = 'Đến ngày không được để trống!'
+  if (!rawVal || rawVal.trim() === '') {
+    if (!isFromInput) {
+      errors.value.ngayKetThuc = 'Đến ngày không được để trống!'
+    }
     return
   }
+  const endMs = new Date(rawVal).getTime()
+  if (isNaN(endMs)) return
+
+  const minMs = getCurrentMinuteFloorMs()
+  if (endMs < minMs) {
+    errors.value.ngayKetThuc = 'Thời gian kết thúc không được trước thời gian hiện tại!'
+    showToast('Thời gian kết thúc không được trước thời gian hiện tại!', 'error')
+    formData.value.ngayKetThuc = ''
+    return
+  }
+
   if (formData.value.ngayBatDau) {
-    if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
+    const startMs = new Date(formData.value.ngayBatDau).getTime()
+    if (!isNaN(startMs) && endMs <= startMs) {
       errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
+      showToast('Đến ngày phải sau thời gian bắt đầu!', 'error')
+      formData.value.ngayKetThuc = ''
+      return
     } else {
       clearError('ngayKetThuc')
     }
   }
+}
+
+const handleNgayKetThucInput = (e) => {
+  const val = e?.target?.value || formData.value.ngayKetThuc
+  validateNgayKetThucValue(val, true)
+}
+
+const handleNgayKetThucChange = (e) => {
+  const val = e?.target?.value || formData.value.ngayKetThuc
+  validateNgayKetThucValue(val, false)
 }
 
 // Lưu trữ và khôi phục metadata đợt giảm giá (lượt sử dụng, hình thức, giảm tối đa)
@@ -1769,26 +1941,34 @@ const filters = ref({
 
 let searchTimeout = null
 
-// Helper ngày giờ
-const toInputDateTime = (val) => {
-  if (!val) return ''
+// Helper ngày giờ an toàn hỗ trợ cả chuỗi ISO, timestamp và mảng Java LocalDateTime [yyyy, mm, dd, hh, mm]
+const parseDateHelper = (val) => {
+  if (!val) return null
+  if (Array.isArray(val)) {
+    const [y, m, d, h = 0, min = 0, s = 0] = val
+    return new Date(y, m - 1, d, h, min, s)
+  }
   const d = new Date(val)
-  if (isNaN(d.getTime())) return ''
+  return isNaN(d.getTime()) ? null : d
+}
+
+const toInputDateTime = (val) => {
+  const d = parseDateHelper(val)
+  if (!d) return ''
   const pad = n => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 const toInputDate = (val) => {
-  if (!val) return ''
-  const d = new Date(val)
-  if (isNaN(d.getTime())) return ''
+  const d = parseDateHelper(val)
+  if (!d) return ''
   const pad = n => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 const formatDate = (val) => {
   if (!val) return '—'
-  const date = new Date(val)
-  if (isNaN(date.getTime())) return val
+  const date = parseDateHelper(val)
+  if (!date) return val
   const day = date.getDate()
   const month = date.getMonth() + 1
   const year = date.getFullYear()
@@ -1797,8 +1977,8 @@ const formatDate = (val) => {
 
 const formatDateTime = (val) => {
   if (!val) return '—'
-  const date = new Date(val)
-  if (isNaN(date.getTime())) return val
+  const date = parseDateHelper(val)
+  if (!date) return val
   const pad = n => String(n).padStart(2, '0')
   const hours = pad(date.getHours())
   const minutes = pad(date.getMinutes())
@@ -2202,7 +2382,12 @@ const exportToExcel = async () => {
 const openCreateView = async () => {
   errors.value = {}
   isEditing.value = false
+  originalNgayBatDau.value = ''
+  originalNgayKetThuc.value = ''
   currentView.value = 'form'
+
+  const currentStr = getCurrentDateTimeString()
+  formMinDateTime.value = currentStr
 
   formData.value = {
     id: null,
@@ -2212,7 +2397,7 @@ const openCreateView = async () => {
     phanTramGiam: null,
     giaTriGiam: null,
     giamToiDa: null,
-    ngayBatDau: '',
+    ngayBatDau: currentStr,
     ngayKetThuc: '',
     moTa: '',
     trangThai: 1
@@ -2242,7 +2427,11 @@ const openCreateView = async () => {
 const openEditView = async (item) => {
   errors.value = {}
   isEditing.value = true
+  originalNgayBatDau.value = item.ngayBatDau || ''
+  originalNgayKetThuc.value = item.ngayKetThuc || ''
   currentView.value = 'form'
+
+  formMinDateTime.value = getCurrentDateTimeString()
 
   formData.value = {
     id: item.id,
@@ -2280,8 +2469,14 @@ const openEditView = async (item) => {
       if (res.data.loaiGiamGia != null) formData.value.loaiGiamGia = res.data.loaiGiamGia
       if (res.data.giaTriGiam != null) formData.value.giaTriGiam = res.data.giaTriGiam
       if (res.data.giamToiDa != null) formData.value.giamToiDa = res.data.giamToiDa
-      if (res.data.ngayBatDau) formData.value.ngayBatDau = toInputDateTime(res.data.ngayBatDau)
-      if (res.data.ngayKetThuc) formData.value.ngayKetThuc = toInputDateTime(res.data.ngayKetThuc)
+      if (res.data.ngayBatDau) {
+        formData.value.ngayBatDau = toInputDateTime(res.data.ngayBatDau)
+        originalNgayBatDau.value = res.data.ngayBatDau
+      }
+      if (res.data.ngayKetThuc) {
+        formData.value.ngayKetThuc = toInputDateTime(res.data.ngayKetThuc)
+        originalNgayKetThuc.value = res.data.ngayKetThuc
+      }
       if (res.data.trangThai != null) formData.value.trangThai = res.data.trangThai
     }
   } catch (e) {
@@ -2380,16 +2575,29 @@ const onSaveClick = () => {
   if (!formData.value.ngayBatDau || formData.value.ngayBatDau.trim() === '') {
     errors.value.ngayBatDau = 'Từ ngày không được để trống!'
     hasError = true
+  } else {
+    const startMs = new Date(formData.value.ngayBatDau).getTime()
+    const isOriginalStart = isEditing.value && originalNgayBatDau.value && formData.value.ngayBatDau === toInputDateTime(originalNgayBatDau.value)
+    if (!isOriginalStart && startMs < getCurrentMinuteFloorMs()) {
+      errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
+      hasError = true
+    }
   }
 
   // 4. Kiểm tra Đến ngày (Bắt buộc, không cho để trống)
   if (!formData.value.ngayKetThuc || formData.value.ngayKetThuc.trim() === '') {
     errors.value.ngayKetThuc = 'Đến ngày không được để trống!'
     hasError = true
-  } else if (formData.value.ngayBatDau) {
-    if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
-      errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
+  } else {
+    const endMs = new Date(formData.value.ngayKetThuc).getTime()
+    if (endMs < getCurrentMinuteFloorMs()) {
+      errors.value.ngayKetThuc = 'Thời gian kết thúc không được trước thời gian hiện tại!'
       hasError = true
+    } else if (formData.value.ngayBatDau) {
+      if (endMs <= new Date(formData.value.ngayBatDau).getTime()) {
+        errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
+        hasError = true
+      }
     }
   }
 
@@ -3871,8 +4079,9 @@ onUnmounted(() => {
 }
 .field-error-msg {
   color: #ef4444;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   font-weight: 500;
+  line-height: 1.3;
   margin-top: 4px;
   display: block;
 }
@@ -4754,5 +4963,34 @@ onUnmounted(() => {
   white-space: nowrap;
   z-index: 5;
   letter-spacing: -0.2px;
+}
+
+/* ==================== STYLE CHO BIẾN THỂ TRÙNG / ĐANG ÁP DỤNG ĐỢT GIẢM GIÁ ==================== */
+.row-has-active-campaign {
+  background-color: #fff8f8 !important;
+}
+.row-has-active-campaign:hover {
+  background-color: #fee2e2 !important;
+}
+.current-price-col {
+  display: flex;
+  flex-direction: column;
+}
+.current-price-num {
+  font-weight: 500;
+  color: #1e293b;
+}
+.discounted-price-amount {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #dc2626;
+  line-height: 1.2;
+}
+.applied-campaign-notice {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  margin-top: 3px;
+  line-height: 1.25;
 }
 </style>

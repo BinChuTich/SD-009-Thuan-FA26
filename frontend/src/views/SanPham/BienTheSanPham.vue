@@ -31,8 +31,19 @@ const formattedProducts = computed(() => {
   }))
 })
 
+// Danh sách mã sản phẩm định dạng cho Select2Combobox lọc
+const productCodeOptions = computed(() => {
+  return productsList.value.map(p => ({
+    id: p.id,
+    maSanPham: p.maSanPham,
+    tenSanPham: p.tenSanPham,
+    label: p.maSanPham ? `${p.maSanPham} (${p.tenSanPham})` : p.tenSanPham
+  }))
+})
+
 // Dữ liệu bộ lọc
 const filters = ref({
+  idSanPham: '',
   keyword: '',
   idMauSac: '',
   idKichCo: '',
@@ -542,6 +553,16 @@ const fetchAttributes = async () => {
   }
 }
 
+// Lấy danh sách sản phẩm để đưa vào bộ lọc Select2Combobox
+const fetchProductsList = async () => {
+  try {
+    const res = await api.get('/api/san-pham', { params: { size: 1000 } })
+    productsList.value = res.data?.content || []
+  } catch (err) {
+    console.error('Lỗi tải danh sách sản phẩm:', err)
+  }
+}
+
 // Lấy thông tin sản phẩm chính
 const fetchProductInfo = async (id) => {
   try {
@@ -555,6 +576,21 @@ const fetchProductInfo = async (id) => {
   }
 }
 
+// Lắng nghe thay đổi chọn mã sản phẩm trong Select2Combobox
+const onProductFilterChange = (selectedId) => {
+  if (selectedId) {
+    const p = productsList.value.find(item => item.id === selectedId)
+    if (p) {
+      currentProduct.value = p
+    } else {
+      fetchProductInfo(selectedId)
+    }
+  } else {
+    currentProduct.value = null
+  }
+  handleFilterChange()
+}
+
 // Lấy danh sách biến thể
 const fetchVariants = async () => {
   loading.value = true
@@ -563,7 +599,7 @@ const fetchVariants = async () => {
       page: filters.value.page,
       size: filters.value.size
     }
-    const productId = route.query.sanPhamId || route.params.id
+    const productId = filters.value.idSanPham || route.query.sanPhamId || route.params.id
     if (productId) {
       params.idSanPham = productId
     }
@@ -613,13 +649,21 @@ const handleFilterChange = () => {
 }
 
 const resetFilters = () => {
+  const defaultPid = route.query.sanPhamId ? Number(route.query.sanPhamId) : ''
   filters.value = {
+    idSanPham: defaultPid,
     keyword: '',
     idMauSac: '',
     idKichCo: '',
     trangThai: '',
     page: 0,
     size: 10
+  }
+  if (!defaultPid) {
+    currentProduct.value = null
+  } else {
+    const found = productsList.value.find(p => p.id === defaultPid)
+    if (found) currentProduct.value = found
   }
   fetchVariants()
 }
@@ -630,7 +674,7 @@ const handleExportExcel = async () => {
   exporting.value = true
   try {
     const params = {}
-    const productId = route.query.sanPhamId || route.params.id
+    const productId = filters.value.idSanPham || route.query.sanPhamId || route.params.id
     if (productId) params.idSanPham = productId
     if (filters.value.keyword?.trim()) params.keyword = filters.value.keyword.trim()
     if (filters.value.idMauSac) params.idMauSac = filters.value.idMauSac
@@ -742,8 +786,8 @@ const visiblePages = computed(() => {
 
 // Format tiền tệ & hình ảnh
 const formatPrice = (price) => {
-  if (price == null) return '0 đ'
-  return Number(price).toLocaleString('vi-VN') + ' đ'
+  if (price == null) return '0\u00A0đ'
+  return Number(price).toLocaleString('vi-VN') + '\u00A0đ'
 }
 
 const formatImageUrl = (url) => {
@@ -767,9 +811,10 @@ const goToProductList = () => {
 
 // Khởi tạo
 onMounted(async () => {
-  await fetchAttributes()
+  await Promise.all([fetchAttributes(), fetchProductsList()])
   const productId = route.query.sanPhamId || route.params.id
   if (productId) {
+    filters.value.idSanPham = Number(productId) || productId
     await fetchProductInfo(productId)
   }
   await fetchVariants()
@@ -777,7 +822,13 @@ onMounted(async () => {
 
 watch(() => route.query.sanPhamId, async (newId) => {
   if (newId) {
+    filters.value.idSanPham = Number(newId) || newId
     await fetchProductInfo(newId)
+    filters.value.page = 0
+    fetchVariants()
+  } else {
+    filters.value.idSanPham = ''
+    currentProduct.value = null
     filters.value.page = 0
     fetchVariants()
   }
@@ -874,8 +925,22 @@ watch(() => route.query.sanPhamId, async (newId) => {
           </div>
         </div>
 
-        <!-- Hàng 2: Ba bộ chọn Dropdown Select2 (Màu sắc, Kích cỡ, Trạng thái) -->
+        <!-- Hàng 2: Bốn bộ chọn Dropdown Select2 (Mã sản phẩm, Màu sắc, Kích cỡ, Trạng thái) -->
         <div class="filter-bottom-row">
+          <div class="dropdown-filter-item">
+            <label class="dropdown-label">Mã sản phẩm</label>
+            <Select2Combobox
+              v-model="filters.idSanPham"
+              :options="productCodeOptions"
+              value-key="id"
+              label-key="label"
+              placeholder="Tất cả mã sản phẩm"
+              all-label="Tất cả mã sản phẩm"
+              search-placeholder="Tìm kiếm mã sản phẩm..."
+              @change="onProductFilterChange"
+            />
+          </div>
+
           <div class="dropdown-filter-item">
             <label class="dropdown-label">Màu sắc</label>
             <Select2Combobox
@@ -929,28 +994,27 @@ watch(() => route.query.sanPhamId, async (newId) => {
               <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll" class="table-chk" />
             </th>
             <th style="width: 50px; text-align: center;">STT</th>
+            <th style="width: 85px; text-align: center;">Ảnh</th>
             <th style="width: 90px;">Mã SP</th>
             <th style="width: 140px;">Mã CTSP</th>
-            <th style="width: 65px; text-align: center;">Ảnh</th>
             <th style="width: 120px;">Màu sắc</th>
             <th style="width: 80px; text-align: center;">Kích cỡ</th>
             <th style="width: 90px; text-align: center;">Số lượng</th>
-            <th style="width: 120px; text-align: right;">Giá bán</th>
-            <th style="width: 80px; text-align: center;">Giảm</th>
+            <th style="width: 130px; text-align: right; white-space: nowrap;">Giá bán</th>
             <th style="width: 110px; text-align: center;">Trạng thái</th>
             <th style="width: 130px; text-align: center;">Hành động</th>
           </tr>
           </thead>
           <tbody>
           <tr v-if="loading">
-            <td colspan="12" class="empty-cell">
+            <td colspan="11" class="empty-cell">
               <div class="loading-state">
                 <span class="loading-spinner"></span> Đang tải danh sách biến thể...
               </div>
             </td>
           </tr>
           <tr v-else-if="variants.length === 0">
-            <td colspan="12" class="empty-cell">
+            <td colspan="11" class="empty-cell">
               Không tìm thấy biến thể nào phù hợp!
             </td>
           </tr>
@@ -965,6 +1029,26 @@ watch(() => route.query.sanPhamId, async (newId) => {
               {{ pageData.number * pageData.size + index + 1 }}
             </td>
 
+            <!-- Ảnh (nằm sau STT, kèm badge % giảm ở góc phải) -->
+            <td style="text-align: center;">
+              <div class="variant-img-wrapper">
+                <div class="thumb-img-box">
+                  <img
+                      :src="formatImageUrl(item.anhDaiDien)"
+                      @error="onImgError"
+                      alt="Variant thumbnail"
+                  />
+                </div>
+                <span
+                  v-if="item.coGiamGia && (item.phanTramGiam || (item.giaBan && item.giaSauGiam && item.giaBan > item.giaSauGiam))"
+                  class="discount-badge-percent variant-img-discount"
+                  :title="item.tenDotGiamGia ? `Đợt giảm: ${item.tenDotGiamGia}` : 'Đang áp dụng giảm giá'"
+                >
+                  -{{ item.phanTramGiam || Math.round((1 - item.giaSauGiam / item.giaBan) * 100) }}%
+                </span>
+              </div>
+            </td>
+
             <!-- Mã SP -->
             <td class="cell-bold-code">
               {{ item.maSanPham || currentProduct?.maSanPham || '—' }}
@@ -973,17 +1057,6 @@ watch(() => route.query.sanPhamId, async (newId) => {
             <!-- Mã CTSP -->
             <td class="cell-code">
               {{ item.maChiTietSanPham }}
-            </td>
-
-            <!-- Ảnh -->
-            <td style="text-align: center;">
-              <div class="thumb-img-box">
-                <img
-                    :src="formatImageUrl(item.anhDaiDien)"
-                    @error="onImgError"
-                    alt="Variant thumbnail"
-                />
-              </div>
             </td>
 
             <!-- Màu sắc (Dấu chấm màu + Tên) -->
@@ -1004,7 +1077,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
               {{ item.soLuong ?? 0 }}
             </td>
 
-            <!-- Giá bán -->
+            <!-- Giá bán (không ngắt dòng) -->
             <td style="text-align: right;" class="cell-price">
               <div v-if="item.coGiamGia && item.giaSauGiam != null" class="variant-price-stack">
                 <span class="original-price-strike">{{ formatPrice(item.giaBan) }}</span>
@@ -1013,14 +1086,6 @@ watch(() => route.query.sanPhamId, async (newId) => {
               <div v-else>
                 {{ formatPrice(item.giaBan) }}
               </div>
-            </td>
-
-            <!-- Giảm -->
-            <td style="text-align: center;" class="cell-discount">
-              <span v-if="item.coGiamGia && item.phanTramGiam" class="discount-badge-percent" :title="item.tenDotGiamGia ? `Đợt giảm: ${item.tenDotGiamGia}` : 'Đang áp dụng giảm giá'">
-                -{{ item.phanTramGiam }}%
-              </span>
-              <span v-else class="text-muted">—</span>
             </td>
 
             <!-- Trạng thái -->
@@ -1952,7 +2017,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
 /* Hàng bộ chọn dropdown 2 */
 .filter-bottom-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1.25rem;
 }
 
@@ -2052,6 +2117,26 @@ watch(() => route.query.sanPhamId, async (newId) => {
   letter-spacing: 0.4px;
 }
 
+.variant-img-wrapper {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.variant-img-discount {
+  position: absolute;
+  top: -6px;
+  right: -16px;
+  font-size: 0.65rem;
+  padding: 1px 4px;
+  font-weight: 700;
+  border-radius: 4px;
+  line-height: 1.1;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.25);
+  z-index: 2;
+  white-space: nowrap;
+}
+
 .thumb-img-box {
   width: 44px;
   height: 44px;
@@ -2105,6 +2190,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
 .cell-price {
   font-weight: 700;
   color: #2b353b;
+  white-space: nowrap;
 }
 
 .variant-price-stack {
@@ -2112,6 +2198,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
+  white-space: nowrap;
 }
 
 .original-price-strike {
@@ -2119,11 +2206,13 @@ watch(() => route.query.sanPhamId, async (newId) => {
   color: #94a3b8;
   text-decoration: line-through;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .sale-price-val {
   color: #c94a29;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .cell-discount {
@@ -3244,12 +3333,15 @@ watch(() => route.query.sanPhamId, async (newId) => {
     flex-wrap: wrap;
   }
   .filter-bottom-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
   }
 }
 
 @media (max-width: 600px) {
+  .filter-bottom-row {
+    grid-template-columns: 1fr;
+  }
   .variant-page-container {
     padding: 1rem;
   }

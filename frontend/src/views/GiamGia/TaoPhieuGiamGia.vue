@@ -164,9 +164,11 @@
               <input
                   type="datetime-local"
                   v-model="form.ngayBatDauStr"
-                  :min="getTodayString() + 'T00:00'"
+                  :min="minStartDateTime"
                   class="form-control"
                   :class="{ 'input-error': errors.ngayBatDau }"
+                  @change="handleNgayBatDauChange"
+                  @input="handleNgayBatDauChange"
               />
               <div v-if="errors.ngayBatDau" class="field-error-msg">
                 {{ errors.ngayBatDau }}
@@ -572,6 +574,10 @@ const getNowDateTimeString = () => {
   const minutes = String(d.getMinutes()).padStart(2, '0')
   return `${year}-${month}-${day}T${hours}:${minutes}`
 }
+
+const minStartDateTime = computed(() => {
+  return getNowDateTimeString()
+})
 
 // Khởi tạo Form: Bỏ hoàn toàn trường chọn trạng thái, mã phiếu tự sinh ngầm
 const form = ref({
@@ -1020,10 +1026,10 @@ const validateForm = () => {
     errs.ngayBatDau = 'Vui lòng chọn thời gian bắt đầu.'
   } else {
     const startDate = new Date(form.value.ngayBatDauStr)
-    const todayMidnight = new Date()
-    todayMidnight.setHours(0, 0, 0, 0)
-    if (startDate < todayMidnight) {
-      errs.ngayBatDau = 'Ngày bắt đầu không được nhỏ hơn ngày hôm nay.'
+    const now = new Date()
+    now.setMinutes(now.getMinutes() - 1) // Cho phép dung sai 1 phút
+    if (startDate < now) {
+      errs.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại.'
     }
   }
 
@@ -1068,8 +1074,30 @@ watch(() => form.value.giamToiDa, (val) => {
   }
   validateGiamToiDaRealtime()
 })
-watch(() => form.value.ngayBatDauStr, (val) => {
-  if (val && errors.value.ngayBatDau) delete errors.value.ngayBatDau
+const handleNgayBatDauChange = () => {
+  if (errors.value.ngayBatDau) delete errors.value.ngayBatDau
+  if (!form.value.ngayBatDauStr) return
+
+  const startDate = new Date(form.value.ngayBatDauStr)
+  const now = new Date()
+  now.setMinutes(now.getMinutes() - 1)
+
+  if (startDate < now) {
+    errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
+  }
+
+  if (form.value.ngayKetThucStr) {
+    const endDate = new Date(form.value.ngayKetThucStr)
+    if (endDate <= startDate) {
+      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu.'
+    } else if (errors.value.ngayKetThuc === 'Thời gian kết thúc phải sau thời gian bắt đầu.') {
+      delete errors.value.ngayKetThuc
+    }
+  }
+}
+
+watch(() => form.value.ngayBatDauStr, () => {
+  handleNgayBatDauChange()
 })
 watch(() => form.value.ngayKetThucStr, () => {
   if (errors.value.ngayKetThuc) delete errors.value.ngayKetThuc
