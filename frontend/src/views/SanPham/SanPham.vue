@@ -19,7 +19,7 @@
           <span>Biến thể</span>
         </button>
 
-        <button type="button" class="btn btn-header-outline" @click="goToAttributesPage" title="Quản lý thuộc tính">
+        <button v-if="isAdmin()" type="button" class="btn btn-header-outline" @click="goToAttributesPage" title="Quản lý thuộc tính">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="4" y1="21" x2="4" y2="14"></line>
             <line x1="4" y1="10" x2="4" y2="3"></line>
@@ -34,7 +34,7 @@
           <span>Thuộc tính</span>
         </button>
 
-        <button type="button" class="btn btn-header-primary" @click="goToAddPage" title="Thêm mới sản phẩm">
+        <button v-if="isAdmin()" type="button" class="btn btn-header-primary" @click="goToAddPage" title="Thêm mới sản phẩm">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -346,8 +346,9 @@
             <!-- Cột thao tác: Chuyển trạng thái kinh doanh, Xem chi tiết biến thể -->
             <td style="text-align: center;">
               <div class="action-buttons-group">
-                <!-- 1. Switch chuyển trạng thái kinh doanh -->
+                <!-- 1. Switch chuyển trạng thái kinh doanh (Chỉ Admin) -->
                 <label
+                  v-if="isAdmin()"
                   class="switch-toggle"
                   :title="item.trangThai === 1 ? 'Đang kinh doanh (nhấn để ngừng)' : 'Đang ngừng kinh doanh (nhấn để bật)'"
                 >
@@ -359,8 +360,9 @@
                   <span class="slider-round"></span>
                 </label>
 
-                <!-- 2. Icon chỉnh sửa biến thể sản phẩm -->
+                <!-- 2. Icon chỉnh sửa biến thể sản phẩm (Chỉ Admin) -->
                 <button
+                    v-if="isAdmin()"
                     class="btn-action btn-edit"
                     @click="goToEditVariant(item)"
                     title="Chỉnh sửa biến thể"
@@ -795,6 +797,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
+import { isAdmin } from '@/utils/auth.js'
 
 const router = useRouter()
 

@@ -2,6 +2,7 @@ package com.example.sd009thuan.service;
 
 import com.example.sd009thuan.dto.BulkEmailRequest;
 import com.example.sd009thuan.dto.BulkEmailResponse;
+import com.example.sd009thuan.dto.LoginRequest;
 import com.example.sd009thuan.dto.NhanVienRequest;
 import com.example.sd009thuan.dto.NhanVienResponse;
 import com.example.sd009thuan.entity.NhanVien;
@@ -434,4 +435,74 @@ public class NhanVienService {
     }
 
     private String blank(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+
+    @Transactional(readOnly = true)
+    public NhanVienResponse login(LoginRequest req) {
+        if (req == null || req.tenTaiKhoan() == null || req.tenTaiKhoan().isBlank()) {
+            throw new IllegalArgumentException("Vui lòng nhập tên tài khoản hoặc email!");
+        }
+        if (req.matKhau() == null || req.matKhau().isBlank()) {
+            throw new IllegalArgumentException("Vui lòng nhập mật khẩu!");
+        }
+
+        String usernameOrEmail = req.tenTaiKhoan().trim();
+        NhanVien emp = repo.findByTenTaiKhoanIgnoreCase(usernameOrEmail)
+                .or(() -> repo.findByEmailIgnoreCase(usernameOrEmail))
+                .orElseThrow(() -> new IllegalArgumentException("Tài khoản hoặc mật khẩu không chính xác!"));
+
+        if (emp.getTrangThai() == null || emp.getTrangThai() != 1) {
+            throw new IllegalArgumentException("Tài khoản này đã bị khóa hoặc ngừng hoạt động! Vui lòng liên hệ Quản trị viên.");
+        }
+
+        String inputPassword = req.matKhau().trim();
+        if (!emp.getMatKhau().equals(inputPassword)) {
+            throw new IllegalArgumentException("Tài khoản hoặc mật khẩu không chính xác!");
+        }
+
+        return toResponse(emp);
+    }
+
+    /**
+     * Quên mật khẩu: Kiểm tra email nhân viên, sinh mật khẩu mới và gửi qua email
+     */
+    @Transactional
+    public java.util.Map<String, Object> forgotPassword(String email) {
+        if (email == null || email.trim().isBlank()) {
+            throw new IllegalArgumentException("Vui lòng nhập địa chỉ email của bạn!");
+        }
+        String cleanEmail = email.trim();
+        NhanVien emp = repo.findByEmailIgnoreCase(cleanEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản nhân viên nào khớp với địa chỉ email: " + cleanEmail));
+
+        if (emp.getTrangThai() == null || emp.getTrangThai() != 1) {
+            throw new IllegalArgumentException("Tài khoản nhân viên này đang bị khóa hoặc ngừng hoạt động! Vui lòng liên hệ Quản trị viên.");
+        }
+
+        // Sinh mật khẩu mới ngẫu nhiên và lưu vào cơ sở dữ liệu
+        String newPassword = generateRandomPassword();
+        emp.setMatKhau(newPassword);
+        emp.setNgayCapNhat(Instant.now());
+        emp.setNguoiCapNhat("system_forgot_password");
+        repo.save(emp);
+
+        // Gửi email chứa thông tin tài khoản và mật khẩu mới
+        try {
+            emailService.sendResetPasswordEmail(
+                    emp.getEmail(),
+                    emp.getTenNhanVien(),
+                    emp.getMaNhanVien(),
+                    emp.getTenTaiKhoan(),
+                    newPassword
+            );
+        } catch (Exception ex) {
+            throw new RuntimeException("Lỗi gửi email: " + ex.getMessage());
+        }
+
+        return java.util.Map.of(
+                "success", true,
+                "message", "Mật khẩu mới đã được gửi về email " + cleanEmail + ". Vui lòng kiểm tra hộp thư!",
+                "email", cleanEmail,
+                "tenTaiKhoan", emp.getTenTaiKhoan()
+        );
+    }
 }

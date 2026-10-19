@@ -1,11 +1,15 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import GlobalDialog from '@/components/GlobalDialog.vue'
-import { getCurrentUser, setCurrentUser, logout } from '@/utils/auth.js'
+import { getCurrentUser, logout } from '@/utils/auth.js'
+
+const route = useRoute()
+const router = useRouter()
 
 const openMenus = ref({
   sanPham: true,
-  thuocTinh: true,
+  thuocTinh: false,
   giamGia: false
 })
 
@@ -16,42 +20,52 @@ const toggleMenu = (menu) => {
 const currentUser = ref(getCurrentUser())
 const showUserDropdown = ref(false)
 
+const isLoginPage = computed(() => route.path === '/login')
+
+const isUserAdmin = computed(() => {
+  if (!currentUser.value) return false
+  const r = (currentUser.value.maVaiTro || currentUser.value.role || '').toUpperCase()
+  return r === 'ADMIN' || r.includes('QUẢN TRỊ')
+})
+
 function onAuthChanged(e) {
   currentUser.value = e.detail
+}
+
+function handleClickOutside(e) {
+  const profileMenu = document.querySelector('.user-profile-menu')
+  if (profileMenu && !profileMenu.contains(e.target)) {
+    showUserDropdown.value = false
+  }
 }
 
 onMounted(() => {
   currentUser.value = getCurrentUser()
   window.addEventListener('auth-changed', onAuthChanged)
+  document.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
   window.removeEventListener('auth-changed', onAuthChanged)
+  document.removeEventListener('click', handleClickOutside)
 })
 
 function handleLogout() {
   logout()
   showUserDropdown.value = false
-}
-
-function handleLoginAdmin() {
-  const defaultAdmin = {
-    id: 1,
-    maNhanVien: 'NV001',
-    tenNhanVien: 'Nguyễn Văn Admin',
-    tenTaiKhoan: 'admin',
-    email: 'admin@ffshirt.com',
-    soDienThoai: '0900000001',
-    role: 'Quản trị viên',
-    trangThai: 1
-  }
-  setCurrentUser(defaultAdmin)
-  showUserDropdown.value = false
+  router.push('/login')
 }
 </script>
 
 <template>
-  <div class="app-shell">
+  <!-- Nếu đang ở trang đăng nhập thì chỉ hiển thị giao diện login -->
+  <div v-if="isLoginPage" class="login-wrapper-root">
+    <router-view />
+    <GlobalDialog />
+  </div>
+
+  <!-- Giao diện hệ thống chính sau khi đã đăng nhập -->
+  <div v-else class="app-shell">
     <aside class="sidebar">
       <div class="logo-box">
         <div class="logo-wrapper">
@@ -73,44 +87,44 @@ function handleLoginAdmin() {
       </div>
 
       <nav class="menu">
-        <!-- 1. Tổng quan -->
-        <router-link to="/thong-ke" class="menu-item" active-class="active">
-    <span class="menu-icon">
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/>
-      </svg>
-    </span>
+        <!-- 1. Thống kê (Chỉ Admin) -->
+        <router-link v-if="isUserAdmin" to="/thong-ke" class="menu-item" active-class="active">
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/>
+            </svg>
+          </span>
           <span class="menu-text">Thống kê</span>
         </router-link>
 
-        <!-- 2. Bán Hàng Tại Quầy -->
+        <!-- 2. Bán Hàng Tại Quầy (Cả Admin và Nhân viên) -->
         <router-link to="/ban-hang" class="menu-item" active-class="active">
-    <span class="menu-icon">
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
-      </svg>
-    </span>
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+            </svg>
+          </span>
           <span class="menu-text">Bán Hàng Tại Quầy</span>
         </router-link>
 
-        <!-- 3. Quản Lý Hóa Đơn (Link trực tiếp dạng túi xách) -->
+        <!-- 3. Quản Lý Hóa Đơn (Cả Admin và Nhân viên) -->
         <router-link to="/hoa-don" class="menu-item" active-class="active">
-    <span class="menu-icon">
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M19 6h-2c0-2.76-2.24-5-5-5S7 3.24 7 6H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7-3c1.66 0 3 1.34 3 3H9c0-1.66 1.34-3 3-3zm7 17H5V8h2v2c0 .55.45 1 1 1s1-.45 1-1V8h6v2c0 .55.45 1 1 1s1-.45 1-1V8h2v12z"/>
-      </svg>
-    </span>
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 6h-2c0-2.76-2.24-5-5-5S7 3.24 7 6H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7-3c1.66 0 3 1.34 3 3H9c0-1.66 1.34-3 3-3zm7 17H5V8h2v2c0 .55.45 1 1 1s1-.45 1-1V8h6v2c0 .55.45 1 1 1s1-.45 1-1V8h2v12z"/>
+            </svg>
+          </span>
           <span class="menu-text">Quản Lý Hóa Đơn</span>
         </router-link>
 
-        <!-- 4. Quản Lý Sản Phẩm (Hộp đóng hàng có nắp) -->
+        <!-- 4. Quản Lý Sản Phẩm (Cả Admin và Nhân viên) -->
         <div class="menu-group">
           <div class="menu-item has-sub" @click="toggleMenu('sanPham')">
-      <span class="menu-icon">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M20 2H4c-1.1 0-2 .9-2 2v3c0 .55.45 1 1 1h1v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8h1c.55 0 1-.45 1-1V4c0-1.1-.9-2-2-2zm-1 6v12H5V8h14zM4 4h16v2H4V4zm5 6h6v2H9v-2z"/>
-        </svg>
-      </span>
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v3c0 .55.45 1 1 1h1v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8h1c.55 0 1-.45 1-1V4c0-1.1-.9-2-2-2zm-1 6v12H5V8h14zM4 4h16v2H4V4zm5 6h6v2H9v-2z"/>
+              </svg>
+            </span>
             <span class="menu-text">Quản Lý Sản phẩm</span>
             <span class="arrow-icon" :class="{ open: openMenus.sanPham }">⌄</span>
           </div>
@@ -128,8 +142,8 @@ function handleLoginAdmin() {
           </div>
         </div>
 
-        <!-- 5. Quản lý thuộc tính (Menu chính) -->
-        <div class="menu-group">
+        <!-- 5. Quản lý thuộc tính (Chỉ Admin) -->
+        <div v-if="isUserAdmin" class="menu-group">
           <div class="menu-item has-sub" @click="toggleMenu('thuocTinh')">
             <span class="menu-icon">
               <svg viewBox="0 0 24 24" fill="currentColor">
@@ -181,34 +195,34 @@ function handleLoginAdmin() {
           </div>
         </div>
 
-        <!-- 5. Quản lý khách hàng (2 người) -->
+        <!-- 6. Quản lý khách hàng (Cả Admin và Nhân viên) -->
         <router-link to="/khach-hang" class="menu-item" active-class="active">
-    <span class="menu-icon">
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
-      </svg>
-    </span>
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+            </svg>
+          </span>
           <span class="menu-text">Quản lý khách hàng</span>
         </router-link>
 
-        <!-- 6. Quản lý nhân viên (2 người) -->
-        <router-link to="/nhan-vien" class="menu-item" active-class="active">
-    <span class="menu-icon">
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
-      </svg>
-    </span>
+        <!-- 7. Quản lý nhân viên (Chỉ Admin) -->
+        <router-link v-if="isUserAdmin" to="/nhan-vien" class="menu-item" active-class="active">
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+            </svg>
+          </span>
           <span class="menu-text">Quản lý nhân viên</span>
         </router-link>
 
-        <!-- 7. Quản Lý Giảm Giá (Tag giảm giá) -->
-        <div class="menu-group">
+        <!-- 8. Quản Lý Giảm Giá (Chỉ Admin) -->
+        <div v-if="isUserAdmin" class="menu-group">
           <div class="menu-item has-sub" @click="toggleMenu('giamGia')">
-      <span class="menu-icon">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
-        </svg>
-      </span>
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+              </svg>
+            </span>
             <span class="menu-text">Quản Lý Giảm Giá</span>
             <span class="arrow-icon" :class="{ open: openMenus.giamGia }">⌄</span>
           </div>
@@ -231,41 +245,84 @@ function handleLoginAdmin() {
         <div class="header-right">
           <!-- Người dùng đang đăng nhập -->
           <div v-if="currentUser" class="user-profile-menu">
-            <div class="admin-badge" @click="showUserDropdown = !showUserDropdown" title="Tài khoản đang đăng nhập">
+            <div
+              class="admin-badge"
+              :class="{ 'badge-active': showUserDropdown }"
+              @click.stop="showUserDropdown = !showUserDropdown"
+              title="Thông tin tài khoản"
+            >
               <div class="admin-avatar">
                 <svg viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                 </svg>
               </div>
               <div class="admin-info-text">
-                <span class="admin-name">{{ currentUser.tenNhanVien || currentUser.tenTaiKhoan || 'Admin' }}</span>
-                <span class="admin-role">{{ currentUser.role || 'Quản trị viên' }}</span>
+                <span class="admin-name">{{ currentUser.tenNhanVien || currentUser.tenTaiKhoan || 'Người dùng' }}</span>
+                <span class="admin-role-badge" :class="isUserAdmin ? 'role-admin' : 'role-staff'">
+                  <span class="role-dot"></span>
+                  {{ isUserAdmin ? 'Quản trị viên' : 'Nhân viên' }}
+                </span>
               </div>
-              <span class="dropdown-caret" :class="{ open: showUserDropdown }">▾</span>
-            </div>
-
-            <!-- Menu dropdown cá nhân -->
-            <div v-if="showUserDropdown" class="user-dropdown-popover">
-              <div class="popover-user-detail">
-                <strong class="popover-name">{{ currentUser.tenNhanVien }}</strong>
-                <small class="popover-email">{{ currentUser.email || 'Chưa có email' }}</small>
-                <div class="popover-code-badge">Mã NV: {{ currentUser.maNhanVien || '-' }}</div>
-              </div>
-              <hr class="popover-divider" />
-              <button type="button" class="btn-popover-logout" @click="handleLogout">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
+              <span class="dropdown-caret" :class="{ open: showUserDropdown }">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
-                Đăng xuất
-              </button>
+              </span>
             </div>
-          </div>
 
-          <!-- Trạng thái chưa đăng nhập / đã đăng xuất -->
-          <div v-else class="logged-out-header-box">
-            <button class="btn-re-login" @click="handleLoginAdmin">Đăng nhập Quản trị viên</button>
+            <!-- Menu dropdown cá nhân sang trọng -->
+            <transition name="popover-anim">
+              <div v-if="showUserDropdown" class="user-dropdown-popover" @click.stop>
+                <!-- Header thông tin user -->
+                <div class="popover-user-card">
+                  <div class="popover-avatar-large">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                    </svg>
+                  </div>
+                  <div class="popover-user-meta">
+                    <div class="popover-name" :title="currentUser.tenNhanVien || currentUser.tenTaiKhoan">
+                      {{ currentUser.tenNhanVien || currentUser.tenTaiKhoan }}
+                    </div>
+                    <div class="popover-email" :title="currentUser.email">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                        <polyline points="22,6 12,13 2,6"/>
+                      </svg>
+                      <span>{{ currentUser.email || 'Chưa cập nhật email' }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cụm thông tin vai trò & Mã nhân viên -->
+                <div class="popover-details-box">
+                  <div class="popover-detail-row">
+                    <span class="detail-label">Mã tài khoản:</span>
+                    <span class="detail-value code-pill">{{ currentUser.maNhanVien || currentUser.tenTaiKhoan || '—' }}</span>
+                  </div>
+                  <div class="popover-detail-row">
+                    <span class="detail-label">Vai trò:</span>
+                    <span class="detail-value role-pill" :class="isUserAdmin ? 'role-pill-admin' : 'role-pill-staff'">
+                      {{ isUserAdmin ? '👑 Quản trị viên' : '💼 Nhân viên bán hàng' }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="popover-divider"></div>
+
+                <!-- Nút đăng xuất cao cấp -->
+                <button type="button" class="btn-popover-logout" @click="handleLogout">
+                  <div class="logout-icon-wrap">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                  </div>
+                  <span>Đăng xuất hệ thống</span>
+                </button>
+              </div>
+            </transition>
           </div>
         </div>
       </header>
@@ -274,26 +331,6 @@ function handleLoginAdmin() {
         <router-view />
       </div>
     </main>
-
-    <!-- Overlay khi bị đăng xuất hoặc tài khoản bị khóa -->
-    <div v-if="!currentUser" class="logged-out-modal-overlay">
-      <div class="logged-out-modal-card">
-        <div class="logged-out-icon-wrap">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-        </div>
-        <h3 class="logged-out-title">Bạn đã đăng xuất khỏi hệ thống</h3>
-        <p class="logged-out-desc">
-          Tài khoản của bạn đã được chuyển sang trạng thái ngừng hoạt động hoặc phiên làm việc đã kết thúc.
-          Vui lòng đăng nhập lại để tiếp tục sử dụng hệ thống!
-        </p>
-        <button class="btn-relogin-action" @click="handleLoginAdmin">
-          Đăng nhập lại ngay (Quản trị viên)
-        </button>
-      </div>
-    </div>
 
     <GlobalDialog />
   </div>
@@ -566,31 +603,38 @@ function handleLoginAdmin() {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 5px 14px 5px 6px;
-  border-radius: 30px;
+  padding: 4px 14px 4px 6px;
+  border-radius: 999px;
   background: #ffffff;
-  border: 1.5px solid #e3ded2;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
   user-select: none;
 }
 
 .admin-badge:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-color: #d1c9b8;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.admin-badge.badge-active {
+  border-color: #496883;
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
 }
 
 .admin-avatar {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: #496883;
+  background: linear-gradient(135deg, #496883 0%, #2b4356 100%);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.25);
 }
 
 .admin-avatar svg {
@@ -605,101 +649,245 @@ function handleLoginAdmin() {
 }
 
 .admin-name {
-  font-size: 0.9rem !important;
+  font-size: 0.88rem !important;
   font-weight: 700;
-  color: #3e5c76;
+  color: #1e293b;
+  letter-spacing: -0.2px;
 }
 
-.admin-role {
-  font-size: 0.74rem;
-  color: #8c979d;
-  font-weight: 500;
+.admin-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-top: 1px;
+}
+
+.role-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.role-admin {
+  color: #b45309;
+}
+.role-admin .role-dot {
+  background: #f59e0b;
+}
+
+.role-staff {
+  color: #0284c7;
+}
+.role-staff .role-dot {
+  background: #0ea5e9;
 }
 
 .dropdown-caret {
-  font-size: 11px;
-  color: #8c979d;
-  transition: transform 0.2s ease;
+  display: flex;
+  align-items: center;
+  color: #94a3b8;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   margin-left: 2px;
 }
 
 .dropdown-caret.open {
   transform: rotate(180deg);
+  color: #496883;
 }
 
+/* Menu dropdown cá nhân */
 .user-dropdown-popover {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 10px);
   right: 0;
-  width: 220px;
+  width: 280px;
   background: #ffffff;
-  border-radius: 10px;
-  border: 1px solid #e3ded2;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
-  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #e8e4dc;
+  box-shadow: 0 14px 35px -5px rgba(0, 0, 0, 0.12), 0 6px 12px -4px rgba(0, 0, 0, 0.05);
+  padding: 16px;
   z-index: 1000;
-  animation: dropdownIn 0.2s ease;
 }
 
-@keyframes dropdownIn {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.popover-user-detail {
+/* Header popup */
+.popover-user-card {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  align-items: center;
+  gap: 12px;
+}
+
+.popover-avatar-large {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #496883 0%, #2b4356 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 3px 8px rgba(73, 104, 131, 0.25);
+}
+
+.popover-avatar-large svg {
+  width: 24px;
+  height: 24px;
+}
+
+.popover-user-meta {
+  flex: 1;
+  min-width: 0;
 }
 
 .popover-name {
-  font-size: 0.92rem;
-  color: #2c3e50;
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.2px;
 }
 
 .popover-email {
-  font-size: 0.78rem;
-  color: #7f8c8d;
-  word-break: break-all;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.76rem;
+  color: #64748b;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.popover-code-badge {
-  display: inline-block;
-  align-self: flex-start;
-  font-size: 0.72rem;
+.popover-email svg {
+  flex-shrink: 0;
+  color: #94a3b8;
+}
+
+.popover-email span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Details Box */
+.popover-details-box {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #edf2f7;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.popover-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+}
+
+.detail-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.detail-value {
+  font-weight: 600;
+}
+
+.code-pill {
   font-weight: 700;
-  color: #2b6cb0;
-  background: #ebf8ff;
-  padding: 1px 6px;
-  border-radius: 4px;
-  margin-top: 4px;
+  color: #334155;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.75rem;
+}
+
+.role-pill {
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+}
+
+.role-pill-admin {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.role-pill-staff {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
 }
 
 .popover-divider {
-  border: none;
-  border-top: 1px solid #edf2f7;
-  margin: 10px 0 8px;
+  height: 1px;
+  background: #edf2f7;
+  margin: 14px 0 10px;
 }
 
+/* Nút đăng xuất */
 .btn-popover-logout {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: #fef2f2;
-  border: 1px solid #fee2e2;
-  color: #dc2626;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #ef4444;
   font-weight: 600;
-  font-size: 0.85rem;
-  padding: 7px 10px;
-  border-radius: 6px;
+  font-size: 0.84rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
 .btn-popover-logout:hover {
+  background: #fef2f2;
+  border-color: #fee2e2;
+  color: #dc2626;
+}
+
+.logout-icon-wrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
   background: #fee2e2;
-  color: #b91c1c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #dc2626;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.btn-popover-logout:hover .logout-icon-wrap {
+  transform: translateX(2px);
+  background: #fecaca;
+}
+
+/* Transitions */
+.popover-anim-enter-active,
+.popover-anim-leave-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.popover-anim-enter-from,
+.popover-anim-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.97);
 }
 
 .logged-out-header-box {
@@ -834,5 +1022,33 @@ function handleLoginAdmin() {
     width: 100% !important;
     max-width: 100% !important;
   }
+}
+
+.login-wrapper-root {
+  width: 100vw;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+.badge-role-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-left: 6px;
+}
+
+.badge-role-admin {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.badge-role-staff {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
 }
 </style>

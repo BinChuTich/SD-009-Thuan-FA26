@@ -2,12 +2,12 @@ package com.example.sd009thuan;
 
 import com.example.sd009thuan.dto.ExcelImportResult;
 import com.example.sd009thuan.entity.VaiTro;
-import com.example.sd009thuan.repository.NhanVienRepository;
-import com.example.sd009thuan.repository.VaiTroRepository;
+import com.example.sd009thuan.repository.*;
 import com.example.sd009thuan.service.AdministrativeRegionService;
 import com.example.sd009thuan.service.EmailService;
 import com.example.sd009thuan.service.ExcelImportService;
 import com.example.sd009thuan.service.NhanVienService;
+import com.example.sd009thuan.service.SanPhamService;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -49,7 +49,22 @@ public class ExcelImportServiceValidationTest {
         roleNV.setMaVaiTro("NV");
         when(roleRepo.findByMaVaiTroIgnoreCaseAndTrangThai("NV", 1)).thenReturn(Optional.of(roleNV));
 
-        excelImportService = new ExcelImportService(nhanVienRepo, roleRepo, nhanVienService, emailService, regionService);
+        excelImportService = new ExcelImportService(
+                nhanVienRepo, roleRepo, nhanVienService, emailService,
+                Mockito.mock(SanPhamRepository.class),
+                Mockito.mock(SanPhamService.class),
+                Mockito.mock(ChiTietSanPhamRepository.class),
+                Mockito.mock(HinhAnhRepository.class),
+                Mockito.mock(DanhMucRepository.class),
+                Mockito.mock(ThuongHieuRepository.class),
+                Mockito.mock(ChatLieuRepository.class),
+                Mockito.mock(CoAoRepository.class),
+                Mockito.mock(TayAoRepository.class),
+                Mockito.mock(XuatXuRepository.class),
+                Mockito.mock(HoaTietRepository.class),
+                Mockito.mock(MauSacRepository.class),
+                Mockito.mock(KichCoRepository.class)
+        );
     }
 
     @Test

@@ -16,20 +16,7 @@ export function getCurrentUser() {
   } catch (e) {
     console.error('Lỗi khi đọc thông tin người dùng từ localStorage:', e)
   }
-
-  // Khởi tạo tài khoản Quản trị viên mặc định (NV001 - admin) nếu chưa có phiên đăng nhập
-  const defaultAdmin = {
-    id: 1,
-    maNhanVien: 'NV001',
-    tenNhanVien: 'Nguyễn Văn Admin',
-    tenTaiKhoan: 'admin',
-    email: 'admin@ffshirt.com',
-    soDienThoai: '0900000001',
-    role: 'Quản trị viên',
-    trangThai: 1
-  }
-  setCurrentUser(defaultAdmin)
-  return defaultAdmin
+  return null
 }
 
 /**
@@ -39,9 +26,18 @@ export function setCurrentUser(user) {
   if (!user) {
     localStorage.removeItem(CURRENT_USER_KEY)
   } else {
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user))
+    // Chuẩn hóa role và mã vai trò
+    const normalized = {
+      ...user,
+      role: user.tenVaiTro || user.role || (user.maVaiTro === 'ADMIN' ? 'Quản trị viên' : 'Nhân viên'),
+      maVaiTro: user.maVaiTro || (user.role === 'Quản trị viên' ? 'ADMIN' : 'NV')
+    }
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(normalized))
+    window.dispatchEvent(new CustomEvent('auth-changed', { detail: normalized }))
+    return normalized
   }
-  window.dispatchEvent(new CustomEvent('auth-changed', { detail: user }))
+  window.dispatchEvent(new CustomEvent('auth-changed', { detail: null }))
+  return null
 }
 
 /**
@@ -50,6 +46,46 @@ export function setCurrentUser(user) {
 export function logout() {
   localStorage.removeItem(CURRENT_USER_KEY)
   window.dispatchEvent(new CustomEvent('auth-changed', { detail: null }))
+}
+
+/**
+ * Lấy mã vai trò hiện tại (ADMIN hoặc NV)
+ */
+export function getRoleCode() {
+  const user = getCurrentUser()
+  if (!user) return null
+  if (user.maVaiTro) return user.maVaiTro.toUpperCase()
+  if (user.role) {
+    const r = user.role.toLowerCase()
+    if (r.includes('quản trị') || r.includes('admin')) return 'ADMIN'
+    return 'NV'
+  }
+  return 'NV'
+}
+
+/**
+ * Kiểm tra xem người dùng hiện tại có phải là Admin / Quản trị viên hay không
+ */
+export function isAdmin() {
+  return getRoleCode() === 'ADMIN'
+}
+
+/**
+ * Kiểm tra xem người dùng hiện tại có phải là Nhân viên bán hàng hay không
+ */
+export function isStaff() {
+  return getRoleCode() === 'NV'
+}
+
+/**
+ * Kiểm tra xem người dùng có quyền trong danh sách roles cho phép hay không
+ * @param {Array<string>} allowedRoles ví dụ ['ADMIN', 'NV'] hoặc ['ADMIN']
+ */
+export function hasRole(allowedRoles = []) {
+  if (!allowedRoles || allowedRoles.length === 0) return true
+  const currentRole = getRoleCode()
+  if (!currentRole) return false
+  return allowedRoles.some(r => r.toUpperCase() === currentRole)
 }
 
 /**
@@ -84,4 +120,3 @@ export function isCurrentLoggedInUser(employee) {
 
   return false
 }
-
