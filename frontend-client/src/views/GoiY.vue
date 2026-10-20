@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
-import { formatCurrency } from '@/utils/format'
+import { formatCurrency } from '@/utils/dinhDang.js'
 
 const router = useRouter()
 const activeDiscounts = ref([])

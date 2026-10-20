@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { cartCount } from '@/utils/cartStorage.js'
+import { cartCount } from '@/utils/luuTruGioHang.js'
 
 const router = useRouter()
 const showUserMenu = ref(false)
@@ -60,7 +60,7 @@ const closeMobileMenu = () => {
           </svg>
         </button>
 
-        <!-- LOGO CỦA BẠN CHÍNH XÁC THEO ADMIN (3 TIA SÁNG + CHỮ FF + T-shirt) -->
+        <!-- LOGO THƯƠNG HIỆU: 3 TIA SÁNG + CHỮ FF + T-shirt (MATCH ADMIN 100%) -->
         <router-link to="/" class="brand-logo-link">
           <div class="logo-wrapper">
             <!-- 3 tia sáng phát ra phía trên bên trái -->
@@ -289,7 +289,7 @@ const closeMobileMenu = () => {
   padding: 4px;
 }
 
-/* LOGO CHUẨN CỦA BẠN (MATCH ADMIN 100%) */
+/* LOGO THƯƠNG HIỆU: MATCH ADMIN 100% */
 .brand-logo-link {
   text-decoration: none;
   display: flex;

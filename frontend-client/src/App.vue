@@ -1,17 +1,17 @@
 <script setup>
-import ClientHeader from '@/components/ClientHeader.vue'
-import ClientFooter from '@/components/ClientFooter.vue'
-import ChatWidget from '@/components/ChatWidget.vue'
+import DauTrang from '@/components/BocCuc/DauTrang.vue'
+import ChanTrang from '@/components/BocCuc/ChanTrang.vue'
+import HopChatTuVan from '@/components/BocCuc/HopChatTuVan.vue'
 </script>
 
 <template>
   <div class="client-app-shell">
-    <ClientHeader />
+    <DauTrang />
     <main class="client-main-content">
       <router-view />
     </main>
-    <ClientFooter />
-    <ChatWidget />
+    <ChanTrang />
+    <HopChatTuVan />
   </div>
 </template>
 

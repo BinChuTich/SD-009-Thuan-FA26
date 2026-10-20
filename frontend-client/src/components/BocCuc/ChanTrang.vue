@@ -14,7 +14,7 @@
               </div>
               <div class="logo-content">
                 <div class="logo-name">
-                  <span class="f-blue">F</span>
+                  <span class="f-white">F</span>
                   <span class="f-gold">F</span>
                 </div>
                 <div class="logo-sub">T-shirt</div>
@@ -91,15 +91,18 @@
 }
 
 /* Logo chuẩn thương hiệu trong footer */
-.logo-wrapper {
+.footer-logo {
+  margin-bottom: 14px;
+}
+
+.footer-logo .logo-wrapper {
   position: relative;
   display: inline-block;
   font-family: 'Fredoka', sans-serif;
   user-select: none;
-  margin-bottom: 12px;
 }
 
-.sparkles.mini {
+.footer-logo .sparkles.mini {
   position: absolute;
   top: -5px;
   left: -6px;
@@ -107,64 +110,64 @@
   height: 20px;
 }
 
-.sparkles.mini .ray {
+.footer-logo .sparkles.mini .ray {
   position: absolute;
-  background-color: #d1a868;
+  background-color: #d2a764;
   border-radius: 2px;
 }
 
-.sparkles.mini .ray-1 {
+.footer-logo .sparkles.mini .ray-1 {
   width: 3px;
-  height: 7px;
+  height: 8px;
   top: 0;
   right: 4px;
   transform: rotate(10deg);
 }
 
-.sparkles.mini .ray-2 {
+.footer-logo .sparkles.mini .ray-2 {
   width: 3px;
-  height: 7px;
+  height: 8px;
   top: 3px;
   left: 2px;
   transform: rotate(-45deg);
 }
 
-.sparkles.mini .ray-3 {
+.footer-logo .sparkles.mini .ray-3 {
   width: 3px;
-  height: 7px;
+  height: 8px;
   bottom: 0px;
   left: -2px;
   transform: rotate(-80deg);
 }
 
-.logo-content {
+.footer-logo .logo-content {
   display: flex;
   align-items: flex-end;
 }
 
-.logo-name {
+.footer-logo .logo-name {
   display: flex;
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 800;
   line-height: 0.85;
   letter-spacing: -1.5px;
 }
 
-.f-blue {
-  color: #93c5fd;
+.footer-logo .f-white {
+  color: #ffffff;
 }
 
-.f-gold {
+.footer-logo .f-gold {
   color: #d2a764;
   margin-left: 2px;
 }
 
-.logo-sub {
-  color: #93c5fd;
-  font-size: 11px;
+.footer-logo .logo-sub {
+  color: #d2a764;
+  font-size: 13px;
   font-weight: 700;
   line-height: 1;
-  margin-left: 5px;
+  margin-left: 6px;
   margin-bottom: 1px;
 }
 

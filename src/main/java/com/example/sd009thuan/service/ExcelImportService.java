@@ -50,6 +50,7 @@ public class ExcelImportService {
         this(repo, roleRepo, nhanVienService, emailService, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
     public ExcelImportService(NhanVienRepository repo, VaiTroRepository roleRepo,
                               NhanVienService nhanVienService, EmailService emailService,
                               SanPhamRepository sanPhamRepository, SanPhamService sanPhamService,
