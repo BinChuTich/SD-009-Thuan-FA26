@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -28,6 +29,14 @@ public interface SanPhamRepository extends JpaRepository<SanPham, Long>, JpaSpec
     boolean existsByTenSanPhamIgnoreCaseAndIdNot(String tenSanPham, Long id);
 
     Optional<SanPham> findByMaSanPham(String maSanPham);
+
+    Optional<SanPham> findByMaSanPhamIgnoreCase(String maSanPham);
+
+    Optional<SanPham> findByTenSanPhamIgnoreCase(String tenSanPham);
+
+    List<SanPham> findAllByTenSanPhamIgnoreCase(String tenSanPham);
+
+    List<SanPham> findAllByTenSanPhamIgnoreCaseAndIdNot(String tenSanPham, Long id);
 
     boolean existsByIdChatLieu_Id(Long idChatLieu);
 

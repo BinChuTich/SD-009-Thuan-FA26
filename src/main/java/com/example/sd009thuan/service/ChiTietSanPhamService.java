@@ -131,11 +131,56 @@ public class ChiTietSanPhamService {
                 req.getIdSanPham(), req.getIdKichCo(), req.getIdMauSac()
         );
         if (existing.isPresent()) {
-            throw new IllegalArgumentException("Biến thể với kích cỡ " + kc.getTenKichCo() + " và màu sắc " + ms.getTenMauSac() + " đã tồn tại cho sản phẩm này!");
+            // BIẾN THỂ ĐÃ TỒN TẠI -> Tăng số lượng (cộng dồn) và cập nhật giá theo thông tin mới nhất
+            ChiTietSanPham ct = existing.get();
+            int currentQty = ct.getSoLuong() != null ? ct.getSoLuong() : 0;
+            int addQty = req.getSoLuong() != null ? req.getSoLuong() : 0;
+            long totalQty = (long) currentQty + addQty;
+            if (totalQty > 999999) {
+                throw new IllegalArgumentException("Tổng số lượng biến thể (" + ms.getTenMauSac() + " - " + kc.getTenKichCo() + ") sau khi cộng dồn không được vượt quá 999,999!");
+            }
+            ct.setSoLuong((int) totalQty);
+            ct.setGiaBan(req.getGiaBan()); // Cập nhật đơn giá mới nhất
+            ct.setTrangThai(1); // Đảm bảo trạng thái kinh doanh
+            ct.setNguoiCapNhat(req.getNguoiThaoTac() != null ? req.getNguoiThaoTac() : "Admin");
+
+            ChiTietSanPham saved = chiTietSanPhamRepository.save(ct);
+
+            // Cập nhật ảnh nếu có
+            String imgInput = req.getAnhDaiDien() != null ? req.getAnhDaiDien() : req.getHinhAnh();
+            if (imgInput != null && !imgInput.trim().isEmpty()) {
+                String processed = processImage(imgInput);
+                if (processed != null && !processed.trim().isEmpty()) {
+                    String targetTen = "CTSP_" + saved.getId();
+                    List<HinhAnh> existingImgs = hinhAnhRepository.findByIdSanPham_Id(saved.getIdSanPham().getId());
+                    HinhAnh found = null;
+                    if (existingImgs != null) {
+                        for (HinhAnh ha : existingImgs) {
+                            if (targetTen.equals(ha.getTenAnh())) {
+                                found = ha;
+                                break;
+                            }
+                        }
+                    }
+                    if (found != null) {
+                        found.setDuongDan(processed.trim());
+                        hinhAnhRepository.save(found);
+                    } else {
+                        HinhAnh ha = new HinhAnh();
+                        ha.setIdSanPham(saved.getIdSanPham());
+                        ha.setTenAnh(targetTen);
+                        ha.setDuongDan(processed.trim());
+                        ha.setTrangThai(1);
+                        hinhAnhRepository.save(ha);
+                    }
+                }
+            }
+
+            return convertToResponse(saved);
         }
 
         if (req.getMaChiTietSanPham() == null || req.getMaChiTietSanPham().trim().isEmpty()) {
-            req.setMaChiTietSanPham("CTSP" + System.currentTimeMillis());
+            req.setMaChiTietSanPham("CTSP" + System.currentTimeMillis() + "_" + (int)(Math.random() * 1000));
         } else if (chiTietSanPhamRepository.existsByMaChiTietSanPham(req.getMaChiTietSanPham().trim())) {
             throw new IllegalArgumentException("Mã chi tiết sản phẩm đã tồn tại: " + req.getMaChiTietSanPham());
         }
@@ -337,6 +382,7 @@ public class ChiTietSanPhamService {
             } else {
                 list.add(create(req));
             }
+            chiTietSanPhamRepository.flush();
         }
         return list;
     }
@@ -378,12 +424,9 @@ public class ChiTietSanPhamService {
             }
         }
 
-        // Kiểm tra giảm giá liên kết (theo biến thể hoặc theo sản phẩm cha)
+        // Kiểm tra giảm giá liên kết (chỉ theo chính biến thể này)
         Instant now = Instant.now();
         List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsByVariantId(ct.getId(), now);
-        if ((activeDiscounts == null || activeDiscounts.isEmpty()) && ct.getIdSanPham() != null && ct.getIdSanPham().getId() != null) {
-            activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsBySanPhamId(ct.getIdSanPham().getId(), now);
-        }
         Boolean coGiamGia = false;
         BigDecimal giaSauGiam = null;
         BigDecimal phanTramGiam = null;
@@ -391,12 +434,22 @@ public class ChiTietSanPhamService {
 
         if (activeDiscounts != null && !activeDiscounts.isEmpty()) {
             coGiamGia = true;
-            ChiTietDotGiamGia dgg = activeDiscounts.get(0);
-            if (dgg.getIdDotGiamGia() != null) {
-                tenDotGiamGia = dgg.getIdDotGiamGia().getTenDotGiamGia();
-                phanTramGiam = dgg.getPhanTramGiamBienThe() != null 
-                        ? dgg.getPhanTramGiamBienThe() 
-                        : dgg.getIdDotGiamGia().getPhanTramGiam();
+            // Thuật toán: Khi có nhiều đợt giảm giá chạy song song (chồng chéo thời gian),
+            // tự động chọn đợt giảm giá có % lớn nhất (Max) để tối ưu quyền lợi cho khách hàng
+            ChiTietDotGiamGia bestDgg = activeDiscounts.stream()
+                .max(java.util.Comparator.comparing(c -> {
+                    BigDecimal pt = c.getPhanTramGiamBienThe() != null 
+                            ? c.getPhanTramGiamBienThe() 
+                            : (c.getIdDotGiamGia() != null ? c.getIdDotGiamGia().getPhanTramGiam() : BigDecimal.ZERO);
+                    return pt != null ? pt : BigDecimal.ZERO;
+                }))
+                .orElse(activeDiscounts.get(0));
+
+            if (bestDgg.getIdDotGiamGia() != null) {
+                tenDotGiamGia = bestDgg.getIdDotGiamGia().getTenDotGiamGia();
+                phanTramGiam = bestDgg.getPhanTramGiamBienThe() != null 
+                        ? bestDgg.getPhanTramGiamBienThe() 
+                        : bestDgg.getIdDotGiamGia().getPhanTramGiam();
             }
             if (ct.getGiaBan() != null && phanTramGiam != null && phanTramGiam.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal factor = BigDecimal.valueOf(100).subtract(phanTramGiam).max(BigDecimal.ZERO);

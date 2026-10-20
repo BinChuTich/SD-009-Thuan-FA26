@@ -1,13 +1,8 @@
 package com.example.sd009thuan.dto;
 
-import lombok.Builder;
-import lombok.Data;
 import org.springframework.data.domain.Page;
-
 import java.util.List;
 
-@Data
-@Builder
 public class PageResponse<T> {
     private List<T> content;
     private int pageNumber;
@@ -17,17 +12,37 @@ public class PageResponse<T> {
     private boolean last;
 
     public PageResponse() {
-        super();
     }
 
     public PageResponse(List<T> content, int pageNumber, int pageSize, long totalElements, int totalPages, boolean last) {
-        super();
         this.content = content;
         this.pageNumber = pageNumber;
         this.pageSize = pageSize;
         this.totalElements = totalElements;
         this.totalPages = totalPages;
         this.last = last;
+    }
+
+    public List<T> getContent() { return content; }
+    public void setContent(List<T> content) { this.content = content; }
+
+    public int getPageNumber() { return pageNumber; }
+    public void setPageNumber(int pageNumber) { this.pageNumber = pageNumber; }
+
+    public int getPageSize() { return pageSize; }
+    public void setPageSize(int pageSize) { this.pageSize = pageSize; }
+
+    public long getTotalElements() { return totalElements; }
+    public void setTotalElements(long totalElements) { this.totalElements = totalElements; }
+
+    public int getTotalPages() { return totalPages; }
+    public void setTotalPages(int totalPages) { this.totalPages = totalPages; }
+
+    public boolean isLast() { return last; }
+    public void setLast(boolean last) { this.last = last; }
+
+    public static <T> Builder<T> builder() {
+        return new Builder<>();
     }
 
     public static <T> PageResponse<T> fromPage(Page<T> page) {
@@ -39,5 +54,25 @@ public class PageResponse<T> {
                 .totalPages(page.getTotalPages())
                 .last(page.isLast())
                 .build();
+    }
+
+    public static class Builder<T> {
+        private List<T> content;
+        private int pageNumber;
+        private int pageSize;
+        private long totalElements;
+        private int totalPages;
+        private boolean last;
+
+        public Builder<T> content(List<T> content) { this.content = content; return this; }
+        public Builder<T> pageNumber(int pageNumber) { this.pageNumber = pageNumber; return this; }
+        public Builder<T> pageSize(int pageSize) { this.pageSize = pageSize; return this; }
+        public Builder<T> totalElements(long totalElements) { this.totalElements = totalElements; return this; }
+        public Builder<T> totalPages(int totalPages) { this.totalPages = totalPages; return this; }
+        public Builder<T> last(boolean last) { this.last = last; return this; }
+
+        public PageResponse<T> build() {
+            return new PageResponse<>(content, pageNumber, pageSize, totalElements, totalPages, last);
+        }
     }
 }

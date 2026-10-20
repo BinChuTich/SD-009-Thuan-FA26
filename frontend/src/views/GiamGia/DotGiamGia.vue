@@ -197,38 +197,32 @@
               <!-- Cột Hành động: 2 nút tròn bo góc nhẹ (Power đỏ nhạt + Eye xám xanh) -->
               <td style="text-align: center;">
                 <div class="action-buttons-flex">
-                  <!-- Công tắc gạt đổi trạng thái (Toggle Switch chuẩn ảnh mẫu) -->
+                  <!-- Công tắc gạt đổi trạng thái (Toggle Switch tương tự như PGG) -->
                   <label
-                    class="status-switch"
-                    :class="{
-                      'is-active': item.trangThai === 1 && item._status.code !== 'ENDED',
-                      'is-disabled': item._status.code === 'ENDED'
-                    }"
+                    class="switch-toggle"
+                    :class="{ 'switch-disabled': item._status.code === 'ENDED' }"
                     :title="item._status.code === 'ENDED'
-                      ? 'Đợt giảm giá đã kết thúc, không thể đổi trạng thái'
-                      : (item.trangThai === 1 ? 'Bấm để chuyển sang Ngừng hoạt động' : 'Bấm để chuyển sang Đang hoạt động')"
-                    @click.prevent="onToggleSwitchClick(item)"
+                      ? 'Đợt giảm giá đã kết thúc - Không thể đổi trạng thái'
+                      : (item.trangThai !== 0 ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)')"
                   >
                     <input
                       type="checkbox"
-                      :checked="item.trangThai === 1 && item._status.code !== 'ENDED'"
+                      :checked="item.trangThai !== 0 && item._status.code !== 'ENDED'"
                       :disabled="item._status.code === 'ENDED'"
-                      tabindex="-1"
-                      class="switch-native-input"
+                      @click.prevent="onToggleSwitchClick(item)"
                     />
-                    <span class="switch-track">
-                      <span class="switch-handle"></span>
-                    </span>
+                    <span class="slider-round"></span>
                   </label>
 
+                  <!-- Nút xem chi tiết & chỉnh sửa đợt giảm giá -->
                   <button
-                      class="btn-icon-circle btn-icon-eye"
-                      title="Xem chi tiết & Chỉnh sửa"
-                      @click="openEditView(item)"
+                    class="btn-action-edit"
+                    title="Xem chi tiết & Chỉnh sửa đợt giảm giá"
+                    @click="openEditView(item)"
                   >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                      <circle cx="12" cy="12" r="3"></circle>
+                    <svg class="action-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                     </svg>
                   </button>
                 </div>
@@ -377,8 +371,9 @@
                   v-model="formData.ngayBatDau"
                   :min="minStartDateTime"
                   :class="['video-input', { 'input-has-error': errors.ngayBatDau }]"
+                  @focus="refreshMinDateTime"
+                  @input="handleNgayBatDauInput"
                   @change="handleNgayBatDauChange"
-                  @input="handleNgayBatDauChange"
                 />
                 <span v-if="errors.ngayBatDau" class="field-error-msg">{{ errors.ngayBatDau }}</span>
               </div>
@@ -388,14 +383,16 @@
                 <input
                   type="datetime-local"
                   v-model="formData.ngayKetThuc"
-                  :min="formData.ngayBatDau || minStartDateTime || undefined"
+                  :min="minEndDateTime"
                   :class="['video-input', { 'input-has-error': errors.ngayKetThuc }]"
+                  @focus="refreshMinDateTime"
+                  @input="handleNgayKetThucInput"
                   @change="handleNgayKetThucChange"
-                  @input="handleNgayKetThucChange"
                 />
                 <span v-if="errors.ngayKetThuc" class="field-error-msg">{{ errors.ngayKetThuc }}</span>
               </div>
             </div>
+
 
 
             <!-- Mô tả -->
@@ -479,7 +476,7 @@
               <span>{{ errors.selectedVariants }}</span>
             </div>
 
-            <!-- Bảng danh sách sản phẩm để chọn -->
+            <!-- Bảng danh sách sản phẩm để chọn (hỗ trợ mở rộng chọn từng biến thể kèm ảnh) -->
             <div class="video-table-wrap">
               <table class="video-table">
                 <thead>
@@ -494,9 +491,9 @@
                     </th>
                     <th style="width: 50px; text-align: center;">STT</th>
                     <th style="width: 105px;">Mã SP</th>
-                    <th>Tên SP</th>
+                    <th>Tên sản phẩm</th>
                     <th style="width: 125px;">Thương hiệu</th>
-                    <th style="width: 125px;">Chất liệu</th>
+                    <th style="width: 120px;">Chất liệu</th>
                     <th style="width: 55px; text-align: center;"></th>
                   </tr>
                 </thead>
@@ -505,20 +502,19 @@
                     v-for="(p, idx) in paginatedSourceProducts"
                     :key="p.id"
                     :class="{ 
-                      'row-checked': p.selected,
-                      'row-disabled-campaign': isProductInActiveCampaign(p)
+                      'row-checked': isProductFullySelected(p),
+                      'row-partially-checked': isProductPartiallySelected(p)
                     }"
-                    :title="isProductInActiveCampaign(p) ? ('Sản phẩm này đang được áp dụng trong đợt giảm giá [' + (getProductActiveCampaign(p)?.maDotGiamGia || getProductActiveCampaign(p)?.tenDotGiamGia || 'khác') + ']') : ''"
-                    @click="onProductRowClick(p)"
                   >
-                    <td style="text-align: center;" @click.stop :title="isProductInActiveCampaign(p) ? 'Sản phẩm này đang được áp dụng trong đợt giảm giá khác' : ''">
+                    <!-- Cột 1: Checkbox chọn toàn bộ biến thể của SP này -->
+                    <td style="text-align: center;" @click.stop>
                       <input
                         type="checkbox"
-                        :checked="p.selected"
-                        :disabled="isProductInActiveCampaign(p)"
+                        :checked="isProductFullySelected(p)"
+                        :indeterminate.prop="isProductPartiallySelected(p)"
                         @change="toggleProductSelection(p)"
                         class="custom-check"
-                        :title="isProductInActiveCampaign(p) ? 'Sản phẩm này đang được áp dụng trong đợt giảm giá khác' : ''"
+                        title="Chọn tất cả biến thể của sản phẩm này"
                       />
                     </td>
                     <td style="text-align: center;" class="text-sub">
@@ -526,81 +522,36 @@
                     </td>
                     <td class="font-bold text-code">{{ p.ma }}</td>
                     <td class="font-medium text-name">
-                      <div class="product-cell-flex">
-                        <div class="product-thumb-box product-thumb-relative">
-                          <img
-                            :src="getProductImage(p)"
-                            :alt="p.ten"
-                            class="product-thumb-img"
-                            @error="(e) => { e.target.src = defaultProductImages[0] }"
-                          />
-                          <!-- Góc trên phải ảnh: Giá trị giảm theo mã sản phẩm đang áp dụng mã giảm giá -->
-                          <span
-                            v-if="getActiveCampaignDiscountBadge(p)"
-                            class="thumb-corner-badge thumb-badge-top-right"
-                            :title="'Đang áp dụng trong đợt khác giảm: ' + getActiveCampaignDiscountBadge(p)"
-                          >
-                            {{ getActiveCampaignDiscountBadge(p) }}
-                          </span>
-                          <!-- Góc dưới phải ảnh: Trừ phần trăm theo giá trị được nhập trong form (chỉ hiện khi sản phẩm được chọn) -->
-                          <span
-                            v-if="isProductSelected(p) && currentFormDiscountBadge"
-                            class="thumb-corner-badge thumb-badge-bottom-right"
-                            :title="'Mức giảm mới nhập: ' + currentFormDiscountBadge"
-                          >
-                            {{ currentFormDiscountBadge }}
-                          </span>
+                      <div class="product-cell-info">
+                        <div class="product-name-row">
+                          <span class="product-title-text">{{ p.ten }}</span>
                         </div>
-                        <div class="product-cell-info">
-                          <div class="product-name-row">
-                            <span class="product-title-text">{{ p.ten }}</span>
-                            <span 
-                              v-if="isProductInActiveCampaign(p)" 
-                              class="badge-active-campaign"
-                              :title="'Đang áp dụng trong đợt [' + (getProductActiveCampaign(p)?.maDotGiamGia || '') + '] - Bấm để sao chép mã!'"
-                              @click.stop
-                            >
-                              <span>Đang áp dụng: </span>
-                              <strong class="badge-code-text" @click.stop="copyCampaignCode(getProductActiveCampaign(p)?.maDotGiamGia)">
-                                {{ getProductActiveCampaign(p)?.maDotGiamGia || 'Đợt khác' }}
-                              </strong>
-                              <button 
-                                v-if="getProductActiveCampaign(p)?.maDotGiamGia"
-                                type="button" 
-                                class="btn-badge-copy" 
-                                @click.stop="copyCampaignCode(getProductActiveCampaign(p)?.maDotGiamGia)"
-                                title="Sao chép mã đợt giảm giá này"
-                              >
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-                                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                                </svg>
-                              </button>
-                            </span>
-                          </div>
+                        <div v-if="getSelectedVariantCountForProduct(p) > 0" class="product-sub-info">
+                          <span class="badge-selected-count">
+                            Đã chọn {{ getSelectedVariantCountForProduct(p) }}/{{ p.variants ? p.variants.length : 0 }} biến thể
+                          </span>
                         </div>
                       </div>
                     </td>
-                  <td class="text-sub font-medium">{{ p.thuongHieu || '—' }}</td>
-                  <td class="text-sub font-medium">{{ p.chatLieu || '—' }}</td>
-                  <td style="text-align: center;">
-                    <button 
-                      class="btn-add-circle" 
-                      :disabled="isProductInActiveCampaign(p)"
-                      :class="{ 'btn-disabled': isProductInActiveCampaign(p) }"
-                      @click.stop="addProductVariants(p)" 
-                      :title="isProductInActiveCampaign(p) ? 'Sản phẩm này đang được áp dụng trong đợt giảm giá khác' : 'Thêm tất cả biến thể'"
-                    >
-                      +
-                    </button>
-                  </td>
-                </tr>
-                <tr v-if="filteredAvailableProducts.length === 0">
-                  <td colspan="7" class="empty-cell">Không có sản phẩm nào phù hợp!</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                    <td class="text-sub font-medium">{{ p.thuongHieu || '—' }}</td>
+                    <td class="text-sub font-medium">{{ p.chatLieu || '—' }}</td>
+                    <td style="text-align: center;" @click.stop>
+                      <button
+                        type="button"
+                        class="btn-add-circle"
+                        @click="addProductVariants(p)"
+                        :title="isProductFullySelected(p) ? 'Bỏ chọn sản phẩm này' : 'Chọn sản phẩm này'"
+                      >
+                        +
+                      </button>
+                    </td>
+                  </tr>
+                  <tr v-if="filteredAvailableProducts.length === 0">
+                    <td colspan="7" class="empty-cell">Không có sản phẩm nào phù hợp!</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
           <!-- Phân trang bảng sản phẩm -->
           <div class="video-pagination-bar">
@@ -673,55 +624,53 @@
           </div>
         </div>
 
-        <!-- Bảng chi tiết biến thể -->
+        <!-- Bảng chi tiết biến thể (Kèm ảnh biến thể) -->
         <div class="video-table-wrap">
           <table class="video-table">
             <thead>
               <tr>
-                <th style="width: 55px; text-align: center;">STT</th>
-                <th style="width: 280px;">Sản phẩm</th>
-                <th style="width: 260px;">Biến thể</th>
-                <th style="width: 140px;">Giá bán</th>
-                <th style="width: 150px;">Giá sau giảm</th>
-                <th style="width: 110px; text-align: center;">Số lượng</th>
+                <th style="width: 50px; text-align: center;">STT</th>
+                <th style="width: 75px; text-align: center;">Ảnh biến thể</th>
+                <th style="width: 230px;">Sản phẩm</th>
+                <th style="width: 200px;">Biến thể</th>
+                <th style="width: 130px;">Giá bán</th>
+                <th style="width: 135px;">Giá hiện tại</th>
+                <th style="width: 175px;">Giá sau giảm</th>
+                <th style="width: 90px; text-align: center;">Số lượng</th>
                 <th style="width: 50px; text-align: center;"></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(v, idx) in paginatedSelectedVariants" :key="v.id">
+              <tr
+                v-for="(v, idx) in paginatedSelectedVariants"
+                :key="v.id"
+                :class="{ 'row-has-active-campaign': !!getVariantCampaignInfo(v) }"
+              >
                 <td style="text-align: center;" class="text-sub">
                   {{ (variantCurrentPage - 1) * variantPageSize + idx + 1 }}
                 </td>
+                <td style="text-align: center;">
+                  <div class="variant-img-cell">
+                    <img
+                      :src="formatVariantImageUrl(v.hinhAnh)"
+                      :alt="v.maBienThe"
+                      class="applied-variant-thumb"
+                      @error="(e) => { e.target.src = defaultVariantSvg }"
+                    />
+                    <!-- Badge phần trăm giảm giá hiển thị trực tiếp trên ảnh biến thể (ví dụ -30%, -20%) theo ảnh mẫu -->
+                    <span
+                      v-if="getVariantThumbBadge(v)"
+                      class="variant-thumb-discount-badge"
+                      :title="'Đang áp dụng giảm: ' + getVariantThumbBadge(v) + (getVariantCampaignInfo(v) ? ' (Đợt ' + getVariantCampaignInfo(v).maDotGiamGia + ')' : '')"
+                    >
+                      {{ getVariantThumbBadge(v) }}
+                    </span>
+                  </div>
+                </td>
                 <td>
-                  <div class="product-cell-flex">
-                    <div class="product-thumb-box product-thumb-relative">
-                      <img
-                        :src="getProductImage(v)"
-                        :alt="v.spTen"
-                        class="product-thumb-img"
-                        @error="(e) => { e.target.src = defaultProductImages[0] }"
-                      />
-                      <!-- Góc trên phải ảnh: Giá trị giảm theo mã sản phẩm đang áp dụng mã giảm giá -->
-                      <span
-                        v-if="getActiveCampaignDiscountBadge(v)"
-                        class="thumb-corner-badge thumb-badge-top-right"
-                        :title="'Đang áp dụng giảm: ' + getActiveCampaignDiscountBadge(v)"
-                      >
-                        {{ getActiveCampaignDiscountBadge(v) }}
-                      </span>
-                      <!-- Góc dưới phải ảnh: Trừ phần trăm theo giá trị được nhập trong form -->
-                      <span
-                        v-if="currentFormDiscountBadge"
-                        class="thumb-corner-badge thumb-badge-bottom-right"
-                        :title="'Mức giảm mới nhập: ' + currentFormDiscountBadge"
-                      >
-                        {{ currentFormDiscountBadge }}
-                      </span>
-                    </div>
-                    <div class="product-cell-info">
-                      <div class="font-bold text-dark">{{ v.spTen }}</div>
-                      <div class="text-sub-code">{{ v.spMa }}</div>
-                    </div>
+                  <div class="product-cell-info">
+                    <div class="font-bold text-dark">{{ v.spTen }}</div>
+                    <div class="text-sub-code">{{ v.spMa }}</div>
                   </div>
                 </td>
                 <td>
@@ -736,8 +685,18 @@
                 <td class="font-medium text-dark">
                   {{ formatMoney(v.gia) }}
                 </td>
+                <td class="font-medium text-dark">
+                  <div class="current-price-col">
+                    <span class="current-price-num">{{ formatMoney(calculateCurrentVariantPrice(v)) }}</span>
+                  </div>
+                </td>
                 <td class="font-bold text-discounted-price">
-                  {{ formatMoney(calculateDiscountedPrice(v.gia)) }}
+                  <div class="discounted-price-amount">
+                    {{ formatMoney(calculateVariantDiscountedPrice(v)) }}
+                  </div>
+                  <div v-if="getAppliedDiscountNotice(v)" class="applied-campaign-notice">
+                    {{ getAppliedDiscountNotice(v) }}
+                  </div>
                 </td>
                 <td style="text-align: center;">
                   <span class="badge-pill badge-qty">{{ v.soLuong }}</span>
@@ -749,7 +708,7 @@
                 </td>
               </tr>
               <tr v-if="displaySelectedVariants.length === 0">
-                <td colspan="7" class="empty-cell">Chưa có biến thể nào được chọn áp dụng!</td>
+                <td colspan="9" class="empty-cell">Chưa có biến thể nào được chọn áp dụng!</td>
               </tr>
             </tbody>
           </table>
@@ -980,6 +939,8 @@ const totalElements = ref(0)
 // Modal xác nhận lưu/tạo
 const showConfirmModal = ref(false)
 const isEditing = ref(false)
+const originalNgayBatDau = ref('')
+const originalNgayKetThuc = ref('')
 const submitting = ref(false)
 const exporting = ref(false)
 
@@ -1010,15 +971,43 @@ const clearError = (field) => {
   }
 }
 
-
-// Mốc thời gian tối thiểu cho Từ ngày (không trước thời điểm hiện tại khi tạo mới)
-const minStartDateTime = computed(() => {
-  if (isEditing.value) return undefined
+// Lấy chuỗi ngày giờ hiện tại chuẩn YYYY-MM-DDTHH:mm
+const getCurrentDateTimeString = () => {
   const now = new Date()
   const pad = n => String(n).padStart(2, '0')
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
+}
+
+// Lấy mốc timestamp đầu phút hiện tại (bỏ qua giây để so khớp chuẩn từng phút)
+const getCurrentMinuteFloorMs = () => {
+  const d = new Date()
+  d.setSeconds(0, 0)
+  return d.getTime()
+}
+
+// Mốc thời gian tối thiểu cho form Từ ngày & Đến ngày (khóa không cho chọn trước giờ hiện tại)
+const formMinDateTime = ref('')
+
+const refreshMinDateTime = () => {
+  formMinDateTime.value = getCurrentDateTimeString()
+}
+
+const minStartDateTime = computed(() => {
+  return formMinDateTime.value || getCurrentDateTimeString()
 })
 const minStartDate = minStartDateTime
+
+// Mốc thời gian tối thiểu cho Đến ngày (phải từ ngày bắt đầu hoặc mốc thời gian hiện tại)
+const minEndDateTime = computed(() => {
+  if (formData.value.ngayBatDau) {
+    const startMs = new Date(formData.value.ngayBatDau).getTime()
+    const nowMs = getCurrentMinuteFloorMs()
+    if (!isNaN(startMs) && startMs > nowMs) {
+      return formData.value.ngayBatDau
+    }
+  }
+  return formMinDateTime.value || getCurrentDateTimeString()
+})
 
 // Hàm tự sinh mã đợt ngẫu nhiên (nút xoay tròn)
 const generateRandomMa = () => {
@@ -1041,6 +1030,21 @@ const productSearchSize = ref('')
 const selectedFilterColor = ref('')
 const selectedFilterSize = ref('')
 const selectedFilterKeyword = ref('')
+
+// Ảnh SVG placeholder khi biến thể chưa có ảnh riêng (không lấy ảnh biến thể khác gắn vào)
+const defaultVariantSvg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'%3E%3C/circle%3E%3Cpolyline points='21 15 16 10 5 21'%3E%3C/polyline%3E%3C/svg%3E"
+
+const formatVariantImageUrl = (url) => {
+  if (!url || typeof url !== 'string' || url.trim() === '') return defaultVariantSvg
+  let cleanUrl = url.trim()
+  if (cleanUrl.includes('|')) {
+    cleanUrl = cleanUrl.split('|')[1].trim()
+  }
+  if (!cleanUrl) return defaultVariantSvg
+  if (cleanUrl.startsWith('data:') || cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) return cleanUrl
+  const origin = (typeof window !== 'undefined' && window.location.hostname) ? `http://${window.location.hostname}:8080` : 'http://localhost:8080'
+  return `${origin}${cleanUrl.startsWith('/') ? '' : '/'}${cleanUrl}`
+}
 
 // Ảnh sản phẩm mặc định chuẩn áo phông
 const defaultProductImages = [
@@ -1347,19 +1351,11 @@ const copyCampaignCode = async (code) => {
   }
 }
 
-// Lọc và sắp xếp sản phẩm ở bảng chọn trên:
-// Sản phẩm chưa áp dụng đẩy lên trên, sản phẩm đã áp dụng đợt giảm giá khác đẩy xuống dưới
+// Lọc và sắp xếp sản phẩm ở bảng chọn trên
 const filteredAvailableProducts = computed(() => {
   const kw = productSearchText.value.trim().toLowerCase()
-  const list = productSourceList.value.filter(p => {
+  return productSourceList.value.filter(p => {
     return !kw || (p.ma && p.ma.toLowerCase().includes(kw)) || (p.ten && p.ten.toLowerCase().includes(kw))
-  })
-
-  // Sắp xếp: chưa áp dụng (0) lên TRÊN, đã áp dụng (1) xuống DƯỚI
-  return [...list].sort((a, b) => {
-    const aInCampaign = isProductInActiveCampaign(a) ? 1 : 0
-    const bInCampaign = isProductInActiveCampaign(b) ? 1 : 0
-    return aInCampaign - bInCampaign
   })
 })
 
@@ -1368,43 +1364,87 @@ watch(productSearchText, () => {
   productCurrentPage.value = 1
 })
 
-const isAllProductsChecked = computed(() => {
-  const selectable = filteredAvailableProducts.value.filter(p => !isProductInActiveCampaign(p))
-  return selectable.length > 0 && selectable.every(p => p.selected)
-})
 
-const selectedProductCount = computed(() => {
-  return productSourceList.value.filter(p => p.selected).length
-})
-
-// Xử lý khi click vào dòng sản phẩm: nếu đang trong đợt giảm giá khác thì không cho chọn
-const onProductRowClick = (p) => {
-  if (isProductInActiveCampaign(p)) {
-    showToast('Sản phẩm này đang được áp dụng trong đợt giảm giá khác!', 'warning')
-    return
-  }
-  toggleProductSelection(p)
+// Kiểm tra 1 biến thể có đang được chọn hay không
+const isVariantSelected = (vId) => {
+  return selectedVariants.value.some(sv => sv.id === vId)
 }
 
-// Toggle chọn 1 sản phẩm
-const toggleProductSelection = (p) => {
-  if (isProductInActiveCampaign(p)) {
-    showToast('Sản phẩm này đang được áp dụng trong đợt giảm giá khác!', 'warning')
-    return
+// Số biến thể đã chọn của 1 sản phẩm
+const getSelectedVariantCountForProduct = (p) => {
+  if (!p || !p.variants) return 0
+  return p.variants.filter(v => isVariantSelected(v.id)).length
+}
+
+// Kiểm tra sản phẩm đã được chọn toàn bộ biến thể hay chưa
+const isProductFullySelected = (p) => {
+  if (!p || !p.variants || p.variants.length === 0) return false
+  return p.variants.every(v => isVariantSelected(v.id))
+}
+
+// Kiểm tra sản phẩm đã chọn một phần biến thể (Indeterminate)
+const isProductPartiallySelected = (p) => {
+  const c = getSelectedVariantCountForProduct(p)
+  return c > 0 && c < (p.variants?.length || 0)
+}
+
+// Đếm tổng số sản phẩm cha có ít nhất 1 biến thể được chọn
+const selectedProductCount = computed(() => {
+  const spIds = new Set(selectedVariants.value.map(sv => sv.spId))
+  return spIds.size
+})
+
+// Kiểm tra chọn tất cả sản phẩm
+const isAllProductsChecked = computed(() => {
+  if (!filteredAvailableProducts.value.length) return false
+  return filteredAvailableProducts.value.every(p => isProductFullySelected(p))
+})
+
+// Chọn / bỏ chọn 1 biến thể riêng lẻ
+const toggleVariantSelection = (p, v) => {
+  const idx = selectedVariants.value.findIndex(sv => sv.id === v.id)
+  if (idx > -1) {
+    selectedVariants.value.splice(idx, 1)
+  } else {
+    if (errors.value.selectedVariants) {
+      delete errors.value.selectedVariants
+    }
+    selectedVariants.value.push({
+      id: v.id,
+      spId: p.id,
+      spMa: p.ma,
+      spTen: p.ten,
+      spHinhAnh: p.hinhAnh || '',
+      hinhAnh: v.hinhAnh || '',
+      maBienThe: v.maBienThe,
+      mauSac: v.mauSac,
+      kichCo: v.kichCo,
+      gia: v.gia,
+      soLuong: v.soLuong
+    })
   }
-  p.selected = !p.selected
-  if (p.selected) {
+  p.selected = isProductFullySelected(p)
+}
+
+// Chọn / bỏ chọn toàn bộ biến thể của 1 sản phẩm
+const toggleProductSelection = (p) => {
+  const isFully = isProductFullySelected(p)
+  if (isFully) {
+    selectedVariants.value = selectedVariants.value.filter(sv => sv.spId !== p.id)
+    p.selected = false
+  } else {
     if (errors.value.selectedVariants) {
       delete errors.value.selectedVariants
     }
     p.variants.forEach(v => {
-      if (!selectedVariants.value.some(sv => sv.id === v.id)) {
+      if (!isVariantSelected(v.id)) {
         selectedVariants.value.push({
           id: v.id,
           spId: p.id,
           spMa: p.ma,
           spTen: p.ten,
-          spHinhAnh: p.hinhAnh || p.image || p.anhDaiDien || v.hinhAnh || '',
+          spHinhAnh: p.hinhAnh || '',
+          hinhAnh: v.hinhAnh || '',
           maBienThe: v.maBienThe,
           mauSac: v.mauSac,
           kichCo: v.kichCo,
@@ -1413,74 +1453,45 @@ const toggleProductSelection = (p) => {
         })
       }
     })
-    showToast(`Đã thêm các biến thể của "${p.ten}"!`, 'info')
-  } else {
-    selectedVariants.value = selectedVariants.value.filter(sv => sv.spId !== p.id)
+    p.selected = true
   }
 }
 
-// Thêm biến thể bằng nút (+)
+// Nút (+) chọn tất cả biến thể của sản phẩm
 const addProductVariants = (p) => {
-  if (isProductInActiveCampaign(p)) {
-    showToast('Sản phẩm này đang được áp dụng trong đợt giảm giá khác!', 'warning')
-    return
-  }
-  p.selected = true
-  if (errors.value.selectedVariants) {
-    delete errors.value.selectedVariants
-  }
-  p.variants.forEach(v => {
-    if (!selectedVariants.value.some(sv => sv.id === v.id)) {
-      selectedVariants.value.push({
-        id: v.id,
-        spId: p.id,
-        spMa: p.ma,
-        spTen: p.ten,
-        spHinhAnh: p.hinhAnh || p.image || p.anhDaiDien || v.hinhAnh || '',
-        maBienThe: v.maBienThe,
-        mauSac: v.mauSac,
-        kichCo: v.kichCo,
-        gia: v.gia,
-        soLuong: v.soLuong
-      })
-    }
-  })
-  showToast(`Đã thêm tất cả biến thể của "${p.ten}"!`, 'success')
+  toggleProductSelection(p)
 }
 
-// Xóa 1 biến thể khỏi bảng dưới
+// Xóa 1 biến thể khỏi bảng đã chọn bên dưới
 const removeSelectedVariant = (vId) => {
   const item = selectedVariants.value.find(v => v.id === vId)
   selectedVariants.value = selectedVariants.value.filter(v => v.id !== vId)
   if (item) {
-    const hasMore = selectedVariants.value.some(v => v.spId === item.spId)
-    if (!hasMore) {
-      const prod = productSourceList.value.find(p => p.id === item.spId)
-      if (prod) prod.selected = false
+    const prod = productSourceList.value.find(p => p.id === item.spId)
+    if (prod) {
+      prod.selected = isProductFullySelected(prod)
     }
   }
 }
 
-// Chọn tất cả sản phẩm (chỉ chọn sản phẩm chưa có đợt giảm giá)
+// Chọn tất cả sản phẩm
 const toggleSelectAllSourceProducts = () => {
-  const next = !isAllProductsChecked.value
-  if (next && errors.value.selectedVariants) {
+  const willSelectAll = !isAllProductsChecked.value
+  if (willSelectAll && errors.value.selectedVariants) {
     delete errors.value.selectedVariants
   }
   filteredAvailableProducts.value.forEach(p => {
-    if (isProductInActiveCampaign(p)) {
-      return // Bỏ qua sản phẩm đang trong đợt giảm giá chưa kết thúc
-    }
-    p.selected = next
-    if (next) {
+    p.selected = willSelectAll
+    if (willSelectAll) {
       p.variants.forEach(v => {
-        if (!selectedVariants.value.some(sv => sv.id === v.id)) {
+        if (!isVariantSelected(v.id)) {
           selectedVariants.value.push({
             id: v.id,
             spId: p.id,
             spMa: p.ma,
             spTen: p.ten,
-            spHinhAnh: p.hinhAnh || p.image || p.anhDaiDien || v.hinhAnh || '',
+            spHinhAnh: p.hinhAnh || '',
+            hinhAnh: v.hinhAnh || '',
             maBienThe: v.maBienThe,
             mauSac: v.mauSac,
             kichCo: v.kichCo,
@@ -1495,14 +1506,215 @@ const toggleSelectAllSourceProducts = () => {
   })
 }
 
+// Map các biến thể đang trong đợt giảm giá từ backend
+const activeVariantsMap = ref({})
+const loadActiveVariantsMap = async (excludeDotId = null) => {
+  try {
+    const params = {}
+    if (excludeDotId) params.excludeDotId = excludeDotId
+    const res = await api.get('/api/dot-giam-gia/active-variants-map', { params })
+    if (res.data) {
+      activeVariantsMap.value = res.data
+    }
+  } catch (e) {
+  }
+}
+
+// Lấy thông tin đợt giảm giá đang áp dụng cho biến thể (chỉ xét chính biến thể đó)
+const getVariantCampaignInfo = (v) => {
+  if (!v) return null
+  // Kiểm tra trực tiếp theo id biến thể trong activeVariantsMap
+  if (v.id && activeVariantsMap.value && activeVariantsMap.value[v.id]) {
+    return activeVariantsMap.value[v.id]
+  }
+  return null
+}
+
+const getVariantActiveCampaign = (variantId) => {
+  if (!variantId) return null
+  return activeVariantsMap.value[variantId] || null
+}
+
+const getVariantCampaignDiscountText = (v) => {
+  const info = getVariantCampaignInfo(v)
+  if (!info) return ''
+  if (info.phanTramGiam != null && Number(info.phanTramGiam) > 0) {
+    return `-${info.phanTramGiam}%`
+  }
+  if (info.giaTriGiam != null && Number(info.giaTriGiam) > 0) {
+    return `-${formatShortMoney(info.giaTriGiam)}`
+  }
+  return ''
+}
+
+// Tính giá hiện tại của biến thể (thể hiện mức giá sau khi đã giảm của đợt cũ đang áp dụng nếu có)
+const calculateCurrentVariantPrice = (v) => {
+  if (!v) return 0
+  const originalPrice = Number(v.gia) || 0
+  if (originalPrice <= 0) return 0
+
+  const activeCamp = getVariantCampaignInfo(v)
+  if (!activeCamp) return originalPrice
+
+  let activeDiscountAmount = 0
+  const activePercent = Number(activeCamp.phanTramGiam) || 0
+  const activeCash = Number(activeCamp.giaTriGiam) || 0
+
+  if (activeCamp.loaiGiamGia === 2 && activeCash > 0) {
+    activeDiscountAmount = activeCash
+  } else if (activePercent > 0) {
+    activeDiscountAmount = (originalPrice * activePercent) / 100
+    if (activeCamp.giamToiDa && Number(activeCamp.giamToiDa) > 0) {
+      activeDiscountAmount = Math.min(activeDiscountAmount, Number(activeCamp.giamToiDa))
+    }
+  }
+
+  return Math.max(0, Math.round(originalPrice - activeDiscountAmount))
+}
+
+// Tính giá sau giảm cho từng biến thể cụ thể (xét cả đợt đang tạo/sửa và đợt đang chạy)
+const calculateVariantDiscountedPrice = (v) => {
+  if (!v) return 0
+  const originalPrice = Number(v.gia) || 0
+  if (originalPrice <= 0) return 0
+
+  // 1. Mức giảm tính từ form hiện tại
+  let formDiscountAmount = 0
+  const formPercent = Number(formData.value.phanTramGiam) || 0
+  const formCash = Number(formData.value.giaTriGiam) || 0
+
+  if (formData.value.loaiGiamGia === 2 && formCash > 0) {
+    formDiscountAmount = formCash
+  } else if (formPercent > 0) {
+    formDiscountAmount = (originalPrice * formPercent) / 100
+    if (formData.value.giamToiDa && Number(formData.value.giamToiDa) > 0) {
+      formDiscountAmount = Math.min(formDiscountAmount, Number(formData.value.giamToiDa))
+    }
+  }
+
+  // 2. Mức giảm từ đợt khác đang áp dụng cho biến thể này
+  let activeDiscountAmount = 0
+  const activeCamp = getVariantCampaignInfo(v)
+  if (activeCamp) {
+    const activePercent = Number(activeCamp.phanTramGiam) || 0
+    const activeCash = Number(activeCamp.giaTriGiam) || 0
+    if (activeCamp.loaiGiamGia === 2 && activeCash > 0) {
+      activeDiscountAmount = activeCash
+    } else if (activePercent > 0) {
+      activeDiscountAmount = (originalPrice * activePercent) / 100
+      if (activeCamp.giamToiDa && Number(activeCamp.giamToiDa) > 0) {
+        activeDiscountAmount = Math.min(activeDiscountAmount, Number(activeCamp.giamToiDa))
+      }
+    }
+  }
+
+  // 3. Lấy mức giảm cao nhất (Max Discount) giữa form mới và đợt đang áp dụng
+  const finalDiscount = Math.max(formDiscountAmount, activeDiscountAmount)
+  return Math.max(0, Math.round(originalPrice - finalDiscount))
+}
+
+// Thể hiện rõ biến thể đang được áp dụng đợt giảm giá nào và mức giảm ra sao
+const getAppliedDiscountNotice = (v) => {
+  if (!v) return ''
+  const originalPrice = Number(v.gia) || 0
+  if (originalPrice <= 0) return ''
+
+  // Mức giảm từ form hiện tại
+  let formDiscountAmount = 0
+  const formPercent = Number(formData.value.phanTramGiam) || 0
+  const formCash = Number(formData.value.giaTriGiam) || 0
+
+  if (formData.value.loaiGiamGia === 2 && formCash > 0) {
+    formDiscountAmount = formCash
+  } else if (formPercent > 0) {
+    formDiscountAmount = (originalPrice * formPercent) / 100
+    if (formData.value.giamToiDa && Number(formData.value.giamToiDa) > 0) {
+      formDiscountAmount = Math.min(formDiscountAmount, Number(formData.value.giamToiDa))
+    }
+  }
+
+  // Mức giảm từ đợt cũ đang áp dụng
+  let activeDiscountAmount = 0
+  const activeCamp = getVariantCampaignInfo(v)
+  if (activeCamp) {
+    const activePercent = Number(activeCamp.phanTramGiam) || 0
+    const activeCash = Number(activeCamp.giaTriGiam) || 0
+    if (activeCamp.loaiGiamGia === 2 && activeCash > 0) {
+      activeDiscountAmount = activeCash
+    } else if (activePercent > 0) {
+      activeDiscountAmount = (originalPrice * activePercent) / 100
+      if (activeCamp.giamToiDa && Number(activeCamp.giamToiDa) > 0) {
+        activeDiscountAmount = Math.min(activeDiscountAmount, Number(activeCamp.giamToiDa))
+      }
+    }
+  }
+
+  const formText = formData.value.loaiGiamGia === 2 && formCash > 0
+    ? formatShortMoney(formCash)
+    : (formPercent > 0 ? `${formPercent}%` : '')
+
+  let activeText = ''
+  if (activeCamp) {
+    if (activeCamp.loaiGiamGia === 2 && activeCash > 0) {
+      activeText = formatShortMoney(activeCash)
+    } else if (activeCamp.phanTramGiam != null && Number(activeCamp.phanTramGiam) > 0) {
+      activeText = `${activeCamp.phanTramGiam}%`
+    }
+  }
+
+  // Trường hợp có đợt cũ trùng
+  if (activeCamp && activeDiscountAmount > 0) {
+    if (formDiscountAmount > activeDiscountAmount) {
+      return `Áp dụng ${formText} (cao hơn đợt khác)`
+    }
+    if (formDiscountAmount < activeDiscountAmount) {
+      const campCode = activeCamp.maDotGiamGia ? ` (${activeCamp.maDotGiamGia})` : ''
+      return `Áp dụng ${activeText} (đợt cũ${campCode} cao hơn)`
+    }
+    return `Áp dụng ${formText} (bằng mức đợt khác)`
+  }
+
+  // Trường hợp không có đợt cũ trùng (chỉ có đợt trong form)
+  if (formDiscountAmount > 0) {
+    return `Áp dụng ${formText}`
+  }
+
+  return ''
+}
+
+// Tính phần trăm giảm thực tế đang được hưởng
+const calculateVariantDiscountPercent = (v) => {
+  if (!v || !v.gia) return 0
+  const originalPrice = Number(v.gia) || 0
+  const discounted = calculateVariantDiscountedPrice(v)
+  if (originalPrice <= 0 || discounted >= originalPrice) return 0
+  const pct = ((originalPrice - discounted) / originalPrice) * 100
+  return pct % 1 === 0 ? pct : Number(pct.toFixed(1))
+}
+
+// Lấy nhãn phần trăm giảm giá hiển thị trên ảnh biến thể (ưu tiên đợt cũ đang áp dụng)
+const getVariantThumbBadge = (v) => {
+  if (!v) return ''
+  const activeText = getVariantCampaignDiscountText(v)
+  if (activeText) return activeText
+  return ''
+}
+
+// Tính giá sau giảm (fallback)
+const calculateDiscountedPrice = (originalPrice) => {
+  const percent = Number(formData.value.phanTramGiam) || 0
+  const discount = (originalPrice * percent) / 100
+  return Math.max(0, Math.round(originalPrice - discount))
+}
+
 // Lọc hiển thị ở bảng biến thể dưới
 const displaySelectedVariants = computed(() => {
   return selectedVariants.value.filter(v => {
     const kw = selectedFilterKeyword.value.trim().toLowerCase()
     const matchKw = !kw ||
-      v.spTen.toLowerCase().includes(kw) ||
-      v.spMa.toLowerCase().includes(kw) ||
-      v.maBienThe.toLowerCase().includes(kw)
+      (v.spTen && v.spTen.toLowerCase().includes(kw)) ||
+      (v.spMa && v.spMa.toLowerCase().includes(kw)) ||
+      (v.maBienThe && v.maBienThe.toLowerCase().includes(kw))
     
     const matchColor = !selectedFilterColor.value || selectedFilterColor.value === 'Tất cả màu sắc' ||
       v.mauSac === selectedFilterColor.value
@@ -1535,13 +1747,6 @@ const paginatedSelectedVariants = computed(() => {
   const start = (variantCurrentPage.value - 1) * variantPageSize.value
   return displaySelectedVariants.value.slice(start, start + variantPageSize.value)
 })
-
-// Tính giá sau giảm
-const calculateDiscountedPrice = (originalPrice) => {
-  const percent = Number(formData.value.phanTramGiam) || 0
-  const discount = (originalPrice * percent) / 100
-  return Math.max(0, Math.round(originalPrice - discount))
-}
 
 const handleFilterProducts = () => {
   showToast(`Tìm thấy ${filteredAvailableProducts.value.length} sản phẩm phù hợp!`, 'info')
@@ -1585,23 +1790,34 @@ const handleGiaTriGiamInput = () => {
   }
 }
 
-// Kiểm tra Từ ngày
-const handleNgayBatDauChange = () => {
+// Kiểm tra Từ ngày ngay khi người dùng chọn/nhập
+const validateNgayBatDauValue = (rawVal, isFromInput = false) => {
   clearError('ngayBatDau')
-  if (!formData.value.ngayBatDau || formData.value.ngayBatDau.trim() === '') {
-    errors.value.ngayBatDau = 'Từ ngày không được để trống!'
+  if (!rawVal || rawVal.trim() === '') {
+    if (!isFromInput) {
+      errors.value.ngayBatDau = 'Từ ngày không được để trống!'
+    }
     return
   }
-  if (!isEditing.value) {
-    const startMs = new Date(formData.value.ngayBatDau).getTime()
-    // Dung sai 10 phút để người dùng thoải mái thao tác mà không bị chặn
-    if (startMs < Date.now() - 10 * 60 * 1000) {
+  const startMs = new Date(rawVal).getTime()
+  if (isNaN(startMs)) return
+
+  const isOriginalStart = isEditing.value && originalNgayBatDau.value && rawVal === toInputDateTime(originalNgayBatDau.value)
+  if (!isOriginalStart) {
+    const minMs = getCurrentMinuteFloorMs()
+    if (startMs < minMs) {
+      // Lập tức khóa cứng không cho chọn ngược lại thời gian hiện tại
+      const currentStr = getCurrentDateTimeString()
+      formData.value.ngayBatDau = currentStr
       errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
+      showToast('Thời gian bắt đầu không được trước thời gian hiện tại!', 'error')
       return
     }
   }
+
   if (formData.value.ngayKetThuc) {
-    if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
+    const endMs = new Date(formData.value.ngayKetThuc).getTime()
+    if (!isNaN(endMs) && endMs <= startMs) {
       errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
     } else {
       clearError('ngayKetThuc')
@@ -1609,20 +1825,57 @@ const handleNgayBatDauChange = () => {
   }
 }
 
-// Kiểm tra Đến ngày (bắt buộc, không cho để trống)
-const handleNgayKetThucChange = () => {
+const handleNgayBatDauInput = (e) => {
+  const val = e?.target?.value || formData.value.ngayBatDau
+  validateNgayBatDauValue(val, true)
+}
+
+const handleNgayBatDauChange = (e) => {
+  const val = e?.target?.value || formData.value.ngayBatDau
+  validateNgayBatDauValue(val, false)
+}
+
+// Kiểm tra Đến ngày ngay khi người dùng chọn/nhập
+const validateNgayKetThucValue = (rawVal, isFromInput = false) => {
   clearError('ngayKetThuc')
-  if (!formData.value.ngayKetThuc || formData.value.ngayKetThuc.trim() === '') {
-    errors.value.ngayKetThuc = 'Đến ngày không được để trống!'
+  if (!rawVal || rawVal.trim() === '') {
+    if (!isFromInput) {
+      errors.value.ngayKetThuc = 'Đến ngày không được để trống!'
+    }
     return
   }
+  const endMs = new Date(rawVal).getTime()
+  if (isNaN(endMs)) return
+
+  const minMs = getCurrentMinuteFloorMs()
+  if (endMs < minMs) {
+    errors.value.ngayKetThuc = 'Thời gian kết thúc không được trước thời gian hiện tại!'
+    showToast('Thời gian kết thúc không được trước thời gian hiện tại!', 'error')
+    formData.value.ngayKetThuc = ''
+    return
+  }
+
   if (formData.value.ngayBatDau) {
-    if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
+    const startMs = new Date(formData.value.ngayBatDau).getTime()
+    if (!isNaN(startMs) && endMs <= startMs) {
       errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
+      showToast('Đến ngày phải sau thời gian bắt đầu!', 'error')
+      formData.value.ngayKetThuc = ''
+      return
     } else {
       clearError('ngayKetThuc')
     }
   }
+}
+
+const handleNgayKetThucInput = (e) => {
+  const val = e?.target?.value || formData.value.ngayKetThuc
+  validateNgayKetThucValue(val, true)
+}
+
+const handleNgayKetThucChange = (e) => {
+  const val = e?.target?.value || formData.value.ngayKetThuc
+  validateNgayKetThucValue(val, false)
 }
 
 // Lưu trữ và khôi phục metadata đợt giảm giá (lượt sử dụng, hình thức, giảm tối đa)
@@ -1688,26 +1941,34 @@ const filters = ref({
 
 let searchTimeout = null
 
-// Helper ngày giờ
-const toInputDateTime = (val) => {
-  if (!val) return ''
+// Helper ngày giờ an toàn hỗ trợ cả chuỗi ISO, timestamp và mảng Java LocalDateTime [yyyy, mm, dd, hh, mm]
+const parseDateHelper = (val) => {
+  if (!val) return null
+  if (Array.isArray(val)) {
+    const [y, m, d, h = 0, min = 0, s = 0] = val
+    return new Date(y, m - 1, d, h, min, s)
+  }
   const d = new Date(val)
-  if (isNaN(d.getTime())) return ''
+  return isNaN(d.getTime()) ? null : d
+}
+
+const toInputDateTime = (val) => {
+  const d = parseDateHelper(val)
+  if (!d) return ''
   const pad = n => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 const toInputDate = (val) => {
-  if (!val) return ''
-  const d = new Date(val)
-  if (isNaN(d.getTime())) return ''
+  const d = parseDateHelper(val)
+  if (!d) return ''
   const pad = n => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 const formatDate = (val) => {
   if (!val) return '—'
-  const date = new Date(val)
-  if (isNaN(date.getTime())) return val
+  const date = parseDateHelper(val)
+  if (!date) return val
   const day = date.getDate()
   const month = date.getMonth() + 1
   const year = date.getFullYear()
@@ -1716,8 +1977,8 @@ const formatDate = (val) => {
 
 const formatDateTime = (val) => {
   if (!val) return '—'
-  const date = new Date(val)
-  if (isNaN(date.getTime())) return val
+  const date = parseDateHelper(val)
+  if (!date) return val
   const pad = n => String(n).padStart(2, '0')
   const hours = pad(date.getHours())
   const minutes = pad(date.getMinutes())
@@ -2121,11 +2382,12 @@ const exportToExcel = async () => {
 const openCreateView = async () => {
   errors.value = {}
   isEditing.value = false
-  try {
-    await loadActiveCampaignProducts(null)
-  } catch (err) {
-    console.warn('Lỗi tải sản phẩm đang áp dụng:', err)
-  }
+  originalNgayBatDau.value = ''
+  originalNgayKetThuc.value = ''
+  currentView.value = 'form'
+
+  const currentStr = getCurrentDateTimeString()
+  formMinDateTime.value = currentStr
 
   formData.value = {
     id: null,
@@ -2135,7 +2397,7 @@ const openCreateView = async () => {
     phanTramGiam: null,
     giaTriGiam: null,
     giamToiDa: null,
-    ngayBatDau: '',
+    ngayBatDau: currentStr,
     ngayKetThuc: '',
     moTa: '',
     trangThai: 1
@@ -2149,19 +2411,27 @@ const openCreateView = async () => {
 
   productCurrentPage.value = 1
   variantCurrentPage.value = 1
-  currentView.value = 'form'
   showToast('Chuyển sang màn hình tạo đợt giảm giá!', 'info')
+
+  try {
+    await Promise.all([
+      loadActiveCampaignProducts(null),
+      loadActiveVariantsMap(null)
+    ])
+  } catch (err) {
+    console.warn('Lỗi tải sản phẩm đang áp dụng:', err)
+  }
 }
 
 // Chuyển sang màn hình chỉnh sửa
 const openEditView = async (item) => {
   errors.value = {}
   isEditing.value = true
-  try {
-    await loadActiveCampaignProducts(item.id)
-  } catch (err) {
-    console.warn('Lỗi tải sản phẩm đang áp dụng:', err)
-  }
+  originalNgayBatDau.value = item.ngayBatDau || ''
+  originalNgayKetThuc.value = item.ngayKetThuc || ''
+  currentView.value = 'form'
+
+  formMinDateTime.value = getCurrentDateTimeString()
 
   formData.value = {
     id: item.id,
@@ -2177,6 +2447,15 @@ const openEditView = async (item) => {
     trangThai: item.trangThai != null ? item.trangThai : 1
   }
 
+  try {
+    await Promise.all([
+      loadActiveCampaignProducts(item.id),
+      loadActiveVariantsMap(item.id)
+    ])
+  } catch (err) {
+    console.warn('Lỗi tải sản phẩm đang áp dụng:', err)
+  }
+
   // Lấy chi tiết mới nhất từ API để đảm bảo nhận đầy đủ mô tả từ database
   try {
     const res = await api.get(`/api/dot-giam-gia/${item.id}`)
@@ -2190,8 +2469,14 @@ const openEditView = async (item) => {
       if (res.data.loaiGiamGia != null) formData.value.loaiGiamGia = res.data.loaiGiamGia
       if (res.data.giaTriGiam != null) formData.value.giaTriGiam = res.data.giaTriGiam
       if (res.data.giamToiDa != null) formData.value.giamToiDa = res.data.giamToiDa
-      if (res.data.ngayBatDau) formData.value.ngayBatDau = toInputDateTime(res.data.ngayBatDau)
-      if (res.data.ngayKetThuc) formData.value.ngayKetThuc = toInputDateTime(res.data.ngayKetThuc)
+      if (res.data.ngayBatDau) {
+        formData.value.ngayBatDau = toInputDateTime(res.data.ngayBatDau)
+        originalNgayBatDau.value = res.data.ngayBatDau
+      }
+      if (res.data.ngayKetThuc) {
+        formData.value.ngayKetThuc = toInputDateTime(res.data.ngayKetThuc)
+        originalNgayKetThuc.value = res.data.ngayKetThuc
+      }
       if (res.data.trangThai != null) formData.value.trangThai = res.data.trangThai
     }
   } catch (e) {
@@ -2206,43 +2491,31 @@ const openEditView = async (item) => {
         const ctsp = ct.idChiTietSanPham || {}
         const sp = ctsp.idSanPham || {}
         const matchedP = productSourceList.value.find(p => p.id === (sp.id || 1) || (p.ma && p.ma === sp.maSanPham))
+        const matchedV = matchedP?.variants?.find(v => v.id === (ctsp.id || ct.id))
         return {
           id: ctsp.id || ct.id,
-          spId: sp.id || 1,
-          spMa: sp.maSanPham || ('SP' + (sp.id || '')),
-          spTen: sp.tenSanPham || 'Sản phẩm',
-          spHinhAnh: matchedP?.hinhAnh || sp.anhDaiDien || (sp.hinhAnhs && sp.hinhAnhs[0]) || ctsp.anhDaiDien || '',
-          maBienThe: ctsp.maChiTietSanPham || ('BT-' + ct.id),
-          mauSac: ctsp.idMauSac?.tenMauSac || 'Xám',
-          kichCo: ctsp.idKichCo?.tenKichCo || '37',
-          gia: ctsp.giaBan || 0,
-          soLuong: ctsp.soLuong || 0
+          spId: sp.id || (matchedP ? matchedP.id : 1),
+          spMa: sp.maSanPham || matchedP?.ma || ('SP' + (sp.id || '')),
+          spTen: sp.tenSanPham || matchedP?.ten || 'Sản phẩm',
+          spHinhAnh: matchedP?.hinhAnh || sp.anhDaiDien || '',
+          hinhAnh: matchedV?.hinhAnh || ctsp.anhDaiDien || '',
+          maBienThe: ctsp.maChiTietSanPham || matchedV?.maBienThe || ('BT-' + ct.id),
+          mauSac: ctsp.idMauSac?.tenMauSac || matchedV?.mauSac || 'Xám',
+          kichCo: ctsp.idKichCo?.tenKichCo || matchedV?.kichCo || '37',
+          gia: ctsp.giaBan || matchedV?.gia || 0,
+          soLuong: ctsp.soLuong || matchedV?.soLuong || 0
         }
       })
       const selectedSpIds = new Set(selectedVariants.value.map(v => v.spId))
       saveCampaignProductIds(item.id, item.maDotGiamGia, Array.from(selectedSpIds))
       productSourceList.value.forEach(p => {
-        p.selected = selectedSpIds.has(p.id)
+        p.selected = isProductFullySelected(p)
       })
     } else {
+      selectedVariants.value = []
       productSourceList.value.forEach(p => {
-        p.selected = (p.id === 1)
+        p.selected = false
       })
-      const p1 = productSourceList.value[0]
-      if (p1 && p1.variants) {
-        selectedVariants.value = p1.variants.map(v => ({
-          id: v.id,
-          spId: p1.id,
-          spMa: p1.ma,
-          spTen: p1.ten,
-          spHinhAnh: p1.hinhAnh || p1.image || '',
-          maBienThe: v.maBienThe,
-          mauSac: v.mauSac,
-          kichCo: v.kichCo,
-          gia: v.gia,
-          soLuong: v.soLuong
-        }))
-      }
     }
   } catch (e) {
     console.warn('Lỗi khi tải chi tiết biến thể:', e)
@@ -2302,10 +2575,10 @@ const onSaveClick = () => {
   if (!formData.value.ngayBatDau || formData.value.ngayBatDau.trim() === '') {
     errors.value.ngayBatDau = 'Từ ngày không được để trống!'
     hasError = true
-  } else if (!isEditing.value) {
+  } else {
     const startMs = new Date(formData.value.ngayBatDau).getTime()
-    // Dung sai 10 phút để người dùng thoải mái thao tác mà không bị chặn
-    if (startMs < Date.now() - 10 * 60 * 1000) {
+    const isOriginalStart = isEditing.value && originalNgayBatDau.value && formData.value.ngayBatDau === toInputDateTime(originalNgayBatDau.value)
+    if (!isOriginalStart && startMs < getCurrentMinuteFloorMs()) {
       errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
       hasError = true
     }
@@ -2315,10 +2588,16 @@ const onSaveClick = () => {
   if (!formData.value.ngayKetThuc || formData.value.ngayKetThuc.trim() === '') {
     errors.value.ngayKetThuc = 'Đến ngày không được để trống!'
     hasError = true
-  } else if (formData.value.ngayBatDau) {
-    if (new Date(formData.value.ngayKetThuc).getTime() <= new Date(formData.value.ngayBatDau).getTime()) {
-      errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
+  } else {
+    const endMs = new Date(formData.value.ngayKetThuc).getTime()
+    if (endMs < getCurrentMinuteFloorMs()) {
+      errors.value.ngayKetThuc = 'Thời gian kết thúc không được trước thời gian hiện tại!'
       hasError = true
+    } else if (formData.value.ngayBatDau) {
+      if (endMs <= new Date(formData.value.ngayBatDau).getTime()) {
+        errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
+        hasError = true
+      }
     }
   }
 
@@ -2341,19 +2620,10 @@ const onSaveClick = () => {
     return
   }
 
-  // Kiểm tra quy tắc: Không được chứa sản phẩm đang trong đợt giảm giá chưa kết thúc
-  const conflicting = selectedVariants.value.find(v => {
-    if (!activeProductCampaignMap.value) return false
-    const c = activeProductCampaignMap.value.get(Number(v.spId))
-    if (!c) return false
-    if (c.trangThai === 0) return false
-    const end = c.ngayKetThuc ? new Date(c.ngayKetThuc).getTime() : null
-    if (end && currentTime.value >= end) return false
-    return true
-  })
-  if (conflicting) {
-    showToast(`Sản phẩm "${conflicting.spTen || 'đã chọn'}" đang trong một đợt giảm giá khác chưa kết thúc!`, 'error')
-    return
+  // Thông báo nếu có biến thể đang trùng đợt giảm giá khác chạy song song
+  const hasOverlapping = selectedVariants.value.some(v => getVariantActiveCampaign(v.id))
+  if (hasOverlapping) {
+    showToast('Một số biến thể đang thuộc đợt giảm giá khác. Hệ thống sẽ tự động áp dụng mức giảm tối đa (Max)!', 'info')
   }
 
   showConfirmModal.value = true
@@ -2405,7 +2675,7 @@ const doSubmitAPI = async () => {
       moTa: formData.value.moTa?.trim() || null,
       trangThai: formData.value.trangThai,
       chiTietSanPhamIds: chiTietSanPhamIds,
-      sanPhamIds: appliedParentSpIds
+      sanPhamIds: [] // Chỉ lưu chính xác các biến thể đã chọn, không lưu cả sản phẩm cha
     }
 
     let res = null
@@ -2456,7 +2726,7 @@ const fetchRealProductsFromDB = async () => {
               kichCo: v.tenKichCo || v.idKichCo?.tenKichCo || 'M',
               gia: v.giaBan || 199000,
               soLuong: v.soLuong || 50,
-              hinhAnh: v.anhDaiDien || spImg || ''
+              hinhAnh: v.anhDaiDien || ''
             }))
           }
         } catch (e) {
@@ -2490,6 +2760,7 @@ onMounted(() => {
   fetchData()
   fetchRealProductsFromDB()
   loadActiveCampaignProducts()
+  loadActiveVariantsMap()
 
   // Real-time ticker mỗi giây và đồng bộ dữ liệu ngầm tự động (tự động cập nhật không cần load lại trang)
   let pollCounter = 0
@@ -2502,6 +2773,7 @@ onMounted(() => {
       if (currentView.value === 'list' && !loading.value && !submitting.value && !togglingStatus.value) {
         fetchData(true)
         loadActiveCampaignProducts()
+        loadActiveVariantsMap()
       }
     }
   }, 1000)
@@ -3807,8 +4079,9 @@ onUnmounted(() => {
 }
 .field-error-msg {
   color: #ef4444;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   font-weight: 500;
+  line-height: 1.3;
   margin-top: 4px;
   display: block;
 }
@@ -4492,5 +4765,232 @@ onUnmounted(() => {
 }
 :deep(.select2-dropdown) {
   z-index: 99999 !important;
+}
+
+/* ==================== SWITCH TOGGLE & ACTION BUTTONS (TƯƠNG TỰ PGG) ==================== */
+.action-buttons-flex {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.switch-toggle {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  cursor: pointer;
+  margin: 0;
+  vertical-align: middle;
+}
+
+.switch-toggle.switch-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.switch-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider-round {
+  position: absolute;
+  inset: 0;
+  background-color: #d1d5db;
+  border-radius: 22px;
+  transition: all 0.25s ease;
+}
+
+.slider-round::before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: all 0.25s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.switch-toggle input:checked + .slider-round {
+  background-color: var(--blue, #304b60);
+}
+
+.switch-toggle input:checked + .slider-round::before {
+  transform: translateX(16px);
+}
+
+.btn-action-edit {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #d0dfe8;
+  background-color: #eef5f9;
+  color: #304b60;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+.btn-action-edit:hover {
+  background-color: #dce9f3;
+  border-color: #304b60;
+  color: #1e3a5f;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(48, 75, 96, 0.22);
+}
+
+.action-svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
+
+/* ==================== QUY TẮC TRÙNG ĐỢT GIẢM GIÁ (OVERLAP RULE CARD) ==================== */
+.overlap-rule-card {
+  margin: 0.85rem 0 1.25rem;
+  padding: 0.85rem 1rem;
+  background: #f0f7ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+}
+/* ==================== BADGE BIẾN THỂ TRONG BẢNG SẢN PHẨM ==================== */
+.variant-pill-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.65rem;
+  min-width: 68px;
+  border-radius: 20px;
+  border: 1px solid #d0dfe8;
+  background-color: #f4f8fb;
+  color: #304b60;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.badge-selected-count {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #059669;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.badge-variant-active-dgg {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  padding: 0.15rem 0.45rem;
+  white-space: nowrap;
+}
+.text-discount-badge {
+  font-size: 0.75rem;
+  color: #dc2626;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* ==================== ẢNH BIẾN THỂ (PRODUCT TABLE & APPLIED TABLE) ==================== */
+.variant-img-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+.variant-img-item {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.variant-img-cell {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  position: relative;
+  overflow: visible;
+}
+.applied-variant-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 7px;
+}
+.variant-thumb-discount-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1.5px 5.5px;
+  border-radius: 5px;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.22);
+  line-height: 1.2;
+  white-space: nowrap;
+  z-index: 5;
+  letter-spacing: -0.2px;
+}
+
+/* ==================== STYLE CHO BIẾN THỂ TRÙNG / ĐANG ÁP DỤNG ĐỢT GIẢM GIÁ ==================== */
+.row-has-active-campaign {
+  background-color: #fff8f8 !important;
+}
+.row-has-active-campaign:hover {
+  background-color: #fee2e2 !important;
+}
+.current-price-col {
+  display: flex;
+  flex-direction: column;
+}
+.current-price-num {
+  font-weight: 500;
+  color: #1e293b;
+}
+.discounted-price-amount {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #dc2626;
+  line-height: 1.2;
+}
+.applied-campaign-notice {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  margin-top: 3px;
+  line-height: 1.25;
 }
 </style>

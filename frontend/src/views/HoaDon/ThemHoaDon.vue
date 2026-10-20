@@ -323,7 +323,8 @@ const trangThaiOptions = [
   { value: 3, label: 'Chờ vận chuyển' },
   { value: 4, label: 'Vận chuyển' },
   { value: 5, label: 'Đã hoàn thành' },
-  { value: 6, label: 'Hủy' }
+  { value: 6, label: 'Hủy' },
+  { value: 7, label: 'Giao hàng thất bại' }
 ]
 
 const loading = ref(false)

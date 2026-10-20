@@ -613,7 +613,7 @@ watch(() => route.query.tab, (newTab) => {
         </div>
 
         <div class="modal-body">
-          <div class="form-group">
+          <div class="form-group" v-if="modal.isEdit">
             <label class="form-label">MÃ {{ currentTabInfo.name.toUpperCase() }} <span class="note">(Tùy chọn)</span></label>
             <input
                 type="text"
@@ -652,7 +652,7 @@ watch(() => route.query.tab, (newTab) => {
             <span class="error-msg" v-if="modal.errors.maHex">{{ modal.errors.maHex }}</span>
           </div>
 
-          <div class="form-group">
+          <div class="form-group" v-if="modal.isEdit">
             <label class="form-label">TRẠNG THÁI</label>
             <Select2Combobox
               v-model="modal.data.trangThai"

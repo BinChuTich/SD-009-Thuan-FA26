@@ -3,7 +3,18 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
+import QrScannerModal from '@/components/QrScannerModal.vue'
+
 const router = useRouter()
+
+const showQrScanner = ref(false)
+
+const handleQrScanSuccess = (scannedCode) => {
+  showQrScanner.value = false
+  if (!scannedCode) return
+  showToast(`Đã nhận diện hóa đơn: ${scannedCode}`)
+  router.push(`/hoa-don/${encodeURIComponent(scannedCode)}`)
+}
 
 const xemChiTiet = (maHoaDon) => {
   if (!maHoaDon) {
@@ -115,7 +126,7 @@ const exportExcel = () => {
             <td colspan="13" class="sheet-meta">
               Thời gian xuất: <strong>${nowStr}</strong> &nbsp;|&nbsp;
               Số lượng: <strong>${listToExport.length}</strong> hóa đơn &nbsp;|&nbsp;
-              Trạng thái lọc: <strong>${currentTab.value}</strong>
+              Trạng thái lọc: <strong>${filters.value.status ? getStatusText(filters.value.status) : 'Tất cả'}</strong>
             </td>
           </tr>
           <tr></tr>
@@ -171,16 +182,6 @@ const exportExcel = () => {
     exporting.value = false
   }
 }
-const currentTab = ref('Tất Cả')
-const statusTabs = [
-  'Tất Cả',
-  'Chờ Xác Nhận',
-  'Đã Xác Nhận',
-  'Chờ Vận Chuyển',
-  'Vận Chuyển',
-  'Đã Hoàn Thành',
-  'Hủy'
-]
 
 const getTodayString = () => {
   const now = new Date()
@@ -209,40 +210,7 @@ watch(
   }
 )
 
-const mapStatusToTab = (statusVal) => {
-  if (!statusVal) return 'Tất Cả'
-  const map = {
-    '1': 'Chờ Xác Nhận',
-    '2': 'Đã Xác Nhận',
-    '3': 'Chờ Vận Chuyển',
-    '4': 'Vận Chuyển',
-    '5': 'Đã Hoàn Thành',
-    '6': 'Hủy'
-  }
-  return map[String(statusVal)] || 'Tất Cả'
-}
-
-const mapTabToStatus = (tabName) => {
-  if (!tabName || tabName === 'Tất Cả') return ''
-  const map = {
-    'Chờ Xác Nhận': '1',
-    'Đã Xác Nhận': '2',
-    'Chờ Vận Chuyển': '3',
-    'Vận Chuyển': '4',
-    'Đã Hoàn Thành': '5',
-    'Hủy': '6'
-  }
-  return map[tabName] || ''
-}
-
-const selectTab = (tab) => {
-  currentTab.value = tab
-  filters.value.status = mapTabToStatus(tab)
-  resetPage()
-}
-
 const onStatusComboboxChange = () => {
-  currentTab.value = mapStatusToTab(filters.value.status)
   resetPage()
 }
 
@@ -257,6 +225,7 @@ const trangThaiDonOptions = [
   { value: '3', label: 'Chờ vận chuyển' },
   { value: '4', label: 'Vận chuyển' },
   { value: '5', label: 'Đã hoàn thành' },
+  { value: '7', label: 'Giao hàng thất bại' },
   { value: '6', label: 'Hủy' }
 ]
 
@@ -264,37 +233,6 @@ const paymentStatusOptions = [
   { value: '1', label: 'Đã thanh toán' },
   { value: '0', label: 'Chưa thanh toán' }
 ]
-
-const getTabClass = (tab) => {
-  switch (tab) {
-    case 'Chờ Xác Nhận': return 'tab-pending'
-    case 'Đã Xác Nhận': return 'tab-confirmed'
-    case 'Chờ Vận Chuyển': return 'tab-waiting'
-    case 'Vận Chuyển': return 'tab-shipping'
-    case 'Đã Hoàn Thành': return 'tab-completed'
-    case 'Hủy': return 'tab-cancelled'
-    default: return 'tab-all'
-  }
-}
-
-const statusCounts = computed(() => {
-  const counts = {
-    'Tất Cả': invoiceList.value.length,
-    'Chờ Xác Nhận': 0,
-    'Đã Xác Nhận': 0,
-    'Chờ Vận Chuyển': 0,
-    'Vận Chuyển': 0,
-    'Đã Hoàn Thành': 0,
-    'Hủy': 0
-  }
-  invoiceList.value.forEach(item => {
-    const text = getStatusText(item.status)
-    if (counts[text] !== undefined) {
-      counts[text]++
-    }
-  })
-  return counts
-})
 
 const invoiceList = ref([])
 const loading = ref(false)
@@ -327,7 +265,8 @@ const getStatusText = (status) => {
     3: 'Chờ Vận Chuyển',
     4: 'Vận Chuyển',
     5: 'Đã Hoàn Thành',
-    6: 'Hủy'
+    6: 'Hủy',
+    7: 'Giao Hàng Thất Bại'
   }
   return statusMap[status] || 'Chưa cập nhật'
 }
@@ -346,6 +285,8 @@ const getStatusClass = (status) => {
       return 'status-completed'
     case 6:
       return 'status-cancelled'
+    case 7:
+      return 'status-failed'
     default:
       return 'status-default'
   }
@@ -387,6 +328,17 @@ const extractInvoiceArray = (resData) => {
   return []
 }
 
+// Kiểm tra hóa đơn chờ tại quầy (không hiển thị trong danh sách hóa đơn)
+const isWaitingInvoice = (item) => {
+  if (!item || typeof item !== 'object') return false
+  const isStoreWaiting = Number(item.loaiDon) === 1
+    && Number(item.trangThai) === 1
+    && (item.trangThaiThanhToan == null || Number(item.trangThaiThanhToan) === 0)
+  const note = String(item.ghiChu || '').toLowerCase()
+  const isWaitingNote = note.includes('hóa đơn chờ') || note.includes('hoa don cho')
+  return isStoreWaiting || isWaitingNote
+}
+
 const loadHoaDon = async () => {
   try {
     loading.value = true
@@ -411,8 +363,17 @@ const loadHoaDon = async () => {
       return
     }
 
-    const invoicePromises = dataList.map(async (item) => {
-      if (!item || typeof item !== 'object') return null
+    // Lọc bỏ toàn bộ hóa đơn chờ tại quầy khỏi danh sách hóa đơn
+    const validDataList = dataList.filter(item => !isWaitingInvoice(item))
+
+    if (validDataList.length === 0) {
+      invoiceList.value = []
+      currentPage.value = 1
+      return
+    }
+
+    const invoicePromises = validDataList.map(async (item) => {
+      if (!item || typeof item !== 'object' || isWaitingInvoice(item)) return null
 
       try {
         // 1. Tên khách hàng: ưu tiên lấy từ bảng khóa ngoại KhachHang
@@ -561,7 +522,15 @@ const loadHoaDon = async () => {
           createDate: formatDate(item.ngayTao),
           rawDate: item.ngayTao,
           type: Number(item.loaiDon) === 1 ? 'Tại cửa hàng' : 'Online',
-          status: Number(item.trangThai || 1),
+          status: (() => {
+            let st = Number(item.trangThaiHienThi || item.trangThai || 1)
+            const n = String(item.ghiChu || '').toLowerCase()
+            if (st === 6) {
+              if (n.includes('tối đa 3 lần') || n.includes('hủy đơn do giao lại')) return 6
+              if (n.includes('giao hàng thất bại')) return 7
+            }
+            return st
+          })(),
           paymentStatus: Number(item.trangThaiThanhToan ?? 0),
           note: item.ghiChu || ''
         }
@@ -589,7 +558,6 @@ const handleRefresh = async () => {
     status: '',
     paymentStatus: ''
   }
-  currentTab.value = 'Tất Cả'
   currentPage.value = 1
   await loadHoaDon()
   showToast('Đã đặt lại bộ lọc và làm mới dữ liệu!')
@@ -633,9 +601,6 @@ const filteredInvoiceList = computed(() => {
       if (Number(item.status) !== Number(filters.value.status)) {
         return false
       }
-    } else if (currentTab.value !== 'Tất Cả') {
-      const statusText = getStatusText(item.status)
-      if (statusText !== currentTab.value) return false
     }
 
     if (filters.value.paymentStatus !== '' && filters.value.paymentStatus !== null && filters.value.paymentStatus !== undefined) {
@@ -741,6 +706,19 @@ onBeforeUnmount(() => {
                 placeholder="Tìm mã HĐ, tên KH, SĐT..."
                 class="form-control input-has-prefix"
             />
+            <button
+              class="btn-qr-inline"
+              type="button"
+              title="Quét QR Hóa Đơn"
+              @click="showQrScanner = true"
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -815,6 +793,16 @@ onBeforeUnmount(() => {
       <!-- DÒNG CUỐI CÙNG: CỤM NÚT THAO TÁC -->
       <div class="filter-actions-bottom">
         <div class="actions-right">
+          <button class="btn-scan-qr" type="button" @click="showQrScanner = true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            Quét QR Hóa Đơn
+          </button>
+
           <button
               class="btn-refresh"
               type="button"
@@ -848,9 +836,11 @@ onBeforeUnmount(() => {
     <div class="card-box table-card">
       <!-- HEADER KHUNG BẢNG -->
       <div class="table-card-header">
-        <h3 class="card-heading">Danh sách hóa đơn</h3>
+        <div class="table-title-area">
+          <h3 class="card-heading">Danh sách hóa đơn</h3>
+          <span class="table-total-count">({{ filteredInvoiceList.length }} hóa đơn)</span>
+        </div>
       </div>
-
       <!-- LOADING & ERROR -->
       <div v-if="loading" class="state-message">
         Đang tải dữ liệu hóa đơn...
@@ -903,10 +893,15 @@ onBeforeUnmount(() => {
               <div class="time-sub">{{ item.createTime }}</div>
             </td>
             <td>
+              <div class="status-cell-wrap">
                 <span class="badge-status" :class="getStatusClass(item.status)">
                   <span class="status-dot"></span>
                   {{ getStatusText(item.status) }}
                 </span>
+                <span v-if="item.type !== 'Tại cửa hàng' && Number(item.status) === 1" class="badge-unprinted-list" title="Đơn online chờ xác nhận là chưa in hóa đơn">
+                  Chưa in HĐ
+                </span>
+              </div>
             </td>
             <td>
                 <span class="badge-payment" :class="getPaymentClass(item.paymentStatus)">
@@ -967,6 +962,12 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+    <!-- Modal Quét QR Hóa Đơn -->
+    <QrScannerModal
+      :show="showQrScanner"
+      @close="showQrScanner = false"
+      @scan-success="handleQrScanSuccess"
+    />
   </div>
 </template>
 
@@ -1028,7 +1029,19 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+}
+
+.table-title-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.table-total-count {
+  font-size: 0.85rem;
+  color: #8c969e;
+  font-weight: 500;
 }
 
 .card-header-filter {
@@ -1150,19 +1163,68 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .icon-prefix {
   position: absolute;
-  left: 11px;
+  left: 0.85rem;
   color: #8c969e;
   display: flex;
   align-items: center;
   pointer-events: none;
+  z-index: 1;
+}
+
+.btn-scan-qr {
+  background-color: #f0f7ff;
+  color: #0369a1;
+  border: 1.5px solid #bae6fd;
+  height: 35px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.2s ease;
+}
+
+.btn-scan-qr:hover {
+  background-color: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0284c7;
+  transform: translateY(-1px);
+}
+
+.btn-qr-inline {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #3e5c76;
+  padding: 5px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  z-index: 2;
+}
+
+.btn-qr-inline:hover {
+  background: #e0f2fe;
+  color: #0284c7;
 }
 
 .input-has-prefix {
-  padding-left: 34px !important;
+  padding-left: 2.35rem !important;
+  padding-right: 2.5rem !important;
 }
 
 .select-combobox {
@@ -1173,6 +1235,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 7px;
+  width: 100%;
 }
 
 .form-group label {
@@ -1182,19 +1245,29 @@ onBeforeUnmount(() => {
 }
 
 .form-control {
-  height: 38px;
-  padding: 0 12px;
-  border: 1px solid #d5c8b8;
-  border-radius: 7px;
-  background-color: #ffffff;
-  color: #333333;
-  font-size: 0.88rem;
+  width: 100%;
+  height: 2.6rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--line, #e9e5db);
+  border-radius: 8px;
+  background-color: #fcfbf8;
+  color: var(--text, #3d4a50);
+  font-size: 0.92rem;
+  font-family: inherit;
   outline: none;
-  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.form-control:hover {
+  border-color: #b8c3cc;
+  background-color: #ffffff;
 }
 
 .form-control:focus {
-  border-color: #3e5c76;
+  border-color: var(--blue, #496883);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
 }
 
 .table-responsive {
@@ -1290,6 +1363,25 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 
+.status-cell-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.badge-unprinted-list {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background-color: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  white-space: nowrap;
+}
+
 .badge-status {
   padding: 4px 10px;
   border-radius: 6px;
@@ -1329,6 +1421,12 @@ onBeforeUnmount(() => {
   background: #fee6e6;
   color: #be2626;
 }
+
+.status-failed {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
 
 .status-default {
   background: #f0e9df;

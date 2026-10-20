@@ -41,7 +41,8 @@ const getStatusText = (status) => {
     3: 'Chờ vận chuyển',
     4: 'Vận chuyển',
     5: 'Đã hoàn thành',
-    6: 'Hủy'
+    6: 'Hủy',
+    7: 'Giao hàng thất bại'
   }
   return map[Number(status)] || 'Chưa cập nhật'
 }
@@ -56,7 +57,7 @@ const actionText = computed(() => {
   if (!hoaDon.value) return ''
   switch (Number(hoaDon.value.trangThai)) {
     case 1:
-      return '✓ Xác nhận đơn hàng'
+      return '✓ Xác nhận đơn hàng & In hóa đơn'
     case 2:
       return '✓ Chuyển chờ vận chuyển'
     case 3:
@@ -109,6 +110,9 @@ const confirmModal = ref({
   confirmText: 'Đồng ý',
   cancelText: 'Hủy bỏ',
   type: 'primary',
+  showEmailInput: false,
+  sendEmail: true,
+  customerEmail: '',
   onConfirm: null
 })
 
@@ -119,6 +123,9 @@ const openConfirmModal = ({
   confirmText = 'Đồng ý',
   cancelText = 'Hủy bỏ',
   type = 'primary',
+  showEmailInput = false,
+  sendEmail = true,
+  customerEmail = '',
   onConfirm = null
 }) => {
   confirmModal.value = {
@@ -129,6 +136,9 @@ const openConfirmModal = ({
     confirmText,
     cancelText,
     type,
+    showEmailInput,
+    sendEmail,
+    customerEmail,
     onConfirm
   }
 }
@@ -139,6 +149,12 @@ const closeConfirmModal = () => {
 
 const handleConfirmAccept = async () => {
   const cb = confirmModal.value.onConfirm
+  const emailInput = confirmModal.value.customerEmail ? confirmModal.value.customerEmail.trim() : ''
+  const willSendEmail = confirmModal.value.sendEmail && confirmModal.value.showEmailInput
+  if (willSendEmail && emailInput && !emailInput.includes('@')) {
+    showToast('Vui lòng nhập định dạng email hợp lệ (VD: khachhang@gmail.com)!', 'warning')
+    return
+  }
   confirmModal.value.show = false
   if (cb) {
     await cb()
@@ -150,19 +166,46 @@ const xacNhanDon = () => {
   const status = nextStatus.value
   if (!status) return
 
+  const isConfirming = status === 2
+  const existingEmail = (hoaDon.value.emailKhachHang || hoaDon.value.idKhachHang?.email || hoaDon.value.email || '').trim()
+
   openConfirmModal({
-    title: 'Xác Nhận Trạng Thái Đơn Hàng',
-    message: `Bạn có chắc muốn chuyển đơn hàng sang "${getStatusText(status)}"?`,
-    subText: 'Thao tác này sẽ lưu trạng thái mới vào cơ sở dữ liệu.',
-    confirmText: 'Đồng ý',
+    title: isConfirming ? 'Xác Nhận Đơn Hàng' : 'Xác Nhận Trạng Thái Đơn Hàng',
+    message: isConfirming
+      ? `Bạn có chắc muốn xác nhận đơn hàng "${hoaDon.value.maHoaDon}" không?`
+      : `Bạn có chắc muốn chuyển đơn hàng sang "${getStatusText(status)}"?`,
+    subText: isConfirming
+      ? 'Hệ thống sẽ cập nhật trạng thái đơn sang "Đã xác nhận" và gửi email thông báo chi tiết cho khách hàng.'
+      : 'Thao tác này sẽ lưu trạng thái mới vào cơ sở dữ liệu.',
+    confirmText: isConfirming ? 'Xác nhận đơn' : 'Đồng ý',
     cancelText: 'Hủy bỏ',
     type: 'primary',
+    showEmailInput: isConfirming,
+    sendEmail: true,
+    customerEmail: existingEmail,
     onConfirm: async () => {
       try {
         saving.value = true
-        await api.put(`/api/hoa-don/${hoaDon.value.id}`, { trangThai: status })
+        const emailToSend = (confirmModal.value.showEmailInput && confirmModal.value.sendEmail && confirmModal.value.customerEmail)
+          ? confirmModal.value.customerEmail.trim()
+          : undefined
+        const emailQuery = emailToSend ? `&email=${encodeURIComponent(emailToSend)}` : ''
+        await api.put(`/api/hoa-don/${hoaDon.value.id}/trang-thai?trangThai=${status}${emailQuery}`, {
+          trangThai: status,
+          email: emailToSend
+        })
         hoaDon.value.trangThai = status
-        showToast(`Đã chuyển đơn hàng sang "${getStatusText(status)}"!`)
+        if (emailToSend && isConfirming) {
+          showToast(`Đã xác nhận đơn hàng và gửi email thông báo tới ${emailToSend}!`)
+        } else {
+          showToast(`Đã chuyển đơn hàng sang "${getStatusText(status)}"!`)
+        }
+        // Tự động chuyển đến chi tiết hóa đơn và in theo mẫu chuẩn
+        if (status === 2) {
+          setTimeout(() => {
+            router.push({ path: `/hoa-don/${maHoaDon}`, query: { autoPrint: 'true' } })
+          }, 500)
+        }
       } catch (error) {
         console.error('Lỗi cập nhật trạng thái:', error)
         showToast(error.response?.data?.message || 'Không thể cập nhật trạng thái đơn hàng!', 'warning')
@@ -179,8 +222,8 @@ const thanhToan = () => {
   openConfirmModal({
     title: 'Xác Nhận Thanh Toán',
     message: 'Bạn có chắc hóa đơn này đã được hoàn tất thanh toán?',
-    subText: 'Hóa đơn sẽ được chuyển sang trạng thái "Đã thanh toán".',
-    confirmText: 'Xác nhận thanh toán',
+    subText: 'Hóa đơn sẽ được chuyển sang trạng thái "Đã thanh toán" và tự động mở hộp thoại in hóa đơn.',
+    confirmText: 'Xác nhận & In hóa đơn',
     cancelText: 'Hủy bỏ',
     type: 'primary',
     onConfirm: async () => {
@@ -189,6 +232,10 @@ const thanhToan = () => {
         await api.put(`/api/hoa-don/${hoaDon.value.id}`, { trangThaiThanhToan: 1 })
         hoaDon.value.trangThaiThanhToan = 1
         showToast('Thanh toán hóa đơn thành công!')
+        // Tự động chuyển đến chi tiết hóa đơn và in theo mẫu chuẩn
+        setTimeout(() => {
+          router.push({ path: `/hoa-don/${maHoaDon}`, query: { autoPrint: 'true' } })
+        }, 500)
       } catch (error) {
         console.error('Lỗi cập nhật thanh toán:', error)
         showToast(error.response?.data?.message || 'Không thể cập nhật trạng thái thanh toán!', 'warning')
@@ -302,7 +349,7 @@ onMounted(() => {
           </div>
 
           <button class="btn-payment" @click="thanhToan" :disabled="paying">
-            {{ paying ? 'Đang xử lý...' : '✓ Xác nhận đã thanh toán' }}
+            {{ paying ? 'Đang xử lý...' : '✓ Xác nhận đã thanh toán & In hóa đơn' }}
           </button>
         </div>
       </div>
@@ -405,6 +452,25 @@ onMounted(() => {
           <div class="modal-body confirm-body">
             <p class="confirm-main-message">{{ confirmModal.message }}</p>
             <p v-if="confirmModal.subText" class="confirm-sub-message">{{ confirmModal.subText }}</p>
+
+            <!-- Nhập email khách hàng khi xác nhận đơn hàng -->
+            <div v-if="confirmModal.showEmailInput" class="confirm-email-box">
+              <label class="confirm-checkbox-label">
+                <input type="checkbox" v-model="confirmModal.sendEmail" />
+                <span class="checkbox-text font-bold">✉ Gửi email thông báo xác nhận đơn hàng cho khách</span>
+              </label>
+              <div v-if="confirmModal.sendEmail" class="email-input-subgroup">
+                <label class="modal-label">Địa chỉ email nhận thông báo <span class="text-danger">*</span></label>
+                <input
+                  type="email"
+                  v-model="confirmModal.customerEmail"
+                  placeholder="Nhập email khách hàng (VD: khachhang@gmail.com)..."
+                  class="modal-input-field"
+                  maxlength="100"
+                />
+                <p class="email-guide-text">Hệ thống sẽ tự động gửi email chi tiết đơn hàng cho khách hàng qua địa chỉ email này.</p>
+              </div>
+            </div>
           </div>
 
           <div class="modal-footer confirm-footer">
@@ -418,7 +484,11 @@ onMounted(() => {
                 :disabled="saving || paying"
                 @click="handleConfirmAccept"
             >
-              {{ (saving || paying) ? 'Đang xử lý...' : confirmModal.confirmText }}
+              {{ (saving || paying) ? 'Đang xử lý...' : (
+                confirmModal.showEmailInput && confirmModal.sendEmail && confirmModal.customerEmail
+                  ? '✓ Xác nhận & Gửi mail'
+                  : confirmModal.confirmText
+              ) }}
             </button>
           </div>
         </div>
@@ -1000,5 +1070,67 @@ button:disabled {
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
+}
+
+.confirm-email-box {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: #fbf7f4;
+  border: 1.5px solid #ebd9c8;
+  border-radius: 8px;
+}
+
+.confirm-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+  color: #7b5943;
+  cursor: pointer;
+}
+
+.email-input-subgroup {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.modal-input-field {
+  height: 38px;
+  padding: 0 12px;
+  border: 1.5px solid #d5c8b8;
+  border-radius: 6px;
+  font-size: 0.86rem;
+  background-color: #ffffff;
+  color: #2b353b;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.modal-input-field:focus {
+  border-color: #7b5943;
+  box-shadow: 0 0 0 2px rgba(123, 89, 67, 0.15);
+}
+
+.email-guide-text {
+  font-size: 0.76rem;
+  color: #8c7664;
+  margin: 2px 0 0;
+  line-height: 1.4;
+}
+
+.text-danger {
+  color: #dc2626;
+}
+
+.font-bold {
+  font-weight: 700;
 }
 </style>

@@ -25,6 +25,8 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 @Transactional(readOnly = true)
@@ -181,22 +183,199 @@ public class SanPhamService {
         return candidate;
     }
 
+    private boolean isSameAttributes(
+            SanPham sp,
+            Long idDanhMuc,
+            Long idThuongHieu,
+            Long idChatLieu,
+            Long idCoAo,
+            Long idTayAo,
+            Long idXuatXu,
+            Long idHoaTiet
+    ) {
+        Long spDanhMuc = sp.getIdDanhMuc() != null ? sp.getIdDanhMuc().getId() : null;
+        Long spThuongHieu = sp.getIdThuongHieu() != null ? sp.getIdThuongHieu().getId() : null;
+        Long spChatLieu = sp.getIdChatLieu() != null ? sp.getIdChatLieu().getId() : null;
+        Long spCoAo = sp.getIdCoAo() != null ? sp.getIdCoAo().getId() : null;
+        Long spTayAo = sp.getIdTayAo() != null ? sp.getIdTayAo().getId() : null;
+        Long spXuatXu = sp.getIdXuatXu() != null ? sp.getIdXuatXu().getId() : null;
+        Long spHoaTiet = sp.getIdHoaTiet() != null ? sp.getIdHoaTiet().getId() : null;
+
+        return java.util.Objects.equals(spDanhMuc, idDanhMuc)
+                && java.util.Objects.equals(spThuongHieu, idThuongHieu)
+                && java.util.Objects.equals(spChatLieu, idChatLieu)
+                && java.util.Objects.equals(spCoAo, idCoAo)
+                && java.util.Objects.equals(spTayAo, idTayAo)
+                && java.util.Objects.equals(spXuatXu, idXuatXu)
+                && java.util.Objects.equals(spHoaTiet, idHoaTiet);
+    }
+
+    public Optional<SanPham> findIdenticalProduct(
+            String tenSanPham,
+            Long idDanhMuc,
+            Long idThuongHieu,
+            Long idChatLieu,
+            Long idCoAo,
+            Long idTayAo,
+            Long idXuatXu,
+            Long idHoaTiet
+    ) {
+        if (tenSanPham == null || tenSanPham.trim().isEmpty()) {
+            return Optional.empty();
+        }
+        List<SanPham> sameNameProducts = sanPhamRepository.findAllByTenSanPhamIgnoreCase(tenSanPham.trim());
+        for (SanPham sp : sameNameProducts) {
+            if (isSameAttributes(sp, idDanhMuc, idThuongHieu, idChatLieu, idCoAo, idTayAo, idXuatXu, idHoaTiet)) {
+                return Optional.of(sp);
+            }
+        }
+        return Optional.empty();
+    }
+
+    public java.util.Map<String, Object> checkDuplicate(String maSanPham, String tenSanPham) {
+        return checkDuplicate(maSanPham, tenSanPham, null, null, null, null, null, null, null);
+    }
+
+    public java.util.Map<String, Object> checkDuplicate(
+            String maSanPham,
+            String tenSanPham,
+            Long idDanhMuc,
+            Long idThuongHieu,
+            Long idChatLieu,
+            Long idCoAo,
+            Long idTayAo,
+            Long idXuatXu,
+            Long idHoaTiet
+    ) {
+        String trimmedMa = maSanPham != null ? maSanPham.trim() : "";
+        String trimmedTen = tenSanPham != null ? tenSanPham.trim() : "";
+
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+
+        // Kiểm tra theo mã sản phẩm nếu người dùng có nhập mã
+        Optional<SanPham> existingByCode = !trimmedMa.isEmpty()
+                ? sanPhamRepository.findByMaSanPhamIgnoreCase(trimmedMa)
+                : Optional.empty();
+
+        // Tìm sản phẩm trùng CẢ TÊN VÀ TẤT CẢ THUỘC TÍNH
+        Optional<SanPham> existingIdentical = !trimmedTen.isEmpty()
+                ? findIdenticalProduct(trimmedTen, idDanhMuc, idThuongHieu, idChatLieu, idCoAo, idTayAo, idXuatXu, idHoaTiet)
+                : Optional.empty();
+
+        // Xung đột mã: Mã thuộc về SP khác nhưng bộ tên + thuộc tính lại trùng SP khác
+        if (existingByCode.isPresent() && existingIdentical.isPresent()
+                && !existingByCode.get().getId().equals(existingIdentical.get().getId())) {
+            response.put("conflict", true);
+            response.put("exists", true);
+            response.put("message", "Mã sản phẩm '" + trimmedMa + "' thuộc về sản phẩm '"
+                    + existingByCode.get().getTenSanPham() + "', nhưng bộ thông tin (tên + thuộc tính) lại trùng với sản phẩm '"
+                    + existingIdentical.get().getMaSanPham() + "'. Vui lòng kiểm tra lại mã hoặc để trống mã để hệ thống tự sinh!");
+            return response;
+        }
+
+        // Mã đã tồn tại ở SP khác nhưng thuộc tính không trùng hoàn toàn
+        if (existingByCode.isPresent() && existingIdentical.isEmpty()) {
+            response.put("conflict", true);
+            response.put("exists", true);
+            response.put("message", "Mã sản phẩm '" + trimmedMa + "' đã tồn tại trong hệ thống (thuộc sản phẩm '"
+                    + existingByCode.get().getTenSanPham() + "'). Vui lòng nhập mã khác hoặc để trống mã để hệ thống tự sinh!");
+            return response;
+        }
+
+        // Trùng cả tên và tất cả thuộc tính
+        Optional<SanPham> existingSpOpt = existingIdentical.isPresent() ? existingIdentical : (existingByCode.isPresent() ? existingByCode : Optional.empty());
+
+        if (existingSpOpt.isPresent()) {
+            SanPham sp = existingSpOpt.get();
+            response.put("exists", true);
+            response.put("conflict", false);
+            response.put("id", sp.getId());
+            response.put("maSanPham", sp.getMaSanPham());
+            response.put("tenSanPham", sp.getTenSanPham());
+            response.put("matchedBy", "cả tên và toàn bộ các thuộc tính");
+
+            List<ChiTietSanPham> existingVariants = chiTietSanPhamRepository.findByIdSanPham_Id(sp.getId());
+            response.put("existingVariantCount", existingVariants != null ? existingVariants.size() : 0);
+            return response;
+        }
+
+        // Có ít nhất 1 thuộc tính khác (hoặc tên khác) -> Thêm mới hoàn toàn
+        response.put("exists", false);
+        response.put("conflict", false);
+        return response;
+    }
+
     @Transactional
     public SanPhamResponse create(SanPhamRequest req) {
         String trimmedName = req.getTenSanPham() != null ? req.getTenSanPham().trim() : "";
         if (trimmedName.isEmpty()) {
             throw new IllegalArgumentException("Tên sản phẩm không được để trống!");
         }
-        if (sanPhamRepository.existsByTenSanPhamIgnoreCase(trimmedName)) {
-            throw new IllegalArgumentException("Tên sản phẩm '" + trimmedName + "' đã tồn tại trong hệ thống!");
+
+        String trimmedCode = req.getMaSanPham() != null ? req.getMaSanPham().trim() : "";
+
+        // Kiểm tra xem có sản phẩm nào trùng CẢ TÊN VÀ TẤT CẢ THUỘC TÍNH không
+        Optional<SanPham> existingIdentical = findIdenticalProduct(
+                trimmedName,
+                req.getIdDanhMuc(),
+                req.getIdThuongHieu(),
+                req.getIdChatLieu(),
+                req.getIdCoAo(),
+                req.getIdTayAo(),
+                req.getIdXuatXu(),
+                req.getIdHoaTiet()
+        );
+
+        Optional<SanPham> existingByCode = !trimmedCode.isEmpty()
+                ? sanPhamRepository.findByMaSanPhamIgnoreCase(trimmedCode)
+                : Optional.empty();
+
+        // Xung đột: Mã SP thuộc SP A nhưng bộ tên + thuộc tính lại thuộc SP B
+        if (existingByCode.isPresent() && existingIdentical.isPresent()
+                && !existingByCode.get().getId().equals(existingIdentical.get().getId())) {
+            throw new IllegalArgumentException("Xung đột: Mã sản phẩm '" + trimmedCode + "' thuộc về sản phẩm '"
+                    + existingByCode.get().getTenSanPham() + "', nhưng bộ thông tin tên và thuộc tính lại trùng với sản phẩm '"
+                    + existingIdentical.get().getMaSanPham() + "'! Vui lòng kiểm tra lại mã.");
         }
 
-        if (req.getMaSanPham() == null || req.getMaSanPham().trim().isEmpty()) {
+        // Mã đã tồn tại ở SP khác nhưng thuộc tính không trùng
+        if (existingByCode.isPresent() && existingIdentical.isEmpty()) {
+            throw new IllegalArgumentException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại trong hệ thống (thuộc sản phẩm '"
+                    + existingByCode.get().getTenSanPham() + "'). Vui lòng nhập mã khác hoặc để trống để hệ thống tự sinh mã!");
+        }
+
+        // TRƯỜNG HỢP 1: Trùng CẢ TÊN VÀ TẤT CẢ CÁC THUỘC TÍNH -> GỘP VÀ CỘNG DỒN BIẾN THỂ
+        if (existingIdentical.isPresent()) {
+            SanPham existingSp = existingIdentical.get();
+
+            if (!Boolean.TRUE.equals(req.getXacNhanGop())) {
+                throw new IllegalArgumentException("Sản phẩm '" + trimmedName + "' với cùng toàn bộ các thuộc tính đã tồn tại trong hệ thống (Mã: "
+                        + existingSp.getMaSanPham() + ")! Vui lòng xác nhận gộp để cộng dồn các biến thể.");
+            }
+
+            // Người dùng ĐÃ XÁC NHẬN GỘP: Cập nhật thông tin mô tả, trạng thái
+            if (req.getMoTa() != null && !req.getMoTa().trim().isEmpty()) {
+                existingSp.setMoTa(req.getMoTa().trim());
+            }
+
+            existingSp.setTrangThai(1);
+            existingSp.setNguoiCapNhat(req.getNguoiThaoTac() != null ? req.getNguoiThaoTac() : "Admin");
+
+            SanPham saved = sanPhamRepository.save(existingSp);
+
+            if (req.getHinhAnhs() != null && !req.getHinhAnhs().isEmpty()) {
+                saveProductImages(saved, req.getHinhAnhs());
+            }
+
+            return convertToResponse(saved);
+        }
+
+        // TRƯỜNG HỢP 2: CÓ ÍT NHẤT 1 THUỘC TÍNH KHÔNG TRÙNG (HOẶC TÊN MỚI) -> TẠO MỚI HOÀN TOÀN, KHÔNG CỘNG DỒN
+        if (trimmedCode.isEmpty()) {
             req.setMaSanPham(nextCode());
         } else {
-            String trimmedCode = req.getMaSanPham().trim();
             if (sanPhamRepository.existsByMaSanPhamIgnoreCase(trimmedCode)) {
-                throw new IllegalArgumentException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại!");
+                throw new IllegalArgumentException("Mã sản phẩm '" + trimmedCode + "' đã tồn tại trong hệ thống! Vui lòng nhập mã khác hoặc để trống để tự sinh mã.");
             }
             req.setMaSanPham(trimmedCode);
         }
@@ -233,30 +412,35 @@ public class SanPhamService {
         SanPham saved = sanPhamRepository.save(sp);
 
         if (req.getHinhAnhs() != null && !req.getHinhAnhs().isEmpty()) {
-            for (String rawItem : req.getHinhAnhs()) {
-                if (rawItem == null || rawItem.trim().isEmpty()) continue;
-                String item = rawItem.trim();
-                Long colorId = null;
-                if (item.contains("|")) {
-                    String[] parts = item.split("\\|", 2);
-                    try {
-                        colorId = Long.parseLong(parts[0].trim());
-                    } catch (Exception ignored) {}
-                    item = parts[1].trim();
-                }
-                String processedUrl = processImage(item);
-                if (processedUrl != null && !processedUrl.trim().isEmpty()) {
-                    HinhAnh ha = new HinhAnh();
-                    ha.setIdSanPham(saved);
-                    ha.setTenAnh(colorId != null ? "COLOR_" + colorId : saved.getTenSanPham());
-                    ha.setDuongDan(processedUrl.trim());
-                    ha.setTrangThai(1);
-                    hinhAnhRepository.save(ha);
-                }
-            }
+            saveProductImages(saved, req.getHinhAnhs());
         }
 
         return convertToResponse(saved);
+    }
+
+
+    private void saveProductImages(SanPham saved, List<String> hinhAnhs) {
+        for (String rawItem : hinhAnhs) {
+            if (rawItem == null || rawItem.trim().isEmpty()) continue;
+            String item = rawItem.trim();
+            Long colorId = null;
+            if (item.contains("|")) {
+                String[] parts = item.split("\\|", 2);
+                try {
+                    colorId = Long.parseLong(parts[0].trim());
+                } catch (Exception ignored) {}
+                item = parts[1].trim();
+            }
+            String processedUrl = processImage(item);
+            if (processedUrl != null && !processedUrl.trim().isEmpty()) {
+                HinhAnh ha = new HinhAnh();
+                ha.setIdSanPham(saved);
+                ha.setTenAnh(colorId != null ? "COLOR_" + colorId : saved.getTenSanPham());
+                ha.setDuongDan(processedUrl.trim());
+                ha.setTrangThai(1);
+                hinhAnhRepository.save(ha);
+            }
+        }
     }
 
     @Transactional
@@ -268,8 +452,12 @@ public class SanPhamService {
         if (trimmedName.isEmpty()) {
             throw new IllegalArgumentException("Tên sản phẩm không được để trống!");
         }
-        if (sanPhamRepository.existsByTenSanPhamIgnoreCaseAndIdNot(trimmedName, id)) {
-            throw new IllegalArgumentException("Tên sản phẩm '" + trimmedName + "' đã được sử dụng ở sản phẩm khác!");
+        List<SanPham> sameNameOthers = sanPhamRepository.findAllByTenSanPhamIgnoreCaseAndIdNot(trimmedName, id);
+        for (SanPham other : sameNameOthers) {
+            if (isSameAttributes(other, req.getIdDanhMuc(), req.getIdThuongHieu(), req.getIdChatLieu(),
+                    req.getIdCoAo(), req.getIdTayAo(), req.getIdXuatXu(), req.getIdHoaTiet())) {
+                throw new IllegalArgumentException("Đã tồn tại một sản phẩm khác có cùng tên '" + trimmedName + "' và toàn bộ các thuộc tính này (Mã: " + other.getMaSanPham() + ")!");
+            }
         }
 
         if (req.getMaSanPham() != null && !req.getMaSanPham().trim().isEmpty()) {
@@ -616,12 +804,20 @@ public class SanPhamService {
 
         if (activeDiscounts != null && !activeDiscounts.isEmpty()) {
             coGiamGia = true;
-            ChiTietDotGiamGia firstDgg = activeDiscounts.get(0);
-            if (firstDgg.getIdDotGiamGia() != null) {
-                tenDotGiamGia = firstDgg.getIdDotGiamGia().getTenDotGiamGia();
-                phanTramGiam = firstDgg.getPhanTramGiamBienThe() != null 
-                        ? firstDgg.getPhanTramGiamBienThe() 
-                        : firstDgg.getIdDotGiamGia().getPhanTramGiam();
+            ChiTietDotGiamGia bestDgg = activeDiscounts.stream()
+                .max(java.util.Comparator.comparing(c -> {
+                    BigDecimal pt = c.getPhanTramGiamBienThe() != null 
+                            ? c.getPhanTramGiamBienThe() 
+                            : (c.getIdDotGiamGia() != null ? c.getIdDotGiamGia().getPhanTramGiam() : BigDecimal.ZERO);
+                    return pt != null ? pt : BigDecimal.ZERO;
+                }))
+                .orElse(activeDiscounts.get(0));
+
+            if (bestDgg.getIdDotGiamGia() != null) {
+                tenDotGiamGia = bestDgg.getIdDotGiamGia().getTenDotGiamGia();
+                phanTramGiam = bestDgg.getPhanTramGiamBienThe() != null 
+                        ? bestDgg.getPhanTramGiamBienThe() 
+                        : bestDgg.getIdDotGiamGia().getPhanTramGiam();
             }
 
             java.util.Map<Long, BigDecimal> discountMap = new java.util.HashMap<>();
@@ -630,7 +826,7 @@ public class SanPhamService {
                     BigDecimal pt = c.getPhanTramGiamBienThe() != null 
                             ? c.getPhanTramGiamBienThe() 
                             : (c.getIdDotGiamGia() != null ? c.getIdDotGiamGia().getPhanTramGiam() : BigDecimal.ZERO);
-                    discountMap.put(c.getIdChiTietSanPham().getId(), pt);
+                    discountMap.merge(c.getIdChiTietSanPham().getId(), pt, BigDecimal::max);
                 }
             }
 
@@ -639,7 +835,7 @@ public class SanPhamService {
                     if (v.getGiaBan() == null) continue;
                     BigDecimal pt = discountMap.get(v.getId());
                     if (pt == null) {
-                        pt = phanTramGiam != null ? phanTramGiam : BigDecimal.ZERO;
+                        pt = BigDecimal.ZERO;
                     }
                     BigDecimal priceAfter = v.getGiaBan();
                     if (pt != null && pt.compareTo(BigDecimal.ZERO) > 0) {
