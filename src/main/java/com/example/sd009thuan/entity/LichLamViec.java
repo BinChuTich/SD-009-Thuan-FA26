@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "lich_lam_viec")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+///dcmnhuqqvay
 public class LichLamViec {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
