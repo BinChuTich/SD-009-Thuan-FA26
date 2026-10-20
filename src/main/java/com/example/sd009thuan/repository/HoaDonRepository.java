@@ -33,4 +33,12 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Long> {
            "LEFT JOIN FETCH h.idPhieuGiamGia " +
            "WHERE h.id = :id")
     Optional<HoaDon> findByIdWithForeignKeys(@Param("id") Long id);
+
+    @Query("SELECT h FROM HoaDon h " +
+           "LEFT JOIN FETCH h.idNhanVien " +
+           "LEFT JOIN FETCH h.idKhachHang " +
+           "LEFT JOIN FETCH h.idPhieuGiamGia " +
+           "WHERE h.ngayTao >= :startDate AND h.ngayTao <= :endDate " +
+           "ORDER BY h.ngayTao DESC")
+    List<HoaDon> findByNgayTaoBetweenWithForeignKeys(@Param("startDate") java.time.Instant startDate, @Param("endDate") java.time.Instant endDate);
 }

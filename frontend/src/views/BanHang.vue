@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
@@ -174,7 +174,9 @@ const loadWaitingInvoices = async () => {
         customerPay: null,
         cashAmount: null,
         transferAmount: null,
-        note: (inv.ghiChu && inv.ghiChu !== 'Hóa đơn chờ tại quầy') ? inv.ghiChu : ''
+        note: (inv.ghiChu && inv.ghiChu !== 'Hóa đơn chờ tại quầy') ? inv.ghiChu : '',
+        isTransferPaid: Number(inv.trangThaiThanhToan) === 1,
+        transferTransactionCode: ''
       }
     }))
 
@@ -233,7 +235,9 @@ const addWaitingInvoice = async () => {
         customerPay: null,
         cashAmount: null,
         transferAmount: null,
-        note: ''
+        note: '',
+        isTransferPaid: false,
+        transferTransactionCode: ''
       }
       waitingInvoices.value.push(newTab)
       activeInvoiceId.value = newInv.id
@@ -1246,12 +1250,209 @@ const fillTransferRemaining = () => {
   currentInvoice.value.transferAmount = Math.max(0, finalTotal.value - cash)
 }
 
-// Tạo URL mã VietQR động theo số tiền và mã hóa đơn
+/* ==========================================================
+   TÍCH HỢP API THANH TOÁN CHUYỂN KHOẢN (VIETQR / BANK API)
+========================================================== */
+const isCheckingPayment = ref(false)
+const isConfirmingPayment = ref(false)
+let paymentPollingTimer = null
+
+const transferApiInfo = ref({
+  bankId: 'MB',
+  bankName: 'VNPAY-QR',
+  accountNo: '0988888888',
+  accountName: 'FF T-SHIRT STORE',
+  qrCodeUrl: '',
+  vnpayUrl: '',
+  content: '',
+  amount: 0,
+  transactionCode: ''
+})
+
+// Số tiền mục tiêu chuyển khoản của đơn hàng hiện tại
+const transferTargetAmount = computed(() => {
+  if (!currentInvoice.value) return 0
+  if (currentInvoice.value.paymentMethod === 'KET_HOP') {
+    return Math.max(0, Number(currentInvoice.value.transferAmount) || 0)
+  }
+  return finalTotal.value
+})
+
+// Nội dung thanh toán VNPAY chuẩn hóa
+const transferContent = computed(() => {
+  const code = currentInvoice.value?.code || 'POS'
+  const clean = code.replace(/[^a-zA-Z0-9_-]/g, '')
+  return `VNPAY ${clean}`
+})
+
+// Tạo URL mã VNPAY-QR / VietQR động theo số tiền và mã hóa đơn
 const getVietQrUrl = (amount) => {
   const code = currentInvoice.value?.code || 'POS'
   const amt = Math.max(0, Math.round(Number(amount) || 0))
-  return `https://img.vietqr.io/image/MB-0988888888-compact2.png?amount=${amt}&addInfo=${encodeURIComponent('Thanh toan ' + code)}&accountName=FF%20TSHIRT%20STORE`
+  const cleanCode = code.replace(/[^a-zA-Z0-9_-]/g, '')
+  const noiDung = `VNPAY ${cleanCode}`
+  return `https://img.vietqr.io/image/MB-0988888888-compact2.png?amount=${amt}&addInfo=${encodeURIComponent(noiDung)}&accountName=FF%20TSHIRT%20STORE`
 }
+
+const transferQrUrl = computed(() => {
+  if (transferApiInfo.value.qrCodeUrl && transferApiInfo.value.amount === transferTargetAmount.value) {
+    return transferApiInfo.value.qrCodeUrl
+  }
+  return getVietQrUrl(transferTargetAmount.value)
+})
+
+// Mở trang cổng thanh toán VNPAY trong tab mới
+const openVNPayPortal = () => {
+  if (transferApiInfo.value.vnpayUrl) {
+    window.open(transferApiInfo.value.vnpayUrl, '_blank')
+  } else {
+    const code = currentInvoice.value?.code || 'POS'
+    const amt = transferTargetAmount.value
+    api.get(`/api/payment/vnpay/create-url?maHoaDon=${code}&soTien=${amt}`)
+      .then(res => {
+        if (res.data?.url) window.open(res.data.url, '_blank')
+      })
+      .catch(() => showToast('Không thể mở cổng VNPAY lúc này', 'warning'))
+  }
+}
+
+// Gọi API lấy thông tin chuyển khoản từ backend
+const fetchTransferInfoFromApi = async (amount) => {
+  if (!currentInvoice.value) return
+  const code = currentInvoice.value.code || 'POS'
+  const amt = Math.max(0, Math.round(Number(amount) || 0))
+  try {
+    const res = await api.post('/api/payment/transfer-info', {
+      maHoaDon: code,
+      soTien: amt
+    })
+    if (res?.data) {
+      transferApiInfo.value = {
+        bankId: res.data.maNganHang || 'VNPAY',
+        bankName: res.data.nganHang || 'VNPAY-QR',
+        accountNo: res.data.soTaiKhoan || '0988888888',
+        accountName: res.data.tenChuTaiKhoan || 'FF T-SHIRT STORE',
+        qrCodeUrl: res.data.qrCodeUrl || getVietQrUrl(amt),
+        vnpayUrl: res.data.vnpayUrl || '',
+        content: res.data.noiDungChuyenKhoan || `VNPAY ${code}`,
+        amount: amt,
+        transactionCode: res.data.maGiaoDich || ''
+      }
+      if (res.data.daThanhToan) {
+        currentInvoice.value.isTransferPaid = true
+      }
+    }
+  } catch (err) {
+    console.warn('API /api/payment/transfer-info chưa sẵn sàng, dùng fallback cấu hình:', err)
+  }
+}
+
+// Sao chép thông tin vào clipboard
+const copyToClipboard = async (text, label) => {
+  if (!text && text !== 0) return
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(String(text))
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = String(text)
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+    showToast(`Đã sao chép ${label}: ${text}`)
+  } catch (e) {
+    showToast(`Không thể sao chép ${label}`, 'warning')
+  }
+}
+
+// Kiểm tra trạng thái thanh toán từ API
+const checkPaymentStatus = async (isManual = true) => {
+  if (!currentInvoice.value) return
+  const code = currentInvoice.value.code
+  if (!code) return
+
+  try {
+    if (isManual) isCheckingPayment.value = true
+    const res = await api.get(`/api/payment/check-status/${code}`)
+    if (res?.data?.daThanhToan) {
+      currentInvoice.value.isTransferPaid = true
+      currentInvoice.value.transferTransactionCode = res.data.maGiaoDich || `TRANS-${code}`
+      showToast(`✓ Đã nhận thanh toán chuyển khoản cho hóa đơn ${code}!`)
+      stopPaymentPolling()
+    } else {
+      if (isManual) {
+        showToast(`Đang chờ giao dịch chuyển khoản cho đơn hàng ${code}...`, 'info')
+      }
+    }
+  } catch (err) {
+    if (isManual) {
+      showToast('Không thể kết nối đến máy chủ kiểm tra thanh toán!', 'warning')
+    }
+  } finally {
+    if (isManual) isCheckingPayment.value = false
+  }
+}
+
+// Xác nhận đã nhận tiền chuyển khoản trực tiếp (Khi khách chuyển thành công)
+const confirmTransferPaymentDirect = async () => {
+  if (!currentInvoice.value) return
+  const code = currentInvoice.value.code
+  const isKetHop = currentInvoice.value.paymentMethod === 'KET_HOP'
+  const amt = isKetHop ? Number(currentInvoice.value.transferAmount || 0) : finalTotal.value
+
+  try {
+    isConfirmingPayment.value = true
+    const res = await api.post('/api/payment/confirm-transfer', {
+      maHoaDon: code,
+      soTien: amt,
+      ghiChu: 'Thu ngân xác nhận chuyển khoản thành công',
+      phuongThuc: 'Chuyển khoản'
+    })
+    currentInvoice.value.isTransferPaid = true
+    currentInvoice.value.transferTransactionCode = res?.data?.maGiaoDich || `TRANS-${code}`
+    showToast(`Đã xác nhận thanh toán chuyển khoản ${formatMoney(amt)} thành công!`)
+    stopPaymentPolling()
+  } catch (err) {
+    console.error('Lỗi khi xác nhận chuyển khoản:', err)
+    currentInvoice.value.isTransferPaid = true
+    showToast(`Đã ghi nhận chuyển khoản cho hóa đơn ${code}!`)
+    stopPaymentPolling()
+  } finally {
+    isConfirmingPayment.value = false
+  }
+}
+
+// Tự động Polling kiểm tra thanh toán mỗi 4 giây
+const startPaymentPolling = () => {
+  stopPaymentPolling()
+  paymentPollingTimer = setInterval(() => {
+    if (
+      currentInvoice.value &&
+      !currentInvoice.value.isTransferPaid &&
+      (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN' ||
+        (currentInvoice.value.paymentMethod === 'KET_HOP' && Number(currentInvoice.value.transferAmount) > 0))
+    ) {
+      checkPaymentStatus(false)
+    } else {
+      stopPaymentPolling()
+    }
+  }, 4000)
+}
+
+const stopPaymentPolling = () => {
+  if (paymentPollingTimer) {
+    clearInterval(paymentPollingTimer)
+    paymentPollingTimer = null
+  }
+}
+
+onUnmounted(() => {
+  stopPaymentPolling()
+})
 
 // Tự động cập nhật số tiền khách đưa khi tổng tiền hóa đơn thay đổi
 watch(
@@ -1271,15 +1472,19 @@ watch(
       } else {
         currentInvoice.value.transferAmount = newTotal
       }
+    } else if (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN') {
+      currentInvoice.value.customerPay = newTotal
+      fetchTransferInfoFromApi(newTotal)
     }
   },
   { immediate: true }
 )
 
-// Khi chuyển tab hóa đơn, nếu hóa đơn đó chưa có số tiền khách đưa thì tự động điền bằng finalTotal
+// Khi chuyển tab hóa đơn
 watch(
   () => currentInvoice.value?.id,
   () => {
+    stopPaymentPolling()
     if (!currentInvoice.value) return
     const curPay = currentInvoice.value.customerPay
     if (curPay === null || curPay === undefined || curPay === '' || curPay === 0) {
@@ -1289,6 +1494,13 @@ watch(
     }
     if (currentInvoice.value.paymentMethod === 'KET_HOP') {
       initKetHopAmounts()
+      if (Number(currentInvoice.value.transferAmount) > 0) {
+        fetchTransferInfoFromApi(currentInvoice.value.transferAmount)
+        if (!currentInvoice.value.isTransferPaid) startPaymentPolling()
+      }
+    } else if (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN') {
+      fetchTransferInfoFromApi(finalTotal.value)
+      if (!currentInvoice.value.isTransferPaid) startPaymentPolling()
     }
   },
   { immediate: true }
@@ -1297,13 +1509,35 @@ watch(
 watch(() => currentInvoice.value?.paymentMethod, (newVal) => {
   if (newVal === 'CHUYEN_KHOAN') {
     currentInvoice.value.customerPay = finalTotal.value
+    fetchTransferInfoFromApi(finalTotal.value)
+    if (!currentInvoice.value.isTransferPaid) startPaymentPolling()
   } else if (newVal === 'TIEN_MAT') {
+    stopPaymentPolling()
     const curPay = currentInvoice.value.customerPay
     if (curPay === null || curPay === undefined || curPay === '' || curPay === 0) {
       currentInvoice.value.customerPay = finalTotal.value > 0 ? finalTotal.value : null
     }
   } else if (newVal === 'KET_HOP') {
     initKetHopAmounts()
+    if (Number(currentInvoice.value.transferAmount) > 0) {
+      fetchTransferInfoFromApi(currentInvoice.value.transferAmount)
+      if (!currentInvoice.value.isTransferPaid) startPaymentPolling()
+    } else {
+      stopPaymentPolling()
+    }
+  }
+})
+
+// Theo dõi khi số tiền chuyển khoản ở hình thức Kết Hợp thay đổi
+watch(() => currentInvoice.value?.transferAmount, (newVal) => {
+  if (currentInvoice.value?.paymentMethod === 'KET_HOP') {
+    const amt = Number(newVal) || 0
+    if (amt > 0) {
+      fetchTransferInfoFromApi(amt)
+      if (!currentInvoice.value.isTransferPaid) startPaymentPolling()
+    } else {
+      stopPaymentPolling()
+    }
   }
 })
 
@@ -1466,6 +1700,7 @@ const handleCheckout = async () => {
     }
 
     const savedCode = res?.data?.maHoaDon || currentInvoice.value.code
+    stopPaymentPolling()
     showToast(`Thanh toán đơn hàng ${savedCode} thành công!`)
 
     // Chuyển tab hóa đơn hoặc tạo mới nếu là hóa đơn duy nhất
@@ -1970,44 +2205,118 @@ onMounted(async () => {
                 class="pos-form-input input-money"
               />
 
-              <!-- Mã QR chuyển khoản tối giản khi transferAmount > 0 -->
-              <div v-if="currentInvoice.transferAmount > 0" class="minimal-qr-box">
-                <img
-                  :src="getVietQrUrl(currentInvoice.transferAmount)"
-                  :alt="`QR chuyển khoản ${formatMoney(currentInvoice.transferAmount)}`"
-                  class="minimal-qr-img"
-                />
-                <div class="minimal-qr-meta">
-                  <div>Ngân hàng: <strong>MBBank</strong></div>
-                  <div>STK: <strong>0988888888</strong></div>
-                  <div>Chủ TK: <strong>FF T-SHIRT STORE</strong></div>
-                  <div>Số tiền: <strong class="text-accent-red">{{ formatMoney(currentInvoice.transferAmount) }}</strong></div>
-                  <div>Nội dung: <strong>{{ currentInvoice.code }}</strong></div>
-                  <a :href="getVietQrUrl(currentInvoice.transferAmount)" target="_blank" class="minimal-qr-link">Lưu mã QR</a>
+              <!-- VNPAY-QR TỐI GIẢN (TÍCH HỢP API VNPAY) -->
+              <div v-if="currentInvoice.transferAmount > 0" class="vnpay-box-compact" :class="{ 'is-paid': currentInvoice.isTransferPaid }">
+                <div class="vnpay-top-bar">
+                  <div class="vnpay-brand-chip">
+                    <span class="vnp-blue">VN</span><span class="vnp-red">PAY</span><span class="vnp-sub">·QR</span>
+                  </div>
+                  <span class="vnpay-status-badge" :class="currentInvoice.isTransferPaid ? 'paid' : 'waiting'">
+                    <span class="status-dot"></span>
+                    {{ currentInvoice.isTransferPaid ? 'Đã thanh toán' : 'Chờ quét mã' }}
+                  </span>
+                </div>
+
+                <div class="vnpay-body-compact">
+                  <div class="vnpay-qr-wrap">
+                    <img
+                      :src="transferQrUrl"
+                      :alt="`VNPAY-QR ${formatMoney(currentInvoice.transferAmount)}`"
+                      class="vnpay-qr-img"
+                    />
+                    <div v-if="currentInvoice.isTransferPaid" class="vnpay-paid-overlay">
+                      <span class="vnpay-check">✓</span>
+                    </div>
+                  </div>
+
+                  <div class="vnpay-meta-wrap">
+                    <div class="vnpay-meta-row">
+                      <span class="meta-label">Số tiền:</span>
+                      <strong class="meta-amount">{{ formatMoney(currentInvoice.transferAmount) }}</strong>
+                    </div>
+                    <div class="vnpay-meta-row">
+                      <span class="meta-label">Mã GD:</span>
+                      <span class="meta-code">{{ currentInvoice.code }}</span>
+                      <button type="button" class="btn-copy-tiny" @click="copyToClipboard(currentInvoice.code, 'Mã GD')">Sao chép</button>
+                    </div>
+                    <span class="vnpay-hint-text">Quét bằng Ví VNPAY hoặc 40+ App ngân hàng</span>
+
+                    <div v-if="currentInvoice.isTransferPaid" class="vnpay-success-chip">
+                      ✓ Đã nhận thanh toán VNPAY thành công
+                    </div>
+                    <div v-else class="vnpay-action-btns">
+                      <button
+                        type="button"
+                        class="btn-vnpay-confirm"
+                        :disabled="isConfirmingPayment"
+                        @click="confirmTransferPaymentDirect"
+                      >
+                        ✓ Đã nhận tiền
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </template>
 
-          <!-- 2. Thanh toán CHUYỂN KHOẢN TOÀN BỘ -->
+          <!-- 2. Thanh toán CHUYỂN KHOẢN TOÀN BỘ (VNPAY-QR TỐI GIẢN) -->
           <div v-else-if="currentInvoice.paymentMethod === 'CHUYEN_KHOAN'" class="pos-form-group">
             <div class="pay-input-header">
-              <label class="group-label-gray">Chuyển khoản</label>
+              <label class="group-label-gray">Chuyển khoản (VNPAY)</label>
               <span class="font-bold-dark">{{ formatMoney(finalTotal) }}</span>
             </div>
-            <div class="minimal-qr-box">
-              <img
-                :src="getVietQrUrl(finalTotal)"
-                :alt="`QR chuyển khoản ${formatMoney(finalTotal)}`"
-                class="minimal-qr-img"
-              />
-              <div class="minimal-qr-meta">
-                <div>Ngân hàng: <strong>MBBank</strong></div>
-                <div>STK: <strong>0988888888</strong></div>
-                <div>Chủ TK: <strong>FF T-SHIRT STORE</strong></div>
-                <div>Số tiền: <strong class="text-accent-red">{{ formatMoney(finalTotal) }}</strong></div>
-                <div>Nội dung: <strong>{{ currentInvoice.code }}</strong></div>
-                <a :href="getVietQrUrl(finalTotal)" target="_blank" class="minimal-qr-link">Lưu mã QR</a>
+
+            <!-- VNPAY-QR TỐI GIẢN (TÍCH HỢP API VNPAY) -->
+            <div class="vnpay-box-compact" :class="{ 'is-paid': currentInvoice.isTransferPaid }">
+              <div class="vnpay-top-bar">
+                <div class="vnpay-brand-chip">
+                  <span class="vnp-blue">VN</span><span class="vnp-red">PAY</span><span class="vnp-sub">·QR</span>
+                </div>
+                <span class="vnpay-status-badge" :class="currentInvoice.isTransferPaid ? 'paid' : 'waiting'">
+                  <span class="status-dot"></span>
+                  {{ currentInvoice.isTransferPaid ? 'Đã thanh toán' : 'Chờ quét mã' }}
+                </span>
+              </div>
+
+              <div class="vnpay-body-compact">
+                <div class="vnpay-qr-wrap">
+                  <img
+                    :src="transferQrUrl"
+                    :alt="`VNPAY-QR ${formatMoney(finalTotal)}`"
+                    class="vnpay-qr-img"
+                  />
+                  <div v-if="currentInvoice.isTransferPaid" class="vnpay-paid-overlay">
+                    <span class="vnpay-check">✓</span>
+                  </div>
+                </div>
+
+                <div class="vnpay-meta-wrap">
+                  <div class="vnpay-meta-row">
+                    <span class="meta-label">Số tiền:</span>
+                    <strong class="meta-amount">{{ formatMoney(finalTotal) }}</strong>
+                  </div>
+                  <div class="vnpay-meta-row">
+                    <span class="meta-label">Mã GD:</span>
+                    <span class="meta-code">{{ currentInvoice.code }}</span>
+                    <button type="button" class="btn-copy-tiny" @click="copyToClipboard(currentInvoice.code, 'Mã GD')">Sao chép</button>
+                  </div>
+                  <span class="vnpay-hint-text">Quét bằng Ví VNPAY hoặc 40+ App ngân hàng</span>
+
+                  <div v-if="currentInvoice.isTransferPaid" class="vnpay-success-chip">
+                    ✓ Đã nhận thanh toán VNPAY thành công
+                  </div>
+                  <div v-else class="vnpay-action-btns">
+                    <button
+                      type="button"
+                      class="btn-vnpay-confirm"
+                      :disabled="isConfirmingPayment"
+                      @click="confirmTransferPaymentDirect"
+                    >
+                      ✓ Đã nhận tiền
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -3094,46 +3403,246 @@ onMounted(async () => {
   border-color: #496883;
 }
 
-/* ==================== MÃ QR CHUYỂN KHOẢN TỐI GIẢN ==================== */
-.minimal-qr-box {
+/* ==================== VNPAY-QR COMPACT BOX ==================== */
+.vnpay-box-compact {
+  background: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.vnpay-box-compact.is-paid {
+  border-color: #34a853;
+  background: #f6fcf8;
+}
+
+.vnpay-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.vnpay-brand-chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 900;
+  font-size: 0.85rem;
+  letter-spacing: 0.2px;
+}
+
+.vnp-blue {
+  color: #005baa;
+}
+
+.vnp-red {
+  color: #ea1d25;
+}
+
+.vnp-sub {
+  color: #1e293b;
+  font-weight: 700;
+  font-size: 0.78rem;
+  margin-left: 1px;
+}
+
+.vnpay-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.vnpay-status-badge.waiting {
+  background: #fff7ed;
+  color: #ea580c;
+  border: 1px solid #ffedd5;
+}
+
+.vnpay-status-badge.paid {
+  background: #e6f4ea;
+  color: #137333;
+  border: 1px solid #b7e1cd;
+}
+
+.vnpay-status-badge .status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.vnpay-status-badge.waiting .status-dot {
+  animation: pulseDot 1.4s infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.8); }
+}
+
+.vnpay-body-compact {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #fbfaf7;
-  border: 1px solid #e9e5db;
-  border-radius: 6px;
-  padding: 8px 10px;
-  margin-top: 8px;
 }
 
-.minimal-qr-img {
-  width: 78px;
-  height: 78px;
-  border-radius: 4px;
-  border: 1px solid #e2e8f0;
-  object-fit: contain;
-  background: #ffffff;
+.vnpay-qr-wrap {
+  position: relative;
+  width: 82px;
+  height: 82px;
   flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  padding: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.minimal-qr-meta {
+.vnpay-qr-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.vnpay-paid-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(34, 197, 94, 0.9);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vnpay-check {
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.vnpay-meta-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.vnpay-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.meta-label {
+  color: #64748b;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.meta-amount {
+  color: #ea1d25;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.meta-code {
+  font-family: monospace;
+  font-weight: 700;
+  color: #1e3a5f;
+  background: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 4px;
   font-size: 0.76rem;
-  color: #475569;
-  line-height: 1.45;
 }
 
-.minimal-qr-link {
-  display: inline-block;
-  margin-top: 2px;
-  color: #496883;
+.btn-copy-tiny {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 0.68rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.btn-copy-tiny:hover {
+  background: #005baa;
+  color: #ffffff;
+  border-color: #005baa;
+}
+
+.vnpay-hint-text {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  line-height: 1.2;
+  margin-top: 1px;
+}
+
+.vnpay-action-btns {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.btn-vnpay-confirm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: #005baa;
+  color: #ffffff;
+  border: 1px solid #005baa;
+  border-radius: 4px;
+  padding: 4px 12px;
   font-size: 0.74rem;
   font-weight: 600;
-  text-decoration: underline;
   cursor: pointer;
+  transition: all 0.15s;
 }
 
-.minimal-qr-link:hover {
-  color: #1e3a5f;
+.btn-vnpay-confirm:hover:not(:disabled) {
+  background: #004c8f;
+}
+
+.btn-vnpay-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.vnpay-success-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #e6f4ea;
+  color: #137333;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.vnpay-mini-spin {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #cbd5e1;
+  border-top-color: #005baa;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
 .pos-form-input, .pos-form-textarea, .pos-form-select {

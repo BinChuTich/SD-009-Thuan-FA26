@@ -548,163 +548,649 @@
       </div>
     </div>
 
-    <!-- 5. Khu vực Bảng 'Thống kê sản phẩm' (Full width ở cuối trang) -->
-    <div class="content-card product-stats-card">
-      <!-- Thanh công cụ đầu Card -->
-      <div class="product-stats-toolbar">
-        <div class="card-title-group">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="title-sub-icon">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-            <line x1="12" y1="22.08" x2="12" y2="12" />
-          </svg>
-          <h3 class="card-heading">Thống kê sản phẩm</h3>
+    <!-- 5. Khu vực Bảng 'Thống kê kết hợp Hóa đơn & Sản phẩm' (Full width ở cuối trang) -->
+    <div class="content-card combined-stats-card">
+      <!-- Header với 2 Tab chuyển đổi linh hoạt: Sản phẩm & Hóa đơn -->
+      <div class="combined-tabs-header">
+        <div class="tab-buttons-cluster">
+          <button
+            type="button"
+            class="tab-switch-btn"
+            :class="{ active: activeBottomTab === 'products' }"
+            @click="activeBottomTab = 'products'"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+              <line x1="12" y1="22.08" x2="12" y2="12" />
+            </svg>
+            <span>Thống kê theo Sản phẩm</span>
+            <span class="tab-count-badge">{{ filteredProductsList.length }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="tab-switch-btn"
+            :class="{ active: activeBottomTab === 'invoices' }"
+            @click="activeBottomTab = 'invoices'"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+              <polyline points="10 9 9 9 8 9" />
+            </svg>
+            <span>Thống kê theo Hóa đơn</span>
+            <span class="tab-count-badge">{{ filteredInvoicesList.length }}</span>
+          </button>
         </div>
 
-        <div class="product-stats-actions">
-          <!-- Ô tìm kiếm Mã, tên, thương hiệu -->
-          <div class="input-with-prefix-icon search-product-box">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="text"
-              v-model="productTableQuery"
-              placeholder="Mã, tên, thương hiệu..."
-              class="form-control-minimal with-icon"
-              @input="onProductSearchChange"
-            />
-          </div>
-
-          <!-- Combobox lọc sắp xếp -->
-          <div class="select-wrapper-minimal">
-            <select v-model="productSortBy" class="form-control-minimal" @change="sortProductTable">
-              <option value="best_seller">Bán chạy nhất</option>
-              <option value="highest_revenue">Doanh thu cao nhất</option>
-              <option value="highest_stock">Tồn kho nhiều nhất</option>
-              <option value="highest_return">Số lượng trả nhiều nhất</option>
-            </select>
-          </div>
-
-          <!-- Nút Đặt lại -->
-          <button type="button" class="btn-reset-round small" @click="resetProductTableFilters">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M23 4v6h-6" />
-              <path d="M1 20v-6h6" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
-            <span>Đặt lại</span>
-          </button>
+        <div class="tab-status-summary">
+          <span class="dot-indicator-live"></span>
+          <span>Dữ liệu thực tế liên kết Hóa đơn &amp; Sản phẩm</span>
         </div>
       </div>
 
-      <!-- Cấu trúc Bảng sản phẩm 8 cột -->
-      <div class="table-responsive-clean">
-        <table class="minimal-styled-table">
-          <thead>
-            <tr class="header-brown-beige">
-              <th style="width: 60px; text-align: center">STT</th>
-              <th style="width: 140px">MÃ SẢN PHẨM</th>
-              <th style="min-width: 240px">TÊN SẢN PHẨM</th>
-              <th style="width: 150px">THƯƠNG HIỆU</th>
-              <th style="width: 110px; text-align: center">ĐÃ BÁN</th>
-              <th style="width: 120px; text-align: center">SỐ LƯỢNG TRẢ</th>
-              <th style="width: 150px; text-align: right">DOANH THU</th>
-              <th style="width: 120px; text-align: center">TỒN KHO</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="paginatedProducts.length === 0">
-              <td colspan="8" style="text-align: center; padding: 2.5rem; color: #8c979d;">
-                Không có dữ liệu sản phẩm phù hợp với bộ lọc hiện tại.
-              </td>
-            </tr>
-            <tr v-for="(p, index) in paginatedProducts" :key="p.id || index" class="table-data-row">
-              <td style="text-align: center" class="text-muted-stt">
-                {{ (productPagination.page * productPagination.size) + index + 1 }}
-              </td>
-              <td class="font-bold text-dark code-cell">
-                {{ p.code }}
-              </td>
-              <td>
-                <div class="product-name-with-thumb">
-                  <img
-                    :src="p.image || defaultProductImage"
-                    alt="thumbnail"
-                    class="product-thumb-img"
-                    @error="p.image = defaultProductImage"
-                  />
-                  <div class="product-info-text">
-                    <strong class="product-title-bold">{{ p.name }}</strong>
-                    <span class="product-size-hint">Size: {{ p.sizes || 'Free Size' }}</span>
+      <!-- TAB 1: THỐNG KÊ SẢN PHẨM -->
+      <div v-show="activeBottomTab === 'products'" class="tab-content-panel">
+        <!-- Toolbar Sản phẩm -->
+        <div class="product-stats-toolbar">
+          <div class="card-title-group">
+            <h3 class="sub-tab-title">Danh sách Sản phẩm &amp; Hóa đơn liên quan</h3>
+          </div>
+
+          <div class="product-stats-actions">
+            <!-- Ô tìm kiếm Mã, tên, thương hiệu -->
+            <div class="input-with-prefix-icon search-product-box">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                v-model="productTableQuery"
+                placeholder="Mã, tên, thương hiệu..."
+                class="form-control-minimal with-icon"
+                @input="onProductSearchChange"
+              />
+            </div>
+
+            <!-- Combobox lọc sắp xếp -->
+            <div class="select-wrapper-minimal">
+              <select v-model="productSortBy" class="form-control-minimal" @change="sortProductTable">
+                <option value="best_seller">Bán chạy nhất</option>
+                <option value="highest_revenue">Doanh thu cao nhất</option>
+                <option value="highest_stock">Tồn kho nhiều nhất</option>
+                <option value="highest_return">Số lượng trả nhiều nhất</option>
+              </select>
+            </div>
+
+            <!-- Nút Đặt lại -->
+            <button type="button" class="btn-reset-round small" @click="resetProductTableFilters">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 4v6h-6" />
+                <path d="M1 20v-6h6" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+              </svg>
+              <span>Đặt lại</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Cấu trúc Bảng sản phẩm (9 cột kèm nút Xem Hóa đơn) -->
+        <div class="table-responsive-clean">
+          <table class="minimal-styled-table">
+            <thead>
+              <tr class="header-brown-beige">
+                <th style="width: 50px; text-align: center">STT</th>
+                <th style="width: 120px">MÃ SẢN PHẨM</th>
+                <th style="min-width: 230px">TÊN SẢN PHẨM</th>
+                <th style="width: 130px">THƯƠNG HIỆU</th>
+                <th style="width: 100px; text-align: center">ĐÃ BÁN</th>
+                <th style="width: 100px; text-align: center">SỐ LƯỢNG TRẢ</th>
+                <th style="width: 140px; text-align: right">DOANH THU</th>
+                <th style="width: 100px; text-align: center">TỒN KHO</th>
+                <th style="width: 160px; text-align: center">HÓA ĐƠN LIÊN QUAN</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="paginatedProducts.length === 0">
+                <td colspan="9" style="text-align: center; padding: 2.5rem; color: #8c979d;">
+                  Không có dữ liệu sản phẩm phù hợp với bộ lọc hiện tại.
+                </td>
+              </tr>
+              <tr v-for="(p, index) in paginatedProducts" :key="p.id || index" class="table-data-row">
+                <td style="text-align: center" class="text-muted-stt">
+                  {{ (productPagination.page * productPagination.size) + index + 1 }}
+                </td>
+                <td class="font-bold text-dark code-cell">
+                  {{ p.code }}
+                </td>
+                <td>
+                  <div class="product-name-with-thumb">
+                    <img
+                      :src="p.image || defaultProductImage"
+                      alt="thumbnail"
+                      class="product-thumb-img"
+                      @error="p.image = defaultProductImage"
+                    />
+                    <div class="product-info-text">
+                      <strong class="product-title-bold">{{ p.name }}</strong>
+                      <span class="product-size-hint">Size: {{ p.sizes || 'Free Size' }}</span>
+                    </div>
                   </div>
-                </div>
-              </td>
-              <td class="brand-name-cell">
-                <span class="brand-badge-tag">{{ p.brand || 'FF-Tshirt' }}</span>
-              </td>
-              <td style="text-align: center" class="font-bold text-dark">
-                {{ p.soldCount.toLocaleString('vi-VN') }}
-              </td>
-              <td style="text-align: center" class="text-red-return font-bold">
-                {{ p.returnedCount }}
-              </td>
-              <td style="text-align: right" class="font-bold text-black-bold">
-                {{ formatCurrency(p.revenue) }}
-              </td>
-              <td style="text-align: center" class="text-green-stock font-bold">
-                {{ p.stock.toLocaleString('vi-VN') }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                </td>
+                <td class="brand-name-cell">
+                  <span class="brand-badge-tag">{{ p.brand || 'FF-Tshirt' }}</span>
+                </td>
+                <td style="text-align: center" class="font-bold text-dark">
+                  {{ (p.soldCount || 0).toLocaleString('vi-VN') }}
+                </td>
+                <td style="text-align: center" class="text-red-return font-bold">
+                  {{ p.returnedCount || 0 }}
+                </td>
+                <td style="text-align: right" class="font-bold text-black-bold">
+                  {{ formatCurrency(p.revenue) }}
+                </td>
+                <td style="text-align: center" class="text-green-stock font-bold">
+                  {{ (p.stock || 0).toLocaleString('vi-VN') }}
+                </td>
+                <td style="text-align: center">
+                  <button
+                    type="button"
+                    class="btn-drilldown-action"
+                    @click="openProductInvoicesModal(p)"
+                    title="Xem chi tiết các hóa đơn đã mua sản phẩm này"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                    <span>Xem {{ p.invoiceCount || p.invoices?.length || 0 }} đơn</span>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Chân bảng: Phân trang Sản phẩm -->
+        <div class="product-table-footer">
+          <div class="footer-left-count">
+            Hiển thị <strong>{{ filteredProductsList.length ? (productPagination.page * productPagination.size + 1) : 0 }} - {{ Math.min((productPagination.page + 1) * productPagination.size, filteredProductsList.length) }}</strong> / <strong>{{ filteredProductsList.length }}</strong> sản phẩm
+          </div>
+
+          <div class="footer-center-pagination">
+            <button
+              type="button"
+              class="pg-btn"
+              :disabled="productPagination.page === 0"
+              @click="goToProductPage(productPagination.page - 1)"
+            >
+              ‹
+            </button>
+            <button
+              v-for="pNo in visibleProductPageNumbers"
+              :key="pNo"
+              type="button"
+              class="pg-btn"
+              :class="{ active: pNo === productPagination.page }"
+              @click="goToProductPage(pNo)"
+            >
+              {{ pNo + 1 }}
+            </button>
+            <button
+              type="button"
+              class="pg-btn"
+              :disabled="productPagination.page >= productTotalPages - 1"
+              @click="goToProductPage(productPagination.page + 1)"
+            >
+              ›
+            </button>
+          </div>
+
+          <div class="footer-right-size">
+            <div class="select-wrapper-minimal size-select">
+              <select v-model.number="productPagination.size" class="form-control-minimal" @change="productPagination.page = 0">
+                <option :value="5">Hiển thị 5 bản ghi / trang</option>
+                <option :value="10">Hiển thị 10 bản ghi / trang</option>
+                <option :value="20">Hiển thị 20 bản ghi / trang</option>
+                <option :value="50">Hiển thị 50 bản ghi / trang</option>
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- Chân bảng: Phân trang -->
-      <div class="product-table-footer">
-        <div class="footer-left-count">
-          Hiển thị <strong>{{ filteredProductsList.length ? (productPagination.page * productPagination.size + 1) : 0 }} - {{ Math.min((productPagination.page + 1) * productPagination.size, filteredProductsList.length) }}</strong> / <strong>{{ filteredProductsList.length }}</strong> bản ghi
-        </div>
-
-        <div class="footer-center-pagination">
-          <button
-            type="button"
-            class="pg-btn"
-            :disabled="productPagination.page === 0"
-            @click="goToProductPage(productPagination.page - 1)"
-          >
-            ‹
-          </button>
-          <button
-            v-for="pNo in visibleProductPageNumbers"
-            :key="pNo"
-            type="button"
-            class="pg-btn"
-            :class="{ active: pNo === productPagination.page }"
-            @click="goToProductPage(pNo)"
-          >
-            {{ pNo + 1 }}
-          </button>
-          <button
-            type="button"
-            class="pg-btn"
-            :disabled="productPagination.page >= productTotalPages - 1"
-            @click="goToProductPage(productPagination.page + 1)"
-          >
-            ›
-          </button>
-        </div>
-
-        <div class="footer-right-size">
-          <div class="select-wrapper-minimal size-select">
-            <select v-model.number="productPagination.size" class="form-control-minimal" @change="productPagination.page = 0">
-              <option :value="5">Hiển thị 5 bản ghi / trang</option>
-              <option :value="10">Hiển thị 10 bản ghi / trang</option>
-              <option :value="20">Hiển thị 20 bản ghi / trang</option>
-              <option :value="50">Hiển thị 50 bản ghi / trang</option>
-            </select>
+      <!-- TAB 2: THỐNG KÊ HÓA ĐƠN -->
+      <div v-show="activeBottomTab === 'invoices'" class="tab-content-panel">
+        <!-- Toolbar Hóa đơn -->
+        <div class="product-stats-toolbar">
+          <div class="card-title-group">
+            <h3 class="sub-tab-title">Danh sách Hóa đơn &amp; Sản phẩm trong đơn</h3>
           </div>
+
+          <div class="product-stats-actions">
+            <!-- Ô tìm kiếm Mã HĐ, khách hàng, SĐT -->
+            <div class="input-with-prefix-icon search-product-box">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                v-model="invoiceTableQuery"
+                placeholder="Mã hóa đơn, tên KH, SĐT..."
+                class="form-control-minimal with-icon"
+                @input="invoicePagination.page = 0"
+              />
+            </div>
+
+            <!-- Combobox lọc theo Trạng thái hóa đơn -->
+            <div class="select-wrapper-minimal">
+              <select v-model="invoiceStatusFilter" class="form-control-minimal" @change="invoicePagination.page = 0">
+                <option value="">Tất cả trạng thái</option>
+                <option value="5">Đã hoàn thành</option>
+                <option value="processing">Đang xử lý (1-4)</option>
+                <option value="6">Đã hủy</option>
+              </select>
+            </div>
+
+            <!-- Nút Đặt lại -->
+            <button type="button" class="btn-reset-round small" @click="resetInvoiceTableFilters">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 4v6h-6" />
+                <path d="M1 20v-6h6" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+              </svg>
+              <span>Đặt lại</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Cấu trúc Bảng hóa đơn 10 cột -->
+        <div class="table-responsive-clean">
+          <table class="minimal-styled-table">
+            <thead>
+              <tr class="header-brown-beige">
+                <th style="width: 50px; text-align: center">STT</th>
+                <th style="width: 130px">MÃ HÓA ĐƠN</th>
+                <th style="width: 140px">THỜI GIAN</th>
+                <th style="min-width: 180px">KHÁCH HÀNG</th>
+                <th style="width: 110px; text-align: center">LOẠI ĐƠN</th>
+                <th style="width: 140px">THANH TOÁN</th>
+                <th style="width: 110px; text-align: center">SẢN PHẨM</th>
+                <th style="width: 140px; text-align: right">TỔNG TIỀN</th>
+                <th style="width: 130px; text-align: center">TRẠNG THÁI</th>
+                <th style="width: 160px; text-align: center">CHI TIẾT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="paginatedInvoices.length === 0">
+                <td colspan="10" style="text-align: center; padding: 2.5rem; color: #8c979d;">
+                  Không có dữ liệu hóa đơn phù hợp với bộ lọc hiện tại.
+                </td>
+              </tr>
+              <tr v-for="(inv, index) in paginatedInvoices" :key="inv.id || index" class="table-data-row">
+                <td style="text-align: center" class="text-muted-stt">
+                  {{ (invoicePagination.page * invoicePagination.size) + index + 1 }}
+                </td>
+                <td class="font-bold text-dark code-cell">
+                  {{ inv.maHoaDon }}
+                </td>
+                <td class="text-gray-date">
+                  {{ inv.ngayTao }}
+                </td>
+                <td>
+                  <div class="customer-info-cell">
+                    <strong class="cust-name-text">{{ inv.tenKhachHang || 'Khách lẻ' }}</strong>
+                    <span v-if="inv.soDienThoai" class="cust-phone-text">{{ inv.soDienThoai }}</span>
+                  </div>
+                </td>
+                <td style="text-align: center">
+                  <span class="badge-order-type" :class="inv.loaiDon === 1 ? 'type-store' : 'type-online'">
+                    {{ inv.tenLoaiDon || (inv.loaiDon === 1 ? 'Tại quầy' : 'Online') }}
+                  </span>
+                </td>
+                <td>
+                  <span class="payment-method-tag">{{ inv.phuongThucThanhToan || 'Tiền mặt' }}</span>
+                </td>
+                <td style="text-align: center">
+                  <span class="badge-item-count">
+                    {{ inv.tongSoLuongSanPham || inv.sanPhams?.length || 0 }} sp
+                  </span>
+                </td>
+                <td style="text-align: right" class="font-bold text-black-bold">
+                  {{ formatCurrency(inv.tienSauGiamGia || inv.tongTien) }}
+                </td>
+                <td style="text-align: center">
+                  <span
+                    class="badge-order-status"
+                    :class="getOrderStatusBadgeClass(inv.trangThai)"
+                  >
+                    {{ inv.tenTrangThai }}
+                  </span>
+                </td>
+                <td style="text-align: center">
+                  <div class="invoice-action-btns">
+                    <button
+                      type="button"
+                      class="btn-drilldown-action small"
+                      @click="openInvoiceProductsModal(inv)"
+                      title="Xem danh sách sản phẩm trong hóa đơn này"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                      </svg>
+                      <span>Xem SP ({{ inv.sanPhams?.length || 0 }})</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-view-invoice-link"
+                      @click="goToInvoiceDetail(inv.maHoaDon)"
+                      title="Chuyển đến màn hình chi tiết hóa đơn"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Chân bảng: Phân trang Hóa đơn -->
+        <div class="product-table-footer">
+          <div class="footer-left-count">
+            Hiển thị <strong>{{ filteredInvoicesList.length ? (invoicePagination.page * invoicePagination.size + 1) : 0 }} - {{ Math.min((invoicePagination.page + 1) * invoicePagination.size, filteredInvoicesList.length) }}</strong> / <strong>{{ filteredInvoicesList.length }}</strong> hóa đơn
+          </div>
+
+          <div class="footer-center-pagination">
+            <button
+              type="button"
+              class="pg-btn"
+              :disabled="invoicePagination.page === 0"
+              @click="goToInvoicePage(invoicePagination.page - 1)"
+            >
+              ‹
+            </button>
+            <button
+              v-for="pNo in visibleInvoicePageNumbers"
+              :key="pNo"
+              type="button"
+              class="pg-btn"
+              :class="{ active: pNo === invoicePagination.page }"
+              @click="goToInvoicePage(pNo)"
+            >
+              {{ pNo + 1 }}
+            </button>
+            <button
+              type="button"
+              class="pg-btn"
+              :disabled="invoicePagination.page >= invoiceTotalPages - 1"
+              @click="goToInvoicePage(invoicePagination.page + 1)"
+            >
+              ›
+            </button>
+          </div>
+
+          <div class="footer-right-size">
+            <div class="select-wrapper-minimal size-select">
+              <select v-model.number="invoicePagination.size" class="form-control-minimal" @change="invoicePagination.page = 0">
+                <option :value="5">Hiển thị 5 bản ghi / trang</option>
+                <option :value="10">Hiển thị 10 bản ghi / trang</option>
+                <option :value="20">Hiển thị 20 bản ghi / trang</option>
+                <option :value="50">Hiển thị 50 bản ghi / trang</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 1: CHI TIẾT HÓA ĐƠN ĐÃ MUA SẢN PHẨM -->
+    <div v-if="showProductInvoicesModal" class="modal-backdrop-clean" @click.self="showProductInvoicesModal = false">
+      <div class="modal-clean-box modal-large">
+        <div class="modal-clean-header">
+          <div class="modal-header-info">
+            <div class="modal-icon-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="modal-main-title">Danh sách Hóa đơn đã mua sản phẩm</h3>
+              <p class="modal-sub-title">
+                <strong>{{ selectedProductForInvoices?.name }}</strong> (Mã: {{ selectedProductForInvoices?.code }} - {{ selectedProductForInvoices?.brand }})
+              </p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal" @click="showProductInvoicesModal = false" title="Đóng">
+            ✕
+          </button>
+        </div>
+
+        <div class="modal-clean-body">
+          <!-- Chỉ số tóm tắt sản phẩm trong modal -->
+          <div class="modal-summary-pills">
+            <div class="summary-pill-item">
+              <span class="pill-label">Tổng hóa đơn:</span>
+              <strong class="pill-val">{{ selectedProductForInvoices?.invoices?.length || 0 }} đơn</strong>
+            </div>
+            <div class="summary-pill-item">
+              <span class="pill-label">Số lượng đã bán:</span>
+              <strong class="pill-val text-green-bold">{{ (selectedProductForInvoices?.soldCount || 0).toLocaleString('vi-VN') }} cái</strong>
+            </div>
+            <div class="summary-pill-item">
+              <span class="pill-label">Tổng doanh thu:</span>
+              <strong class="pill-val text-brown-bold">{{ formatCurrency(selectedProductForInvoices?.revenue) }}</strong>
+            </div>
+          </div>
+
+          <div class="table-responsive-clean modal-table-scroll">
+            <table class="minimal-styled-table">
+              <thead>
+                <tr class="header-brown-beige">
+                  <th style="width: 50px; text-align: center">STT</th>
+                  <th style="width: 130px">MÃ HÓA ĐƠN</th>
+                  <th style="width: 140px">NGÀY TẠO</th>
+                  <th style="min-width: 160px">KHÁCH HÀNG</th>
+                  <th style="width: 100px; text-align: center">LOẠI ĐƠN</th>
+                  <th style="width: 90px; text-align: center">SỐ LƯỢNG</th>
+                  <th style="width: 120px; text-align: right">ĐƠN GIÁ</th>
+                  <th style="width: 130px; text-align: right">THÀNH TIỀN</th>
+                  <th style="width: 120px; text-align: center">TRẠNG THÁI</th>
+                  <th style="width: 90px; text-align: center">XEM</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="!selectedProductForInvoices?.invoices || selectedProductForInvoices.invoices.length === 0">
+                  <td colspan="10" style="text-align: center; padding: 2rem; color: #8c979d;">
+                    Chưa có hóa đơn nào mua sản phẩm này trong khoảng thời gian đã chọn.
+                  </td>
+                </tr>
+                <tr
+                  v-for="(inv, idx) in selectedProductForInvoices?.invoices"
+                  :key="inv.idHoaDon || idx"
+                  class="table-data-row"
+                >
+                  <td style="text-align: center" class="text-muted-stt">{{ idx + 1 }}</td>
+                  <td class="font-bold text-dark code-cell">{{ inv.maHoaDon }}</td>
+                  <td class="text-gray-date">{{ inv.ngayTao }}</td>
+                  <td>
+                    <div class="customer-info-cell">
+                      <strong class="cust-name-text">{{ inv.tenKhachHang || 'Khách lẻ' }}</strong>
+                      <span v-if="inv.soDienThoai" class="cust-phone-text">{{ inv.soDienThoai }}</span>
+                    </div>
+                  </td>
+                  <td style="text-align: center">
+                    <span class="badge-order-type" :class="inv.loaiDon === 1 ? 'type-store' : 'type-online'">
+                      {{ inv.loaiDon === 1 ? 'Tại quầy' : 'Online' }}
+                    </span>
+                  </td>
+                  <td style="text-align: center" class="font-bold text-dark">{{ inv.soLuong }}</td>
+                  <td style="text-align: right" class="text-gray-aov">{{ formatCurrency(inv.donGia) }}</td>
+                  <td style="text-align: right" class="font-bold text-black-bold">{{ formatCurrency(inv.thanhTien) }}</td>
+                  <td style="text-align: center">
+                    <span class="badge-order-status" :class="getOrderStatusBadgeClass(inv.trangThaiHoaDon)">
+                      {{ inv.tenTrangThai }}
+                    </span>
+                  </td>
+                  <td style="text-align: center">
+                    <button
+                      type="button"
+                      class="btn-icon-link"
+                      @click="goToInvoiceDetail(inv.maHoaDon)"
+                      title="Xem chi tiết hóa đơn"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="modal-clean-footer">
+          <button type="button" class="btn-cancel-clean" @click="showProductInvoicesModal = false">
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 2: CHI TIẾT SẢN PHẨM TRONG HÓA ĐƠN -->
+    <div v-if="showInvoiceProductsModal" class="modal-backdrop-clean" @click.self="showInvoiceProductsModal = false">
+      <div class="modal-clean-box modal-large">
+        <div class="modal-clean-header">
+          <div class="modal-header-info">
+            <div class="modal-icon-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="modal-main-title">Danh sách Sản phẩm trong Hóa đơn</h3>
+              <p class="modal-sub-title">
+                Hóa đơn: <strong>{{ selectedInvoiceForProducts?.maHoaDon }}</strong> - Khách hàng: <strong>{{ selectedInvoiceForProducts?.tenKhachHang || 'Khách lẻ' }}</strong>
+              </p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal" @click="showInvoiceProductsModal = false" title="Đóng">
+            ✕
+          </button>
+        </div>
+
+        <div class="modal-clean-body">
+          <!-- Thông tin tóm tắt hóa đơn -->
+          <div class="modal-summary-pills">
+            <div class="summary-pill-item">
+              <span class="pill-label">Thời gian:</span>
+              <strong class="pill-val">{{ selectedInvoiceForProducts?.ngayTao }}</strong>
+            </div>
+            <div class="summary-pill-item">
+              <span class="pill-label">Loại đơn:</span>
+              <strong class="pill-val">{{ selectedInvoiceForProducts?.tenLoaiDon }}</strong>
+            </div>
+            <div class="summary-pill-item">
+              <span class="pill-label">Thanh toán:</span>
+              <strong class="pill-val">{{ selectedInvoiceForProducts?.phuongThucThanhToan }}</strong>
+            </div>
+            <div class="summary-pill-item">
+              <span class="pill-label">Tổng tiền:</span>
+              <strong class="pill-val text-brown-bold">{{ formatCurrency(selectedInvoiceForProducts?.tienSauGiamGia || selectedInvoiceForProducts?.tongTien) }}</strong>
+            </div>
+            <div class="summary-pill-item">
+              <span class="pill-label">Trạng thái:</span>
+              <span class="badge-order-status" :class="getOrderStatusBadgeClass(selectedInvoiceForProducts?.trangThai)">
+                {{ selectedInvoiceForProducts?.tenTrangThai }}
+              </span>
+            </div>
+          </div>
+
+          <div class="table-responsive-clean modal-table-scroll">
+            <table class="minimal-styled-table">
+              <thead>
+                <tr class="header-brown-beige">
+                  <th style="width: 50px; text-align: center">STT</th>
+                  <th style="width: 70px; text-align: center">ẢNH</th>
+                  <th style="width: 120px">MÃ SP</th>
+                  <th style="min-width: 220px">TÊN SẢN PHẨM</th>
+                  <th style="width: 130px">PHÂN LOẠI</th>
+                  <th style="width: 130px">THƯƠNG HIỆU</th>
+                  <th style="width: 90px; text-align: center">SỐ LƯỢNG</th>
+                  <th style="width: 120px; text-align: right">ĐƠN GIÁ</th>
+                  <th style="width: 130px; text-align: right">THÀNH TIỀN</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="!selectedInvoiceForProducts?.sanPhams || selectedInvoiceForProducts.sanPhams.length === 0">
+                  <td colspan="9" style="text-align: center; padding: 2rem; color: #8c979d;">
+                    Không có thông tin chi tiết sản phẩm trong hóa đơn này.
+                  </td>
+                </tr>
+                <tr
+                  v-for="(sp, idx) in selectedInvoiceForProducts?.sanPhams"
+                  :key="sp.idChiTietHoaDon || idx"
+                  class="table-data-row"
+                >
+                  <td style="text-align: center" class="text-muted-stt">{{ idx + 1 }}</td>
+                  <td style="text-align: center">
+                    <img
+                      :src="sp.anhDaiDien || defaultProductImage"
+                      alt="thumb"
+                      class="product-thumb-modal"
+                      @error="sp.anhDaiDien = defaultProductImage"
+                    />
+                  </td>
+                  <td class="font-bold text-dark code-cell">{{ sp.maSanPham }}</td>
+                  <td class="font-bold text-dark">{{ sp.tenSanPham }}</td>
+                  <td>
+                    <span class="variant-info-tag">
+                      {{ sp.tenMauSac ? sp.tenMauSac : 'Mặc định' }} / {{ sp.tenKichCo ? sp.tenKichCo : 'Free Size' }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="brand-badge-tag">{{ sp.tenThuongHieu || 'FF-Tshirt' }}</span>
+                  </td>
+                  <td style="text-align: center" class="font-bold text-dark">{{ sp.soLuong }}</td>
+                  <td style="text-align: right" class="text-gray-aov">{{ formatCurrency(sp.donGia) }}</td>
+                  <td style="text-align: right" class="font-bold text-black-bold">{{ formatCurrency(sp.thanhTien) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="modal-clean-footer">
+          <button
+            type="button"
+            class="btn-open-full-invoice"
+            @click="goToInvoiceDetail(selectedInvoiceForProducts?.maHoaDon)"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+            <span>Mở trang chi tiết Hóa đơn</span>
+          </button>
+          <button type="button" class="btn-cancel-clean" @click="showInvoiceProductsModal = false">
+            Đóng
+          </button>
         </div>
       </div>
     </div>
@@ -713,16 +1199,19 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '@/api'
 import * as XLSX from 'xlsx'
 import { showToast } from '@/utils/dialog.js'
 
+const router = useRouter()
 const defaultProductImage = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=150&auto=format&fit=crop&q=80'
 
 // 1. Quản lý Bộ lọc thống kê
 const quickFilter = ref('today')
 const brandOptions = ref([])
 const dateFilterError = ref('')
+const loadingData = ref(false)
 
 const filters = reactive({
   fromDate: getTodayDateString(),
@@ -731,6 +1220,16 @@ const filters = reactive({
   brand: '',
   productKeyword: ''
 })
+
+// Tab dưới đáy trang: 'products' hoặc 'invoices'
+const activeBottomTab = ref('products')
+
+// Modals drill-down
+const showProductInvoicesModal = ref(false)
+const selectedProductForInvoices = ref(null)
+
+const showInvoiceProductsModal = ref(false)
+const selectedInvoiceForProducts = ref(null)
 
 function getTodayDateString() {
   const d = new Date()
@@ -796,7 +1295,7 @@ function debounceFilter() {
   clearTimeout(filterTimer)
   filterTimer = setTimeout(() => {
     applyFilters()
-  }, 250)
+  }, 300)
 }
 
 function resetFilters() {
@@ -809,29 +1308,21 @@ function resetFilters() {
 
 function applyFilters() {
   if (dateFilterError.value) return
-  recomputeAllDashboardData()
+  fetchAllStatisticsData()
 }
 
 // 2. Dữ liệu 6 Thẻ chỉ số tổng quan (KPIs)
 const kpiData = reactive({
-  totalRevenue: 28450000,
-  cashRevenue: 12200000,
-  transferRevenue: 16250000,
-  totalOrders: 48,
-  aov: 592700,
-  totalItemsSold: 164
+  totalRevenue: 0,
+  cashRevenue: 0,
+  transferRevenue: 0,
+  totalOrders: 0,
+  aov: 0,
+  totalItemsSold: 0
 })
 
 // 3. Biểu đồ cột Bar Chart: Sản phẩm bán được theo Ngày
-const rawDailySales = ref([
-  { date: '12/10', label: '12/10', value: 18, revenue: 3200000 },
-  { date: '13/10', label: '13/10', value: 24, revenue: 4150000 },
-  { date: '14/10', label: '14/10', value: 15, revenue: 2600000 },
-  { date: '15/10', label: '15/10', value: 31, revenue: 5400000 },
-  { date: '16/10', label: '16/10', value: 28, revenue: 4900000 },
-  { date: '17/10', label: '17/10', value: 42, revenue: 7300000 },
-  { date: '18/10', label: '18/10', value: 36, revenue: 6200000 }
-])
+const rawDailySales = ref([])
 
 const barChartComputedData = computed(() => {
   const data = rawDailySales.value
@@ -863,19 +1354,17 @@ function toggleBrandMetric() {
   brandMetric.value = brandMetric.value === 'revenue' ? 'quantity' : 'revenue'
 }
 
-const rawBrandData = ref([
-  { name: 'FF-Tshirt', revenue: 14800000, quantity: 86, color: '#8C7355' },
-  { name: 'Oversize Basic', revenue: 7200000, quantity: 42, color: '#C8B6A6' },
-  { name: 'Polo Premium', revenue: 4100000, quantity: 24, color: '#4A6572' },
-  { name: 'Khác', revenue: 2350000, quantity: 12, color: '#E07A5F' }
-])
+const rawBrandData = ref([])
 
 const brandDonutTotalDisplay = computed(() => {
   if (brandMetric.value === 'revenue') {
-    const total = rawBrandData.value.reduce((sum, b) => sum + b.revenue, 0)
-    return (total / 1000000).toFixed(1) + 'M'
+    const total = rawBrandData.value.reduce((sum, b) => sum + (b.revenue || 0), 0)
+    if (total >= 1000000) {
+      return (total / 1000000).toFixed(1) + 'M'
+    }
+    return Math.round(total).toLocaleString('vi-VN') + '₫'
   } else {
-    const total = rawBrandData.value.reduce((sum, b) => sum + b.quantity, 0)
+    const total = rawBrandData.value.reduce((sum, b) => sum + (b.quantity || 0), 0)
     return total + ' cái'
   }
 })
@@ -883,76 +1372,36 @@ const brandDonutTotalDisplay = computed(() => {
 const brandDonutSlices = computed(() => {
   const data = rawBrandData.value
   const metricKey = brandMetric.value
-  const total = data.reduce((s, item) => s + item[metricKey], 0) || 1
+  const total = data.reduce((s, item) => s + (item[metricKey] || 0), 0) || 1
   const circumference = 2 * Math.PI * 70 // ~ 439.82
 
   let accumulatedPercent = 0
   return data.map(item => {
-    const percent = Math.round((item[metricKey] / total) * 100)
-    const dashLength = (item[metricKey] / total) * circumference
+    const val = item[metricKey] || 0
+    const percent = Math.round((val / total) * 100)
+    const dashLength = (val / total) * circumference
     const offset = -accumulatedPercent * circumference
-    accumulatedPercent += item[metricKey] / total
+    accumulatedPercent += val / total
 
     return {
       name: item.name,
-      value: item[metricKey],
+      value: val,
       percentage: percent,
-      color: item.color,
+      color: item.color || '#8C7355',
       dashArray: `${dashLength} ${circumference}`,
       dashOffset: offset
     }
   })
 })
 
-// 5. Bảng tổng hợp theo mốc thời gian (4 dòng cố định)
-const timeSummaryRows = ref([
-  {
-    periodKey: 'today',
-    periodName: 'Hôm nay',
-    totalRevenue: 28450000,
-    cash: 12200000,
-    transfer: 16250000,
-    orderCount: 48,
-    aov: 592708,
-    growthRate: 100
-  },
-  {
-    periodKey: 'thisWeek',
-    periodName: 'Tuần này',
-    totalRevenue: 135800000,
-    cash: 54300000,
-    transfer: 81500000,
-    orderCount: 228,
-    aov: 595614,
-    growthRate: 24.5
-  },
-  {
-    periodKey: 'thisMonth',
-    periodName: 'Tháng này',
-    totalRevenue: 492600000,
-    cash: 198000000,
-    transfer: 294600000,
-    orderCount: 820,
-    aov: 600731,
-    growthRate: 15.2
-  },
-  {
-    periodKey: 'thisYear',
-    periodName: 'Năm nay',
-    totalRevenue: 3820000000,
-    cash: 1520000000,
-    transfer: 2300000000,
-    orderCount: 6410,
-    aov: 595943,
-    growthRate: -7.6
-  }
-])
+// 5. Bảng tổng hợp theo mốc thời gian (4 dòng)
+const timeSummaryRows = ref([])
 
 // 6. Biểu đồ Donut Trạng thái đơn hàng
 const orderStatusCounts = reactive({
-  completed: 42,
-  processing: 4,
-  cancelled: 2
+  completed: 0,
+  processing: 0,
+  cancelled: 0
 })
 
 const orderStatusTotal = computed(() => {
@@ -992,136 +1441,14 @@ const orderStatusDonutSlices = computed(() => {
   })
 })
 
-// 7. Bảng Thống kê sản phẩm (8 cột, tìm kiếm, sắp xếp, phân trang)
+// 7. Bảng Thống kê Sản phẩm
 const productTableQuery = ref('')
 const productSortBy = ref('best_seller')
 const productPagination = reactive({
   page: 0,
   size: 10
 })
-
-const allProductStats = ref([
-  {
-    id: 1,
-    code: 'SP001',
-    name: 'Áo thun FF Basic Cotton 100%',
-    brand: 'FF-Tshirt',
-    sizes: 'S, M, L, XL',
-    soldCount: 342,
-    returnedCount: 2,
-    revenue: 58140000,
-    stock: 148,
-    image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 2,
-    code: 'SP002',
-    name: 'Áo thun Oversize Streetwear',
-    brand: 'Oversize Basic',
-    sizes: 'M, L, XL',
-    soldCount: 280,
-    returnedCount: 5,
-    revenue: 53200000,
-    stock: 96,
-    image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 3,
-    code: 'SP003',
-    name: 'Áo Polo Premium Classic Fit',
-    brand: 'Polo Premium',
-    sizes: 'M, L, XXL',
-    soldCount: 251,
-    returnedCount: 1,
-    revenue: 62750000,
-    stock: 82,
-    image: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 4,
-    code: 'SP004',
-    name: 'Áo Regular Summer Cổ Tròn',
-    brand: 'FF-Tshirt',
-    sizes: 'S, M, L',
-    soldCount: 198,
-    returnedCount: 3,
-    revenue: 33660000,
-    stock: 120,
-    image: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 5,
-    code: 'SP005',
-    name: 'Áo Daily Shirt Vải Dệt Tổ Ong',
-    brand: 'FF-Tshirt',
-    sizes: 'L, XL',
-    soldCount: 174,
-    returnedCount: 0,
-    revenue: 36540000,
-    stock: 65,
-    image: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 6,
-    code: 'SP006',
-    name: 'Áo thun Unisex In Họa Tiết',
-    brand: 'Oversize Basic',
-    sizes: 'M, L, XL',
-    soldCount: 152,
-    returnedCount: 4,
-    revenue: 28880000,
-    stock: 77,
-    image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 7,
-    code: 'SP007',
-    name: 'Áo Raglan Basic Phối Màu',
-    brand: 'FF-Tshirt',
-    sizes: 'S, M, L, XL',
-    soldCount: 133,
-    returnedCount: 1,
-    revenue: 25270000,
-    stock: 90,
-    image: 'https://images.unsplash.com/photo-1562157873-818bc0726f68?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 8,
-    code: 'SP008',
-    name: 'Áo Minimal Cotton Dày Dặn',
-    brand: 'Polo Premium',
-    sizes: 'L, XL',
-    soldCount: 121,
-    returnedCount: 2,
-    revenue: 26620000,
-    stock: 110,
-    image: 'https://images.unsplash.com/photo-1527719327859-c6ce80353573?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 9,
-    code: 'SP009',
-    name: 'Áo Easy Fit Thoáng Mát',
-    brand: 'FF-Tshirt',
-    sizes: 'S, M',
-    soldCount: 107,
-    returnedCount: 0,
-    revenue: 20330000,
-    stock: 54,
-    image: 'https://images.unsplash.com/photo-1586790170083-2f9ceadc732d?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 10,
-    code: 'SP010',
-    name: 'Áo Local Print Phiên Bản Giới Hạn',
-    brand: 'Oversize Basic',
-    sizes: 'M, L, XL',
-    soldCount: 97,
-    returnedCount: 1,
-    revenue: 21340000,
-    stock: 35,
-    image: 'https://images.unsplash.com/photo-1529374255404-311a2a4f1fd9?w=120&auto=format&fit=crop&q=80'
-  }
-])
+const allProductStats = ref([])
 
 function onProductSearchChange() {
   productPagination.page = 0
@@ -1135,7 +1462,7 @@ function resetProductTableFilters() {
   productTableQuery.value = ''
   productSortBy.value = 'best_seller'
   productPagination.page = 0
-  showToast('Đã đặt lại danh sách thống kê sản phẩm!', 'info')
+  showToast('Đã đặt lại danh sách sản phẩm!', 'info')
 }
 
 const filteredProductsList = computed(() => {
@@ -1151,13 +1478,13 @@ const filteredProductsList = computed(() => {
   }
 
   if (productSortBy.value === 'best_seller') {
-    list.sort((a, b) => b.soldCount - a.soldCount)
+    list.sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0))
   } else if (productSortBy.value === 'highest_revenue') {
-    list.sort((a, b) => b.revenue - a.revenue)
+    list.sort((a, b) => (b.revenue || 0) - (a.revenue || 0))
   } else if (productSortBy.value === 'highest_stock') {
-    list.sort((a, b) => b.stock - a.stock)
+    list.sort((a, b) => (b.stock || 0) - (a.stock || 0))
   } else if (productSortBy.value === 'highest_return') {
-    list.sort((a, b) => b.returnedCount - a.returnedCount)
+    list.sort((a, b) => (b.returnedCount || 0) - (a.returnedCount || 0))
   }
 
   return list
@@ -1185,20 +1512,172 @@ function goToProductPage(page) {
   productPagination.page = page
 }
 
-// 8. Định dạng số tiền
+function openProductInvoicesModal(product) {
+  selectedProductForInvoices.value = product
+  showProductInvoicesModal.value = true
+}
+
+// 8. Bảng Thống kê Hóa đơn
+const invoiceTableQuery = ref('')
+const invoiceStatusFilter = ref('')
+const invoicePagination = reactive({
+  page: 0,
+  size: 10
+})
+const allInvoiceStats = ref([])
+
+function resetInvoiceTableFilters() {
+  invoiceTableQuery.value = ''
+  invoiceStatusFilter.value = ''
+  invoicePagination.page = 0
+  showToast('Đã đặt lại bộ lọc hóa đơn!', 'info')
+}
+
+const filteredInvoicesList = computed(() => {
+  let list = [...allInvoiceStats.value]
+  const q = invoiceTableQuery.value.trim().toLowerCase()
+  const st = invoiceStatusFilter.value
+
+  if (q) {
+    list = list.filter(inv =>
+      (inv.maHoaDon && inv.maHoaDon.toLowerCase().includes(q)) ||
+      (inv.tenKhachHang && inv.tenKhachHang.toLowerCase().includes(q)) ||
+      (inv.soDienThoai && inv.soDienThoai.toLowerCase().includes(q))
+    )
+  }
+
+  if (st) {
+    if (st === '5') {
+      list = list.filter(inv => Number(inv.trangThai) === 5)
+    } else if (st === '6') {
+      list = list.filter(inv => Number(inv.trangThai) === 6)
+    } else if (st === 'processing') {
+      list = list.filter(inv => [1, 2, 3, 4].includes(Number(inv.trangThai)))
+    }
+  }
+
+  return list
+})
+
+const invoiceTotalPages = computed(() => {
+  return Math.ceil(filteredInvoicesList.value.length / invoicePagination.size) || 1
+})
+
+const visibleInvoicePageNumbers = computed(() => {
+  const total = invoiceTotalPages.value
+  const curr = invoicePagination.page
+  const start = Math.max(0, curr - 2)
+  const end = Math.min(total, start + 5)
+  return Array.from({ length: end - start }, (_, i) => start + i)
+})
+
+const paginatedInvoices = computed(() => {
+  const start = invoicePagination.page * invoicePagination.size
+  return filteredInvoicesList.value.slice(start, start + invoicePagination.size)
+})
+
+function goToInvoicePage(page) {
+  if (page < 0 || page >= invoiceTotalPages.value) return
+  invoicePagination.page = page
+}
+
+function openInvoiceProductsModal(invoice) {
+  selectedInvoiceForProducts.value = invoice
+  showInvoiceProductsModal.value = true
+}
+
+function goToInvoiceDetail(maHoaDon) {
+  if (!maHoaDon) return
+  showProductInvoicesModal.value = false
+  showInvoiceProductsModal.value = false
+  router.push(`/hoa-don/${encodeURIComponent(maHoaDon)}`)
+}
+
+function getOrderStatusBadgeClass(st) {
+  const code = Number(st)
+  if (code === 5) return 'badge-status-completed'
+  if (code === 6) return 'badge-status-cancelled'
+  return 'badge-status-processing'
+}
+
+// 9. Định dạng số tiền
 function formatCurrency(val) {
   if (val == null || isNaN(val)) return '0 ₫'
   return Math.round(val).toLocaleString('vi-VN') + ' ₫'
 }
 
-// 9. Xuất file Excel thực tế bằng thư viện xlsx
+// 10. Tải dữ liệu toàn diện từ Backend API `/api/thong-ke`
+async function fetchAllStatisticsData() {
+  loadingData.value = true
+  const params = {
+    fromDate: filters.fromDate,
+    toDate: filters.toDate,
+    statType: filters.statType
+  }
+  if (filters.brand) params.idThuongHieu = filters.brand
+  if (filters.productKeyword) params.keyword = filters.productKeyword
+
+  try {
+    // 1. Lấy Thống kê Tổng quan
+    const resOverview = await api.get('/api/thong-ke/tong-quan', { params })
+    const data = resOverview?.data
+
+    if (data) {
+      kpiData.totalRevenue = data.totalRevenue || 0
+      kpiData.cashRevenue = data.cashRevenue || 0
+      kpiData.transferRevenue = data.transferRevenue || 0
+      kpiData.totalOrders = data.totalOrders || 0
+      kpiData.aov = data.aov || 0
+      kpiData.totalItemsSold = data.totalItemsSold || 0
+
+      rawDailySales.value = data.dailySales || []
+      rawBrandData.value = data.brandStats || []
+
+      if (data.orderStatusStats) {
+        orderStatusCounts.completed = data.orderStatusStats.completed || 0
+        orderStatusCounts.processing = data.orderStatusStats.processing || 0
+        orderStatusCounts.cancelled = data.orderStatusStats.cancelled || 0
+      }
+
+      if (Array.isArray(data.timeSummary) && data.timeSummary.length > 0) {
+        timeSummaryRows.value = data.timeSummary
+      }
+    }
+  } catch (err) {
+    console.warn('Lỗi gọi API /api/thong-ke/tong-quan, sử dụng số liệu cục bộ:', err)
+  }
+
+  try {
+    // 2. Lấy Thống kê Sản phẩm kèm Hóa đơn liên quan
+    const resProducts = await api.get('/api/thong-ke/san-pham', { params })
+    if (Array.isArray(resProducts?.data)) {
+      allProductStats.value = resProducts.data
+    }
+  } catch (err) {
+    console.warn('Lỗi gọi API /api/thong-ke/san-pham:', err)
+  }
+
+  try {
+    // 3. Lấy Thống kê Hóa đơn kèm Sản phẩm trong đơn
+    const resInvoices = await api.get('/api/thong-ke/hoa-don', { params })
+    if (Array.isArray(resInvoices?.data)) {
+      allInvoiceStats.value = resInvoices.data
+    }
+  } catch (err) {
+    console.warn('Lỗi gọi API /api/thong-ke/hoa-don:', err)
+  }
+
+  loadingData.value = false
+}
+
+// 11. Xuất file Excel đa Sheet toàn diện
 function handleExportExcel() {
   try {
     const wb = XLSX.utils.book_new()
 
     // Sheet 1: Tổng quan kinh doanh & Chỉ số
     const kpiSummaryRows = [
-      ['BÁO CÁO THỐNG KÊ DOANH THU & KINH DOANH'],
+      ['BÁO CÁO THỐNG KÊ DOANH THU & KINH DOANH LIÊN KẾT HÓA ĐƠN VÀ SẢN PHẨM'],
       ['Thời gian lọc:', `Từ ${formatDateDisplay(filters.fromDate)} đến ${formatDateDisplay(filters.toDate)}`],
       ['Kiểu thống kê:', filters.statType === 'day' ? 'Theo ngày' : filters.statType === 'week' ? 'Theo tuần' : filters.statType === 'month' ? 'Theo tháng' : 'Theo năm'],
       [],
@@ -1229,8 +1708,8 @@ function handleExportExcel() {
     const wsSummary = XLSX.utils.aoa_to_sheet(kpiSummaryRows)
     XLSX.utils.book_append_sheet(wb, wsSummary, 'TongQuan')
 
-    // Sheet 2: Danh sách thống kê sản phẩm
-    const productHeader = ['STT', 'Mã sản phẩm', 'Tên sản phẩm', 'Thương hiệu', 'Kích cỡ', 'Đã bán', 'Số lượng trả', 'Doanh thu (₫)', 'Tồn kho']
+    // Sheet 2: Danh sách Thống kê Sản phẩm
+    const productHeader = ['STT', 'Mã sản phẩm', 'Tên sản phẩm', 'Thương hiệu', 'Kích cỡ', 'Đã bán', 'Số lượng trả', 'Doanh thu (₫)', 'Tồn kho', 'Số hóa đơn liên quan']
     const productRows = [productHeader]
 
     filteredProductsList.value.forEach((p, idx) => {
@@ -1243,14 +1722,37 @@ function handleExportExcel() {
         p.soldCount,
         p.returnedCount,
         p.revenue,
-        p.stock
+        p.stock,
+        p.invoiceCount || p.invoices?.length || 0
       ])
     })
 
     const wsProducts = XLSX.utils.aoa_to_sheet(productRows)
     XLSX.utils.book_append_sheet(wb, wsProducts, 'ThongKeSanPham')
 
-    const fileName = `Thong-ke-doanh-thu-${filters.fromDate}-den-${filters.toDate}.xlsx`
+    // Sheet 3: Danh sách Thống kê Hóa đơn
+    const invoiceHeader = ['STT', 'Mã hóa đơn', 'Thời gian', 'Khách hàng', 'Số điện thoại', 'Loại đơn', 'Phương thức thanh toán', 'Số lượng SP', 'Tổng tiền (₫)', 'Trạng thái']
+    const invoiceRows = [invoiceHeader]
+
+    filteredInvoicesList.value.forEach((inv, idx) => {
+      invoiceRows.push([
+        idx + 1,
+        inv.maHoaDon,
+        inv.ngayTao,
+        inv.tenKhachHang || 'Khách lẻ',
+        inv.soDienThoai || '',
+        inv.tenLoaiDon,
+        inv.phuongThucThanhToan,
+        inv.tongSoLuongSanPham || inv.sanPhams?.length || 0,
+        inv.tienSauGiamGia || inv.tongTien,
+        inv.tenTrangThai
+      ])
+    })
+
+    const wsInvoices = XLSX.utils.aoa_to_sheet(invoiceRows)
+    XLSX.utils.book_append_sheet(wb, wsInvoices, 'ThongKeHoaDon')
+
+    const fileName = `Bao-cao-thong-ke-hoa-don-va-san-pham-${filters.fromDate}-den-${filters.toDate}.xlsx`
     XLSX.writeFile(wb, fileName)
 
     showToast('Xuất file Excel thống kê thành công!', 'success')
@@ -1260,7 +1762,7 @@ function handleExportExcel() {
   }
 }
 
-// 10. Tải danh sách thương hiệu và kết nối dữ liệu ban đầu
+// 12. Tải danh mục thương hiệu ban đầu
 async function loadBrandOptions() {
   try {
     const res = await api.get('/api/thuoc-tinh/thuong-hieu')
@@ -1274,54 +1776,9 @@ async function loadBrandOptions() {
   }
 }
 
-async function loadRealDataIfAvailable() {
-  try {
-    const res = await api.get('/api/hoa-don')
-    const invoices = res.data || []
-
-    if (Array.isArray(invoices) && invoices.length > 0) {
-      // Tính toán lại theo hóa đơn thực tế nếu có
-      let total = 0
-      let count = 0
-      invoices.forEach(inv => {
-        const amt = Number(inv.tongTienSauGiam || inv.tongTien || 0)
-        total += amt
-        count++
-      })
-
-      if (total > 0) {
-        kpiData.totalRevenue = total
-        kpiData.totalOrders = count
-        kpiData.cashRevenue = Math.round(total * 0.45)
-        kpiData.transferRevenue = Math.round(total * 0.55)
-        kpiData.aov = Math.round(total / count)
-      }
-    }
-  } catch (e) {
-    // Sử dụng demo data nếu backend chưa có dữ liệu hóa đơn
-  }
-}
-
-function recomputeAllDashboardData() {
-  // Thay đổi nhẹ số liệu theo bộ lọc để tạo cảm giác phản hồi thời gian thực tức thì
-  const factor = quickFilter.value === 'today' ? 1
-    : quickFilter.value === '7days' ? 2.4
-    : quickFilter.value === 'thisMonth' ? 5.8
-    : quickFilter.value === 'lastMonth' ? 5.2
-    : quickFilter.value === 'thisYear' ? 22
-    : 1.5
-
-  kpiData.totalRevenue = Math.round(28450000 * factor)
-  kpiData.cashRevenue = Math.round(12200000 * factor)
-  kpiData.transferRevenue = Math.round(16250000 * factor)
-  kpiData.totalOrders = Math.max(Math.round(48 * factor), 1)
-  kpiData.aov = Math.round(kpiData.totalRevenue / kpiData.totalOrders)
-  kpiData.totalItemsSold = Math.max(Math.round(164 * factor), 5)
-}
-
 onMounted(async () => {
   await loadBrandOptions()
-  await loadRealDataIfAvailable()
+  await fetchAllStatisticsData()
 })
 </script>
 
@@ -2166,5 +2623,463 @@ onMounted(async () => {
   .kpi-cards-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ===================================================
+   COMBINED TABS, DRILLDOWN & MODAL STYLES
+   =================================================== */
+.combined-stats-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.combined-tabs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid #f1ece5;
+  padding-bottom: 0.85rem;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.tab-buttons-cluster {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tab-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  background-color: #f8f6f0;
+  border: 1px solid #e5dfd5;
+  border-radius: 10px;
+  color: #607274;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-switch-btn:hover {
+  background-color: #f1ede5;
+  color: #3d4a50;
+  border-color: #d1c6b5;
+}
+
+.tab-switch-btn.active {
+  background-color: #8c7355;
+  border-color: #8c7355;
+  color: #ffffff;
+  box-shadow: 0 3px 8px rgba(140, 115, 85, 0.24);
+}
+
+.tab-count-badge {
+  background-color: rgba(0, 0, 0, 0.08);
+  font-size: 0.78rem;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-weight: 700;
+}
+
+.tab-switch-btn.active .tab-count-badge {
+  background-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.tab-status-summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.82rem;
+  color: #78828a;
+  font-weight: 500;
+}
+
+.dot-indicator-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.sub-tab-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+/* Nút Drilldown mở Modal */
+.btn-drilldown-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  background-color: #f5f0e9;
+  border: 1px solid #dfd5c7;
+  color: #795548;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-drilldown-action:hover {
+  background-color: #8c7355;
+  border-color: #8c7355;
+  color: #ffffff;
+}
+
+.btn-drilldown-action.small {
+  padding: 4px 8px;
+  font-size: 0.78rem;
+}
+
+.invoice-action-btns {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-view-invoice-link {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid #dcd3c6;
+  background-color: #ffffff;
+  color: #6d5b4b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-view-invoice-link:hover {
+  background-color: #8c7355;
+  border-color: #8c7355;
+  color: #ffffff;
+}
+
+.btn-icon-link {
+  background: none;
+  border: 1px solid #e0d8ce;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8c7355;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-icon-link:hover {
+  background-color: #8c7355;
+  color: #ffffff;
+  border-color: #8c7355;
+}
+
+/* Customer cell */
+.customer-info-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cust-name-text {
+  color: #1e293b;
+  font-size: 0.88rem;
+}
+
+.cust-phone-text {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.text-gray-date {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+/* Badges */
+.badge-order-type {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.type-store {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.type-online {
+  background-color: #f0fdf4;
+  color: #15803d;
+}
+
+.payment-method-tag {
+  background-color: #f7f4ed;
+  color: #5c4d3c;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.badge-item-count {
+  background-color: #f1f5f9;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.badge-order-status {
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  display: inline-block;
+}
+
+.badge-status-completed {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.badge-status-processing {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+.badge-status-cancelled {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.variant-info-tag {
+  background-color: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  font-size: 0.78rem;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.product-thumb-modal {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid #e6e0d6;
+}
+
+/* MODAL DRILL-DOWN STYLES */
+.modal-backdrop-clean {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1.5rem;
+  box-sizing: border-box;
+}
+
+.modal-clean-box {
+  background-color: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #ede7dc;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
+  width: 100%;
+  max-width: 960px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalScaleIn 0.22s ease-out;
+}
+
+@keyframes modalScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-clean-header {
+  padding: 1.15rem 1.4rem;
+  border-bottom: 1px solid #f1ece5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #faf7f2;
+}
+
+.modal-header-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background-color: #ebdcd0;
+  color: #795548;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-main-title {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.modal-sub-title {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.btn-close-modal {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-close-modal:hover {
+  background-color: #eae3d8;
+  color: #1e293b;
+}
+
+.modal-clean-body {
+  padding: 1.25rem 1.4rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modal-summary-pills {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  background-color: #fbf9f6;
+  border: 1px solid #ede6db;
+  border-radius: 10px;
+}
+
+.summary-pill-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.84rem;
+}
+
+.summary-pill-item .pill-label {
+  color: #64748b;
+}
+
+.summary-pill-item .pill-val {
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.text-green-bold {
+  color: #16a34a !important;
+}
+
+.text-brown-bold {
+  color: #8c7355 !important;
+}
+
+.modal-table-scroll {
+  max-height: 48vh;
+  overflow-y: auto;
+}
+
+.modal-clean-footer {
+  padding: 0.9rem 1.4rem;
+  border-top: 1px solid #f1ece5;
+  background-color: #faf7f2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn-cancel-clean {
+  padding: 7px 18px;
+  border-radius: 8px;
+  background-color: #ffffff;
+  border: 1px solid #d5cbc0;
+  color: #475569;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel-clean:hover {
+  background-color: #f1ede5;
+  color: #1e293b;
+}
+
+.btn-open-full-invoice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 8px;
+  background-color: #8c7355;
+  border: 1px solid #8c7355;
+  color: #ffffff;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-open-full-invoice:hover {
+  background-color: #735d44;
 }
 </style>

@@ -21,5 +21,11 @@ public interface HinhThucThanhToanRepository extends JpaRepository<HinhThucThanh
            "WHERE h.idHoaDon.maHoaDon = :maHoaDon " +
            "ORDER BY h.thoiGian DESC")
     List<HinhThucThanhToan> findByIdHoaDon_MaHoaDon(@Param("maHoaDon") String maHoaDon);
+
+    @Query("SELECT h FROM HinhThucThanhToan h " +
+           "LEFT JOIN FETCH h.idPhuongThuc " +
+           "WHERE h.idHoaDon.id IN :hoaDonIds " +
+           "ORDER BY h.thoiGian DESC")
+    List<HinhThucThanhToan> findByIdHoaDon_IdIn(@Param("hoaDonIds") List<Long> hoaDonIds);
 }
 
