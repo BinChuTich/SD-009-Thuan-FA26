@@ -44,6 +44,9 @@ import MauSac from '../views/ThuocTinh/MauSac.vue'
 import KichCo from '../views/ThuocTinh/KichCo.vue'
 import HoaTiet from '../views/ThuocTinh/HoaTiet.vue'
 
+// Chat
+import Chat from '../views/Chat.vue'
+
 const routes = [
     // Thống kê
     {
@@ -225,6 +228,13 @@ const routes = [
         path: '/nhan-vien/:id',
         name: 'ChiTietNhanVien',
         component: ChiTietNhanVien
+    },
+
+    // Chat AI và chat nhân viên
+    {
+        path: '/chat',
+        name: 'Chat',
+        component: Chat
     }
 ]
 

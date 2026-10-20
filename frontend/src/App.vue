@@ -191,6 +191,15 @@ function handleLoginAdmin() {
           <span class="menu-text">Quản lý khách hàng</span>
         </router-link>
 
+        <router-link to="/chat" class="menu-item" active-class="active">
+      <span class="menu-icon">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 2H4C2.9 2 2 2.9 2 4v14c0 1.1.9 2 2 2h3v3l5-3h8c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 14H5v-2h14v2zm0-4H5v-2h14v2zm0-4H5V6h14v2z"/>
+        </svg>
+      </span>
+      <span class="menu-text">Hỗ trợ trực tuyến</span>
+    </router-link>
+
         <!-- 6. Quản lý nhân viên (2 người) -->
         <router-link to="/nhan-vien" class="menu-item" active-class="active">
     <span class="menu-icon">
