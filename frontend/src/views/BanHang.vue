@@ -1,11 +1,12 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
 import { getProvinces, getWardsByProvince } from '@/services/provincesApi.js'
 
 const router = useRouter()
+const route = useRoute()
 
 /* ==========================================================
    TOAST & MODAL SYSTEM (Thay thế hoàn toàn alert/confirm)
@@ -82,6 +83,9 @@ const currentInvoice = computed(() => {
 
 // Tải danh sách hóa đơn chờ từ CSDL
 const loadWaitingInvoices = async () => {
+  try {
+    await api.post('/api/hoa-don/cancel-expired-waiting').catch(() => {})
+  } catch (e) {}
   try {
     isLoadingInvoices.value = true
     let res = null
@@ -1257,12 +1261,17 @@ const isCheckingPayment = ref(false)
 const isConfirmingPayment = ref(false)
 let paymentPollingTimer = null
 
+// Chế độ xem mã QR: 'VNPAY' | 'VIETQR'
+const qrViewMode = ref('VIETQR')
+
 const transferApiInfo = ref({
   bankId: 'MB',
   bankName: 'VNPAY-QR',
   accountNo: '0988888888',
   accountName: 'FF T-SHIRT STORE',
   qrCodeUrl: '',
+  vnpayQrUrl: '',
+  vietQrUrl: '',
   vnpayUrl: '',
   content: '',
   amount: 0,
@@ -1295,22 +1304,45 @@ const getVietQrUrl = (amount) => {
 }
 
 const transferQrUrl = computed(() => {
-  if (transferApiInfo.value.qrCodeUrl && transferApiInfo.value.amount === transferTargetAmount.value) {
+  if (true) {
+    return transferApiInfo.value.vietQrUrl || getVietQrUrl(transferTargetAmount.value)
+
+  }
+  // Mặc định là VNPAY-QR: lấy QR code đã tích hợp link cổng thanh toán VNPAY (theo chuẩn vnpay_jsp)
+  if (transferApiInfo.value.vnpayQrUrl) {
+    return transferApiInfo.value.vnpayQrUrl
+  }
+  if (transferApiInfo.value.qrCodeUrl) {
     return transferApiInfo.value.qrCodeUrl
+  }
+  if (transferApiInfo.value.vnpayUrl) {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=${encodeURIComponent(transferApiInfo.value.vnpayUrl)}`
   }
   return getVietQrUrl(transferTargetAmount.value)
 })
 
-// Mở trang cổng thanh toán VNPAY trong tab mới
+// Mở trang cổng thanh toán VNPAY (hỗ trợ SDK vnpay.js từ vnpay_pay.jsp mẫu hoặc popup)
 const openVNPayPortal = () => {
-  if (transferApiInfo.value.vnpayUrl) {
-    window.open(transferApiInfo.value.vnpayUrl, '_blank')
+  const targetUrl = transferApiInfo.value.vnpayUrl
+  if (targetUrl) {
+    if (window.vnpay && typeof window.vnpay.open === 'function') {
+      window.vnpay.open({ width: 768, height: 600, url: targetUrl })
+    } else {
+      window.open(targetUrl, '_blank')
+    }
   } else {
     const code = currentInvoice.value?.code || 'POS'
     const amt = transferTargetAmount.value
-    api.get(`/api/payment/vnpay/create-url?maHoaDon=${code}&soTien=${amt}`)
+    api.get(`/api/payment/vnpay/create-url?maHoaDon=${code}&soTien=${amt}&bankCode=`)
       .then(res => {
-        if (res.data?.url) window.open(res.data.url, '_blank')
+        if (res.data?.url) {
+          transferApiInfo.value.vnpayUrl = res.data.url
+          if (window.vnpay && typeof window.vnpay.open === 'function') {
+            window.vnpay.open({ width: 768, height: 600, url: res.data.url })
+          } else {
+            window.open(res.data.url, '_blank')
+          }
+        }
       })
       .catch(() => showToast('Không thể mở cổng VNPAY lúc này', 'warning'))
   }
@@ -1332,7 +1364,9 @@ const fetchTransferInfoFromApi = async (amount) => {
         bankName: res.data.nganHang || 'VNPAY-QR',
         accountNo: res.data.soTaiKhoan || '0988888888',
         accountName: res.data.tenChuTaiKhoan || 'FF T-SHIRT STORE',
-        qrCodeUrl: res.data.qrCodeUrl || getVietQrUrl(amt),
+        qrCodeUrl: res.data.qrCodeUrl || '',
+        vnpayQrUrl: res.data.vnpayQrUrl || res.data.qrCodeUrl || '',
+        vietQrUrl: res.data.vietQrUrl || getVietQrUrl(amt),
         vnpayUrl: res.data.vnpayUrl || '',
         content: res.data.noiDungChuyenKhoan || `VNPAY ${code}`,
         amount: amt,
@@ -1381,7 +1415,25 @@ const checkPaymentStatus = async (isManual = true) => {
     if (res?.data?.daThanhToan) {
       currentInvoice.value.isTransferPaid = true
       currentInvoice.value.transferTransactionCode = res.data.maGiaoDich || `TRANS-${code}`
-      showToast(`✓ Đã nhận thanh toán chuyển khoản cho hóa đơn ${code}!`)
+      stopPaymentPolling()
+      const isKetHopCheck = currentInvoice.value.paymentMethod === 'KET_HOP'
+      if (!isKetHopCheck) {
+        currentInvoice.value.paymentMethod = 'CHUYEN_KHOAN'
+      }
+      if (!isKetHopCheck) {
+        currentInvoice.value.customerPay = finalTotal.value
+      }
+      const canAutoCheckout =
+        !isKetHopCheck ||
+        (Number(currentInvoice.value.cashAmount || 0) + Number(currentInvoice.value.transferAmount || 0) >= finalTotal.value)
+      if (false && canAutoCheckout && currentInvoice.value.cart.length > 0 && !isProcessing.value) {
+        showToast(`✓ Đã nhận tiền chuyển khoản thành công! Đang tự động thanh toán và in hóa đơn...`)
+        setTimeout(() => {
+          handleCheckout()
+        }, 500)
+      } else {
+        showToast(`✓ Đã nhận thanh toán chuyển khoản cho hóa đơn ${code}!`)
+      }
       stopPaymentPolling()
     } else {
       if (isManual) {
@@ -1399,12 +1451,33 @@ const checkPaymentStatus = async (isManual = true) => {
 
 // Xác nhận đã nhận tiền chuyển khoản trực tiếp (Khi khách chuyển thành công)
 const confirmTransferPaymentDirect = async () => {
+  if (currentInvoice.value && currentInvoice.value.cart.length === 0) {
+    showToast('Giỏ hàng trống! Vui lòng chọn sản phẩm trước khi thanh toán.', 'warning')
+    return
+  }
   if (!currentInvoice.value) return
   const code = currentInvoice.value.code
   const isKetHop = currentInvoice.value.paymentMethod === 'KET_HOP'
   const amt = isKetHop ? Number(currentInvoice.value.transferAmount || 0) : finalTotal.value
 
   try {
+    currentInvoice.value.isTransferPaid = true
+    currentInvoice.value.transferTransactionCode = `TRANS-${code}`
+    stopPaymentPolling()
+    if (!isKetHop) {
+      currentInvoice.value.paymentMethod = 'CHUYEN_KHOAN'
+      currentInvoice.value.customerPay = finalTotal.value
+    }
+    const canAutoCheckoutDirect =
+      !isKetHop ||
+      (Number(currentInvoice.value.cashAmount || 0) + Number(currentInvoice.value.transferAmount || 0) >= finalTotal.value)
+    if (false && canAutoCheckoutDirect && !isProcessing.value) {
+      showToast(`✓ Đã nhận tiền chuyển khoản! Đang tự động thanh toán và in hóa đơn...`)
+      setTimeout(() => {
+        handleCheckout()
+      }, 400)
+      return
+    }
     isConfirmingPayment.value = true
     const res = await api.post('/api/payment/confirm-transfer', {
       maHoaDon: code,
@@ -1413,13 +1486,47 @@ const confirmTransferPaymentDirect = async () => {
       phuongThuc: 'Chuyển khoản'
     })
     currentInvoice.value.isTransferPaid = true
-    currentInvoice.value.transferTransactionCode = res?.data?.maGiaoDich || `TRANS-${code}`
-    showToast(`Đã xác nhận thanh toán chuyển khoản ${formatMoney(amt)} thành công!`)
+    currentInvoice.value.transferTransactionCode = res?.data?.maGiaoDich || `TRANS-${code}`; /*
+    stopPaymentPolling()
+    if (!isKetHop) {
+      currentInvoice.value.customerPay = finalTotal.value
+    }
+    if (!isKetHop) {
+      currentInvoice.value.paymentMethod = 'CHUYEN_KHOAN'
+    }
+    const canAutoCheckoutDirect =
+      !isKetHop ||
+      (Number(currentInvoice.value.cashAmount || 0) + Number(currentInvoice.value.transferAmount || 0) >= finalTotal.value)
+    if (false && canAutoCheckoutDirect && !isProcessing.value) {
+      showToast(`✓ Đã nhận tiền chuyển khoản! Đang tự động thanh toán và in hóa đơn...`)
+      setTimeout(() => {
+        handleCheckout()
+      }, 500)
+    } else {
+    */ if (true) { showToast(`Đã xác nhận thanh toán chuyển khoản ${formatMoney(amt)} thành công!`)
+    }
     stopPaymentPolling()
   } catch (err) {
     console.error('Lỗi khi xác nhận chuyển khoản:', err)
     currentInvoice.value.isTransferPaid = true
-    showToast(`Đã ghi nhận chuyển khoản cho hóa đơn ${code}!`)
+    stopPaymentPolling()
+    if (!isKetHop) {
+      currentInvoice.value.customerPay = finalTotal.value
+    }
+    if (!isKetHop) {
+      currentInvoice.value.paymentMethod = 'CHUYEN_KHOAN'
+    }
+    const canAutoCheckoutDirectCatch =
+      !isKetHop ||
+      (Number(currentInvoice.value.cashAmount || 0) + Number(currentInvoice.value.transferAmount || 0) >= finalTotal.value)
+    if (false && canAutoCheckoutDirectCatch && !isProcessing.value) {
+      showToast(`✓ Đã ghi nhận chuyển khoản! Đang tự động thanh toán và in hóa đơn...`)
+      setTimeout(() => {
+        handleCheckout()
+      }, 500)
+    } else {
+      showToast(`Đã ghi nhận chuyển khoản cho hóa đơn ${code}!`)
+    }
     stopPaymentPolling()
   } finally {
     isConfirmingPayment.value = false
@@ -1428,6 +1535,11 @@ const confirmTransferPaymentDirect = async () => {
 
 // Tự động Polling kiểm tra thanh toán mỗi 4 giây
 const startPaymentPolling = () => {
+  stopPaymentPolling()
+  // Tắt tự động polling thanh toán
+  return
+}
+const _unusedPolling = () => {
   stopPaymentPolling()
   paymentPollingTimer = setInterval(() => {
     if (
@@ -1451,6 +1563,10 @@ const stopPaymentPolling = () => {
 }
 
 onUnmounted(() => {
+  if (typeof dayCheckTimer !== 'undefined' && dayCheckTimer) clearInterval(dayCheckTimer)
+  if (typeof onTabVisibilityChange === 'function') {
+    document.removeEventListener('visibilitychange', onTabVisibilityChange)
+  }
   stopPaymentPolling()
 })
 
@@ -1660,8 +1776,21 @@ const handleCheckout = async () => {
       ? Number(currentInvoice.value.transferAmount || 0)
       : (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN' ? finalTotal.value : 0)
 
+    let resolvedPaymentMethod = 'Tiền mặt'
+    if (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN') {
+      resolvedPaymentMethod = 'Chuyển khoản ngân hàng'
+    } else if (isKetHop) {
+      if (cashVal > 0 && transferVal > 0) {
+        resolvedPaymentMethod = 'Kết hợp'
+      } else if (transferVal > 0) {
+        resolvedPaymentMethod = 'Chuyển khoản ngân hàng'
+      } else {
+        resolvedPaymentMethod = 'Tiền mặt'
+      }
+    }
+
     let noteExtra = ''
-    if (isKetHop) {
+    if (resolvedPaymentMethod === 'Kết hợp') {
       noteExtra = ` [Thanh toán kết hợp: Tiền mặt ${formatMoney(cashVal)}, Chuyển khoản ${formatMoney(transferVal)}]`
     }
 
@@ -1678,9 +1807,9 @@ const handleCheckout = async () => {
       phiShip: shippingFee.value,
       trangThai: currentInvoice.value.isDelivery ? 1 : 5,
       trangThaiThanhToan: 1,
-      phuongThucThanhToan: currentInvoice.value.paymentMethod === 'TIEN_MAT' ? 'Tiền mặt' : (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN' ? 'Chuyển khoản' : 'Kết hợp'),
-      tienMat: cashVal,
-      tienChuyenKhoan: transferVal,
+      phuongThucThanhToan: resolvedPaymentMethod,
+      tienMat: resolvedPaymentMethod.includes('Chuyển khoản') ? 0 : cashVal,
+      tienChuyenKhoan: resolvedPaymentMethod === 'Tiền mặt' ? 0 : transferVal,
       ghiChu: (currentInvoice.value.note?.trim() || (currentInvoice.value.isDelivery ? 'Đơn giao hàng từ POS' : 'Thanh toán tại quầy')) + noteExtra,
       chiTietList: currentInvoice.value.cart.map(item => ({
         sanPhamId: item.id,
@@ -1728,7 +1857,75 @@ const handleCheckout = async () => {
   }
 }
 
+// Kiểm tra tham số trả về từ Cổng VNPAY (vnpay_return theo chuẩn vnpay_jsp)
+const checkVNPayReturnParams = () => {
+  const query = route.query
+  if (query && query.vnp_ResponseCode) {
+    const responseCode = String(query.vnp_ResponseCode)
+    const txnRef = String(query.vnp_TxnRef || '')
+    let invCode = txnRef
+    if (txnRef.includes('_')) {
+      invCode = txnRef.split('_')[0]
+    }
+    const amt = Number(query.vnp_Amount || 0) / 100
+    const transNo = query.vnp_TransactionNo || 'VNPAY'
+
+    if (responseCode === '00') {
+      showToast(`✓ Thanh toán VNPAY thành công cho đơn ${invCode}! (+${formatMoney(amt)})`)
+      api.post('/api/payment/confirm-transfer', {
+        maHoaDon: invCode,
+        soTien: amt,
+        maGiaoDich: `VNPAY-${transNo}`,
+        ghiChu: 'Thanh toán thành công qua Cổng VNPAY Sandbox',
+        phuongThuc: 'Chuyển khoản'
+      }).then(() => {
+        const found = waitingInvoices.value.find(inv => inv.code === invCode || inv.code?.replace(/[^a-zA-Z0-9_-]/g, '') === invCode)
+        if (found) {
+          activeInvoiceId.value = found.id
+          found.isTransferPaid = true
+          handleCheckout()
+        } else if (currentInvoice.value && (currentInvoice.value.code === invCode || currentInvoice.value.code?.replace(/[^a-zA-Z0-9_-]/g, '') === invCode)) {
+          currentInvoice.value.isTransferPaid = true
+          handleCheckout()
+        }
+      }).catch(err => {
+        console.error('Lỗi lưu kết quả VNPAY return:', err)
+      })
+    } else {
+      showToast(`Giao dịch VNPAY không thành công (Mã lỗi: ${responseCode})`, 'warning')
+    }
+    router.replace({ path: route.path, query: {} })
+  }
+}
+
+// Phát hiện khi sang ngày mới để tự động hủy các hóa đơn chờ ngày trước
+let recordedDateStr = new Date().toDateString()
+let dayCheckTimer = null
+
+const checkNewDayTransition = async () => {
+  const todayStr = new Date().toDateString()
+  if (todayStr !== recordedDateStr) {
+    recordedDateStr = todayStr
+    try {
+      await api.post('/api/hoa-don/cancel-expired-waiting')
+    } catch (e) {
+      console.warn('Lỗi gọi API hủy hóa đơn chờ cũ:', e)
+    }
+    await loadWaitingInvoices()
+    showToast('Đã sang ngày mới, hệ thống tự động hủy các hóa đơn chờ của ngày trước!', 'info')
+  }
+}
+
+const onTabVisibilityChange = () => {
+  if (document.visibilityState === 'visible') {
+    checkNewDayTransition()
+  }
+}
+
 onMounted(async () => {
+  dayCheckTimer = setInterval(checkNewDayTransition, 30000)
+  document.addEventListener('visibilitychange', onTabVisibilityChange)
+  checkVNPayReturnParams()
   await loadWaitingInvoices()
   fetchProductVariants()
   fetchVouchers()
@@ -2208,8 +2405,30 @@ onMounted(async () => {
               <!-- VNPAY-QR TỐI GIẢN (TÍCH HỢP API VNPAY) -->
               <div v-if="currentInvoice.transferAmount > 0" class="vnpay-box-compact" :class="{ 'is-paid': currentInvoice.isTransferPaid }">
                 <div class="vnpay-top-bar">
-                  <div class="vnpay-brand-chip">
-                    <span class="vnp-blue">VN</span><span class="vnp-red">PAY</span><span class="vnp-sub">·QR</span>
+                  <div class="vnpay-brand-group">
+                    <div class="vnpay-brand-chip">
+                      <span class="vnp-blue">Viet</span><span class="vnp-red">QR</span><span class="vnp-sub">·Napas</span>
+                    </div>
+                    <div class="vnpay-mode-tabs" v-if="false">
+                      <button
+                        type="button"
+                        class="vnpay-tab-btn"
+                        :class="{ active: qrViewMode === 'VNPAY' }"
+                        @click="qrViewMode = 'VNPAY'"
+                        title="Mã QR Cổng thanh toán VNPAY"
+                      >
+                        VNPAY-QR
+                      </button>
+                      <button
+                        type="button"
+                        class="vnpay-tab-btn"
+                        :class="{ active: qrViewMode === 'VIETQR' }"
+                        @click="qrViewMode = 'VIETQR'"
+                        title="Mã VietQR chuyển khoản ngân hàng"
+                      >
+                        VietQR
+                      </button>
+                    </div>
                   </div>
                   <span class="vnpay-status-badge" :class="currentInvoice.isTransferPaid ? 'paid' : 'waiting'">
                     <span class="status-dot"></span>
@@ -2221,7 +2440,7 @@ onMounted(async () => {
                   <div class="vnpay-qr-wrap">
                     <img
                       :src="transferQrUrl"
-                      :alt="`VNPAY-QR ${formatMoney(currentInvoice.transferAmount)}`"
+                      :alt="`Mã QR thanh toán ${formatMoney(currentInvoice.transferAmount)}`"
                       class="vnpay-qr-img"
                     />
                     <div v-if="currentInvoice.isTransferPaid" class="vnpay-paid-overlay">
@@ -2239,12 +2458,23 @@ onMounted(async () => {
                       <span class="meta-code">{{ currentInvoice.code }}</span>
                       <button type="button" class="btn-copy-tiny" @click="copyToClipboard(currentInvoice.code, 'Mã GD')">Sao chép</button>
                     </div>
-                    <span class="vnpay-hint-text">Quét bằng Ví VNPAY hoặc 40+ App ngân hàng</span>
+                    <span class="vnpay-hint-text">
+                      Quét qua 40+ ứng dụng ngân hàng hoặc Ví điện tử
+                    </span>
 
-                    <div v-if="currentInvoice.isTransferPaid" class="vnpay-success-chip">
-                      ✓ Đã nhận thanh toán VNPAY thành công
+                    <div v-if="currentInvoice.isTransferPaid" class="vnpay-paid-actions">
+                      <div class="vnpay-success-chip">✓ Đã nhận tiền chuyển khoản thành công</div>
+                      <button type="button" class="btn-vnpay-print-direct" :disabled="isProcessing" @click="handleCheckout">🖨️ In hóa đơn</button>
                     </div>
                     <div v-else class="vnpay-action-btns">
+                      <button
+                        type="button"
+                        class="btn-vnpay-portal" v-if="false"
+                        @click="openVNPayPortal"
+                        title="Mở Cổng VNPAY Sandbox thanh toán ngay"
+                      >
+                        🚀 Mở cổng VNPAY
+                      </button>
                       <button
                         type="button"
                         class="btn-vnpay-confirm"
@@ -2263,15 +2493,37 @@ onMounted(async () => {
           <!-- 2. Thanh toán CHUYỂN KHOẢN TOÀN BỘ (VNPAY-QR TỐI GIẢN) -->
           <div v-else-if="currentInvoice.paymentMethod === 'CHUYEN_KHOAN'" class="pos-form-group">
             <div class="pay-input-header">
-              <label class="group-label-gray">Chuyển khoản (VNPAY)</label>
+              <label class="group-label-gray">Chuyển khoản</label>
               <span class="font-bold-dark">{{ formatMoney(finalTotal) }}</span>
             </div>
 
             <!-- VNPAY-QR TỐI GIẢN (TÍCH HỢP API VNPAY) -->
             <div class="vnpay-box-compact" :class="{ 'is-paid': currentInvoice.isTransferPaid }">
               <div class="vnpay-top-bar">
-                <div class="vnpay-brand-chip">
-                  <span class="vnp-blue">VN</span><span class="vnp-red">PAY</span><span class="vnp-sub">·QR</span>
+                <div class="vnpay-brand-group">
+                  <div class="vnpay-brand-chip">
+                    <span class="vnp-blue">Viet</span><span class="vnp-red">QR</span><span class="vnp-sub">·Napas</span>
+                  </div>
+                  <div class="vnpay-mode-tabs" v-if="false">
+                    <button
+                      type="button"
+                      class="vnpay-tab-btn"
+                      :class="{ active: qrViewMode === 'VNPAY' }"
+                      @click="qrViewMode = 'VNPAY'"
+                      title="Mã QR Cổng thanh toán VNPAY"
+                    >
+                      VNPAY-QR
+                    </button>
+                    <button
+                      type="button"
+                      class="vnpay-tab-btn"
+                      :class="{ active: qrViewMode === 'VIETQR' }"
+                      @click="qrViewMode = 'VIETQR'"
+                      title="Mã VietQR chuyển khoản ngân hàng"
+                    >
+                      VietQR
+                    </button>
+                  </div>
                 </div>
                 <span class="vnpay-status-badge" :class="currentInvoice.isTransferPaid ? 'paid' : 'waiting'">
                   <span class="status-dot"></span>
@@ -2283,7 +2535,7 @@ onMounted(async () => {
                 <div class="vnpay-qr-wrap">
                   <img
                     :src="transferQrUrl"
-                    :alt="`VNPAY-QR ${formatMoney(finalTotal)}`"
+                    :alt="`Mã QR thanh toán ${formatMoney(finalTotal)}`"
                     class="vnpay-qr-img"
                   />
                   <div v-if="currentInvoice.isTransferPaid" class="vnpay-paid-overlay">
@@ -2301,12 +2553,23 @@ onMounted(async () => {
                     <span class="meta-code">{{ currentInvoice.code }}</span>
                     <button type="button" class="btn-copy-tiny" @click="copyToClipboard(currentInvoice.code, 'Mã GD')">Sao chép</button>
                   </div>
-                  <span class="vnpay-hint-text">Quét bằng Ví VNPAY hoặc 40+ App ngân hàng</span>
+                  <span class="vnpay-hint-text">
+                    Quét qua 40+ ứng dụng ngân hàng hoặc Ví điện tử
+                  </span>
 
-                  <div v-if="currentInvoice.isTransferPaid" class="vnpay-success-chip">
-                    ✓ Đã nhận thanh toán VNPAY thành công
+                  <div v-if="currentInvoice.isTransferPaid" class="vnpay-paid-actions">
+                    <div class="vnpay-success-chip">✓ Đã nhận tiền chuyển khoản thành công</div>
+                    <button type="button" class="btn-vnpay-print-direct" :disabled="isProcessing" @click="handleCheckout">🖨️ In hóa đơn</button>
                   </div>
                   <div v-else class="vnpay-action-btns">
+                    <button
+                      type="button"
+                      class="btn-vnpay-portal" v-if="false"
+                      @click="openVNPayPortal"
+                      title="Mở Cổng VNPAY Sandbox thanh toán ngay"
+                    >
+                      🚀 Mở cổng VNPAY
+                    </button>
                     <button
                       type="button"
                       class="btn-vnpay-confirm"
@@ -3403,6 +3666,74 @@ onMounted(async () => {
   border-color: #496883;
 }
 
+
+.vnpay-brand-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vnpay-mode-tabs {
+  display: inline-flex;
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.vnpay-tab-btn {
+  background: transparent;
+  border: none;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #64748b;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vnpay-tab-btn:hover {
+  color: #1e293b;
+}
+
+.vnpay-tab-btn.active {
+  background: #ffffff;
+  color: #005baa;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.btn-vnpay-portal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: linear-gradient(135deg, #005baa, #0284c7);
+  color: #ffffff;
+  border: 1px solid #005baa;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-vnpay-portal:hover {
+  opacity: 0.92;
+  box-shadow: 0 2px 4px rgba(0, 91, 170, 0.25);
+}
+
+.vnpay-qr-wrap {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.vnpay-qr-wrap:hover {
+  transform: scale(1.03);
+  box-shadow: 0 3px 8px rgba(0, 91, 170, 0.18);
+}
+
 /* ==================== VNPAY-QR COMPACT BOX ==================== */
 .vnpay-box-compact {
   background: #ffffff;
@@ -3634,6 +3965,38 @@ onMounted(async () => {
   font-size: 0.74rem;
   font-weight: 600;
   margin-top: 4px;
+}
+
+.vnpay-paid-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.btn-vnpay-print-direct {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #059669;
+  color: #ffffff;
+  border: 1px solid #059669;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-vnpay-print-direct:hover:not(:disabled) {
+  background: #047857;
+}
+
+.btn-vnpay-print-direct:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .vnpay-mini-spin {

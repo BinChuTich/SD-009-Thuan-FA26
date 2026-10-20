@@ -24,6 +24,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.context.event.EventListener;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import java.util.List;
 import java.util.Optional;
 
@@ -135,6 +140,9 @@ public class HoaDonService {
 
     // Lấy danh sách tất cả hóa đơn (loại trừ các hóa đơn chờ tại quầy)
     public List<HoaDon> getAll() {
+        try {
+            cancelExpiredWaitingInvoices();
+        } catch (Exception ignored) {}
         List<HoaDon> list;
         try {
             list = hoaDonRepository.findAllWithForeignKeys();
@@ -265,7 +273,88 @@ public class HoaDonService {
     }
 
     // Lấy danh sách hóa đơn chờ tại quầy
+    /**
+     * Tự động hủy tất cả các hóa đơn chờ của ngày trước khi sang ngày mới.
+     * Áp dụng cho các hóa đơn chờ tại quầy (loaiDon = 1 && trangThai = 1) hoặc có ghi chú hóa đơn chờ
+     * được tạo trước 00:00:00 ngày hôm nay (múi giờ Việt Nam Asia/Ho_Chi_Minh).
+     */
+    @Transactional
+    public List<HoaDon> cancelExpiredWaitingInvoices() {
+        ZoneId zoneVN = ZoneId.of("Asia/Ho_Chi_Minh");
+        LocalDate today = LocalDate.now(zoneVN);
+        Instant startOfToday = today.atStartOfDay(zoneVN).toInstant();
+
+        List<HoaDon> allInvoices = hoaDonRepository.findAll();
+        List<HoaDon> expiredWaitingInvoices = allInvoices.stream()
+                .filter(h -> (isWaitingInvoice(h) || (Integer.valueOf(1).equals(h.getLoaiDon()) && Integer.valueOf(1).equals(h.getTrangThai()) && (h.getTrangThaiThanhToan() == null || Integer.valueOf(0).equals(h.getTrangThaiThanhToan())))))
+                .filter(h -> h.getNgayTao() != null && h.getNgayTao().isBefore(startOfToday))
+                .toList();
+
+        if (expiredWaitingInvoices.isEmpty()) {
+            return List.of();
+        }
+
+        for (HoaDon hd : expiredWaitingInvoices) {
+            hd.setTrangThai(6); // 6: Đã hủy
+            hd.setNgayCapNhat(Instant.now());
+            hd.setNguoiCapNhat("Hệ thống");
+
+            String currentNote = hd.getGhiChu() != null ? hd.getGhiChu().trim() : "";
+            String cancelReason = "Tự động hủy hóa đơn chờ sang ngày mới (" + today + ")";
+            if (!currentNote.isEmpty() && !currentNote.contains("Tự động hủy")) {
+                hd.setGhiChu(currentNote + " - " + cancelReason);
+            } else if (currentNote.isEmpty()) {
+                hd.setGhiChu(cancelReason);
+            }
+
+            hoaDonRepository.save(hd);
+
+            // Ghi nhật ký vào LichSuHoaDon
+            try {
+                LichSuHoaDon log = new LichSuHoaDon();
+                log.setIdHoaDon(hd);
+                log.setTrangThai(6);
+                log.setThoiGian(Instant.now());
+                log.setHanhDong(cancelReason);
+                log.setNguoiThucHien("Hệ thống");
+                log.setVaiTroNguoiThucHien("Hệ thống");
+                lichSuHoaDonRepository.save(log);
+            } catch (Exception ex) {
+                System.err.println("Lỗi ghi log lịch sử hủy hóa đơn chờ: " + ex.getMessage());
+            }
+        }
+
+        System.out.println("==> Đã tự động hủy " + expiredWaitingInvoices.size() + " hóa đơn chờ của ngày trước sang ngày mới " + today);
+        return expiredWaitingInvoices;
+    }
+
+    /**
+     * Cron job tự động chạy lúc 00:00:00 hàng ngày (múi giờ Việt Nam) để hủy hóa đơn chờ ngày hôm trước
+     */
+    @Scheduled(cron = "0 0 0 * * ?", zone = "Asia/Ho_Chi_Minh")
+    public void scheduleCancelExpiredWaitingInvoices() {
+        cancelExpiredWaitingInvoices();
+    }
+
+    /**
+     * Kiểm tra và hủy hóa đơn chờ cũ ngay khi ứng dụng khởi động
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void onApplicationReady() {
+        try {
+            cancelExpiredWaitingInvoices();
+        } catch (Exception e) {
+            System.err.println("Lỗi kiểm tra hóa đơn chờ ngày cũ khi khởi động: " + e.getMessage());
+        }
+    }
+
+    // Lấy danh sách hóa đơn chờ tại quầy
     public List<HoaDon> getWaitingInvoices() {
+        try {
+            cancelExpiredWaitingInvoices();
+        } catch (Exception e) {
+            System.err.println("Lỗi tự động hủy hóa đơn chờ cũ trong getWaitingInvoices: " + e.getMessage());
+        }
         List<HoaDon> all;
         try {
             all = hoaDonRepository.findAllWithForeignKeys();
@@ -1043,6 +1132,11 @@ public class HoaDonService {
         String ptName = dto.getPhuongThucThanhToan() != null && !dto.getPhuongThucThanhToan().trim().isEmpty()
                 ? dto.getPhuongThucThanhToan().trim() : "Tiền mặt";
         try {
+            List<HinhThucThanhToan> oldHttt = hinhThucThanhToanRepository.findByIdHoaDon_Id(saved.getId());
+            if (oldHttt != null && !oldHttt.isEmpty()) {
+                hinhThucThanhToanRepository.deleteAll(oldHttt);
+                hinhThucThanhToanRepository.flush();
+            }
             List<PhuongThucThanhToan> allPts = phuongThucThanhToanRepository.findAll();
             if (ptName.equalsIgnoreCase("Kết hợp") || ptName.equalsIgnoreCase("KET_HOP")) {
                 PhuongThucThanhToan ptTienMat = null;
@@ -1085,7 +1179,7 @@ public class HoaDonService {
             } else {
                 PhuongThucThanhToan matchedPt = null;
                 for (PhuongThucThanhToan p : allPts) {
-                    if (p.getTenPhuongThuc() != null && p.getTenPhuongThuc().equalsIgnoreCase(ptName)) {
+                    if (p.getTenPhuongThuc() != null && (p.getTenPhuongThuc().equalsIgnoreCase(ptName) || (ptName.toLowerCase().contains("chuyển khoản") && (p.getTenPhuongThuc().toLowerCase().contains("chuyển khoản") || p.getTenPhuongThuc().toLowerCase().contains("ngân hàng"))))) {
                         matchedPt = p;
                         break;
                     }

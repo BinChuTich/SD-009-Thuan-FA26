@@ -707,7 +707,7 @@ onBeforeUnmount(() => {
                 class="form-control input-has-prefix"
             />
             <button
-              class="btn-qr-inline"
+              class="btn-qr-inline" v-if="false"
               type="button"
               title="Quét QR Hóa Đơn"
               @click="showQrScanner = true"
@@ -793,7 +793,7 @@ onBeforeUnmount(() => {
       <!-- DÒNG CUỐI CÙNG: CỤM NÚT THAO TÁC -->
       <div class="filter-actions-bottom">
         <div class="actions-right">
-          <button class="btn-scan-qr" type="button" @click="showQrScanner = true">
+          <button class="btn-scan-qr" v-if="false" type="button" @click="showQrScanner = true">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="7"></rect>
               <rect x="14" y="3" width="7" height="7"></rect>
@@ -963,7 +963,7 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Modal Quét QR Hóa Đơn -->
-    <QrScannerModal
+    <QrScannerModal v-if="false"
       :show="showQrScanner"
       @close="showQrScanner = false"
       @scan-success="handleQrScanSuccess"

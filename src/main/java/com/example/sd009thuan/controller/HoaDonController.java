@@ -94,6 +94,19 @@ public class HoaDonController {
         return ResponseEntity.ok(hoaDonService.create(hoaDon));
     }
 
+    // Hủy tất cả hóa đơn chờ của ngày hôm trước khi sang ngày mới
+    @PostMapping("/cancel-expired-waiting")
+    public ResponseEntity<Map<String, Object>> cancelExpiredWaiting() {
+        List<HoaDon> cancelled = hoaDonService.cancelExpiredWaitingInvoices();
+        List<String> codes = cancelled.stream().map(HoaDon::getMaHoaDon).toList();
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", cancelled.size(),
+                "cancelledCodes", codes,
+                "message", "Đã hủy " + cancelled.size() + " hóa đơn chờ của ngày trước"
+        ));
+    }
+
     // Lấy danh sách hóa đơn chờ tại quầy
     @GetMapping("/waiting")
     public ResponseEntity<List<HoaDon>> getWaitingInvoices() {

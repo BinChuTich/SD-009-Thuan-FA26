@@ -12,6 +12,7 @@ import com.example.sd009thuan.repository.HinhThucThanhToanRepository;
 import com.example.sd009thuan.repository.HoaDonRepository;
 import com.example.sd009thuan.repository.LichSuHoaDonRepository;
 import com.example.sd009thuan.repository.PhuongThucThanhToanRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,9 +33,21 @@ public class PaymentService {
     public static final String DEFAULT_BANK_NAME = "VNPAY-QR (MBBank)";
     public static final String DEFAULT_ACCOUNT_NO = "0988888888";
     public static final String DEFAULT_ACCOUNT_NAME = "FF T-SHIRT STORE";
-    public static final String VNP_TMN_CODE = "DEMOV210";
-    public static final String VNP_HASH_SECRET = "VNPAYHASHSECRETKEYDEMO";
+    public static final String VNP_TMN_CODE = "9MBXLL6A";
+    public static final String VNP_HASH_SECRET = "ZSVBACVKCEOZNNBKUXUKZQJXPEFPUEVT";
     public static final String VNP_PAY_URL = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
+
+    @Value("${vnpay.tmnCode:9MBXLL6A}")
+    private String vnpTmnCode;
+
+    @Value("${vnpay.hashSecret:ZSVBACVKCEOZNNBKUXUKZQJXPEFPUEVT}")
+    private String vnpHashSecret;
+
+    @Value("${vnpay.payUrl:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}")
+    private String vnpPayUrl;
+
+    @Value("${vnpay.returnUrl:http://localhost:5173/ban-hang}")
+    private String vnpReturnUrl;
 
     private final HoaDonRepository hoaDonRepository;
     private final HinhThucThanhToanRepository hinhThucThanhToanRepository;
@@ -72,19 +85,26 @@ public class PaymentService {
         String accountName = (req != null && req.getAccountName() != null && !req.getAccountName().trim().isEmpty())
                 ? req.getAccountName().trim() : DEFAULT_ACCOUNT_NAME;
 
-        // Nội dung chuyển khoản chuẩn hóa không dấu: THANHTOAN <MA_HOA_DON>
+        // Nội dung chuyển khoản chuẩn hóa: VNPAY <MA_HOA_DON>
         String cleanCode = maHoaDon.replaceAll("[^a-zA-Z0-9_-]", "");
         String noiDung = (req != null && req.getNoiDung() != null && !req.getNoiDung().trim().isEmpty())
-                ? req.getNoiDung().trim() : ("THANHTOAN " + cleanCode);
+                ? req.getNoiDung().trim() : ("VNPAY " + cleanCode);
 
         // Sinh mã giao dịch duy nhất
         String maGiaoDich = "TRANS-" + cleanCode + "-" + (System.currentTimeMillis() % 1000000);
 
-        // Tạo VietQR Quick Link định dạng chuẩn Napas 247
+        // 1. Sinh link thanh toán qua Cổng VNPAY (theo chuẩn vnpay_jsp)
+        String vnpayUrl = createVNPayPaymentUrl(cleanCode, soTien, "", "127.0.0.1");
+
+        // 2. Tạo mã QR VNPAY (mã QR trực tiếp của link thanh toán VNPAY-QR)
+        String vnpayQrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=" 
+                + URLEncoder.encode(vnpayUrl, StandardCharsets.UTF_8);
+
+        // 3. Tạo VietQR Quick Link định dạng chuẩn Napas 247 dự phòng
         long roundedAmount = Math.max(0, soTien.longValue());
         String encodedContent = URLEncoder.encode(noiDung, StandardCharsets.UTF_8);
         String encodedAccName = URLEncoder.encode(accountName, StandardCharsets.UTF_8);
-        String qrCodeUrl = String.format(
+        String vietQrUrl = String.format(
                 "https://img.vietqr.io/image/%s-%s-compact2.png?amount=%d&addInfo=%s&accountName=%s",
                 bankId, accountNo, roundedAmount, encodedContent, encodedAccName
         );
@@ -101,9 +121,6 @@ public class PaymentService {
             }
         }
 
-        // Sinh đường link thanh toán qua cổng VNPAY
-        String vnpayUrl = createVNPayPaymentUrl(cleanCode, soTien, "127.0.0.1");
-
         return PaymentInfoResponse.builder()
                 .maHoaDon(maHoaDon)
                 .soTien(soTien)
@@ -113,7 +130,9 @@ public class PaymentService {
                 .tenChuTaiKhoan(accountName)
                 .noiDungChuyenKhoan(noiDung)
                 .maGiaoDich(maGiaoDich)
-                .qrCodeUrl(qrCodeUrl)
+                .qrCodeUrl(vnpayQrUrl)
+                .vnpayQrUrl(vnpayQrUrl)
+                .vietQrUrl(vietQrUrl)
                 .vnpayUrl(vnpayUrl)
                 .daThanhToan(daThanhToan)
                 .thoiGianTao(Instant.now())
@@ -253,6 +272,10 @@ public class PaymentService {
             }
 
             if (ptCk != null) {
+                List<HinhThucThanhToan> oldHttt = hinhThucThanhToanRepository.findByIdHoaDon_Id(hd.getId());
+                if (oldHttt != null && !oldHttt.isEmpty()) {
+                    hinhThucThanhToanRepository.deleteAll(oldHttt);
+                }
                 HinhThucThanhToan httt = new HinhThucThanhToan();
                 httt.setIdHoaDon(hd);
                 httt.setIdPhuongThuc(ptCk);
@@ -396,7 +419,7 @@ public class PaymentService {
             req.setSoTien(amount);
             req.setMaGiaoDich("VNPAY-" + (vnpTransNo != null ? vnpTransNo : System.currentTimeMillis()));
             req.setGhiChu("Thanh toán thành công qua cổng VNPAY (IPN)");
-            req.setPhuongThuc("VNPAY-QR");
+            req.setPhuongThuc("Chuyển khoản");
 
             return confirmPayment(req);
         } else {
@@ -421,27 +444,48 @@ public class PaymentService {
     }
 
     /**
-     * Tạo đường dẫn thanh toán qua cổng VNPAY Sandbox
+     * Tạo đường dẫn thanh toán qua cổng VNPAY Sandbox (mặc định VNPAYQR theo mẫu vnpay_jsp)
      */
     public String createVNPayPaymentUrl(String maHoaDon, BigDecimal amount, String ipAddress) {
+        return createVNPayPaymentUrl(maHoaDon, amount, "VNPAYQR", ipAddress);
+    }
+
+    /**
+     * Tạo đường dẫn thanh toán qua cổng VNPAY Sandbox theo chuẩn mẫu vnpay_jsp (Config.java & ajaxServlet.java)
+     */
+    public String createVNPayPaymentUrl(String maHoaDon, BigDecimal amount, String bankCode, String ipAddress) {
         try {
             long vnpAmount = (amount != null ? amount.max(BigDecimal.ZERO) : BigDecimal.ZERO)
                     .multiply(BigDecimal.valueOf(100)).longValue();
             String cleanCode = (maHoaDon != null) ? maHoaDon.replaceAll("[^a-zA-Z0-9_-]", "") : "POS";
             String vnpTxnRef = cleanCode + "_" + System.currentTimeMillis();
 
+            // Chuẩn hóa địa chỉ IP: VNPAY yêu cầu định dạng IPv4 (IPv6 như 0:0:0:0:0:0:0:1 sẽ bị từ chối)
+            String cleanIp = "127.0.0.1";
+            if (ipAddress != null && !ipAddress.trim().isEmpty() && !ipAddress.contains(":")) {
+                cleanIp = ipAddress.trim();
+            }
+
+            String activeTmnCode = (vnpTmnCode != null && !vnpTmnCode.trim().isEmpty()) ? vnpTmnCode.trim() : VNP_TMN_CODE;
+            String activeHashSecret = (vnpHashSecret != null && !vnpHashSecret.trim().isEmpty()) ? vnpHashSecret.trim() : VNP_HASH_SECRET;
+            String activePayUrl = (vnpPayUrl != null && !vnpPayUrl.trim().isEmpty()) ? vnpPayUrl.trim() : VNP_PAY_URL;
+            String activeReturnUrl = (vnpReturnUrl != null && !vnpReturnUrl.trim().isEmpty()) ? vnpReturnUrl.trim() : "http://localhost:5173/ban-hang";
+
             Map<String, String> vnpParams = new HashMap<>();
             vnpParams.put("vnp_Version", "2.1.0");
             vnpParams.put("vnp_Command", "pay");
-            vnpParams.put("vnp_TmnCode", VNP_TMN_CODE);
+            vnpParams.put("vnp_TmnCode", activeTmnCode);
             vnpParams.put("vnp_Amount", String.valueOf(vnpAmount));
             vnpParams.put("vnp_CurrCode", "VND");
+            if (bankCode != null && !bankCode.trim().isEmpty() && !"ALL".equalsIgnoreCase(bankCode)) {
+                vnpParams.put("vnp_BankCode", bankCode.trim());
+            }
             vnpParams.put("vnp_TxnRef", vnpTxnRef);
             vnpParams.put("vnp_OrderInfo", "Thanh toan hoa don " + cleanCode);
             vnpParams.put("vnp_OrderType", "other");
             vnpParams.put("vnp_Locale", "vn");
-            vnpParams.put("vnp_ReturnUrl", "http://localhost:5173/ban-hang");
-            vnpParams.put("vnp_IpAddr", ipAddress != null && !ipAddress.isEmpty() ? ipAddress : "127.0.0.1");
+            vnpParams.put("vnp_ReturnUrl", activeReturnUrl);
+            vnpParams.put("vnp_IpAddr", cleanIp);
 
             Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
             SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
@@ -470,11 +514,11 @@ public class PaymentService {
                 }
             }
             String queryUrl = query.toString();
-            String vnpSecureHash = hmacSHA512(VNP_HASH_SECRET, hashData.toString());
+            String vnpSecureHash = hmacSHA512(activeHashSecret, hashData.toString());
             queryUrl += "&vnp_SecureHash=" + vnpSecureHash;
-            return VNP_PAY_URL + "?" + queryUrl;
+            return activePayUrl + "?" + queryUrl;
         } catch (Exception ex) {
-            return VNP_PAY_URL;
+            return (vnpPayUrl != null && !vnpPayUrl.trim().isEmpty()) ? vnpPayUrl.trim() : VNP_PAY_URL;
         }
     }
 

@@ -25,6 +25,8 @@ public class PaymentInfoResponse {
     private String maGiaoDich;
     private String qrCodeUrl;
     private String vnpayUrl;
+    private String vnpayQrUrl;
+    private String vietQrUrl;
     private Boolean daThanhToan;
     private Instant thoiGianTao;
 }

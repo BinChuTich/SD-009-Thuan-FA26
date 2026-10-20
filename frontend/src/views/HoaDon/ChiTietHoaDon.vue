@@ -338,7 +338,8 @@ const voucherDisplayName = computed(() => {
 // Danh sách chi tiết các khoản thanh toán (dành cho thanh toán kết hợp trên màn hình & mẫu in)
 const printSubTransactions = computed(() => {
   const trans = invoiceData.value?.paymentHistory?.transactions
-  if (Array.isArray(trans) && trans.length > 1) {
+  const curMethod = String(invoiceData.value?.paymentHistory?.method || '')
+  if (curMethod.toLowerCase().includes('kết hợp') && Array.isArray(trans) && trans.length > 1) {
     // Sắp xếp chuyển khoản lên trước, tiền mặt phía sau giống ảnh mẫu
     return [...trans]
       .sort((a, b) => {
@@ -922,8 +923,42 @@ const loadDetail = async (identifier) => {
           time: formatDateTime(p.thoiGian),
           code: p.maGiaoDich || ''
         }))
-        if (paymentTransactions.length > 1) {
+        const validTrans = paymentTransactions.filter(p => Number(p.amount) > 0)
+        const targetList = validTrans.length > 0 ? validTrans : paymentTransactions
+
+        const hasCash = targetList.some(p => {
+          const m = (p.method || '').toLowerCase()
+          return m.includes('tiền mặt') || m.includes('tien mat')
+        })
+        const hasTransfer = targetList.some(p => {
+          const m = (p.method || '').toLowerCase()
+          return m.includes('chuyển khoản') || m.includes('ngân hàng') || m.includes('chuyen khoan') || m.includes('vnpay')
+        })
+
+        const transferFull = targetList.some(p => {
+          const m = (p.method || '').toLowerCase()
+          const isCk = m.includes('chuyển khoản') || m.includes('ngân hàng') || m.includes('chuyen khoan') || m.includes('vnpay')
+          return isCk && (Number(p.amount) >= totalPayment * 0.95 || (targetList.length >= 2 && Number(p.amount) === Number(targetList[0].amount)))
+        })
+        const noteStr = String(data['ghiChu'] || data['note'] || '').toLowerCase()
+        const isExplicitCombinedNote = noteStr.includes('thanh toán kết hợp')
+        const rawPt = String(data['phuongThucThanhToan'] || data['hinhThucThanhToan'] || '').toLowerCase()
+
+        if (transferFull && !isExplicitCombinedNote && !rawPt.includes('kết hợp')) {
+          paymentMethodResolved = 'Chuyển khoản'
+        } else if (hasCash && hasTransfer && (isExplicitCombinedNote || rawPt.includes('kết hợp'))) {
           paymentMethodResolved = 'Kết hợp'
+        }
+
+        else if (hasTransfer) {
+          paymentMethodResolved = 'Chuyển khoản'
+        } else if (hasCash) {
+          paymentMethodResolved = 'Tiền mặt'
+        } else if (targetList.length > 0) {
+          { paymentMethodResolved = targetList[0].method || 'Chuyển khoản'
+        }
+
+
         }
       }
     } catch (e) {
@@ -1691,7 +1726,7 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- Cột Mã QR Hóa Đơn -->
-        <div class="meta-info-col col-qr">
+        <div class="meta-info-col col-qr" v-if="false">
           <div
             class="meta-qr-container"
             :title="'Nhấp để tải mã QR hóa đơn ' + (invoiceData.code || '') + ' về máy'"
@@ -2424,7 +2459,8 @@ onBeforeUnmount(() => {
                 </div>
               </template>
             </div>
-            <div class="print-payment-qr">
+            <!-- Bỏ mã QR ở phần in hóa đơn -->
+            <div class="print-payment-qr" v-if="false">
               <img
                 :src="invoiceQrDataUrl"
                 alt="Mã QR Hóa Đơn"
@@ -2702,7 +2738,7 @@ onBeforeUnmount(() => {
 
 .meta-info-grid {
   display: grid;
-  grid-template-columns: 1.15fr 1fr 1fr auto;
+  grid-template-columns: 1.15fr 1fr 1fr;
   align-items: center;
   gap: 0;
 }
@@ -4327,7 +4363,7 @@ onBeforeUnmount(() => {
   color: #0f172a;
 }
 
-.print-payment-qr {
+.print-payment-qr { display: none !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4352,7 +4388,7 @@ onBeforeUnmount(() => {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 10mm 15mm;
+    margin: 8mm 12mm 10mm 12mm;
   }
 
   /* Reset trang chi tiết để hóa đơn chiếm toàn bộ khổ giấy in */
@@ -4377,8 +4413,18 @@ onBeforeUnmount(() => {
   .modal-backdrop,
   .sidebar,
   .top-header,
-  header {
+  header,
+  .chi-tiet-page > *:not(.printable-invoice) {
     display: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .unused-dummy-hide {
+    display: flex;
     visibility: hidden !important;
   }
 
@@ -4397,10 +4443,11 @@ onBeforeUnmount(() => {
   }
 
   .print-header-top {
+    margin-bottom: 8px !important;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 14px;
+    /* compact header */
   }
 
   .print-brand-badge-row {
@@ -4462,6 +4509,7 @@ onBeforeUnmount(() => {
   }
 
   .print-divider {
+    margin: 8px 0 10px 0 !important;
     height: 2px;
     background-color: #111827 !important;
     margin: 12px 0 16px 0;
@@ -4470,6 +4518,7 @@ onBeforeUnmount(() => {
   }
 
   .print-info-grid {
+    margin-bottom: 10px !important;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
@@ -4522,6 +4571,7 @@ onBeforeUnmount(() => {
   }
 
   .print-table {
+    margin-bottom: 10px !important;
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 18px;
@@ -4550,6 +4600,7 @@ onBeforeUnmount(() => {
   }
 
   .print-bottom-summary {
+    margin-bottom: 12px !important;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -4659,7 +4710,7 @@ onBeforeUnmount(() => {
     print-color-adjust: exact !important;
   }
 
-  .print-payment-qr {
+  .print-payment-qr { display: none !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -4725,6 +4776,7 @@ onBeforeUnmount(() => {
 
   /* Khối chữ ký */
   .print-signatures-row {
+    margin-top: 10px !important;
     display: flex;
     justify-content: space-around;
     text-align: center;
@@ -4753,7 +4805,7 @@ onBeforeUnmount(() => {
   }
 
   .sig-space {
-    height: 60px;
+    height: 40px;
   }
 
   .sig-name {
@@ -4764,7 +4816,7 @@ onBeforeUnmount(() => {
 
   /* Lời cảm ơn và chính sách */
   .print-footer-notes {
-    margin-top: 28px;
+    margin-top: 14px;
     text-align: center;
     border-top: 1px dashed #d1d5db;
     padding-top: 14px;

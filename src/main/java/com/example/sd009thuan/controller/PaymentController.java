@@ -76,17 +76,26 @@ public class PaymentController {
     }
 
     /**
-     * Tạo link thanh toán qua cổng VNPAY
+     * Tạo link thanh toán qua cổng VNPAY (theo chuẩn vnpay_jsp)
      */
     @GetMapping("/vnpay/create-url")
     public ResponseEntity<java.util.Map<String, String>> createVNPayUrl(
             @RequestParam(name = "maHoaDon") String maHoaDon,
             @RequestParam(name = "soTien", required = false, defaultValue = "0") BigDecimal soTien,
+            @RequestParam(name = "bankCode", required = false, defaultValue = "") String bankCode,
             jakarta.servlet.http.HttpServletRequest request
     ) {
         String ip = request.getRemoteAddr();
-        String url = paymentService.createVNPayPaymentUrl(maHoaDon, soTien, ip);
+        String url = paymentService.createVNPayPaymentUrl(maHoaDon, soTien, bankCode, ip);
         return ResponseEntity.ok(java.util.Map.of("url", url));
+    }
+
+    /**
+     * Xử lý kết quả trả về từ VNPAY (return URL)
+     */
+    @GetMapping("/vnpay/payment-return")
+    public ResponseEntity<PaymentStatusResponse> handleVNPayReturn(@RequestParam java.util.Map<String, String> allParams) {
+        return ResponseEntity.ok(paymentService.processVNPayIpn(allParams));
     }
 
     /**
