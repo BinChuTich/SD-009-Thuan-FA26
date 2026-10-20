@@ -242,6 +242,8 @@ CREATE TABLE giao_ca (
     tien_chi_trong_ca DECIMAL(18,2) NOT NULL DEFAULT 0,
     tien_thuc_te_kiem_duoc DECIMAL(18,2) NOT NULL DEFAULT 0,
     tien_chenh_lech DECIMAL(18,2) NOT NULL DEFAULT 0,
+    tien_chuyen_khoan DECIMAL(18,2) DEFAULT 0,
+    ly_do_chenh_lech NVARCHAR(500) NULL,
     ghi_chu NVARCHAR(MAX),
     trang_thai INT NOT NULL DEFAULT 1,
     CONSTRAINT FK_gc_nv_giao FOREIGN KEY (id_nhan_vien_giao) REFERENCES nhan_vien(id),

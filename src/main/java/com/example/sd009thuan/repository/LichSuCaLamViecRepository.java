@@ -19,8 +19,9 @@ public interface LichSuCaLamViecRepository extends JpaRepository<LichSuCaLamViec
            "(:keyword IS NULL OR LOWER(l.nhanVien.tenTaiKhoan) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "                  OR LOWER(l.nhanVien.tenNhanVien) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "                  OR LOWER(l.nhanVien.maNhanVien) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "                  OR LOWER(l.caLamViec.maCa) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "                  OR LOWER(l.caLamViec.tenCa) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "                  OR (l.maGiaoCa IS NOT NULL AND LOWER(l.maGiaoCa) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+           "                  OR (l.lichLamViec IS NOT NULL AND LOWER(l.lichLamViec.caLamViec.maCa) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+           "                  OR (l.lichLamViec IS NOT NULL AND LOWER(l.lichLamViec.caLamViec.tenCa) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
            "                  OR EXISTS (SELECT 1 FROM HoaDon hd WHERE hd.idNhanVien.id = l.nhanVien.id AND LOWER(hd.maHoaDon) LIKE LOWER(CONCAT('%', :keyword, '%')))) " +
            "AND (:fromDate IS NULL OR l.thoiGianMoCa >= :fromDate) " +
            "AND (:toDate IS NULL OR l.thoiGianMoCa <= :toDate) " +

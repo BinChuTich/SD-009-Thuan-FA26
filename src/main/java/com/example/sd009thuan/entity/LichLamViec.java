@@ -31,26 +31,24 @@ public class LichLamViec {
 
     @NotNull
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "id_ca_lam_viec", nullable = false)
+    @JoinColumn(name = "id_ca_lam", nullable = false)
     private CaLamViec caLamViec;
 
     @NotNull
     @JsonFormat(pattern = "yyyy-MM-dd")
-    @Column(name = "ngay_lam_viec", nullable = false)
+    @Column(name = "ngay", nullable = false)
     private LocalDate ngayLamViec;
 
-    @Size(max = 255)
-    @Nationalized
-    @Column(name = "ghi_chu", length = 255)
+    @Transient
     private String ghiChu;
 
     @Column(name = "trang_thai")
     private Integer trangThai = 1; // 1: Phân ca, 0: Hủy ca
 
-    @Column(name = "ngay_tao")
+    @Transient
     private LocalDateTime ngayTao;
 
-    @Column(name = "ngay_cap_nhat")
+    @Transient
     private LocalDateTime ngayCapNhat;
 
     public LichLamViec() {

@@ -97,7 +97,7 @@
             <select v-model="filters.trangThai" class="form-control-minimal" @change="loadHistory">
               <option value="">Tất cả</option>
               <option value="1">Đang mở</option>
-              <option value="2">Đã đóng</option>
+              <option value="0">Đã đóng</option>
             </select>
           </div>
         </div>
@@ -200,7 +200,7 @@
 
               <!-- Cột 7: CHÊNH LỆCH -->
               <td style="text-align: right">
-                <div v-if="item.trangThai === 2" class="diff-amount-wrap">
+                <div v-if="item.trangThai === 0 || item.trangThai === 2" class="diff-amount-wrap">
                   <span
                     class="diff-badge"
                     :class="Number(item.chenhLech || 0) === 0 ? 'diff-zero' : 'diff-warn'"

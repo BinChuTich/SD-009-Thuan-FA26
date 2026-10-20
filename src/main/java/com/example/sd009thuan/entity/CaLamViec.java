@@ -16,7 +16,7 @@ import java.time.LocalTime;
 @Getter
 @Setter
 @Entity
-@Table(name = "ca_lam_viec")
+@Table(name = "ca_lam")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class CaLamViec {
     @Id
@@ -25,7 +25,7 @@ public class CaLamViec {
     private Long id;
 
     @Size(max = 50)
-    @Column(name = "ma_ca", length = 50, nullable = false, unique = true)
+    @Column(name = "ma_ca", length = 50, unique = true)
     private String maCa;
 
     @Size(max = 100)
@@ -44,18 +44,17 @@ public class CaLamViec {
     @Column(name = "gio_ket_thuc", nullable = false)
     private LocalTime gioKetThuc;
 
-    @Size(max = 255)
     @Nationalized
-    @Column(name = "mo_ta", length = 255)
+    @Column(name = "mo_ta")
     private String moTa;
 
     @Column(name = "trang_thai")
     private Integer trangThai = 1; // 1: Đang hoạt động, 0: Ngừng hoạt động
 
-    @Column(name = "ngay_tao")
+    @Transient
     private LocalDateTime ngayTao;
 
-    @Column(name = "ngay_cap_nhat")
+    @Transient
     private LocalDateTime ngayCapNhat;
 
     public CaLamViec() {

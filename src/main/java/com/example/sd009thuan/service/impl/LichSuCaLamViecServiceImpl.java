@@ -26,6 +26,7 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
     private final LichSuCaLamViecRepository repository;
     private final NhanVienRepository nhanVienRepository;
     private final CaLamViecRepository caLamViecRepository;
+    private final LichLamViecRepository lichLamViecRepository;
     private final HoaDonRepository hoaDonRepository;
     private final HinhThucThanhToanRepository hinhThucThanhToanRepository;
 
@@ -33,11 +34,13 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
             LichSuCaLamViecRepository repository,
             NhanVienRepository nhanVienRepository,
             CaLamViecRepository caLamViecRepository,
+            LichLamViecRepository lichLamViecRepository,
             HoaDonRepository hoaDonRepository,
             HinhThucThanhToanRepository hinhThucThanhToanRepository) {
         this.repository = repository;
         this.nhanVienRepository = nhanVienRepository;
         this.caLamViecRepository = caLamViecRepository;
+        this.lichLamViecRepository = lichLamViecRepository;
         this.hoaDonRepository = hoaDonRepository;
         this.hinhThucThanhToanRepository = hinhThucThanhToanRepository;
     }
@@ -53,7 +56,12 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
         LocalDateTime toDT = toDate != null ? toDate.atTime(LocalTime.MAX) : null;
         String kw = (keyword != null && !keyword.trim().isEmpty()) ? keyword.trim() : null;
 
-        return repository.searchHistory(kw, fromDT, toDT, trangThai, pageable);
+        Integer dbTrangThai = trangThai;
+        if (trangThai != null && trangThai == 2) {
+            dbTrangThai = 0;
+        }
+
+        return repository.searchHistory(kw, fromDT, toDT, dbTrangThai, pageable);
     }
 
     @Override
@@ -83,21 +91,36 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
         // Kiểm tra xem nhân viên đã có ca đang mở chưa
         Optional<LichSuCaLamViec> current = repository.findTopByNhanVienIdAndTrangThaiOrderByThoiGianMoCaDesc(nv.getId(), 1);
         if (current.isPresent()) {
-            throw new IllegalArgumentException("Nhân viên đang có ca '" + current.get().getCaLamViec().getTenCa() + "' đang mở chưa đóng. Vui lòng đóng ca trước khi mở ca mới!");
+            String tenCa = current.get().getCaLamViec() != null ? current.get().getCaLamViec().getTenCa() : "hiện tại";
+            throw new IllegalArgumentException("Nhân viên đang có ca '" + tenCa + "' đang mở chưa đóng. Vui lòng đóng ca trước khi mở ca mới!");
         }
 
         LichSuCaLamViec ls = new LichSuCaLamViec();
         ls.setNhanVien(nv);
         ls.setCaLamViec(ca);
+
+        // Nối vào lịch làm việc trong ngày (nếu có hoặc tạo mới để liên kết ca)
+        LichLamViec llv = lichLamViecRepository
+                .findByNhanVienIdAndCaLamViecIdAndNgayLamViec(nv.getId(), ca.getId(), LocalDate.now())
+                .orElseGet(() -> {
+                    LichLamViec newLlv = new LichLamViec();
+                    newLlv.setNhanVien(nv);
+                    newLlv.setCaLamViec(ca);
+                    newLlv.setNgayLamViec(LocalDate.now());
+                    newLlv.setTrangThai(1);
+                    return lichLamViecRepository.save(newLlv);
+                });
+        ls.setLichLamViec(llv);
+        ls.setMaGiaoCa("GC" + (System.currentTimeMillis() % 1000000));
         ls.setThoiGianMoCa(LocalDateTime.now());
         ls.setTienMatDauCa(req.getTienMatDauCa());
         ls.setTienMatCuoiCa(null);
         ls.setTienChuyenKhoan(BigDecimal.ZERO);
         ls.setTongTienTrongCa(BigDecimal.ZERO);
+        ls.setTienChiTrongCa(BigDecimal.ZERO);
         ls.setChenhLech(BigDecimal.ZERO);
-        ls.setTrangThai(1); // 1 = Đang mở
+        ls.setTrangThai(1); // 1 = Đang mở (trong ca)
         ls.setGhiChu(req.getGhiChu());
-        ls.setNgayTao(LocalDateTime.now());
 
         return repository.save(ls);
     }
@@ -110,7 +133,7 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
         LichSuCaLamViec ls = repository.findById(req.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thông tin ca cần đóng với ID: " + req.getId()));
 
-        if (ls.getTrangThai() == 2) {
+        if (ls.getTrangThai() != null && ls.getTrangThai() == 0) {
             throw new IllegalArgumentException("Ca làm việc này đã được đóng trước đó!");
         }
 
@@ -147,7 +170,7 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
             ls.setLyDoChenhLech(req.getLyDoChenhLech());
         }
 
-        ls.setTrangThai(2); // 2 = Đã đóng
+        ls.setTrangThai(0); // 0 = Đã đóng (Đã kết thúc / giao ca)
         if (req.getGhiChu() != null) {
             ls.setGhiChu(req.getGhiChu());
         }
