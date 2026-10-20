@@ -139,32 +139,24 @@ public class NhanVienController {
     public NhanVienResponse updateMultipart(
             @PathVariable Long id,
             @RequestPart("data") NhanVienRequest req,
-            @RequestPart(value = "file", required = false) MultipartFile file,
-            @RequestHeader(value = "X-Current-User-Id", required = false) Long currentUserId) {
-        return service.update(id, req, file, currentUserId);
+            @RequestPart(value = "file", required = false) MultipartFile file) {
+        return service.update(id, req, file);
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public NhanVienResponse updateJson(
-            @PathVariable Long id,
-            @RequestBody NhanVienRequest req,
-            @RequestHeader(value = "X-Current-User-Id", required = false) Long currentUserId) {
-        return service.update(id, req, null, currentUserId);
+    public NhanVienResponse updateJson(@PathVariable Long id, @RequestBody NhanVienRequest req) {
+        return service.update(id, req, null);
     }
 
     @PatchMapping("/{id}/toggle-status")
-    public ResponseEntity<Void> toggle(
-            @PathVariable Long id,
-            @RequestHeader(value = "X-Current-User-Id", required = false) Long currentUserId) {
-        service.toggleStatus(id, currentUserId);
+    public ResponseEntity<Void> toggle(@PathVariable Long id) {
+        service.toggleStatus(id);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(
-            @PathVariable Long id,
-            @RequestHeader(value = "X-Current-User-Id", required = false) Long currentUserId) {
-        service.deactivate(id, currentUserId);
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        service.deactivate(id);
         return ResponseEntity.noContent().build();
     }
 

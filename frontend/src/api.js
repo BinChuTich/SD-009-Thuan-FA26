@@ -9,21 +9,4 @@ const api = axios.create({
   baseURL: backendOrigin
 })
 
-// Tự động đính kèm thông tin tài khoản người dùng đang đăng nhập vào request headers
-api.interceptors.request.use((config) => {
-  try {
-    const raw = localStorage.getItem('ff_current_user')
-    if (raw) {
-      const user = JSON.parse(raw)
-      if (user && user.id != null) {
-        config.headers['X-Current-User-Id'] = String(user.id)
-      }
-      if (user && user.tenTaiKhoan) {
-        config.headers['X-Current-User-Account'] = user.tenTaiKhoan
-      }
-    }
-  } catch (e) {}
-  return config
-})
-
 export default api

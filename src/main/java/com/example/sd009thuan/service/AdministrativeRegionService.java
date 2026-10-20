@@ -16,10 +16,6 @@ import java.util.regex.Pattern;
 /**
  * Service xác thực địa giới hành chính Việt Nam (chuẩn 34 Tỉnh / Thành phố sau sáp nhập 2025)
  * Dữ liệu đồng bộ theo https://provinces.open-api.vn/api/v2/
- * Quy tắc nghiêm ngặt:
- *  - Bắt buộc phải có tiền tố chuẩn ("Tỉnh ", "Thành phố ", "Phường ", "Xã ", "Thị trấn ")
- *  - Không chấp nhận viết tắt ("TP.", "P.", "X.", "TT.") hoặc thiếu tiền tố ("Hà Nội", "Ba Đình")
- *  - Phải kiểm tra tính đồng bộ và trực thuộc (Phường/Xã phải thực sự thuộc Tỉnh/Thành phố đó)
  */
 @Service
 public class AdministrativeRegionService {
@@ -29,11 +25,7 @@ public class AdministrativeRegionService {
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     private List<ProvinceDto> provinces = new ArrayList<>();
-    private final Map<String, ProvinceDto> provinceByName = new HashMap<>();
-    private final Map<String, ProvinceDto> provinceByCoreName = new HashMap<>();
     private final Map<String, ProvinceDto> normalizedProvinceIndex = new HashMap<>();
-    private final Set<String> allKnownWardNames = new HashSet<>();
-    private final Set<String> allKnownWardCoreNames = new HashSet<>();
 
     public record WardDto(
             Integer code,
@@ -75,25 +67,7 @@ public class AdministrativeRegionService {
             provinces = objectMapper.readValue(is, new TypeReference<List<ProvinceDto>>() {});
             for (ProvinceDto p : provinces) {
                 if (p.name() != null) {
-                    String raw = p.name().trim();
-                    provinceByName.put(raw.toLowerCase(), p);
-                    String core = extractCoreProvinceName(raw).toLowerCase();
-                    if (!core.isBlank()) {
-                        provinceByCoreName.put(core, p);
-                    }
-                    normalizedProvinceIndex.put(normalize(raw), p);
-                }
-                if (p.wards() != null) {
-                    for (WardDto w : p.wards()) {
-                        if (w.name() != null) {
-                            String wRaw = w.name().trim();
-                            allKnownWardNames.add(wRaw.toLowerCase());
-                            String wCore = extractCoreWardName(wRaw).toLowerCase();
-                            if (!wCore.isBlank()) {
-                                allKnownWardCoreNames.add(wCore);
-                            }
-                        }
-                    }
+                    normalizedProvinceIndex.put(normalize(p.name()), p);
                 }
             }
             int totalWards = provinces.stream().mapToInt(p -> p.wards() != null ? p.wards().size() : 0).sum();
@@ -127,128 +101,89 @@ public class AdministrativeRegionService {
     }
 
     /**
-     * Kiểm tra tên Tỉnh / Thành phố có bắt đầu bằng tiền tố chuẩn ("Tỉnh ", "Thành phố ") hay không
+     * Tìm Tỉnh / Thành phố từ tên người dùng nhập (hỗ trợ nhập có dấu, không dấu, có tiền tố, không tiền tố)
      */
-    public static boolean hasValidProvincePrefix(String name) {
-        if (name == null || name.isBlank()) return false;
-        String s = name.trim().toLowerCase();
-        return s.startsWith("thành phố ") || s.startsWith("tỉnh ");
-    }
-
-    /**
-     * Kiểm tra tên Tỉnh / Thành phố có bị viết tắt tiền tố ("TP.", "TP ", "T.", "T ") hay không
-     */
-    public static boolean hasAbbreviatedProvincePrefix(String name) {
-        if (name == null || name.isBlank()) return false;
-        String s = name.trim().toLowerCase();
-        return s.matches("^(?i)(tp\\.|tp\\s+|t\\.|t\\s+).*");
-    }
-
-    /**
-     * Tách phần tên riêng (lõi) của Tỉnh / Thành phố
-     */
-    public static String extractCoreProvinceName(String name) {
-        if (name == null) return "";
-        String s = name.trim();
-        String lower = s.toLowerCase();
-        if (lower.startsWith("thành phố ")) {
-            return s.substring(10).trim();
-        }
-        if (lower.startsWith("tỉnh ")) {
-            return s.substring(5).trim();
-        }
-        return s;
-    }
-
-    /**
-     * Kiểm tra tên Phường / Xã có bắt đầu bằng tiền tố chuẩn ("Phường ", "Xã ", "Thị trấn ", "Đặc khu ") hay không
-     */
-    public static boolean hasValidWardPrefix(String name) {
-        if (name == null || name.isBlank()) return false;
-        String s = name.trim().toLowerCase();
-        return s.startsWith("phường ") || s.startsWith("xã ")
-                || s.startsWith("thị trấn ") || s.startsWith("đặc khu ");
-    }
-
-    /**
-     * Kiểm tra tên Phường / Xã có bị viết tắt tiền tố ("P.", "P ", "X.", "X ", "TT.", "TT ") hay không
-     */
-    public static boolean hasAbbreviatedWardPrefix(String name) {
-        if (name == null || name.isBlank()) return false;
-        String s = name.trim().toLowerCase();
-        return s.matches("^(?i)(p\\.|p\\s+|x\\.|x\\s+|tt\\.|tt\\s+).*");
-    }
-
-    /**
-     * Tách phần tên riêng (lõi) của Phường / Xã
-     */
-    public static String extractCoreWardName(String name) {
-        if (name == null) return "";
-        String s = name.trim();
-        String lower = s.toLowerCase();
-        if (lower.startsWith("thị trấn ")) {
-            return s.substring(9).trim();
-        }
-        if (lower.startsWith("đặc khu ")) {
-            return s.substring(8).trim();
-        }
-        if (lower.startsWith("phường ")) {
-            return s.substring(7).trim();
-        }
-        if (lower.startsWith("xã ")) {
-            return s.substring(3).trim();
-        }
-        return s;
-    }
-
-    /**
-     * Tìm Tỉnh / Thành phố nghiêm ngặt (chỉ tìm khi đã có tiền tố chuẩn)
-     */
-    public ProvinceDto findProvinceStrict(String provinceName) {
+    public ProvinceDto findProvince(String provinceName) {
         if (provinceName == null || provinceName.isBlank() || provinces == null || provinces.isEmpty()) {
             return null;
         }
 
         String raw = provinceName.trim().toLowerCase();
-        String core = extractCoreProvinceName(provinceName).toLowerCase();
+        String norm = normalize(provinceName);
 
-        // 1. Khớp chính xác tên đầy đủ
-        if (provinceByName.containsKey(raw)) {
-            return provinceByName.get(raw);
+        // 1. Khớp chính xác tên gốc
+        for (ProvinceDto p : provinces) {
+            if (p.name() != null && p.name().trim().equalsIgnoreCase(raw)) {
+                return p;
+            }
         }
 
-        // 2. Khớp theo tên lõi (Ví dụ: "Tỉnh Bắc Ninh" khớp với "Thành phố Bắc Ninh")
-        if (!core.isBlank() && provinceByCoreName.containsKey(core)) {
-            return provinceByCoreName.get(core);
+        // 2. Khớp chuỗi đã chuẩn hóa
+        if (normalizedProvinceIndex.containsKey(norm)) {
+            return normalizedProvinceIndex.get(norm);
+        }
+
+        // 3. Khớp một phần chuỗi (chứa nhau)
+        for (ProvinceDto p : provinces) {
+            String pNorm = normalize(p.name());
+            if (!norm.isBlank() && !pNorm.isBlank()) {
+                if (norm.equals(pNorm) || norm.contains(pNorm) || pNorm.contains(norm)) {
+                    return p;
+                }
+            }
+        }
+
+        // 4. Khớp theo codename
+        for (ProvinceDto p : provinces) {
+            if (p.codename() != null && p.codename().equalsIgnoreCase(norm.replace(" ", "_"))) {
+                return p;
+            }
         }
 
         return null;
     }
 
     /**
-     * Tìm Phường / Xã nghiêm ngặt trong một Tỉnh / Thành phố
+     * Tìm Phường / Xã trong danh sách phường xã của một Tỉnh
      */
-    public WardDto findWardInProvinceStrict(ProvinceDto province, String wardName) {
+    public WardDto findWardInProvince(ProvinceDto province, String wardName) {
         if (province == null || province.wards() == null || wardName == null || wardName.isBlank()) {
             return null;
         }
 
         String raw = wardName.trim().toLowerCase();
-        String core = extractCoreWardName(wardName).toLowerCase();
+        String norm = normalize(wardName);
 
-        // 1. Khớp chính xác tên đầy đủ bao gồm tiền tố
+        // 1. Khớp chính xác tên gốc
         for (WardDto w : province.wards()) {
             if (w.name() != null && w.name().trim().equalsIgnoreCase(raw)) {
                 return w;
             }
         }
 
-        // 2. Khớp theo tên lõi trong cùng tỉnh
-        if (!core.isBlank()) {
+        // 2. Khớp theo tên chuẩn hóa hoàn toàn
+        for (WardDto w : province.wards()) {
+            String wNorm = normalize(w.name());
+            if (wNorm.equals(norm)) {
+                return w;
+            }
+        }
+
+        // 3. Khớp chứa nhau nếu chuỗi đủ dài (>= 3 ký tự)
+        if (norm.length() >= 3) {
             for (WardDto w : province.wards()) {
-                if (w.name() != null && extractCoreWardName(w.name()).equalsIgnoreCase(core)) {
+                String wNorm = normalize(w.name());
+                if (wNorm.length() >= 3 && (norm.contains(wNorm) || wNorm.contains(norm))) {
                     return w;
                 }
+            }
+        }
+
+        // 4. Khớp theo codename
+        String codeNorm = norm.replace(" ", "_");
+        for (WardDto w : province.wards()) {
+            if (w.codename() != null && w.codename().equalsIgnoreCase(codeNorm)) {
+                return w;
             }
         }
 
@@ -256,117 +191,35 @@ public class AdministrativeRegionService {
     }
 
     /**
-     * Kiểm tra xem Phường/Xã có tồn tại ở bất kỳ tỉnh thành nào khác trong hệ thống hay không
-     */
-    public boolean isWardKnownInOtherProvinces(String wardName) {
-        if (wardName == null || wardName.isBlank()) return false;
-        String raw = wardName.trim().toLowerCase();
-        if (allKnownWardNames.contains(raw)) return true;
-        String core = extractCoreWardName(wardName).toLowerCase();
-        return !core.isBlank() && allKnownWardCoreNames.contains(core);
-    }
-
-    /**
-     * Kiểm tra tính hợp lệ của địa chỉ theo tiêu chuẩn nghiêm ngặt:
-     * 1. Tỉnh/Thành phố phải có tiền tố chuẩn ("Tỉnh ", "Thành phố "), không được viết tắt, không được thiếu tiền tố
-     * 2. Phường/Xã phải có tiền tố chuẩn ("Phường ", "Xã ", "Thị trấn "), không được viết tắt, không được thiếu tiền tố
-     * 3. Tính đồng bộ và trực thuộc (Mapping): Phường/Xã phải thực sự thuộc Tỉnh/Thành phố tương ứng
+     * Xác thực địa chỉ: kiểm tra Tỉnh/Thành phố có hợp lệ không và Phường/Xã có thuộc Tỉnh/Thành phố đó không
      */
     public AddressValidationResult validateAddress(String provinceName, String wardName) {
         List<String> errors = new ArrayList<>();
 
-        String pName = provinceName != null ? provinceName.trim() : "";
-        String wName = wardName != null ? wardName.trim() : "";
-
-        // 1. Kiểm tra Tỉnh / Thành phố
-        ProvinceDto matchedProvince = null;
-        if (pName.isBlank()) {
+        if (provinceName == null || provinceName.isBlank()) {
             errors.add("Tỉnh / Thành phố không được để trống");
-        } else if (hasValidProvincePrefix(pName)) {
-            matchedProvince = findProvinceStrict(pName);
-            if (matchedProvince == null) {
-                errors.add(String.format("Tỉnh / Thành phố '%s' không tồn tại trong danh mục địa chính hệ thống", pName));
-            }
-        } else if (hasAbbreviatedProvincePrefix(pName)) {
-            errors.add(String.format("Tỉnh / Thành phố '%s' viết tắt tiền tố. Vui lòng ghi đầy đủ tiền tố chuẩn 'Tỉnh' hoặc 'Thành phố' (ví dụ: 'Thành phố Hà Nội', 'Tỉnh Bắc Ninh')", pName));
-        } else {
-            errors.add(String.format("Tỉnh / Thành phố '%s' thiếu tiền tố chuẩn (phải bắt đầu bằng 'Tỉnh ' hoặc 'Thành phố ', ví dụ: 'Thành phố Hà Nội', 'Tỉnh Bắc Ninh')", pName));
         }
-
-        // 2. Kiểm tra Phường / Xã
-        WardDto matchedWard = null;
-        if (wName.isBlank()) {
+        if (wardName == null || wardName.isBlank()) {
             errors.add("Phường / Xã không được để trống");
-        } else if (hasValidWardPrefix(wName)) {
-            if (matchedProvince != null) {
-                matchedWard = findWardInProvinceStrict(matchedProvince, wName);
-                if (matchedWard == null) {
-                    if (isWardKnownInOtherProvinces(wName)) {
-                        errors.add(String.format("Phường / Xã '%s' không thuộc Tỉnh / Thành phố '%s'", wName, matchedProvince.name()));
-                    } else {
-                        errors.add(String.format("Phường / Xã '%s' không tồn tại trong hệ thống hoặc không thuộc Tỉnh / Thành phố '%s'", wName, matchedProvince.name()));
-                    }
-                }
-            } else {
-                if (!isWardKnownInOtherProvinces(wName)) {
-                    errors.add(String.format("Phường / Xã '%s' không tồn tại trong hệ thống", wName));
-                }
-            }
-        } else if (hasAbbreviatedWardPrefix(wName)) {
-            errors.add(String.format("Phường / Xã '%s' viết tắt tiền tố. Vui lòng ghi đầy đủ tiền tố chuẩn 'Phường', 'Xã' hoặc 'Thị trấn' (ví dụ: 'Phường Ba Đình', 'Xã Tiên Du')", wName));
-        } else {
-            errors.add(String.format("Phường / Xã '%s' thiếu tiền tố chuẩn (phải bắt đầu bằng 'Phường ', 'Xã ' hoặc 'Thị trấn ', ví dụ: 'Phường Ba Đình', 'Xã Tiên Du')", wName));
         }
 
         if (!errors.isEmpty()) {
             return AddressValidationResult.failure(errors);
         }
 
-        return AddressValidationResult.success(matchedProvince, matchedWard);
-    }
-
-    /**
-     * Tìm Tỉnh / Thành phố tương thích cũ (fallback)
-     */
-    public ProvinceDto findProvince(String provinceName) {
-        ProvinceDto p = findProvinceStrict(provinceName);
-        if (p != null) return p;
-
-        if (provinceName == null || provinceName.isBlank() || provinces == null || provinces.isEmpty()) {
-            return null;
+        ProvinceDto province = findProvince(provinceName);
+        if (province == null) {
+            errors.add(String.format("Tỉnh / Thành phố '%s' không tồn tại trong danh mục 34 tỉnh thành sau sáp nhập", provinceName));
+            return AddressValidationResult.failure(errors);
         }
 
-        String norm = normalize(provinceName);
-        if (normalizedProvinceIndex.containsKey(norm)) {
-            return normalizedProvinceIndex.get(norm);
+        WardDto ward = findWardInProvince(province, wardName);
+        if (ward == null) {
+            errors.add(String.format("Phường / Xã '%s' không thuộc Tỉnh / Thành phố '%s'", wardName, province.name()));
+            return AddressValidationResult.failure(errors);
         }
 
-        for (ProvinceDto item : provinces) {
-            String pNorm = normalize(item.name());
-            if (!norm.isBlank() && !pNorm.isBlank() && (norm.equals(pNorm) || norm.contains(pNorm) || pNorm.contains(norm))) {
-                return item;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Tìm Phường / Xã tương thích cũ (fallback)
-     */
-    public WardDto findWardInProvince(ProvinceDto province, String wardName) {
-        WardDto w = findWardInProvinceStrict(province, wardName);
-        if (w != null) return w;
-
-        if (province == null || province.wards() == null || wardName == null || wardName.isBlank()) {
-            return null;
-        }
-
-        String norm = normalize(wardName);
-        for (WardDto item : province.wards()) {
-            if (normalize(item.name()).equals(norm)) {
-                return item;
-            }
-        }
-        return null;
+        return AddressValidationResult.success(province, ward);
     }
 }
+

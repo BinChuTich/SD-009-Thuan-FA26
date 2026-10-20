@@ -189,20 +189,17 @@
                 </td>
                 <td style="text-align: center">
                   <div class="action-buttons">
-                    <!-- Bỏ nút switch khi là Quản trị viên (chỉ hiển thị cho Nhân viên thông thường) -->
                     <label
-                      v-if="!isAdmin(item)"
                       class="switch-toggle"
-                      :title="item.status === 'active' ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)'"
-                      @click.stop.prevent="toggleStatus(item)"
+                      :class="{ 'switch-self': isCurrentLoggedIn(item) }"
+                      :title="isCurrentLoggedIn(item) ? (item.status === 'active' ? 'Tài khoản đang đăng nhập (khóa sẽ đăng xuất)' : 'Tài khoản đang đăng nhập (nhấn để mở lại)') : (item.status === 'active' ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)')"
                     >
                       <input
                         type="checkbox"
                         :checked="item.status === 'active'"
-                        readonly
-                        tabindex="-1"
+                        @click.prevent="toggleStatus(item)"
                       />
-                      <span class="slider-round"></span>
+                      <span class="slider-round" :class="{ 'slider-self': isCurrentLoggedIn(item) }"></span>
                     </label>
                     <button
                       class="btn-circle-action btn-edit"
@@ -441,86 +438,6 @@
         </div>
       </div>
     </Teleport>
-
-    <!-- Modal Đồng Bộ Lịch Nhân Sự khi Ngừng hoạt động nhân viên -->
-    <Teleport to="body">
-      <div v-if="showSyncScheduleModal" class="modal-overlay" @click.self="showSyncScheduleModal = false">
-        <div class="modal-dialog modal-schedule-sync">
-          <div class="modal-header">
-            <div class="modal-title-with-icon">
-              <div class="modal-icon-badge warning">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                  <line x1="12" y1="9" x2="12" y2="13" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-              </div>
-              <h3 class="modal-title">Đồng Bộ Lịch Nhân Sự</h3>
-            </div>
-            <button type="button" class="btn-close-modal" @click="showSyncScheduleModal = false">✕</button>
-          </div>
-
-          <div class="modal-body">
-            <div class="sync-alert-notice">
-              Nhân viên <strong>{{ syncEmployeeTarget?.fullName }} ({{ syncEmployeeTarget?.code }})</strong> đang được phân công <strong>{{ syncAffectedShifts.length }} ca làm việc</strong> từ hôm nay trở đi. Việc ngừng hoạt động nhân viên này sẽ làm các ca này bị trống lịch!
-            </div>
-
-            <div class="affected-shifts-table-box">
-              <strong class="affected-title">Các ca bị ảnh hưởng trống lịch:</strong>
-              <div class="table-scroll-sync">
-                <table class="sync-table">
-                  <thead>
-                    <tr>
-                      <th style="width: 45px; text-align: center">STT</th>
-                      <th>NGÀY LÀM VIỆC</th>
-                      <th>CA LÀM VIỆC</th>
-                      <th style="text-align: center">KHUNG GIỜ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(s, idx) in syncAffectedShifts" :key="s.id">
-                      <td style="text-align: center">{{ idx + 1 }}</td>
-                      <td><strong>{{ formatDateVn(s.ngayLamViec) }}</strong></td>
-                      <td>{{ s.caLamViec?.tenCa }}</td>
-                      <td style="text-align: center">{{ formatTime(s.caLamViec?.gioBatDau) }} - {{ formatTime(s.caLamViec?.gioKetThuc) }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Chọn người thay thế -->
-            <div class="sync-replacement-box">
-              <label class="modal-field-label">Chọn nhân viên thay thế ngay:</label>
-              <select v-model="syncReplacementEmployeeId" class="sync-select">
-                <option value="">-- Chọn nhân viên thay thế (Đang hoạt động) --</option>
-                <option
-                  v-for="nv in activeReplacementCandidates"
-                  :key="nv.id"
-                  :value="nv.id"
-                >
-                  {{ nv.code }} - {{ nv.fullName }} ({{ nv.phone || 'Chưa có SĐT' }})
-                </option>
-              </select>
-            </div>
-          </div>
-
-          <div class="modal-footer">
-            <button type="button" class="btn-cancel" @click="showSyncScheduleModal = false">
-              Không
-            </button>
-            <button
-              type="button"
-              class="btn-submit-action btn-sync-confirm"
-              :disabled="!syncReplacementEmployeeId || syncingReplacement"
-              @click="submitSyncReplacement"
-            >
-              {{ syncingReplacement ? 'Đang thay thế...' : 'Có, thêm ngay' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
   </div>
 </template>
 
@@ -538,13 +455,6 @@ const roles = ref([])
 
 function isCurrentLoggedIn(emp) {
   return isCurrentLoggedInUser(emp)
-}
-
-function isAdmin(emp) {
-  if (!emp) return false
-  const roleName = (emp.role || emp.tenVaiTro || '').trim().toLowerCase()
-  const roleCode = (emp.maVaiTro || emp.idVaiTro?.maVaiTro || '').trim().toUpperCase()
-  return roleName.includes('quản trị') || roleCode === 'ADMIN' || isCurrentLoggedIn(emp)
 }
 const trangThaiOptions = [
   { value: '1', label: 'Hoạt động' },
@@ -666,19 +576,35 @@ function goToEdit(id) {
 }
 
 async function toggleStatus(item) {
-  const isSelf = isCurrentLoggedIn(item)
   const isLocking = item.status === 'active'
   const actionText = isLocking ? 'khóa tài khoản' : 'mở khóa tài khoản'
+  const isSelf = isCurrentLoggedIn(item)
 
-  // Ràng buộc bảo mật đối với Quản trị viên:
-  // Tuyệt đối không cho phép chuyển trạng thái 'Ngừng hoạt động' đối với tài khoản Quản trị viên
-  if (isAdmin(item)) {
-    showAlert({
-      title: 'Hành động không được phép',
-      message: 'Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản Quản trị viên',
-      type: 'warning'
+  if (isSelf && isLocking) {
+    const confirmed = await showConfirm({
+      title: 'Cảnh báo: Tài khoản đang đăng nhập!',
+      message: `Bạn đang thao tác khóa tài khoản của chính bạn đang đăng nhập (${item.fullName} - ${item.code}).\n\nSau khi khóa tài khoản này thành "Ngừng hoạt động", hệ thống sẽ LẬP TỨC ĐĂNG XUẤT phiên làm việc của bạn ra ngoài!\n\nBạn có chắc chắn muốn khóa tài khoản và đăng xuất ngay bây giờ không?`,
+      type: 'warning',
+      confirmText: 'Khóa tài khoản & Đăng xuất ngay',
+      cancelText: 'Hủy bỏ'
     })
-    return
+    if (!confirmed) return
+
+    try {
+      await api.patch(`/api/nhan-vien/${item.id}/toggle-status`)
+      showToast('Tài khoản đã bị khóa. Hệ thống đang tự động đăng xuất...', 'info')
+      setTimeout(() => {
+        logout()
+      }, 500)
+      return
+    } catch (e) {
+      showAlert({
+        title: 'Thao tác thất bại',
+        message: e?.response?.data?.message || 'Không thể thay đổi trạng thái nhân viên.',
+        type: 'error'
+      })
+      return
+    }
   }
 
   const confirmed = await showConfirm({
@@ -698,17 +624,6 @@ async function toggleStatus(item) {
     item.trangThai = isLocking ? 0 : 1
     if (isLocking) {
       selectedEmployeesMap.value.delete(item.id)
-
-      // Quét tự động các ca tương lai của nhân viên bị khóa (Đồng Bộ Lịch Nhân Sự)
-      try {
-        const syncRes = await api.get(`/api/lich-lam-viec/kiem-tra-dong-bo-nhan-vien/${item.id}`)
-        if (syncRes.data?.hasUpcomingShifts) {
-          syncEmployeeTarget.value = item
-          syncAffectedShifts.value = syncRes.data.shifts || []
-          syncReplacementEmployeeId.value = ''
-          showSyncScheduleModal.value = true
-        }
-      } catch (errSync) {}
     }
     showToast(`${isLocking ? 'Khóa' : 'Mở khóa'} nhân viên thành công!`, 'success')
   } catch (e) {
@@ -717,54 +632,6 @@ async function toggleStatus(item) {
       message: e?.response?.data?.message || 'Không thể thay đổi trạng thái nhân viên.',
       type: 'error'
     })
-  }
-}
-
-// Quản lý Modal Đồng Bộ Lịch Nhân Sự
-const showSyncScheduleModal = ref(false)
-const syncEmployeeTarget = ref(null)
-const syncAffectedShifts = ref([])
-const syncReplacementEmployeeId = ref('')
-const syncingReplacement = ref(false)
-
-const activeReplacementCandidates = computed(() => {
-  return employees.value.filter(e => e.status === 'active' && e.id !== syncEmployeeTarget.value?.id)
-})
-
-function formatDateVn(dStr) {
-  if (!dStr) return '--/--/----'
-  const parts = dStr.split('-')
-  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`
-  return dStr
-}
-
-function formatTime(t) {
-  if (!t) return '--:--'
-  if (typeof t === 'string' && t.includes(':')) {
-    const parts = t.split(':')
-    return `${parts[0]}:${parts[1]}`
-  }
-  return t
-}
-
-async function submitSyncReplacement() {
-  if (!syncReplacementEmployeeId.value) return
-  syncingReplacement.value = true
-  try {
-    await api.post('/api/lich-lam-viec/thay-the-nhan-vien', {
-      nhanVienCuId: syncEmployeeTarget.value.id,
-      nhanVienMoiId: Number(syncReplacementEmployeeId.value)
-    })
-    showToast('Đã thay thế nhân sự thành công cho toàn bộ các ca bị ảnh hưởng!', 'success')
-    showSyncScheduleModal.value = false
-  } catch (e) {
-    showAlert({
-      title: 'Lỗi thay thế nhân sự',
-      message: e?.response?.data?.message || 'Không thể thay thế nhân sự.',
-      type: 'error'
-    })
-  } finally {
-    syncingReplacement.value = false
   }
 }
 
@@ -2250,17 +2117,6 @@ onMounted(async () => {
   box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.35);
 }
 
-.switch-guard-locked {
-  cursor: not-allowed !important;
-  opacity: 0.8;
-}
-
-.switch-guard-locked .slider-round.slider-guard-locked {
-  cursor: not-allowed !important;
-  background-color: #8c7355 !important;
-  box-shadow: 0 0 0 2px rgba(140, 115, 85, 0.45);
-}
-
 .error-item {
   display: flex;
   align-items: flex-start;
@@ -2290,97 +2146,5 @@ onMounted(async () => {
 
 .btn-import-submit:hover:not(:disabled) {
   background-color: #2d4554;
-}
-
-/* Modal Đồng Bộ Lịch Nhân Sự */
-.modal-schedule-sync {
-  max-width: 580px;
-}
-
-.modal-icon-badge.warning {
-  background-color: #fef3c7;
-  color: #b45309;
-}
-
-.sync-alert-notice {
-  background-color: #fffbeb;
-  border: 1px solid #fef3c7;
-  color: #92400e;
-  font-size: 0.88rem;
-  line-height: 1.45;
-  padding: 10px 14px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-}
-
-.affected-shifts-table-box {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-
-.affected-title {
-  font-size: 0.86rem;
-  color: #1e293b;
-}
-
-.table-scroll-sync {
-  max-height: 180px;
-  overflow-y: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-}
-
-.sync-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.82rem;
-}
-
-.sync-table th {
-  background-color: #ddd3c5 !important;
-  color: #3b2f23;
-  padding: 8px 10px;
-  font-weight: 700;
-  text-align: left;
-  position: sticky;
-  top: 0;
-}
-
-.sync-table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid #f1ece5;
-}
-
-.sync-replacement-box {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.sync-select {
-  width: 100%;
-  height: 38px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 0 10px;
-  font-size: 0.88rem;
-  outline: none;
-  background-color: #ffffff;
-}
-
-.sync-select:focus {
-  border-color: #8c7355;
-  box-shadow: 0 0 0 3px rgba(140, 115, 85, 0.15);
-}
-
-.btn-sync-confirm {
-  background-color: #8c7355 !important;
-  color: #ffffff !important;
-}
-
-.btn-sync-confirm:hover:not(:disabled) {
-  background-color: #745e44 !important;
 }
 </style>

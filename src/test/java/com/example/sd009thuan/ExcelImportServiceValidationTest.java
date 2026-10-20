@@ -2,12 +2,12 @@ package com.example.sd009thuan;
 
 import com.example.sd009thuan.dto.ExcelImportResult;
 import com.example.sd009thuan.entity.VaiTro;
-import com.example.sd009thuan.repository.NhanVienRepository;
-import com.example.sd009thuan.repository.VaiTroRepository;
+import com.example.sd009thuan.repository.*;
 import com.example.sd009thuan.service.AdministrativeRegionService;
 import com.example.sd009thuan.service.EmailService;
 import com.example.sd009thuan.service.ExcelImportService;
 import com.example.sd009thuan.service.NhanVienService;
+import com.example.sd009thuan.service.SanPhamService;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -50,12 +50,20 @@ public class ExcelImportServiceValidationTest {
         when(roleRepo.findByMaVaiTroIgnoreCaseAndTrangThai("NV", 1)).thenReturn(Optional.of(roleNV));
 
         excelImportService = new ExcelImportService(
-                nhanVienRepo,
-                roleRepo,
-                nhanVienService,
-                emailService,
-                regionService,
-                null, null, null, null, null, null, null, null, null, null, null, null, null
+                nhanVienRepo, roleRepo, nhanVienService, emailService,
+                Mockito.mock(SanPhamRepository.class),
+                Mockito.mock(SanPhamService.class),
+                Mockito.mock(ChiTietSanPhamRepository.class),
+                Mockito.mock(HinhAnhRepository.class),
+                Mockito.mock(DanhMucRepository.class),
+                Mockito.mock(ThuongHieuRepository.class),
+                Mockito.mock(ChatLieuRepository.class),
+                Mockito.mock(CoAoRepository.class),
+                Mockito.mock(TayAoRepository.class),
+                Mockito.mock(XuatXuRepository.class),
+                Mockito.mock(HoaTietRepository.class),
+                Mockito.mock(MauSacRepository.class),
+                Mockito.mock(KichCoRepository.class)
         );
     }
 
@@ -128,53 +136,5 @@ public class ExcelImportServiceValidationTest {
             assertTrue(foundProvinceError, "Phải có lỗi tỉnh thành ở Dòng 3");
         }
     }
-
-    @Test
-    void testImportFailsWhenAddressLacksStandardPrefix() throws IOException {
-        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            Sheet sheet = workbook.createSheet("Employees");
-
-            Row header = sheet.createRow(0);
-            header.createCell(0).setCellValue("STT");
-            header.createCell(1).setCellValue("Họ và tên (*)");
-            header.createCell(2).setCellValue("Email (*)");
-            header.createCell(3).setCellValue("Số điện thoại (*)");
-            header.createCell(4).setCellValue("Giới tính");
-            header.createCell(5).setCellValue("Ngày sinh");
-            header.createCell(6).setCellValue("Tỉnh / Thành phố (*)");
-            header.createCell(7).setCellValue("Phường / Xã (*)");
-
-            // Dòng 2: Điền "Bắc Ninh" và "Hà Nội" thiếu tiền tố chuẩn như "Thành phố Bắc Ninh", "Tỉnh Bắc Ninh"
-            Row row1 = sheet.createRow(1);
-            row1.createCell(0).setCellValue(1);
-            row1.createCell(1).setCellValue("Trần Văn Test");
-            row1.createCell(2).setCellValue("tranvantest@gmail.com");
-            row1.createCell(3).setCellValue("0912999888");
-            row1.createCell(4).setCellValue("Nam");
-            row1.createCell(5).setCellValue("1995-05-05");
-            row1.createCell(6).setCellValue("Bắc Ninh"); // Thiếu tiền tố chuẩn "Thành phố" / "Tỉnh"
-            row1.createCell(7).setCellValue("Bắc Giang"); // Thiếu tiền tố chuẩn "Phường" / "Xã"
-
-            workbook.write(out);
-
-            MockMultipartFile file = new MockMultipartFile(
-                    "file",
-                    "test_missing_prefix.xlsx",
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    out.toByteArray()
-            );
-
-            ExcelImportResult result = excelImportService.importEmployees(file);
-
-            assertEquals(0, result.successCount(), "All-or-Nothing: Không được lưu khi thiếu tiền tố địa chính");
-            assertTrue(result.errorCount() >= 2, "Phải bắt lỗi cả tỉnh và phường thiếu tiền tố chuẩn");
-            boolean foundProvincePrefixError = result.errors().stream().anyMatch(e ->
-                    e.contains("Dòng 2") && e.contains("Bắc Ninh") && e.contains("thiếu tiền tố chuẩn"));
-            boolean foundWardPrefixError = result.errors().stream().anyMatch(e ->
-                    e.contains("Dòng 2") && e.contains("Bắc Giang") && e.contains("thiếu tiền tố chuẩn"));
-
-            assertTrue(foundProvincePrefixError, "Bắt buộc phải báo lỗi thiếu tiền tố chuẩn cho Bắc Ninh: " + result.errors());
-            assertTrue(foundWardPrefixError, "Bắt buộc phải báo lỗi thiếu tiền tố chuẩn cho Bắc Giang: " + result.errors());
-        }
-    }
 }
+

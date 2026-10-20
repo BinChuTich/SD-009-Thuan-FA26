@@ -4,6 +4,7 @@ import com.example.sd009thuan.entity.ChiTietSanPham;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -13,11 +14,11 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ChiTietSanPhamRepository extends JpaRepository<ChiTietSanPham, Long> {
+public interface ChiTietSanPhamRepository extends JpaRepository<ChiTietSanPham, Long>, JpaSpecificationExecutor<ChiTietSanPham> {
 
     List<ChiTietSanPham> findByIdSanPham_Id(Long idSanPham);
 
-    Optional<ChiTietSanPham> findByMaChiTietSanPham(String maChiTietSanPham);
+    Page<ChiTietSanPham> findByIdSanPham_Id(Long idSanPham, Pageable pageable);
 
     boolean existsByMaChiTietSanPham(String maChiTietSanPham);
 
@@ -26,17 +27,6 @@ public interface ChiTietSanPhamRepository extends JpaRepository<ChiTietSanPham, 
     boolean existsByIdMauSac_Id(Long idMauSac);
 
     boolean existsByIdKichCo_Id(Long idKichCo);
-
-    boolean existsByIdSanPham_IdAndIdKichCo_IdAndIdMauSac_Id(Long idSanPham, Long idKichCo, Long idMauSac);
-
-    boolean existsByIdSanPham_IdAndIdKichCo_IdAndIdMauSac_IdAndIdNot(Long idSanPham, Long idKichCo, Long idMauSac, Long id);
-
-    @Query("SELECT ct FROM ChiTietSanPham ct " +
-           "LEFT JOIN FETCH ct.idSanPham " +
-           "LEFT JOIN FETCH ct.idKichCo " +
-           "LEFT JOIN FETCH ct.idMauSac " +
-           "WHERE ct.id = :id")
-    Optional<ChiTietSanPham> findByIdWithDetails(@Param("id") Long id);
 
     Optional<ChiTietSanPham> findByIdSanPham_IdAndIdKichCo_IdAndIdMauSac_Id(Long idSanPham, Long idKichCo, Long idMauSac);
 
@@ -72,11 +62,4 @@ public interface ChiTietSanPhamRepository extends JpaRepository<ChiTietSanPham, 
             @Param("trangThai") Integer trangThai,
             Pageable pageable
     );
-
-    @Query("SELECT ct FROM ChiTietSanPham ct " +
-           "LEFT JOIN FETCH ct.idSanPham sp " +
-           "LEFT JOIN FETCH sp.idThuongHieu " +
-           "LEFT JOIN FETCH ct.idKichCo " +
-           "LEFT JOIN FETCH ct.idMauSac")
-    List<ChiTietSanPham> findAllWithProductDetails();
 }

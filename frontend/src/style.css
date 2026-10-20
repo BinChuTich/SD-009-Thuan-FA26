@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Fredoka:wght@600;700&display=swap');
 
 :root {
     --blue: #496883;
@@ -11,11 +11,11 @@
     --muted: #8a9292;
     --line: #e9e5db;
     --white: #fff;
-    --system-font: 'Inter', 'Roboto', 'Be Vietnam Pro', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --system-font: 'Be Vietnam Pro', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 .pagination-info {
-    font-family: var(--system-font);
+    font-family: 'Be Vietnam Pro', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 0.85rem;
     font-weight: 500;
     color: #555e65;
@@ -28,9 +28,6 @@
 
 html {
     font-size: 100%;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
 }
 
 body {
@@ -39,8 +36,6 @@ body {
     color: var(--text);
     font-family: var(--system-font);
     font-size: 11px;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
 }
 
 button, input, select {
