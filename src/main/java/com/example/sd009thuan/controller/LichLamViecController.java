@@ -5,6 +5,7 @@ import com.example.sd009thuan.dto.LichLamViecRequest;
 import com.example.sd009thuan.dto.ThayTheNhanVienRequest;
 import com.example.sd009thuan.service.LichLamViecService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -27,15 +28,13 @@ public class LichLamViecController {
 
     @GetMapping("/tuan")
     public ResponseEntity<?> getWeeklySchedule(
-            @RequestParam(required = false) String fromDate,
-            @RequestParam(required = false) String toDate
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
     ) {
-        LocalDate start = parseLocalDateSafe(fromDate);
-        LocalDate end = parseLocalDateSafe(toDate);
-        if (start != null && end != null && start.isAfter(end)) {
+        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
             return ResponseEntity.badRequest().body(Map.of("message", "Từ ngày không được lớn hơn Đến ngày!"));
         }
-        return ResponseEntity.ok(service.getWeeklySchedule(start, end));
+        return ResponseEntity.ok(service.getWeeklySchedule(fromDate, toDate));
     }
 
     @PostMapping

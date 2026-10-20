@@ -606,7 +606,18 @@ async function loadActiveData() {
       api.get('/api/ca-lam-viec', { params: { trangThai: 1 } }),
       api.get('/api/nhan-vien', { params: { trangThai: 1, size: 200 } })
     ])
-    activeShifts.value = shiftRes.data || []
+    const shiftData = Array.isArray(shiftRes.data) ? shiftRes.data : (shiftRes.data?.content || [])
+    activeShifts.value = shiftData.map(s => {
+      const start = s.gioBatDau || s.startTime || '00:00:00'
+      const end = s.gioKetThuc || s.endTime || '00:00:00'
+      return {
+        ...s,
+        gioBatDau: start,
+        gioKetThuc: end,
+        startTime: start,
+        endTime: end
+      }
+    })
     activeEmployees.value = empRes.data?.content || []
   } catch (e) {}
 }

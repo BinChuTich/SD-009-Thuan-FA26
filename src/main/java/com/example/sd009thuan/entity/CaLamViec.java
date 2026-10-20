@@ -2,6 +2,7 @@ package com.example.sd009thuan.entity;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -59,6 +60,16 @@ public class CaLamViec {
 
     public CaLamViec() {
         super();
+    }
+
+    @JsonProperty("startTime")
+    public String getStartTime() {
+        return gioBatDau != null ? gioBatDau.toString() : "00:00:00";
+    }
+
+    @JsonProperty("endTime")
+    public String getEndTime() {
+        return gioKetThuc != null ? gioKetThuc.toString() : "00:00:00";
     }
 }
 

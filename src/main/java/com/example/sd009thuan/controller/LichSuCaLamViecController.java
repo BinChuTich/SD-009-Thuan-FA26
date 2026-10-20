@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,25 +28,23 @@ public class LichSuCaLamViecController {
     @GetMapping
     public ResponseEntity<?> search(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String fromDate,
-            @RequestParam(required = false) String toDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(required = false) Integer trangThai,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        LocalDate from = parseLocalDateSafe(fromDate);
-        LocalDate to = parseLocalDateSafe(toDate);
-        if (from != null && to != null && from.isAfter(to)) {
+        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
             return ResponseEntity.badRequest().body(Map.of("message", "Từ ngày không được lớn hơn Đến ngày!"));
         }
         Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100));
-        Page<LichSuCaLamViec> result = service.searchHistory(keyword, from, to, trangThai, pageable);
+        Page<LichSuCaLamViec> result = service.searchHistory(keyword, fromDate, toDate, trangThai, pageable);
         return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/current/{nhanVienId}")
-    public ResponseEntity<?> getCurrentOpenShift(@PathVariable Long nhanVienId) {
-        return ResponseEntity.ok(service.getCurrentOpenShift(nhanVienId).orElse(null));
+    @GetMapping("/current/{id}")
+    public ResponseEntity<?> getCurrentOpenShift(@PathVariable("id") Long id) {
+        return ResponseEntity.ok(service.getCurrentOpenShift(id).orElse(null));
     }
 
     @GetMapping("/{id}/summary")

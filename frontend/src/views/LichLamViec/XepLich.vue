@@ -534,8 +534,21 @@ const allWeeklyAssignments = computed(() => {
 async function loadShifts() {
   try {
     const res = await api.get('/api/ca-lam-viec', { params: { trangThai: 1 } })
-    shifts.value = res.data || []
-  } catch (e) {}
+    const dataList = Array.isArray(res.data) ? res.data : (res.data?.content || [])
+    shifts.value = dataList.map(s => {
+      const start = s.gioBatDau || s.startTime || '00:00:00'
+      const end = s.gioKetThuc || s.endTime || '00:00:00'
+      return {
+        ...s,
+        gioBatDau: start,
+        gioKetThuc: end,
+        startTime: start,
+        endTime: end
+      }
+    })
+  } catch (e) {
+    shifts.value = []
+  }
 }
 
 async function loadActiveEmployees() {
