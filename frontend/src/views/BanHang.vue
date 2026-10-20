@@ -1381,7 +1381,22 @@ const checkPaymentStatus = async (isManual = true) => {
     if (res?.data?.daThanhToan) {
       currentInvoice.value.isTransferPaid = true
       currentInvoice.value.transferTransactionCode = res.data.maGiaoDich || `TRANS-${code}`
-      showToast(`✓ Đã nhận thanh toán chuyển khoản cho hóa đơn ${code}!`)
+      stopPaymentPolling()
+      const isKetHopCheck = currentInvoice.value.paymentMethod === 'KET_HOP'
+      if (!isKetHopCheck) {
+        currentInvoice.value.customerPay = finalTotal.value
+      }
+      const canAutoCheckout =
+        !isKetHopCheck ||
+        (Number(currentInvoice.value.cashAmount || 0) + Number(currentInvoice.value.transferAmount || 0) >= finalTotal.value)
+      if (canAutoCheckout && currentInvoice.value.cart.length > 0 && !isProcessing.value) {
+        showToast(`✓ Đã nhận tiền chuyển khoản thành công! Đang tự động thanh toán và in hóa đơn...`)
+        setTimeout(() => {
+          handleCheckout()
+        }, 500)
+      } else {
+        showToast(`✓ Đã nhận thanh toán chuyển khoản cho hóa đơn ${code}!`)
+      }
       stopPaymentPolling()
     } else {
       if (isManual) {
@@ -1399,6 +1414,10 @@ const checkPaymentStatus = async (isManual = true) => {
 
 // Xác nhận đã nhận tiền chuyển khoản trực tiếp (Khi khách chuyển thành công)
 const confirmTransferPaymentDirect = async () => {
+  if (currentInvoice.value && currentInvoice.value.cart.length === 0) {
+    showToast('Giỏ hàng trống! Vui lòng chọn sản phẩm trước khi thanh toán.', 'warning')
+    return
+  }
   if (!currentInvoice.value) return
   const code = currentInvoice.value.code
   const isKetHop = currentInvoice.value.paymentMethod === 'KET_HOP'
@@ -1414,12 +1433,40 @@ const confirmTransferPaymentDirect = async () => {
     })
     currentInvoice.value.isTransferPaid = true
     currentInvoice.value.transferTransactionCode = res?.data?.maGiaoDich || `TRANS-${code}`
-    showToast(`Đã xác nhận thanh toán chuyển khoản ${formatMoney(amt)} thành công!`)
+    stopPaymentPolling()
+    if (!isKetHop) {
+      currentInvoice.value.customerPay = finalTotal.value
+    }
+    const canAutoCheckoutDirect =
+      !isKetHop ||
+      (Number(currentInvoice.value.cashAmount || 0) + Number(currentInvoice.value.transferAmount || 0) >= finalTotal.value)
+    if (canAutoCheckoutDirect && !isProcessing.value) {
+      showToast(`✓ Đã nhận tiền chuyển khoản! Đang tự động thanh toán và in hóa đơn...`)
+      setTimeout(() => {
+        handleCheckout()
+      }, 500)
+    } else {
+      showToast(`Đã xác nhận thanh toán chuyển khoản ${formatMoney(amt)} thành công!`)
+    }
     stopPaymentPolling()
   } catch (err) {
     console.error('Lỗi khi xác nhận chuyển khoản:', err)
     currentInvoice.value.isTransferPaid = true
-    showToast(`Đã ghi nhận chuyển khoản cho hóa đơn ${code}!`)
+    stopPaymentPolling()
+    if (!isKetHop) {
+      currentInvoice.value.customerPay = finalTotal.value
+    }
+    const canAutoCheckoutDirectCatch =
+      !isKetHop ||
+      (Number(currentInvoice.value.cashAmount || 0) + Number(currentInvoice.value.transferAmount || 0) >= finalTotal.value)
+    if (canAutoCheckoutDirectCatch && !isProcessing.value) {
+      showToast(`✓ Đã ghi nhận chuyển khoản! Đang tự động thanh toán và in hóa đơn...`)
+      setTimeout(() => {
+        handleCheckout()
+      }, 500)
+    } else {
+      showToast(`Đã ghi nhận chuyển khoản cho hóa đơn ${code}!`)
+    }
     stopPaymentPolling()
   } finally {
     isConfirmingPayment.value = false
@@ -2241,8 +2288,9 @@ onMounted(async () => {
                     </div>
                     <span class="vnpay-hint-text">Quét bằng Ví VNPAY hoặc 40+ App ngân hàng</span>
 
-                    <div v-if="currentInvoice.isTransferPaid" class="vnpay-success-chip">
-                      ✓ Đã nhận thanh toán VNPAY thành công
+                    <div v-if="currentInvoice.isTransferPaid" class="vnpay-paid-actions">
+                      <div class="vnpay-success-chip">✓ Đã nhận thanh toán VNPAY thành công</div>
+                      <button type="button" class="btn-vnpay-print-direct" :disabled="isProcessing" @click="handleCheckout">🖨️ In hóa đơn</button>
                     </div>
                     <div v-else class="vnpay-action-btns">
                       <button
@@ -2303,8 +2351,9 @@ onMounted(async () => {
                   </div>
                   <span class="vnpay-hint-text">Quét bằng Ví VNPAY hoặc 40+ App ngân hàng</span>
 
-                  <div v-if="currentInvoice.isTransferPaid" class="vnpay-success-chip">
-                    ✓ Đã nhận thanh toán VNPAY thành công
+                  <div v-if="currentInvoice.isTransferPaid" class="vnpay-paid-actions">
+                    <div class="vnpay-success-chip">✓ Đã nhận thanh toán VNPAY thành công</div>
+                    <button type="button" class="btn-vnpay-print-direct" :disabled="isProcessing" @click="handleCheckout">🖨️ In hóa đơn</button>
                   </div>
                   <div v-else class="vnpay-action-btns">
                     <button
@@ -3634,6 +3683,38 @@ onMounted(async () => {
   font-size: 0.74rem;
   font-weight: 600;
   margin-top: 4px;
+}
+
+.vnpay-paid-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.btn-vnpay-print-direct {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #059669;
+  color: #ffffff;
+  border: 1px solid #059669;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-vnpay-print-direct:hover:not(:disabled) {
+  background: #047857;
+}
+
+.btn-vnpay-print-direct:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .vnpay-mini-spin {
