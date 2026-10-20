@@ -485,7 +485,7 @@ public class NhanVienService {
         emp.setNguoiCapNhat("system_forgot_password");
         repo.save(emp);
 
-        // Gửi email chứa thông tin tài khoản và mật khẩu mới
+
         try {
             emailService.sendResetPasswordEmail(
                     emp.getEmail(),
