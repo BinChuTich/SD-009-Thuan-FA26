@@ -382,10 +382,18 @@ async function loadShifts() {
   loading.value = true
   try {
     const params = {}
-    if (filters.keyword.trim()) params.keyword = filters.keyword.trim()
-    if (filters.trangThai !== '') params.trangThai = filters.trangThai
-    if (filters.gioBatDau) params.gioBatDau = filters.gioBatDau + ':00'
-    if (filters.gioKetThuc) params.gioKetThuc = filters.gioKetThuc + ':00'
+    if (filters.keyword && filters.keyword.trim()) params.keyword = filters.keyword.trim()
+    if (filters.trangThai !== '' && filters.trangThai !== null && filters.trangThai !== undefined) {
+      params.trangThai = Number(filters.trangThai)
+    }
+    if (filters.gioBatDau && filters.gioBatDau.trim()) {
+      const s = filters.gioBatDau.trim()
+      params.gioBatDau = s.length === 5 ? s + ':00' : s
+    }
+    if (filters.gioKetThuc && filters.gioKetThuc.trim()) {
+      const e = filters.gioKetThuc.trim()
+      params.gioKetThuc = e.length === 5 ? e + ':00' : e
+    }
 
     const res = await api.get('/api/ca-lam-viec', { params })
     shiftList.value = res.data || []

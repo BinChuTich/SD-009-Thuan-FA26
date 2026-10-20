@@ -441,13 +441,22 @@ const weekDays = computed(() => {
   return days
 })
 
+function formatYmd(d) {
+  if (!d) return ''
+  const dateObj = typeof d === 'string' ? new Date(d) : d
+  const y = dateObj.getFullYear()
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0')
+  const day = String(dateObj.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function isToday(dateStr) {
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = formatYmd(new Date())
   return dateStr === todayStr
 }
 
 function isPastDateOrShift(dateStr, endTimeStr) {
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = formatYmd(new Date())
   if (dateStr < todayStr) return true
   if (dateStr === todayStr && endTimeStr) {
     const now = new Date()
@@ -462,7 +471,7 @@ function changeWeek(direction) {
   const d = new Date(currentMonday.value)
   d.setDate(d.getDate() + direction * 7)
   currentMonday.value = d
-  selectedAnchorDate.value = d.toISOString().split('T')[0]
+  selectedAnchorDate.value = formatYmd(d)
   loadWeekSchedule()
 }
 
@@ -475,7 +484,7 @@ function onAnchorDateChange() {
 
 function goToCurrentWeek() {
   currentMonday.value = getMondayOfDate(new Date())
-  selectedAnchorDate.value = new Date().toISOString().split('T')[0]
+  selectedAnchorDate.value = formatYmd(new Date())
   loadWeekSchedule()
 }
 
@@ -539,9 +548,12 @@ async function loadActiveEmployees() {
 async function loadWeekSchedule() {
   loading.value = true
   try {
-    const fromDate = weekDays.value[0].dateStr
-    const toDate = weekDays.value[6].dateStr
-    const res = await api.get('/api/lich-lam-viec/tuan', { params: { fromDate, toDate } })
+    const fromDate = weekDays.value[0]?.dateStr
+    const toDate = weekDays.value[6]?.dateStr
+    const params = {}
+    if (fromDate) params.fromDate = fromDate
+    if (toDate) params.toDate = toDate
+    const res = await api.get('/api/lich-lam-viec/tuan', { params })
     schedules.value = res.data || []
   } catch (e) {
     showToast(e?.response?.data?.message || 'Không thể tải lịch làm việc', 'error')

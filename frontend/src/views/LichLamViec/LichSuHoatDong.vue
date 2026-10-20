@@ -371,6 +371,18 @@
               <span>Tiền mặt đầu ca:</span>
               <strong class="text-blue">{{ formatCurrency(closingTarget?.tienMatDauCa || 0) }}</strong>
             </div>
+            <div class="summary-line">
+              <span>Tiền mặt bán trong ca:</span>
+              <strong class="text-green">{{ formatCurrency(shiftSummary?.tienMatHeThong || 0) }} ({{ shiftSummary?.soHoaDon || 0 }} đơn)</strong>
+            </div>
+            <div class="summary-line">
+              <span>Chuyển khoản trong ca:</span>
+              <strong class="text-green">{{ formatCurrency(shiftSummary?.tienChuyenKhoanHeThong || 0) }}</strong>
+            </div>
+            <div class="summary-line highlight-expected">
+              <span>Tiền mặt dự kiến két:</span>
+              <strong class="text-black-bold">{{ formatCurrency(shiftSummary?.tienMatDuKien || 0) }}</strong>
+            </div>
           </div>
 
           <!-- Nhập Tiền mặt cuối ca -->
@@ -399,9 +411,9 @@
               </strong>
             </div>
             <div class="diff-desc-text">
-              <span v-if="calculatedDiff === 0">✓ Khớp số tiền mặt, không phát sinh chênh lệch.</span>
-              <span v-else-if="calculatedDiff > 0">⚠ Tiền mặt thực tế thừa {{ formatCurrency(calculatedDiff) }} so với đầu ca.</span>
-              <span v-else>⚠ Tiền mặt thực tế thiếu {{ formatCurrency(Math.abs(calculatedDiff)) }} so với đầu ca.</span>
+              <span v-if="calculatedDiff === 0">✓ Khớp số tiền mặt dự kiến ({{ formatCurrency(shiftSummary?.tienMatDuKien || 0) }}), không phát sinh chênh lệch.</span>
+              <span v-else-if="calculatedDiff > 0">⚠ Tiền mặt thực tế thừa {{ formatCurrency(calculatedDiff) }} so với dự kiến két ({{ formatCurrency(shiftSummary?.tienMatDuKien || 0) }}).</span>
+              <span v-else>⚠ Tiền mặt thực tế thiếu {{ formatCurrency(Math.abs(calculatedDiff)) }} so với dự kiến két ({{ formatCurrency(shiftSummary?.tienMatDuKien || 0) }}).</span>
             </div>
           </div>
 
@@ -571,9 +583,11 @@ async function loadHistory() {
       size: pagination.size
     }
     if (filters.keyword.trim()) params.keyword = filters.keyword.trim()
-    if (filters.fromDate) params.fromDate = filters.fromDate
-    if (filters.toDate) params.toDate = filters.toDate
-    if (filters.trangThai !== '') params.trangThai = filters.trangThai
+    if (filters.fromDate && filters.fromDate.trim()) params.fromDate = filters.fromDate.trim()
+    if (filters.toDate && filters.toDate.trim()) params.toDate = filters.toDate.trim()
+    if (filters.trangThai !== '' && filters.trangThai !== null && filters.trangThai !== undefined) {
+      params.trangThai = Number(filters.trangThai)
+    }
 
     const res = await api.get('/api/lich-su-ca', { params })
     historyList.value = res.data?.content || []
@@ -684,13 +698,44 @@ const dongCaErrors = reactive({
 
 const calculatedDiff = ref(0)
 
-function openModalDongCa(shift) {
+const shiftSummary = ref({
+  tienMatDauCa: 0,
+  tienMatHeThong: 0,
+  tienChuyenKhoanHeThong: 0,
+  tongTienHeThong: 0,
+  tienMatDuKien: 0,
+  soHoaDon: 0
+})
+
+async function openModalDongCa(shift) {
   closingTarget.value = shift
-  dongCaForm.tienMatCuoiCa = shift.tienMatDauCa || 0
   dongCaForm.lyDoChenhLech = ''
   dongCaForm.ghiChu = ''
   dongCaErrors.tienMatCuoiCa = ''
   dongCaErrors.lyDoChenhLech = ''
+
+  try {
+    const res = await api.get(`/api/lich-su-ca/${shift.id}/summary`)
+    shiftSummary.value = res.data || {
+      tienMatDauCa: shift.tienMatDauCa || 0,
+      tienMatHeThong: 0,
+      tienChuyenKhoanHeThong: 0,
+      tongTienHeThong: 0,
+      tienMatDuKien: shift.tienMatDauCa || 0,
+      soHoaDon: 0
+    }
+  } catch (e) {
+    shiftSummary.value = {
+      tienMatDauCa: shift.tienMatDauCa || 0,
+      tienMatHeThong: 0,
+      tienChuyenKhoanHeThong: 0,
+      tongTienHeThong: 0,
+      tienMatDuKien: shift.tienMatDauCa || 0,
+      soHoaDon: 0
+    }
+  }
+
+  dongCaForm.tienMatCuoiCa = Number(shiftSummary.value.tienMatDuKien || shift.tienMatDauCa || 0)
   computeClosingDiff()
   showDongCaModal.value = true
 }
@@ -702,8 +747,8 @@ function computeClosingDiff() {
     return
   }
   dongCaErrors.tienMatCuoiCa = ''
-  const start = Number(closingTarget.value?.tienMatDauCa || 0)
-  calculatedDiff.value = Number(dongCaForm.tienMatCuoiCa) - start
+  const expected = Number(shiftSummary.value.tienMatDuKien || closingTarget.value?.tienMatDauCa || 0)
+  calculatedDiff.value = Number(dongCaForm.tienMatCuoiCa) - expected
   validateDongCaReason()
 }
 

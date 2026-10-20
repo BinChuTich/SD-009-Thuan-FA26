@@ -300,7 +300,7 @@
               <line x1="12" y1="20" x2="12" y2="4" />
               <line x1="6" y1="20" x2="6" y2="14" />
             </svg>
-            <h3 class="card-heading">Sản phẩm bán được theo Ngày</h3>
+            <h3 class="card-heading">Sản phẩm bán được theo {{ statTypeHeading }}</h3>
           </div>
           <span class="badge-unit">Đơn vị: Sản phẩm</span>
         </div>
@@ -463,10 +463,11 @@
                 <td style="text-align: center">
                   <span
                     class="badge-growth-pill"
-                    :class="row.growthRate >= 0 ? 'growth-positive' : 'growth-negative'"
+                    :class="Number(row.growthRate) > 0 ? 'growth-positive' : Number(row.growthRate) < 0 ? 'growth-negative' : 'growth-neutral'"
                   >
-                    <span v-if="row.growthRate >= 0">↑ +{{ row.growthRate }}%</span>
-                    <span v-else>↓ {{ row.growthRate }}%</span>
+                    <span v-if="Number(row.growthRate) > 0">↑ +{{ row.growthRate }}%</span>
+                    <span v-else-if="Number(row.growthRate) < 0">↓ {{ row.growthRate }}%</span>
+                    <span v-else>0.0%</span>
                   </span>
                 </td>
               </tr>
@@ -581,6 +582,7 @@
           <div class="select-wrapper-minimal">
             <select v-model="productSortBy" class="form-control-minimal" @change="sortProductTable">
               <option value="best_seller">Bán chạy nhất</option>
+              <option value="slow_seller">Bán chậm nhất</option>
               <option value="highest_revenue">Doanh thu cao nhất</option>
               <option value="highest_stock">Tồn kho nhiều nhất</option>
               <option value="highest_return">Số lượng trả nhiều nhất</option>
@@ -723,6 +725,7 @@ const defaultProductImage = 'https://images.unsplash.com/photo-1521572267360-ee0
 const quickFilter = ref('today')
 const brandOptions = ref([])
 const dateFilterError = ref('')
+const loadingOverview = ref(false)
 
 const filters = reactive({
   fromDate: getTodayDateString(),
@@ -732,9 +735,19 @@ const filters = reactive({
   productKeyword: ''
 })
 
+const statTypeHeading = computed(() => {
+  if (filters.statType === 'week') return 'Tuần'
+  if (filters.statType === 'month') return 'Tháng'
+  if (filters.statType === 'year') return 'Năm'
+  return 'Ngày'
+})
+
 function getTodayDateString() {
   const d = new Date()
-  return d.toISOString().split('T')[0]
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function formatDateDisplay(dStr) {
@@ -761,24 +774,36 @@ function setQuickFilter(type) {
   } else if (type === '7days') {
     const past7 = new Date()
     past7.setDate(now.getDate() - 6)
-    filters.fromDate = past7.toISOString().split('T')[0]
+    const y = past7.getFullYear()
+    const m = String(past7.getMonth() + 1).padStart(2, '0')
+    const d = String(past7.getDate()).padStart(2, '0')
+    filters.fromDate = `${y}-${m}-${d}`
     filters.toDate = todayStr
   } else if (type === 'thisMonth') {
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
-    filters.fromDate = firstDay.toISOString().split('T')[0]
+    const y = firstDay.getFullYear()
+    const m = String(firstDay.getMonth() + 1).padStart(2, '0')
+    const d = String(firstDay.getDate()).padStart(2, '0')
+    filters.fromDate = `${y}-${m}-${d}`
     filters.toDate = todayStr
   } else if (type === 'lastMonth') {
     const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
-    filters.fromDate = firstDayLastMonth.toISOString().split('T')[0]
-    filters.toDate = lastDayLastMonth.toISOString().split('T')[0]
+    const y1 = firstDayLastMonth.getFullYear()
+    const m1 = String(firstDayLastMonth.getMonth() + 1).padStart(2, '0')
+    const d1 = String(firstDayLastMonth.getDate()).padStart(2, '0')
+    const y2 = lastDayLastMonth.getFullYear()
+    const m2 = String(lastDayLastMonth.getMonth() + 1).padStart(2, '0')
+    const d2 = String(lastDayLastMonth.getDate()).padStart(2, '0')
+    filters.fromDate = `${y1}-${m1}-${d1}`
+    filters.toDate = `${y2}-${m2}-${d2}`
   } else if (type === 'thisYear') {
-    const firstDayYear = new Date(now.getFullYear(), 0, 1)
-    filters.fromDate = firstDayYear.toISOString().split('T')[0]
+    const y = now.getFullYear()
+    filters.fromDate = `${y}-01-01`
     filters.toDate = todayStr
   }
 
-  applyFilters()
+  fetchOverviewData()
 }
 
 function onCustomDateChange() {
@@ -788,14 +813,14 @@ function onCustomDateChange() {
   }
   dateFilterError.value = ''
   quickFilter.value = 'custom'
-  applyFilters()
+  fetchOverviewData()
 }
 
 let filterTimer = null
 function debounceFilter() {
   clearTimeout(filterTimer)
   filterTimer = setTimeout(() => {
-    applyFilters()
+    fetchOverviewData()
   }, 250)
 }
 
@@ -803,53 +828,49 @@ function resetFilters() {
   filters.statType = 'day'
   filters.brand = ''
   filters.productKeyword = ''
+  productTableQuery.value = ''
+  productSortBy.value = 'best_seller'
   setQuickFilter('today')
   showToast('Đã đặt lại bộ lọc thống kê về mặc định!', 'info')
 }
 
 function applyFilters() {
   if (dateFilterError.value) return
-  recomputeAllDashboardData()
+  fetchOverviewData()
 }
 
 // 2. Dữ liệu 6 Thẻ chỉ số tổng quan (KPIs)
 const kpiData = reactive({
-  totalRevenue: 28450000,
-  cashRevenue: 12200000,
-  transferRevenue: 16250000,
-  totalOrders: 48,
-  aov: 592700,
-  totalItemsSold: 164
+  totalRevenue: 0,
+  cashRevenue: 0,
+  transferRevenue: 0,
+  totalOrders: 0,
+  aov: 0,
+  totalItemsSold: 0
 })
 
-// 3. Biểu đồ cột Bar Chart: Sản phẩm bán được theo Ngày
-const rawDailySales = ref([
-  { date: '12/10', label: '12/10', value: 18, revenue: 3200000 },
-  { date: '13/10', label: '13/10', value: 24, revenue: 4150000 },
-  { date: '14/10', label: '14/10', value: 15, revenue: 2600000 },
-  { date: '15/10', label: '15/10', value: 31, revenue: 5400000 },
-  { date: '16/10', label: '16/10', value: 28, revenue: 4900000 },
-  { date: '17/10', label: '17/10', value: 42, revenue: 7300000 },
-  { date: '18/10', label: '18/10', value: 36, revenue: 6200000 }
-])
+// 3. Biểu đồ cột Bar Chart: Sản phẩm bán được theo Ngày / Tuần / Tháng / Năm
+const rawDailySales = ref([])
 
 const barChartComputedData = computed(() => {
   const data = rawDailySales.value
   if (!data || data.length === 0) return []
 
-  const maxVal = Math.max(...data.map(d => d.value), 10)
+  const maxVal = Math.max(...data.map(d => Number(d.value || 0)), 10)
   const chartHeight = 150
   const baseY = 200
-  const totalWidth = 640
-  const startX = 60
-  const barWidth = 38
-  const step = data.length > 1 ? (totalWidth - barWidth) / (data.length - 1) : 0
+  const totalWidth = 620
+  const startX = 45
+  const count = data.length
+  const barWidth = Math.min(38, Math.max(12, Math.floor((totalWidth / count) * 0.6)))
+  const step = count > 1 ? (totalWidth - barWidth) / (count - 1) : 0
 
   return data.map((item, idx) => {
-    const h = Math.max((item.value / maxVal) * chartHeight, 14)
+    const val = Number(item.value || 0)
+    const h = Math.max((val / maxVal) * chartHeight, val > 0 ? 8 : 2)
     return {
       ...item,
-      x: startX + idx * step,
+      x: count === 1 ? (startX + totalWidth / 2 - barWidth / 2) : (startX + idx * step),
       y: baseY - h,
       width: barWidth,
       height: h
@@ -863,96 +884,59 @@ function toggleBrandMetric() {
   brandMetric.value = brandMetric.value === 'revenue' ? 'quantity' : 'revenue'
 }
 
-const rawBrandData = ref([
-  { name: 'FF-Tshirt', revenue: 14800000, quantity: 86, color: '#8C7355' },
-  { name: 'Oversize Basic', revenue: 7200000, quantity: 42, color: '#C8B6A6' },
-  { name: 'Polo Premium', revenue: 4100000, quantity: 24, color: '#4A6572' },
-  { name: 'Khác', revenue: 2350000, quantity: 12, color: '#E07A5F' }
-])
+const rawBrandData = ref([])
 
 const brandDonutTotalDisplay = computed(() => {
   if (brandMetric.value === 'revenue') {
-    const total = rawBrandData.value.reduce((sum, b) => sum + b.revenue, 0)
-    return (total / 1000000).toFixed(1) + 'M'
+    const total = rawBrandData.value.reduce((sum, b) => sum + Number(b.revenue || 0), 0)
+    if (total >= 1000000000) return (total / 1000000000).toFixed(1) + 'B'
+    if (total >= 1000000) return (total / 1000000).toFixed(1) + 'M'
+    return total.toLocaleString('vi-VN') + ' đ'
   } else {
-    const total = rawBrandData.value.reduce((sum, b) => sum + b.quantity, 0)
+    const total = rawBrandData.value.reduce((sum, b) => sum + Number(b.quantity || 0), 0)
     return total + ' cái'
   }
 })
 
 const brandDonutSlices = computed(() => {
   const data = rawBrandData.value
+  if (!data || data.length === 0) return []
   const metricKey = brandMetric.value
-  const total = data.reduce((s, item) => s + item[metricKey], 0) || 1
+  const total = data.reduce((s, item) => s + Number(item[metricKey] || 0), 0) || 1
   const circumference = 2 * Math.PI * 70 // ~ 439.82
 
   let accumulatedPercent = 0
   return data.map(item => {
-    const percent = Math.round((item[metricKey] / total) * 100)
-    const dashLength = (item[metricKey] / total) * circumference
+    const val = Number(item[metricKey] || 0)
+    const percent = Math.round((val / total) * 100)
+    const dashLength = (val / total) * circumference
     const offset = -accumulatedPercent * circumference
-    accumulatedPercent += item[metricKey] / total
+    accumulatedPercent += val / total
 
     return {
       name: item.name,
-      value: item[metricKey],
+      value: val,
       percentage: percent,
-      color: item.color,
+      color: item.color || '#8C7355',
       dashArray: `${dashLength} ${circumference}`,
       dashOffset: offset
     }
   })
 })
 
-// 5. Bảng tổng hợp theo mốc thời gian (4 dòng cố định)
+// 5. Bảng tổng hợp theo mốc thời gian (4 dòng cố định: Hôm nay, Tuần này, Tháng này, Năm nay)
 const timeSummaryRows = ref([
-  {
-    periodKey: 'today',
-    periodName: 'Hôm nay',
-    totalRevenue: 28450000,
-    cash: 12200000,
-    transfer: 16250000,
-    orderCount: 48,
-    aov: 592708,
-    growthRate: 100
-  },
-  {
-    periodKey: 'thisWeek',
-    periodName: 'Tuần này',
-    totalRevenue: 135800000,
-    cash: 54300000,
-    transfer: 81500000,
-    orderCount: 228,
-    aov: 595614,
-    growthRate: 24.5
-  },
-  {
-    periodKey: 'thisMonth',
-    periodName: 'Tháng này',
-    totalRevenue: 492600000,
-    cash: 198000000,
-    transfer: 294600000,
-    orderCount: 820,
-    aov: 600731,
-    growthRate: 15.2
-  },
-  {
-    periodKey: 'thisYear',
-    periodName: 'Năm nay',
-    totalRevenue: 3820000000,
-    cash: 1520000000,
-    transfer: 2300000000,
-    orderCount: 6410,
-    aov: 595943,
-    growthRate: -7.6
-  }
+  { periodKey: 'today', periodName: 'Hôm nay', totalRevenue: 0, cash: 0, transfer: 0, orderCount: 0, aov: 0, growthRate: 0.0 },
+  { periodKey: 'thisWeek', periodName: 'Tuần này', totalRevenue: 0, cash: 0, transfer: 0, orderCount: 0, aov: 0, growthRate: 0.0 },
+  { periodKey: 'thisMonth', periodName: 'Tháng này', totalRevenue: 0, cash: 0, transfer: 0, orderCount: 0, aov: 0, growthRate: 0.0 },
+  { periodKey: 'thisYear', periodName: 'Năm nay', totalRevenue: 0, cash: 0, transfer: 0, orderCount: 0, aov: 0, growthRate: 0.0 }
 ])
 
-// 6. Biểu đồ Donut Trạng thái đơn hàng
+// 6. Biểu đồ Donut Trạng thái đơn hàng (Đã hủy, Hoàn thành, Đang xử lý)
 const orderStatusCounts = reactive({
-  completed: 42,
-  processing: 4,
-  cancelled: 2
+  completed: 0,
+  processing: 0,
+  cancelled: 0
 })
 
 const orderStatusTotal = computed(() => {
@@ -1000,128 +984,7 @@ const productPagination = reactive({
   size: 10
 })
 
-const allProductStats = ref([
-  {
-    id: 1,
-    code: 'SP001',
-    name: 'Áo thun FF Basic Cotton 100%',
-    brand: 'FF-Tshirt',
-    sizes: 'S, M, L, XL',
-    soldCount: 342,
-    returnedCount: 2,
-    revenue: 58140000,
-    stock: 148,
-    image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 2,
-    code: 'SP002',
-    name: 'Áo thun Oversize Streetwear',
-    brand: 'Oversize Basic',
-    sizes: 'M, L, XL',
-    soldCount: 280,
-    returnedCount: 5,
-    revenue: 53200000,
-    stock: 96,
-    image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 3,
-    code: 'SP003',
-    name: 'Áo Polo Premium Classic Fit',
-    brand: 'Polo Premium',
-    sizes: 'M, L, XXL',
-    soldCount: 251,
-    returnedCount: 1,
-    revenue: 62750000,
-    stock: 82,
-    image: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 4,
-    code: 'SP004',
-    name: 'Áo Regular Summer Cổ Tròn',
-    brand: 'FF-Tshirt',
-    sizes: 'S, M, L',
-    soldCount: 198,
-    returnedCount: 3,
-    revenue: 33660000,
-    stock: 120,
-    image: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 5,
-    code: 'SP005',
-    name: 'Áo Daily Shirt Vải Dệt Tổ Ong',
-    brand: 'FF-Tshirt',
-    sizes: 'L, XL',
-    soldCount: 174,
-    returnedCount: 0,
-    revenue: 36540000,
-    stock: 65,
-    image: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 6,
-    code: 'SP006',
-    name: 'Áo thun Unisex In Họa Tiết',
-    brand: 'Oversize Basic',
-    sizes: 'M, L, XL',
-    soldCount: 152,
-    returnedCount: 4,
-    revenue: 28880000,
-    stock: 77,
-    image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 7,
-    code: 'SP007',
-    name: 'Áo Raglan Basic Phối Màu',
-    brand: 'FF-Tshirt',
-    sizes: 'S, M, L, XL',
-    soldCount: 133,
-    returnedCount: 1,
-    revenue: 25270000,
-    stock: 90,
-    image: 'https://images.unsplash.com/photo-1562157873-818bc0726f68?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 8,
-    code: 'SP008',
-    name: 'Áo Minimal Cotton Dày Dặn',
-    brand: 'Polo Premium',
-    sizes: 'L, XL',
-    soldCount: 121,
-    returnedCount: 2,
-    revenue: 26620000,
-    stock: 110,
-    image: 'https://images.unsplash.com/photo-1527719327859-c6ce80353573?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 9,
-    code: 'SP009',
-    name: 'Áo Easy Fit Thoáng Mát',
-    brand: 'FF-Tshirt',
-    sizes: 'S, M',
-    soldCount: 107,
-    returnedCount: 0,
-    revenue: 20330000,
-    stock: 54,
-    image: 'https://images.unsplash.com/photo-1586790170083-2f9ceadc732d?w=120&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 10,
-    code: 'SP010',
-    name: 'Áo Local Print Phiên Bản Giới Hạn',
-    brand: 'Oversize Basic',
-    sizes: 'M, L, XL',
-    soldCount: 97,
-    returnedCount: 1,
-    revenue: 21340000,
-    stock: 35,
-    image: 'https://images.unsplash.com/photo-1529374255404-311a2a4f1fd9?w=120&auto=format&fit=crop&q=80'
-  }
-])
+const allProductStats = ref([])
 
 function onProductSearchChange() {
   productPagination.page = 0
@@ -1151,13 +1014,15 @@ const filteredProductsList = computed(() => {
   }
 
   if (productSortBy.value === 'best_seller') {
-    list.sort((a, b) => b.soldCount - a.soldCount)
+    list.sort((a, b) => Number(b.soldCount || 0) - Number(a.soldCount || 0))
+  } else if (productSortBy.value === 'slow_seller') {
+    list.sort((a, b) => Number(a.soldCount || 0) - Number(b.soldCount || 0))
   } else if (productSortBy.value === 'highest_revenue') {
-    list.sort((a, b) => b.revenue - a.revenue)
+    list.sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0))
   } else if (productSortBy.value === 'highest_stock') {
-    list.sort((a, b) => b.stock - a.stock)
+    list.sort((a, b) => Number(b.stock || 0) - Number(a.stock || 0))
   } else if (productSortBy.value === 'highest_return') {
-    list.sort((a, b) => b.returnedCount - a.returnedCount)
+    list.sort((a, b) => Number(b.returnedCount || 0) - Number(a.returnedCount || 0))
   }
 
   return list
@@ -1187,16 +1052,108 @@ function goToProductPage(page) {
 
 // 8. Định dạng số tiền
 function formatCurrency(val) {
-  if (val == null || isNaN(val)) return '0 ₫'
-  return Math.round(val).toLocaleString('vi-VN') + ' ₫'
+  if (val == null || isNaN(val)) return '0 đ'
+  return Math.round(Number(val)).toLocaleString('vi-VN') + ' đ'
 }
 
-// 9. Xuất file Excel thực tế bằng thư viện xlsx
-function handleExportExcel() {
+// 9. Lấy dữ liệu thực từ Backend API
+async function fetchOverviewData() {
+  if (dateFilterError.value) return
+  loadingOverview.value = true
+  try {
+    const params = {
+      fromDate: filters.fromDate,
+      toDate: filters.toDate,
+      statType: filters.statType || 'day'
+    }
+    if (filters.brand) params.brandId = filters.brand
+    if (filters.productKeyword && filters.productKeyword.trim()) {
+      params.productKeyword = filters.productKeyword.trim()
+    }
+
+    const res = await api.get('/api/thong-ke/overview', { params })
+    const data = res.data
+    if (data) {
+      if (data.kpi) {
+        kpiData.totalRevenue = Number(data.kpi.totalRevenue || 0)
+        kpiData.cashRevenue = Number(data.kpi.cashRevenue || 0)
+        kpiData.transferRevenue = Number(data.kpi.transferRevenue || 0)
+        kpiData.totalOrders = Number(data.kpi.totalOrders || 0)
+        kpiData.aov = Number(data.kpi.aov || 0)
+        kpiData.totalItemsSold = Number(data.kpi.totalItemsSold || 0)
+      }
+
+      if (Array.isArray(data.barChart)) {
+        rawDailySales.value = data.barChart
+      }
+
+      if (Array.isArray(data.brandDonut)) {
+        rawBrandData.value = data.brandDonut
+      }
+
+      if (data.orderStatusDonut) {
+        orderStatusCounts.completed = Number(data.orderStatusDonut.completed || 0)
+        orderStatusCounts.processing = Number(data.orderStatusDonut.processing || 0)
+        orderStatusCounts.cancelled = Number(data.orderStatusDonut.cancelled || 0)
+      }
+
+      if (Array.isArray(data.timeSummary)) {
+        timeSummaryRows.value = data.timeSummary
+      }
+
+      if (Array.isArray(data.products)) {
+        allProductStats.value = data.products
+      }
+    }
+  } catch (err) {
+    console.error('Lỗi tải dữ liệu thống kê:', err)
+    showToast(err?.response?.data?.message || 'Không thể tải dữ liệu thống kê từ hệ thống', 'error')
+  } finally {
+    loadingOverview.value = false
+  }
+}
+
+// 10. Xuất file Excel thực tế (Ưu tiên gọi API Backend, fallback Client)
+async function handleExportExcel() {
+  try {
+    const params = {
+      fromDate: filters.fromDate,
+      toDate: filters.toDate,
+      statType: filters.statType || 'day'
+    }
+    if (filters.brand) params.brandId = filters.brand
+    if (filters.productKeyword && filters.productKeyword.trim()) {
+      params.productKeyword = filters.productKeyword.trim()
+    }
+
+    const response = await api.get('/api/thong-ke/export-excel', {
+      params,
+      responseType: 'blob'
+    })
+
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    const fileName = `BaoCao_ThongKe_DoanhThu_${filters.fromDate}_den_${filters.toDate}.xlsx`
+    link.setAttribute('download', fileName)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+
+    showToast('Xuất file Excel thống kê thành công!', 'success')
+  } catch (err) {
+    console.error('Lỗi xuất Excel từ server, dùng fallback client:', err)
+    exportClientExcelFallback()
+  }
+}
+
+function exportClientExcelFallback() {
   try {
     const wb = XLSX.utils.book_new()
-
-    // Sheet 1: Tổng quan kinh doanh & Chỉ số
     const kpiSummaryRows = [
       ['BÁO CÁO THỐNG KÊ DOANH THU & KINH DOANH'],
       ['Thời gian lọc:', `Từ ${formatDateDisplay(filters.fromDate)} đến ${formatDateDisplay(filters.toDate)}`],
@@ -1229,8 +1186,7 @@ function handleExportExcel() {
     const wsSummary = XLSX.utils.aoa_to_sheet(kpiSummaryRows)
     XLSX.utils.book_append_sheet(wb, wsSummary, 'TongQuan')
 
-    // Sheet 2: Danh sách thống kê sản phẩm
-    const productHeader = ['STT', 'Mã sản phẩm', 'Tên sản phẩm', 'Thương hiệu', 'Kích cỡ', 'Đã bán', 'Số lượng trả', 'Doanh thu (₫)', 'Tồn kho']
+    const productHeader = ['STT', 'Mã sản phẩm', 'Tên sản phẩm', 'Thương hiệu', 'Kích cỡ', 'Đã bán', 'Số lượng trả', 'Doanh thu (đ)', 'Tồn kho']
     const productRows = [productHeader]
 
     filteredProductsList.value.forEach((p, idx) => {
@@ -1252,76 +1208,25 @@ function handleExportExcel() {
 
     const fileName = `Thong-ke-doanh-thu-${filters.fromDate}-den-${filters.toDate}.xlsx`
     XLSX.writeFile(wb, fileName)
-
     showToast('Xuất file Excel thống kê thành công!', 'success')
-  } catch (err) {
-    console.error('Lỗi xuất Excel:', err)
+  } catch (e) {
     showToast('Có lỗi xảy ra khi xuất file Excel.', 'error')
   }
 }
 
-// 10. Tải danh sách thương hiệu và kết nối dữ liệu ban đầu
+// 11. Tải danh sách thương hiệu và kết nối dữ liệu ban đầu
 async function loadBrandOptions() {
   try {
     const res = await api.get('/api/thuoc-tinh/thuong-hieu')
     brandOptions.value = res.data || []
   } catch (e) {
-    brandOptions.value = [
-      { id: 1, ten: 'FF-Tshirt' },
-      { id: 2, ten: 'Oversize Basic' },
-      { id: 3, ten: 'Polo Premium' }
-    ]
+    brandOptions.value = []
   }
-}
-
-async function loadRealDataIfAvailable() {
-  try {
-    const res = await api.get('/api/hoa-don')
-    const invoices = res.data || []
-
-    if (Array.isArray(invoices) && invoices.length > 0) {
-      // Tính toán lại theo hóa đơn thực tế nếu có
-      let total = 0
-      let count = 0
-      invoices.forEach(inv => {
-        const amt = Number(inv.tongTienSauGiam || inv.tongTien || 0)
-        total += amt
-        count++
-      })
-
-      if (total > 0) {
-        kpiData.totalRevenue = total
-        kpiData.totalOrders = count
-        kpiData.cashRevenue = Math.round(total * 0.45)
-        kpiData.transferRevenue = Math.round(total * 0.55)
-        kpiData.aov = Math.round(total / count)
-      }
-    }
-  } catch (e) {
-    // Sử dụng demo data nếu backend chưa có dữ liệu hóa đơn
-  }
-}
-
-function recomputeAllDashboardData() {
-  // Thay đổi nhẹ số liệu theo bộ lọc để tạo cảm giác phản hồi thời gian thực tức thì
-  const factor = quickFilter.value === 'today' ? 1
-    : quickFilter.value === '7days' ? 2.4
-    : quickFilter.value === 'thisMonth' ? 5.8
-    : quickFilter.value === 'lastMonth' ? 5.2
-    : quickFilter.value === 'thisYear' ? 22
-    : 1.5
-
-  kpiData.totalRevenue = Math.round(28450000 * factor)
-  kpiData.cashRevenue = Math.round(12200000 * factor)
-  kpiData.transferRevenue = Math.round(16250000 * factor)
-  kpiData.totalOrders = Math.max(Math.round(48 * factor), 1)
-  kpiData.aov = Math.round(kpiData.totalRevenue / kpiData.totalOrders)
-  kpiData.totalItemsSold = Math.max(Math.round(164 * factor), 5)
 }
 
 onMounted(async () => {
   await loadBrandOptions()
-  await loadRealDataIfAvailable()
+  await fetchOverviewData()
 })
 </script>
 
