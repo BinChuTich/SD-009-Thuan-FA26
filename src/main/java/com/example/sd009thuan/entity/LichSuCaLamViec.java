@@ -56,7 +56,7 @@ public class LichSuCaLamViec {
     @Column(name = "tien_thuc_te_kiem_duoc", precision = 18, scale = 2)
     private BigDecimal tienMatCuoiCa;
 
-    @Column(name = "tien_chuyen_khoan", precision = 18, scale = 2)
+    @Transient
     private BigDecimal tienChuyenKhoan = BigDecimal.ZERO;
 
     @Column(name = "tien_mat_thu_trong_ca", precision = 18, scale = 2)
@@ -68,14 +68,11 @@ public class LichSuCaLamViec {
     @Column(name = "tien_chenh_lech", precision = 18, scale = 2)
     private BigDecimal chenhLech = BigDecimal.ZERO;
 
-    @Size(max = 500)
-    @Nationalized
-    @Column(name = "ly_do_chenh_lech", length = 500)
+    @Transient
     private String lyDoChenhLech;
 
-    @Size(max = 500)
     @Nationalized
-    @Column(name = "ghi_chu", length = 500)
+    @Column(name = "ghi_chu")
     private String ghiChu;
 
     @Column(name = "trang_thai")
@@ -89,6 +86,19 @@ public class LichSuCaLamViec {
 
     public LichSuCaLamViec() {
         super();
+    }
+
+    @JsonProperty("lyDoChenhLech")
+    public String getLyDoChenhLech() {
+        if (lyDoChenhLech != null && !lyDoChenhLech.isBlank()) {
+            return lyDoChenhLech;
+        }
+        if (ghiChu != null && ghiChu.contains("Lý do chênh lệch: ")) {
+            int idx = ghiChu.indexOf("Lý do chênh lệch: ") + "Lý do chênh lệch: ".length();
+            int endIdx = ghiChu.indexOf(" | ", idx);
+            return endIdx != -1 ? ghiChu.substring(idx, endIdx).trim() : ghiChu.substring(idx).trim();
+        }
+        return null;
     }
 
     @JsonProperty("caLamViec")

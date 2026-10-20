@@ -170,10 +170,21 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
             ls.setLyDoChenhLech(req.getLyDoChenhLech());
         }
 
-        ls.setTrangThai(0); // 0 = Đã đóng (Đã kết thúc / giao ca)
-        if (req.getGhiChu() != null) {
-            ls.setGhiChu(req.getGhiChu());
+        // Lưu lý do chênh lệch vào ghi_chu nếu có (vì DB bảng giao_ca không có cột ly_do_chenh_lech)
+        String combinedGhiChu = "";
+        if (req.getLyDoChenhLech() != null && !req.getLyDoChenhLech().trim().isEmpty()) {
+            combinedGhiChu = "Lý do chênh lệch: " + req.getLyDoChenhLech().trim();
         }
+        if (req.getGhiChu() != null && !req.getGhiChu().trim().isEmpty()) {
+            combinedGhiChu += (combinedGhiChu.isEmpty() ? "" : " | ") + req.getGhiChu().trim();
+        }
+        if (!combinedGhiChu.isEmpty()) {
+            ls.setGhiChu(combinedGhiChu);
+        } else if (req.getGhiChu() != null) {
+            ls.setGhiChu(req.getGhiChu().trim());
+        }
+
+        ls.setTrangThai(0); // 0 = Đã đóng (Đã kết thúc / giao ca)
 
         return repository.save(ls);
     }
