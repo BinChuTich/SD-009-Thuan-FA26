@@ -51,6 +51,7 @@ import HoaTiet from '../views/ThuocTinh/HoaTiet.vue'
 // Lịch làm việc
 import QuanLyCa from '../views/LichLamViec/QuanLyCa.vue'
 import XepLich from '../views/LichLamViec/XepLich.vue'
+import GiaoCa from '../views/LichLamViec/GiaoCa.vue'
 import LichSuHoatDong from '../views/LichLamViec/LichSuHoatDong.vue'
 
 const routes = [
@@ -295,6 +296,12 @@ const routes = [
         path: '/xep-lich',
         name: 'XepLich',
         component: XepLich,
+        meta: { roles: ['ADMIN', 'NV'] }
+    },
+    {
+        path: '/giao-ca',
+        name: 'GiaoCa',
+        component: GiaoCa,
         meta: { roles: ['ADMIN', 'NV'] }
     },
     {

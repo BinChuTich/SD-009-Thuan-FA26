@@ -19,4 +19,8 @@ public interface LichSuCaLamViecService {
     Optional<LichSuCaLamViec> getCurrentOpenShift(Long nhanVienId);
 
     ShiftCashSummaryDTO getShiftSummary(Long id);
+
+    Optional<LichSuCaLamViec> getById(Long id);
+
+    Optional<LichSuCaLamViec> getLastClosedShift();
 }

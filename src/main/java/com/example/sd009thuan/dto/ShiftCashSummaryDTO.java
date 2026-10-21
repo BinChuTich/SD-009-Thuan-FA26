@@ -12,6 +12,7 @@ public class ShiftCashSummaryDTO {
     private BigDecimal tienMatHeThong = BigDecimal.ZERO;
     private BigDecimal tienChuyenKhoanHeThong = BigDecimal.ZERO;
     private BigDecimal tongTienHeThong = BigDecimal.ZERO;
+    private BigDecimal tienChiTrongCa = BigDecimal.ZERO;
     private BigDecimal tienMatDuKien = BigDecimal.ZERO;
     private long soHoaDon = 0;
 
@@ -117,6 +118,14 @@ public class ShiftCashSummaryDTO {
 
     public long getSoHoaDon() {
         return soHoaDon;
+    }
+
+    public BigDecimal getTienChiTrongCa() {
+        return tienChiTrongCa;
+    }
+
+    public void setTienChiTrongCa(BigDecimal tienChiTrongCa) {
+        this.tienChiTrongCa = tienChiTrongCa != null ? tienChiTrongCa : BigDecimal.ZERO;
     }
 
     public void setSoHoaDon(long soHoaDon) {

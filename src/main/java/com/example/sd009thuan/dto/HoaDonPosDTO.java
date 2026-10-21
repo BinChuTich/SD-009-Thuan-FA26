@@ -7,6 +7,7 @@ public class HoaDonPosDTO {
     private String maHoaDon;
     private Long idKhachHang;
     private Long idNhanVien;
+    private Long idGiaoCa;
     private Long idPhieuGiamGia;
     private Integer loaiDon; // 1: Tại quầy, 2: Giao hàng
     private String tenKhachHang;
@@ -31,6 +32,9 @@ public class HoaDonPosDTO {
 
     public Long getIdKhachHang() { return idKhachHang; }
     public void setIdKhachHang(Long idKhachHang) { this.idKhachHang = idKhachHang; }
+
+    public Long getIdGiaoCa() { return idGiaoCa; }
+    public void setIdGiaoCa(Long idGiaoCa) { this.idGiaoCa = idGiaoCa; }
 
     public Long getIdNhanVien() { return idNhanVien; }
     public void setIdNhanVien(Long idNhanVien) { this.idNhanVien = idNhanVien; }

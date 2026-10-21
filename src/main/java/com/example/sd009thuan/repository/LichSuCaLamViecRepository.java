@@ -15,6 +15,8 @@ import java.util.Optional;
 public interface LichSuCaLamViecRepository extends JpaRepository<LichSuCaLamViec, Long> {
     Optional<LichSuCaLamViec> findTopByNhanVienIdAndTrangThaiOrderByThoiGianMoCaDesc(Long nhanVienId, Integer trangThai);
 
+    Optional<LichSuCaLamViec> findTopByTrangThaiOrderByThoiGianDongCaDesc(Integer trangThai);
+
     @Query("SELECT l FROM LichSuCaLamViec l WHERE " +
            "(:keyword IS NULL OR LOWER(l.nhanVien.tenTaiKhoan) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "                  OR LOWER(l.nhanVien.tenNhanVien) LIKE LOWER(CONCAT('%', :keyword, '%')) " +

@@ -21,8 +21,10 @@ public interface LichLamViecRepository extends JpaRepository<LichLamViec, Long> 
     List<LichLamViec> findByNhanVienIdAndNgayLamViecAndTrangThai(
             Long nhanVienId, LocalDate ngayLamViec, Integer trangThai);
 
-    Optional<LichLamViec> findByNhanVienIdAndCaLamViecIdAndNgayLamViec(
-            Long nhanVienId, Long caId, LocalDate ngayLamViec);
+    @Query("SELECT l FROM LichLamViec l WHERE l.nhanVien.id = :nhanVienId AND l.caLamViec.id = :caId AND l.ngayLamViec = :ngayLamViec")
+    Optional<LichLamViec> findByNhanVienIdAndCaLamViecIdAndNgayLamViec(@Param("nhanVienId") Long nhanVienId, @Param("caId") Long caId, @Param("ngayLamViec") LocalDate ngayLamViec);
+
+
 
     List<LichLamViec> findByCaLamViecIdAndNgayLamViecGreaterThanEqualAndTrangThai(
             Long caId, LocalDate fromDate, Integer trangThai);

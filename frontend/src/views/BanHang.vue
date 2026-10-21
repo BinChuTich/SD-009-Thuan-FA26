@@ -4,8 +4,21 @@ import { useRouter } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
 import { getProvinces, getWardsByProvince } from '@/services/provincesApi.js'
+import { getCurrentUser } from '@/utils/auth.js'
 
 const router = useRouter()
+const currentUser = getCurrentUser()
+const currentShift = ref(null)
+
+async function checkOpenShift() {
+  if (!currentUser?.id) return
+  try {
+    const res = await api.get(`/api/lich-su-ca/current/${currentUser.id}`)
+    currentShift.value = res.data || null
+  } catch (e) {
+    currentShift.value = null
+  }
+}
 
 /* ==========================================================
    TOAST & MODAL SYSTEM (Thay thế hoàn toàn alert/confirm)
@@ -1347,6 +1360,8 @@ const handleCheckout = async () => {
       maHoaDon: currentInvoice.value.code,
       loaiDon: currentInvoice.value.isDelivery ? 2 : 1,
       idKhachHang: currentInvoice.value.customerId || null,
+      idNhanVien: currentUser?.id || null,
+      idGiaoCa: currentShift.value?.id || null,
       idPhieuGiamGia: currentInvoice.value.voucher?.id || null,
       tenKhachHang: currentInvoice.value.customerName?.trim() || 'Khách lẻ',
       soDienThoaiKhachHang: currentInvoice.value.customerPhone?.trim() || '',
@@ -1410,11 +1425,26 @@ onMounted(async () => {
   fetchProductVariants()
   fetchVouchers()
   loadProvincesData()
+  checkOpenShift()
 })
 </script>
 
 <template>
   <div class="pos-page-wrapper">
+    <!-- Cảnh báo nếu chưa mở ca làm việc -->
+    <div v-if="!currentShift" class="shift-warning-banner">
+      <div class="shift-warning-left">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        <span>Bạn chưa mở ca làm việc. Vui lòng mở ca để các hóa đơn thanh toán tại quầy được tự động gắn vào sổ giao ca.</span>
+      </div>
+      <router-link to="/giao-ca" class="btn-goto-shift">
+        Đến màn Mở ca / Giao ca ngay →
+      </router-link>
+    </div>
     <!-- TOAST THÔNG BÁO TỔNG THỂ -->
     <transition name="toast-fade">
       <div v-if="toast.show" class="toast-popup" :class="toast.type">
@@ -3658,5 +3688,51 @@ onMounted(async () => {
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
+}
+
+/* Banner cảnh báo chưa mở ca làm việc */
+.shift-warning-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  padding: 10px 16px;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.shift-warning-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+}
+
+.shift-warning-left svg {
+  flex-shrink: 0;
+  color: #d97706;
+}
+
+.btn-goto-shift {
+  display: inline-flex;
+  align-items: center;
+  background-color: #d97706;
+  color: #ffffff !important;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 6px 14px;
+  border-radius: 6px;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+}
+
+.btn-goto-shift:hover {
+  background-color: #b45309;
 }
 </style>

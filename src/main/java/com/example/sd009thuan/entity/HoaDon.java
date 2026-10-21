@@ -39,6 +39,12 @@ public class HoaDon {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private KhachHang idKhachHang;
 
+    // Lượt giao ca làm việc
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_giao_ca")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private LichSuCaLamViec idGiaoCa;
+
     // Phiếu giảm giá
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_phieu_giam_gia")
@@ -299,6 +305,25 @@ public class HoaDon {
                 KhachHang kh = new KhachHang();
                 kh.setId(Long.valueOf(map.get("id").toString()));
                 this.idKhachHang = kh;
+            } catch (Exception ignored) {}
+        }
+    }
+
+    @com.fasterxml.jackson.annotation.JsonSetter("idGiaoCa")
+    public void setJsonGiaoCa(Object obj) {
+        if (obj == null) {
+            this.idGiaoCa = null;
+        } else if (obj instanceof LichSuCaLamViec gc) {
+            this.idGiaoCa = gc;
+        } else if (obj instanceof Number num) {
+            LichSuCaLamViec gc = new LichSuCaLamViec();
+            gc.setId(num.longValue());
+            this.idGiaoCa = gc;
+        } else if (obj instanceof java.util.Map<?, ?> map && map.get("id") != null) {
+            try {
+                LichSuCaLamViec gc = new LichSuCaLamViec();
+                gc.setId(Long.valueOf(map.get("id").toString()));
+                this.idGiaoCa = gc;
             } catch (Exception ignored) {}
         }
     }

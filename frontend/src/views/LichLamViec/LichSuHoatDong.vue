@@ -10,37 +10,21 @@
             <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
           </svg>
         </div>
-        <h1 class="page-main-title">Lịch sử hoạt động ca & Giao ca</h1>
+        <h1 class="page-main-title">Lịch sử hoạt động & Kiểm toán ca làm việc</h1>
       </div>
 
       <div class="top-actions-cluster">
-        <!-- Nút Mở ca mới -->
+        <!-- Nút chuyển tới màn hình Vào ca & Giao ca quầy -->
         <button
           type="button"
           class="btn-open-shift"
-          @click="openModalMoCa"
+          @click="$router.push('/giao-ca')"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="16" />
-            <line x1="8" y1="12" x2="16" y2="12" />
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
           </svg>
-          <span>Mở ca làm việc</span>
-        </button>
-
-        <!-- Nút Đóng ca hiện tại nếu đang có ca mở -->
-        <button
-          v-if="currentOpenShift"
-          type="button"
-          class="btn-close-shift"
-          @click="openModalDongCa(currentOpenShift)"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <line x1="9" y1="9" x2="15" y2="15" />
-            <line x1="15" y1="9" x2="9" y2="15" />
-          </svg>
-          <span>Kết ca & Bàn giao</span>
+          <span>Vào ca & Giao ca quầy →</span>
         </button>
       </div>
     </div>
@@ -133,23 +117,25 @@
           <thead>
             <tr class="header-brown-beige">
               <th style="width: 50px; text-align: center">#</th>
-              <th style="min-width: 170px">TÀI KHOẢN</th>
+              <th style="min-width: 150px">NGƯỜI GIAO</th>
+              <th style="min-width: 150px">NGƯỜI NHẬN</th>
               <th style="width: 140px">CA</th>
               <th style="width: 160px; text-align: center">MỞ</th>
               <th style="width: 160px; text-align: center">ĐÓNG</th>
               <th style="width: 170px; text-align: right">TIỀN MẶT</th>
               <th style="width: 140px; text-align: right">CHÊNH LỆCH</th>
-              <th style="width: 130px; text-align: center">TRẠNG THÁI</th>
+              <th style="width: 110px; text-align: center">TRẠNG THÁI</th>
+              <th style="width: 110px; text-align: center">HÀNH ĐỘNG</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="8" style="text-align: center; padding: 2.5rem; color: #8c979d;">
+              <td colspan="10" style="text-align: center; padding: 2.5rem; color: #8c979d;">
                 Đang tải dữ liệu lịch sử hoạt động ca...
               </td>
             </tr>
             <tr v-else-if="historyList.length === 0">
-              <td colspan="8" style="text-align: center; padding: 2.5rem; color: #8c979d;">
+              <td colspan="10" style="text-align: center; padding: 2.5rem; color: #8c979d;">
                 Không có dữ liệu lịch sử ca nào phù hợp với bộ lọc.
               </td>
             </tr>
@@ -170,6 +156,20 @@
                     <span class="employee-realname">{{ item.nhanVien?.tenNhanVien }}</span>
                   </div>
                 </div>
+              </td>
+
+              <!-- Cột NGƯỜI NHẬN -->
+              <td>
+                <div v-if="item.nhanVienNhan" class="account-cell-info">
+                  <div class="account-avatar-dot" :style="{ backgroundColor: getAvatarColor(item.nhanVienNhan?.tenNhanVien) }">
+                    {{ getInitial(item.nhanVienNhan?.tenNhanVien) }}
+                  </div>
+                  <div class="account-text-wrap">
+                    <strong class="account-username">{{ item.nhanVienNhan?.tenTaiKhoan || item.nhanVienNhan?.maNhanVien }}</strong>
+                    <span class="employee-realname">{{ item.nhanVienNhan?.tenNhanVien }}</span>
+                  </div>
+                </div>
+                <span v-else class="text-muted-italic">Chưa có / Cuối ngày</span>
               </td>
 
               <!-- Cột 3: CA -->
@@ -194,7 +194,7 @@
               <td style="text-align: right">
                 <div class="cash-flow-wrap">
                   <span class="cash-start" title="Tiền mặt đầu ca">Đầu: {{ formatCurrency(item.tienMatDauCa) }}</span>
-                  <span class="cash-end" title="Tiền mặt cuối ca">Cuối: {{ item.tienMatCuoiCa !== null ? formatCurrency(item.tienMatCuoiCa) : 'Chưa chốt' }}</span>
+                  <span class="cash-end" title="Tiền mặt cuối ca">Cuối: {{ (item.trangThai === 0 || item.trangThai === 2) ? formatCurrency(item.tienMatCuoiCa) : 'Chưa chốt' }}</span>
                 </div>
               </td>
 
@@ -215,7 +215,7 @@
                 <span v-else class="text-muted">-</span>
               </td>
 
-              <!-- Cột 8: TRẠNG THÁI -->
+              <!-- Cột TRẠNG THÁI -->
               <td style="text-align: center">
                 <span
                   class="badge-shift-state"
@@ -223,6 +223,41 @@
                 >
                   {{ item.trangThai === 1 ? 'Đang mở' : 'Đã đóng' }}
                 </span>
+              </td>
+
+              <!-- Cột 10: HÀNH ĐỘNG -->
+              <td style="text-align: center">
+                <div class="action-buttons-cell">
+                  <!-- Nút đóng ca (nếu đang mở) -->
+                  <button
+                    v-if="item.trangThai === 1"
+                    type="button"
+                    class="btn-row-action btn-close-row"
+                    @click="openModalDongCa(item)"
+                    title="Chốt ca & Bàn giao"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      <line x1="9" y1="9" x2="15" y2="15" />
+                      <line x1="15" y1="9" x2="9" y2="15" />
+                    </svg>
+                  </button>
+
+                  <!-- Nút xem biên bản giao ca -->
+                  <button
+                    type="button"
+                    class="btn-row-action btn-view-receipt"
+                    @click="openReceiptModal(item)"
+                    title="Xem biên bản bàn giao ca"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -265,11 +300,13 @@
         </div>
 
         <div class="footer-right-size">
-          <select v-model.number="pagination.size" class="form-control-minimal" @change="pagination.page = 0; loadHistory()">
-            <option :value="5">5 bản ghi / trang</option>
-            <option :value="10">10 bản ghi / trang</option>
-            <option :value="20">20 bản ghi / trang</option>
-          </select>
+          <div class="select-wrapper-minimal">
+            <select v-model.number="pagination.size" class="form-control-minimal" @change="pagination.page = 0; loadHistory()">
+              <option :value="5">5 bản ghi / trang</option>
+              <option :value="10">10 bản ghi / trang</option>
+              <option :value="20">20 bản ghi / trang</option>
+            </select>
+          </div>
         </div>
       </div>
     </div>
@@ -283,26 +320,47 @@
         </div>
 
         <div class="modal-body-clean">
+          <!-- Gợi ý số tiền bàn giao từ ca trước -->
+          <div v-if="lastClosedShift" class="last-shift-suggestion">
+            <div class="suggestion-icon-wrap">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+            </div>
+            <div class="suggestion-text">
+              <div>Ca trước (<strong>{{ lastClosedShift.caLamViec?.tenCa || 'Gần nhất' }}</strong> - {{ lastClosedShift.nhanVien?.tenNhanVien }}) bàn giao: <strong class="text-green-bold">{{ formatCurrency(lastClosedShift.tienMatCuoiCa || 0) }}</strong></div>
+              <button type="button" class="btn-use-last-cash" @click="useLastShiftCash">
+                ✓ Sử dụng số tiền này làm tiền đầu ca
+              </button>
+            </div>
+          </div>
+
           <!-- Chọn nhân viên -->
           <div class="form-group-item">
             <label class="modal-field-label">Nhân viên trực quầy <span class="required-star">*</span></label>
-            <select v-model="moCaForm.nhanVienId" class="form-control-minimal modal-input">
-              <option value="">-- Chọn nhân viên mở ca --</option>
-              <option v-for="nv in activeEmployees" :key="nv.id" :value="nv.id">
-                {{ nv.maNhanVien }} - {{ nv.tenNhanVien }}
-              </option>
-            </select>
+            <div class="select-wrapper-minimal">
+              <select v-model="moCaForm.nhanVienId" class="form-control-minimal modal-input">
+                <option value="">-- Chọn nhân viên mở ca --</option>
+                <option v-for="nv in activeEmployees" :key="nv.id" :value="nv.id">
+                  {{ nv.maNhanVien }} - {{ nv.tenNhanVien }}
+                </option>
+              </select>
+            </div>
           </div>
 
           <!-- Chọn ca làm việc -->
           <div class="form-group-item">
             <label class="modal-field-label">Ca làm việc <span class="required-star">*</span></label>
-            <select v-model="moCaForm.caLamViecId" class="form-control-minimal modal-input">
-              <option value="">-- Chọn ca làm việc --</option>
-              <option v-for="ca in activeShifts" :key="ca.id" :value="ca.id">
-                {{ ca.tenCa }} ({{ formatTime(ca.gioBatDau) }} - {{ formatTime(ca.gioKetThuc) }})
-              </option>
-            </select>
+            <div class="select-wrapper-minimal">
+              <select v-model="moCaForm.caLamViecId" class="form-control-minimal modal-input">
+                <option value="">-- Chọn ca làm việc --</option>
+                <option v-for="ca in activeShifts" :key="ca.id" :value="ca.id">
+                  {{ ca.tenCa }} ({{ formatTime(ca.gioBatDau) }} - {{ formatTime(ca.gioKetThuc) }})
+                </option>
+              </select>
+            </div>
           </div>
 
           <!-- Tiền mặt đầu ca (Bắt buộc >= 0) -->
@@ -379,10 +437,29 @@
               <span>Chuyển khoản trong ca:</span>
               <strong class="text-green">{{ formatCurrency(shiftSummary?.tienChuyenKhoanHeThong || 0) }}</strong>
             </div>
+            <div v-if="dongCaForm.tienChiTrongCa > 0" class="summary-line">
+              <span>Tiền chi từ két:</span>
+              <strong class="text-red">-{{ formatCurrency(dongCaForm.tienChiTrongCa || 0) }}</strong>
+            </div>
             <div class="summary-line highlight-expected">
               <span>Tiền mặt dự kiến két:</span>
-              <strong class="text-black-bold">{{ formatCurrency(shiftSummary?.tienMatDuKien || 0) }}</strong>
+              <strong class="text-black-bold">{{ formatCurrency(calculatedExpectedCash) }}</strong>
             </div>
+          </div>
+
+          <!-- Nhập Tiền chi trong ca -->
+          <div class="form-group-item">
+            <label class="modal-field-label">Tiền chi từ két trong ca (VNĐ)</label>
+            <input
+              type="number"
+              min="0"
+              step="1000"
+              v-model.number="dongCaForm.tienChiTrongCa"
+              placeholder="Nhập số tiền chi từ két (nếu có chi phí lặt vặt, đổi tiền lẻ)..."
+              class="form-control-minimal modal-input"
+              @input="computeClosingDiff"
+            />
+            <small class="hint-currency">{{ formatCurrency(dongCaForm.tienChiTrongCa || 0) }}</small>
           </div>
 
           <!-- Nhập Tiền mặt cuối ca -->
@@ -431,6 +508,23 @@
             <span v-if="dongCaErrors.lyDoChenhLech" class="error-text-red">{{ dongCaErrors.lyDoChenhLech }}</span>
           </div>
 
+          <!-- Chọn nhân viên nhận bàn giao ca -->
+          <div class="form-group-item">
+            <label class="modal-field-label">Nhân viên nhận bàn giao ca</label>
+            <div class="select-wrapper-minimal">
+              <select v-model="dongCaForm.nhanVienNhanId" class="form-control-minimal modal-input">
+                <option value="">-- Bàn giao cho Quản lý / Nộp két cửa hàng (Ca cuối ngày) --</option>
+                <option
+                  v-for="emp in activeEmployees.filter(e => e.id !== closingTarget?.nhanVien?.id)"
+                  :key="emp.id"
+                  :value="emp.id"
+                >
+                  {{ emp.tenNhanVien }} ({{ emp.maNhanVien }})
+                </option>
+              </select>
+            </div>
+          </div>
+
           <!-- Ghi chú chung -->
           <div class="form-group-item">
             <label class="modal-field-label">Ghi chú bàn giao</label>
@@ -452,6 +546,133 @@
             @click="submitDongCa"
           >
             {{ submittingDongCa ? 'Đang đóng...' : 'Xác nhận đóng ca & Bàn giao' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Xem & In Biên Bản Bàn Giao Ca -->
+    <div v-if="showReceiptModal" class="modal-backdrop-clean" @click.self="showReceiptModal = false">
+      <div class="modal-dialog-clean modal-receipt">
+        <div class="modal-header-clean no-print">
+          <h3 class="modal-title-clean">Biên bản bàn giao ca</h3>
+          <button type="button" class="btn-close-modal" @click="showReceiptModal = false">✕</button>
+        </div>
+
+        <div class="modal-body-clean printable-receipt" id="print-receipt-area">
+          <div class="receipt-header">
+            <h2 class="receipt-brand">FF T-SHIRT</h2>
+            <p class="receipt-subtitle">BIÊN BẢN BÀN GIAO CA LÀM VIỆC</p>
+            <div class="receipt-code">Mã giao ca: <strong>{{ receiptShift?.maGiaoCa || ('GC-' + receiptShift?.id) }}</strong></div>
+          </div>
+
+          <div class="receipt-divider"></div>
+
+          <div class="receipt-meta-grid">
+            <div class="receipt-meta-row">
+              <span class="meta-label">Ca làm việc:</span>
+              <strong class="meta-val">{{ receiptShift?.caLamViec?.tenCa }}</strong>
+            </div>
+            <div class="receipt-meta-row">
+              <span class="meta-label">Người giao ca:</span>
+              <strong class="meta-val">{{ receiptShift?.nhanVien?.tenNhanVien }} ({{ receiptShift?.nhanVien?.maNhanVien }})</strong>
+            </div>
+            <div class="receipt-meta-row">
+              <span class="meta-label">Người nhận ca:</span>
+              <strong class="meta-val">{{ receiptShift?.nhanVienNhan?.tenNhanVien ? (receiptShift?.nhanVienNhan?.tenNhanVien + ' (' + receiptShift?.nhanVienNhan?.maNhanVien + ')') : 'Quản lý / Cuối ngày' }}</strong>
+            </div>
+            <div class="receipt-meta-row">
+              <span class="meta-label">Thời gian mở ca:</span>
+              <span class="meta-val">{{ formatDateTime(receiptShift?.thoiGianMoCa) }}</span>
+            </div>
+            <div class="receipt-meta-row">
+              <span class="meta-label">Thời gian kết ca:</span>
+              <span class="meta-val">{{ receiptShift?.thoiGianDongCa ? formatDateTime(receiptShift?.thoiGianDongCa) : 'Đang trực' }}</span>
+            </div>
+            <div class="receipt-meta-row">
+              <span class="meta-label">Trạng thái:</span>
+              <span class="meta-val">{{ receiptShift?.trangThai === 1 ? 'Đang mở (Đang trực)' : 'Đã kết thúc / Đã đóng ca' }}</span>
+            </div>
+          </div>
+
+          <div class="receipt-divider"></div>
+
+          <table class="receipt-table">
+            <thead>
+              <tr>
+                <th>KHOẢN MỤC</th>
+                <th style="text-align: right">SỐ TIỀN</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1. Tiền mặt đầu ca</td>
+                <td style="text-align: right">{{ formatCurrency(receiptShift?.tienMatDauCa || 0) }}</td>
+              </tr>
+              <tr>
+                <td>2. Tiền mặt thu bán trong ca</td>
+                <td style="text-align: right">{{ formatCurrency(receiptShift?.tongTienTrongCa || receiptShift?.tienMatThuTrongCa || 0) }}</td>
+              </tr>
+              <tr>
+                <td>3. Tiền chuyển khoản / quẹt thẻ</td>
+                <td style="text-align: right">{{ formatCurrency(receiptShift?.tienChuyenKhoan || 0) }}</td>
+              </tr>
+              <tr>
+                <td>4. Tiền chi từ két trong ca</td>
+                <td style="text-align: right">-{{ formatCurrency(receiptShift?.tienChiTrongCa || 0) }}</td>
+              </tr>
+              <tr class="row-highlight">
+                <td><strong>5. Tiền mặt dự kiến két</strong></td>
+                <td style="text-align: right"><strong>{{ formatCurrency(Number(receiptShift?.tienMatDauCa || 0) + Number(receiptShift?.tongTienTrongCa || receiptShift?.tienMatThuTrongCa || 0) - Number(receiptShift?.tienChiTrongCa || 0)) }}</strong></td>
+              </tr>
+              <tr class="row-highlight-accent">
+                <td><strong>6. Tiền mặt thực tế đếm cuối ca</strong></td>
+                <td style="text-align: right"><strong>{{ receiptShift?.tienMatCuoiCa !== null ? formatCurrency(receiptShift?.tienMatCuoiCa) : 'Chưa chốt' }}</strong></td>
+              </tr>
+              <tr :class="Number(receiptShift?.chenhLech || 0) === 0 ? 'row-balanced' : 'row-diff'">
+                <td><strong>7. Chênh lệch (Thực tế - Dự kiến)</strong></td>
+                <td style="text-align: right">
+                  <strong>{{ Number(receiptShift?.chenhLech || 0) > 0 ? '+' : '' }}{{ formatCurrency(receiptShift?.chenhLech || 0) }}</strong>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div v-if="receiptShift?.lyDoChenhLech" class="receipt-reason-box">
+            <strong>Lý do giải trình chênh lệch:</strong>
+            <p>{{ receiptShift.lyDoChenhLech }}</p>
+          </div>
+
+          <div v-if="receiptShift?.ghiChu" class="receipt-note-box">
+            <strong>Ghi chú:</strong>
+            <p>{{ receiptShift.ghiChu }}</p>
+          </div>
+
+          <div class="receipt-signatures">
+            <div class="sig-col">
+              <strong>NGƯỜI GIAO CA</strong>
+              <span>(Ký, ghi rõ họ tên)</span>
+              <div class="sig-space"></div>
+              <em>{{ receiptShift?.nhanVien?.tenNhanVien }}</em>
+            </div>
+            <div class="sig-col">
+              <strong>NGƯỜI NHẬN CA</strong>
+              <span>(Ký, ghi rõ họ tên)</span>
+              <div class="sig-space"></div>
+              <em>{{ receiptShift?.nhanVienNhan?.tenNhanVien || '..............................' }}</em>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer-clean no-print">
+          <button type="button" class="btn-cancel-modal" @click="showReceiptModal = false">Đóng</button>
+          <button type="button" class="btn-print-receipt" @click="printReceipt">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 6 2 18 2 18 9"></polyline>
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+              <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            <span>In biên bản giao ca</span>
           </button>
         </div>
       </div>
@@ -632,6 +853,25 @@ async function checkCurrentOpenShift() {
   }
 }
 
+// Gợi ý số tiền từ ca đóng gần nhất
+const lastClosedShift = ref(null)
+
+async function fetchLastClosedShift() {
+  try {
+    const res = await api.get('/api/lich-su-ca/last-closed')
+    lastClosedShift.value = res.data || null
+  } catch (e) {
+    lastClosedShift.value = null
+  }
+}
+
+function useLastShiftCash() {
+  if (lastClosedShift.value?.tienMatCuoiCa != null) {
+    moCaForm.tienMatDauCa = Number(lastClosedShift.value.tienMatCuoiCa)
+    validateMoCaTien()
+  }
+}
+
 // Modal Mở Ca
 const showMoCaModal = ref(false)
 const submittingMoCa = ref(false)
@@ -646,12 +886,16 @@ const moCaErrors = reactive({
   tienMatDauCa: ''
 })
 
-function openModalMoCa() {
+async function openModalMoCa() {
   moCaForm.nhanVienId = currentUser?.id || ''
   moCaForm.caLamViecId = activeShifts.value[0]?.id || ''
   moCaForm.tienMatDauCa = 0
   moCaForm.ghiChu = ''
   moCaErrors.tienMatDauCa = ''
+  await fetchLastClosedShift()
+  if (lastClosedShift.value?.tienMatCuoiCa != null) {
+    moCaForm.tienMatDauCa = Number(lastClosedShift.value.tienMatCuoiCa)
+  }
   showMoCaModal.value = true
 }
 
@@ -691,13 +935,15 @@ async function submitMoCa() {
   }
 }
 
-// Modal Đóng Ca
+// Modal Đóng Ca & Bàn Giao
 const showDongCaModal = ref(false)
 const submittingDongCa = ref(false)
 const closingTarget = ref(null)
 
 const dongCaForm = reactive({
+  tienChiTrongCa: 0,
   tienMatCuoiCa: 0,
+  nhanVienNhanId: '',
   lyDoChenhLech: '',
   ghiChu: ''
 })
@@ -718,8 +964,17 @@ const shiftSummary = ref({
   soHoaDon: 0
 })
 
+const calculatedExpectedCash = computed(() => {
+  const start = Number(shiftSummary.value.tienMatDauCa || closingTarget.value?.tienMatDauCa || 0)
+  const earned = Number(shiftSummary.value.tienMatHeThong || 0)
+  const spent = Number(dongCaForm.tienChiTrongCa || 0)
+  return Math.max(0, start + earned - spent)
+})
+
 async function openModalDongCa(shift) {
   closingTarget.value = shift
+  dongCaForm.tienChiTrongCa = Number(shift.tienChiTrongCa || 0)
+  dongCaForm.nhanVienNhanId = shift.nhanVienNhan?.id || ''
   dongCaForm.lyDoChenhLech = ''
   dongCaForm.ghiChu = ''
   dongCaErrors.tienMatCuoiCa = ''
@@ -746,7 +1001,7 @@ async function openModalDongCa(shift) {
     }
   }
 
-  dongCaForm.tienMatCuoiCa = Number(shiftSummary.value.tienMatDuKien || shift.tienMatDauCa || 0)
+  dongCaForm.tienMatCuoiCa = Number(calculatedExpectedCash.value)
   computeClosingDiff()
   showDongCaModal.value = true
 }
@@ -758,8 +1013,7 @@ function computeClosingDiff() {
     return
   }
   dongCaErrors.tienMatCuoiCa = ''
-  const expected = Number(shiftSummary.value.tienMatDuKien || closingTarget.value?.tienMatDauCa || 0)
-  calculatedDiff.value = Number(dongCaForm.tienMatCuoiCa) - expected
+  calculatedDiff.value = Number(dongCaForm.tienMatCuoiCa) - calculatedExpectedCash.value
   validateDongCaReason()
 }
 
@@ -788,10 +1042,12 @@ async function submitDongCa() {
 
   submittingDongCa.value = true
   try {
-    await api.post('/api/lich-su-ca/dong-ca', {
+    const res = await api.post('/api/lich-su-ca/dong-ca', {
       id: closingTarget.value?.id,
       nhanVienId: closingTarget.value?.nhanVien?.id,
       caLamViecId: closingTarget.value?.caLamViec?.id,
+      nhanVienNhanId: dongCaForm.nhanVienNhanId ? Number(dongCaForm.nhanVienNhanId) : null,
+      tienChiTrongCa: Number(dongCaForm.tienChiTrongCa || 0),
       tienMatCuoiCa: Number(dongCaForm.tienMatCuoiCa),
       chenhLech: calculatedDiff.value,
       lyDoChenhLech: calculatedDiff.value !== 0 ? dongCaForm.lyDoChenhLech.trim() : null,
@@ -802,6 +1058,10 @@ async function submitDongCa() {
     showDongCaModal.value = false
     await checkCurrentOpenShift()
     loadHistory()
+
+    if (res.data) {
+      openReceiptModal(res.data)
+    }
   } catch (e) {
     showAlert({
       title: 'Không thể đóng ca',
@@ -811,6 +1071,25 @@ async function submitDongCa() {
   } finally {
     submittingDongCa.value = false
   }
+}
+
+// Modal Biên Bản Bàn Giao Ca (Receipt)
+const showReceiptModal = ref(false)
+const receiptShift = ref(null)
+
+async function openReceiptModal(shift) {
+  if (!shift) return
+  try {
+    const res = await api.get(`/api/lich-su-ca/${shift.id}`)
+    receiptShift.value = res.data || shift
+  } catch (e) {
+    receiptShift.value = shift
+  }
+  showReceiptModal.value = true
+}
+
+function printReceipt() {
+  window.print()
 }
 
 onMounted(async () => {
@@ -1431,5 +1710,308 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 }
+/* Hành động cột bảng */
+.action-buttons-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+
+.btn-row-action {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid #e2d9cd;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: #5a656b;
+}
+
+.btn-row-action:hover {
+  background-color: #f7f4ee;
+  border-color: #8c7355;
+  color: #8c7355;
+  transform: translateY(-1px);
+}
+
+.btn-close-row:hover {
+  background-color: #fef2f2;
+  border-color: #ef4444;
+  color: #dc2626;
+}
+
+.btn-view-receipt:hover {
+  background-color: #f0fdf4;
+  border-color: #22c55e;
+  color: #16a34a;
+}
+
+.text-muted-italic {
+  font-style: italic;
+  color: #9ca3af;
+  font-size: 0.85rem;
+}
+
+/* Gợi ý ca trước */
+.last-shift-suggestion {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 1rem;
+}
+
+.suggestion-icon-wrap {
+  color: #16a34a;
+  margin-top: 2px;
+}
+
+.suggestion-text {
+  font-size: 0.88rem;
+  color: #1e3a2f;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.text-green-bold {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.btn-use-last-cash {
+  align-self: flex-start;
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-use-last-cash:hover {
+  background: #15803d;
+}
+
+/* Modal Biên Bản Giao Ca & Print */
+.modal-receipt {
+  max-width: 600px;
+  width: 95%;
+}
+
+.printable-receipt {
+  padding: 1.5rem 1.8rem;
+  background: #ffffff;
+  color: #1f2937;
+  font-family: inherit;
+}
+
+.receipt-header {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.receipt-brand {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #3b2c21;
+  letter-spacing: 2px;
+  margin: 0;
+}
+
+.receipt-subtitle {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #8c7355;
+  letter-spacing: 1px;
+  margin: 4px 0 6px 0;
+}
+
+.receipt-code {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.receipt-divider {
+  border-top: 1px dashed #d1c8bd;
+  margin: 12px 0;
+}
+
+.receipt-meta-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.88rem;
+}
+
+.receipt-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.meta-label {
+  color: #6b7280;
+}
+
+.meta-val {
+  color: #1f2937;
+}
+
+.receipt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  margin: 10px 0;
+}
+
+.receipt-table th {
+  padding: 6px 4px;
+  border-bottom: 1.5px solid #d1c8bd;
+  font-weight: 700;
+  color: #4b5563;
+  text-align: left;
+}
+
+.receipt-table td {
+  padding: 6px 4px;
+  border-bottom: 1px solid #f3f0ea;
+}
+
+.row-highlight td {
+  background: #faf8f5;
+  color: #111827;
+  font-weight: 600;
+}
+
+.row-highlight-accent td {
+  background: #fdfbf7;
+  color: #8c7355;
+  font-weight: 700;
+}
+
+.row-balanced td {
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
+.row-diff td {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.receipt-reason-box {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #92400e;
+}
+
+.receipt-reason-box p {
+  margin: 4px 0 0 0;
+}
+
+.receipt-note-box {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+.receipt-note-box p {
+  margin: 4px 0 0 0;
+}
+
+.receipt-signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2rem;
+  padding-top: 1rem;
+}
+
+.sig-col {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 45%;
+  font-size: 0.85rem;
+}
+
+.sig-col strong {
+  color: #111827;
+  font-weight: 700;
+}
+
+.sig-col span {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.sig-space {
+  height: 55px;
+}
+
+.sig-col em {
+  font-style: normal;
+  font-weight: 600;
+  color: #374151;
+}
+
+.btn-print-receipt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  background: #1e293b;
+  color: #ffffff;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-print-receipt:hover {
+  background: #0f172a;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #print-receipt-area, #print-receipt-area * {
+    visibility: visible;
+  }
+  #print-receipt-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
 </style>
 

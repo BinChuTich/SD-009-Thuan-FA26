@@ -42,6 +42,18 @@ public class LichSuCaLamViecController {
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/last-closed")
+    public ResponseEntity<?> getLastClosedShift() {
+        return ResponseEntity.ok(service.getLastClosedShift().orElse(null));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getById(@PathVariable Long id) {
+        return service.getById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/current/{id}")
     public ResponseEntity<?> getCurrentOpenShift(@PathVariable("id") Long id) {
         return ResponseEntity.ok(service.getCurrentOpenShift(id).orElse(null));

@@ -50,6 +50,13 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Long> {
            "LEFT JOIN FETCH h.idNhanVien " +
            "LEFT JOIN FETCH h.idKhachHang " +
            "LEFT JOIN FETCH h.idPhieuGiamGia " +
+           "WHERE h.idGiaoCa.id = :idGiaoCa AND h.trangThai != 6")
+    List<HoaDon> findByIdGiaoCa_Id(@Param("idGiaoCa") Long idGiaoCa);
+
+    @Query("SELECT h FROM HoaDon h " +
+           "LEFT JOIN FETCH h.idNhanVien " +
+           "LEFT JOIN FETCH h.idKhachHang " +
+           "LEFT JOIN FETCH h.idPhieuGiamGia " +
            "WHERE h.idNhanVien.id = :nhanVienId " +
            "AND h.ngayTao >= :fromTime AND h.ngayTao <= :toTime " +
            "AND h.trangThai != 6")

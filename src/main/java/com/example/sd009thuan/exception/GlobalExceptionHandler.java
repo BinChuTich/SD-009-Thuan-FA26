@@ -60,6 +60,8 @@ public class GlobalExceptionHandler {
             String lower = fullErr.toLowerCase();
             if (lower.contains("fk_") || lower.contains("foreign key") || lower.contains("reference constraint") || lower.contains("conflicted with the reference")) {
                 msg = "Không thể xóa hoặc thay đổi vì dữ liệu đang được liên kết trong hệ thống (hóa đơn, lịch sử giao dịch,...). Vui lòng chuyển trạng thái thay vì xóa!";
+            } else if (lower.contains("cannot insert the value null") || lower.contains("does not allow nulls")) {
+                msg = "Thiếu thông tin bắt buộc hoặc giá trị không được để trống theo quy định CSDL!";
             } else if (lower.contains("uq") || lower.contains("duplicate") || lower.contains("trùng") || lower.contains("unique key")) {
                 msg = "Mã hoặc thông tin đã tồn tại trong hệ thống (trùng lặp)!";
             }

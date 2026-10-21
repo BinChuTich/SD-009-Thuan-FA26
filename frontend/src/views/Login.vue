@@ -259,14 +259,6 @@ const handleForgotPassword = async () => {
           <span v-if="loading" class="spinner-inline"></span>
           <span>{{ loading ? 'Đang xác thực...' : 'Đăng nhập vào hệ thống' }}</span>
         </button>
-        <div class="quick-admin-login-wrap">
-          <button type="button" class="btn-quick-admin-login" @click="handleQuickLoginAdmin" :disabled="loading">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-            </svg>
-            <span>Đăng nhập nhanh với Quản trị viên (Admin)</span>
-          </button>
-        </div>
       </form>
 
 
@@ -365,14 +357,7 @@ const handleForgotPassword = async () => {
                 Quay lại đăng nhập
               </button>
             </div>
-            <div v-if="false">
-          <button type="button" class="btn-quick-admin-login" @click="handleQuickLoginAdmin" :disabled="loading">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-            </svg>
-            <span>Đăng nhập nhanh với Quản trị viên (Admin)</span>
-          </button>
-        </div>
+
       </form>
         </div>
       </div>
