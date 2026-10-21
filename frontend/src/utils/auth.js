@@ -27,10 +27,17 @@ export function setCurrentUser(user) {
     localStorage.removeItem(CURRENT_USER_KEY)
   } else {
     // Chuẩn hóa role và mã vai trò
+    const rawRoleCode = (user.maVaiTro || (user.idVaiTro === 1 ? 'ADMIN' : (user.role === 'Quản trị viên' ? 'ADMIN' : ''))).toUpperCase()
+    const rawRoleText = (user.tenVaiTro || user.role || '').toLowerCase()
+    const isAdm = rawRoleCode === 'ADMIN' || rawRoleCode === 'QL' || rawRoleText.includes('quản trị') || rawRoleText.includes('admin') || rawRoleText.includes('quản lý')
+    const normalizedRoleCode = isAdm ? 'ADMIN' : 'NV'
+    const normalizedRoleName = isAdm ? 'Quản trị viên' : 'Nhân viên'
+
     const normalized = {
       ...user,
-      role: user.tenVaiTro || user.role || (user.maVaiTro === 'ADMIN' ? 'Quản trị viên' : 'Nhân viên'),
-      maVaiTro: user.maVaiTro || (user.role === 'Quản trị viên' ? 'ADMIN' : 'NV')
+      role: normalizedRoleName,
+      tenVaiTro: normalizedRoleName,
+      maVaiTro: normalizedRoleCode
     }
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(normalized))
     window.dispatchEvent(new CustomEvent('auth-changed', { detail: normalized }))
@@ -54,10 +61,17 @@ export function logout() {
 export function getRoleCode() {
   const user = getCurrentUser()
   if (!user) return null
-  if (user.maVaiTro) return user.maVaiTro.toUpperCase()
+  const code = (user.maVaiTro || '').toUpperCase()
+  if (code === 'ADMIN' || code === 'QL') return 'ADMIN'
+  if (code === 'NV') return 'NV'
   if (user.role) {
     const r = user.role.toLowerCase()
-    if (r.includes('quản trị') || r.includes('admin')) return 'ADMIN'
+    if (r.includes('quản trị') || r.includes('admin') || r.includes('quản lý')) return 'ADMIN'
+    return 'NV'
+  }
+  if (user.tenVaiTro) {
+    const r = user.tenVaiTro.toLowerCase()
+    if (r.includes('quản trị') || r.includes('admin') || r.includes('quản lý')) return 'ADMIN'
     return 'NV'
   }
   return 'NV'

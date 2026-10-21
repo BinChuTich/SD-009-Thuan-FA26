@@ -74,6 +74,12 @@ const handleLogin = async () => {
   }
 }
 
+const handleQuickLoginAdmin = () => {
+  username.value = 'admin'
+  password.value = '123456'
+  handleLogin()
+}
+
 // Logic Quên mật khẩu
 const showForgotModal = ref(false)
 const forgotEmail = ref('')
@@ -253,6 +259,14 @@ const handleForgotPassword = async () => {
           <span v-if="loading" class="spinner-inline"></span>
           <span>{{ loading ? 'Đang xác thực...' : 'Đăng nhập vào hệ thống' }}</span>
         </button>
+        <div class="quick-admin-login-wrap">
+          <button type="button" class="btn-quick-admin-login" @click="handleQuickLoginAdmin" :disabled="loading">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+            <span>Đăng nhập nhanh với Quản trị viên (Admin)</span>
+          </button>
+        </div>
       </form>
 
 
@@ -351,7 +365,15 @@ const handleForgotPassword = async () => {
                 Quay lại đăng nhập
               </button>
             </div>
-          </form>
+            <div v-if="false">
+          <button type="button" class="btn-quick-admin-login" @click="handleQuickLoginAdmin" :disabled="loading">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+            <span>Đăng nhập nhanh với Quản trị viên (Admin)</span>
+          </button>
+        </div>
+      </form>
         </div>
       </div>
     </transition>
@@ -629,6 +651,40 @@ const handleForgotPassword = async () => {
   background: #365066;
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(73, 104, 131, 0.32);
+}
+
+.quick-admin-login-wrap {
+  margin-top: 0.85rem;
+  text-align: center;
+}
+
+.btn-quick-admin-login {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #496883;
+  background-color: #f3f6f9;
+  border: 1.5px dashed #b8c9d9;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btn-quick-admin-login:hover:not(:disabled) {
+  background-color: #e4edf5;
+  color: #1e3347;
+  border-color: #496883;
+}
+
+.btn-quick-admin-login:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-submit-login:disabled {

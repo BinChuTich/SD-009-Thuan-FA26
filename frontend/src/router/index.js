@@ -48,6 +48,11 @@ import MauSac from '../views/ThuocTinh/MauSac.vue'
 import KichCo from '../views/ThuocTinh/KichCo.vue'
 import HoaTiet from '../views/ThuocTinh/HoaTiet.vue'
 
+// Lịch làm việc
+import QuanLyCa from '../views/LichLamViec/QuanLyCa.vue'
+import XepLich from '../views/LichLamViec/XepLich.vue'
+import LichSuHoatDong from '../views/LichLamViec/LichSuHoatDong.vue'
+
 const routes = [
     // Trang đăng nhập công khai
     {
@@ -270,6 +275,33 @@ const routes = [
         name: 'ChiTietNhanVien',
         component: ChiTietNhanVien,
         meta: { roles: ['ADMIN'] }
+    },
+
+    // 9. Lịch làm việc (Cả Admin và Nhân viên)
+    {
+        path: '/lich-lam-viec',
+        redirect: () => {
+            return getRoleCode() === 'ADMIN' ? '/ca-lam-viec' : '/xep-lich'
+        },
+        meta: { roles: ['ADMIN', 'NV'] }
+    },
+    {
+        path: '/ca-lam-viec',
+        name: 'QuanLyCa',
+        component: QuanLyCa,
+        meta: { roles: ['ADMIN'] }
+    },
+    {
+        path: '/xep-lich',
+        name: 'XepLich',
+        component: XepLich,
+        meta: { roles: ['ADMIN', 'NV'] }
+    },
+    {
+        path: '/lich-su-ca',
+        name: 'LichSuHoatDong',
+        component: LichSuHoatDong,
+        meta: { roles: ['ADMIN', 'NV'] }
     }
 ]
 
