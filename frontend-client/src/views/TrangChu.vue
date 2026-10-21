@@ -42,6 +42,31 @@ const loadHomeData = async () => {
     }
 
     const merged = getMergedProducts(productList)
+
+    // Đồng bộ trực tiếp bản đồ đợt giảm giá đang hoạt động từ Admin
+    try {
+      const resActiveMap = await api.get('/api/dot-giam-gia/active-products-map')
+      if (resActiveMap.data && typeof resActiveMap.data === 'object') {
+        const dggMap = resActiveMap.data
+        merged.forEach(p => {
+          const dot = dggMap[p.id]
+          if (dot) {
+            p.coGiamGia = true
+            p.idDotGiamGia = dot.id
+            p.tenDotGiamGia = dot.tenDotGiamGia || p.tenDotGiamGia
+            p.phanTramGiam = dot.phanTramGiam || p.phanTramGiam
+            p.ngayBatDauDotGiamGia = dot.ngayBatDau || p.ngayBatDauDotGiamGia
+            p.ngayKetThucDotGiamGia = dot.ngayKetThuc || p.ngayKetThucDotGiamGia
+            if (p.minGia && (!p.minGiaSauGiam || p.minGiaSauGiam >= p.minGia) && p.phanTramGiam) {
+              p.minGiaSauGiam = Math.round(p.minGia * (100 - p.phanTramGiam) / 100)
+            }
+          }
+        })
+      }
+    } catch (e) {
+      console.warn('Lỗi lấy active-products-map:', e)
+    }
+
     featuredProducts.value = merged
 
     try {
@@ -93,12 +118,40 @@ const displayedFeaturedProducts = computed(() => {
   }).slice(0, 8)
 })
 
+// Lọc chuẩn xác các sản phẩm đang nằm trong đợt giảm giá HOẠT ĐỘNG từ Admin
 const dealProducts = computed(() => {
-  const onSale = featuredProducts.value.filter(p => p.coGiamGia && p.phanTramGiam > 0)
-  if (onSale.length > 0) {
-    return onSale
+  const now = Date.now()
+  return featuredProducts.value.filter(p => {
+    if (!p.coGiamGia || !p.phanTramGiam || p.phanTramGiam <= 0) return false
+    // Kiểm tra thời gian kết thúc: chỉ lấy các đợt chưa hết hạn
+    if (p.ngayKetThucDotGiamGia) {
+      const end = new Date(p.ngayKetThucDotGiamGia).getTime()
+      if (end <= now) return false
+    }
+    return true
+  })
+})
+
+// Danh sách các đợt giảm giá đang hoạt động
+const activeCampaigns = computed(() => {
+  const map = new Map()
+  for (const p of dealProducts.value) {
+    const key = p.idDotGiamGia || p.tenDotGiamGia
+    if (!key) continue
+    if (!map.has(key)) {
+      map.set(key, {
+        id: p.idDotGiamGia || key,
+        tenDotGiamGia: p.tenDotGiamGia,
+        phanTramGiam: p.phanTramGiam,
+        ngayBatDau: p.ngayBatDauDotGiamGia,
+        ngayKetThuc: p.ngayKetThucDotGiamGia,
+        count: 1
+      })
+    } else {
+      map.get(key).count++
+    }
   }
-  return featuredProducts.value.slice(0, 4)
+  return Array.from(map.values())
 })
 
 onMounted(() => {
@@ -125,8 +178,11 @@ onMounted(() => {
       v-model:selected-category-tab="selectedCategoryTab"
     />
 
-    <!-- 5. Sản Phẩm Ưu Đãi Flash Deal -->
-    <SanPhamUuDai :deal-products="dealProducts" />
+    <!-- 5. Sản Phẩm Ưu Đãi Flash Deal (Đồng bộ chuẩn Admin & thời gian kết thúc từng đợt) -->
+    <SanPhamUuDai
+      :deal-products="dealProducts"
+      :active-campaigns="activeCampaigns"
+    />
 
     <!-- 6. Bộ Tra Cứu Size Áo Thông Minh -->
     <TraCuuSize />

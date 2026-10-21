@@ -52,11 +52,14 @@ public class SanPhamResponse {
     private BigDecimal maxGiaSauGiam;
     private BigDecimal phanTramGiam;
     private String tenDotGiamGia;
+    private Long idDotGiamGia;
+    private Instant ngayBatDauDotGiamGia;
+    private Instant ngayKetThucDotGiamGia;
 
     public SanPhamResponse() {
     }
 
-    public SanPhamResponse(Long id, String maSanPham, String tenSanPham, String moTa, Integer trangThai, Instant ngayTao, Instant ngayCapNhat, String nguoiTao, Long idXuatXu, String tenXuatXu, Long idChatLieu, String tenChatLieu, Long idThuongHieu, String tenThuongHieu, Long idDanhMuc, String tenDanhMuc, Long idCoAo, String tenCoAo, Long idTayAo, String tenTayAo, Long idHoaTiet, String tenHoaTiet, BigDecimal minGia, BigDecimal maxGia, Integer tongSoLuong, Integer soLuongBienThe, Integer soMau, Integer soKichCo, String anhDaiDien, List<String> hinhAnhs, Boolean coGiamGia, BigDecimal minGiaSauGiam, BigDecimal maxGiaSauGiam, BigDecimal phanTramGiam, String tenDotGiamGia) {
+    public SanPhamResponse(Long id, String maSanPham, String tenSanPham, String moTa, Integer trangThai, Instant ngayTao, Instant ngayCapNhat, String nguoiTao, Long idXuatXu, String tenXuatXu, Long idChatLieu, String tenChatLieu, Long idThuongHieu, String tenThuongHieu, Long idDanhMuc, String tenDanhMuc, Long idCoAo, String tenCoAo, Long idTayAo, String tenTayAo, Long idHoaTiet, String tenHoaTiet, BigDecimal minGia, BigDecimal maxGia, Integer tongSoLuong, Integer soLuongBienThe, Integer soMau, Integer soKichCo, String anhDaiDien, List<String> hinhAnhs, Boolean coGiamGia, BigDecimal minGiaSauGiam, BigDecimal maxGiaSauGiam, BigDecimal phanTramGiam, String tenDotGiamGia, Long idDotGiamGia, Instant ngayBatDauDotGiamGia, Instant ngayKetThucDotGiamGia) {
         this.id = id;
         this.maSanPham = maSanPham;
         this.tenSanPham = tenSanPham;
@@ -92,6 +95,9 @@ public class SanPhamResponse {
         this.maxGiaSauGiam = maxGiaSauGiam;
         this.phanTramGiam = phanTramGiam;
         this.tenDotGiamGia = tenDotGiamGia;
+        this.idDotGiamGia = idDotGiamGia;
+        this.ngayBatDauDotGiamGia = ngayBatDauDotGiamGia;
+        this.ngayKetThucDotGiamGia = ngayKetThucDotGiamGia;
     }
 
     public Long getId() { return id; }
@@ -199,6 +205,15 @@ public class SanPhamResponse {
     public String getTenDotGiamGia() { return tenDotGiamGia; }
     public void setTenDotGiamGia(String tenDotGiamGia) { this.tenDotGiamGia = tenDotGiamGia; }
 
+    public Long getIdDotGiamGia() { return idDotGiamGia; }
+    public void setIdDotGiamGia(Long idDotGiamGia) { this.idDotGiamGia = idDotGiamGia; }
+
+    public Instant getNgayBatDauDotGiamGia() { return ngayBatDauDotGiamGia; }
+    public void setNgayBatDauDotGiamGia(Instant ngayBatDauDotGiamGia) { this.ngayBatDauDotGiamGia = ngayBatDauDotGiamGia; }
+
+    public Instant getNgayKetThucDotGiamGia() { return ngayKetThucDotGiamGia; }
+    public void setNgayKetThucDotGiamGia(Instant ngayKetThucDotGiamGia) { this.ngayKetThucDotGiamGia = ngayKetThucDotGiamGia; }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -239,6 +254,9 @@ public class SanPhamResponse {
         private BigDecimal maxGiaSauGiam;
         private BigDecimal phanTramGiam;
         private String tenDotGiamGia;
+        private Long idDotGiamGia;
+        private Instant ngayBatDauDotGiamGia;
+        private Instant ngayKetThucDotGiamGia;
 
         public Builder id(Long id) { this.id = id; return this; }
         public Builder maSanPham(String maSanPham) { this.maSanPham = maSanPham; return this; }
@@ -275,9 +293,12 @@ public class SanPhamResponse {
         public Builder maxGiaSauGiam(BigDecimal maxGiaSauGiam) { this.maxGiaSauGiam = maxGiaSauGiam; return this; }
         public Builder phanTramGiam(BigDecimal phanTramGiam) { this.phanTramGiam = phanTramGiam; return this; }
         public Builder tenDotGiamGia(String tenDotGiamGia) { this.tenDotGiamGia = tenDotGiamGia; return this; }
+        public Builder idDotGiamGia(Long idDotGiamGia) { this.idDotGiamGia = idDotGiamGia; return this; }
+        public Builder ngayBatDauDotGiamGia(Instant ngayBatDauDotGiamGia) { this.ngayBatDauDotGiamGia = ngayBatDauDotGiamGia; return this; }
+        public Builder ngayKetThucDotGiamGia(Instant ngayKetThucDotGiamGia) { this.ngayKetThucDotGiamGia = ngayKetThucDotGiamGia; return this; }
 
         public SanPhamResponse build() {
-            return new SanPhamResponse(id, maSanPham, tenSanPham, moTa, trangThai, ngayTao, ngayCapNhat, nguoiTao, idXuatXu, tenXuatXu, idChatLieu, tenChatLieu, idThuongHieu, tenThuongHieu, idDanhMuc, tenDanhMuc, idCoAo, tenCoAo, idTayAo, tenTayAo, idHoaTiet, tenHoaTiet, minGia, maxGia, tongSoLuong, soLuongBienThe, soMau, soKichCo, anhDaiDien, hinhAnhs, coGiamGia, minGiaSauGiam, maxGiaSauGiam, phanTramGiam, tenDotGiamGia);
+            return new SanPhamResponse(id, maSanPham, tenSanPham, moTa, trangThai, ngayTao, ngayCapNhat, nguoiTao, idXuatXu, tenXuatXu, idChatLieu, tenChatLieu, idThuongHieu, tenThuongHieu, idDanhMuc, tenDanhMuc, idCoAo, tenCoAo, idTayAo, tenTayAo, idHoaTiet, tenHoaTiet, minGia, maxGia, tongSoLuong, soLuongBienThe, soMau, soKichCo, anhDaiDien, hinhAnhs, coGiamGia, minGiaSauGiam, maxGiaSauGiam, phanTramGiam, tenDotGiamGia, idDotGiamGia, ngayBatDauDotGiamGia, ngayKetThucDotGiamGia);
         }
     }
 }

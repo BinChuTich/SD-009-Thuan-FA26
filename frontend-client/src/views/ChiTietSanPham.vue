@@ -62,6 +62,19 @@ const loadProductData = async (id) => {
     product.value = prodData
     variants.value = varData
 
+    try {
+      const resActive = await api.get('/api/dot-giam-gia/active-products-map')
+      if (resActive.data && resActive.data[id]) {
+        const dot = resActive.data[id]
+        if (prodData) {
+          prodData.coGiamGia = true
+          prodData.tenDotGiamGia = dot.tenDotGiamGia
+          prodData.phanTramGiam = dot.phanTramGiam
+          prodData.ngayKetThucDotGiamGia = dot.ngayKetThuc
+        }
+      }
+    } catch (e) {}
+
     // Chuẩn bị ảnh
     const imgs = []
     if (prodData?.anhDaiDien) imgs.push(prodData.anhDaiDien)
@@ -144,6 +157,34 @@ const originalPrice = computed(() => {
 const hasDiscount = computed(() => {
   return product.value?.coGiamGia === true || (originalPrice.value > currentPrice.value)
 })
+
+
+const campaignRemainingTime = ref('')
+let campaignTimer = null
+
+const updateCampaignTimer = () => {
+  const dateStr = product.value?.ngayKetThucDotGiamGia
+  if (!dateStr) {
+    campaignRemainingTime.value = ''
+    return
+  }
+  const target = new Date(dateStr).getTime()
+  const diff = target - Date.now()
+  if (diff <= 0) {
+    campaignRemainingTime.value = 'Đã kết thúc'
+    return
+  }
+  const d = Math.floor(diff / (1000 * 60 * 60 * 24))
+  const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+  const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  const s = Math.floor((diff % (1000 * 60)) / 1000)
+
+  if (d > 0) {
+    campaignRemainingTime.value = `${d} ngày ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  } else {
+    campaignRemainingTime.value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }
+}
 
 const discountPercent = computed(() => {
   if (product.value?.phanTramGiam) return Math.round(product.value.phanTramGiam)
@@ -293,6 +334,19 @@ onMounted(() => {
               <span class="rating-num">5.0</span>
               <div class="stars-stars">★★★★★</div>
               <span class="rating-count">(18 đánh giá hài lòng)</span>
+            </div>
+
+            <!-- Banner Đợt Giảm Giá Đang Hoạt Động -->
+            <div class="flash-deal-banner" v-if="product?.coGiamGia && product?.ngayKetThucDotGiamGia && campaignRemainingTime">
+              <div class="flash-left">
+                <span class="flash-fire">🔥</span>
+                <span class="flash-camp-name">{{ product.tenDotGiamGia || 'ƯU ĐÃI ĐẶC BIỆT' }}</span>
+                <span class="flash-tag" v-if="discountPercent > 0">-{{ discountPercent }}%</span>
+              </div>
+              <div class="flash-right">
+                <span class="flash-clock">⏰</span>
+                <span>Kết thúc trong: <strong>{{ campaignRemainingTime }}</strong></span>
+              </div>
             </div>
 
             <div class="pricing-headline">
@@ -477,6 +531,52 @@ onMounted(() => {
 .rating-count {
   font-size: 12px;
   color: #94a3b8;
+}
+
+
+.flash-deal-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #fef2f2 0%, #fff7ed 100%);
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.flash-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.flash-camp-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: #991b1b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.flash-tag {
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.flash-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #9a3412;
+}
+.flash-right strong {
+  font-variant-numeric: tabular-nums;
+  color: #c2410c;
+  font-weight: 800;
 }
 
 .pricing-headline {

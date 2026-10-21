@@ -1,43 +1,153 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatCurrency } from '@/utils/dinhDang.js'
 
 const router = useRouter()
 
-defineProps({
+const props = defineProps({
   dealProducts: {
+    type: Array,
+    default: () => []
+  },
+  activeCampaigns: {
     type: Array,
     default: () => []
   }
 })
 
+// Tab đợt giảm giá đang chọn: 'ALL' hoặc id / tên đợt
+const selectedCampaignId = ref('ALL')
+
+// Đồng hồ đếm ngược thời gian
 const dealCountdown = ref({
-  hours: '08',
-  minutes: '45',
-  seconds: '30'
+  days: 0,
+  hours: '00',
+  minutes: '00',
+  seconds: '00'
 })
 let dealTimer = null
 
-const startDealCountdown = () => {
-  const updateTimer = () => {
-    const now = new Date()
-    const target = new Date()
-    target.setHours(23, 59, 59, 999)
-    const diff = target.getTime() - now.getTime()
-    if (diff <= 0) {
-      dealCountdown.value = { hours: '00', minutes: '00', seconds: '00' }
-      return
-    }
-    const h = Math.floor(diff / (1000 * 60 * 60))
-    const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-    const s = Math.floor((diff % (1000 * 60)) / 1000)
-    dealCountdown.value = {
-      hours: String(h).padStart(2, '0'),
-      minutes: String(m).padStart(2, '0'),
-      seconds: String(s).padStart(2, '0')
+// Danh sách đợt giảm giá thực tế (lấy từ props hoặc tổng hợp từ dealProducts)
+const campaignsList = computed(() => {
+  if (props.activeCampaigns && props.activeCampaigns.length > 0) {
+    return props.activeCampaigns
+  }
+  const map = new Map()
+  for (const p of props.dealProducts) {
+    const key = p.idDotGiamGia || p.tenDotGiamGia
+    if (!key) continue
+    if (!map.has(key)) {
+      map.set(key, {
+        id: p.idDotGiamGia || key,
+        tenDotGiamGia: p.tenDotGiamGia,
+        phanTramGiam: p.phanTramGiam,
+        ngayBatDau: p.ngayBatDauDotGiamGia,
+        ngayKetThuc: p.ngayKetThucDotGiamGia,
+        count: 1
+      })
+    } else {
+      map.get(key).count++
     }
   }
+  return Array.from(map.values())
+})
+
+// Sản phẩm hiển thị theo tab đợt giảm giá được chọn
+const displayedProducts = computed(() => {
+  if (selectedCampaignId.value === 'ALL') {
+    return props.dealProducts
+  }
+  return props.dealProducts.filter(p => {
+    return p.idDotGiamGia === selectedCampaignId.value || p.tenDotGiamGia === selectedCampaignId.value
+  })
+})
+
+// Xác định đợt giảm giá mục tiêu để hiển thị thời gian đếm ngược ở Header
+const activeCountdownTarget = computed(() => {
+  if (selectedCampaignId.value !== 'ALL') {
+    const found = campaignsList.value.find(c => c.id === selectedCampaignId.value || c.tenDotGiamGia === selectedCampaignId.value)
+    if (found) {
+      return {
+        tenDotGiamGia: found.tenDotGiamGia,
+        dateStr: found.ngayKetThuc,
+        label: `Đợt [${found.tenDotGiamGia}] kết thúc trong:`
+      }
+    }
+  }
+
+  // Khi chọn Tất cả: Tìm đợt có thời gian kết thúc GẦN NHẤT (sắp hết hạn trước)
+  const validCampaigns = campaignsList.value
+    .filter(c => c.ngayKetThuc)
+    .sort((a, b) => new Date(a.ngayKetThuc).getTime() - new Date(b.ngayKetThuc).getTime())
+
+  if (validCampaigns.length > 0) {
+    const soonest = validCampaigns[0]
+    return {
+      tenDotGiamGia: soonest.tenDotGiamGia,
+      dateStr: soonest.ngayKetThuc,
+      label: `Đợt [${soonest.tenDotGiamGia}] kết thúc trong:`
+    }
+  }
+
+  return {
+    tenDotGiamGia: 'Ưu đãi hôm nay',
+    dateStr: null,
+    label: 'Kết thúc trong:'
+  }
+})
+
+// Format ngày giờ theo chuẩn tiếng Việt DD/MM/YYYY HH:mm
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return ''
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return ''
+    const day = String(d.getDate()).padStart(2, '0')
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const year = d.getFullYear()
+    const hours = String(d.getHours()).padStart(2, '0')
+    const mins = String(d.getMinutes()).padStart(2, '0')
+    return `${hours}:${mins} ${day}/${month}/${year}`
+  } catch (e) {
+    return ''
+  }
+}
+
+// Cập nhật bộ đếm ngược thời gian thực
+const updateTimer = () => {
+  const targetInfo = activeCountdownTarget.value
+  let targetTime
+  if (targetInfo && targetInfo.dateStr) {
+    targetTime = new Date(targetInfo.dateStr).getTime()
+  } else {
+    const def = new Date()
+    def.setHours(23, 59, 59, 999)
+    targetTime = def.getTime()
+  }
+
+  const now = Date.now()
+  const diff = targetTime - now
+
+  if (diff <= 0) {
+    dealCountdown.value = { days: 0, hours: '00', minutes: '00', seconds: '00' }
+    return
+  }
+
+  const d = Math.floor(diff / (1000 * 60 * 60 * 24))
+  const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+  const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  const s = Math.floor((diff % (1000 * 60)) / 1000)
+
+  dealCountdown.value = {
+    days: d,
+    hours: String(h).padStart(2, '0'),
+    minutes: String(m).padStart(2, '0'),
+    seconds: String(s).padStart(2, '0')
+  }
+}
+
+const startDealCountdown = () => {
   updateTimer()
   if (dealTimer) clearInterval(dealTimer)
   dealTimer = setInterval(updateTimer, 1000)
@@ -49,6 +159,10 @@ const stopDealCountdown = () => {
     dealTimer = null
   }
 }
+
+watch(selectedCampaignId, () => {
+  updateTimer()
+})
 
 const handleImgError = (e) => {
   e.target.src = '/images/products/default_tshirt.jpg'
@@ -70,6 +184,7 @@ onUnmounted(() => {
 <template>
   <section class="deals-section">
     <div class="container-deals">
+      <!-- 1. Header Khối Giảm Giá -->
       <div class="deal-header-wrapper">
         <div class="deal-title-left">
           <span class="badge-sub-title">GIÁ TỐT HÔM NAY • SỐ LƯỢNG CÓ HẠN</span>
@@ -79,23 +194,73 @@ onUnmounted(() => {
           <p class="script-subtitle">Các mẫu áo phông Cotton tuyển chọn đang áp dụng chương trình trợ giá tốt nhất</p>
         </div>
 
-        <div class="deal-countdown-box">
-          <span class="countdown-label">
-            <span class="pulsing-dot"></span> Kết thúc trong:
-          </span>
+        <!-- Khối Đếm Ngược Thời Gian (Thiết kế phẳng, tinh tế) -->
+        <div class="deal-countdown-box" v-if="dealProducts.length > 0">
+          <div class="countdown-info-col">
+            <span class="countdown-label">
+              <span class="countdown-clock-icon">⏰</span>
+              <span>{{ activeCountdownTarget.label }}</span>
+            </span>
+            <span class="countdown-sub-deadline" v-if="activeCountdownTarget.dateStr">
+              Hạn chót: <strong>{{ formatDateTime(activeCountdownTarget.dateStr) }}</strong>
+            </span>
+          </div>
+
           <div class="countdown-timer">
-            <span class="timer-unit"><strong>{{ dealCountdown.hours }}</strong><small>Giờ</small></span>
+            <template v-if="dealCountdown.days > 0">
+              <span class="timer-unit">
+                <strong>{{ dealCountdown.days }}</strong>
+                <small>Ngày</small>
+              </span>
+              <span class="timer-colon">:</span>
+            </template>
+            <span class="timer-unit">
+              <strong>{{ dealCountdown.hours }}</strong>
+              <small>Giờ</small>
+            </span>
             <span class="timer-colon">:</span>
-            <span class="timer-unit"><strong>{{ dealCountdown.minutes }}</strong><small>Phút</small></span>
+            <span class="timer-unit">
+              <strong>{{ dealCountdown.minutes }}</strong>
+              <small>Phút</small>
+            </span>
             <span class="timer-colon">:</span>
-            <span class="timer-unit"><strong>{{ dealCountdown.seconds }}</strong><small>Giây</small></span>
+            <span class="timer-unit">
+              <strong>{{ dealCountdown.seconds }}</strong>
+              <small>Giây</small>
+            </span>
           </div>
         </div>
       </div>
 
-      <div v-if="dealProducts.length > 0" class="deals-grid" :class="{ 'compact-center': dealProducts.length <= 2 }">
+      <!-- 2. Thanh Tabs Phân Loại Đợt Giảm Giá (Tối giản, trang nhã) -->
+      <div class="campaign-tabs-nav" v-if="campaignsList.length > 1">
+        <button
+          type="button"
+          class="campaign-tab-btn"
+          :class="{ active: selectedCampaignId === 'ALL' }"
+          @click="selectedCampaignId = 'ALL'"
+        >
+          <span>Tất cả ưu đãi</span>
+          <span class="tab-count-badge">{{ dealProducts.length }}</span>
+        </button>
+
+        <button
+          v-for="camp in campaignsList"
+          :key="camp.id"
+          type="button"
+          class="campaign-tab-btn"
+          :class="{ active: selectedCampaignId === camp.id }"
+          @click="selectedCampaignId = camp.id"
+        >
+          <span>{{ camp.tenDotGiamGia }}</span>
+          <span class="tab-discount-tag" v-if="camp.phanTramGiam">-{{ Math.round(camp.phanTramGiam) }}%</span>
+        </button>
+      </div>
+
+      <!-- 3. Lưới Sản Phẩm Đang Giảm Giá (Gọn gàng, loại bỏ khối trạng thái rối mắt) -->
+      <div v-if="displayedProducts.length > 0" class="deals-grid" :class="{ 'compact-center': displayedProducts.length <= 2 }">
         <div
-          v-for="p in dealProducts"
+          v-for="p in displayedProducts"
           :key="p.id"
           class="deal-card"
           @click="goToProduct(p.id)"
@@ -107,7 +272,8 @@ onUnmounted(() => {
               @error="handleImgError"
               loading="lazy"
             />
-            
+
+            <!-- Badge % Giảm Giá Góc Trái -->
             <div class="deal-discount-badge" v-if="p.coGiamGia && p.phanTramGiam > 0">
               <span class="badge-pct">-{{ Math.round(p.phanTramGiam) }}%</span>
             </div>
@@ -115,6 +281,7 @@ onUnmounted(() => {
               <span class="badge-pct">DEAL HOT</span>
             </div>
 
+            <!-- Tên Đợt Giảm Giá Góc Dưới -->
             <span v-if="p.tenDotGiamGia" class="deal-campaign-tag">
               🏷️ {{ p.tenDotGiamGia }}
             </span>
@@ -123,7 +290,7 @@ onUnmounted(() => {
           <div class="deal-content">
             <div class="deal-meta-row">
               <span class="deal-category">{{ p.tenDanhMuc || 'Áo phông' }}</span>
-              <span class="deal-rating">⭐ 5.0 (Đã kiểm định)</span>
+              <span class="deal-rating">⭐ 5.0</span>
             </div>
 
             <h3 class="deal-title">{{ p.tenSanPham }}</h3>
@@ -144,19 +311,9 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div class="deal-status-box">
-              <div class="deal-status-label">
-                <span>Trạng thái: <strong>Đang bán chạy 🔥</strong></span>
-                <span class="stock-text">Sẵn hàng</span>
-              </div>
-              <div class="deal-progress-bar">
-                <div class="deal-progress-fill" :style="{ width: ((p.id * 27) % 35 + 60) + '%' }"></div>
-              </div>
-            </div>
-
-            <button class="btn-deal-action">
+            <button class="btn-deal-action" type="button">
               <span>Săn Deal Ngay</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="5" y1="12" x2="19" y2="12"></line>
                 <polyline points="12 5 19 12 12 19"></polyline>
               </svg>
@@ -165,12 +322,14 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <!-- 4. Giao Diện Khi Chưa Có Đợt Giảm Giá Hoạt Động -->
       <div v-else class="empty-deals-box text-center">
-        <p>Hiện các chương trình ưu đãi đang được cập nhật. Mời bạn ghé xem toàn bộ sản phẩm tại cửa hàng!</p>
+        <p>Hiện các đợt giảm giá mới đang được cập nhật. Mời bạn ghé xem toàn bộ sản phẩm tại cửa hàng!</p>
         <router-link to="/cua-hang" class="btn-view-all-shop">Xem Cửa Hàng &rarr;</router-link>
       </div>
 
-      <div class="view-all-center-btn" style="margin-top: 36px;">
+      <!-- 5. Nút Xem Tất Cả Sản Phẩm Tại Cửa Hàng -->
+      <div class="view-all-center-btn">
         <router-link to="/cua-hang" class="btn-view-all-shop">
           Xem Tất Cả Sản Phẩm Tại Cửa Hàng &rarr;
         </router-link>
@@ -181,10 +340,10 @@ onUnmounted(() => {
 
 <style scoped>
 .deals-section {
-  padding: 64px 0 54px;
-  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
-  border-top: 1px solid #edf2f7;
-  border-bottom: 1px solid #edf2f7;
+  padding: 56px 0 50px;
+  background: #fbfcfe;
+  border-top: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .container-deals {
@@ -197,8 +356,8 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: 36px;
-  gap: 24px;
+  margin-bottom: 24px;
+  gap: 20px;
   flex-wrap: wrap;
 }
 
@@ -213,17 +372,17 @@ onUnmounted(() => {
   color: #496883;
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 1.5px;
-  padding: 4px 12px;
-  border-radius: 20px;
+  letter-spacing: 1.2px;
+  padding: 4px 10px;
+  border-radius: 6px;
   margin-bottom: 8px;
 }
 
 .script-title {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 800;
-  color: #1e293b;
-  margin: 0 0 6px;
+  color: #0f172a;
+  margin: 0 0 4px;
 }
 
 .script-subtitle {
@@ -234,46 +393,46 @@ onUnmounted(() => {
 
 .deal-fire-emoji {
   display: inline-block;
-  animation: pulseFlame 1.5s infinite;
 }
 
-@keyframes pulseFlame {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.18); }
-}
-
+/* Khối Đếm Ngược Header */
 .deal-countdown-box {
   background: #ffffff;
-  border: 1px solid #fde68a;
-  border-radius: 12px;
-  padding: 10px 18px;
-  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.08);
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 16px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.countdown-info-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .countdown-label {
   font-size: 13px;
   font-weight: 700;
-  color: #92400e;
+  color: #334155;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.pulsing-dot {
-  width: 8px;
-  height: 8px;
-  background: #ef4444;
-  border-radius: 50%;
-  display: inline-block;
-  animation: blinkDot 1s infinite;
+.countdown-clock-icon {
+  font-size: 14px;
 }
 
-@keyframes blinkDot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.2; }
+.countdown-sub-deadline {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.countdown-sub-deadline strong {
+  color: #0f172a;
 }
 
 .countdown-timer {
@@ -286,18 +445,18 @@ onUnmounted(() => {
   background: #1e293b;
   color: #ffffff;
   border-radius: 6px;
-  padding: 4px 8px;
+  padding: 4px 7px;
   text-align: center;
-  min-width: 44px;
+  min-width: 42px;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
 .timer-unit strong {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 800;
-  color: #fde68a;
+  color: #ffffff;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
@@ -310,16 +469,81 @@ onUnmounted(() => {
 }
 
 .timer-colon {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 800;
-  color: #1e293b;
-  margin: 0 2px;
+  color: #64748b;
+  margin: 0 1px;
 }
 
+/* Thanh Tabs Đợt Giảm Giá */
+.campaign-tabs-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 22px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.campaign-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.campaign-tab-btn:hover {
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.campaign-tab-btn.active {
+  background: #1e293b;
+  border-color: #1e293b;
+  color: #ffffff;
+}
+
+.tab-count-badge {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.campaign-tab-btn.active .tab-count-badge {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.tab-discount-tag {
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.campaign-tab-btn.active .tab-discount-tag {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+/* Lưới Sản Phẩm */
 .deals-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 22px;
+  gap: 20px;
 }
 
 .deals-grid.compact-center {
@@ -330,20 +554,20 @@ onUnmounted(() => {
 
 .deal-card {
   background: #ffffff;
-  border-radius: 14px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
-  border: 1px solid #eef2f6;
+  transition: all 0.25s ease;
+  border: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
 }
 
 .deal-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 16px 32px rgba(73, 104, 131, 0.16);
-  border-color: #d2a764;
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+  border-color: #cbd5e1;
 }
 
 .deal-media {
@@ -351,7 +575,7 @@ onUnmounted(() => {
   width: 100%;
   padding-top: 105%;
   overflow: hidden;
-  background: #f1f5f9;
+  background: #f8fafc;
 }
 
 .deal-media img {
@@ -361,48 +585,41 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.45s ease;
+  transition: transform 0.35s ease;
 }
 
 .deal-card:hover .deal-media img {
-  transform: scale(1.07);
+  transform: scale(1.05);
 }
 
 .deal-discount-badge {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  top: 10px;
+  left: 10px;
+  background: #ef4444;
   color: #ffffff;
-  padding: 4px 10px;
-  border-radius: 6px;
-  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.35);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 800;
   z-index: 2;
 }
 
 .deal-discount-badge.best-deal {
-  background: linear-gradient(135deg, #d2a764 0%, #b88a44 100%);
-  box-shadow: 0 4px 10px rgba(210, 167, 100, 0.35);
-}
-
-.deal-discount-badge .badge-pct {
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
+  background: #d97706;
 }
 
 .deal-campaign-tag {
   position: absolute;
-  bottom: 10px;
-  left: 10px;
-  background: rgba(30, 41, 59, 0.88);
-  backdrop-filter: blur(4px);
+  bottom: 8px;
+  left: 8px;
+  background: rgba(15, 23, 42, 0.85);
   color: #ffffff;
   font-size: 11px;
   font-weight: 600;
-  padding: 3px 8px;
+  padding: 2px 7px;
   border-radius: 4px;
-  max-width: 85%;
+  max-width: 80%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -410,7 +627,7 @@ onUnmounted(() => {
 }
 
 .deal-content {
-  padding: 18px;
+  padding: 14px 16px 16px;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -420,30 +637,30 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .deal-category {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  color: #496883;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .deal-rating {
   font-size: 11px;
-  color: #64748b;
+  color: #f59e0b;
   font-weight: 600;
 }
 
 .deal-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: #1e293b;
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   line-height: 1.4;
-  min-height: 42px;
+  min-height: 40px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -451,7 +668,8 @@ onUnmounted(() => {
 }
 
 .deal-price-row {
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  margin-top: auto;
 }
 
 .deal-price-group {
@@ -462,7 +680,7 @@ onUnmounted(() => {
 }
 
 .deal-sale-price {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 800;
   color: #dc2626;
 }
@@ -476,50 +694,12 @@ onUnmounted(() => {
 .deal-save-chip {
   display: inline-block;
   background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fee2e2;
+  color: #dc2626;
   font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
+  font-weight: 600;
+  padding: 2px 6px;
   border-radius: 4px;
   margin-top: 4px;
-}
-
-.deal-status-box {
-  margin-top: auto;
-  margin-bottom: 14px;
-}
-
-.deal-status-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 11px;
-  color: #64748b;
-  margin-bottom: 6px;
-}
-
-.deal-status-label strong {
-  color: #d97706;
-}
-
-.stock-text {
-  font-size: 11px;
-  color: #16a34a;
-  font-weight: 700;
-}
-
-.deal-progress-bar {
-  height: 6px;
-  background: #e2e8f0;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.deal-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #ef4444 0%, #f59e0b 100%);
-  border-radius: 3px;
 }
 
 .btn-deal-action {
@@ -527,54 +707,53 @@ onUnmounted(() => {
   background: #496883;
   color: #ffffff;
   border: none;
-  border-radius: 8px;
-  padding: 10px 16px;
+  border-radius: 6px;
+  padding: 9px 14px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  transition: all 0.25s ease;
+  gap: 6px;
+  transition: all 0.2s ease;
 }
 
 .btn-deal-action:hover {
-  background: #385269;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(73, 104, 131, 0.25);
+  background: #364e63;
 }
 
 .empty-deals-box {
-  padding: 40px 20px;
+  padding: 36px 20px;
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px dashed #cbd5e1;
   color: #64748b;
+  font-size: 14px;
 }
 
 .view-all-center-btn {
   text-align: center;
+  margin-top: 32px;
 }
 
 .btn-view-all-shop {
   display: inline-block;
-  background: #f8fafc;
+  background: #ffffff;
   color: #496883;
   border: 1.5px solid #cbd5e1;
-  padding: 12px 28px;
+  padding: 10px 24px;
   border-radius: 8px;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
   text-decoration: none;
-  transition: all 0.25s;
+  transition: all 0.2s;
 }
 
 .btn-view-all-shop:hover {
   background: #496883;
   color: #ffffff;
   border-color: #496883;
-  box-shadow: 0 4px 12px rgba(73, 104, 131, 0.2);
 }
 
 @media (max-width: 992px) {
@@ -584,7 +763,7 @@ onUnmounted(() => {
   .deal-header-wrapper {
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
+    gap: 14px;
   }
 }
 
@@ -594,8 +773,9 @@ onUnmounted(() => {
   }
   .deal-countdown-box {
     width: 100%;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }
 </style>
-

@@ -801,6 +801,9 @@ public class SanPhamService {
         BigDecimal maxGiaSauGiam = null;
         BigDecimal phanTramGiam = null;
         String tenDotGiamGia = null;
+        Long idDotGiamGia = null;
+        Instant ngayBatDauDotGiamGia = null;
+        Instant ngayKetThucDotGiamGia = null;
 
         if (activeDiscounts != null && !activeDiscounts.isEmpty()) {
             coGiamGia = true;
@@ -814,7 +817,10 @@ public class SanPhamService {
                 .orElse(activeDiscounts.get(0));
 
             if (bestDgg.getIdDotGiamGia() != null) {
+                idDotGiamGia = bestDgg.getIdDotGiamGia().getId();
                 tenDotGiamGia = bestDgg.getIdDotGiamGia().getTenDotGiamGia();
+                ngayBatDauDotGiamGia = bestDgg.getIdDotGiamGia().getNgayBatDau();
+                ngayKetThucDotGiamGia = bestDgg.getIdDotGiamGia().getNgayKetThuc();
                 phanTramGiam = bestDgg.getPhanTramGiamBienThe() != null 
                         ? bestDgg.getPhanTramGiamBienThe() 
                         : bestDgg.getIdDotGiamGia().getPhanTramGiam();
@@ -897,6 +903,9 @@ public class SanPhamService {
                 .maxGiaSauGiam(maxGiaSauGiam)
                 .phanTramGiam(phanTramGiam)
                 .tenDotGiamGia(tenDotGiamGia)
+                .idDotGiamGia(idDotGiamGia)
+                .ngayBatDauDotGiamGia(ngayBatDauDotGiamGia)
+                .ngayKetThucDotGiamGia(ngayKetThucDotGiamGia)
                 .tongSoLuong(tongSoLuong)
                 .soLuongBienThe(variants != null ? variants.size() : 0)
                 .soMau(soMau)
