@@ -62,10 +62,15 @@ const goToDetail = () => {
       </div>
 
       <div class="card-footer-tags">
-        <span class="stock-tag" :class="{ 'out-of-stock': product.soLuongTon === 0 }">
-          {{ product.soLuongTon > 0 ? 'Còn hàng' : 'Tạm hết hàng' }}
+        <span
+          class="stock-tag"
+          :class="{ 'out-of-stock': (product.tongSoLuong != null ? product.tongSoLuong : (product.soLuongTon || 0)) <= 0 }"
+        >
+          {{ (product.tongSoLuong != null ? product.tongSoLuong : (product.soLuongTon || 0)) > 0 ? 'Còn hàng' : 'Tạm hết hàng' }}
         </span>
-        <span v-if="product.chatLieu" class="material-tag">{{ product.chatLieu }}</span>
+        <span v-if="product.tenChatLieu || product.chatLieu" class="material-tag">
+          {{ product.tenChatLieu || product.chatLieu }}
+        </span>
       </div>
     </div>
   </div>
@@ -227,3 +232,4 @@ const goToDetail = () => {
   color: #64748b;
 }
 </style>
+

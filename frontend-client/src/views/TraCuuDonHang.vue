@@ -2,54 +2,119 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/api'
-import { formatCurrency, formatDateTime } from '@/utils/dinhDang.js'
+import { formatCurrency } from '@/utils/dinhDang.js'
 
 const route = useRoute()
 
-const searchInput = ref('')
+const searchCode = ref('')
+const searchPhone = ref('')
 const loading = ref(false)
 const order = ref(null)
 const orderItems = ref([])
+const orderLogs = ref([])
 const errorMsg = ref('')
 const showSuccessToast = ref(false)
+
+const triggerSuccess = () => {
+  showSuccessToast.value = true
+  setTimeout(() => {
+    showSuccessToast.value = false
+  }, 3500)
+}
+
+const loadOrderDetails = async (maHoaDon) => {
+  try {
+    const res = await api.get(`/api/hoa-don/code/${maHoaDon}/chi-tiet`)
+    orderItems.value = Array.isArray(res.data) ? res.data : []
+  } catch (e) {
+    console.error('Lỗi tải sản phẩm của hóa đơn:', e)
+    orderItems.value = []
+  }
+}
+
+const loadOrderLogs = async (maHoaDon) => {
+  try {
+    const res = await api.get(`/api/hoa-don/code/${maHoaDon}/lich-su`)
+    const logs = Array.isArray(res.data) ? res.data : []
+    logs.sort((a, b) => new Date(b.thoiGian || 0) - new Date(a.thoiGian || 0))
+    orderLogs.value = logs
+  } catch (e) {
+    console.error('Lỗi tải lịch sử tác động đơn:', e)
+    orderLogs.value = []
+  }
+}
 
 const handleSearch = async () => {
   errorMsg.value = ''
   order.value = null
   orderItems.value = []
+  orderLogs.value = []
   showSuccessToast.value = false
 
-  const term = searchInput.value.trim()
-  if (!term) {
-    errorMsg.value = 'Vui lòng nhập Mã hóa đơn hoặc Số điện thoại để tra cứu!'
+  const code = (searchCode.value || '').trim()
+  const phone = (searchPhone.value || '').trim()
+
+  if (!code && !phone) {
+    errorMsg.value = 'Vui lòng nhập Mã đơn hàng hoặc Số điện thoại để tra cứu!'
     return
   }
 
   loading.value = true
   try {
-    try {
-      const resCode = await api.get(`/api/hoa-don/code/${term}`)
-      if (resCode.data) {
-        order.value = resCode.data
-        loadOrderDetails(order.value.maHoaDon)
-        triggerSuccess()
-        return
+    let foundOrder = null
+
+    // 1. Nếu có mã đơn hàng, thử tìm trực tiếp bằng code
+    if (code) {
+      try {
+        const resCode = await api.get(`/api/hoa-don/code/${code}`)
+        if (resCode.data && resCode.data.maHoaDon) {
+          // Nếu người dùng nhập cả SĐT, kiểm tra xem có khớp không
+          if (phone) {
+            const oPhone = (resCode.data.soDienThoaiKhachHang || resCode.data.soDienThoaiHienThi || '').trim()
+            if (oPhone && oPhone !== phone) {
+              errorMsg.value = `Số điện thoại "${phone}" không khớp với mã đơn hàng "${code}". Vui lòng kiểm tra lại!`
+              loading.value = false
+              return
+            }
+          }
+          foundOrder = resCode.data
+        }
+      } catch (e) {
+        // Tiếp tục quét danh sách nếu get theo code 404
       }
-    } catch (e) {}
+    }
 
-    const resAll = await api.get('/api/hoa-don')
-    const list = resAll.data || []
-    const match = list.find(h =>
-      (h.maHoaDon && h.maHoaDon.toLowerCase() === term.toLowerCase()) ||
-      (h.soDienThoaiKhachHang && h.soDienThoaiKhachHang === term)
-    )
+    // 2. Nếu chưa tìm thấy hoặc chỉ nhập SĐT, quét toàn bộ danh sách đơn hàng
+    if (!foundOrder) {
+      const resAll = await api.get('/api/hoa-don')
+      const list = Array.isArray(resAll.data) ? resAll.data : []
+      // Sắp xếp đơn mới nhất lên đầu
+      list.sort((a, b) => new Date(b.ngayTao || 0) - new Date(a.ngayTao || 0))
 
-    if (match) {
-      order.value = match
-      loadOrderDetails(match.maHoaDon)
+      foundOrder = list.find(h => {
+        const hCode = (h.maHoaDon || '').trim().toLowerCase()
+        const hPhone = (h.soDienThoaiKhachHang || h.soDienThoaiHienThi || '').trim()
+
+        if (code && phone) {
+          return hCode === code.toLowerCase() && hPhone === phone
+        } else if (code) {
+          return hCode === code.toLowerCase()
+        } else if (phone) {
+          return hPhone === phone
+        }
+        return false
+      })
+    }
+
+    if (foundOrder) {
+      order.value = foundOrder
+      await Promise.all([
+        loadOrderDetails(foundOrder.maHoaDon),
+        loadOrderLogs(foundOrder.maHoaDon)
+      ])
       triggerSuccess()
     } else {
-      errorMsg.value = `Không tìm thấy đơn hàng nào với thông tin "${term}". Vui lòng kiểm tra lại!`
+      errorMsg.value = `Không tìm thấy đơn hàng nào với thông tin bạn cung cấp. Vui lòng kiểm tra lại!`
     }
   } catch (err) {
     console.error('Lỗi tra cứu đơn hàng:', err)
@@ -59,32 +124,89 @@ const handleSearch = async () => {
   }
 }
 
-const triggerSuccess = () => {
-  showSuccessToast.value = true
-  setTimeout(() => {
-    showSuccessToast.value = false
-  }, 3000)
+// Helpers định dạng thời gian chuẩn theo video tham khảo
+const formatOnlyTime = (val) => {
+  if (!val) return ''
+  const d = new Date(val)
+  if (isNaN(d.getTime())) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
-const loadOrderDetails = async (maHoaDon) => {
-  try {
-    const res = await api.get(`/api/hoa-don/code/${maHoaDon}/chi-tiet`)
-    orderItems.value = res.data || []
-  } catch (e) {
-    console.error('Lỗi tải sản phẩm của hóa đơn:', e)
-  }
+const formatOnlyDate = (val) => {
+  if (!val) return ''
+  const d = new Date(val)
+  if (isNaN(d.getTime())) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
 }
 
-watch(() => route.query.ma, (newMa) => {
-  if (newMa) {
-    searchInput.value = newMa
-    handleSearch()
+const formatLogTime = (val) => {
+  if (!val) return '—'
+  const d = new Date(val)
+  if (isNaN(d.getTime())) return String(val)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+}
+
+// Mô tả trạng thái đơn hàng (Match video frame 19:25)
+const getOrderStatusBanner = (o) => {
+  if (!o) return ''
+  if (o.trangThai === 6) return 'Đơn hàng đã được Hủy & Hoàn tiền thành công'
+  if (o.trangThai === 5) return 'Đơn hàng đã được giao thành công'
+  if (o.trangThai === 4) return 'Đơn hàng đang được giao'
+  if (o.trangThai === 3) return 'Đơn hàng đã đóng gói, chờ giao ĐVVC'
+  if (o.trangThai === 2) return 'Đơn hàng đã được xác nhận'
+  return 'Đơn hàng đang được xử lý & giao nhận'
+}
+
+const getPaymentStatusText = (o) => {
+  if (!o) return ''
+  if (o.trangThai === 6) return 'Đã nhận hoàn tiền'
+  if (o.trangThaiThanhToan === 1) return 'Đã thanh toán'
+  return 'Chưa thanh toán'
+}
+
+const isPaidOrRefunded = (o) => {
+  return o.trangThai === 6 || o.trangThaiThanhToan === 1
+}
+
+const isVnPay = (o) => {
+  if (!o) return false
+  const pt = (o.phuongThucThanhToan || o.ghiChu || '').toUpperCase()
+  return pt.includes('VNPAY')
+}
+
+const getActorName = (log) => {
+  if (log.vaiTroNguoiThucHien) return log.vaiTroNguoiThucHien
+  if (log.nguoiThucHien) return log.nguoiThucHien
+  return 'Hệ thống'
+}
+
+const getActorClass = (log) => {
+  const actor = (log.vaiTroNguoiThucHien || log.nguoiThucHien || '').toLowerCase()
+  if (actor.includes('quản trị') || actor.includes('admin') || actor.includes('nhân viên') || actor.includes('vnpay') || actor.includes('hệ thống')) {
+    return 'actor-admin'
   }
-}, { immediate: true })
+  return 'actor-customer'
+}
+
+watch(
+  () => route.query,
+  (q) => {
+    if (q.ma || q.code || q.sdt || q.phone) {
+      if (q.ma || q.code) searchCode.value = q.ma || q.code
+      if (q.sdt || q.phone) searchPhone.value = q.sdt || q.phone
+      handleSearch()
+    }
+  },
+  { immediate: true }
+)
 
 onMounted(() => {
-  if (route.query.ma) {
-    searchInput.value = route.query.ma
+  if (route.query.ma || route.query.code || route.query.sdt || route.query.phone) {
+    if (route.query.ma || route.query.code) searchCode.value = route.query.ma || route.query.code
+    if (route.query.sdt || route.query.phone) searchPhone.value = route.query.sdt || route.query.phone
     handleSearch()
   }
 })
@@ -92,36 +214,58 @@ onMounted(() => {
 
 <template>
   <div class="tracking-page-wrap">
-    <!-- TOAST THÔNG BÁO TÌM THẤY ĐƠN (MATCH frame_tracking.jpg GÓC PHẢI TRÊN) -->
-    <div v-if="showSuccessToast" class="success-top-toast">
-      <span class="toast-check-icon">✓</span>
-      <div>
-        <strong>Thành công</strong>
-        <p>Đã tìm thấy đơn hàng</p>
+    <!-- TOAST THÔNG BÁO TÌM THẤY ĐƠN (MATCH VIDEO GÓC PHẢI TRÊN tc_1925.png) -->
+    <transition name="toast-slide">
+      <div v-if="showSuccessToast" class="success-top-toast">
+        <span class="toast-check-icon">✓</span>
+        <div class="toast-text-box">
+          <strong>Thành công</strong>
+          <p>Đã tìm thấy đơn hàng</p>
+        </div>
       </div>
-    </div>
+    </transition>
 
-    <!-- TIÊU ĐỀ TRANG -->
+    <!-- TIÊU ĐỀ TRANG (MATCH VIDEO tc_input_1920.png) -->
     <div class="tracking-hero-header">
       <div class="container-client text-center">
         <h1 class="tracking-title">Tra Cứu Đơn Hàng</h1>
-        <p class="tracking-sub">Nhập số điện thoại hoặc mã đơn hàng để theo dõi lịch trình giao nhận</p>
+        <p class="tracking-sub">Kiểm tra trạng thái đơn hàng của bạn nhanh chóng (Real-time)</p>
       </div>
     </div>
 
     <div class="container-client tracking-main-container">
-      <!-- THANH TÌM KIẾM NHANH -->
+      <!-- THANH TÌM KIẾM 2 TRƯỜNG MATCH VIDEO tc_input_1920.png -->
       <div class="search-input-card">
-        <form @submit.prevent="handleSearch" class="search-flex-row">
-          <input
-            v-model="searchInput"
-            type="text"
-            placeholder="Nhập mã đơn hàng (Ví dụ: HD123) hoặc số điện thoại..."
-            class="track-input"
-          />
-          <button type="submit" class="btn-track-submit" :disabled="loading">
-            {{ loading ? 'Đang tìm kiếm...' : 'Tra cứu' }}
-          </button>
+        <form @submit.prevent="handleSearch" class="search-two-fields-form">
+          <div class="form-field-col">
+            <label class="field-label">
+              Mã đơn hàng <span class="req">*</span>
+            </label>
+            <input
+              v-model="searchCode"
+              type="text"
+              placeholder="Nhập Mã Hóa Đơn"
+              class="track-input"
+            />
+          </div>
+
+          <div class="form-field-col">
+            <label class="field-label">
+              Số điện thoại đặt hàng <span class="req">*</span>
+            </label>
+            <input
+              v-model="searchPhone"
+              type="text"
+              placeholder="Nhập SĐT"
+              class="track-input"
+            />
+          </div>
+
+          <div class="form-btn-col">
+            <button type="submit" class="btn-track-submit" :disabled="loading">
+              <span class="btn-icon">🔍</span> {{ loading ? 'Đang tìm...' : 'Tìm' }}
+            </button>
+          </div>
         </form>
 
         <div v-if="errorMsg" class="track-err-box">
@@ -129,38 +273,37 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- KẾT QUẢ TRA CỨU CHI TIẾT (MATCH CHÍNH XÁC frame_tracking.jpg) -->
+      <!-- KẾT QUẢ TRA CỨU CHI TIẾT (MATCH CHÍNH XÁC VIDEO tc_1925.png) -->
       <div v-if="order" class="tracking-result-box">
-        <!-- 1. DẢI BANNER TRẠNG THÁI MÀU XANH LÁ TRÊN CÙNG (MATCH frame_tracking.jpg) -->
+        <!-- 1. DẢI BANNER TRẠNG THÁI MÀU XANH LÁ TRÊN CÙNG -->
         <div class="status-banner-green">
           <div class="banner-icon-title">
             <span class="icon-circle">✓</span>
-            <span class="banner-text">
-              {{ order.trangThai === 6 ? 'Đơn hàng đã được Hủy & Hoàn tiền thành công' : 'Đơn hàng đang được xử lý & giao nhận' }}
-            </span>
+            <span class="banner-text">{{ getOrderStatusBanner(order) }}</span>
           </div>
           <div class="banner-time">
-            {{ formatDateTime(order.ngayTao) }}
+            <div class="time-part">{{ formatOnlyTime(order.ngayTao) }}</div>
+            <div class="date-part">{{ formatOnlyDate(order.ngayTao) }}</div>
           </div>
         </div>
 
-        <!-- 2. HAI KHỐI THÔNG TIN BÊN DƯỚI (MATCH frame_tracking.jpg) -->
+        <!-- 2. HAI KHỐI THÔNG TIN BÊN DƯỚI -->
         <div class="two-info-boxes-grid">
-          <!-- Khối Thông tin nhận hàng -->
+          <!-- Khối Thông nhận hàng -->
           <div class="info-block-card">
             <h4>📍 Thông nhận hàng</h4>
             <div class="info-lines">
               <div class="i-line">
                 <span class="i-label">Khách hàng:</span>
-                <strong>{{ order.tenKhachHang || 'Dương Ngọc Chiến' }}</strong>
+                <strong>{{ order.tenKhachHang || order.tenKhachHangHienThi || 'Khách hàng' }}</strong>
               </div>
               <div class="i-line">
                 <span class="i-label">SĐT:</span>
-                <span>{{ order.soDienThoaiKhachHang || '0988776655' }}</span>
+                <span>{{ order.soDienThoaiKhachHang || order.soDienThoaiHienThi || '—' }}</span>
               </div>
               <div class="i-line">
                 <span class="i-label">Địa chỉ:</span>
-                <span>{{ order.diaChiNhanHang || '321 ngõ abc, Phường 3, Quận 3, Thành phố Hồ Chí Minh' }}</span>
+                <span>{{ order.diaChiNhanHang || '—' }}</span>
               </div>
             </div>
           </div>
@@ -171,21 +314,23 @@ onMounted(() => {
             <div class="info-lines">
               <div class="i-line">
                 <span class="i-label">Hình thức:</span>
-                <span>{{ order.phuongThucThanhToan || 'Thanh toán qua VNPAY' }}</span>
+                <span>{{ order.phuongThucThanhToan || (isVnPay(order) ? 'Thanh toán qua VNPAY' : 'Thanh toán khi nhận hàng (COD)') }}</span>
               </div>
               <div class="i-line">
                 <span class="i-label">Tình trạng:</span>
-                <strong :class="order.trangThai === 6 ? 'text-green' : (order.trangThaiThanhToan === 1 ? 'text-green' : 'text-orange')">
-                  {{ order.trangThai === 6 ? 'Đã nhận hoàn tiền' : (order.trangThaiThanhToan === 1 ? 'Đã thanh toán' : 'Chưa thanh toán') }}
+                <strong :class="isPaidOrRefunded(order) ? 'text-green' : 'text-orange'">
+                  {{ getPaymentStatusText(order) }}
                 </strong>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 3. DANH SÁCH SẢN PHẨM & TỔNG TIỀN (MATCH frame_tracking.jpg) -->
+        <!-- 3. DANH SÁCH SẢN PHẨM & TỔNG TIỀN -->
         <div class="ordered-items-card">
-          <h4 class="card-head">Danh sách sản phẩm ({{ orderItems.length > 0 ? orderItems.length : 1 }})</h4>
+          <h4 class="card-head">
+            Danh sách sản phẩm ({{ orderItems.length > 0 ? orderItems.length : 1 }})
+          </h4>
 
           <div class="items-view-list">
             <div
@@ -204,7 +349,7 @@ onMounted(() => {
 
               <div class="item-desc-col">
                 <strong>{{ it.tenSanPham }}</strong>
-                <p>Phân loại: {{ it.tenMauSac || 'Xanh' }} / {{ it.tenKichCo || 'M' }}</p>
+                <p>Phân loại: {{ it.tenMauSac || 'Tiêu chuẩn' }} / {{ it.tenKichCo || 'M' }}</p>
               </div>
 
               <div class="item-price-col">
@@ -213,23 +358,40 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- BẢNG TỔNG KẾT TÀI CHÍNH GÓC DƯỚI BÊN PHẢI (MATCH frame_tracking.jpg) -->
+          <!-- BẢNG TỔNG KẾT TÀI CHÍNH GÓC DƯỚI BÊN PHẢI (MATCH tc_1925.png) -->
           <div class="bottom-financial-summary">
             <div class="sum-line">
               <span>Tổng tiền hàng:</span>
-              <span>{{ formatCurrency(order.tongTien - (order.phiShip || 0) + (order.tongTienGiamGia || 0)) }}</span>
+              <span>{{ formatCurrency(order.tongTien - (order.phiShip || order.phiVanChuyen || 0) + (order.tongTienGiamGia || 0)) }}</span>
             </div>
             <div class="sum-line">
               <span>Phí vận chuyển:</span>
-              <span>+ {{ formatCurrency(order.phiShip || 30000) }}</span>
+              <span>+ {{ formatCurrency(order.phiShip || order.phiVanChuyen || 30000) }}</span>
             </div>
-            <div v-if="order.tongTienGiamGia > 0 || true" class="sum-line text-green-discount">
+            <div v-if="order.tongTienGiamGia > 0" class="sum-line text-green-discount">
               <span>Giảm giá (Voucher):</span>
-              <span>- {{ formatCurrency(order.tongTienGiamGia || 30000) }}</span>
+              <span>- {{ formatCurrency(order.tongTienGiamGia) }}</span>
             </div>
             <div class="sum-line big-total-line">
               <span class="lbl-big">Thành tiền:</span>
-              <strong class="val-big">{{ formatCurrency(order.tongTien || 1400000) }}</strong>
+              <strong class="val-big">{{ formatCurrency(order.tongTien) }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. KHỐI LỊCH SỬ TÁC ĐỘNG ĐƠN HÀNG (MATCH tc_1925.png & vnpay_success_1800.png) -->
+        <div class="ordered-items-card history-card-block">
+          <h4 class="card-head">🕒 LỊCH SỬ TÁC ĐỘNG ĐƠN HÀNG</h4>
+          <div v-if="orderLogs.length === 0" class="history-empty-text">
+            Chưa có ghi nhận tác động nào trên đơn hàng này.
+          </div>
+          <div v-else class="order-history-timeline">
+            <div v-for="log in orderLogs" :key="log.id" class="history-item-row">
+              <span class="history-time">{{ formatLogTime(log.thoiGian) }}</span>
+              <span class="history-actor" :class="getActorClass(log)">
+                [{{ getActorName(log) }}]
+              </span>
+              <span class="history-desc">{{ log.hanhDong || log.ghiChu || 'Thao tác đơn hàng' }}</span>
             </div>
           </div>
         </div>
@@ -254,26 +416,31 @@ onMounted(() => {
   padding: 0 1.5rem;
 }
 
-/* Toast matching frame_tracking.jpg top-right */
+/* Toast matching video góc phải trên */
 .success-top-toast {
   position: fixed;
-  top: 80px;
+  top: 85px;
   right: 28px;
   background: #ffffff;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   padding: 12px 18px;
   display: flex;
   align-items: center;
   gap: 12px;
   z-index: 99999;
-  animation: slideInToast 0.25s ease-out;
 }
 
-@keyframes slideInToast {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+.toast-slide-enter-active,
+.toast-slide-leave-active {
+  transition: all 0.28s ease;
+}
+
+.toast-slide-enter-from,
+.toast-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-12px);
 }
 
 .toast-check-icon {
@@ -287,16 +454,17 @@ onMounted(() => {
   justify-content: center;
   font-size: 13px;
   font-weight: 800;
+  flex-shrink: 0;
 }
 
-.success-top-toast strong {
+.toast-text-box strong {
   display: block;
   font-size: 13px;
   color: #1e293b;
 }
 
-.success-top-toast p {
-  margin: 0;
+.toast-text-box p {
+  margin: 2px 0 0;
   font-size: 11px;
   color: #64748b;
 }
@@ -308,15 +476,16 @@ onMounted(() => {
 }
 
 .tracking-title {
-  font-family: 'Fredoka', 'Playfair Display', Georgia, serif;
-  font-size: 30px;
-  font-weight: 700;
+  font-family: 'Be Vietnam Pro', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 32px;
+  font-weight: 800;
   color: #496883;
   margin: 0 0 8px;
+  letter-spacing: -0.01em;
 }
 
 .tracking-sub {
-  font-size: 13px;
+  font-size: 13.5px;
   color: #64748b;
   margin: 0;
 }
@@ -325,29 +494,50 @@ onMounted(() => {
   margin-top: 28px;
 }
 
-/* Search input card */
+/* Search input card 2 fields (Match Video tc_input_1920.png) */
 .search-input-card {
   background: #ffffff;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
-  padding: 20px;
+  padding: 24px;
   margin-bottom: 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
 }
 
-.search-flex-row {
+.search-two-fields-form {
   display: flex;
-  gap: 12px;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.form-field-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.field-label .req {
+  color: #dc2626;
+  font-weight: 700;
 }
 
 .track-input {
-  flex: 1;
-  padding: 12px 16px;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
   font-size: 13px;
   outline: none;
-  transition: border-color 0.2s;
+  background-color: #ffffff;
+  transition: all 0.2s;
+  box-sizing: border-box;
 }
 
 .track-input:focus {
@@ -355,17 +545,25 @@ onMounted(() => {
   box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.15);
 }
 
+.form-btn-col {
+  flex-shrink: 0;
+}
+
 .btn-track-submit {
-  padding: 0 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
   background: #496883;
   color: #ffffff;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(73, 104, 131, 0.2);
+  box-shadow: 0 3px 8px rgba(73, 104, 131, 0.25);
+  height: 40px;
 }
 
 .btn-track-submit:hover {
@@ -379,8 +577,12 @@ onMounted(() => {
   box-shadow: none;
 }
 
+.btn-icon {
+  font-size: 13px;
+}
+
 .track-err-box {
-  margin-top: 12px;
+  margin-top: 14px;
   padding: 10px 14px;
   background: #fef2f2;
   border-left: 3px solid #ef4444;
@@ -396,44 +598,52 @@ onMounted(() => {
   gap: 20px;
 }
 
-/* 1. Banner xanh lá matching frame_tracking.jpg */
+/* 1. Banner xanh lá matching tc_1925.png */
 .status-banner-green {
   background-color: #ecfdf5;
   border: 1px solid #a7f3d0;
-  border-radius: 12px;
-  padding: 16px 20px;
-  text-align: center;
+  border-radius: 10px;
+  padding: 14px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   color: #065f46;
 }
 
 .banner-icon-title {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 14px;
   font-weight: 700;
-  margin-bottom: 4px;
 }
 
 .icon-circle {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   background: #10b981;
   color: #fff;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 12px;
+  flex-shrink: 0;
 }
 
 .banner-time {
-  font-size: 11px;
+  text-align: right;
+  font-size: 12px;
+  font-family: monospace;
   color: #047857;
+  line-height: 1.35;
 }
 
-/* 2. Hai khối thông tin side-by-side matching frame_tracking.jpg */
+.banner-time .time-part {
+  font-weight: 700;
+}
+
+/* 2. Hai khối thông tin side-by-side matching tc_1925.png */
 .two-info-boxes-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -442,17 +652,17 @@ onMounted(() => {
 
 .info-block-card {
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid #e2e8f0;
-  padding: 20px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  padding: 18px 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
 }
 
 .info-block-card h4 {
   margin: 0 0 14px;
   font-size: 14px;
   font-weight: 700;
-  color: #496883;
+  color: #334155;
 }
 
 .info-lines {
@@ -469,7 +679,8 @@ onMounted(() => {
 
 .i-label {
   color: #64748b;
-  min-width: 80px;
+  min-width: 85px;
+  flex-shrink: 0;
 }
 
 .text-green { color: #16a34a; }
@@ -478,10 +689,10 @@ onMounted(() => {
 /* 3. Khối danh sách sản phẩm & tổng tiền */
 .ordered-items-card {
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid #e2e8f0;
-  padding: 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  padding: 22px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
 }
 
 .card-head {
@@ -497,7 +708,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .single-item-row {
@@ -533,6 +744,7 @@ onMounted(() => {
   font-size: 9px;
   font-weight: 700;
   padding: 1px 4px;
+  border-bottom-left-radius: 4px;
 }
 
 .item-desc-col {
@@ -541,13 +753,13 @@ onMounted(() => {
 
 .item-desc-col strong {
   display: block;
-  font-size: 13px;
+  font-size: 13.5px;
   color: #1e293b;
 }
 
 .item-desc-col p {
-  margin: 2px 0 0;
-  font-size: 11px;
+  margin: 3px 0 0;
+  font-size: 11.5px;
   color: #64748b;
 }
 
@@ -557,7 +769,7 @@ onMounted(() => {
   color: #1e293b;
 }
 
-/* Bảng tổng kết tài chính góc dưới bên phải matching frame_tracking.jpg */
+/* Bảng tổng kết tài chính góc dưới bên phải matching tc_1925.png */
 .bottom-financial-summary {
   width: 320px;
   margin-left: auto;
@@ -594,21 +806,84 @@ onMounted(() => {
 .val-big {
   font-size: 18px;
   font-weight: 800;
-  color: #dc2626;
+  color: #1e293b;
+}
+
+/* 4. Khối lịch sử tác động đơn hàng (Match video tc_1925.png & vnpay_success_1800.png) */
+.history-card-block {
+  margin-top: 0;
+}
+
+.order-history-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.history-item-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.history-time {
+  color: #64748b;
+  font-size: 12px;
+  min-width: 120px;
+  flex-shrink: 0;
+  font-family: monospace;
+}
+
+.history-actor {
+  font-weight: 700;
+  font-size: 12.5px;
+  flex-shrink: 0;
+}
+
+.actor-admin {
+  color: #dc2626; /* đỏ/nâu đậm như [Quản trị viên], [Hệ thống VNPAY] */
+}
+
+.actor-customer {
+  color: #2563eb; /* xanh dương như [Nguyễn Thu Thảo] */
+}
+
+.history-desc {
+  color: #1e293b;
+  flex: 1;
+}
+
+.history-empty-text {
+  font-size: 13px;
+  color: #94a3b8;
+  padding: 8px 0;
+  font-style: italic;
 }
 
 @media (max-width: 768px) {
-  .search-flex-row {
+  .search-two-fields-form {
     flex-direction: column;
+    align-items: stretch;
   }
   .btn-track-submit {
-    padding: 12px 0;
+    width: 100%;
+    justify-content: center;
   }
   .two-info-boxes-grid {
     grid-template-columns: 1fr;
   }
   .bottom-financial-summary {
     width: 100%;
+  }
+  .history-item-row {
+    flex-direction: column;
+    gap: 3px;
+  }
+  .history-time {
+    min-width: auto;
   }
 }
 </style>

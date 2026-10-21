@@ -689,7 +689,7 @@ public class EmailService {
 
                     <!-- Footer -->
                     <div style="background-color: #f7f5ef; border-top: 1px solid #e8e4de; padding: 20px 30px; text-align: center; font-size: 12.5px; color: #777;">
-                        <p style="margin: 0 0 6px;">Mọi thắc mắc về đơn hàng, vui lòng liên hệ Hotline: <b>0988.888.888</b> hoặc email hỗ trợ.</p>
+                        <p style="margin: 0 0 6px;">Mọi thắc mắc về đơn hàng, vui lòng liên hệ Hotline: <b>0988.888.888</b> hoặc email hỗ trợ: <b>fftshirt.vn@gmail.com</b>.</p>
                         <p style="margin: 0; color: #999;">© 2026 FF T-Shirt Store. All rights reserved.</p>
                     </div>
                 </div>
@@ -715,6 +715,69 @@ public class EmailService {
         } catch (Exception e) {
             log.error("==> [EmailService Lỗi] Không thể gửi email xác nhận đơn hàng tới {}: {}", recipientEmail, e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * Gửi email yêu cầu liên hệ / hỗ trợ của khách hàng về hòm thư fftshirt.vn@gmail.com
+     */
+    @Async
+    public void sendContactEmail(String name, String phone, String email, String messageContent) {
+        String recipientEmail = "fftshirt.vn@gmail.com";
+        if (mailSender == null) {
+            log.warn("==> [EmailService] JavaMailSender chưa sẵn sàng. Không thể gửi email liên hệ.");
+            return;
+        }
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(senderEmail, "FF T-Shirt Official");
+            helper.setTo(recipientEmail);
+            if (email != null && !email.isBlank()) {
+                helper.setReplyTo(email.trim());
+            }
+            helper.setSubject("[FF T-Shirt Hỗ Trợ] Yêu cầu mới từ " + (name != null ? name : "Khách hàng"));
+
+            String timeNow = DATE_FORMATTER.format(Instant.now());
+
+            String content = """
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,0.06); color: #333333; line-height: 1.6;">
+                    <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 24px; text-align: center; color: #ffffff;">
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px;">YÊU CẦU LIÊN HỆ & HỖ TRỢ KHÁCH HÀNG</h2>
+                        <p style="margin: 6px 0 0; font-size: 13px; color: #ecd8af;">Hệ Thống Website FF T-Shirt</p>
+                    </div>
+                    <div style="padding: 24px;">
+                        <p style="font-size: 14px; color: #64748b; margin-top: 0;">Thời gian tiếp nhận: <strong>{{timeNow}}</strong></p>
+                        
+                        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                            <p style="margin: 0 0 8px; font-size: 14px;"><strong>Họ và tên khách hàng:</strong> {{name}}</p>
+                            <p style="margin: 0 0 8px; font-size: 14px;"><strong>Số điện thoại:</strong> <a href="tel:{{phone}}" style="color: #0284c7; text-decoration: none; font-weight: 700;">{{phone}}</a></p>
+                            <p style="margin: 0; font-size: 14px;"><strong>Email liên hệ:</strong> <a href="mailto:{{email}}" style="color: #0284c7; text-decoration: none;">{{email}}</a></p>
+                        </div>
+
+                        <div style="margin-bottom: 15px;">
+                            <strong style="font-size: 14.5px; color: #1e293b;">Nội dung tin nhắn cần hỗ trợ:</strong>
+                            <div style="background-color: #fffdfa; border-left: 4px solid #d2a764; border-radius: 4px; padding: 16px; margin-top: 8px; font-size: 14px; color: #334155; line-height: 1.6; white-space: pre-wrap;">{{messageContent}}</div>
+                        </div>
+                    </div>
+                    <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 20px; text-align: center; font-size: 12px; color: #94a3b8;">
+                        Email này được gửi tự động từ hệ thống website FF T-Shirt trực tiếp tới hòm thư <strong>fftshirt.vn@gmail.com</strong>.
+                    </div>
+                </div>
+            """
+            .replace("{{timeNow}}", timeNow)
+            .replace("{{name}}", name != null ? name : "Chưa cung cấp")
+            .replace("{{phone}}", phone != null ? phone : "Chưa cung cấp")
+            .replace("{{email}}", (email != null && !email.isBlank()) ? email : "Chưa cung cấp")
+            .replace("{{messageContent}}", messageContent != null ? messageContent : "");
+
+            helper.setText(content, true);
+            log.info("==> [EmailService] Đang kết nối SMTP gửi email liên hệ của {} tới {}", name, recipientEmail);
+            mailSender.send(message);
+            log.info("==> [EmailService] Đã gửi email liên hệ tới {} THÀNH CÔNG!", recipientEmail);
+        } catch (Exception e) {
+            log.error("==> [EmailService Lỗi] Không thể gửi email liên hệ tới {}: {}", recipientEmail, e.getMessage(), e);
         }
     }
 }

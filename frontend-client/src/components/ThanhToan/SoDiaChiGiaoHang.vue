@@ -1,4 +1,7 @@
 <script setup>
+import { ref, watch, onMounted } from 'vue'
+import { FALLBACK_PROVINCES, loadAdministrativeData, getWardsForProvince } from '@/utils/diaGioiHanhChinh.js'
+
 const props = defineProps({
   savedAddresses: {
     type: Array,
@@ -43,6 +46,10 @@ const props = defineProps({
   fullDeliveryAddress: {
     type: String,
     default: ''
+  },
+  errors: {
+    type: Object,
+    default: () => ({})
   }
 })
 
@@ -55,8 +62,45 @@ const emit = defineEmits([
   'update:selectedProvince',
   'update:selectedDistrict',
   'update:selectedWard',
-  'update:streetAddress'
+  'update:streetAddress',
+  'clearError'
 ])
+
+const provincesList = ref(FALLBACK_PROVINCES.map(name => ({ name })))
+const currentWards = ref([])
+
+const reloadWards = async (provName) => {
+  if (!provName) {
+    currentWards.value = []
+    return
+  }
+  const wards = await getWardsForProvince(provName)
+  currentWards.value = wards
+}
+
+onMounted(async () => {
+  const allData = await loadAdministrativeData()
+  if (allData && allData.length > 0) {
+    provincesList.value = allData
+  }
+  await reloadWards(props.selectedProvince)
+})
+
+watch(() => props.selectedProvince, async (newProv) => {
+  await reloadWards(newProv)
+})
+
+const onProvinceChange = async (newProvince) => {
+  emit('update:selectedProvince', newProvince)
+  emit('update:selectedDistrict', '')
+  const wards = await getWardsForProvince(newProvince)
+  currentWards.value = wards
+  if (wards.length > 0) {
+    emit('update:selectedWard', wards[0].name)
+  } else {
+    emit('update:selectedWard', '')
+  }
+}
 </script>
 
 <template>
@@ -108,97 +152,102 @@ const emit = defineEmits([
       <h3 class="card-title">Thông tin người nhận</h3>
 
       <div class="form-two-col">
-        <div class="input-field">
+        <div class="input-field" :class="{ 'has-error': errors?.customerName }">
           <label>Họ và tên người nhận <span class="star">*</span></label>
           <input
             :value="customerName"
-            @input="emit('update:customerName', $event.target.value)"
+            @input="emit('update:customerName', $event.target.value); emit('clearError', 'customerName')"
             type="text"
             placeholder="Nhập họ và tên..."
             class="form-control"
+            :class="{ 'input-error': errors?.customerName }"
           />
+          <span v-if="errors?.customerName" class="field-error-text">{{ errors.customerName }}</span>
         </div>
 
-        <div class="input-field">
+        <div class="input-field" :class="{ 'has-error': errors?.customerPhone }">
           <label>Số điện thoại <span class="star">*</span></label>
           <input
             :value="customerPhone"
-            @input="emit('update:customerPhone', $event.target.value)"
+            @input="emit('update:customerPhone', $event.target.value); emit('clearError', 'customerPhone')"
             type="tel"
-            placeholder="Nhập số điện thoại..."
+            placeholder="Nhập số điện thoại (ví dụ: 0988776655)..."
             class="form-control"
+            :class="{ 'input-error': errors?.customerPhone }"
           />
+          <span v-if="errors?.customerPhone" class="field-error-text">{{ errors.customerPhone }}</span>
         </div>
       </div>
 
-      <div class="input-field full">
+      <div class="input-field full" :class="{ 'has-error': errors?.customerEmail }">
         <label>Email <span class="star">*</span> (Dùng nhận hóa đơn &amp; tra cứu đơn)</label>
         <input
           :value="customerEmail"
-          @input="emit('update:customerEmail', $event.target.value)"
+          @input="emit('update:customerEmail', $event.target.value); emit('clearError', 'customerEmail')"
           type="email"
-          placeholder="Nhập địa chỉ email của bạn"
+          placeholder="Nhập địa chỉ email của bạn..."
           class="form-control"
+          :class="{ 'input-error': errors?.customerEmail }"
         />
+        <span v-if="errors?.customerEmail" class="field-error-text">{{ errors.customerEmail }}</span>
       </div>
 
-      <!-- 3 Selects địa giới -->
-      <div class="form-three-col">
-        <div class="input-field">
+      <!-- 2 Selects địa giới theo chuẩn 2 cấp hành chính mới (Tỉnh/Thành phố & Phường/Xã) -->
+      <div class="form-two-col">
+        <div class="input-field" :class="{ 'has-error': errors?.selectedProvince }">
           <label>Tỉnh/Thành phố <span class="star">*</span></label>
           <select
             :value="selectedProvince"
-            @change="emit('update:selectedProvince', $event.target.value)"
+            @change="onProvinceChange($event.target.value); emit('clearError', 'selectedProvince')"
             class="form-control select-box"
+            :class="{ 'input-error': errors?.selectedProvince }"
           >
-            <option value="Thành phố Hà Nội">Thành phố Hà Nội</option>
-            <option value="Thành phố Hồ Chí Minh">Thành phố Hồ Chí Minh</option>
-            <option value="Thành phố Đà Nẵng">Thành phố Đà Nẵng</option>
-            <option value="Tỉnh Hải Dương">Tỉnh Hải Dương</option>
-            <option value="Tỉnh Bắc Ninh">Tỉnh Bắc Ninh</option>
+            <option value="">-- Chọn Tỉnh/Thành phố --</option>
+            <option
+              v-for="prov in provincesList"
+              :key="prov.code || prov.name"
+              :value="prov.name"
+            >
+              {{ prov.name }}
+            </option>
           </select>
+          <span v-if="errors?.selectedProvince" class="field-error-text">{{ errors.selectedProvince }}</span>
         </div>
 
-        <div class="input-field">
-          <label>Quận/Huyện <span class="star">*</span></label>
-          <select
-            :value="selectedDistrict"
-            @change="emit('update:selectedDistrict', $event.target.value)"
-            class="form-control select-box"
-          >
-            <option value="Quận Hoàn Kiếm">Quận Hoàn Kiếm</option>
-            <option value="Quận Cầu Giấy">Quận Cầu Giấy</option>
-            <option value="Quận Nam Từ Liêm">Quận Nam Từ Liêm</option>
-            <option value="Quận 1">Quận 1</option>
-            <option value="Quận 3">Quận 3</option>
-          </select>
-        </div>
-
-        <div class="input-field">
+        <div class="input-field" :class="{ 'has-error': errors?.selectedWard }">
           <label>Phường/Xã <span class="star">*</span></label>
           <select
             :value="selectedWard"
-            @change="emit('update:selectedWard', $event.target.value)"
+            @change="emit('update:selectedWard', $event.target.value); emit('clearError', 'selectedWard')"
             class="form-control select-box"
+            :class="{ 'input-error': errors?.selectedWard }"
+            :disabled="!selectedProvince"
           >
-            <option value="Phường Cửa Đông">Phường Cửa Đông</option>
-            <option value="Phường Dịch Vọng">Phường Dịch Vọng</option>
-            <option value="Phường Mễ Trì">Phường Mễ Trì</option>
-            <option value="Phường Bến Nghé">Phường Bến Nghé</option>
+            <option value="">-- Chọn Phường/Xã --</option>
+            <option
+              v-for="w in currentWards"
+              :key="w.code || w.name"
+              :value="w.name"
+            >
+              {{ w.name }}
+            </option>
           </select>
+          <span v-if="errors?.selectedWard" class="field-error-text">{{ errors.selectedWard }}</span>
         </div>
       </div>
 
       <!-- Địa chỉ cụ thể -->
-      <div class="input-field full">
+      <div class="input-field full" :class="{ 'has-error': errors?.streetAddress }">
         <label>Địa chỉ cụ thể <span class="star">*</span></label>
         <input
           :value="streetAddress"
-          @input="emit('update:streetAddress', $event.target.value)"
+          @input="emit('update:streetAddress', $event.target.value); emit('clearError', 'streetAddress')"
           type="text"
-          placeholder="Ví dụ: 123 ngõ abc"
+          placeholder="Ví dụ: Số 123 ngõ abc, đường xyz"
           class="form-control"
+          :class="{ 'input-error': errors?.streetAddress }"
         />
+        <span v-if="errors?.streetAddress" class="field-error-text">{{ errors.streetAddress }}</span>
       </div>
 
       <div class="delivery-helper-box">
@@ -227,12 +276,22 @@ const emit = defineEmits([
   margin-bottom: 18px;
 }
 
-.card-header-line h3,
-.card-title {
+.card-header-line h3 {
+  font-family: 'Be Vietnam Pro', sans-serif;
   font-size: 16px;
   font-weight: 800;
   color: #496883;
   margin: 0;
+}
+
+.card-title {
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 16.5px;
+  font-weight: 800;
+  color: #496883;
+  margin-top: -8px;
+  margin-bottom: 18px;
+  display: block;
 }
 
 .btn-refresh-text {
@@ -354,6 +413,40 @@ const emit = defineEmits([
   background: #ffffff;
 }
 
+/* Error styles (Báo đỏ bên dưới trường nhập) */
+.input-field.has-error label {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.form-control.input-error {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+.field-error-text {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #dc2626;
+  font-weight: 600;
+  margin-top: 5px;
+  animation: shakeInput 0.3s ease-in-out;
+}
+
+.field-error-text::before {
+  content: '⚠️';
+  font-size: 11px;
+}
+
+@keyframes shakeInput {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
 .delivery-helper-box {
   background: #f1f5f9;
   padding: 10px 14px;
@@ -371,3 +464,4 @@ const emit = defineEmits([
   }
 }
 </style>
+

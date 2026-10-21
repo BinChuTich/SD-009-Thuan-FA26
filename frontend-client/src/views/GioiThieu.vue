@@ -69,7 +69,9 @@
 }
 
 .intro-title {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Be Vietnam Pro', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   font-size: 34px;
   margin: 0 0 12px;
 }

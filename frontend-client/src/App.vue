@@ -32,6 +32,10 @@ body {
   background-color: #f8fafc;
 }
 
+button, input, select, textarea {
+  font-family: inherit;
+}
+
 a {
   color: inherit;
 }

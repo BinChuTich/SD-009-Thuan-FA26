@@ -146,7 +146,7 @@ onUnmounted(() => {
           </div>
         </router-link>
 
-        <!-- Menu điều hướng chính ở giữa (Desktop): TRANG CHỦ, SẢN PHẨM, ƯU ĐÃI, NỔI BẬT, TRA CỨU, LIÊN HỆ -->
+        <!-- Menu điều hướng chính ở giữa (Desktop): TRANG CHỦ, GIỚI THIỆU, SẢN PHẨM, ĐƠN HÀNG, TRA CỨU, LIÊN HỆ -->
         <nav class="nav-links">
           <router-link
             to="/"
@@ -156,24 +156,10 @@ onUnmounted(() => {
           >
             TRANG CHỦ
           </router-link>
+          <router-link to="/gioi-thieu" class="nav-item" active-class="active">GIỚI THIỆU</router-link>
           <router-link to="/cua-hang" class="nav-item" active-class="active">SẢN PHẨM</router-link>
-          <a
-            href="#san-pham-uu-dai"
-            class="nav-item"
-            :class="{ active: route.path === '/' && activeSection === 'san-pham-uu-dai' }"
-            @click.prevent="scrollToHomeSection('san-pham-uu-dai')"
-          >
-            ƯU ĐÃI
-          </a>
-          <a
-            href="#san-pham-noi-bat"
-            class="nav-item"
-            :class="{ active: route.path === '/' && activeSection === 'san-pham-noi-bat' }"
-            @click.prevent="scrollToHomeSection('san-pham-noi-bat')"
-          >
-            NỔI BẬT
-          </a>
-          <router-link to="/tra-cuu-don-hang" class="nav-item" active-class="active">TRA CỨU</router-link>
+          <router-link to="/don-hang" class="nav-item" active-class="active">ĐƠN HÀNG</router-link>
+          <router-link to="/tra-cuu" class="nav-item" active-class="active">TRA CỨU</router-link>
           <router-link to="/lien-he" class="nav-item" active-class="active">LIÊN HỆ</router-link>
         </nav>
 
@@ -330,8 +316,11 @@ onUnmounted(() => {
           >
             ⭐ NỔI BẬT
           </a>
-          <router-link to="/tra-cuu-don-hang" class="mobile-nav-link" @click="closeMobileMenu">
-            🚚 TRA CỨU TIẾN ĐỘ ĐƠN
+          <router-link to="/don-hang" class="mobile-nav-link" @click="closeMobileMenu">
+            📄 ĐƠN HÀNG
+          </router-link>
+          <router-link to="/tra-cuu" class="mobile-nav-link" @click="closeMobileMenu">
+            🔍 TRA CỨU
           </router-link>
           <router-link to="/lien-he" class="mobile-nav-link" @click="closeMobileMenu">
             📞 LIÊN HỆ HỖ TRỢ
@@ -505,7 +494,7 @@ onUnmounted(() => {
   color: #d2a764;
 }
 
-/* Active underline màu vàng gold #d2a764 */
+/* Active underline màu vàng be #d2a764 chuẩn logo thương hiệu */
 .nav-item.active {
   color: #496883;
 }

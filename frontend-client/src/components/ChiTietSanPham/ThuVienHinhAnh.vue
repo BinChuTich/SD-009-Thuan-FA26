@@ -156,3 +156,4 @@ const nextImage = () => {
   box-shadow: 0 0 0 2px rgba(210, 167, 100, 0.3);
 }
 </style>
+

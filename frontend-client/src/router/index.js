@@ -10,6 +10,7 @@ import DonHang from '@/views/DonHang.vue'
 import TraCuuDonHang from '@/views/TraCuuDonHang.vue'
 import GoiY from '@/views/GoiY.vue'
 import LienHe from '@/views/LienHe.vue'
+import VNPayReturn from '@/views/VNPayReturn.vue'
 
 const routes = [
   {
@@ -48,19 +49,28 @@ const routes = [
     component: DonHang
   },
   {
+    path: '/tra-cuu',
+    name: 'TraCuu',
+    component: TraCuuDonHang
+  },
+  {
     path: '/tra-cuu-don-hang',
     name: 'TraCuuDonHang',
     component: TraCuuDonHang
   },
   {
     path: '/goi-y',
-    name: 'GoiY',
-    component: GoiY
+    redirect: '/cua-hang'
   },
   {
     path: '/lien-he',
     name: 'LienHe',
     component: LienHe
+  },
+  {
+    path: '/thanh-toan/vnpay-return',
+    name: 'VNPayReturn',
+    component: VNPayReturn
   }
 ]
 

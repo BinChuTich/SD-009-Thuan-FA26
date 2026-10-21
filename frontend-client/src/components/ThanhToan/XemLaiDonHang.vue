@@ -114,8 +114,8 @@ const emit = defineEmits([
         :disabled="submitting || cartItems.length === 0"
         @click="emit('placeOrder')"
       >
-        <span v-if="!submitting">XÁC NHẬN ĐẶT HÀNG &rarr;</span>
-        <span v-else>Đang xử lý đơn hàng...</span>
+        <span v-if="!submitting" class="btn-text">XÁC NHẬN ĐẶT HÀNG &rarr;</span>
+        <span v-else class="btn-text">Đang xử lý đơn hàng...</span>
       </button>
 
       <!-- Cam kết an toàn -->
@@ -305,16 +305,27 @@ const emit = defineEmits([
 
 .btn-place-order-gold {
   width: 100%;
-  padding: 14px 0;
+  padding: 15px 0;
   background: #d2a764;
   color: #1e293b;
   border: none;
   border-radius: 10px;
+  font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
   font-weight: 800;
-  font-size: 15px;
+  font-size: 15.5px;
+  letter-spacing: 0.5px;
   cursor: pointer;
   transition: all 0.25s;
   box-shadow: 0 4px 14px rgba(210, 167, 100, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-place-order-gold .btn-text {
+  font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.5px;
 }
 
 .btn-place-order-gold:hover:not(:disabled) {
@@ -336,3 +347,4 @@ const emit = defineEmits([
   margin-top: 14px;
 }
 </style>
+

@@ -25,7 +25,7 @@
             Thương hiệu thời trang áo phông nam cao cấp. Mang đến phong cách trẻ trung, đĩnh đạc và trải nghiệm vải bông Cotton tự nhiên đỉnh cao.
           </p>
           <div class="contact-line">📍 Trụ sở: Tòa nhà FPT Polytechnic, Phố Trịnh Văn Bô, Hà Nội</div>
-          <div class="contact-line">📧 Email: contact@fftshirt.vn</div>
+          <div class="contact-line">📧 Email: <a href="mailto:fftshirt.vn@gmail.com" class="footer-email-link">fftshirt.vn@gmail.com</a></div>
           <div class="contact-line">📞 Hotline CSKH: <strong>1900 6868</strong></div>
         </div>
 
@@ -36,7 +36,7 @@
             <li><router-link to="/cua-hang">Tất cả sản phẩm</router-link></li>
             <li><router-link to="/cua-hang?danhmuc=basic">Áo Thun Basic</router-link></li>
             <li><router-link to="/cua-hang?danhmuc=polo">Áo Thun Polo</router-link></li>
-            <li><router-link to="/goi-y">Gợi ý phối đồ</router-link></li>
+            <li><router-link to="/cua-hang?danhmuc=oversize">Áo Thun Oversize</router-link></li>
           </ul>
         </div>
 
@@ -182,6 +182,18 @@
   font-size: 0.8rem;
   margin-bottom: 6px;
   color: #94a3b8;
+}
+
+.footer-email-link {
+  color: #d2a764;
+  text-decoration: none;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+
+.footer-email-link:hover {
+  text-decoration: underline;
+  opacity: 0.9;
 }
 
 .contact-line strong {

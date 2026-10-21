@@ -321,4 +321,32 @@ public class HoaDon {
             } catch (Exception ignored) {}
         }
     }
+@JsonProperty("phuongThucThanhToan")
+    public String getPhuongThucThanhToan() {
+        if (this.ghiChu != null) {
+            String upper = this.ghiChu.toUpperCase();
+            if (upper.contains("VNPAY")) {
+                return "Cổng thanh toán VNPAY";
+            }
+            if (upper.contains("COD")) {
+                return "Thanh toán khi nhận hàng (COD)";
+            }
+        }
+        if (this.hinhThucThanhToan != null && !this.hinhThucThanhToan.isEmpty()) {
+            for (HinhThucThanhToan httt : this.hinhThucThanhToan) {
+                if (httt.getIdPhuongThuc() != null && httt.getIdPhuongThuc().getTenPhuongThuc() != null) {
+                    return httt.getIdPhuongThuc().getTenPhuongThuc();
+                }
+            }
+        }
+        return "Thanh toán khi nhận hàng (COD)";
+    }
+
+    @JsonProperty("isVnPay")
+    public Boolean isVnPay() {
+        if (this.ghiChu != null && this.ghiChu.toUpperCase().contains("VNPAY")) {
+            return true;
+        }
+        return false;
+    }
 }

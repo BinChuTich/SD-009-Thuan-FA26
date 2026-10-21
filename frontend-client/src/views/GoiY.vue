@@ -118,7 +118,9 @@ onMounted(() => {
 }
 
 .header-title {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Be Vietnam Pro', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   font-size: 32px;
   margin: 0 0 10px;
 }
@@ -152,7 +154,9 @@ onMounted(() => {
 }
 
 .sec-head h2 {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Be Vietnam Pro', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   font-size: 26px;
   color: #2b2320;
   margin: 6px 0 0;

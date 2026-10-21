@@ -33,25 +33,6 @@ const emit = defineEmits(['update:paymentMethod'])
         </div>
       </label>
 
-      <!-- Chuyển khoản thủ công QR -->
-      <label
-        class="pay-method-card"
-        :class="{ selected: paymentMethod === 'MANUAL' }"
-        @click="emit('update:paymentMethod', 'MANUAL')"
-      >
-        <input
-          type="radio"
-          name="payMethod"
-          value="MANUAL"
-          :checked="paymentMethod === 'MANUAL'"
-          class="radio-dot"
-        />
-        <div class="pay-text">
-          <strong>Chuyển khoản VietQR</strong>
-          <p>Quét mã VietQR chuyển khoản nhanh 24/7 qua ứng dụng ngân hàng.</p>
-        </div>
-      </label>
-
       <!-- VNPAY -->
       <label
         class="pay-method-card"
@@ -66,8 +47,8 @@ const emit = defineEmits(['update:paymentMethod'])
           class="radio-dot"
         />
         <div class="pay-text">
-          <strong>Thanh toán qua cổng VNPAY</strong>
-          <p>Thanh toán bảo mật tức thì qua cổng VNPAY (ATM nội địa, thẻ quốc tế).</p>
+          <strong>Thanh toán qua VNPAY</strong>
+          <p>Hệ thống sẽ mở một cửa sổ nhỏ để bạn thanh toán an toàn.</p>
         </div>
       </label>
     </div>
@@ -142,3 +123,4 @@ const emit = defineEmits(['update:paymentMethod'])
   margin: 0;
 }
 </style>
+

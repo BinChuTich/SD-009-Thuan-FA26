@@ -410,4 +410,16 @@ public class HoaDonController {
         hoaDonService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+    // Đặt hàng online từ Website Client
+    @PostMapping("/dat-hang-online")
+    public ResponseEntity<?> datHangOnline(@RequestBody com.example.sd009thuan.dto.DatHangOnlineDTO dto) {
+        try {
+            HoaDon saved = hoaDonService.createHoaDonOnline(dto);
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage() != null ? e.getMessage() : "Đặt hàng online thất bại!"));
+        }
+    }
+
 }
