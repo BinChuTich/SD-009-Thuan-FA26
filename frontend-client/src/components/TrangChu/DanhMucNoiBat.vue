@@ -21,7 +21,6 @@ const goToCategory = (categoryName) => {
       <div class="section-title-wrapper text-center">
         <span class="badge-sub-title">BỘ SƯU TẬP THEO PHONG CÁCH</span>
         <h2 class="script-title">Danh Mục Sản Phẩm</h2>
-        <p class="script-subtitle">Đa dạng kiểu dáng áo phông nam cao cấp, chuẩn tỉ lệ phom dáng Việt</p>
       </div>
 
       <div class="categories-grid">

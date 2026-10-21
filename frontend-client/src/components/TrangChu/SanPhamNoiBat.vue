@@ -35,7 +35,7 @@ const goToProduct = (id) => {
 </script>
 
 <template>
-  <section class="featured-section">
+  <section class="featured-section" id="san-pham-noi-bat">
     <div class="container-featured">
       <div class="section-title-wrapper text-center">
         <span class="badge-sub-title">THIẾT KẾ ĐƯỢC YÊU THÍCH</span>
@@ -113,6 +113,7 @@ const goToProduct = (id) => {
 .featured-section {
   padding: 60px 0 65px;
   background-color: #ffffff;
+  scroll-margin-top: 80px;
 }
 
 .container-featured {

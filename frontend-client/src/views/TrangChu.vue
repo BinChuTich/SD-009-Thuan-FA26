@@ -1,17 +1,16 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import api from '@/api'
 import { CATEGORIES_CATALOG, getMergedProducts } from '@/utils/danhMucSanPham.js'
 
 // Import các component con đã được chia nhỏ theo chuẩn Tiếng Việt
 import BannerSlide from '@/components/TrangChu/BannerSlide.vue'
-import ThanhCamKet from '@/components/TrangChu/ThanhCamKet.vue'
 import DanhMucNoiBat from '@/components/TrangChu/DanhMucNoiBat.vue'
 import SanPhamNoiBat from '@/components/TrangChu/SanPhamNoiBat.vue'
 import SanPhamUuDai from '@/components/TrangChu/SanPhamUuDai.vue'
 import TraCuuSize from '@/components/TrangChu/TraCuuSize.vue'
 import CongNgheVai from '@/components/TrangChu/CongNgheVai.vue'
-import CauChuyenThuongHieu from '@/components/TrangChu/CauChuyenThuongHieu.vue'
 import DanhGiaKhachHang from '@/components/TrangChu/DanhGiaKhachHang.vue'
 import DangKyNhanUuDai from '@/components/TrangChu/DangKyNhanUuDai.vue'
 
@@ -78,9 +77,18 @@ const loadHomeData = async () => {
       const resCat = await api.get('/api/thuoc-tinh/danh-muc')
       const catList = Array.isArray(resCat.data) ? resCat.data : (resCat.data?.value || [])
       if (catList.length > 0) {
+        const seen = new Set()
+        const unique = []
+        for (const c of catList) {
+          const norm = (c.tenDanhMuc || '').trim().toLowerCase()
+          if (norm && !seen.has(norm)) {
+            seen.add(norm)
+            unique.push(c)
+          }
+        }
         categoryTabs.value = [
           { id: 'ALL', name: 'Tất cả' },
-          ...catList.map(c => ({
+          ...unique.map(c => ({
             id: c.tenDanhMuc,
             name: c.tenDanhMuc
           }))
@@ -154,8 +162,27 @@ const activeCampaigns = computed(() => {
   return Array.from(map.values())
 })
 
+const route = useRoute()
+
+const scrollToHash = () => {
+  if (route.hash) {
+    const targetId = route.hash.replace('#', '')
+    setTimeout(() => {
+      const el = document.getElementById(targetId)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' })
+      }
+    }, 150)
+  }
+}
+
 onMounted(() => {
   loadHomeData()
+  scrollToHash()
+})
+
+watch(() => route.hash, () => {
+  scrollToHash()
 })
 </script>
 
@@ -164,10 +191,7 @@ onMounted(() => {
     <!-- 1. Hero Slide Banner -->
     <BannerSlide />
 
-    <!-- 2. Thanh Cam Kết Chất Lượng -->
-    <ThanhCamKet />
-
-    <!-- 3. Danh Mục Sản Phẩm Nổi Bật -->
+    <!-- 2. Danh Mục Sản Phẩm Nổi Bật -->
     <DanhMucNoiBat :categories="categories" />
 
     <!-- 4. Sản Phẩm Nổi Bật Tuyển Chọn -->
@@ -189,9 +213,6 @@ onMounted(() => {
 
     <!-- 7. Công Nghệ Sợi Vải & Tiêu Chuẩn May Mặc -->
     <CongNgheVai />
-
-    <!-- 8. Câu Chuyện Thương Hiệu -->
-    <CauChuyenThuongHieu />
 
     <!-- 9. Đánh Giá Khách Hàng Thực Tế -->
     <DanhGiaKhachHang />

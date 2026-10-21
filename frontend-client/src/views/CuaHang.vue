@@ -43,14 +43,22 @@ const loadAttributes = async () => {
       sizes.value = res.data.kichCo || []
       colors.value = res.data.mauSac || []
 
-      const existingCatNames = new Set((res.data.danhMuc || []).map(d => d.tenDanhMuc))
-      const enrichedCats = [...(res.data.danhMuc || [])]
-      CATEGORIES_CATALOG.forEach(c => {
-        if (!existingCatNames.has(c.name)) {
-          enrichedCats.push({ id: c.id, tenDanhMuc: c.name })
+      // Lấy danh mục trực tiếp từ Database (Admin), loại bỏ hoàn toàn trùng lặp
+      const dbCats = res.data.danhMuc || []
+      if (dbCats.length > 0) {
+        const seen = new Set()
+        const uniqueCats = []
+        for (const c of dbCats) {
+          const norm = (c.tenDanhMuc || '').trim().toLowerCase()
+          if (norm && !seen.has(norm)) {
+            seen.add(norm)
+            uniqueCats.push(c)
+          }
         }
-      })
-      categories.value = enrichedCats
+        categories.value = uniqueCats
+      } else {
+        categories.value = CATEGORIES_CATALOG.map(c => ({ id: c.id, tenDanhMuc: c.name }))
+      }
     }
   } catch (err) {
     console.error('Lỗi tải thuộc tính:', err)
@@ -97,7 +105,12 @@ const filteredProducts = computed(() => {
   }
 
   if (selectedCategory.value) {
-    list = list.filter(p => p.idDanhMuc == selectedCategory.value || p.tenDanhMuc === selectedCategory.value)
+    const selNorm = String(selectedCategory.value).trim().toLowerCase()
+    list = list.filter(p => {
+      if (p.idDanhMuc && String(p.idDanhMuc).trim().toLowerCase() === selNorm) return true
+      if (p.tenDanhMuc && p.tenDanhMuc.trim().toLowerCase() === selNorm) return true
+      return false
+    })
   }
 
   if (selectedBrand.value) {

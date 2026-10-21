@@ -182,7 +182,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="deals-section">
+  <section class="deals-section" id="san-pham-uu-dai">
     <div class="container-deals">
       <!-- 1. Header Khối Giảm Giá -->
       <div class="deal-header-wrapper">
@@ -344,6 +344,7 @@ onUnmounted(() => {
   background: #fbfcfe;
   border-top: 1px solid #f1f5f9;
   border-bottom: 1px solid #f1f5f9;
+  scroll-margin-top: 80px;
 }
 
 .container-deals {

@@ -177,20 +177,20 @@ onUnmounted(() => {
 
 <style scoped>
 .brand-hero-banner {
-  background: linear-gradient(135deg, #1e293b 0%, #496883 100%);
+  background: linear-gradient(135deg, #1e293b 0%, #334e68 50%, #496883 100%);
   color: #ffffff;
-  padding: 60px 0 70px;
+  padding: 56px 0 64px;
   position: relative;
   overflow: hidden;
 }
 
 .hero-inner {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 24px;
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 40px;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 48px;
   align-items: center;
 }
 
@@ -358,10 +358,10 @@ onUnmounted(() => {
 .editorial-image-frame {
   position: relative;
   width: 100%;
-  height: 420px;
-  border-radius: 16px;
+  height: 450px;
+  border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
   cursor: pointer;
 }
 
@@ -498,6 +498,10 @@ onUnmounted(() => {
   .hero-inner {
     grid-template-columns: 1fr;
     text-align: center;
+    padding-left: 20px;
+    padding-right: 20px;
+    margin: 0 auto;
+    gap: 32px;
   }
   .hero-heading { font-size: 32px; }
   .hero-quote { margin: 0 auto 24px; }

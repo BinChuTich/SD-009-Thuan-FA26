@@ -1,13 +1,15 @@
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { cartCount } from '@/utils/luuTruGioHang.js'
 
 const router = useRouter()
+const route = useRoute()
 const showUserMenu = ref(false)
 const showNoti = ref(false)
 const mobileMenuOpen = ref(false)
 const searchKeyword = ref('')
+const activeSection = ref(route.hash ? route.hash.replace('#', '') : '')
 
 const currentUser = ref({
   name: 'DƯƠNG NGỌC CHIẾN',
@@ -43,6 +45,70 @@ const handleSearch = () => {
 const closeMobileMenu = () => {
   mobileMenuOpen.value = false
 }
+
+const scrollToTop = () => {
+  closeMobileMenu()
+  activeSection.value = ''
+  if (route.path === '/') {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (route.hash) {
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  } else {
+    router.push('/')
+  }
+}
+
+const scrollToHomeSection = (sectionId) => {
+  closeMobileMenu()
+  activeSection.value = sectionId
+  if (route.path === '/') {
+    const el = document.getElementById(sectionId)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' })
+      window.history.replaceState(null, '', `#${sectionId}`)
+    }
+  } else {
+    router.push({ path: '/', hash: `#${sectionId}` })
+  }
+}
+
+const handleScroll = () => {
+  if (route.path !== '/') return
+  const scrollPos = window.scrollY + 120
+  const elNoiBat = document.getElementById('san-pham-noi-bat')
+  const elUuDai = document.getElementById('san-pham-uu-dai')
+
+  if (elUuDai && scrollPos >= elUuDai.offsetTop && scrollPos < elUuDai.offsetTop + elUuDai.offsetHeight) {
+    activeSection.value = 'san-pham-uu-dai'
+  } else if (elNoiBat && scrollPos >= elNoiBat.offsetTop && scrollPos < elNoiBat.offsetTop + elNoiBat.offsetHeight) {
+    activeSection.value = 'san-pham-noi-bat'
+  } else if (window.scrollY < 200) {
+    activeSection.value = ''
+  }
+}
+
+watch(() => route.path, (newPath) => {
+  if (newPath !== '/') {
+    activeSection.value = ''
+  }
+})
+
+watch(() => route.hash, (newHash) => {
+  if (newHash) {
+    activeSection.value = newHash.replace('#', '')
+  } else if (route.path === '/') {
+    activeSection.value = ''
+  }
+})
+
+onMounted(() => {
+  window.addEventListener('scroll', handleScroll, { passive: true })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll)
+})
 </script>
 
 <template>
@@ -61,7 +127,7 @@ const closeMobileMenu = () => {
         </button>
 
         <!-- LOGO THƯƠNG HIỆU: 3 TIA SÁNG + CHỮ FF + T-shirt (MATCH ADMIN 100%) -->
-        <router-link to="/" class="brand-logo-link">
+        <router-link to="/" class="brand-logo-link" title="FF T-shirt" @click="scrollToTop">
           <div class="logo-wrapper">
             <!-- 3 tia sáng phát ra phía trên bên trái -->
             <div class="sparkles">
@@ -80,11 +146,33 @@ const closeMobileMenu = () => {
           </div>
         </router-link>
 
-        <!-- Menu điều hướng chính ở giữa (Desktop) -->
+        <!-- Menu điều hướng chính ở giữa (Desktop): TRANG CHỦ, SẢN PHẨM, ƯU ĐÃI, NỔI BẬT, TRA CỨU, LIÊN HỆ -->
         <nav class="nav-links">
-          <router-link to="/" class="nav-item" exact-active-class="active">TRANG CHỦ</router-link>
-          <router-link to="/gioi-thieu" class="nav-item" active-class="active">GIỚI THIỆU</router-link>
+          <router-link
+            to="/"
+            class="nav-item"
+            :class="{ active: route.path === '/' && !activeSection }"
+            @click.prevent="scrollToTop"
+          >
+            TRANG CHỦ
+          </router-link>
           <router-link to="/cua-hang" class="nav-item" active-class="active">SẢN PHẨM</router-link>
+          <a
+            href="#san-pham-uu-dai"
+            class="nav-item"
+            :class="{ active: route.path === '/' && activeSection === 'san-pham-uu-dai' }"
+            @click.prevent="scrollToHomeSection('san-pham-uu-dai')"
+          >
+            ƯU ĐÃI
+          </a>
+          <a
+            href="#san-pham-noi-bat"
+            class="nav-item"
+            :class="{ active: route.path === '/' && activeSection === 'san-pham-noi-bat' }"
+            @click.prevent="scrollToHomeSection('san-pham-noi-bat')"
+          >
+            NỔI BẬT
+          </a>
           <router-link to="/tra-cuu-don-hang" class="nav-item" active-class="active">TRA CỨU</router-link>
           <router-link to="/lien-he" class="nav-item" active-class="active">LIÊN HỆ</router-link>
         </nav>
@@ -215,17 +303,35 @@ const closeMobileMenu = () => {
 
         <!-- Danh sách link trong mobile menu -->
         <nav class="mobile-nav-list">
-          <router-link to="/" class="mobile-nav-link" @click="closeMobileMenu">
+          <router-link
+            to="/"
+            class="mobile-nav-link"
+            :class="{ active: route.path === '/' && !activeSection }"
+            @click.prevent="scrollToTop"
+          >
             🏠 TRANG CHỦ
           </router-link>
           <router-link to="/cua-hang" class="mobile-nav-link" @click="closeMobileMenu">
             👕 SẢN PHẨM (CỬA HÀNG)
           </router-link>
+          <a
+            href="#san-pham-uu-dai"
+            class="mobile-nav-link"
+            :class="{ active: route.path === '/' && activeSection === 'san-pham-uu-dai' }"
+            @click.prevent="scrollToHomeSection('san-pham-uu-dai')"
+          >
+            🔥 ƯU ĐÃI
+          </a>
+          <a
+            href="#san-pham-noi-bat"
+            class="mobile-nav-link"
+            :class="{ active: route.path === '/' && activeSection === 'san-pham-noi-bat' }"
+            @click.prevent="scrollToHomeSection('san-pham-noi-bat')"
+          >
+            ⭐ NỔI BẬT
+          </a>
           <router-link to="/tra-cuu-don-hang" class="mobile-nav-link" @click="closeMobileMenu">
             🚚 TRA CỨU TIẾN ĐỘ ĐƠN
-          </router-link>
-          <router-link to="/gioi-thieu" class="mobile-nav-link" @click="closeMobileMenu">
-            📖 GIỚI THIỆU THƯƠNG HIỆU
           </router-link>
           <router-link to="/lien-he" class="mobile-nav-link" @click="closeMobileMenu">
             📞 LIÊN HỆ HỖ TRỢ
@@ -380,7 +486,7 @@ const closeMobileMenu = () => {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 2.2rem;
+  gap: 1.6rem;
 }
 
 .nav-item {
@@ -796,9 +902,12 @@ const closeMobileMenu = () => {
   font-weight: 700;
   border-radius: 6px;
   transition: all 0.15s;
+  cursor: pointer;
 }
 
-.mobile-nav-link:hover, .mobile-nav-link.router-link-exact-active {
+.mobile-nav-link:hover,
+.mobile-nav-link.router-link-exact-active,
+.mobile-nav-link.active {
   background: #f8fafc;
   color: #d2a764;
 }
@@ -823,9 +932,19 @@ const closeMobileMenu = () => {
 }
 
 /* RESPONSIVE MEDIA QUERIES */
+@media (max-width: 1200px) {
+  .nav-links {
+    gap: 1.15rem;
+  }
+}
+
 @media (max-width: 1024px) {
   .nav-links {
-    gap: 1.2rem;
+    gap: 0.85rem;
+  }
+  .nav-item {
+    font-size: 0.82rem;
+    padding: 6px 2px;
   }
   .desktop-search-box input {
     width: 130px;

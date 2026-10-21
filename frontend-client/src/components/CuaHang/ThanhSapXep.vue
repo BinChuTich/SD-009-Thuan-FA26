@@ -22,6 +22,15 @@ const emit = defineEmits([
   'update:sortBy',
   'update:selectedCategory'
 ])
+
+const isCategoryActive = (cat) => {
+  if (!props.selectedCategory) return false
+  const sel = String(props.selectedCategory).trim().toLowerCase()
+  return (
+    (cat.id && String(cat.id).toLowerCase() === sel) ||
+    (cat.tenDanhMuc && String(cat.tenDanhMuc).trim().toLowerCase() === sel)
+  )
+}
 </script>
 
 <template>
@@ -33,13 +42,13 @@ const emit = defineEmits([
         :class="{ active: !selectedCategory }"
         @click="emit('update:selectedCategory', '')"
       >
-        Tất cả ({{ totalCount }})
+        Tất cả
       </button>
       <button
         v-for="cat in categories"
         :key="cat.id"
         class="pill-btn"
-        :class="{ active: selectedCategory === cat.tenDanhMuc }"
+        :class="{ active: isCategoryActive(cat) }"
         @click="emit('update:selectedCategory', cat.tenDanhMuc)"
       >
         {{ cat.tenDanhMuc }}
@@ -148,3 +157,4 @@ const emit = defineEmits([
   border-color: #496883;
 }
 </style>
+
