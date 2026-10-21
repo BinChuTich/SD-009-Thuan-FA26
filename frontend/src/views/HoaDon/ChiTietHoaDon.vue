@@ -405,9 +405,9 @@ const getNumber = (...values) => {
 
 const buildLogsByStatus = (status, baseDate, isAtStore = false, options = {}) => {
   const statusNum = Number(status) || 1
-  const employeeName = (options.employeeName && options.employeeName !== '---' && options.employeeName !== 'Đơn Online')
+  const employeeName = (options.employeeName && options.employeeName !== '---' && options.employeeName !== '')
       ? options.employeeName
-      : (invoiceData.value.employee?.name && invoiceData.value.employee?.name !== '---' && invoiceData.value.employee?.name !== 'Đơn Online' ? invoiceData.value.employee.name : 'Nhân viên')
+      : (invoiceData.value.employee?.name && invoiceData.value.employee?.name !== '---' && invoiceData.value.employee?.name !== '' ? invoiceData.value.employee.name : 'Nhân viên')
   const baseTimeMs = baseDate ? new Date(baseDate).getTime() : Date.now()
   const baseTimeVal = new Date(baseTimeMs)
 
@@ -763,7 +763,7 @@ const loadDetail = async (identifier) => {
     // Nhân viên
     const nhanVienObj = data['idNhanVien'] || data['nhanVien'] || {}
     const employeeCatalog = DB_EMPLOYEE_CATALOG[data['idNhanVien']] || DB_EMPLOYEE_CATALOG[data['nguoiTao']] || {}
-    let employeeName = nhanVienObj['tenNhanVien'] || employeeCatalog['name'] || (Number(data['loaiDon']) === 1 ? 'Nhân viên bán hàng' : 'Đơn Online')
+    let employeeName = nhanVienObj['tenNhanVien'] || employeeCatalog['name'] || (Number(data['loaiDon']) === 1 ? 'Nhân viên bán hàng' : '')
     let employeeCode = nhanVienObj['maNhanVien'] || employeeCatalog['code'] || '---'
 
     invoiceData.value.employee = {

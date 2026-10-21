@@ -185,7 +185,7 @@ onUnmounted(() => {
 }
 
 .hero-inner {
-  max-width: 1280px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 24px;
   display: grid;

@@ -35,6 +35,7 @@ const props = defineProps({
 const emit = defineEmits([
   'update:voucherInput',
   'applyVoucher',
+  'applyQuickVoucher',
   'removeVoucher',
   'checkout'
 ])
@@ -45,6 +46,25 @@ const emit = defineEmits([
     <div class="summary-card-modern">
       <div class="summary-header">
         <h3 class="summary-card-title">TÓM TẮT ĐƠN HÀNG</h3>
+      </div>
+
+      <!-- Tiến trình Freeship -->
+      <div class="freeship-box" v-if="selectedCount > 0">
+        <div class="freeship-header-row">
+          <span class="fs-icon">🚚</span>
+          <span class="fs-text" v-if="selectedSubtotal >= 499000 || appliedVoucher?.code === 'FREESHIP'">
+            🎉 Đơn hàng đủ điều kiện <strong>Freeship</strong>!
+          </span>
+          <span class="fs-text" v-else>
+            Mua thêm <strong>{{ formatCurrency(499000 - selectedSubtotal) }}</strong> để được <strong>Freeship</strong>
+          </span>
+        </div>
+        <div class="fs-progress-track">
+          <div
+            class="fs-progress-bar"
+            :style="{ width: `${Math.min(100, Math.round((selectedSubtotal / 499000) * 100))}%` }"
+          ></div>
+        </div>
       </div>
 
       <!-- Khối Voucher khuyến mãi -->
@@ -62,6 +82,35 @@ const emit = defineEmits([
           />
           <button class="btn-apply-voucher" @click="emit('applyVoucher')">
             Áp Dụng
+          </button>
+        </div>
+
+        <!-- Các mã giảm giá gợi ý bấm nhanh -->
+        <div class="quick-vouchers-list" v-if="!appliedVoucher">
+          <span class="quick-v-title">Gợi ý mã:</span>
+          <button
+            type="button"
+            class="quick-v-chip"
+            @click="emit('applyQuickVoucher', 'FREESHIP')"
+            title="Miễn phí vận chuyển 30.000đ"
+          >
+            FREESHIP
+          </button>
+          <button
+            type="button"
+            class="quick-v-chip"
+            @click="emit('applyQuickVoucher', 'FFVIP10')"
+            title="Giảm 10% đơn hàng"
+          >
+            FFVIP10
+          </button>
+          <button
+            type="button"
+            class="quick-v-chip"
+            @click="emit('applyQuickVoucher', 'SALE10')"
+            title="Giảm 10% đợt sale"
+          >
+            SALE10
           </button>
         </div>
 
@@ -135,6 +184,46 @@ const emit = defineEmits([
   margin-bottom: 18px;
 }
 
+.freeship-box {
+  background: #fdfbf7;
+  border: 1px solid #ecd8af;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 18px;
+}
+
+.freeship-header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #496883;
+  margin-bottom: 8px;
+}
+
+.fs-icon {
+  font-size: 16px;
+}
+
+.fs-text strong {
+  color: #1e293b;
+}
+
+.fs-progress-track {
+  width: 100%;
+  height: 6px;
+  background: #f1f5f9;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.fs-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #d2a764, #496883);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
 .summary-card-title {
   font-size: 16px;
   font-weight: 800;
@@ -183,6 +272,43 @@ const emit = defineEmits([
   font-weight: 700;
   font-size: 13px;
   cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-apply-voucher:hover {
+  background: #364f66;
+}
+
+.quick-vouchers-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.quick-v-title {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.quick-v-chip {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  color: #496883;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quick-v-chip:hover {
+  background: #fffbeb;
+  border-color: #d2a764;
+  color: #b45309;
 }
 
 .applied-voucher-badge {

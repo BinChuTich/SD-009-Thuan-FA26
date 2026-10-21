@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import TrangChu from '@/views/TrangChu.vue'
-import GioiThieu from '@/views/GioiThieu.vue'
 import CuaHang from '@/views/CuaHang.vue'
 import ChiTietSanPham from '@/views/ChiTietSanPham.vue'
 import GioHang from '@/views/GioHang.vue'
@@ -20,8 +19,11 @@ const routes = [
   },
   {
     path: '/gioi-thieu',
-    name: 'GioiThieu',
-    component: GioiThieu
+    redirect: '/'
+  },
+  {
+    path: '/uu-dai',
+    redirect: { path: '/', hash: '#san-pham-uu-dai' }
   },
   {
     path: '/cua-hang',

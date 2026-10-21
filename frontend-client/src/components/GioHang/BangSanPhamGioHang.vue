@@ -20,9 +20,19 @@ const emit = defineEmits([
   'toggleSelectAll',
   'update:selectedItemIds',
   'qtyChange',
+  'setQty',
   'removeItem',
-  'removeSelected'
+  'removeSelected',
+  'clearAll'
 ])
+
+const getStock = (item) => {
+  if (item.maxStock != null) return item.maxStock
+  if (item.soLuongTon != null) return item.soLuongTon
+  if (item.soLuong != null) return item.soLuong
+  if (item.stock != null) return item.stock
+  return 0
+}
 </script>
 
 <template>
@@ -96,8 +106,14 @@ const emit = defineEmits([
                 </span>
                 <span class="var-pill size-pill">Size: {{ item.size }}</span>
               </div>
-              <span class="stock-status-tag">
-                <span class="stock-dot"></span> Còn hàng trong kho
+              <span class="stock-status-tag" :class="{ 'out-of-stock': getStock(item) <= 0 }">
+                <span class="stock-dot"></span>
+                <template v-if="getStock(item) > 0">
+                  Còn lại: {{ getStock(item) }}
+                </template>
+                <template v-else>
+                  Hết hàng
+                </template>
               </span>
             </div>
           </div>
@@ -113,7 +129,7 @@ const emit = defineEmits([
             <span class="badge-tag-sale">Chính hãng</span>
           </div>
 
-          <!-- Cột Số lượng Stepper [ - ] 1 [ + ] -->
+          <!-- Cột Số lượng Stepper [ - ] input [ + ] -->
           <div class="td-qty">
             <div class="stepper-wrap">
               <button
@@ -124,7 +140,14 @@ const emit = defineEmits([
               >
                 -
               </button>
-              <span class="step-num">{{ item.quantity }}</span>
+              <input
+                type="number"
+                class="step-num-input"
+                :value="item.quantity"
+                min="1"
+                :max="item.maxStock || 99"
+                @change="emit('setQty', item.variantId, $event.target.value, item.maxStock)"
+              />
               <button
                 class="step-btn"
                 :disabled="item.quantity >= (item.maxStock || 99)"
@@ -162,13 +185,22 @@ const emit = defineEmits([
           <span>&larr; Tiếp tục chọn thêm sản phẩm khác</span>
         </router-link>
 
-        <button
-          v-if="selectedItemIds.length > 0"
-          class="btn-clear-selection"
-          @click="emit('removeSelected')"
-        >
-          Xóa {{ selectedItemIds.length }} sản phẩm đã chọn
-        </button>
+        <div class="bottom-right-action-group">
+          <button
+            v-if="selectedItemIds.length > 0"
+            class="btn-clear-selection"
+            @click="emit('removeSelected')"
+          >
+            Xóa {{ selectedItemIds.length }} mục đã chọn
+          </button>
+          <button
+            class="btn-clear-all"
+            @click="emit('clearAll')"
+            title="Xóa toàn bộ sản phẩm khỏi giỏ hàng"
+          >
+            🗑️ Xóa toàn bộ
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -281,11 +313,16 @@ const emit = defineEmits([
 }
 
 .stock-status-tag {
-  font-size: 11px;
+  font-size: 11.5px;
   color: #16a34a;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  font-weight: 500;
+}
+
+.stock-status-tag.out-of-stock {
+  color: #dc2626;
 }
 
 .stock-dot {
@@ -293,6 +330,11 @@ const emit = defineEmits([
   height: 6px;
   background: #16a34a;
   border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.stock-status-tag.out-of-stock .stock-dot {
+  background: #dc2626;
 }
 
 .cur-price {
@@ -345,6 +387,49 @@ const emit = defineEmits([
   text-align: center;
   font-size: 13px;
   font-weight: 700;
+}
+
+.step-num-input {
+  width: 38px;
+  height: 28px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: #1e293b;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.step-num-input::-webkit-outer-spin-button,
+.step-num-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.bottom-right-action-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-clear-all {
+  background: none;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-clear-all:hover {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
 }
 
 .item-line-total {

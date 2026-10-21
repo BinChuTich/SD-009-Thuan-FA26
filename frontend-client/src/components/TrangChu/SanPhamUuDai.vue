@@ -187,11 +187,9 @@ onUnmounted(() => {
       <!-- 1. Header Khối Giảm Giá -->
       <div class="deal-header-wrapper">
         <div class="deal-title-left">
-          <span class="badge-sub-title">GIÁ TỐT HÔM NAY • SỐ LƯỢNG CÓ HẠN</span>
           <h2 class="script-title">
             <span class="deal-fire-emoji">🔥</span> Sản Phẩm Ưu Đãi
           </h2>
-          <p class="script-subtitle">Các mẫu áo phông Cotton tuyển chọn đang áp dụng chương trình trợ giá tốt nhất</p>
         </div>
 
         <!-- Khối Đếm Ngược Thời Gian (Thiết kế phẳng, tinh tế) -->
@@ -348,7 +346,7 @@ onUnmounted(() => {
 }
 
 .container-deals {
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 20px;
 }
@@ -383,7 +381,7 @@ onUnmounted(() => {
   font-size: 26px;
   font-weight: 800;
   color: #0f172a;
-  margin: 0 0 4px;
+  margin: 0;
 }
 
 .script-subtitle {

@@ -10,9 +10,6 @@ import DanhMucNoiBat from '@/components/TrangChu/DanhMucNoiBat.vue'
 import SanPhamNoiBat from '@/components/TrangChu/SanPhamNoiBat.vue'
 import SanPhamUuDai from '@/components/TrangChu/SanPhamUuDai.vue'
 import TraCuuSize from '@/components/TrangChu/TraCuuSize.vue'
-import CongNgheVai from '@/components/TrangChu/CongNgheVai.vue'
-import DanhGiaKhachHang from '@/components/TrangChu/DanhGiaKhachHang.vue'
-import DangKyNhanUuDai from '@/components/TrangChu/DangKyNhanUuDai.vue'
 
 const categories = ref(CATEGORIES_CATALOG)
 const selectedCategoryTab = ref('ALL')
@@ -113,6 +110,9 @@ const loadHomeData = async () => {
     console.error('Lỗi tải dữ liệu trang chủ:', err)
   } finally {
     loading.value = false
+    if (route.hash) {
+      setTimeout(scrollToHash, 100)
+    }
   }
 }
 
@@ -167,12 +167,14 @@ const route = useRoute()
 const scrollToHash = () => {
   if (route.hash) {
     const targetId = route.hash.replace('#', '')
-    setTimeout(() => {
+    const doScroll = () => {
       const el = document.getElementById(targetId)
       if (el) {
         el.scrollIntoView({ behavior: 'smooth' })
       }
-    }, 150)
+    }
+    setTimeout(doScroll, 100)
+    setTimeout(doScroll, 350)
   }
 }
 
@@ -210,15 +212,6 @@ watch(() => route.hash, () => {
 
     <!-- 6. Bộ Tra Cứu Size Áo Thông Minh -->
     <TraCuuSize />
-
-    <!-- 7. Công Nghệ Sợi Vải & Tiêu Chuẩn May Mặc -->
-    <CongNgheVai />
-
-    <!-- 9. Đánh Giá Khách Hàng Thực Tế -->
-    <DanhGiaKhachHang />
-
-    <!-- 10. Hộp Đăng Ký VIP Nhận Ưu Đãi -->
-    <DangKyNhanUuDai />
   </div>
 </template>
 

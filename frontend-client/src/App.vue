@@ -49,5 +49,37 @@ a {
 .client-main-content {
   flex: 1;
 }
+
+/* Container chung toàn hệ thống: MÀN HÌNH RỘNG RA & ĐÁP ỨNG MỌI THIẾT BỊ */
+.container-client {
+  width: 100%;
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+@media (min-width: 1600px) {
+  .container-client {
+    max-width: 1540px;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .container-client {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .container-client {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
 </style>
 

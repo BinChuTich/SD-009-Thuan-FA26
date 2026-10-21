@@ -193,7 +193,7 @@ const getTodayString = () => {
 
 const filters = ref({
   code: '',
-  startDate: getTodayString(),
+  startDate: '',
   endDate: '',
   type: '',
   status: '',
@@ -396,8 +396,11 @@ const loadHoaDon = async () => {
           1: 'Nguyễn Văn Admin'
         }
 
-        let employeeName = '---'
-        if (nhanVienObj?.tenNhanVien) {
+        let employeeName = ''
+        const isOnline = Number(item.loaiDon) === 2 || String(item.loaiDon).toLowerCase().includes('online') || String(item.ghiChu || '').toLowerCase().includes('online')
+        if (isOnline) {
+          employeeName = ''
+        } else if (nhanVienObj?.tenNhanVien) {
           employeeName = nhanVienObj.tenNhanVien
         } else if (empCatalog[item.idNhanVien]) {
           employeeName = empCatalog[item.idNhanVien]
@@ -410,11 +413,9 @@ const loadHoaDon = async () => {
         } else if (item.maNhanVien) {
           employeeName = item.maNhanVien
         } else if (Number(item.loaiDon) === 1) {
-          // Đơn tại quầy: lấy người tạo nếu có
           employeeName = item.nguoiTao || 'Nhân viên bán hàng'
         } else {
-          // Đơn online không có nhân viên phụ trách
-          employeeName = 'Đơn Online'
+          employeeName = ''
         }
 
         // 3. Phiếu giảm giá (khóa ngoại PhieuGiamGia)
@@ -552,7 +553,7 @@ const loadHoaDon = async () => {
 const handleRefresh = async () => {
   filters.value = {
     code: '',
-    startDate: getTodayString(),
+    startDate: '',
     endDate: '',
     type: '',
     status: '',

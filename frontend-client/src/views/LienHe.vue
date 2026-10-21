@@ -185,7 +185,7 @@ const openFallbackMailClient = () => {
             <span class="icon">📞</span>
             <div>
               <strong>Hotline chăm sóc khách hàng:</strong>
-              <p>1900 6868 - 0388.888.888 (8:00 - 22:00 hàng ngày)</p>
+              <p>1900 6677 (8:00 - 22:00 hàng ngày)</p>
             </div>
           </div>
 
@@ -492,7 +492,7 @@ const openFallbackMailClient = () => {
 }
 
 .container-client {
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 1.5rem;
 }

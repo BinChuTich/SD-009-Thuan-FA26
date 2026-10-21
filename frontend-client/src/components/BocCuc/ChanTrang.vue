@@ -26,7 +26,7 @@
           </p>
           <div class="contact-line">📍 Trụ sở: Tòa nhà FPT Polytechnic, Phố Trịnh Văn Bô, Hà Nội</div>
           <div class="contact-line">📧 Email: <a href="mailto:fftshirt.vn@gmail.com" class="footer-email-link">fftshirt.vn@gmail.com</a></div>
-          <div class="contact-line">📞 Hotline CSKH: <strong>1900 6868</strong></div>
+          <div class="contact-line">📞 Hotline CSKH: <strong>1900 6677</strong></div>
         </div>
 
         <!-- Cột 2: Khám phá -->
@@ -46,7 +46,7 @@
           <ul class="footer-links">
             <li><router-link to="/tra-cuu-don-hang">Tra cứu đơn hàng</router-link></li>
             <li><router-link to="/don-hang">Đơn hàng của tôi</router-link></li>
-            <li><router-link to="/gioi-thieu">Về thương hiệu FF</router-link></li>
+            <li><router-link to="/uu-dai">Chương trình ưu đãi</router-link></li>
             <li><router-link to="/lien-he">Liên hệ hỗ trợ</router-link></li>
           </ul>
         </div>
@@ -74,9 +74,22 @@
 }
 
 .container-client {
-  max-width: 1240px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 1.5rem;
+}
+
+@media (min-width: 1600px) {
+  .container-client {
+    max-width: 1520px;
+    padding: 0 2rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .container-client {
+    padding: 0 1rem;
+  }
 }
 
 /* Main */

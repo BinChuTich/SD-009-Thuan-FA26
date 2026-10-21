@@ -112,7 +112,7 @@ const handleSend = () => {
       { text: `🔍 Mở tra cứu đơn ${txt}`, type: 'track-direct', code: txt }
     ])
   } else {
-    showBotReply('Cảm ơn bạn đã nhắn tin cho FF T-Shirt! Đội ngũ tư vấn sẽ hỗ trợ bạn ngay tức thì. Bạn cũng có thể liên hệ nhanh qua hotline 1900 6868.', [
+    showBotReply('Cảm ơn bạn đã nhắn tin cho FF T-Shirt! Đội ngũ tư vấn sẽ hỗ trợ bạn ngay tức thì. Bạn cũng có thể liên hệ nhanh qua hotline 1900 6677.', [
       { text: '📏 Tư vấn size', type: 'size' },
       { text: '🔥 Xem ưu đãi', type: 'promo' }
     ])

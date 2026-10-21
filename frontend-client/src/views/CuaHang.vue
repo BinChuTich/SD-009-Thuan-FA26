@@ -318,9 +318,22 @@ onMounted(() => {
 }
 
 .container-client {
-  max-width: 1240px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 1.5rem;
+}
+
+@media (min-width: 1600px) {
+  .container-client {
+    max-width: 1540px;
+    padding: 0 2rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .container-client {
+    padding: 0 1rem;
+  }
 }
 
 .text-center {
@@ -379,8 +392,8 @@ onMounted(() => {
 
 .products-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 22px;
 }
 
 /* Loading & Empty */

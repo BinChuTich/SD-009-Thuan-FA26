@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import api from '@/api'
 import { formatCurrency, formatDateTime } from '@/utils/dinhDang.js'
@@ -14,6 +14,33 @@ const selectedOrderItems = ref([])
 const orderLogs = ref([])
 const activeTab = ref('all') // all, pending, shipping, completed, cancelled
 const searchQuery = ref('')
+const orderItemsMap = ref({}) // Cache: { [maHoaDon]: itemsArray }
+
+const resolveProductImg = (it) => {
+  const raw = it.anhDaiDien || it.anh || it.hinhAnh || it.idChiTietSanPham?.idSanPham?.anh || it.idChiTietSanPham?.anh
+  if (!raw) return 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=120&q=80'
+  if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) return raw
+  return `http://localhost:8080${raw.startsWith('/') ? '' : '/'}${raw}`
+}
+
+const onImgError = (e) => {
+  e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=120&q=80'
+}
+
+const loadItemsForList = async (orderList) => {
+  if (!orderList || orderList.length === 0) return
+  const toFetch = orderList.slice(0, 25).filter(o => o.maHoaDon && !orderItemsMap.value[o.maHoaDon])
+  if (toFetch.length === 0) return
+
+  await Promise.all(toFetch.map(async (o) => {
+    try {
+      const res = await api.get(`/api/hoa-don/code/${o.maHoaDon}/chi-tiet`)
+      orderItemsMap.value[o.maHoaDon] = Array.isArray(res.data) ? res.data : []
+    } catch (e) {
+      orderItemsMap.value[o.maHoaDon] = []
+    }
+  }))
+}
 
 // Modal đánh giá sản phẩm
 const showReviewModal = ref(false)
@@ -118,6 +145,16 @@ const filteredOrders = computed(() => {
   return list
 })
 
+watch(
+  filteredOrders,
+  (newList) => {
+    if (newList && newList.length > 0) {
+      loadItemsForList(newList)
+    }
+  },
+  { immediate: true }
+)
+
 const handleBackToList = () => {
   selectedOrder.value = null
   selectedOrderItems.value = []
@@ -134,6 +171,7 @@ const loadOrders = async () => {
     const list = Array.isArray(res.data) ? res.data : []
     list.sort((a, b) => new Date(b.ngayTao || 0) - new Date(a.ngayTao || 0))
     orders.value = list
+    loadItemsForList(list)
 
     // Chỉ tự động mở chi tiết nếu có query code trong URL (?code=HDxxx hoặc ?ma=HDxxx)
     const targetCode = route.query.code || route.query.ma
@@ -335,95 +373,51 @@ onUnmounted(() => {
 
     <div class="container-client">
       <div class="orders-layout">
-        <!-- 1. CỘT TRÁI: PROFILE KHÁCH HÀNG & THỐNG KÊ (MATCH LOGO XANH & BE) -->
-        <aside class="profile-sidebar">
-          <div class="profile-header-card">
-            <div class="avatar-large">
-              <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-            </div>
-            <h3 class="user-display-name">{{ currentUserName }}</h3>
-            <span class="user-full-name">{{ currentUserFullName }}</span>
-          </div>
-
-          <!-- Thống kê đơn hàng nhanh -->
-          <div class="user-stats-card">
-            <div class="stat-item" @click="activeTab = 'all'; selectedOrder = null">
-              <span class="stat-num">{{ orders.length }}</span>
-              <span class="stat-lbl">Tổng đơn</span>
-            </div>
-            <div class="stat-item" @click="activeTab = 'shipping'; selectedOrder = null">
-              <span class="stat-num text-gold">{{ shippingCount }}</span>
-              <span class="stat-lbl">Đang giao</span>
-            </div>
-            <div class="stat-item" @click="activeTab = 'completed'; selectedOrder = null">
-              <span class="stat-num text-green">{{ completedCount }}</span>
-              <span class="stat-lbl">Đã xong</span>
-            </div>
-          </div>
-
-          <!-- Menu Sidebar -->
-          <nav class="sidebar-menu">
-            <button
-              class="menu-tab-btn"
-              :class="{ active: !selectedOrder }"
-              @click="selectedOrder = null"
-            >
-              <span class="icon">📦</span>
-              <span>Đơn mua của tôi</span>
-            </button>
-            <button class="menu-tab-btn" @click="router.push('/tra-cuu')">
-              <span class="icon">🔍</span>
-              <span>Tra cứu nhanh</span>
-            </button>
-            <button class="menu-tab-btn" @click="router.push('/cua-hang')">
-              <span class="icon">🛍️</span>
-              <span>Cửa hàng sản phẩm</span>
-            </button>
-          </nav>
-        </aside>
-
-        <!-- 2. CỘT PHẢI: NỘI DUNG CHÍNH -->
+        <!-- NỘI DUNG CHÍNH -->
         <main class="order-content-main">
           <!-- ============================================== -->
           <!-- VIEW 1: DANH SÁCH ĐƠN HÀNG (KHI CHƯA CHỌN ĐƠN) -->
           <!-- ============================================== -->
           <div v-if="!selectedOrder" class="orders-list-view">
-            <!-- Header Trang Danh Sách -->
+            <!-- Header Trang Danh Sách & Tìm Kiếm -->
             <div class="list-hero-header">
-              <h1 class="page-title">Đơn Hàng Của Bạn</h1>
-              <p class="page-subtitle">Theo dõi hành trình vận chuyển và quản lý tất cả đơn hàng đã đặt</p>
+              <div class="header-titles">
+                <h1 class="page-title">Đơn Hàng Của Bạn</h1>
+                <p class="page-subtitle">Theo dõi trạng thái và lịch sử tất cả các đơn hàng</p>
+              </div>
+
+              <!-- Thanh tìm kiếm nhanh -->
+              <div class="header-search-wrap" v-if="orders.length > 0">
+                <div class="search-input-pill">
+                  <span class="search-icon-svg">🔍</span>
+                  <input
+                    v-model="searchQuery"
+                    type="text"
+                    placeholder="Tìm theo Mã đơn (VD: HD026), tên người nhận..."
+                    class="search-inner-input"
+                  />
+                  <button v-if="searchQuery" type="button" class="btn-clear-search" @click="searchQuery = ''">✕</button>
+                </div>
+              </div>
             </div>
 
-            <!-- Thanh lọc Tab trạng thái (Pill Buttons) -->
-            <div class="order-filter-tabs">
+            <!-- Thanh lọc Tab trạng thái phong cách mới hiện đại -->
+            <div class="order-filter-nav">
               <button :class="{ active: activeTab === 'all' }" @click="activeTab = 'all'">
-                Tất cả <span class="tab-badge">{{ orders.length }}</span>
+                Tất cả <span class="nav-count">{{ orders.length }}</span>
               </button>
               <button :class="{ active: activeTab === 'pending' }" @click="activeTab = 'pending'">
-                Chờ xác nhận <span class="tab-badge" v-if="pendingCount > 0">{{ pendingCount }}</span>
+                Chờ xác nhận <span class="nav-count" v-if="pendingCount > 0">{{ pendingCount }}</span>
               </button>
               <button :class="{ active: activeTab === 'shipping' }" @click="activeTab = 'shipping'">
-                Đang giao <span class="tab-badge" v-if="shippingCount > 0">{{ shippingCount }}</span>
+                Đang giao <span class="nav-count" v-if="shippingCount > 0">{{ shippingCount }}</span>
               </button>
               <button :class="{ active: activeTab === 'completed' }" @click="activeTab = 'completed'">
-                Hoàn thành <span class="tab-badge" v-if="completedCount > 0">{{ completedCount }}</span>
+                Hoàn thành <span class="nav-count" v-if="completedCount > 0">{{ completedCount }}</span>
               </button>
               <button :class="{ active: activeTab === 'cancelled' }" @click="activeTab = 'cancelled'">
-                Đã hủy <span class="tab-badge" v-if="cancelledCount > 0">{{ cancelledCount }}</span>
+                Đã hủy <span class="nav-count" v-if="cancelledCount > 0">{{ cancelledCount }}</span>
               </button>
-            </div>
-
-            <!-- Ô tìm kiếm nhanh trong danh sách -->
-            <div class="list-search-box" v-if="orders.length > 0">
-              <input
-                v-model="searchQuery"
-                type="text"
-                placeholder="🔍 Tìm nhanh theo Mã đơn (VD: HD018) hoặc tên người nhận..."
-                class="list-search-input"
-              />
             </div>
 
             <!-- Trạng thái Loading -->
@@ -440,67 +434,116 @@ onUnmounted(() => {
               <router-link to="/cua-hang" class="btn-primary-action">Khám phá sản phẩm ngay</router-link>
             </div>
 
-            <!-- Danh sách các Card đơn hàng (Thiết kế thẩm mỹ & cực kỳ dễ hiểu) -->
+            <!-- Danh sách các Card đơn hàng phong cách mới: Đẹp, Trực quan, Có ảnh sản phẩm -->
             <div v-else class="orders-cards-stack">
               <div
                 v-for="o in filteredOrders"
                 :key="o.id"
                 class="order-summary-card"
               >
-                <!-- Dòng đầu Card: Mã đơn & Ngày & Trạng thái -->
+                <!-- Dòng 1: Mã đơn & Ngày & Loại đơn & Trạng thái -->
                 <div class="card-head-row">
                   <div class="code-time-col">
                     <span class="order-code-badge">#{{ o.maHoaDon }}</span>
                     <span class="dot-sep">•</span>
                     <span class="order-created-time">{{ formatDateTime(o.ngayTao) }}</span>
+                    <span class="order-type-tag" :class="o.loaiDon === 2 ? 'tag-online' : 'tag-pos'">
+                      {{ o.loaiDon === 2 ? 'Online' : 'Tại quầy' }}
+                    </span>
                   </div>
+
                   <span class="status-pill" :class="getStatusLabel(o.trangThai).class">
-                    {{ getStatusLabel(o.trangThai).text }}
+                    <span class="pill-dot"></span>
+                    <span>{{ getStatusLabel(o.trangThai).text }}</span>
                   </span>
                 </div>
 
-                <!-- Thân Card: Địa chỉ nhận & Phương thức thanh toán -->
-                <div class="card-body-row">
-                  <div class="body-info-line">
-                    <span class="info-icon">📍</span>
-                    <div class="info-text">
-                      <strong class="rcp-name">{{ o.tenKhachHang || 'Khách hàng' }}</strong>
-                      <span class="rcp-phone">({{ o.soDienThoaiKhachHang || '—' }})</span>
-                      <span class="rcp-addr">— {{ o.diaChiNhanHang || 'Địa chỉ giao hàng' }}</span>
+                <!-- Dòng 2: Preview sản phẩm thực tế của đơn hàng -->
+                <div class="card-products-preview">
+                  <div
+                    v-if="orderItemsMap[o.maHoaDon] && orderItemsMap[o.maHoaDon].length > 0"
+                    class="preview-items-list"
+                  >
+                    <div class="preview-single-item">
+                      <div class="preview-thumb-box">
+                        <img
+                          :src="resolveProductImg(orderItemsMap[o.maHoaDon][0])"
+                          :alt="orderItemsMap[o.maHoaDon][0].tenSanPham"
+                          class="preview-pic"
+                          @error="onImgError"
+                        />
+                        <span class="badge-num">x{{ orderItemsMap[o.maHoaDon][0].soLuong || 1 }}</span>
+                      </div>
+
+                      <div class="preview-item-info">
+                        <h4 class="preview-item-title">
+                          {{ orderItemsMap[o.maHoaDon][0].tenSanPham || orderItemsMap[o.maHoaDon][0].idChiTietSanPham?.idSanPham?.tenSanPham || 'Áo Polo Nam FF' }}
+                        </h4>
+                        <div class="preview-item-variants">
+                          <span class="tag-variant">Màu: <strong>{{ orderItemsMap[o.maHoaDon][0].tenMauSac || 'Tiêu chuẩn' }}</strong></span>
+                          <span class="tag-variant">Size: <strong>{{ orderItemsMap[o.maHoaDon][0].tenKichCo || 'M' }}</strong></span>
+                        </div>
+                      </div>
+
+                      <div class="preview-item-price">
+                        {{ formatCurrency((orderItemsMap[o.maHoaDon][0].giaDuocTinh || orderItemsMap[o.maHoaDon][0].donGia || o.tongTien) * (orderItemsMap[o.maHoaDon][0].soLuong || 1)) }}
+                      </div>
+                    </div>
+
+                    <div v-if="orderItemsMap[o.maHoaDon].length > 1" class="preview-more-badge">
+                      <span>+ {{ orderItemsMap[o.maHoaDon].length - 1 }} sản phẩm khác trong đơn này</span>
                     </div>
                   </div>
 
-                  <div class="body-info-line payment-line">
-                    <span class="info-icon">💳</span>
-                    <span class="pay-method">{{ o.phuongThucThanhToan || (isVnPayOrderObj(o) ? 'Thanh toán qua VNPAY' : 'Thanh toán khi nhận hàng (COD)') }}</span>
-                    <span class="pipe-sep">|</span>
-                    <span class="pay-status" :class="o.trangThai === 6 ? 'text-green' : (o.trangThaiThanhToan === 1 ? 'text-green' : 'text-orange')">
-                      {{ o.trangThai === 6 ? 'Đã nhận hoàn tiền' : (o.trangThaiThanhToan === 1 ? 'Đã thanh toán' : 'Chưa thanh toán') }}
-                    </span>
+                  <div v-else class="preview-placeholder">
+                    <span class="placeholder-icon">🛍️</span>
+                    <span class="placeholder-text">Kiện hàng thời trang FF T-Shirt</span>
                   </div>
                 </div>
 
-                <!-- Chân Card: Tổng tiền & Nút xem chi tiết -->
+                <!-- Dòng 3: Địa chỉ nhận hàng -->
+                <div class="card-shipping-line">
+                  <span class="ship-icon">📍</span>
+                  <div class="ship-info-text">
+                    <strong class="rcp-name">{{ o.tenKhachHang || o.tenKhachHangHienThi || 'Khách hàng' }}</strong>
+                    <span class="rcp-phone" v-if="o.soDienThoaiKhachHang || o.soDienThoaiHienThi">({{ o.soDienThoaiKhachHang || o.soDienThoaiHienThi }})</span>
+                    <span class="rcp-addr">— {{ o.diaChiNhanHang || 'Nhận tại cửa hàng' }}</span>
+                  </div>
+                </div>
+
+                <!-- Dòng 4: Chân Card: Thanh toán + Tổng tiền + Nút hành động -->
                 <div class="card-foot-row">
-                  <div class="foot-total-price">
-                    <span class="lbl-total">Tổng thanh toán:</span>
-                    <strong class="val-total">{{ formatCurrency(o.tongTien) }}</strong>
+                  <div class="foot-payment-state">
+                    <span class="pay-icon">💳</span>
+                    <span class="pay-text">{{ o.phuongThucThanhToan || (isVnPayOrderObj(o) ? 'VNPAY' : 'COD') }}</span>
+                    <span class="pipe-sep">•</span>
+                    <span class="pay-status-pill" :class="o.trangThai === 6 ? 'text-green' : (o.trangThaiThanhToan === 1 ? 'text-green' : 'text-orange')">
+                      {{ o.trangThai === 6 ? 'Đã hoàn tiền' : (o.trangThaiThanhToan === 1 ? 'Đã thanh toán' : 'Chưa thanh toán') }}
+                    </span>
                   </div>
 
-                  <div class="foot-actions-group">
-                    <button
-                      v-if="isVnPayOrderObj(o) && o.trangThaiThanhToan !== 1 && o.trangThai === 1"
-                      class="btn-quick-pay"
-                      @click="quickPayOrder(o)"
-                    >
-                      💳 Thanh toán ngay
-                    </button>
-                    <button
-                      class="btn-view-order-detail"
-                      @click="viewOrderDetail(o)"
-                    >
-                      👁️ Xem chi tiết đơn
-                    </button>
+                  <div class="foot-actions-and-total">
+                    <div class="foot-total-price">
+                      <span class="lbl-total">Thành tiền:</span>
+                      <strong class="val-total">{{ formatCurrency(o.tienSauGiamGia || o.tongTien) }}</strong>
+                    </div>
+
+                    <div class="foot-btn-group">
+                      <button
+                        v-if="isVnPayOrderObj(o) && o.trangThaiThanhToan !== 1 && o.trangThai === 1"
+                        class="btn-quick-pay"
+                        @click.stop="quickPayOrder(o)"
+                      >
+                        💳 Thanh toán ngay
+                      </button>
+
+                      <button
+                        class="btn-view-order-detail"
+                        @click="viewOrderDetail(o)"
+                      >
+                        Xem chi tiết
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -531,7 +574,13 @@ onUnmounted(() => {
               <div class="stepper-track">
                 <!-- Step 1: Đặt hàng -->
                 <div class="step-point" :class="{ completed: selectedOrder.trangThai >= 1 }">
-                  <div class="step-icon">🛒</div>
+                  <div class="step-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                      <line x1="3" y1="6" x2="21" y2="6"></line>
+                      <path d="M16 10a4 4 0 0 1-8 0"></path>
+                    </svg>
+                  </div>
                   <span class="step-name">Đặt hàng thành công</span>
                   <span class="step-sub">{{ formatLogTime(selectedOrder.ngayTao) }}</span>
                 </div>
@@ -539,7 +588,13 @@ onUnmounted(() => {
 
                 <!-- Step 2: Đã xác nhận -->
                 <div class="step-point" :class="{ completed: selectedOrder.trangThai >= 2, current: selectedOrder.trangThai === 2 }">
-                  <div class="step-icon">📝</div>
+                  <div class="step-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <polyline points="9 15 11 17 15 13"></polyline>
+                    </svg>
+                  </div>
                   <span class="step-name">Đã xác nhận</span>
                   <span class="step-sub">{{ selectedOrder.trangThai >= 2 ? 'Đã duyệt đơn' : 'Chờ xác nhận' }}</span>
                 </div>
@@ -547,7 +602,14 @@ onUnmounted(() => {
 
                 <!-- Step 3: Đang giao hàng -->
                 <div class="step-point" :class="{ completed: selectedOrder.trangThai >= 4, current: selectedOrder.trangThai === 3 || selectedOrder.trangThai === 4 }">
-                  <div class="step-icon">🚚</div>
+                  <div class="step-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="1" y="3" width="15" height="13"></rect>
+                      <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+                      <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                      <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    </svg>
+                  </div>
                   <span class="step-name">Đang vận chuyển</span>
                   <span class="step-sub">{{ selectedOrder.trangThai >= 4 ? 'Đang giao tận nơi' : 'Đang đóng gói' }}</span>
                 </div>
@@ -555,7 +617,12 @@ onUnmounted(() => {
 
                 <!-- Step 4: Hoàn thành -->
                 <div class="step-point" :class="{ completed: selectedOrder.trangThai === 5, current: selectedOrder.trangThai === 5 }">
-                  <div class="step-icon">🎉</div>
+                  <div class="step-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                      <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                  </div>
                   <span class="step-name">Giao thành công</span>
                   <span class="step-sub">{{ selectedOrder.trangThai === 5 ? 'Đã nhận hàng' : 'Dự kiến 2-3 ngày' }}</span>
                 </div>
@@ -614,22 +681,7 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- KHỐI LỊCH SỬ TÁC ĐỘNG ĐƠN HÀNG (MATCH VIDEO) -->
-            <div class="info-section-box history-section-box">
-              <h4 class="sec-title">🕒 LỊCH SỬ TÁC ĐỘNG ĐƠN HÀNG</h4>
-              <div v-if="orderLogs.length === 0" class="history-empty-text">
-                Chưa có lịch sử cập nhật cho đơn hàng này.
-              </div>
-              <div v-else class="order-history-timeline">
-                <div v-for="log in orderLogs" :key="log.id" class="history-item-row">
-                  <span class="history-time">{{ formatLogTime(log.thoiGian) }}</span>
-                  <span class="history-actor" :class="getActorClass(log)">
-                    [{{ getActorName(log) }}]
-                  </span>
-                  <span class="history-desc">{{ log.hanhDong || log.ghiChu }}</span>
-                </div>
-              </div>
-            </div>
+
 
             <!-- Cảnh báo đếm ngược thanh toán VNPAY (nếu chưa thanh toán) -->
             <div
@@ -778,9 +830,22 @@ onUnmounted(() => {
 }
 
 .container-client {
-  max-width: 1160px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 0 1.25rem;
+  padding: 0 1.5rem;
+}
+
+@media (min-width: 1600px) {
+  .container-client {
+    max-width: 1540px;
+    padding: 0 2rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .container-client {
+    padding: 0 1rem;
+  }
 }
 
 /* Floating toasts */
@@ -841,151 +906,41 @@ onUnmounted(() => {
   transform: translateY(-12px);
 }
 
-/* 2-Column Layout */
+/* Orders Layout */
 .orders-layout {
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 28px;
-  align-items: start;
+  width: 100%;
 }
 
-/* 1. SIDEBAR PROFILE */
-.profile-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.profile-header-card {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 22px 18px;
-  text-align: center;
-  border: 1px solid #eef2f6;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
-}
-
-.avatar-large {
-  width: 72px;
-  height: 72px;
-  background: #fdfaf3;
-  border: 2px solid #496883;
-  color: #496883;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 12px;
-}
-
-.user-display-name {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 800;
-  color: #496883;
-}
-
-.user-full-name {
-  font-size: 12.5px;
-  color: #64748b;
-  margin-top: 3px;
-  display: block;
-}
-
-/* Thống kê đơn hàng nhanh trên sidebar */
-.user-stats-card {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 14px 12px;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  text-align: center;
-  border: 1px solid #eef2f6;
-}
-
-.stat-item {
-  cursor: pointer;
-  transition: transform 0.15s;
-}
-
-.stat-item:hover {
-  transform: translateY(-2px);
-}
-
-.stat-num {
-  display: block;
-  font-size: 16px;
-  font-weight: 800;
-  color: #496883;
-}
-
-.text-gold {
-  color: #d2a764;
-}
-
-.stat-lbl {
-  font-size: 11px;
-  color: #64748b;
-  margin-top: 2px;
-  display: block;
-}
-
-.sidebar-menu {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  border: 1px solid #eef2f6;
-}
-
-.menu-tab-btn {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: none;
-  background: transparent;
-  color: #334155;
-  font-size: 13.5px;
-  font-weight: 600;
-  border-radius: 8px;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.2s;
-}
-
-.menu-tab-btn:hover {
-  background: #fdfaf3;
-  color: #496883;
-}
-
-.menu-tab-btn.active {
-  background: #496883;
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(73, 104, 131, 0.25);
+.order-content-main {
+  width: 100%;
 }
 
 /* ============================================== */
-/* VIEW 1: DANH SÁCH ĐƠN HÀNG                     */
+/* VIEW 1: DANH SÁCH ĐƠN HÀNG (PHONG CÁCH MỚI)    */
 /* ============================================== */
 .orders-list-view {
+  max-width: 1100px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 20px;
 }
 
 .list-hero-header {
-  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
 }
 
 .page-title {
-  font-family: 'Be Vietnam Pro', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 28px;
   font-weight: 800;
-  color: #496883;
-  margin: 0 0 4px;
+  color: #2c3e50;
+  margin: 0 0 6px;
   letter-spacing: -0.01em;
 }
 
@@ -995,88 +950,113 @@ onUnmounted(() => {
   margin: 0;
 }
 
-/* Filter Tabs */
-.order-filter-tabs {
+.header-search-wrap {
+  flex-shrink: 0;
+}
+
+.search-input-pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 0 14px;
+  width: 320px;
+  height: 40px;
+  transition: all 0.2s ease;
+}
+
+.search-input-pill:focus-within {
+  border-color: #496883;
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
+}
+
+.search-icon-svg {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-right: 8px;
+}
+
+.search-inner-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  width: 100%;
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.btn-clear-search {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+/* Thanh Tabs Lọc Trạng Thái */
+.order-filter-nav {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
   border-bottom: 1px solid #eef2f6;
 }
 
-.order-filter-tabs button {
+.order-filter-nav button {
   padding: 9px 18px;
   border: 1px solid #e2e8f0;
   background: #ffffff;
   color: #475569;
   font-size: 13px;
   font-weight: 600;
-  border-radius: 20px;
+  border-radius: 999px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.order-filter-tabs button:hover {
+.order-filter-nav button:hover {
   border-color: #d2a764;
   color: #d2a764;
 }
 
-.order-filter-tabs button.active {
+.order-filter-nav button.active {
   background: #496883;
   color: #ffffff;
   border-color: #496883;
   box-shadow: 0 3px 8px rgba(73, 104, 131, 0.25);
 }
 
-.tab-badge {
+.nav-count {
   background: rgba(0, 0, 0, 0.08);
-  padding: 1px 6px;
+  padding: 1px 7px;
   border-radius: 10px;
   font-size: 11px;
 }
 
-.order-filter-tabs button.active .tab-badge {
+.order-filter-nav button.active .nav-count {
   background: #d2a764;
   color: #ffffff;
 }
 
-/* Search bar in list */
-.list-search-box {
-  margin-bottom: 6px;
-}
-
-.list-search-input {
-  width: 100%;
-  padding: 11px 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #ffffff;
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.list-search-input:focus {
-  border-color: #496883;
-  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
-}
-
-/* Stack of cards */
+/* Card Đơn Hàng Mới */
 .orders-cards-stack {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 .order-summary-card {
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 14px;
   border: 1px solid #eef2f6;
-  padding: 20px;
+  padding: 20px 24px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
   display: flex;
   flex-direction: column;
@@ -1086,7 +1066,8 @@ onUnmounted(() => {
 
 .order-summary-card:hover {
   border-color: #cbd5e1;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
 }
 
 .card-head-row {
@@ -1101,12 +1082,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 13.5px;
 }
 
 .order-code-badge {
   font-weight: 800;
-  color: #496883;
+  color: #2c3e50;
+  font-size: 14.5px;
 }
 
 .dot-sep {
@@ -1114,85 +1096,279 @@ onUnmounted(() => {
 }
 
 .order-created-time {
-  font-size: 12px;
+  font-size: 12.5px;
   color: #64748b;
   font-family: monospace;
 }
 
-.status-pill {
+.order-type-tag {
   font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.tag-online {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.tag-pos {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
   font-weight: 800;
-  padding: 4px 10px;
-  border-radius: 20px;
+  padding: 5px 12px;
+  border-radius: 999px;
   letter-spacing: 0.3px;
 }
 
-.status-pending { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
-.status-confirmed { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-.status-shipping { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
-.status-done { background: #ecfdf5; color: #15803d; border: 1px solid #a7f3d0; }
-.status-cancelled { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-
-.card-body-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 13px;
-  color: #475569;
+.pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
 }
 
-.body-info-line {
+.status-pending {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+.status-pending .pill-dot { background: #d97706; }
+
+.status-confirmed {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+.status-confirmed .pill-dot { background: #3b82f6; }
+
+.status-shipping {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+.status-shipping .pill-dot { background: #8b5cf6; }
+
+.status-done {
+  background: #ecfdf5;
+  color: #15803d;
+  border: 1px solid #a7f3d0;
+}
+.status-done .pill-dot { background: #10b981; }
+
+.status-cancelled {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+.status-cancelled .pill-dot { background: #ef4444; }
+
+/* Preview sản phẩm trong card */
+.card-products-preview {
+  padding: 4px 0;
+}
+
+.preview-single-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.preview-thumb-box {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  flex-shrink: 0;
+}
+
+.preview-pic {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-thumb-box .badge-num {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #496883;
+  color: #ffffff;
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-bottom-left-radius: 4px;
+}
+
+.preview-item-info {
+  flex: 1;
+}
+
+.preview-item-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 5px;
+}
+
+.preview-item-variants {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tag-variant {
+  background: #f8fafc;
+  border: 1px solid #eef2f6;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+.tag-variant strong {
+  color: #334155;
+}
+
+.preview-item-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  flex-shrink: 0;
+}
+
+.preview-more-badge {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #496883;
+  font-weight: 600;
+  background: #f8fafc;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.preview-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+/* Dòng địa chỉ */
+.card-shipping-line {
   display: flex;
   align-items: baseline;
   gap: 8px;
+  font-size: 12.5px;
+  color: #64748b;
+  background: #fbfcfd;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #f1f5f9;
 }
 
-.info-icon {
+.ship-icon {
+  font-size: 13px;
   flex-shrink: 0;
-  font-size: 14px;
 }
 
-.info-text strong {
+.ship-info-text strong {
   color: #1e293b;
 }
 
-.rcp-phone {
+.ship-phone {
   margin: 0 4px;
+  color: #475569;
+}
+
+.ship-addr {
   color: #64748b;
 }
 
-.rcp-addr {
-  color: #64748b;
-}
-
-.pipe-sep {
-  color: #cbd5e1;
-  margin: 0 4px;
-}
-
+/* Chân Card */
 .card-foot-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding-top: 14px;
   border-top: 1px solid #f1f5f9;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.foot-payment-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+.pay-status-pill {
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.foot-actions-and-total {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.foot-total-price {
+  text-align: right;
 }
 
 .lbl-total {
-  font-size: 13px;
+  font-size: 12px;
   color: #64748b;
   margin-right: 6px;
 }
 
 .val-total {
-  font-size: 17px;
+  font-size: 17.5px;
   font-weight: 800;
   color: #496883;
 }
 
-.foot-actions-group {
+.foot-btn-group {
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-track-action {
+  background: #ffffff;
+  color: #496883;
+  border: 1px solid #cbd5e1;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-track-action:hover {
+  background: #f8fafc;
+  border-color: #496883;
 }
 
 .btn-quick-pay {
@@ -1227,6 +1403,25 @@ onUnmounted(() => {
 .btn-view-order-detail:hover {
   background: #364f66;
   transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .list-hero-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .search-input-pill {
+    width: 100%;
+  }
+  .card-foot-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .foot-actions-and-total {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
 }
 
 /* ============================================== */

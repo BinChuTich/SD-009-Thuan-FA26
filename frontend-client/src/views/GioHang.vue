@@ -1,14 +1,18 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import api from '@/api'
 import {
   cartItems,
   updateCartQuantity,
   removeFromCart,
   clearCart,
-  addToCart
+  addToCart,
+  saveCart,
+  setCheckoutItems,
+  setCheckoutVoucher
 } from '@/utils/luuTruGioHang.js'
-import { MOCK_PRODUCTS_CATALOG } from '@/utils/danhMucSanPham.js'
+import { getMergedProducts } from '@/utils/danhMucSanPham.js'
 import BangSanPhamGioHang from '@/components/GioHang/BangSanPhamGioHang.vue'
 import TongKetGioHang from '@/components/GioHang/TongKetGioHang.vue'
 import TheSanPham from '@/components/DungChung/TheSanPham.vue'
@@ -16,7 +20,19 @@ import TheSanPham from '@/components/DungChung/TheSanPham.vue'
 const router = useRouter()
 
 // Sản phẩm gợi ý khi giỏ hàng trống hoặc chân trang
-const recommendedProducts = ref(MOCK_PRODUCTS_CATALOG.slice(0, 4))
+const recommendedProducts = ref([])
+
+const loadRecommendedProducts = async () => {
+  try {
+    const res = await api.get('/api/san-pham', {
+      params: { page: 0, size: 8, trangThai: 1 }
+    })
+    const list = res.data?.content || (Array.isArray(res.data) ? res.data : [])
+    recommendedProducts.value = getMergedProducts(list).slice(0, 4)
+  } catch (e) {
+    console.warn('Lỗi tải gợi ý sản phẩm:', e)
+  }
+}
 
 // Lựa chọn checkbox từng sản phẩm
 const selectedItemIds = ref(cartItems.value.map(i => i.variantId))
@@ -43,6 +59,13 @@ const handleQtyChange = (variantId, delta, currentQty, maxStock) => {
   updateCartQuantity(variantId, newQty)
 }
 
+const handleSetQuantity = (variantId, newQty, maxStock) => {
+  let q = parseInt(newQty, 10)
+  if (isNaN(q) || q < 1) q = 1
+  if (maxStock && q > maxStock) q = maxStock
+  updateCartQuantity(variantId, q)
+}
+
 const handleRemove = (variantId, name = '') => {
   if (confirm(`Bạn có chắc muốn xóa sản phẩm ${name ? '"' + name + '"' : ''} khỏi giỏ hàng?`)) {
     removeFromCart(variantId)
@@ -58,6 +81,13 @@ const handleRemoveSelected = () => {
   }
 }
 
+const handleClearCart = () => {
+  if (confirm('Bạn có chắc chắn muốn xóa tất cả sản phẩm khỏi giỏ hàng?')) {
+    clearCart()
+    selectedItemIds.value = []
+  }
+}
+
 // Voucher khuyến mãi
 const voucherInput = ref('')
 const appliedVoucher = ref(null)
@@ -66,7 +96,8 @@ const handleApplyVoucher = () => {
   const code = voucherInput.value.trim().toUpperCase()
   if (!code) return
   if (code === 'FFVIP10' || code === 'SALE10') {
-    appliedVoucher.value = { code, discount: 50000 }
+    const disc = Math.max(30000, Math.round(selectedSubtotal.value * 0.1))
+    appliedVoucher.value = { code, discount: disc }
     voucherInput.value = ''
   } else if (code === 'FREESHIP') {
     appliedVoucher.value = { code, discount: 30000 }
@@ -74,6 +105,11 @@ const handleApplyVoucher = () => {
   } else {
     alert('Mã giảm giá không hợp lệ hoặc đã hết lượt sử dụng!')
   }
+}
+
+const handleApplyQuickVoucher = (code) => {
+  voucherInput.value = code
+  handleApplyVoucher()
 }
 
 const handleRemoveVoucher = () => {
@@ -110,8 +146,48 @@ const goToCheckout = () => {
     alert('Vui lòng tích chọn ít nhất 1 sản phẩm để tiến hành thanh toán!')
     return
   }
+  const itemsToCheckout = cartItems.value.filter(item => selectedItemIds.value.includes(item.variantId))
+  setCheckoutItems(itemsToCheckout)
+  setCheckoutVoucher(appliedVoucher.value)
   router.push('/thanh-toan')
 }
+
+// Đồng bộ số lượng tồn kho thực tế từ backend khi vào giỏ hàng
+const syncCartStock = async () => {
+  if (!cartItems.value || cartItems.value.length === 0) return
+  let updated = false
+  await Promise.all(
+    cartItems.value.map(async (item) => {
+      try {
+        if (!item.variantId) return
+        const res = await api.get(`/api/chi-tiet-san-pham/${item.variantId}`)
+        if (res.data) {
+          const freshStock = res.data.soLuong != null 
+            ? res.data.soLuong 
+            : (res.data.soLuongTon != null ? res.data.soLuongTon : 0)
+          if (item.maxStock !== freshStock) {
+            item.maxStock = freshStock
+            updated = true
+          }
+          if (freshStock > 0 && item.quantity > freshStock) {
+            item.quantity = freshStock
+            updated = true
+          }
+        }
+      } catch (e) {
+        // Ignored
+      }
+    })
+  )
+  if (updated) {
+    saveCart()
+  }
+}
+
+onMounted(() => {
+  syncCartStock()
+  loadRecommendedProducts()
+})
 </script>
 
 <template>
@@ -158,8 +234,10 @@ const goToCheckout = () => {
           :is-all-selected="isAllSelected"
           @toggleSelectAll="toggleSelectAll"
           @qtyChange="handleQtyChange"
+          @setQty="handleSetQuantity"
           @removeItem="handleRemove"
           @removeSelected="handleRemoveSelected"
+          @clearAll="handleClearCart"
         />
 
         <!-- 2. THẺ TÓM TẮT ĐƠN HÀNG & THANH TOÁN -->
@@ -172,6 +250,7 @@ const goToCheckout = () => {
           v-model:voucher-input="voucherInput"
           :applied-voucher="appliedVoucher"
           @applyVoucher="handleApplyVoucher"
+          @applyQuickVoucher="handleApplyQuickVoucher"
           @removeVoucher="handleRemoveVoucher"
           @checkout="goToCheckout"
         />
@@ -198,7 +277,7 @@ const goToCheckout = () => {
 }
 
 .container-client {
-  max-width: 1240px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 1.5rem;
 }

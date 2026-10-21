@@ -2,7 +2,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
-import { cartItems, cartSubtotal, clearCart } from '@/utils/luuTruGioHang.js'
+import {
+  cartItems,
+  cartSubtotal,
+  clearCart,
+  getCheckoutItems,
+  getCheckoutVoucher,
+  removeMultipleFromCart
+} from '@/utils/luuTruGioHang.js'
 import { formatCurrency } from '@/utils/dinhDang.js'
 import SoDiaChiGiaoHang from '@/components/ThanhToan/SoDiaChiGiaoHang.vue'
 import PhuongThucThanhToan from '@/components/ThanhToan/PhuongThucThanhToan.vue'
@@ -78,16 +85,35 @@ const fullDeliveryAddress = computed(() => {
   return parts.join(', ') || 'Chưa có địa chỉ cụ thể'
 })
 
+// Danh sách sản phẩm thanh toán (hỗ trợ chọn lọc từ giỏ hàng hoặc mặc định toàn bộ)
+const activeCheckoutItems = computed(() => {
+  const custom = getCheckoutItems()
+  if (custom && custom.length > 0) return custom
+  return cartItems.value
+})
+
+const checkoutSubtotal = computed(() => {
+  return activeCheckoutItems.value.reduce((sum, item) => {
+    const p = item.discountPrice != null && item.discountPrice > 0 ? item.discountPrice : item.price
+    return sum + p * item.quantity
+  }, 0)
+})
+
+const appliedVoucher = ref(getCheckoutVoucher())
+
+const voucherDiscount = computed(() => {
+  if (!appliedVoucher.value) return 0
+  return Math.min(appliedVoucher.value.discount || 0, checkoutSubtotal.value)
+})
+
 // Tính tiền
 const shippingFee = computed(() => {
-  if (cartSubtotal.value >= 499000 || cartSubtotal.value === 0) return 0
+  if (checkoutSubtotal.value >= 499000 || checkoutSubtotal.value === 0 || appliedVoucher.value?.code === 'FREESHIP') return 0
   return 30000
 })
 
-const voucherDiscount = ref(0)
-
 const finalTotal = computed(() => {
-  return Math.max(0, cartSubtotal.value - voucherDiscount.value + shippingFee.value)
+  return Math.max(0, checkoutSubtotal.value - voucherDiscount.value + shippingFee.value)
 })
 
 // Trạng thái đặt hàng
@@ -121,6 +147,20 @@ const copyOrderCode = (code) => {
       copySuccess.value = false
     }, 2000)
   })
+}
+
+const goToOrderDetail = () => {
+  orderSuccess.value = false
+  if (createdOrder.value?.maHoaDon) {
+    router.push(`/don-hang?code=${createdOrder.value.maHoaDon}`)
+  } else {
+    router.push('/don-hang')
+  }
+}
+
+const goToShop = () => {
+  orderSuccess.value = false
+  router.push('/cua-hang')
 }
 
 const validateForm = () => {
@@ -191,7 +231,7 @@ const handlePlaceOrder = async () => {
   emptyCartWarning.value = false
 
   // Kiểm tra giỏ hàng
-  if (cartItems.value.length === 0) {
+  if (activeCheckoutItems.value.length === 0) {
     emptyCartWarning.value = true
     window.scrollTo({ top: 0, behavior: 'smooth' })
     return
@@ -221,7 +261,7 @@ const handlePlaceOrder = async () => {
       tongTien: finalTotal.value,
       phiVanChuyen: shippingFee.value,
       giamGia: voucherDiscount.value,
-      chiTiet: cartItems.value.map(i => ({
+      chiTiet: activeCheckoutItems.value.map(i => ({
         idChiTietSanPham: i.variantId,
         soLuong: i.quantity,
         donGia: i.discountPrice > 0 ? i.discountPrice : i.price
@@ -232,8 +272,11 @@ const handlePlaceOrder = async () => {
     const savedOrder = res.data
     createdOrder.value = savedOrder
 
-    // Xóa giỏ hàng khi đơn hàng đã được khởi tạo
-    clearCart()
+    // Xóa những sản phẩm đã đặt khỏi giỏ hàng
+    const purchasedIds = activeCheckoutItems.value.map(i => i.variantId)
+    removeMultipleFromCart(purchasedIds)
+    sessionStorage.removeItem('fftshirt_checkout_items')
+    sessionStorage.removeItem('fftshirt_checkout_voucher')
 
     // Nếu chọn thanh toán qua cổng VNPAY -> Mở popup nhỏ & chuyển trang chính sang /don-hang như video
     if (paymentMethod.value === 'VNPAY') {
@@ -295,75 +338,87 @@ const handlePlaceOrder = async () => {
         <router-link to="/cua-hang" class="btn-shop-now-alert">Đến Cửa Hàng &rarr;</router-link>
       </div>
 
-      <!-- MÀN HÌNH ĐẶT HÀNG THÀNH CÔNG -->
-      <div v-if="orderSuccess" class="order-success-card">
-        <div class="success-icon-wrap">
-          <svg class="checkmark-svg" viewBox="0 0 52 52">
-            <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
-            <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
-          </svg>
-        </div>
-        <h2 class="success-title">🎉 Đặt Hàng Thành Công!</h2>
-        <p class="success-note">
-          Cảm ơn quý khách <strong>{{ customerName }}</strong> đã tin tưởng mua sắm tại <strong>FF T-Shirt</strong>.<br />
-          Đơn hàng của bạn đã được ghi nhận trên hệ thống và nhân viên sẽ liên hệ xác nhận trong thời gian sớm nhất.
-        </p>
+      <!-- BẢNG THÔNG BÁO (POPUP MODAL) ĐẶT HÀNG THÀNH CÔNG -->
+      <transition name="modal-fade">
+        <div
+          v-if="orderSuccess"
+          class="order-modal-backdrop"
+          @click.self="goToOrderDetail"
+        >
+          <div class="order-modal-dialog">
+            <button class="modal-close-x" @click="goToOrderDetail" title="Đóng">&times;</button>
 
-        <!-- Thẻ tóm tắt thông tin đơn hàng vừa đặt -->
-        <div class="success-order-box">
-          <div class="order-code-row">
-            <div>
-              <span class="label">Mã đơn hàng:</span>
-              <strong class="code-val">#{{ createdOrder?.maHoaDon }}</strong>
+            <!-- Huy hiệu tích xanh animated -->
+            <div class="success-icon-wrap">
+              <svg class="checkmark-svg" viewBox="0 0 52 52">
+                <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+                <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+              </svg>
             </div>
-            <button class="btn-copy-code" @click="copyOrderCode(createdOrder?.maHoaDon)">
-              {{ copySuccess ? '✓ Đã chép' : '📋 Sao chép mã' }}
-            </button>
+
+            <h2 class="modal-success-title">🎉 Đặt Hàng Thành Công!</h2>
+            <p class="modal-success-subtitle">
+              Cảm ơn quý khách <strong>{{ customerName }}</strong> đã mua sắm tại <strong>FF T-Shirt</strong>.<br />
+              Đơn hàng của bạn đã được ghi nhận trên hệ thống và nhân viên sẽ liên hệ xác nhận trong thời gian sớm nhất.
+            </p>
+
+            <!-- Thẻ tóm tắt thông tin đơn hàng vừa đặt -->
+            <div class="modal-summary-box">
+              <div class="modal-code-row">
+                <div>
+                  <span class="label">Mã đơn hàng:</span>
+                  <strong class="code-val">#{{ createdOrder?.maHoaDon }}</strong>
+                </div>
+                <button class="btn-copy-mini" @click="copyOrderCode(createdOrder?.maHoaDon)">
+                  {{ copySuccess ? '✓ Đã chép' : '📋 Sao chép mã' }}
+                </button>
+              </div>
+
+              <div class="modal-summary-details">
+                <div class="sum-row">
+                  <span class="sum-label">👤 Người nhận:</span>
+                  <span class="sum-val font-semibold">{{ customerName }} • {{ customerPhone }}</span>
+                </div>
+                <div class="sum-row" v-if="customerEmail">
+                  <span class="sum-label">📧 Email:</span>
+                  <span class="sum-val">{{ customerEmail }}</span>
+                </div>
+                <div class="sum-row">
+                  <span class="sum-label">📍 Địa chỉ nhận hàng:</span>
+                  <span class="sum-val">{{ fullDeliveryAddress }}</span>
+                </div>
+                <div class="sum-row">
+                  <span class="sum-label">💳 Phương thức:</span>
+                  <span class="sum-val font-semibold">
+                    {{ paymentMethod === 'VNPAY' ? 'Cổng thanh toán VNPAY' : 'Thanh toán khi nhận hàng (COD)' }}
+                  </span>
+                </div>
+                <div class="sum-row sum-total-row">
+                  <span class="sum-label">💵 Tổng tiền thanh toán:</span>
+                  <strong class="sum-val text-price">{{ formatCurrency(finalTotal) }}</strong>
+                </div>
+              </div>
+
+              <!-- Ghi chú nhận hàng COD -->
+              <div v-if="paymentMethod === 'COD'" class="modal-delivery-tip">
+                🚚 <strong>Lưu ý nhận hàng:</strong> Đơn hàng sẽ được nhân viên FF T-Shirt gọi điện xác nhận và gửi tới bạn. Quý khách vui lòng kiểm tra sản phẩm và thanh toán tiền mặt trực tiếp cho shipper khi nhận hàng.
+              </div>
+            </div>
+
+            <div class="modal-action-buttons">
+              <button class="btn-modal-primary" @click="goToOrderDetail">
+                📄 Xem Chi Tiết Đơn Hàng
+              </button>
+              <button class="btn-modal-secondary" @click="goToShop">
+                🛍️ Tiếp Tục Mua Sắm &rarr;
+              </button>
+            </div>
           </div>
-
-          <div class="order-summary-details">
-            <div class="sum-row">
-              <span class="sum-label">👤 Người nhận:</span>
-              <span class="sum-val font-semibold">{{ customerName }} • {{ customerPhone }}</span>
-            </div>
-            <div class="sum-row">
-              <span class="sum-label">📧 Email:</span>
-              <span class="sum-val">{{ customerEmail }}</span>
-            </div>
-            <div class="sum-row">
-              <span class="sum-label">📍 Địa chỉ nhận hàng:</span>
-              <span class="sum-val">{{ fullDeliveryAddress }}</span>
-            </div>
-            <div class="sum-row">
-              <span class="sum-label">💳 Phương thức:</span>
-              <span class="sum-val font-semibold">
-                {{ paymentMethod === 'VNPAY' ? 'Cổng thanh toán VNPAY' : 'Thanh toán khi nhận hàng (COD)' }}
-              </span>
-            </div>
-            <div class="sum-row">
-              <span class="sum-label">💵 Tổng tiền thanh toán:</span>
-              <strong class="sum-val text-price">{{ formatCurrency(finalTotal) }}</strong>
-            </div>
-          </div>
-
-          <!-- Ghi chú nhận hàng COD -->
-          <div v-if="paymentMethod === 'COD'" class="delivery-tip-box">
-            🚚 <strong>Lưu ý nhận hàng:</strong> Đơn hàng sẽ được nhân viên FF T-Shirt gọi điện xác nhận và gửi tới bạn. Quý khách vui lòng kiểm tra sản phẩm và thanh toán tiền mặt trực tiếp cho shipper khi nhận hàng.
-          </div>
         </div>
-
-        <div class="success-actions">
-          <router-link :to="`/don-hang?code=${createdOrder?.maHoaDon}`" class="btn-view-order">
-            📄 Xem Chi Tiết Đơn Hàng
-          </router-link>
-          <router-link to="/cua-hang" class="btn-back-home">
-            🛍️ Tiếp Tục Mua Sắm &rarr;
-          </router-link>
-        </div>
-      </div>
+      </transition>
 
       <!-- FORM THANH TOÁN CHÍNH -->
-      <div v-else class="checkout-split-layout">
+      <div class="checkout-split-layout">
         <!-- CỘT TRÁI: ĐỊA CHỈ & HÌNH THỨC THANH TOÁN (COMPONENT TÁCH BIỆT) -->
         <div class="left-form-column">
           <!-- 1. Sổ địa chỉ & Form người nhận -->
@@ -392,8 +447,8 @@ const handlePlaceOrder = async () => {
 
         <!-- CỘT PHẢI: XEM LẠI ĐƠN HÀNG, TỔNG TIỀN, NÚT XÁC NHẬN (COMPONENT TÁCH BIỆT) -->
         <XemLaiDonHang
-          :cart-items="cartItems"
-          :cart-subtotal="cartSubtotal"
+          :cart-items="activeCheckoutItems"
+          :cart-subtotal="checkoutSubtotal"
           :shipping-fee="shippingFee"
           :voucher-discount="voucherDiscount"
           :final-total="finalTotal"
@@ -424,7 +479,7 @@ const handlePlaceOrder = async () => {
 }
 
 .container-client {
-  max-width: 1240px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 1.5rem;
 }
@@ -496,36 +551,73 @@ const handlePlaceOrder = async () => {
   white-space: nowrap;
 }
 
-/* Đặt hàng thành công */
-.order-success-card {
+/* =========================================================
+   BẢNG THÔNG BÁO (POPUP MODAL) ĐẶT HÀNG THÀNH CÔNG
+========================================================= */
+.order-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.order-modal-dialog {
   background: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  padding: 50px 30px;
+  border-radius: 20px;
+  max-width: 540px;
+  width: 100%;
+  padding: 32px 26px 26px;
+  box-shadow: 0 25px 60px rgba(73, 104, 131, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  position: relative;
   text-align: center;
-  max-width: 650px;
-  margin: 20px auto;
-  box-shadow: 0 10px 30px rgba(73, 104, 131, 0.1);
-  animation: fadeIn 0.4s ease-out;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+.modal-close-x {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: #f1f5f9;
+  border-radius: 50%;
+  font-size: 20px;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: all 0.2s ease;
 }
 
+.modal-close-x:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+/* Huy hiệu tích xanh */
 .success-icon-wrap {
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 16px;
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 14px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .checkmark-svg {
-  width: 60px;
-  height: 60px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   display: block;
   stroke-width: 3;
@@ -563,54 +655,57 @@ const handlePlaceOrder = async () => {
   50% { transform: scale3d(1.1, 1.1, 1); }
 }
 
-.success-title {
-  font-size: 26px;
+.modal-success-title {
+  font-family: 'Be Vietnam Pro', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 24px;
   font-weight: 800;
-  color: #1e293b;
-  margin: 0 0 10px;
+  color: #496883;
+  margin: 0 0 8px;
+  letter-spacing: -0.01em;
 }
 
-.success-note {
+.modal-success-subtitle {
   color: #64748b;
-  font-size: 14px;
-  line-height: 1.6;
-  margin-bottom: 24px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin: 0 0 20px;
 }
 
-.success-order-box {
+.modal-summary-box {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 22px;
-  margin: 0 auto 28px;
+  padding: 16px 18px;
+  margin: 0 auto 22px;
   text-align: left;
 }
 
-.order-code-row {
+.modal-code-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 14px;
+  padding-bottom: 12px;
   border-bottom: 1.5px dashed #cbd5e1;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
-.order-code-row .label {
+.modal-code-row .label {
   font-size: 13px;
   color: #64748b;
-  margin-right: 8px;
+  margin-right: 6px;
 }
 
-.code-val {
-  font-size: 20px;
-  color: #e11d48;
+.modal-code-row .code-val {
+  font-size: 19px;
+  color: #496883;
   font-weight: 800;
+  letter-spacing: 0.5px;
 }
 
-.btn-copy-code {
+.btn-copy-mini {
   background: #ffffff;
   border: 1px solid #cbd5e1;
-  padding: 6px 14px;
+  padding: 5px 12px;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
@@ -619,24 +714,24 @@ const handlePlaceOrder = async () => {
   transition: all 0.2s;
 }
 
-.btn-copy-code:hover {
+.btn-copy-mini:hover {
   background: #f1f5f9;
   border-color: #496883;
   color: #496883;
 }
 
-.order-summary-details {
+.modal-summary-details {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  font-size: 13.5px;
+  gap: 8px;
+  font-size: 13px;
 }
 
 .sum-row {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .sum-label {
@@ -648,6 +743,13 @@ const handlePlaceOrder = async () => {
 .sum-val {
   color: #1e293b;
   text-align: right;
+  word-break: break-word;
+}
+
+.sum-total-row {
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+  margin-top: 4px;
 }
 
 .font-semibold {
@@ -655,67 +757,108 @@ const handlePlaceOrder = async () => {
 }
 
 .text-price {
-  color: #dc2626;
+  color: #496883;
   font-size: 17px;
   font-weight: 800;
 }
 
-.delivery-tip-box {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+.modal-delivery-tip {
+  background: #fdfaf3;
+  border: 1px solid #ecd8af;
   border-radius: 8px;
-  padding: 12px 14px;
-  margin-top: 16px;
-  font-size: 12.5px;
-  color: #166534;
+  padding: 10px 12px;
+  margin-top: 14px;
+  font-size: 12px;
+  color: #78350f;
   line-height: 1.5;
 }
 
-.delivery-tip-box strong {
-  color: #15803d;
+.modal-delivery-tip strong {
+  color: #92400e;
 }
 
-.success-actions {
+.modal-action-buttons {
   display: flex;
   justify-content: center;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
-.btn-view-order {
+.btn-modal-primary {
+  flex: 1;
+  min-width: 200px;
   background: #496883;
   color: #ffffff;
-  padding: 13px 24px;
+  padding: 12px 18px;
   border-radius: 8px;
   font-weight: 700;
-  text-decoration: none;
-  font-size: 14px;
+  font-size: 13.5px;
+  border: none;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 
-.btn-view-order:hover {
+.btn-modal-primary:hover {
   background: #364f66;
+  transform: translateY(-1px);
 }
 
-.btn-back-home {
-  background: #d2a764;
-  color: #1e293b;
-  padding: 13px 24px;
+.btn-modal-secondary {
+  flex: 1;
+  min-width: 170px;
+  background: #fdfaf3;
+  color: #d2a764;
+  border: 1.5px solid #d2a764;
+  padding: 12px 18px;
   border-radius: 8px;
   font-weight: 700;
-  text-decoration: none;
-  font-size: 14px;
+  font-size: 13.5px;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 
-.btn-back-home:hover {
-  background: #c3944b;
+.btn-modal-secondary:hover {
+  background: #d2a764;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* Modal Transition */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+
+.modal-fade-enter-active .order-modal-dialog {
+  animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-fade-leave-active .order-modal-dialog {
+  animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) reverse;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 @media (max-width: 992px) {

@@ -1,7 +1,14 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { cartCount } from '@/utils/luuTruGioHang.js'
+import {
+  notifications,
+  unreadCount,
+  fetchNotifications,
+  markAsRead,
+  markAllAsRead
+} from '@/utils/thongBao.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -11,17 +18,52 @@ const mobileMenuOpen = ref(false)
 const searchKeyword = ref('')
 const activeSection = ref(route.hash ? route.hash.replace('#', '') : '')
 
+// Tab lọc thông báo: 'all' | 'order' | 'deal'
+const notiFilterTab = ref('all')
+const toastMessage = ref('')
+let toastTimer = null
+
+const showToast = (msg) => {
+  toastMessage.value = msg
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => {
+    toastMessage.value = ''
+  }, 2500)
+}
+
+const copyVoucher = (code) => {
+  if (!code) return
+  try {
+    navigator.clipboard.writeText(code)
+    showToast(`Đã sao chép mã voucher ${code}!`)
+  } catch (e) {
+    showToast(`Mã voucher: ${code}`)
+  }
+}
+
+const filteredNotifications = computed(() => {
+  if (notiFilterTab.value === 'order') {
+    return notifications.value.filter(n => n.category === 'order')
+  }
+  if (notiFilterTab.value === 'deal') {
+    return notifications.value.filter(n => n.category === 'deal' || n.category === 'voucher')
+  }
+  return notifications.value
+})
+
+const orderUnreadCount = computed(() => {
+  return notifications.value.filter(n => n.category === 'order' && n.unread).length
+})
+
+const dealUnreadCount = computed(() => {
+  return notifications.value.filter(n => (n.category === 'deal' || n.category === 'voucher') && n.unread).length
+})
+
 const currentUser = ref({
   name: 'DƯƠNG NGỌC CHIẾN',
   phone: '0988776655',
   email: 'chien.duong@example.com'
 })
-
-const notifications = ref([
-  { id: 1, text: 'Đơn hàng #HD123 của bạn đang được chuẩn bị giao!', time: '10 phút trước', unread: true },
-  { id: 2, text: 'Ưu đãi Flash Sale giảm 30% cho áo thun Polo vừa bắt đầu!', time: '1 giờ trước', unread: false },
-  { id: 3, text: 'Voucher VC-DCB392 đã được thêm vào ví của bạn.', time: 'Hôm qua', unread: false }
-])
 
 const toggleUserMenu = () => {
   showUserMenu.value = !showUserMenu.value
@@ -31,6 +73,51 @@ const toggleUserMenu = () => {
 const toggleNoti = () => {
   showNoti.value = !showNoti.value
   showUserMenu.value = false
+  if (showNoti.value) {
+    fetchNotifications()
+  }
+}
+
+const handleNotiClick = (n) => {
+  markAsRead(n.id)
+  showNoti.value = false
+
+  if (n.voucherCode) {
+    copyVoucher(n.voucherCode)
+  }
+
+  if (n.link) {
+    if (n.link.startsWith('/#')) {
+      const sectionId = n.link.replace('/#', '')
+      scrollToHomeSection(sectionId)
+    } else {
+      router.push(n.link)
+    }
+  }
+}
+
+const handleMarkAllRead = () => {
+  markAllAsRead()
+  showToast('Đã đánh dấu tất cả thông báo là đã đọc!')
+}
+
+const handleDocumentClick = (e) => {
+  const notiWrap = document.querySelector('.noti-dropdown-wrap')
+  const userWrap = document.querySelector('.user-account-wrap')
+
+  if (notiWrap && !notiWrap.contains(e.target)) {
+    showNoti.value = false
+  }
+  if (userWrap && !userWrap.contains(e.target)) {
+    showUserMenu.value = false
+  }
+}
+
+const handleKeydown = (e) => {
+  if (e.key === 'Escape') {
+    showNoti.value = false
+    showUserMenu.value = false
+  }
 }
 
 const handleSearch = () => {
@@ -67,6 +154,14 @@ const scrollToHomeSection = (sectionId) => {
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' })
       window.history.replaceState(null, '', `#${sectionId}`)
+    } else {
+      setTimeout(() => {
+        const retryEl = document.getElementById(sectionId)
+        if (retryEl) {
+          retryEl.scrollIntoView({ behavior: 'smooth' })
+          window.history.replaceState(null, '', `#${sectionId}`)
+        }
+      }, 100)
     }
   } else {
     router.push({ path: '/', hash: `#${sectionId}` })
@@ -104,15 +199,27 @@ watch(() => route.hash, (newHash) => {
 
 onMounted(() => {
   window.addEventListener('scroll', handleScroll, { passive: true })
+  window.addEventListener('click', handleDocumentClick)
+  window.addEventListener('keydown', handleKeydown)
+  fetchNotifications()
 })
 
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
+  window.removeEventListener('click', handleDocumentClick)
+  window.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
 <template>
   <header class="client-header-wrap">
+    <!-- Toast thông báo nhanh -->
+    <transition name="toast-fade">
+      <div v-if="toastMessage" class="header-floating-toast">
+        <span class="toast-icon">✨</span>
+        <span>{{ toastMessage }}</span>
+      </div>
+    </transition>
 
     <!-- 2. Header chính -->
     <div class="main-nav-bar">
@@ -146,18 +253,25 @@ onUnmounted(() => {
           </div>
         </router-link>
 
-        <!-- Menu điều hướng chính ở giữa (Desktop): TRANG CHỦ, GIỚI THIỆU, SẢN PHẨM, ĐƠN HÀNG, TRA CỨU, LIÊN HỆ -->
+        <!-- Menu điều hướng chính ở giữa (Desktop): TRANG CHỦ, SẢN PHẨM, ƯU ĐÃI, ĐƠN HÀNG, TRA CỨU, LIÊN HỆ -->
         <nav class="nav-links">
           <router-link
             to="/"
             class="nav-item"
-            :class="{ active: route.path === '/' && !activeSection }"
+            :class="{ active: route.path === '/' && !activeSection && (!route.hash || route.hash === '#') }"
             @click.prevent="scrollToTop"
           >
             TRANG CHỦ
           </router-link>
-          <router-link to="/gioi-thieu" class="nav-item" active-class="active">GIỚI THIỆU</router-link>
           <router-link to="/cua-hang" class="nav-item" active-class="active">SẢN PHẨM</router-link>
+          <a
+            href="#san-pham-uu-dai"
+            class="nav-item"
+            :class="{ active: route.path === '/' && (activeSection === 'san-pham-uu-dai' || route.hash === '#san-pham-uu-dai') }"
+            @click.prevent="scrollToHomeSection('san-pham-uu-dai')"
+          >
+            ƯU ĐÃI
+          </a>
           <router-link to="/don-hang" class="nav-item" active-class="active">ĐƠN HÀNG</router-link>
           <router-link to="/tra-cuu" class="nav-item" active-class="active">TRA CỨU</router-link>
           <router-link to="/lien-he" class="nav-item" active-class="active">LIÊN HỆ</router-link>
@@ -182,22 +296,118 @@ onUnmounted(() => {
           </div>
 
           <!-- Chuông thông báo -->
-          <div class="action-dropdown-wrap">
-            <button class="icon-btn" @click="toggleNoti" title="Thông báo">
+          <div class="action-dropdown-wrap noti-dropdown-wrap">
+            <button
+              class="icon-btn noti-bell-btn"
+              :class="{ 'has-unread': unreadCount > 0 }"
+              @click.stop="toggleNoti"
+              title="Thông báo"
+            >
               <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
               </svg>
-              <span class="dot-unread"></span>
+              <!-- Huy hiệu số thông báo chưa đọc -->
+              <span class="noti-badge-count" v-if="unreadCount > 0">
+                {{ unreadCount > 9 ? '9+' : unreadCount }}
+              </span>
             </button>
 
-            <!-- Popup thông báo -->
-            <div v-if="showNoti" class="dropdown-popup noti-popup">
-              <div class="popup-title">Thông báo mới</div>
-              <div class="noti-list">
-                <div v-for="n in notifications" :key="n.id" class="noti-item" :class="{ unread: n.unread }">
-                  <p class="noti-text">{{ n.text }}</p>
-                  <span class="noti-time">{{ n.time }}</span>
+            <!-- Popup thông báo hoàn chỉnh -->
+            <div v-if="showNoti" class="dropdown-popup noti-popup" @click.stop>
+              <!-- 1. Header Popup -->
+              <div class="noti-popup-header">
+                <div class="noti-header-left">
+                  <span class="noti-header-title">Thông Báo</span>
+                  <span class="noti-pill-unread" v-if="unreadCount > 0">{{ unreadCount }} mới</span>
+                </div>
+                <button
+                  class="btn-mark-all-read"
+                  @click="handleMarkAllRead"
+                  :disabled="unreadCount === 0"
+                  title="Đánh dấu tất cả đã đọc"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  Đã đọc tất cả
+                </button>
+              </div>
+
+              <!-- 2. Tabs phân loại thông báo -->
+              <div class="noti-filter-tabs">
+                <button
+                  class="noti-tab-btn"
+                  :class="{ active: notiFilterTab === 'all' }"
+                  @click="notiFilterTab = 'all'"
+                >
+                  Tất cả
+                </button>
+                <button
+                  class="noti-tab-btn"
+                  :class="{ active: notiFilterTab === 'order' }"
+                  @click="notiFilterTab = 'order'"
+                >
+                  Đơn hàng
+                  <span class="tab-badge" v-if="orderUnreadCount > 0">{{ orderUnreadCount }}</span>
+                </button>
+                <button
+                  class="noti-tab-btn"
+                  :class="{ active: notiFilterTab === 'deal' }"
+                  @click="notiFilterTab = 'deal'"
+                >
+                  Khuyến mãi
+                  <span class="tab-badge" v-if="dealUnreadCount > 0">{{ dealUnreadCount }}</span>
+                </button>
+              </div>
+
+              <!-- 3. Danh sách thông báo dạng cuộn -->
+              <div class="noti-list-container">
+                <div
+                  v-for="n in filteredNotifications"
+                  :key="n.id"
+                  class="noti-card-item"
+                  :class="{ unread: n.unread }"
+                  @click="handleNotiClick(n)"
+                >
+                  <div class="noti-card-icon" :class="`icon-${n.category}`">
+                    <span v-if="n.category === 'order'">📦</span>
+                    <span v-else-if="n.category === 'deal'">🔥</span>
+                    <span v-else-if="n.category === 'voucher'">🎟️</span>
+                    <span v-else>👋</span>
+                  </div>
+
+                  <div class="noti-card-body">
+                    <div class="noti-card-top">
+                      <h4 class="noti-card-title">{{ n.title }}</h4>
+                      <span class="noti-unread-pulse" v-if="n.unread" title="Chưa đọc"></span>
+                    </div>
+
+                    <p class="noti-card-desc">{{ n.desc }}</p>
+
+                    <!-- Thẻ voucher bấm copy nhanh -->
+                    <div
+                      v-if="n.voucherCode"
+                      class="noti-voucher-box"
+                      @click.stop="copyVoucher(n.voucherCode)"
+                      title="Bấm để sao chép mã voucher"
+                    >
+                      <span class="v-code-label">MÃ: <strong>{{ n.voucherCode }}</strong></span>
+                      <span class="v-copy-tag">Sao chép</span>
+                    </div>
+
+                    <div class="noti-card-foot">
+                      <span class="noti-time-text">🕒 {{ n.time }}</span>
+                      <span class="noti-link-cta">{{ n.actionText }} →</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Trạng thái trống khi tab không có thông báo nào -->
+                <div v-if="filteredNotifications.length === 0" class="noti-empty-wrap">
+                  <div class="empty-icon-wrap">🔔</div>
+                  <strong class="empty-title">Không có thông báo mới</strong>
+                  <p class="empty-sub">Bạn đã cập nhật toàn bộ thông báo trong danh mục này.</p>
                 </div>
               </div>
             </div>
@@ -287,34 +497,26 @@ onUnmounted(() => {
           <button @click="handleSearch">🔍</button>
         </div>
 
-        <!-- Danh sách link trong mobile menu -->
+        <!-- Danh sách link trong mobile menu: TRANG CHỦ, SẢN PHẨM, ƯU ĐÃI, ĐƠN HÀNG, TRA CỨU, LIÊN HỆ -->
         <nav class="mobile-nav-list">
           <router-link
             to="/"
             class="mobile-nav-link"
-            :class="{ active: route.path === '/' && !activeSection }"
+            :class="{ active: route.path === '/' && !activeSection && (!route.hash || route.hash === '#') }"
             @click.prevent="scrollToTop"
           >
             🏠 TRANG CHỦ
           </router-link>
           <router-link to="/cua-hang" class="mobile-nav-link" @click="closeMobileMenu">
-            👕 SẢN PHẨM (CỬA HÀNG)
+            👕 SẢN PHẨM
           </router-link>
           <a
             href="#san-pham-uu-dai"
             class="mobile-nav-link"
-            :class="{ active: route.path === '/' && activeSection === 'san-pham-uu-dai' }"
+            :class="{ active: route.path === '/' && (activeSection === 'san-pham-uu-dai' || route.hash === '#san-pham-uu-dai') }"
             @click.prevent="scrollToHomeSection('san-pham-uu-dai')"
           >
             🔥 ƯU ĐÃI
-          </a>
-          <a
-            href="#san-pham-noi-bat"
-            class="mobile-nav-link"
-            :class="{ active: route.path === '/' && activeSection === 'san-pham-noi-bat' }"
-            @click.prevent="scrollToHomeSection('san-pham-noi-bat')"
-          >
-            ⭐ NỔI BẬT
           </a>
           <router-link to="/don-hang" class="mobile-nav-link" @click="closeMobileMenu">
             📄 ĐƠN HÀNG
@@ -323,8 +525,16 @@ onUnmounted(() => {
             🔍 TRA CỨU
           </router-link>
           <router-link to="/lien-he" class="mobile-nav-link" @click="closeMobileMenu">
-            📞 LIÊN HỆ HỖ TRỢ
+            📞 LIÊN HỆ
           </router-link>
+          <button
+            type="button"
+            class="mobile-nav-link mobile-noti-btn"
+            @click="closeMobileMenu(); showNoti = true"
+          >
+            <span>🔔 THÔNG BÁO</span>
+            <span class="mob-noti-badge" v-if="unreadCount > 0">{{ unreadCount }}</span>
+          </button>
         </nav>
 
         <div class="mobile-drawer-footer">
@@ -333,7 +543,7 @@ onUnmounted(() => {
             <p>{{ currentUser.phone }}</p>
           </div>
           <div class="mob-hotline">
-            Hotline CSKH: <strong>1900 6868</strong>
+            Hotline CSKH: <strong>1900 6677</strong>
           </div>
         </div>
       </div>
@@ -714,45 +924,384 @@ onUnmounted(() => {
 }
 
 .noti-popup {
-  width: 310px;
-  padding: 14px;
+  width: 380px;
+  max-width: 92vw;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: 0 15px 35px rgba(73, 104, 131, 0.18);
+  border: 1px solid #e2e8f0;
 }
 
-.popup-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #496883;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #f1f5f9;
-  margin-bottom: 8px;
-}
-
-.noti-list {
+.noti-badge-count {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background-color: #ef4444;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+  animation: badgePulse 2s infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.noti-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.noti-header-left {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-.noti-item {
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: #f8fafc;
+.noti-header-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #496883;
+}
+
+.noti-pill-unread {
+  background: #fef2f2;
+  color: #ef4444;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  border: 1px solid #fecaca;
+}
+
+.btn-mark-all-read {
+  background: none;
+  border: none;
+  color: #64748b;
   font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
 }
 
-.noti-item.unread {
-  background: #fefce8;
-  border-left: 3px solid #d2a764;
+.btn-mark-all-read:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #496883;
 }
 
-.noti-text {
-  margin: 0 0 4px;
+.btn-mark-all-read:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.noti-filter-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.noti-tab-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 5px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s;
+}
+
+.noti-tab-btn:hover {
   color: #1e293b;
+  background: #ffffff;
 }
 
-.noti-time {
+.noti-tab-btn.active {
+  background: #ffffff;
+  color: #496883;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.tab-badge {
+  background: #ef4444;
+  color: #ffffff;
   font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+}
+
+.noti-list-container {
+  max-height: 380px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f8fafc;
+}
+
+.noti-list-container::-webkit-scrollbar {
+  width: 5px;
+}
+
+.noti-list-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.noti-card-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  background: #ffffff;
+  position: relative;
+}
+
+.noti-card-item:hover {
+  background: #f8fafc;
+}
+
+.noti-card-item.unread {
+  background: #fdfbf7;
+  border-left: 3.5px solid #d2a764;
+}
+
+.noti-card-item.unread:hover {
+  background: #fbf6ec;
+}
+
+.noti-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.noti-card-icon.icon-order {
+  background: #e2eaf0;
+}
+
+.noti-card-icon.icon-deal {
+  background: #ffedd5;
+}
+
+.noti-card-icon.icon-voucher {
+  background: #fef3c7;
+}
+
+.noti-card-icon.icon-system {
+  background: #e0f2fe;
+}
+
+.noti-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.noti-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.noti-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.noti-unread-pulse {
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 4px;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+.noti-card-desc {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.45;
+  margin: 0 0 8px;
+}
+
+.noti-voucher-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fffbeb;
+  border: 1px dashed #f59e0b;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: #b45309;
+  margin-bottom: 8px;
+  transition: all 0.2s;
+}
+
+.noti-voucher-box:hover {
+  background: #fef3c7;
+  transform: translateY(-1px);
+}
+
+.v-copy-tag {
+  background: #d2a764;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.noti-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
   color: #94a3b8;
+}
+
+.noti-link-cta {
+  font-weight: 700;
+  color: #496883;
+  transition: color 0.15s;
+}
+
+.noti-card-item:hover .noti-link-cta {
+  color: #d2a764;
+}
+
+.noti-empty-wrap {
+  padding: 36px 20px;
+  text-align: center;
+  color: #64748b;
+}
+
+.empty-icon-wrap {
+  font-size: 32px;
+  margin-bottom: 8px;
+  opacity: 0.8;
+}
+
+.empty-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #496883;
+  margin-bottom: 4px;
+}
+
+.empty-sub {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.noti-popup-footer {
+  padding: 10px 14px;
+  background: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+  text-align: center;
+}
+
+.noti-view-all-link {
+  font-size: 12px;
+  font-weight: 700;
+  color: #496883;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.noti-view-all-link:hover {
+  color: #d2a764;
+}
+
+.header-floating-toast {
+  position: fixed;
+  top: 75px;
+  right: 24px;
+  background: #1e293b;
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 30px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  z-index: 10005;
+  border: 1px solid #496883;
+}
+
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: all 0.25s ease;
+}
+
+.toast-fade-enter-from,
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.mobile-noti-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.mob-noti-badge {
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 10px;
 }
 
 .user-popup {
@@ -923,24 +1472,27 @@ onUnmounted(() => {
 /* RESPONSIVE MEDIA QUERIES */
 @media (max-width: 1200px) {
   .nav-links {
-    gap: 1.15rem;
+    gap: 1rem;
+  }
+  .nav-item {
+    font-size: 0.84rem;
   }
 }
 
 @media (max-width: 1024px) {
   .nav-links {
-    gap: 0.85rem;
+    gap: 0.75rem;
   }
   .nav-item {
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     padding: 6px 2px;
   }
   .desktop-search-box input {
-    width: 130px;
+    width: 120px;
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .mobile-hamburger-btn {
     display: block;
   }
@@ -953,12 +1505,18 @@ onUnmounted(() => {
   .desktop-only {
     display: none;
   }
+  .container-client {
+    padding: 0 1.25rem;
+  }
   .bar-left span:nth-child(3) {
     display: none;
   }
 }
 
 @media (max-width: 600px) {
+  .container-client {
+    padding: 0 0.85rem;
+  }
   .bar-left {
     font-size: 0.72rem;
   }
