@@ -30,6 +30,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.context.event.EventListener;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.Optional;
 
 @Service
@@ -299,6 +303,30 @@ public class HoaDonService {
             hd.setNgayCapNhat(Instant.now());
             hd.setNguoiCapNhat("Hệ thống");
 
+            // Hoàn lại số lượng tồn kho cho các sản phẩm trong hóa đơn chờ bị hủy
+            try {
+                List<ChiTietHoaDon> details = chiTietHoaDonRepository.findByIdHoaDon_Id(hd.getId());
+                if (details != null && !details.isEmpty()) {
+                    for (ChiTietHoaDon cthd : details) {
+                        if (cthd.getIdChiTietSanPham() != null && cthd.getIdChiTietSanPham().getId() != null) {
+                            Long vid = cthd.getIdChiTietSanPham().getId();
+                            int qty = cthd.getSoLuong() != null ? cthd.getSoLuong() : 0;
+                            if (qty > 0) {
+                                Optional<ChiTietSanPham> ctspOpt = chiTietSanPhamRepository.findById(vid);
+                                if (ctspOpt.isPresent()) {
+                                    ChiTietSanPham ctsp = ctspOpt.get();
+                                    int curStock = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
+                                    ctsp.setSoLuong(curStock + qty);
+                                    chiTietSanPhamRepository.save(ctsp);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                System.err.println("Lỗi hoàn tồn kho khi hủy hóa đơn chờ cũ: " + ex.getMessage());
+            }
+
             String currentNote = hd.getGhiChu() != null ? hd.getGhiChu().trim() : "";
             String cancelReason = "Tự động hủy hóa đơn chờ sang ngày mới (" + today + ")";
             if (!currentNote.isEmpty() && !currentNote.contains("Tự động hủy")) {
@@ -387,14 +415,56 @@ public class HoaDonService {
         return hoaDonRepository.save(hd);
     }
 
-    // Đồng bộ danh sách sản phẩm của hóa đơn chờ mà không trừ tồn kho
+    // Đồng bộ danh sách sản phẩm của hóa đơn chờ và trừ / hoàn tồn kho tương ứng
     @Transactional
     public List<ChiTietHoaDon> syncCartToInvoice(Long idHoaDon, List<HoaDonPosDTO.ItemChiTietDTO> items) {
+        List<ChiTietHoaDon> oldDetails = chiTietHoaDonRepository.findByIdHoaDon_Id(idHoaDon);
         HoaDon hoaDon = hoaDonRepository.findById(idHoaDon)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn ID: " + idHoaDon));
 
-        // Xóa chi tiết cũ
-        List<ChiTietHoaDon> oldDetails = chiTietHoaDonRepository.findByIdHoaDon_Id(idHoaDon);
+        // Lấy chi tiết cũ để tính chênh lệch tồn kho
+        Map<Long, Integer> oldQtyMap = new HashMap<>();
+        if (oldDetails != null) {
+            for (ChiTietHoaDon c : oldDetails) {
+                if (c.getIdChiTietSanPham() != null && c.getIdChiTietSanPham().getId() != null) {
+                    Long vid = c.getIdChiTietSanPham().getId();
+                    int q = c.getSoLuong() != null ? c.getSoLuong() : 0;
+                    oldQtyMap.put(vid, oldQtyMap.getOrDefault(vid, 0) + q);
+                }
+            }
+        }
+
+        Map<Long, Integer> newQtyMap = new HashMap<>();
+        if (items != null) {
+            for (HoaDonPosDTO.ItemChiTietDTO item : items) {
+                Long vid = item.getResolvedVariantId();
+                if (vid != null) {
+                    int q = item.getSoLuong() != null ? Math.max(1, item.getSoLuong()) : 1;
+                    newQtyMap.put(vid, newQtyMap.getOrDefault(vid, 0) + q);
+                }
+            }
+        }
+
+        // Cập nhật tồn kho dựa trên chênh lệch (diff = newQty - oldQty)
+        Set<Long> allVariantIds = new HashSet<>(oldQtyMap.keySet());
+        allVariantIds.addAll(newQtyMap.keySet());
+        for (Long vid : allVariantIds) {
+            int oldQ = oldQtyMap.getOrDefault(vid, 0);
+            int newQ = newQtyMap.getOrDefault(vid, 0);
+            int diff = newQ - oldQ;
+            if (diff != 0) {
+                Optional<ChiTietSanPham> ctspOpt = chiTietSanPhamRepository.findById(vid);
+                if (ctspOpt.isPresent()) {
+                    ChiTietSanPham ctsp = ctspOpt.get();
+                    int curStock = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
+                    ctsp.setSoLuong(Math.max(0, curStock - diff));
+                    chiTietSanPhamRepository.save(ctsp);
+                }
+            }
+        }
+
+        // Xóa chi tiết cũ sau khi đã tính toán điều chỉnh tồn kho
+
         if (oldDetails != null && !oldDetails.isEmpty()) {
             chiTietHoaDonRepository.deleteAll(oldDetails);
         }
@@ -938,9 +1008,32 @@ public class HoaDonService {
         }
         HoaDon hoaDon = opt.get();
 
-        // 1. Xóa chi tiết hóa đơn
+        // 1. Hoàn lại tồn kho cho hóa đơn chờ/chưa hoàn thành và xóa chi tiết hóa đơn
         try {
             List<ChiTietHoaDon> chiTiets = chiTietHoaDonRepository.findByHoaDonIdSimple(id);
+            if (chiTiets != null && !chiTiets.isEmpty()) {
+                boolean shouldRestoreStock = isWaitingInvoice(hoaDon)
+                        || Integer.valueOf(1).equals(hoaDon.getTrangThai())
+                        || hoaDon.getTrangThaiThanhToan() == null
+                        || Integer.valueOf(0).equals(hoaDon.getTrangThaiThanhToan());
+                if (shouldRestoreStock) {
+                    for (ChiTietHoaDon c : chiTiets) {
+                        if (c.getIdChiTietSanPham() != null && c.getIdChiTietSanPham().getId() != null) {
+                            Long vid = c.getIdChiTietSanPham().getId();
+                            int qty = c.getSoLuong() != null ? c.getSoLuong() : 0;
+                            if (qty > 0) {
+                                Optional<ChiTietSanPham> ctspOpt = chiTietSanPhamRepository.findById(vid);
+                                if (ctspOpt.isPresent()) {
+                                    ChiTietSanPham ctsp = ctspOpt.get();
+                                    int curStock = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
+                                    ctsp.setSoLuong(curStock + qty);
+                                    chiTietSanPhamRepository.save(ctsp);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             if (chiTiets != null && !chiTiets.isEmpty()) {
                 chiTietHoaDonRepository.deleteAll(chiTiets);
                 chiTietHoaDonRepository.flush();
@@ -989,6 +1082,7 @@ public class HoaDonService {
         }
 
         HoaDon hoaDon;
+        Map<Long, Integer> alreadyDeductedMap = new HashMap<>();
 
         // 1. Mã hóa đơn: Nếu hóa đơn đã tồn tại trong CSDL (hóa đơn chờ), cập nhật lại hóa đơn đó
         if (dto.getMaHoaDon() != null && !dto.getMaHoaDon().trim().isEmpty()) {
@@ -997,6 +1091,15 @@ public class HoaDonService {
                 hoaDon = existingOpt.get();
                 try {
                     List<ChiTietHoaDon> oldDetails = chiTietHoaDonRepository.findByIdHoaDon_Id(hoaDon.getId());
+                    if (oldDetails != null) {
+                        for (ChiTietHoaDon c : oldDetails) {
+                            if (c.getIdChiTietSanPham() != null && c.getIdChiTietSanPham().getId() != null) {
+                                Long vid = c.getIdChiTietSanPham().getId();
+                                int q = c.getSoLuong() != null ? c.getSoLuong() : 0;
+                                alreadyDeductedMap.put(vid, alreadyDeductedMap.getOrDefault(vid, 0) + q);
+                            }
+                        }
+                    }
                     if (oldDetails != null && !oldDetails.isEmpty()) {
                         chiTietHoaDonRepository.deleteAll(oldDetails);
                     }
@@ -1079,7 +1182,8 @@ public class HoaDonService {
 
         HoaDon saved = hoaDonRepository.save(hoaDon);
 
-        // 7. Lưu danh sách chi tiết hóa đơn & trừ tồn kho
+        // 7. Lưu danh sách chi tiết hóa đơn & trừ tồn kho (chỉ trừ phần chênh lệch chưa trừ)
+        Set<Long> processedVariants = new HashSet<>();
         if (dto.getChiTietList() != null && !dto.getChiTietList().isEmpty()) {
             int itemIndex = 1;
             BigDecimal calculatedTotal = BigDecimal.ZERO;
@@ -1111,10 +1215,30 @@ public class HoaDonService {
                 cthd.setTrangThai(1);
                 chiTietHoaDonRepository.save(cthd);
 
-                // Trừ tồn kho biến thể sản phẩm
+                int previouslyDeducted = alreadyDeductedMap.getOrDefault(variantId, 0);
+                int diff = qty - previouslyDeducted;
+                processedVariants.add(variantId);
                 if (ctsp.getSoLuong() != null) {
-                    ctsp.setSoLuong(Math.max(0, ctsp.getSoLuong() - qty));
+                    if (diff != 0) {
+                        ctsp.setSoLuong(Math.max(0, ctsp.getSoLuong() - diff));
+                    }
                     chiTietSanPhamRepository.save(ctsp);
+                }
+            }
+
+            // Hoàn lại kho cho các sản phẩm đã có trong hóa đơn chờ nhưng bị xóa trước khi bấm thanh toán
+            for (Map.Entry<Long, Integer> entry : alreadyDeductedMap.entrySet()) {
+                Long vid = entry.getKey();
+                int prevQ = entry.getValue();
+                if (!processedVariants.contains(vid) && prevQ > 0) {
+                    Optional<ChiTietSanPham> leftoverOpt = chiTietSanPhamRepository.findById(vid);
+                    if (leftoverOpt.isPresent()) {
+                        ChiTietSanPham leftoverCtsp = leftoverOpt.get();
+                        if (leftoverCtsp.getSoLuong() != null) {
+                            leftoverCtsp.setSoLuong(leftoverCtsp.getSoLuong() + prevQ);
+                            chiTietSanPhamRepository.save(leftoverCtsp);
+                        }
+                    }
                 }
             }
 

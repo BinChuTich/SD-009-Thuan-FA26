@@ -266,6 +266,14 @@ const confirmRemoveInvoice = (inv) => {
     `Bạn có chắc chắn muốn hủy hóa đơn chờ "${inv.code}" không? Hóa đơn này sẽ được xóa hoàn toàn khỏi cơ sở dữ liệu.`,
     async () => {
       try {
+        if (inv.cart && inv.cart.length > 0) {
+          inv.cart.forEach(item => {
+            const p = productList.value.find(x => x.id === item.id)
+            if (p) {
+              p.stock += item.quantity
+            }
+          })
+        }
         if (inv.id) {
           await api.delete(`/api/hoa-don/${inv.id}`)
         }
@@ -365,7 +373,36 @@ const filteredProducts = computed(() => {
   )
 })
 
+const getMaxStockForItem = (item) => {
+  const p = productList.value.find(x => x.id === item.id)
+  return item.quantity + (p ? Math.max(0, p.stock) : 0)
+}
+
 const selectProduct = (prod) => {
+  const p = productList.value.find(item => item.id === prod.id) || prod
+  if (p.stock <= 0) {
+    showToast('Sản phẩm đã hết hàng trong kho!', 'warning')
+    return
+  }
+
+  const exist = currentInvoice.value.cart.find(i => i.id === prod.id)
+  if (exist) {
+    exist.quantity++
+  } else {
+    currentInvoice.value.cart.push({
+      ...prod,
+      quantity: 1
+    })
+  }
+
+  // Trừ trực tiếp số lượng tồn kho khả dụng ngay khi thêm vào giỏ hàng
+  p.stock--
+
+  syncCurrentCartToDb()
+  showToast(`Đã thêm "${prod.name} (${prod.color} - ${prod.size})" vào giỏ hàng!`)
+}
+
+const _oldSelectProduct = (prod) => { if (true) return;
   if (prod.stock <= 0) {
     showToast('Sản phẩm đã hết hàng trong kho!', 'warning')
     return
@@ -407,6 +444,28 @@ const handleBarcodeScan = () => {
 }
 
 const updateQuantity = (item, delta) => {
+  const p = productList.value.find(x => x.id === item.id)
+  if (delta > 0) {
+    if (p && p.stock < delta) {
+      showToast(`Trong kho chỉ còn thêm tối đa ${p.stock} sản phẩm!`, 'warning')
+      return
+    }
+    item.quantity += delta
+    if (p) p.stock -= delta
+    syncCurrentCartToDb()
+  } else if (delta < 0) {
+    const absDelta = Math.abs(delta)
+    if (item.quantity <= absDelta) {
+      removeFromCart(item)
+      return
+    }
+    item.quantity -= absDelta
+    if (p) p.stock += absDelta
+    syncCurrentCartToDb()
+  }
+}
+
+const _oldUpdateQuantity = (item, delta) => { if (true) return;
   const newQty = item.quantity + delta
   if (newQty <= 0) {
     removeFromCart(item)
@@ -422,6 +481,27 @@ const updateQuantity = (item, delta) => {
 
 const handleQuantityInput = (item, event) => {
   let val = parseInt(event.target.value, 10)
+  const p = productList.value.find(x => x.id === item.id)
+  const maxAvailable = item.quantity + (p ? Math.max(0, p.stock) : 0)
+  if (isNaN(val) || val <= 0) {
+    val = 1
+  }
+  if (val > maxAvailable) {
+    showToast(`Số lượng khả dụng chỉ còn tối đa ${maxAvailable}!`, 'warning')
+    val = maxAvailable
+  }
+  const delta = val - item.quantity
+  if (delta !== 0) {
+    item.quantity = val
+    if (p) p.stock -= delta
+    syncCurrentCartToDb()
+  } else {
+    event.target.value = item.quantity
+  }
+}
+
+const _oldHandleQuantityInput = (item, event) => { if (true) return;
+  let val = parseInt(event.target.value, 10)
   if (isNaN(val) || val <= 0) {
     item.quantity = 1
   } else if (val > item.stock) {
@@ -434,6 +514,16 @@ const handleQuantityInput = (item, event) => {
 }
 
 const removeFromCart = (item) => {
+  const p = productList.value.find(x => x.id === item.id)
+  if (p) {
+    p.stock += item.quantity
+  }
+  currentInvoice.value.cart = currentInvoice.value.cart.filter(i => i.id !== item.id)
+  syncCurrentCartToDb()
+  showToast('Đã xóa sản phẩm khỏi giỏ hàng!')
+}
+
+const _oldRemoveFromCart = (item) => { if (true) return;
   currentInvoice.value.cart = currentInvoice.value.cart.filter(i => i.id !== item.id)
   syncCurrentCartToDb()
   showToast('Đã xóa sản phẩm khỏi giỏ hàng!')
@@ -2074,7 +2164,7 @@ onMounted(async () => {
                         @change="handleQuantityInput(item, $event)"
                         class="qty-input"
                         min="1"
-                        :max="item.stock"
+                        :max="getMaxStockForItem(item)"
                     />
                     <button class="qty-btn" @click="updateQuantity(item, 1)">+</button>
                   </div>
