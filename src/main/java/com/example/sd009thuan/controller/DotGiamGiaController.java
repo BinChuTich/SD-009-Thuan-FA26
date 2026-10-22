@@ -48,6 +48,14 @@ public class DotGiamGiaController {
     }
 
     /**
+     * Lấy danh sách các đợt giảm giá đang có hiệu lực hoạt động
+     */
+    @GetMapping({"/active", "/active-campaigns", "/active-products"})
+    public ResponseEntity<List<DotGiamGia>> getActiveCampaigns() {
+        return ResponseEntity.ok(dotGiamGiaService.getActiveCampaigns());
+    }
+
+    /**
      * Lấy bản đồ ID sản phẩm cha -> Đợt giảm giá đang áp dụng
      */
     @GetMapping("/active-products-map")

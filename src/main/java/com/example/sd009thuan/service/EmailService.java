@@ -689,7 +689,7 @@ public class EmailService {
 
                     <!-- Footer -->
                     <div style="background-color: #f7f5ef; border-top: 1px solid #e8e4de; padding: 20px 30px; text-align: center; font-size: 12.5px; color: #777;">
-                        <p style="margin: 0 0 6px;">Mọi thắc mắc về đơn hàng, vui lòng liên hệ Hotline: <b>0988.888.888</b> hoặc email hỗ trợ.</p>
+                        <p style="margin: 0 0 6px;">Mọi thắc mắc về đơn hàng, vui lòng liên hệ Hotline: <b>0988.888.888</b> hoặc email hỗ trợ: <b>fftshirt.vn@gmail.com</b>.</p>
                         <p style="margin: 0; color: #999;">© 2026 FF T-Shirt Store. All rights reserved.</p>
                     </div>
                 </div>
@@ -719,78 +719,65 @@ public class EmailService {
     }
 
     /**
-     * Gửi email cấp lại mật khẩu cho nhân viên / quản trị viên khi quên mật khẩu
+     * Gửi email yêu cầu liên hệ / hỗ trợ của khách hàng về hòm thư fftshirt.vn@gmail.com
      */
-    public boolean sendResetPasswordEmail(String toEmail, String employeeName, String code, String account, String password) {
-        if (toEmail == null || toEmail.trim().isEmpty()) {
-            return false;
+    @Async
+    public void sendContactEmail(String name, String phone, String email, String messageContent) {
+        String recipientEmail = "fftshirt.vn@gmail.com";
+        if (mailSender == null) {
+            log.warn("==> [EmailService] JavaMailSender chưa sẵn sàng. Không thể gửi email liên hệ.");
+            return;
         }
         try {
-            if (mailSender == null) {
-                log.info("==> [EmailService Mock] Đã gửi cấp lại mật khẩu cho {} tới {}", account, toEmail);
-                return true;
-            }
-
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setTo(toEmail.trim());
-            helper.setSubject("[FF T-Shirt] Cấp lại mật khẩu tài khoản hệ thống - " + (code != null ? code : account));
+            helper.setFrom(senderEmail, "FF T-Shirt Official");
+            helper.setTo(recipientEmail);
+            if (email != null && !email.isBlank()) {
+                helper.setReplyTo(email.trim());
+            }
+            helper.setSubject("[FF T-Shirt Hỗ Trợ] Yêu cầu mới từ " + (name != null ? name : "Khách hàng"));
 
-            String template = """
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <span style="font-size: 26px; font-weight: 800; color: #496883; letter-spacing: 1px;">FF</span>
-                        <span style="font-size: 26px; font-weight: 800; color: #d2a764; margin-left: 2px;">-</span>
-                        <span style="font-size: 22px; font-weight: 700; color: #2c3e50;">Tshirt</span>
+            String timeNow = DATE_FORMATTER.format(Instant.now());
+
+            String content = """
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,0.06); color: #333333; line-height: 1.6;">
+                    <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 24px; text-align: center; color: #ffffff;">
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px;">YÊU CẦU LIÊN HỆ & HỖ TRỢ KHÁCH HÀNG</h2>
+                        <p style="margin: 6px 0 0; font-size: 13px; color: #ecd8af;">Hệ Thống Website FF T-Shirt</p>
                     </div>
-                    <h2 style="margin: 0 0 14px 0; text-align: center; color: #496883; font-size: 20px; font-weight: 700;">
-                        Cấp lại mật khẩu tài khoản
-                    </h2>
-                    <p style="margin: 0 0 20px 0; text-align: center; color: #555555; font-size: 14px; line-height: 1.6;">
-                        Xin chào <b>{{name}}</b>, hệ thống đã nhận được yêu cầu cấp lại mật khẩu cho tài khoản làm việc của bạn.
-                    </p>
+                    <div style="padding: 24px;">
+                        <p style="font-size: 14px; color: #64748b; margin-top: 0;">Thời gian tiếp nhận: <strong>{{timeNow}}</strong></p>
+                        
+                        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                            <p style="margin: 0 0 8px; font-size: 14px;"><strong>Họ và tên khách hàng:</strong> {{name}}</p>
+                            <p style="margin: 0 0 8px; font-size: 14px;"><strong>Số điện thoại:</strong> <a href="tel:{{phone}}" style="color: #0284c7; text-decoration: none; font-weight: 700;">{{phone}}</a></p>
+                            <p style="margin: 0; font-size: 14px;"><strong>Email liên hệ:</strong> <a href="mailto:{{email}}" style="color: #0284c7; text-decoration: none;">{{email}}</a></p>
+                        </div>
 
-                    <div style="background-color: #faf7f2; border: 1px solid #f0eae1; border-left: 4px solid #d2a764; border-radius: 8px; padding: 20px 24px; margin: 0 0 24px 0; text-align: left;">
-                        <div style="margin-bottom: 12px; font-size: 14px; color: #333333;">
-                            <span style="font-weight: 700; color: #4a3427;">Mã nhân viên:</span>
-                            <span style="display: inline-block; background-color: #f1ebe5; color: #4a3427; font-weight: 700; font-size: 14px; padding: 3px 12px; border-radius: 4px; letter-spacing: 0.5px; margin-left: 6px;">{{code}}</span>
-                        </div>
-                        <div style="margin-bottom: 12px; font-size: 14px; color: #333333;">
-                            <span style="font-weight: 700; color: #4a3427;">Tên tài khoản:</span>
-                            <span style="font-weight: 600; color: #1e3a8a; margin-left: 6px;">{{account}}</span>
-                        </div>
-                        <div style="margin-bottom: 10px; font-size: 14px; color: #333333;">
-                            <span style="font-weight: 700; color: #4a3427;">Mật khẩu mới của bạn:</span>
-                            <span style="font-weight: 800; color: #b91c1c; font-size: 16px; margin-left: 6px; letter-spacing: 1.2px;">{{password}}</span>
-                        </div>
-                        <div style="font-size: 13px; color: #666666; line-height: 1.5; margin-top: 14px; border-top: 1px dashed #d5cbc1; padding-top: 10px;">
-                            <i>⚠️ Lưu ý: Vui lòng sử dụng mật khẩu này để đăng nhập ngay và tiến hành đổi mật khẩu mới để đảm bảo tính an toàn cho tài khoản.</i>
+                        <div style="margin-bottom: 15px;">
+                            <strong style="font-size: 14.5px; color: #1e293b;">Nội dung tin nhắn cần hỗ trợ:</strong>
+                            <div style="background-color: #fffdfa; border-left: 4px solid #d2a764; border-radius: 4px; padding: 16px; margin-top: 8px; font-size: 14px; color: #334155; line-height: 1.6; white-space: pre-wrap;">{{messageContent}}</div>
                         </div>
                     </div>
-
-                    <div style="text-align: center; margin: 0 0 10px 0;">
-                        <a href="http://localhost:5173/login" style="display: inline-block; background: #496883; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 36px; border-radius: 24px; box-shadow: 0 3px 10px rgba(73,104,131,0.25);">
-                            Đăng nhập vào hệ thống
-                        </a>
+                    <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 20px; text-align: center; font-size: 12px; color: #94a3b8;">
+                        Email này được gửi tự động từ hệ thống website FF T-Shirt trực tiếp tới hòm thư <strong>fftshirt.vn@gmail.com</strong>.
                     </div>
                 </div>
-            """;
+            """
+            .replace("{{timeNow}}", timeNow)
+            .replace("{{name}}", name != null ? name : "Chưa cung cấp")
+            .replace("{{phone}}", phone != null ? phone : "Chưa cung cấp")
+            .replace("{{email}}", (email != null && !email.isBlank()) ? email : "Chưa cung cấp")
+            .replace("{{messageContent}}", messageContent != null ? messageContent : "");
 
-            String html = template
-                    .replace("{{name}}", employeeName != null ? employeeName : "Bạn")
-                    .replace("{{code}}", code != null ? code : "—")
-                    .replace("{{account}}", account != null ? account : "")
-                    .replace("{{password}}", password != null ? password : "");
-
-            helper.setText(html, true);
+            helper.setText(content, true);
+            log.info("==> [EmailService] Đang kết nối SMTP gửi email liên hệ của {} tới {}", name, recipientEmail);
             mailSender.send(message);
-            log.info("==> [EmailService] Đã gửi email cấp lại mật khẩu THÀNH CÔNG tới: {}", toEmail);
-            return true;
+            log.info("==> [EmailService] Đã gửi email liên hệ tới {} THÀNH CÔNG!", recipientEmail);
         } catch (Exception e) {
-            log.error("==> [EmailService Lỗi] Không thể gửi email cấp lại mật khẩu tới {}: {}", toEmail, e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException(e.getMessage(), e);
+            log.error("==> [EmailService Lỗi] Không thể gửi email liên hệ tới {}: {}", recipientEmail, e.getMessage(), e);
         }
     }
 }

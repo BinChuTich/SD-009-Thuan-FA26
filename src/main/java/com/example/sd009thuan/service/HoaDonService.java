@@ -1,5 +1,6 @@
 package com.example.sd009thuan.service;
 
+import com.example.sd009thuan.dto.DatHangOnlineDTO;
 import com.example.sd009thuan.dto.HoaDonPosDTO;
 import com.example.sd009thuan.entity.ChiTietHoaDon;
 import com.example.sd009thuan.entity.ChiTietSanPham;
@@ -886,6 +887,28 @@ public class HoaDonService {
             }
         }
 
+        // Nếu trạng thái là HOÀN THÀNH (5) -> Tự động đánh dấu đã thanh toán (đặc biệt cho đơn COD)
+        if (Integer.valueOf(5).equals(trangThai)) {
+            hoaDon.setTrangThaiThanhToan(1);
+        }
+
+        // Nếu trạng thái là ĐÃ HỦY (6) và trước đó chưa hủy -> Hoàn lại tồn kho cho các biến thể
+        if (Integer.valueOf(6).equals(trangThai)) {
+            try {
+                List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(hoaDon.getId());
+                if (items != null) {
+                    for (ChiTietHoaDon cthd : items) {
+                        if (cthd.getIdChiTietSanPham() != null && cthd.getSoLuong() != null) {
+                            ChiTietSanPham ct = cthd.getIdChiTietSanPham();
+                            int cur = ct.getSoLuong() != null ? ct.getSoLuong() : 0;
+                            ct.setSoLuong(cur + cthd.getSoLuong());
+                            chiTietSanPhamRepository.save(ct);
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
         hoaDon.setNgayCapNhat(Instant.now());
 
         HoaDon saved = hoaDonRepository.save(hoaDon);
@@ -1498,4 +1521,142 @@ public class HoaDonService {
 
         return saved;
     }
+
+    // Tạo đơn hàng online từ Website FF T-Shirt
+    @Transactional
+    public HoaDon createHoaDonOnline(DatHangOnlineDTO dto) {
+        if (dto == null) {
+            throw new IllegalArgumentException("Dữ liệu đặt hàng không hợp lệ");
+        }
+
+        HoaDon hoaDon = new HoaDon();
+        hoaDon.setMaHoaDon(generateNextMaHoaDon());
+        hoaDon.setLoaiDon(2); // 2 = Bán online
+        hoaDon.setTrangThai(1); // 1 = Chờ xác nhận / Chờ xử lý
+
+        String pt = dto.getPhuongThucThanhToan() != null && !dto.getPhuongThucThanhToan().trim().isEmpty()
+                ? dto.getPhuongThucThanhToan().trim() : "COD";
+
+        hoaDon.setTrangThaiThanhToan(0); // 0 = Chưa thanh toán
+
+        hoaDon.setTenKhachHang(dto.getTenKhachHang() != null ? dto.getTenKhachHang().trim() : "Khách hàng online");
+        hoaDon.setSoDienThoaiKhachHang(dto.getSoDienThoai() != null ? dto.getSoDienThoai().trim() : "");
+        hoaDon.setEmail(dto.getEmail() != null ? dto.getEmail().trim() : "");
+        hoaDon.setDiaChiNhanHang(dto.getDiaChiNhanHang() != null ? dto.getDiaChiNhanHang().trim() : "");
+
+        BigDecimal phiShip = dto.getPhiVanChuyen() != null ? dto.getPhiVanChuyen() : BigDecimal.ZERO;
+        BigDecimal tongTien = dto.getTongTien() != null ? dto.getTongTien() : BigDecimal.ZERO;
+        BigDecimal giamGia = dto.getGiamGia() != null ? dto.getGiamGia() : BigDecimal.ZERO;
+
+        hoaDon.setPhiVanChuyen(phiShip);
+        hoaDon.setTongTien(tongTien);
+        BigDecimal tienSauGiam = tongTien.subtract(giamGia);
+        if (tienSauGiam.compareTo(BigDecimal.ZERO) < 0) tienSauGiam = BigDecimal.ZERO;
+        hoaDon.setTienSauGiamGia(tienSauGiam);
+
+        String note = (dto.getGhiChu() != null && !dto.getGhiChu().trim().isEmpty())
+                ? dto.getGhiChu().trim() + " [Phương thức: " + pt + "]"
+                : "Đơn đặt hàng online qua website [Phương thức: " + pt + "]";
+        hoaDon.setGhiChu(note);
+
+        hoaDon.setNgayTao(Instant.now());
+        hoaDon.setNgayCapNhat(Instant.now());
+        hoaDon.setNguoiTao("Khách hàng online");
+        hoaDon.setNguoiCapNhat("Khách hàng online");
+
+        HoaDon saved = hoaDonRepository.save(hoaDon);
+
+        // Lưu chi tiết & trừ tồn kho
+        if (dto.getChiTiet() != null && !dto.getChiTiet().isEmpty()) {
+            int itemIndex = 1;
+            BigDecimal calculatedTotal = BigDecimal.ZERO;
+
+            for (DatHangOnlineDTO.ItemChiTiet item : dto.getChiTiet()) {
+                if (item.getIdChiTietSanPham() == null) continue;
+                Optional<ChiTietSanPham> ctspOpt = chiTietSanPhamRepository.findById(item.getIdChiTietSanPham());
+                if (ctspOpt.isEmpty()) continue;
+
+                ChiTietSanPham ctsp = ctspOpt.get();
+                int qty = item.getSoLuong() != null ? Math.max(1, item.getSoLuong()) : 1;
+                BigDecimal unitPrice = item.getDonGia() != null && item.getDonGia().compareTo(BigDecimal.ZERO) > 0
+                        ? item.getDonGia() : (ctsp.getGiaBan() != null ? ctsp.getGiaBan() : BigDecimal.ZERO);
+
+                BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(qty));
+                calculatedTotal = calculatedTotal.add(lineTotal);
+
+                ChiTietHoaDon cthd = new ChiTietHoaDon();
+                cthd.setIdHoaDon(saved);
+                cthd.setIdChiTietSanPham(ctsp);
+                cthd.setMaHoaDonChiTiet(String.format("CTHD%s-%02d", saved.getMaHoaDon(), itemIndex++));
+                cthd.setDonGia(unitPrice);
+                cthd.setSoLuong(qty);
+                cthd.setThanhTien(lineTotal);
+                cthd.setTrangThai(1);
+                chiTietHoaDonRepository.save(cthd);
+
+                // Trừ tồn kho
+                if (ctsp.getSoLuong() != null) {
+                    ctsp.setSoLuong(Math.max(0, ctsp.getSoLuong() - qty));
+                    chiTietSanPhamRepository.save(ctsp);
+                }
+            }
+
+            if (calculatedTotal.compareTo(BigDecimal.ZERO) > 0 && (saved.getTongTien() == null || saved.getTongTien().compareTo(BigDecimal.ZERO) == 0)) {
+                saved.setTongTien(calculatedTotal);
+                BigDecimal finalAmount = calculatedTotal.add(phiShip).subtract(giamGia);
+                if (finalAmount.compareTo(BigDecimal.ZERO) < 0) finalAmount = BigDecimal.ZERO;
+                saved.setTienSauGiamGia(finalAmount);
+                saved = hoaDonRepository.save(saved);
+            }
+        }
+
+        // Lưu lịch sử hóa đơn
+        try {
+            LichSuHoaDon log1 = new LichSuHoaDon();
+            log1.setIdHoaDon(saved);
+            log1.setTrangThai(1);
+            log1.setThoiGian(saved.getNgayTao());
+            log1.setGhiChu("Khách hàng đặt đơn hàng online (Hình thức: " + pt + ")");
+            log1.setNguoiThucHien("Khách hàng online");
+            log1.setVaiTroNguoiThucHien("Khách hàng");
+            lichSuHoaDonRepository.save(log1);
+        } catch (Exception ignored) {}
+
+        // Lưu hình thức thanh toán ban đầu nếu COD hoặc MANUAL
+        if (!pt.equalsIgnoreCase("VNPAY")) {
+            try {
+                List<PhuongThucThanhToan> allPts = phuongThucThanhToanRepository.findAll();
+                PhuongThucThanhToan matchedPt = null;
+                for (PhuongThucThanhToan p : allPts) {
+                    if (p.getTenPhuongThuc() != null && p.getTenPhuongThuc().equalsIgnoreCase(pt)) {
+                        matchedPt = p;
+                        break;
+                    }
+                }
+                if (matchedPt == null && !allPts.isEmpty()) {
+                    matchedPt = allPts.get(0);
+                }
+
+                HinhThucThanhToan httt = new HinhThucThanhToan();
+                httt.setIdHoaDon(saved);
+                httt.setIdPhuongThuc(matchedPt);
+                httt.setSoTien(saved.getTienSauGiamGia() != null ? saved.getTienSauGiamGia() : BigDecimal.ZERO);
+                httt.setMaGiaoDich(pt + "-" + System.currentTimeMillis());
+                httt.setThoiGian(Instant.now());
+                httt.setTrangThai(0);
+                hinhThucThanhToanRepository.save(httt);
+            } catch (Exception ignored) {}
+        }
+
+        // Gửi email xác nhận nếu không phải VNPAY
+        if (!pt.equalsIgnoreCase("VNPAY") && saved.getEmail() != null && !saved.getEmail().isBlank()) {
+            try {
+                List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(saved.getId());
+                emailService.sendOrderConfirmationEmail(saved, items, saved.getEmail());
+            } catch (Exception ignored) {}
+        }
+
+        return saved;
+    }
+
 }
