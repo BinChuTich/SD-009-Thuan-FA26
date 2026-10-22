@@ -717,4 +717,80 @@ public class EmailService {
             e.printStackTrace();
         }
     }
+
+    /**
+     * Gửi email cấp lại mật khẩu cho nhân viên / quản trị viên khi quên mật khẩu
+     */
+    public boolean sendResetPasswordEmail(String toEmail, String employeeName, String code, String account, String password) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            if (mailSender == null) {
+                log.info("==> [EmailService Mock] Đã gửi cấp lại mật khẩu cho {} tới {}", account, toEmail);
+                return true;
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(toEmail.trim());
+            helper.setSubject("[FF T-Shirt] Cấp lại mật khẩu tài khoản hệ thống - " + (code != null ? code : account));
+
+            String template = """
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <span style="font-size: 26px; font-weight: 800; color: #496883; letter-spacing: 1px;">FF</span>
+                        <span style="font-size: 26px; font-weight: 800; color: #d2a764; margin-left: 2px;">-</span>
+                        <span style="font-size: 22px; font-weight: 700; color: #2c3e50;">Tshirt</span>
+                    </div>
+                    <h2 style="margin: 0 0 14px 0; text-align: center; color: #496883; font-size: 20px; font-weight: 700;">
+                        Cấp lại mật khẩu tài khoản
+                    </h2>
+                    <p style="margin: 0 0 20px 0; text-align: center; color: #555555; font-size: 14px; line-height: 1.6;">
+                        Xin chào <b>{{name}}</b>, hệ thống đã nhận được yêu cầu cấp lại mật khẩu cho tài khoản làm việc của bạn.
+                    </p>
+
+                    <div style="background-color: #faf7f2; border: 1px solid #f0eae1; border-left: 4px solid #d2a764; border-radius: 8px; padding: 20px 24px; margin: 0 0 24px 0; text-align: left;">
+                        <div style="margin-bottom: 12px; font-size: 14px; color: #333333;">
+                            <span style="font-weight: 700; color: #4a3427;">Mã nhân viên:</span>
+                            <span style="display: inline-block; background-color: #f1ebe5; color: #4a3427; font-weight: 700; font-size: 14px; padding: 3px 12px; border-radius: 4px; letter-spacing: 0.5px; margin-left: 6px;">{{code}}</span>
+                        </div>
+                        <div style="margin-bottom: 12px; font-size: 14px; color: #333333;">
+                            <span style="font-weight: 700; color: #4a3427;">Tên tài khoản:</span>
+                            <span style="font-weight: 600; color: #1e3a8a; margin-left: 6px;">{{account}}</span>
+                        </div>
+                        <div style="margin-bottom: 10px; font-size: 14px; color: #333333;">
+                            <span style="font-weight: 700; color: #4a3427;">Mật khẩu mới của bạn:</span>
+                            <span style="font-weight: 800; color: #b91c1c; font-size: 16px; margin-left: 6px; letter-spacing: 1.2px;">{{password}}</span>
+                        </div>
+                        <div style="font-size: 13px; color: #666666; line-height: 1.5; margin-top: 14px; border-top: 1px dashed #d5cbc1; padding-top: 10px;">
+                            <i>⚠️ Lưu ý: Vui lòng sử dụng mật khẩu này để đăng nhập ngay và tiến hành đổi mật khẩu mới để đảm bảo tính an toàn cho tài khoản.</i>
+                        </div>
+                    </div>
+
+                    <div style="text-align: center; margin: 0 0 10px 0;">
+                        <a href="http://localhost:5173/login" style="display: inline-block; background: #496883; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 36px; border-radius: 24px; box-shadow: 0 3px 10px rgba(73,104,131,0.25);">
+                            Đăng nhập vào hệ thống
+                        </a>
+                    </div>
+                </div>
+            """;
+
+            String html = template
+                    .replace("{{name}}", employeeName != null ? employeeName : "Bạn")
+                    .replace("{{code}}", code != null ? code : "—")
+                    .replace("{{account}}", account != null ? account : "")
+                    .replace("{{password}}", password != null ? password : "");
+
+            helper.setText(html, true);
+            mailSender.send(message);
+            log.info("==> [EmailService] Đã gửi email cấp lại mật khẩu THÀNH CÔNG tới: {}", toEmail);
+            return true;
+        } catch (Exception e) {
+            log.error("==> [EmailService Lỗi] Không thể gửi email cấp lại mật khẩu tới {}: {}", toEmail, e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException(e.getMessage(), e);
+        }
+    }
 }

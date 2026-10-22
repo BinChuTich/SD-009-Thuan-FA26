@@ -12,17 +12,21 @@ import java.math.BigDecimal;
 public class DongMoCaRequest {
     private Long id; // ID của lượt giao ca (khi đóng ca)
 
-    @NotNull(message = "Thiếu thông tin nhân viên")
+
     private Long nhanVienId;
 
-    @NotNull(message = "Vui lòng chọn ca làm việc")
+
     private Long caLamViecId;
+
+    private Long nhanVienNhanId;
 
     @DecimalMin(value = "0.0", inclusive = true, message = "Số tiền mặt đầu ca phải lớn hơn hoặc bằng 0")
     private BigDecimal tienMatDauCa;
 
     @DecimalMin(value = "0.0", inclusive = true, message = "Số tiền mặt cuối ca phải lớn hơn hoặc bằng 0")
     private BigDecimal tienMatCuoiCa;
+
+    private BigDecimal tienChiTrongCa;
 
     private BigDecimal tienChuyenKhoan;
 

@@ -3,7 +3,6 @@ package com.example.sd009thuan.controller;
 import com.example.sd009thuan.dto.ExcelImportResult;
 import com.example.sd009thuan.dto.LichLamViecRequest;
 import com.example.sd009thuan.dto.ThayTheNhanVienRequest;
-import com.example.sd009thuan.entity.LichLamViec;
 import com.example.sd009thuan.service.LichLamViecService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -15,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -90,5 +88,20 @@ public class LichLamViecController {
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(bytes);
     }
-}
 
+    private LocalDate parseLocalDateSafe(String val) {
+        if (val == null) return null;
+        String s = val.trim();
+        if (s.isEmpty() || "null".equalsIgnoreCase(s) || "undefined".equalsIgnoreCase(s)) {
+            return null;
+        }
+        try {
+            if (s.length() >= 10 && s.charAt(4) == '-' && s.charAt(7) == '-') {
+                return LocalDate.parse(s.substring(0, 10));
+            }
+            return LocalDate.parse(s);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+}

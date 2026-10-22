@@ -56,7 +56,7 @@ public class NhanVienServiceTest {
 
         when(repo.findAll()).thenReturn(list);
 
-        NhanVienService service = new NhanVienService(repo, null, null, null);
+        NhanVienService service = new NhanVienService(repo, null, null, null, null, null);
         String code = service.generateEmployeeCode("Nguyễn Thị Vân Anh");
 
         assertEquals("anhntv3", code);
@@ -67,7 +67,7 @@ public class NhanVienServiceTest {
         NhanVienRepository repo = Mockito.mock(NhanVienRepository.class);
         when(repo.findAll()).thenReturn(List.of());
 
-        NhanVienService service = new NhanVienService(repo, null, null, null);
+        NhanVienService service = new NhanVienService(repo, null, null, null, null, null);
         String code = service.generateEmployeeCode("Nguyễn Thị Vân Anh");
 
         assertEquals("anhntv1", code);
@@ -81,7 +81,7 @@ public class NhanVienServiceTest {
         nv.setTrangThai(1); // Đang hoạt động
         when(repo.findById(10L)).thenReturn(Optional.of(nv));
 
-        NhanVienService service = new NhanVienService(repo, null, null, null);
+        NhanVienService service = new NhanVienService(repo, null, null, null, null, null);
 
         // Đang là user id=10 mà cố gắng toggle chính mình sang ngừng hoạt động -> Bị chặn
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
@@ -94,7 +94,7 @@ public class NhanVienServiceTest {
     @Test
     void testActiveUserGuardCannotDeactivateSelf() {
         NhanVienRepository repo = Mockito.mock(NhanVienRepository.class);
-        NhanVienService service = new NhanVienService(repo, null, null, null);
+        NhanVienService service = new NhanVienService(repo, null, null, null, null, null);
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
             service.deactivate(10L, 10L);
@@ -106,7 +106,7 @@ public class NhanVienServiceTest {
     @Test
     void testActiveUserGuardCannotUpdateSelfToInactive() {
         NhanVienRepository repo = Mockito.mock(NhanVienRepository.class);
-        NhanVienService service = new NhanVienService(repo, null, null, null);
+        NhanVienService service = new NhanVienService(repo, null, null, null, null, null);
 
         NhanVienRequest req = new NhanVienRequest(
                 "NV001",
@@ -145,7 +145,7 @@ public class NhanVienServiceTest {
 
         when(repo.findById(5L)).thenReturn(Optional.of(nv));
 
-        NhanVienService service = new NhanVienService(repo, null, null, null);
+        NhanVienService service = new NhanVienService(repo, null, null, null, null, null);
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
             service.toggleStatus(5L);
@@ -167,7 +167,7 @@ public class NhanVienServiceTest {
 
         when(repo.findById(5L)).thenReturn(Optional.of(nv));
 
-        NhanVienService service = new NhanVienService(repo, null, null, null);
+        NhanVienService service = new NhanVienService(repo, null, null, null, null, null);
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
             service.deactivate(5L);
@@ -189,7 +189,7 @@ public class NhanVienServiceTest {
 
         when(repo.findById(5L)).thenReturn(Optional.of(nv));
 
-        NhanVienService service = new NhanVienService(repo, null, null, null);
+        NhanVienService service = new NhanVienService(repo, null, null, null, null, null);
 
         NhanVienRequest req = new NhanVienRequest(
                 "NV001", "admin", "Nguyễn Văn Admin", null,

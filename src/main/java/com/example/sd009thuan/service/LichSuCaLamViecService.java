@@ -1,6 +1,7 @@
 package com.example.sd009thuan.service;
 
 import com.example.sd009thuan.dto.DongMoCaRequest;
+import com.example.sd009thuan.dto.ShiftCashSummaryDTO;
 import com.example.sd009thuan.entity.LichSuCaLamViec;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,5 +17,10 @@ public interface LichSuCaLamViecService {
     LichSuCaLamViec dongCa(DongMoCaRequest request);
 
     Optional<LichSuCaLamViec> getCurrentOpenShift(Long nhanVienId);
-}
 
+    ShiftCashSummaryDTO getShiftSummary(Long id);
+
+    Optional<LichSuCaLamViec> getById(Long id);
+
+    Optional<LichSuCaLamViec> getLastClosedShift();
+}

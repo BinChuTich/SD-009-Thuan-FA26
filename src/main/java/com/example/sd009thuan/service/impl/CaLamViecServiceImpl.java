@@ -5,6 +5,12 @@ import com.example.sd009thuan.entity.CaLamViec;
 import com.example.sd009thuan.repository.CaLamViecRepository;
 import com.example.sd009thuan.repository.LichLamViecRepository;
 import com.example.sd009thuan.service.CaLamViecService;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +18,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +29,9 @@ public class CaLamViecServiceImpl implements CaLamViecService {
 
     private final CaLamViecRepository caLamViecRepository;
     private final LichLamViecRepository lichLamViecRepository;
+
+    @PersistenceContext
+    private EntityManager em;
 
     public CaLamViecServiceImpl(CaLamViecRepository caLamViecRepository, LichLamViecRepository lichLamViecRepository) {
         this.caLamViecRepository = caLamViecRepository;
@@ -35,8 +45,33 @@ public class CaLamViecServiceImpl implements CaLamViecService {
 
     @Override
     public List<CaLamViec> search(String keyword, Integer trangThai, LocalTime gioBatDau, LocalTime gioKetThuc) {
-        String kw = (keyword != null && !keyword.trim().isEmpty()) ? keyword.trim() : null;
-        return caLamViecRepository.searchCaLamViec(kw, trangThai, gioBatDau, gioKetThuc);
+        CriteriaBuilder cb = em.getCriteriaBuilder();
+        CriteriaQuery<CaLamViec> cq = cb.createQuery(CaLamViec.class);
+        Root<CaLamViec> root = cq.from(CaLamViec.class);
+        List<Predicate> predicates = new ArrayList<>();
+
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            String kw = "%" + keyword.trim().toLowerCase() + "%";
+            predicates.add(cb.or(
+                    cb.like(cb.lower(root.get("tenCa")), kw),
+                    cb.like(cb.lower(root.get("maCa")), kw)
+            ));
+        }
+        if (trangThai != null) {
+            predicates.add(cb.equal(root.get("trangThai"), trangThai));
+        }
+        if (gioBatDau != null) {
+            predicates.add(cb.equal(root.get("gioBatDau"), gioBatDau));
+        }
+        if (gioKetThuc != null) {
+            predicates.add(cb.equal(root.get("gioKetThuc"), gioKetThuc));
+        }
+
+        if (!predicates.isEmpty()) {
+            cq.where(predicates.toArray(new Predicate[0]));
+        }
+        cq.orderBy(cb.asc(root.get("gioBatDau")));
+        return em.createQuery(cq).getResultList();
     }
 
     @Override

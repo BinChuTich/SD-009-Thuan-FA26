@@ -1,6 +1,7 @@
 package com.example.sd009thuan.controller;
 
 import com.example.sd009thuan.dto.DongMoCaRequest;
+import com.example.sd009thuan.dto.ShiftCashSummaryDTO;
 import com.example.sd009thuan.entity.LichSuCaLamViec;
 import com.example.sd009thuan.service.LichSuCaLamViecService;
 import jakarta.validation.Valid;
@@ -41,9 +42,31 @@ public class LichSuCaLamViecController {
         return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/current/{nhanVienId}")
-    public ResponseEntity<?> getCurrentOpenShift(@PathVariable Long nhanVienId) {
-        return ResponseEntity.ok(service.getCurrentOpenShift(nhanVienId).orElse(null));
+    @GetMapping("/last-closed")
+    public ResponseEntity<?> getLastClosedShift() {
+        return ResponseEntity.ok(service.getLastClosedShift().orElse(null));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getById(@PathVariable Long id) {
+        return service.getById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/current/{id}")
+    public ResponseEntity<?> getCurrentOpenShift(@PathVariable("id") Long id) {
+        return ResponseEntity.ok(service.getCurrentOpenShift(id).orElse(null));
+    }
+
+    @GetMapping("/{id}/summary")
+    public ResponseEntity<?> getShiftSummary(@PathVariable Long id) {
+        try {
+            ShiftCashSummaryDTO summary = service.getShiftSummary(id);
+            return ResponseEntity.ok(summary);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
 
     @PostMapping("/mo-ca")
@@ -63,5 +86,20 @@ public class LichSuCaLamViecController {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
-}
 
+    private LocalDate parseLocalDateSafe(String val) {
+        if (val == null) return null;
+        String s = val.trim();
+        if (s.isEmpty() || "null".equalsIgnoreCase(s) || "undefined".equalsIgnoreCase(s)) {
+            return null;
+        }
+        try {
+            if (s.length() >= 10 && s.charAt(4) == '-' && s.charAt(7) == '-') {
+                return LocalDate.parse(s.substring(0, 10));
+            }
+            return LocalDate.parse(s);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+}

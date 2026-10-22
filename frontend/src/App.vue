@@ -1,7 +1,8 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import GlobalDialog from '@/components/GlobalDialog.vue'
-import { getCurrentUser, setCurrentUser, logout } from '@/utils/auth.js'
+import { getCurrentUser, setCurrentUser, logout, isAdmin } from '@/utils/auth.js'
 
 const openMenus = ref({
   sanPham: true,
@@ -14,8 +15,33 @@ const toggleMenu = (menu) => {
   openMenus.value[menu] = !openMenus.value[menu]
 }
 
+const router = useRouter()
+const route = useRoute()
 const currentUser = ref(getCurrentUser())
 const showUserDropdown = ref(false)
+const userMenuRef = ref(null)
+
+const isUserAdmin = computed(() => {
+  if (!currentUser.value) return false
+  return isAdmin()
+})
+
+function getAvatarInitials(name) {
+  if (!name) return 'U'
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) {
+    const first = parts[parts.length - 2][0]
+    const second = parts[parts.length - 1][0]
+    return (first + second).toUpperCase()
+  }
+  return parts[0].slice(0, 2).toUpperCase()
+}
+
+function handleClickOutside(e) {
+  if (userMenuRef.value && !userMenuRef.value.contains(e.target)) {
+    showUserDropdown.value = false
+  }
+}
 
 function onAuthChanged(e) {
   currentUser.value = e.detail
@@ -24,15 +50,22 @@ function onAuthChanged(e) {
 onMounted(() => {
   currentUser.value = getCurrentUser()
   window.addEventListener('auth-changed', onAuthChanged)
+  window.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
   window.removeEventListener('auth-changed', onAuthChanged)
+  window.removeEventListener('click', handleClickOutside)
 })
 
 function handleLogout() {
   logout()
+  router.push('/login')
   showUserDropdown.value = false
+}
+
+function goToLoginPage() {
+  router.push('/login')
 }
 
 function handleLoginAdmin() {
@@ -52,7 +85,12 @@ function handleLoginAdmin() {
 </script>
 
 <template>
-  <div class="app-shell">
+  <div v-if="route.path === '/login'">
+    <router-view />
+    <GlobalDialog />
+  </div>
+
+  <div v-else class="app-shell">
     <aside class="sidebar">
       <div class="logo-box">
         <div class="logo-wrapper">
@@ -74,44 +112,44 @@ function handleLoginAdmin() {
       </div>
 
       <nav class="menu">
-        <!-- 1. Tổng quan -->
-        <router-link to="/thong-ke" class="menu-item" active-class="active">
-    <span class="menu-icon">
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/>
-      </svg>
-    </span>
+        <!-- 1. Tổng quan (Chỉ Quản trị viên) -->
+        <router-link v-if="isUserAdmin" to="/thong-ke" class="menu-item" active-class="active">
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/>
+            </svg>
+          </span>
           <span class="menu-text">Thống kê</span>
         </router-link>
 
-        <!-- 2. Bán Hàng Tại Quầy -->
+        <!-- 2. Bán Hàng Tại Quầy (Cả Quản trị viên và Nhân viên) -->
         <router-link to="/ban-hang" class="menu-item" active-class="active">
-    <span class="menu-icon">
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
-      </svg>
-    </span>
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+            </svg>
+          </span>
           <span class="menu-text">Bán Hàng Tại Quầy</span>
         </router-link>
 
-        <!-- 3. Quản Lý Hóa Đơn (Link trực tiếp dạng túi xách) -->
+        <!-- 3. Quản Lý Hóa Đơn (Cả Quản trị viên và Nhân viên) -->
         <router-link to="/hoa-don" class="menu-item" active-class="active">
-    <span class="menu-icon">
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M19 6h-2c0-2.76-2.24-5-5-5S7 3.24 7 6H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7-3c1.66 0 3 1.34 3 3H9c0-1.66 1.34-3 3-3zm7 17H5V8h2v2c0 .55.45 1 1 1s1-.45 1-1V8h6v2c0 .55.45 1 1 1s1-.45 1-1V8h2v12z"/>
-      </svg>
-    </span>
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 6h-2c0-2.76-2.24-5-5-5S7 3.24 7 6H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7-3c1.66 0 3 1.34 3 3H9c0-1.66 1.34-3 3-3zm7 17H5V8h2v2c0 .55.45 1 1 1s1-.45 1-1V8h6v2c0 .55.45 1 1 1s1-.45 1-1V8h2v12z"/>
+            </svg>
+          </span>
           <span class="menu-text">Quản Lý Hóa Đơn</span>
         </router-link>
 
-        <!-- 4. Quản Lý Sản Phẩm (Hộp đóng hàng có nắp) -->
+        <!-- 4. Quản Lý Sản Phẩm (Cả Quản trị viên và Nhân viên xem) -->
         <div class="menu-group">
           <div class="menu-item has-sub" @click="toggleMenu('sanPham')">
-      <span class="menu-icon">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M20 2H4c-1.1 0-2 .9-2 2v3c0 .55.45 1 1 1h1v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8h1c.55 0 1-.45 1-1V4c0-1.1-.9-2-2-2zm-1 6v12H5V8h14zM4 4h16v2H4V4zm5 6h6v2H9v-2z"/>
-        </svg>
-      </span>
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v3c0 .55.45 1 1 1h1v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8h1c.55 0 1-.45 1-1V4c0-1.1-.9-2-2-2zm-1 6v12H5V8h14zM4 4h16v2H4V4zm5 6h6v2H9v-2z"/>
+              </svg>
+            </span>
             <span class="menu-text">Quản Lý Sản phẩm</span>
             <span class="arrow-icon" :class="{ open: openMenus.sanPham }">⌄</span>
           </div>
@@ -129,8 +167,8 @@ function handleLoginAdmin() {
           </div>
         </div>
 
-        <!-- 5. Quản lý thuộc tính (Menu chính) -->
-        <div class="menu-group">
+        <!-- 5. Quản lý thuộc tính (Chỉ Quản trị viên) -->
+        <div v-if="isUserAdmin" class="menu-group">
           <div class="menu-item has-sub" @click="toggleMenu('thuocTinh')">
             <span class="menu-icon">
               <svg viewBox="0 0 24 24" fill="currentColor">
@@ -182,34 +220,34 @@ function handleLoginAdmin() {
           </div>
         </div>
 
-        <!-- 5. Quản lý khách hàng (2 người) -->
+        <!-- 6. Quản lý khách hàng (Cả Quản trị viên và Nhân viên) -->
         <router-link to="/khach-hang" class="menu-item" active-class="active">
-    <span class="menu-icon">
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
-      </svg>
-    </span>
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+            </svg>
+          </span>
           <span class="menu-text">Quản lý khách hàng</span>
         </router-link>
 
-        <!-- 6. Quản lý nhân viên (2 người) -->
-        <router-link to="/nhan-vien" class="menu-item" active-class="active">
-    <span class="menu-icon">
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
-      </svg>
-    </span>
+        <!-- 7. Quản lý nhân viên (Chỉ Quản trị viên) -->
+        <router-link v-if="isUserAdmin" to="/nhan-vien" class="menu-item" active-class="active">
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+            </svg>
+          </span>
           <span class="menu-text">Quản lý nhân viên</span>
         </router-link>
 
-        <!-- 7. Quản Lý Giảm Giá (Tag giảm giá) -->
-        <div class="menu-group">
+        <!-- 8. Quản Lý Giảm Giá (Chỉ Quản trị viên) -->
+        <div v-if="isUserAdmin" class="menu-group">
           <div class="menu-item has-sub" @click="toggleMenu('giamGia')">
-      <span class="menu-icon">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
-        </svg>
-      </span>
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+              </svg>
+            </span>
             <span class="menu-text">Quản Lý Giảm Giá</span>
             <span class="arrow-icon" :class="{ open: openMenus.giamGia }">⌄</span>
           </div>
@@ -225,7 +263,7 @@ function handleLoginAdmin() {
           </div>
         </div>
 
-        <!-- 8. Lịch Làm Việc -->
+        <!-- 9. Lịch Làm Việc (Cả Quản trị viên và Nhân viên) -->
         <div class="menu-group">
           <div class="menu-item has-sub" @click="toggleMenu('lichLamViec')">
             <span class="menu-icon">
@@ -237,14 +275,22 @@ function handleLoginAdmin() {
             <span class="arrow-icon" :class="{ open: openMenus.lichLamViec }">⌄</span>
           </div>
           <div class="submenu-tree" v-show="openMenus.lichLamViec">
-            <router-link to="/ca-lam-viec" class="tree-item" active-class="active">
+            <!-- Quản lý ca làm việc (Chỉ Quản trị viên) -->
+            <router-link v-if="isUserAdmin" to="/ca-lam-viec" class="tree-item" active-class="active">
               <span class="tree-branch">├─</span>
               <span>Quản lý ca làm việc</span>
             </router-link>
+            <!-- Xếp lịch nhân viên (Cả Quản trị viên và Nhân viên xem) -->
             <router-link to="/xep-lich" class="tree-item" active-class="active">
               <span class="tree-branch">├─</span>
               <span>Xếp lịch nhân viên</span>
             </router-link>
+            <!-- Vào ca & Giao ca (Cả Quản trị viên và Nhân viên) -->
+            <router-link to="/giao-ca" class="tree-item" active-class="active">
+              <span class="tree-branch">├─</span>
+              <span>Vào ca & Giao ca</span>
+            </router-link>
+            <!-- Lịch sử hoạt động (Cả Quản trị viên và Nhân viên) -->
             <router-link to="/lich-su-ca" class="tree-item" active-class="active">
               <span class="tree-branch">└─</span>
               <span>Lịch sử hoạt động</span>
@@ -258,36 +304,63 @@ function handleLoginAdmin() {
       <header class="top-header">
         <div class="header-right">
           <!-- Người dùng đang đăng nhập -->
-          <div v-if="currentUser" class="user-profile-menu">
+          <div v-if="currentUser" ref="userMenuRef" class="user-profile-menu">
             <div class="admin-badge" @click="showUserDropdown = !showUserDropdown" title="Tài khoản đang đăng nhập">
               <div class="admin-avatar">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                </svg>
+                <span>{{ getAvatarInitials(currentUser.tenNhanVien || currentUser.tenTaiKhoan) }}</span>
               </div>
               <div class="admin-info-text">
-                <span class="admin-name">{{ currentUser.tenNhanVien || currentUser.tenTaiKhoan || 'Admin' }}</span>
-                <span class="admin-role">{{ currentUser.role || 'Quản trị viên' }}</span>
+                <span class="admin-name">{{ currentUser.tenNhanVien || currentUser.tenTaiKhoan || (isUserAdmin ? 'Quản trị viên' : 'Nhân viên') }}</span>
+                <span class="admin-role">{{ currentUser.role || (isUserAdmin ? 'Quản trị viên' : 'Nhân viên') }}</span>
               </div>
-              <span class="dropdown-caret" :class="{ open: showUserDropdown }">▾</span>
+              <span class="dropdown-caret" :class="{ open: showUserDropdown }">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </span>
             </div>
 
             <!-- Menu dropdown cá nhân -->
             <div v-if="showUserDropdown" class="user-dropdown-popover">
-              <div class="popover-user-detail">
-                <strong class="popover-name">{{ currentUser.tenNhanVien }}</strong>
-                <small class="popover-email">{{ currentUser.email || 'Chưa có email' }}</small>
-                <div class="popover-code-badge">Mã NV: {{ currentUser.maNhanVien || '-' }}</div>
+              <div class="popover-header">
+                <div class="popover-avatar">
+                  <span>{{ getAvatarInitials(currentUser.tenNhanVien || currentUser.tenTaiKhoan) }}</span>
+                </div>
+                <div class="popover-header-info">
+                  <div class="popover-name" :title="currentUser.tenNhanVien || currentUser.tenTaiKhoan">
+                    {{ currentUser.tenNhanVien || currentUser.tenTaiKhoan }}
+                  </div>
+                  <span class="popover-role-tag" :class="{ 'role-admin': isUserAdmin }">
+                    {{ currentUser.role || (isUserAdmin ? 'Quản trị viên' : 'Nhân viên') }}
+                  </span>
+                </div>
               </div>
-              <hr class="popover-divider" />
-              <button type="button" class="btn-popover-logout" @click="handleLogout">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-                Đăng xuất
-              </button>
+
+              <div class="popover-details">
+                <div class="popover-detail-row">
+                  <span class="popover-detail-label">Mã NV</span>
+                  <span class="popover-detail-val code-val">{{ currentUser.maNhanVien || '-' }}</span>
+                </div>
+                <div class="popover-detail-row" v-if="currentUser.email">
+                  <span class="popover-detail-label">Email</span>
+                  <span class="popover-detail-val text-truncate" :title="currentUser.email">{{ currentUser.email }}</span>
+                </div>
+                <div class="popover-detail-row" v-if="currentUser.soDienThoai">
+                  <span class="popover-detail-label">SĐT</span>
+                  <span class="popover-detail-val">{{ currentUser.soDienThoai }}</span>
+                </div>
+              </div>
+
+              <div class="popover-footer">
+                <button type="button" class="btn-popover-logout" @click="handleLogout">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                  Đăng xuất tài khoản
+                </button>
+              </div>
             </div>
           </div>
 
@@ -317,9 +390,14 @@ function handleLoginAdmin() {
           Tài khoản của bạn đã được chuyển sang trạng thái ngừng hoạt động hoặc phiên làm việc đã kết thúc.
           Vui lòng đăng nhập lại để tiếp tục sử dụng hệ thống!
         </p>
-        <button class="btn-relogin-action" @click="handleLoginAdmin">
-          Đăng nhập lại ngay (Quản trị viên)
-        </button>
+        <div class="logged-out-actions">
+          <button class="btn-relogin-action" @click="handleLoginAdmin">
+            Đăng nhập lại ngay (Quản trị viên)
+          </button>
+          <button class="btn-goto-login-action" @click="goToLoginPage">
+            Đến màn hình đăng nhập
+          </button>
+        </div>
       </div>
     </div>
 
@@ -362,7 +440,7 @@ function handleLoginAdmin() {
 /* Khu vực khung chứa Logo */
 .logo-box {
   background-color: #ffffff;
-  height: 96px; /* Tăng chiều cao từ 76px lên 96px để logo to không bị kích */
+  height: 96px;
   padding: 14px 10px;
   display: flex;
   justify-content: center;
@@ -378,7 +456,7 @@ function handleLoginAdmin() {
   font-family: 'Fredoka', sans-serif;
 }
 
-/* 3 tia sáng phát ra góc trên bên trái - Phóng to và chỉnh vị trí theo chữ lớn */
+/* 3 tia sáng phát ra góc trên bên trái */
 .sparkles {
   position: absolute;
   top: -8px;
@@ -425,10 +503,9 @@ function handleLoginAdmin() {
   filter: drop-shadow(0 3px 6px rgba(73, 104, 131, 0.16));
 }
 
-/* 2 chữ FF to nổi bật */
 .logo-name {
   display: flex;
-  font-size: 52px; /* Tăng từ 38px lên 52px */
+  font-size: 52px;
   font-weight: 800;
   line-height: 0.85;
   letter-spacing: -2px;
@@ -443,10 +520,9 @@ function handleLoginAdmin() {
   margin-left: 2px;
 }
 
-/* Chữ T-shirt nhỏ bên cạnh */
 .logo-sub {
   color: #496883;
-  font-size: 14px; /* Tăng từ 11px lên 14px */
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
   margin-left: 5px;
@@ -594,36 +670,36 @@ function handleLoginAdmin() {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 5px 14px 5px 6px;
-  border-radius: 30px;
+  padding: 4px 14px 4px 6px;
+  border-radius: 40px;
   background: #ffffff;
-  border: 1.5px solid #e3ded2;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #dfd8cb;
+  box-shadow: 0 2px 8px rgba(90, 70, 50, 0.05);
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
 }
 
 .admin-badge:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-color: #d1c9b8;
+  border-color: #8c7355;
+  box-shadow: 0 4px 14px rgba(140, 115, 85, 0.16);
+  transform: translateY(-1px);
 }
 
 .admin-avatar {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #496883;
+  background: linear-gradient(135deg, #8c7355, #634b35);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(99, 75, 53, 0.25);
   flex-shrink: 0;
-}
-
-.admin-avatar svg {
-  width: 20px;
-  height: 20px;
 }
 
 .admin-info-text {
@@ -633,20 +709,26 @@ function handleLoginAdmin() {
 }
 
 .admin-name {
-  font-size: 0.9rem !important;
+  font-size: 0.88rem !important;
   font-weight: 700;
-  color: #3e5c76;
+  color: #2c3e50;
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .admin-role {
-  font-size: 0.74rem;
-  color: #8c979d;
-  font-weight: 500;
+  font-size: 0.72rem;
+  color: #8c7355;
+  font-weight: 600;
 }
 
 .dropdown-caret {
-  font-size: 11px;
-  color: #8c979d;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8c7355;
   transition: transform 0.2s ease;
   margin-left: 2px;
 }
@@ -657,77 +739,152 @@ function handleLoginAdmin() {
 
 .user-dropdown-popover {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 10px);
   right: 0;
-  width: 220px;
+  width: 260px;
   background: #ffffff;
-  border-radius: 10px;
-  border: 1px solid #e3ded2;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
-  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #ebd9c8;
+  box-shadow: 0 12px 32px rgba(90, 70, 50, 0.14);
+  padding: 16px;
   z-index: 1000;
-  animation: dropdownIn 0.2s ease;
+  animation: dropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes dropdownIn {
-  from { opacity: 0; transform: translateY(-6px); }
+  from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.popover-user-detail {
+.popover-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f2ece3;
+}
+
+.popover-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8c7355, #634b35);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  box-shadow: 0 3px 8px rgba(99, 75, 53, 0.25);
+  flex-shrink: 0;
+}
+
+.popover-header-info {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
+  overflow: hidden;
+  flex: 1;
 }
 
 .popover-name {
-  font-size: 0.92rem;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: #2c3e50;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.popover-email {
-  font-size: 0.78rem;
-  color: #7f8c8d;
-  word-break: break-all;
-}
-
-.popover-code-badge {
+.popover-role-tag {
   display: inline-block;
   align-self: flex-start;
   font-size: 0.72rem;
-  font-weight: 700;
-  color: #2b6cb0;
-  background: #ebf8ff;
-  padding: 1px 6px;
-  border-radius: 4px;
-  margin-top: 4px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: #f7f3ee;
+  color: #8c7355;
+  border: 1px solid #ebd9c8;
 }
 
-.popover-divider {
-  border: none;
-  border-top: 1px solid #edf2f7;
-  margin: 10px 0 8px;
+.popover-role-tag.role-admin {
+  background: #fef7ee;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+.popover-details {
+  padding: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.popover-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  gap: 8px;
+}
+
+.popover-detail-label {
+  color: #8a7b6e;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.popover-detail-val {
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.popover-detail-val.code-val {
+  background: #f5efe6;
+  color: #634b35;
+  padding: 1px 7px;
+  border-radius: 5px;
+  font-family: monospace;
+  font-size: 0.8rem;
+  border: 1px solid #e5dacd;
+}
+
+.popover-detail-val.text-truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
+}
+
+.popover-footer {
+  padding-top: 10px;
+  border-top: 1px solid #f2ece3;
 }
 
 .btn-popover-logout {
   width: 100%;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  background: #fef2f2;
-  border: 1px solid #fee2e2;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
   color: #dc2626;
   font-weight: 600;
-  font-size: 0.85rem;
-  padding: 7px 10px;
-  border-radius: 6px;
+  font-size: 0.86rem;
+  padding: 8px 12px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  font-family: inherit;
 }
 
 .btn-popover-logout:hover {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
 }
 
 .logged-out-header-box {
@@ -736,7 +893,7 @@ function handleLoginAdmin() {
 }
 
 .btn-re-login {
-  background: #496883;
+  background: #8c7355;
   color: #ffffff;
   border: none;
   border-radius: 20px;
@@ -745,10 +902,45 @@ function handleLoginAdmin() {
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
+  box-shadow: 0 2px 8px rgba(140, 115, 85, 0.25);
 }
 
 .btn-re-login:hover {
-  background: #3a546b;
+  background: #755f45;
+}
+
+/* ================= ĐỒNG BỘ FORM CONTROLS & COMBOBOX TOÀN DỰ ÁN ================= */
+button, input, select, textarea {
+  font-family: var(--system-font, 'Inter', 'Roboto', 'Be Vietnam Pro', system-ui, sans-serif) !important;
+}
+
+.select-wrapper-minimal {
+  position: relative;
+  width: 100%;
+  display: inline-block;
+}
+
+.select-wrapper-minimal::after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4.5px solid transparent;
+  border-right: 4.5px solid transparent;
+  border-top: 5px solid #8c7355;
+  pointer-events: none;
+}
+
+.select-wrapper-minimal select.form-control-minimal,
+.select-wrapper-minimal select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 32px !important;
+  cursor: pointer;
 }
 
 /* Modal overlay khi bị đăng xuất */
@@ -816,6 +1008,31 @@ function handleLoginAdmin() {
   width: 100%;
   box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
   transition: all 0.2s;
+}
+
+.logged-out-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.btn-goto-login-action {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 0.7rem 1.4rem;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.btn-goto-login-action:hover {
+  background: #e2e8f0;
+  color: #0f172a;
 }
 
 .btn-relogin-action:hover {
