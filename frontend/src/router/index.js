@@ -46,6 +46,7 @@ import HoaTiet from '../views/ThuocTinh/HoaTiet.vue'
 
 // Chat
 import Chat from '../views/Chat.vue'
+import TrangChuOnline from '@/views/TrangChuOnline.vue'
 
 const routes = [
     // Thống kê
@@ -235,6 +236,13 @@ const routes = [
         path: '/chat',
         name: 'Chat',
         component: Chat
+    },
+
+    // Trang Chu Online
+    {
+        path: '/trang-chu-onl',
+        name: 'TrangChuOnline',
+        component: TrangChuOnline
     }
 ]
 

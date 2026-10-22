@@ -1,11 +1,170 @@
+<script setup>
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
+import api from '../api'
+import { getCurrentUser } from '../utils/auth'
+
+const toast = ref({ show: false, message: '', type: 'success' })
+let toastTimer = null
+const showToast = (message, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toast.value = { show: true, message, type }
+  toastTimer = setTimeout(() => {
+    toast.value.show = false
+    toastTimer = null
+  }, 2800)
+}
+
+const activeTab = ref('active')
+const searchQuery = ref('')
+const newMessage = ref('')
+const messagesRef = ref(null)
+const chats = ref([])
+const selectedChat = ref(null)
+const loadingChats = ref(false)
+const currentUser = getCurrentUser()
+
+const mapStatusToApi = () => (activeTab.value === 'history' ? 'history' : 'active')
+
+const loadChats = async () => {
+  loadingChats.value = true
+  try {
+    const { data } = await api.get('/api/chat/admin/conversations', {
+      params: { status: mapStatusToApi() }
+    })
+    chats.value = Array.isArray(data) ? data : []
+    if (selectedChat.value) {
+      const refreshed = chats.value.find((c) => c.id === selectedChat.value.id)
+      selectedChat.value = refreshed || null
+    }
+  } catch (error) {
+    showToast(
+      error.response?.data?.message || 'Không tải được danh sách chat.',
+      'error'
+    )
+  } finally {
+    loadingChats.value = false
+  }
+}
+
+const filteredChats = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return chats.value
+  return chats.value.filter(
+    (c) =>
+      (c.name || '').toLowerCase().includes(q) || (c.phone || '').includes(q)
+  )
+})
+
+async function selectChat(chat) {
+  try {
+    const { data } = await api.get(`/api/chat/conversations/${chat.id}`)
+    selectedChat.value = data
+    await scrollMessages()
+  } catch (error) {
+    showToast(
+      error.response?.data?.message || 'Không tải được lịch sử hội thoại.',
+      'error'
+    )
+  }
+}
+
+async function closeChat() {
+  if (!selectedChat.value) return
+  try {
+    await api.post(`/api/chat/conversations/${selectedChat.value.id}/close`)
+    showToast(`Đã đóng phiên chat với ${selectedChat.value.name}`)
+    selectedChat.value = null
+    await loadChats()
+  } catch (error) {
+    showToast(
+      error.response?.data?.message || 'Không đóng được phiên chat.',
+      'error'
+    )
+  }
+}
+
+async function sendMessage() {
+  const text = newMessage.value.trim()
+  if (!text || !selectedChat.value) return
+  try {
+    const params = currentUser?.id ? { employeeId: currentUser.id } : {}
+    const { data } = await api.post(
+      `/api/chat/conversations/${selectedChat.value.id}/messages`,
+      { text },
+      { params }
+    )
+    selectedChat.value = data
+    newMessage.value = ''
+    await scrollMessages()
+    await loadChats()
+  } catch (error) {
+    showToast(
+      error.response?.data?.message || 'Không gửi được tin nhắn.',
+      'error'
+    )
+  }
+}
+
+async function scrollMessages() {
+  await nextTick()
+  if (messagesRef.value) {
+    messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+  }
+}
+
+watch(activeTab, async () => {
+  selectedChat.value = null
+  await loadChats()
+})
+
+let chatSocket = null
+let chatSocketRetry = null
+let chatSocketStopped = false
+
+function connectChatSocket() {
+  if (chatSocketStopped) return
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  chatSocket = new WebSocket(
+    `${protocol}//${window.location.hostname}:8080/ws/chat`
+  )
+  chatSocket.onmessage = async (event) => {
+    try {
+      const payload = JSON.parse(event.data)
+      if (payload.type === 'conversation-updated') {
+        await loadChats()
+        if (selectedChat.value?.id === payload.conversationId) {
+          await selectChat({ id: payload.conversationId })
+        }
+      }
+    } catch (e) {}
+  }
+  chatSocket.onclose = () => {
+    if (!chatSocketStopped) {
+      chatSocketRetry = setTimeout(connectChatSocket, 2500)
+    }
+  }
+}
+
+onMounted(() => {
+  loadChats()
+  connectChatSocket()
+})
+
+onBeforeUnmount(() => {
+  chatSocketStopped = true
+  clearTimeout(chatSocketRetry)
+  chatSocket?.close()
+})
+</script>
+
 <template>
   <div class="pos-page-wrapper support-page">
-    
-    <!-- Header -->
     <div class="support-header">
       <div>
         <h1 class="page-title">Hỗ trợ khách hàng trực tuyến</h1>
-        <p class="page-desc">Quản lý và trả lời chat khách hàng theo thời gian thực.</p>
+        <p class="page-desc">
+          Quản lý và trả lời chat khách hàng theo thời gian thực.
+        </p>
       </div>
       <div class="support-head-actions">
         <button class="btn-status-online">
@@ -19,9 +178,7 @@
       </div>
     </div>
 
-    <!-- Main 2-column layout -->
     <div class="support-grid">
-      <!-- LEFT: Danh sách chat -->
       <aside class="pos-panel-card sidebar-panel">
         <div class="sidebar-search">
           <input
@@ -31,7 +188,6 @@
             class="pos-form-input"
           />
         </div>
-
         <div class="sidebar-tabs">
           <button
             class="tab-btn"
@@ -48,13 +204,15 @@
             Lịch sử chat
           </button>
         </div>
-
         <div class="chat-list">
           <div
             v-for="chat in filteredChats"
             :key="chat.id"
             class="chat-item"
-            :class="{ active: selectedChat?.id === chat.id, need: chat.status === 'need' }"
+            :class="{
+              active: selectedChat?.id === chat.id,
+              need: chat.status === 'need'
+            }"
             @click="selectChat(chat)"
           >
             <div class="chat-avatar">👤</div>
@@ -63,36 +221,35 @@
                 <strong>{{ chat.name }}</strong>
                 <small>{{ chat.time }}</small>
               </div>
-              <div class="chat-phone">{{ chat.phone || 'Chưa cung cấp SĐT' }}</div>
+              <div class="chat-phone">
+                {{ chat.phone || 'Chưa cung cấp SĐT' }}
+              </div>
               <div v-if="chat.status === 'need'" class="status-tag need">
                 <span class="dot"></span> Cần hỗ trợ
               </div>
             </div>
           </div>
-
           <div v-if="filteredChats.length === 0" class="empty-list">
             Không có cuộc trò chuyện nào
           </div>
         </div>
       </aside>
 
-      <!-- RIGHT: Khung chat -->
       <main class="pos-panel-card chat-panel" v-if="selectedChat">
-        <!-- Chat header -->
         <div class="chat-header">
           <div class="chat-header-left">
             <div class="chat-avatar large">👤</div>
             <div>
               <strong class="chat-name">{{ selectedChat.name }}</strong>
-              <small class="start-time">Bắt đầu lúc: {{ selectedChat.startTime }}</small>
+              <small class="start-time"
+                >Bắt đầu lúc: {{ selectedChat.startTime }}</small
+              >
             </div>
           </div>
           <button class="btn-close-chat" @click="closeChat">
             ✕ Đóng phiên chat
           </button>
         </div>
-
-        <!-- Messages -->
         <div class="chat-messages" ref="messagesRef">
           <div
             v-for="(msg, idx) in selectedChat.messages"
@@ -102,7 +259,13 @@
           >
             <div class="message-meta">
               <span class="sender">
-                {{ msg.role === 'customer' ? 'Khách hàng' : msg.role === 'ai' ? 'Trợ lý AI' : 'Bạn' }}
+                {{
+                  msg.role === 'customer'
+                    ? 'Khách hàng'
+                    : msg.role === 'ai'
+                      ? 'Trợ lý AI'
+                      : 'Bạn'
+                }}
               </span>
               <span class="time">{{ msg.time }}</span>
             </div>
@@ -111,8 +274,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Input -->
         <div class="chat-input-area">
           <input
             v-model="newMessage"
@@ -131,7 +292,6 @@
         </div>
       </main>
 
-      <!-- Empty state -->
       <main class="pos-panel-card chat-panel empty-state" v-else>
         <div class="empty-content">
           <div class="empty-icon">💬</div>
@@ -140,278 +300,20 @@
         </div>
       </main>
     </div>
-
-    <!-- Chat AI -->
-    <button
-      class="ai-float-btn"
-      :class="{ open: showAiChat }"
-      @click="toggleAiChat"
-      title="Chat với Trợ lý AI"
-    >
-      <span v-if="!showAiChat">🤖</span>
-      <span v-else>✕</span>
-    </button>
-
-    <transition name="ai-slide">
-      <div v-if="showAiChat" class="ai-chat-widget">
-        <div class="ai-widget-header">
-          <div class="ai-header-left">
-            <span class="ai-avatar">🤖</span>
-            <div>
-              <strong>Trợ lý AI</strong>
-              <small>Luôn sẵn sàng hỗ trợ bạn</small>
-            </div>
-          </div>
-          <button class="ai-close-btn" @click="showAiChat = false">✕</button>
-        </div>
-
-        <div class="ai-messages" ref="aiMessagesRef">
-          <div
-            v-for="(msg, idx) in aiMessages"
-            :key="idx"
-            class="ai-msg"
-            :class="msg.role"
-          >
-            <div class="ai-bubble">{{ msg.text }}</div>
-          </div>
-        </div>
-
-        <div class="ai-input-area">
-          <input
-            v-model="aiInput"
-            type="text"
-            placeholder="Hỏi AI bất cứ điều gì..."
-            class="pos-form-input"
-            @keyup.enter="sendAiMessage"
-          />
-          <button
-            class="btn-ai-send"
-            :disabled="!aiInput.trim() || aiLoading"
-            @click="sendAiMessage"
-          >
-            {{ aiLoading ? '...' : '➤' }}
-          </button>
-        </div>
-      </div>
-    </transition>
   </div>
 </template>
-
-<script setup>
-import { ref, computed, nextTick } from 'vue'
-
-/* ==========================================================
-   TOAST
-========================================================== */
-const toast = ref({ show: false, message: '', type: 'success' })
-let toastTimer = null
-const showToast = (message, type = 'success') => {
-  if (toastTimer) clearTimeout(toastTimer)
-  toast.value = { show: true, message, type }
-  toastTimer = setTimeout(() => {
-    toast.value.show = false
-    toastTimer = null
-  }, 2800)
-}
-
-/* ==========================================================
-   CHAT HỖ TRỢ KHÁCH HÀNG
-========================================================== */
-const activeTab = ref('active')
-const searchQuery = ref('')
-const newMessage = ref('')
-const messagesRef = ref(null)
-
-const chats = ref([
-  {
-    id: 1,
-    name: 'Khách hàng',
-    phone: null,
-    time: '17:29 - 16/8/2026',
-    startTime: '17:29 - 16/8/2026',
-    status: 'need',
-    messages: [
-      {
-        role: 'customer',
-        time: '17:29 - 16/8/2026',
-        text: 'Tôi muốn gặp nhân viên trực tiếp hỗ trợ'
-      },
-      {
-        role: 'ai',
-        time: '17:29 - 16/8/2026',
-        text: 'Đã gửi yêu cầu kết nối với nhân viên tư vấn. Nhân viên trực sẽ phản hồi bạn trong giây lát!'
-      }
-    ]
-  },
-  {
-    id: 2,
-    name: 'Nguyễn Minh Anh',
-    phone: '0901 234 567',
-    time: '16:45 - 16/8/2026',
-    startTime: '16:40 - 16/8/2026',
-    status: 'active',
-    messages: [
-      {
-        role: 'customer',
-        time: '16:42 - 16/8/2026',
-        text: 'Đơn hàng của tôi đến chưa ạ?'
-      },
-      {
-        role: 'agent',
-        time: '16:44 - 16/8/2026',
-        text: 'Chào bạn, đơn hàng HD0008 đang trên đường giao, dự kiến nhận trong hôm nay ạ.'
-      }
-    ]
-  },
-  {
-    id: 3,
-    name: 'Trần Hữu Đức',
-    phone: '0912 345 678',
-    time: '15:20 - 16/8/2026',
-    startTime: '15:10 - 16/8/2026',
-    status: 'active',
-    messages: [
-      {
-        role: 'customer',
-        time: '15:12 - 16/8/2026',
-        text: 'Tôi muốn đổi size áo'
-      }
-    ]
-  }
-])
-
-const selectedChat = ref(chats.value[0])
-
-const filteredChats = computed(() => {
-  let list = chats.value
-  if (activeTab.value === 'history') {
-    list = list.filter(c => c.status === 'closed')
-  } else {
-    list = list.filter(c => c.status === 'need' || c.status === 'active')
-  }
-  if (searchQuery.value.trim()) {
-    const q = searchQuery.value.toLowerCase()
-    list = list.filter(
-      c =>
-        c.name.toLowerCase().includes(q) ||
-        (c.phone && c.phone.includes(q))
-    )
-  }
-  return list
-})
-
-function selectChat(chat) {
-  selectedChat.value = chat
-}
-
-function closeChat() {
-  if (selectedChat.value) {
-    selectedChat.value.status = 'closed'
-    showToast(`Đã đóng phiên chat với ${selectedChat.value.name}`)
-    selectedChat.value = null
-  }
-}
-
-async function sendMessage() {
-  if (!newMessage.value.trim() || !selectedChat.value) return
-
-  const now = new Date()
-  const timeStr =
-    now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) +
-    ' - ' +
-    now.toLocaleDateString('vi-VN')
-
-  selectedChat.value.messages.push({
-    role: 'agent',
-    time: timeStr,
-    text: newMessage.value.trim()
-  })
-
-  newMessage.value = ''
-  await nextTick()
-  if (messagesRef.value) {
-    messagesRef.value.scrollTop = messagesRef.value.scrollHeight
-  }
-}
-
-/* ==========================================================
-   FLOATING AI CHAT WIDGET
-========================================================== */
-const showAiChat = ref(false)
-const aiInput = ref('')
-const aiLoading = ref(false)
-const aiMessagesRef = ref(null)
-
-const aiMessages = ref([
-  {
-    role: 'ai',
-    text: 'Xin chào! Tôi là Trợ lý AI của FF T-Shirt Store. Bạn cần hỗ trợ gì về đơn hàng, sản phẩm hay chính sách không?'
-  }
-])
-
-function toggleAiChat() {
-  showAiChat.value = !showAiChat.value
-}
-
-async function sendAiMessage() {
-  if (!aiInput.value.trim() || aiLoading.value) return
-
-  const userText = aiInput.value.trim()
-  aiMessages.value.push({ role: 'user', text: userText })
-  aiInput.value = ''
-  aiLoading.value = true
-
-  await nextTick()
-  if (aiMessagesRef.value) {
-    aiMessagesRef.value.scrollTop = aiMessagesRef.value.scrollHeight
-  }
-
-  // Giả lập phản hồi AI
-  setTimeout(() => {
-    const replies = [
-      'Tôi đã ghi nhận yêu cầu của bạn. Bạn có thể cung cấp thêm mã đơn hàng để tôi kiểm tra chi tiết không?',
-      'Hiện tại hệ thống đang hoạt động bình thường. Bạn cần hỗ trợ về đổi trả, giao hàng hay sản phẩm nào ạ?',
-      'Cảm ơn bạn đã liên hệ. Nhân viên sẽ sớm hỗ trợ nếu cần. Bạn còn câu hỏi nào khác không?',
-      'Tôi có thể giúp bạn tra cứu tồn kho, trạng thái đơn hàng hoặc hướng dẫn đổi size. Bạn muốn hỏi gì?'
-    ]
-    const reply = replies[Math.floor(Math.random() * replies.length)]
-    aiMessages.value.push({ role: 'ai', text: reply })
-    aiLoading.value = false
-
-    nextTick(() => {
-      if (aiMessagesRef.value) {
-        aiMessagesRef.value.scrollTop = aiMessagesRef.value.scrollHeight
-      }
-    })
-  }, 900)
-}
-</script>
 
 <style scoped>
 .support-page {
   padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #3d4a50;
   box-sizing: border-box;
   position: relative;
 }
 
-/* Breadcrumb */
-.page-breadcrumb {
-  margin-bottom: 12px;
-  font-size: 0.88rem;
-}
-.crumb-parent {
-  color: #8a9292;
-  text-decoration: none;
-}
-.crumb-parent:hover { color: #496883; }
-.crumb-separator { margin: 0 8px; color: #c4c4c4; }
-.crumb-current { color: #496883; font-weight: 600; }
-
-/* Header */
 .support-header {
   display: flex;
   justify-content: space-between;
@@ -431,13 +333,11 @@ async function sendAiMessage() {
   color: #8a9292;
   margin: 0;
 }
-
 .support-head-actions {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-
 .btn-status-online {
   display: flex;
   align-items: center;
@@ -458,7 +358,6 @@ async function sendAiMessage() {
   background: #43a047;
   box-shadow: 0 0 0 3px rgba(67, 160, 71, 0.25);
 }
-
 .icon-btn {
   width: 36px;
   height: 36px;
@@ -488,33 +387,6 @@ async function sendAiMessage() {
   justify-content: center;
 }
 
-.user-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 10px 4px 4px;
-  border-radius: 999px;
-  border: 1px solid #d6d0c3;
-  background: #fff;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  color: #496883;
-}
-.user-chip .avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #496883;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 700;
-}
-.user-chip .chevron { color: #8a9292; font-size: 12px; }
-
 .support-grid {
   display: grid;
   grid-template-columns: 320px 1fr;
@@ -522,7 +394,6 @@ async function sendAiMessage() {
   align-items: stretch;
   min-height: calc(100vh - 200px);
 }
-
 .pos-panel-card {
   background: #ffffff;
   border-radius: 8px;
@@ -533,7 +404,6 @@ async function sendAiMessage() {
   overflow: hidden;
 }
 
-/* ===== SIDEBAR ===== */
 .sidebar-panel {
   padding: 0;
 }
@@ -550,10 +420,10 @@ async function sendAiMessage() {
   box-sizing: border-box;
   background: #fff;
   color: #333;
-  transition: border-color 0.2s;
 }
-.pos-form-input:focus { border-color: #496883; }
-
+.pos-form-input:focus {
+  border-color: #496883;
+}
 .sidebar-tabs {
   display: flex;
   gap: 6px;
@@ -569,14 +439,12 @@ async function sendAiMessage() {
   font-weight: 600;
   color: #647074;
   cursor: pointer;
-  transition: all 0.2s;
 }
 .tab-btn.active {
   background: #eaf1f4;
   color: #496883;
   border-color: #496883;
 }
-
 .chat-list {
   flex: 1;
   overflow-y: auto;
@@ -588,17 +456,19 @@ async function sendAiMessage() {
   padding: 12px;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.15s;
   margin-bottom: 4px;
   border: 1px solid transparent;
 }
-.chat-item:hover { background: #f7f5ef; }
+.chat-item:hover {
+  background: #f7f5ef;
+}
 .chat-item.active {
   background: #fef2f2;
   border-color: #fecaca;
 }
-.chat-item.need { background: #fff8f6; }
-
+.chat-item.need {
+  background: #fff8f6;
+}
 .chat-avatar {
   width: 40px;
   height: 40px;
@@ -616,8 +486,10 @@ async function sendAiMessage() {
   height: 42px;
   font-size: 20px;
 }
-
-.chat-meta { flex: 1; min-width: 0; }
+.chat-meta {
+  flex: 1;
+  min-width: 0;
+}
 .chat-top {
   display: flex;
   justify-content: space-between;
@@ -665,8 +537,9 @@ async function sendAiMessage() {
   font-size: 0.88rem;
 }
 
-/* ===== CHAT PANEL ===== */
-.chat-panel { padding: 0; }
+.chat-panel {
+  padding: 0;
+}
 .chat-header {
   display: flex;
   justify-content: space-between;
@@ -690,9 +563,6 @@ async function sendAiMessage() {
   color: #8a9292;
 }
 .btn-close-chat {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   padding: 7px 12px;
   border-radius: 6px;
   border: 1px solid #fecaca;
@@ -701,10 +571,7 @@ async function sendAiMessage() {
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
 }
-.btn-close-chat:hover { background: #fef2f2; }
-
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -720,10 +587,13 @@ async function sendAiMessage() {
   flex-direction: column;
   max-width: 75%;
 }
-.message-row.customer { align-self: flex-start; }
+.message-row.customer {
+  align-self: flex-start;
+}
 .message-row.ai,
-.message-row.agent { align-self: flex-start; }
-
+.message-row.agent {
+  align-self: flex-start;
+}
 .message-meta {
   display: flex;
   gap: 8px;
@@ -734,14 +604,14 @@ async function sendAiMessage() {
   font-weight: 600;
   color: #647074;
 }
-.message-meta .time { color: #8a9292; }
-
+.message-meta .time {
+  color: #8a9292;
+}
 .message-bubble {
   padding: 10px 14px;
   border-radius: 10px;
   font-size: 0.88rem;
   line-height: 1.5;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 .message-bubble.customer {
   background: #fff;
@@ -759,7 +629,6 @@ async function sendAiMessage() {
   color: #1e3a5f;
   border-bottom-left-radius: 3px;
 }
-
 .chat-input-area {
   display: flex;
   gap: 10px;
@@ -767,7 +636,9 @@ async function sendAiMessage() {
   border-top: 1px solid #e9e5db;
   background: #fff;
 }
-.chat-input { flex: 1; }
+.chat-input {
+  flex: 1;
+}
 .btn-send {
   padding: 0 18px;
   height: 38px;
@@ -778,15 +649,11 @@ async function sendAiMessage() {
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.2s;
 }
-.btn-send:hover:not(:disabled) { opacity: 0.9; }
 .btn-send:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-
-/* Empty state */
 .empty-state {
   display: flex;
   align-items: center;
@@ -796,220 +663,26 @@ async function sendAiMessage() {
   text-align: center;
   color: #8a9292;
 }
-.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
 .empty-content h3 {
   font-size: 1rem;
   color: #496883;
   margin: 0 0 4px;
 }
-.empty-content p { font-size: 0.88rem; margin: 0; }
-
-/* ==========================================================
-   FLOATING AI CHAT WIDGET – GÓC DƯỚI BÊN PHẢI
-========================================================== */
-.ai-float-btn {
-  position: fixed;
-  bottom: 28px;
-  right: 28px;          
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  border: none;
-  background: #496883;
-  color: #fff;
-  font-size: 22px;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(73, 104, 131, 0.35);
-  z-index: 9990;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.25s ease;
-}
-.ai-float-btn:hover {
-  transform: scale(1.08);
-  background: #3a5670;
-}
-.ai-float-btn.open {
-  background: #c94a29;
-}
-
-.ai-chat-widget {
-  position: fixed;
-  bottom: 92px;
-  right: 28px;          /* ← chuyển sang bên phải */
-  width: 340px;
-  max-height: 420px;
-  background: #fff;
-  border-radius: 12px;
-  border: 1px solid #e9e5db;
-  box-shadow: 0 8px 28px rgba(65, 60, 50, 0.15);
-  z-index: 9991;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.ai-widget-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 14px;
-  background: #496883;
-  color: #fff;
-}
-.ai-header-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.ai-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-}
-.ai-header-left strong {
-  display: block;
-  font-size: 0.9rem;
-}
-.ai-header-left small {
-  font-size: 0.72rem;
-  opacity: 0.85;
-}
-.ai-close-btn {
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 16px;
-  cursor: pointer;
-  opacity: 0.85;
-}
-.ai-close-btn:hover { opacity: 1; }
-
-.ai-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: #fbfaf7;
-  min-height: 200px;
-  max-height: 280px;
-}
-.ai-msg {
-  display: flex;
-  max-width: 85%;
-}
-.ai-msg.user { align-self: flex-end; }
-.ai-msg.ai { align-self: flex-start; }
-
-.ai-bubble {
-  padding: 9px 12px;
-  border-radius: 10px;
-  font-size: 0.84rem;
-  line-height: 1.45;
-}
-.ai-msg.user .ai-bubble {
-  background: #496883;
-  color: #fff;
-  border-bottom-right-radius: 3px;
-}
-.ai-msg.ai .ai-bubble {
-  background: #fff;
-  border: 1px solid #e9e5db;
-  color: #333;
-  border-bottom-left-radius: 3px;
-}
-
-.ai-input-area {
-  display: flex;
-  gap: 8px;
-  padding: 12px;
-  border-top: 1px solid #e9e5db;
-  background: #fff;
-}
-.ai-input-area .pos-form-input { flex: 1; }
-.btn-ai-send {
-  width: 38px;
-  height: 38px;
-  border-radius: 6px;
-  border: none;
-  background: #496883;
-  color: #fff;
-  font-size: 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.btn-ai-send:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Animation */
-.ai-slide-enter-active,
-.ai-slide-leave-active {
-  transition: all 0.25s ease;
-}
-.ai-slide-enter-from,
-.ai-slide-leave-to {
-  opacity: 0;
-  transform: translateY(12px) scale(0.96);
-}
-
-/* Toast */
-.toast-popup {
-  position: fixed;
-  top: 24px;
-  right: 28px;
-  background-color: #36536b;
-  color: #fff;
-  padding: 10px 18px;
-  border-radius: 8px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+.empty-content p {
   font-size: 0.88rem;
-  font-weight: 600;
-  z-index: 99999;
-  border: 1px solid #4a6880;
-}
-.toast-popup.warning {
-  background-color: #d97706;
-  border-color: #b45309;
-}
-.toast-fade-enter-active,
-.toast-fade-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.toast-fade-enter-from,
-.toast-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-12px);
+  margin: 0;
 }
 
-/* Responsive */
 @media (max-width: 900px) {
   .support-grid {
     grid-template-columns: 1fr;
   }
   .sidebar-panel {
     max-height: 280px;
-  }
-  .ai-chat-widget {
-    width: calc(100vw - 40px);
-    right: 20px;
-    left: auto;
-  }
-  .ai-float-btn {
-    right: 20px;
-    left: auto;
-    bottom: 20px;
   }
 }
 </style>

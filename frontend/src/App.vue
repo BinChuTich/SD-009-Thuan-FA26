@@ -1,7 +1,12 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import GlobalDialog from '@/components/GlobalDialog.vue'
 import { getCurrentUser, setCurrentUser, logout } from '@/utils/auth.js'
+import { useRoute } from 'vue-router'
+import AdminAiChat from './components/AdminAiChat.vue'
+
+const route = useRoute()
+const showAdminAi = computed(() => route.path !== '/trang-chu-onl')
 
 const openMenus = ref({
   sanPham: true,
@@ -305,6 +310,7 @@ function handleLoginAdmin() {
     </div>
 
     <GlobalDialog />
+    <AdminAiChat v-if="showAdminAi" />
   </div>
 </template>
 
