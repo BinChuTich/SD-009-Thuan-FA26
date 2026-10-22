@@ -276,12 +276,6 @@ public class HoaDonService {
         return nextCode;
     }
 
-    // Lấy danh sách hóa đơn chờ tại quầy
-    /**
-     * Tự động hủy tất cả các hóa đơn chờ của ngày trước khi sang ngày mới.
-     * Áp dụng cho các hóa đơn chờ tại quầy (loaiDon = 1 && trangThai = 1) hoặc có ghi chú hóa đơn chờ
-     * được tạo trước 00:00:00 ngày hôm nay (múi giờ Việt Nam Asia/Ho_Chi_Minh).
-     */
     @Transactional
     public List<HoaDon> cancelExpiredWaitingInvoices() {
         ZoneId zoneVN = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -356,17 +350,12 @@ public class HoaDonService {
         return expiredWaitingInvoices;
     }
 
-    /**
-     * Cron job tự động chạy lúc 00:00:00 hàng ngày (múi giờ Việt Nam) để hủy hóa đơn chờ ngày hôm trước
-     */
     @Scheduled(cron = "0 0 0 * * ?", zone = "Asia/Ho_Chi_Minh")
     public void scheduleCancelExpiredWaitingInvoices() {
         cancelExpiredWaitingInvoices();
     }
 
-    /**
-     * Kiểm tra và hủy hóa đơn chờ cũ ngay khi ứng dụng khởi động
-     */
+
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
         try {
