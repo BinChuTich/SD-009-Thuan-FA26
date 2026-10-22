@@ -568,9 +568,9 @@ public class EmailService {
             if (discount.compareTo(BigDecimal.ZERO) > 0) {
                 String voucherName = hoaDon.getIdPhieuGiamGia() != null ? hoaDon.getIdPhieuGiamGia().getTenPhieuGiamGia() : "Phiếu giảm giá";
                 voucherRowHtml = "<div style=\"display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13.5px; color: #16a34a;\">" +
-                        "<span>Giảm giá (" + voucherName + "):</span>" +
-                        "<span style=\"font-weight: 600;\">-" + formatMoney(discount) + "</span>" +
-                        "</div>";
+                                 "<span>Giảm giá (" + voucherName + "):</span>" +
+                                 "<span style=\"font-weight: 600;\">-" + formatMoney(discount) + "</span>" +
+                                 "</div>";
             }
 
             String customerName = hoaDon.getTenKhachHangHienThi() != null ? hoaDon.getTenKhachHangHienThi() : "Quý khách";
@@ -766,11 +766,11 @@ public class EmailService {
                     </div>
                 </div>
             """
-            .replace("{{timeNow}}", timeNow)
-            .replace("{{name}}", name != null ? name : "Chưa cung cấp")
-            .replace("{{phone}}", phone != null ? phone : "Chưa cung cấp")
-            .replace("{{email}}", (email != null && !email.isBlank()) ? email : "Chưa cung cấp")
-            .replace("{{messageContent}}", messageContent != null ? messageContent : "");
+                    .replace("{{timeNow}}", timeNow)
+                    .replace("{{name}}", name != null ? name : "Chưa cung cấp")
+                    .replace("{{phone}}", phone != null ? phone : "Chưa cung cấp")
+                    .replace("{{email}}", (email != null && !email.isBlank()) ? email : "Chưa cung cấp")
+                    .replace("{{messageContent}}", messageContent != null ? messageContent : "");
 
             helper.setText(content, true);
             log.info("==> [EmailService] Đang kết nối SMTP gửi email liên hệ của {} tới {}", name, recipientEmail);
@@ -780,4 +780,73 @@ public class EmailService {
             log.error("==> [EmailService Lỗi] Không thể gửi email liên hệ tới {}: {}", recipientEmail, e.getMessage(), e);
         }
     }
+
+    /**
+     * Gửi email đặt lại mật khẩu cho người dùng.
+     * resetUrl cần là đường dẫn đầy đủ có chứa token đặt lại mật khẩu.
+     */
+    @Async
+    public void sendResetPasswordEmail(String toEmail, String fullName, String account,
+                                       String resetToken, String resetUrl) {
+        if (toEmail == null || toEmail.isBlank() || !toEmail.contains("@")) {
+            log.warn("Bỏ qua email đặt lại mật khẩu vì địa chỉ email không hợp lệ.");
+            return;
+        }
+        if (resetUrl == null || resetUrl.isBlank()) {
+            log.warn("Bỏ qua email đặt lại mật khẩu gửi tới {} vì resetUrl đang trống.", toEmail);
+            return;
+        }
+
+        try {
+            if (mailSender == null) {
+                log.info("[EmailService Mock] Email đặt lại mật khẩu dành cho tài khoản '{}' sẽ được gửi tới {}. URL: {}",
+                        account, toEmail, resetUrl);
+                return;
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(senderEmail, "FF T-Shirt");
+            helper.setTo(toEmail.trim());
+            helper.setSubject("[FF T-Shirt] Yêu cầu đặt lại mật khẩu");
+
+            String safeName = escapeHtml(fullName != null && !fullName.isBlank() ? fullName : "bạn");
+            String safeAccount = escapeHtml(account != null && !account.isBlank() ? account : "Không xác định");
+            String safeResetUrl = escapeHtml(resetUrl.trim());
+
+            String html = """
+                <div style="font-family: Arial, Helvetica, sans-serif; max-width: 580px; margin: 20px auto; padding: 32px; border: 1px solid #e8e4de; border-radius: 14px; color: #333; line-height: 1.6;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h2 style="color: #4a3427; margin-bottom: 8px;">FF T-Shirt</h2>
+                        <p style="color: #777; margin-top: 0;">Yêu cầu đặt lại mật khẩu</p>
+                    </div>
+                    <p>Xin chào <strong>%s</strong>,</p>
+                    <p>Hệ thống nhận được yêu cầu đặt lại mật khẩu cho tài khoản <strong>%s</strong>.</p>
+                    <p>Nhấn nút bên dưới để tạo mật khẩu mới. Vì lý do bảo mật, vui lòng không chia sẻ liên kết này với người khác.</p>
+                    <div style="text-align: center; margin: 28px 0;">
+                        <a href="%s" style="display: inline-block; background: #7b5943; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 24px; font-weight: bold;">Đặt lại mật khẩu</a>
+                    </div>
+                    <p style="font-size: 13px; color: #666;">Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.</p>
+                    <p style="font-size: 12px; color: #999;">Email tự động từ hệ thống FF T-Shirt. Vui lòng không trả lời email này.</p>
+                </div>
+                """.formatted(safeName, safeAccount, safeResetUrl);
+
+            helper.setText(html, true);
+            mailSender.send(message);
+            log.info("Đã gửi email đặt lại mật khẩu tới {}", toEmail);
+        } catch (Exception e) {
+            log.error("Không thể gửi email đặt lại mật khẩu tới {}: {}", toEmail, e.getMessage(), e);
+        }
+    }
+
+    /** Mã hóa ký tự đặc biệt trước khi chèn dữ liệu vào HTML. */
+    private String escapeHtml(String value) {
+        if (value == null) return "";
+        return value.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
 }

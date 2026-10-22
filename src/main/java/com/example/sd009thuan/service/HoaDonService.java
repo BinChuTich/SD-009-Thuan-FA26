@@ -446,6 +446,7 @@ public class HoaDonService {
                 hd.setNguoiTao(nv.getTenNhanVien());
             }
         });
+        }
         if (idGiaoCa != null && lichSuCaLamViecRepository != null) {
             lichSuCaLamViecRepository.findById(idGiaoCa).ifPresent(hd::setIdGiaoCa);
         } else if (hd.getIdNhanVien() != null && lichSuCaLamViecRepository != null) {
