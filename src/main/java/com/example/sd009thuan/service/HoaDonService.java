@@ -54,6 +54,9 @@ public class HoaDonService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private EmailService emailService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.sd009thuan.repository.LichSuCaLamViecRepository lichSuCaLamViecRepository;
+
     public HoaDonService(
             HoaDonRepository hoaDonRepository,
             ChiTietHoaDonRepository chiTietHoaDonRepository,
@@ -401,6 +404,10 @@ public class HoaDonService {
         hd.setNguoiTao("Nhân viên bán hàng");
         hd.setGhiChu("Hóa đơn chờ tại quầy");
         nhanVienRepository.findTopByOrderByIdDesc().ifPresent(hd::setIdNhanVien);
+        if (hd.getIdNhanVien() != null && lichSuCaLamViecRepository != null) {
+            lichSuCaLamViecRepository.findTopByNhanVienIdAndTrangThaiOrderByThoiGianMoCaDesc(hd.getIdNhanVien().getId(), 1)
+                    .ifPresent(hd::setIdGiaoCa);
+        }
         return hoaDonRepository.save(hd);
     }
 
@@ -1150,6 +1157,14 @@ public class HoaDonService {
             nhanVienRepository.findById(dto.getIdNhanVien()).ifPresent(hoaDon::setIdNhanVien);
         } else {
             nhanVienRepository.findTopByOrderByIdDesc().ifPresent(hoaDon::setIdNhanVien);
+        }
+
+        // Gán ca làm việc (giao_ca) nếu có
+        if (dto.getIdGiaoCa() != null && lichSuCaLamViecRepository != null) {
+            lichSuCaLamViecRepository.findById(dto.getIdGiaoCa()).ifPresent(hoaDon::setIdGiaoCa);
+        } else if (hoaDon.getIdNhanVien() != null && lichSuCaLamViecRepository != null) {
+            lichSuCaLamViecRepository.findTopByNhanVienIdAndTrangThaiOrderByThoiGianMoCaDesc(hoaDon.getIdNhanVien().getId(), 1)
+                    .ifPresent(hoaDon::setIdGiaoCa);
         }
 
         BigDecimal phiShip = dto.getPhiShip() != null ? dto.getPhiShip() : BigDecimal.ZERO;

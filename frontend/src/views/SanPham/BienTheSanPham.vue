@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api.js'
+import { isAdmin } from '@/utils/auth.js'
 import Select2 from '@/components/Select2.vue'
 import Select2Combobox from '@/components/Select2Combobox.vue'
 
@@ -144,6 +145,10 @@ const editModal = ref({
 })
 
 const openEditModal = (item) => {
+  if (!isAdmin()) {
+    showToast('Từ chối quyền truy cập', 'Nhân viên chỉ có quyền xem chi tiết, không được phép chỉnh sửa biến thể hoặc giá bán!', 'error')
+    return
+  }
   editModal.value.data = {
     id: item.id,
     idSanPham: item.idSanPham || currentProduct.value?.id,
@@ -219,6 +224,10 @@ const addModal = ref({
 })
 
 const openAddModal = async () => {
+  if (!isAdmin()) {
+    showToast('Từ chối quyền truy cập', 'Nhân viên không có quyền thêm biến thể sản phẩm!', 'error')
+    return
+  }
   if (colors.value.length === 0 || sizes.value.length === 0) {
     await fetchAttributes()
   }
@@ -310,6 +319,10 @@ const closeDetailModal = () => {
 }
 
 const switchToEditFromDetail = () => {
+  if (!isAdmin()) {
+    showToast('Từ chối quyền truy cập', 'Nhân viên không có quyền chỉnh sửa biến thể hoặc giá bán!', 'error')
+    return
+  }
   const item = { ...detailModal.value.data }
   closeDetailModal()
   openEditModal(item)
@@ -704,6 +717,10 @@ const handleExportExcel = async () => {
 
 // 1. Thao tác Kinh doanh (Power icon: bật / tắt)
 const toggleVariantStatus = (item) => {
+  if (!isAdmin()) {
+    showToast('Từ chối quyền truy cập', 'Nhân viên không có quyền thay đổi trạng thái kinh doanh của biến thể!', 'error')
+    return
+  }
   const newStatus = item.trangThai === 1 ? 0 : 1
   const actionText = newStatus === 1 ? 'mở bán' : 'ngừng bán'
   openConfirm({
@@ -877,7 +894,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
           </div>
         </div>
 
-        <button class="btn-add-variant-primary" @click="openAddModal" title="Thêm biến thể sản phẩm">
+        <button v-if="isAdmin()" class="btn-add-variant-primary" @click="openAddModal" title="Thêm biến thể sản phẩm">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -1098,8 +1115,9 @@ watch(() => route.query.sanPhamId, async (newId) => {
             <!-- Cột hành động gồm 3 icon: (kinh doanh, sửa, xóa) -->
             <td style="text-align: center;">
               <div class="variant-action-group">
-                <!-- 1. Switch Bật / Tắt kinh doanh -->
+                <!-- 1. Switch Bật / Tắt kinh doanh (Chỉ Admin) -->
                 <label
+                  v-if="isAdmin()"
                   class="switch-toggle"
                   :title="item.trangThai === 1 ? 'Đang kinh doanh (nhấn để ngừng)' : 'Đang ngừng kinh doanh (nhấn để bật)'"
                 >
@@ -1111,8 +1129,9 @@ watch(() => route.query.sanPhamId, async (newId) => {
                   <span class="slider-round"></span>
                 </label>
 
-                <!-- 2. Icon Sửa (Pencil icon) -->
+                <!-- 2. Icon Sửa (Pencil icon): Chỉ Admin -->
                 <button
+                    v-if="isAdmin()"
                     class="btn-icon-round btn-edit-variant"
                     @click="openEditModal(item)"
                     title="Chỉnh sửa chi tiết biến thể"
@@ -1431,7 +1450,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
             </div>
 
             <div class="detail-actions-footer">
-              <button class="btn-detail-edit" @click="switchToEditFromDetail">
+              <button v-if="isAdmin()" class="btn-detail-edit" @click="switchToEditFromDetail">
                 Chỉnh sửa biến thể
               </button>
               <button class="btn-detail-close" @click="closeDetailModal">Đóng</button>

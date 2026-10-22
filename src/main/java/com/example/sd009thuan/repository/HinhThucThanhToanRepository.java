@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 
 @Repository
@@ -24,8 +25,19 @@ public interface HinhThucThanhToanRepository extends JpaRepository<HinhThucThanh
 
     @Query("SELECT h FROM HinhThucThanhToan h " +
            "LEFT JOIN FETCH h.idPhuongThuc " +
-           "WHERE h.idHoaDon.id IN :hoaDonIds " +
-           "ORDER BY h.thoiGian DESC")
-    List<HinhThucThanhToan> findByIdHoaDon_IdIn(@Param("hoaDonIds") List<Long> hoaDonIds);
+           "WHERE h.idHoaDon.id IN :hoaDonIds AND h.trangThai = 1")
+    List<HinhThucThanhToan> findByHoaDonIds(@Param("hoaDonIds") List<Long> hoaDonIds);
+
+    @Query("SELECT h FROM HinhThucThanhToan h " +
+           "LEFT JOIN FETCH h.idPhuongThuc " +
+           "LEFT JOIN FETCH h.idHoaDon hd " +
+           "WHERE hd.idNhanVien.id = :nhanVienId " +
+           "AND h.thoiGian >= :fromTime AND h.thoiGian <= :toTime " +
+           "AND h.trangThai = 1")
+    List<HinhThucThanhToan> findByNhanVienAndThoiGianBetween(
+            @Param("nhanVienId") Long nhanVienId,
+            @Param("fromTime") Instant fromTime,
+            @Param("toTime") Instant toTime
+    );
 }
 

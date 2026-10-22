@@ -63,7 +63,7 @@
         </div>
 
         <!-- Xuất Template -->
-        <button type="button" class="btn-export-template" @click="downloadTemplate" title="Tải file mẫu Excel xếp lịch">
+        <button v-if="isAdmin()" type="button" class="btn-export-template" @click="downloadTemplate" title="Tải file mẫu Excel xếp lịch">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="7 10 12 15 17 10" />
@@ -73,7 +73,7 @@
         </button>
 
         <!-- Nhập Excel (Nền nâu đậm #6B4F3B) -->
-        <button type="button" class="btn-import-excel" @click="showImportModal = true" title="Nhập danh sách xếp lịch từ Excel">
+        <button v-if="isAdmin()" type="button" class="btn-import-excel" @click="showImportModal = true" title="Nhập danh sách xếp lịch từ Excel">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="17 8 12 3 7 8" />
@@ -147,7 +147,7 @@
 
                     <!-- Nút xóa phân ca (chặn nếu ca đã qua trong quá khứ) -->
                     <button
-                      v-if="!isPastDateOrShift(day.dateStr, shift.gioKetThuc)"
+                      v-if="isAdmin() && !isPastDateOrShift(day.dateStr, shift.gioKetThuc)"
                       type="button"
                       class="btn-remove-chip"
                       @click="removeAssignment(item)"
@@ -161,6 +161,7 @@
                 <!-- Nút dấu cộng (+) để thêm nhân viên vào ca -->
                 <button
                   type="button"
+                  v-if="isAdmin()"
                   class="btn-add-schedule-cell"
                   :disabled="isPastDateOrShift(day.dateStr, shift.gioKetThuc)"
                   @click="openAddModal(shift, day.dateStr)"
@@ -191,12 +192,12 @@
               <th style="width: 120px">MÃ NV</th>
               <th style="min-width: 180px">TÊN NHÂN VIÊN</th>
               <th>GHI CHÚ</th>
-              <th style="width: 100px; text-align: center">HÀNH ĐỘNG</th>
+              <th v-if="isAdmin()" style="width: 100px; text-align: center">HÀNH ĐỘNG</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="allWeeklyAssignments.length === 0">
-              <td colspan="8" style="text-align: center; padding: 2.5rem; color: #8c979d;">
+              <td :colspan="isAdmin() ? 8 : 7" style="text-align: center; padding: 2.5rem; color: #8c979d;">
                 Không có lịch phân ca nào trong tuần này.
               </td>
             </tr>
@@ -219,7 +220,7 @@
                 </div>
               </td>
               <td class="text-muted">{{ item.ghiChu || '-' }}</td>
-              <td style="text-align: center">
+              <td v-if="isAdmin()" style="text-align: center">
                 <button
                   type="button"
                   class="btn-delete-row"
@@ -398,6 +399,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import api from '@/api'
 import { showAlert, showConfirm, showToast } from '@/utils/dialog.js'
+import { isAdmin } from '@/utils/auth.js'
 
 const loading = ref(false)
 const shifts = ref([])
@@ -441,13 +443,22 @@ const weekDays = computed(() => {
   return days
 })
 
+function formatYmd(d) {
+  if (!d) return ''
+  const dateObj = typeof d === 'string' ? new Date(d) : d
+  const y = dateObj.getFullYear()
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0')
+  const day = String(dateObj.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function isToday(dateStr) {
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = formatYmd(new Date())
   return dateStr === todayStr
 }
 
 function isPastDateOrShift(dateStr, endTimeStr) {
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = formatYmd(new Date())
   if (dateStr < todayStr) return true
   if (dateStr === todayStr && endTimeStr) {
     const now = new Date()
@@ -462,7 +473,7 @@ function changeWeek(direction) {
   const d = new Date(currentMonday.value)
   d.setDate(d.getDate() + direction * 7)
   currentMonday.value = d
-  selectedAnchorDate.value = d.toISOString().split('T')[0]
+  selectedAnchorDate.value = formatYmd(d)
   loadWeekSchedule()
 }
 
@@ -475,7 +486,7 @@ function onAnchorDateChange() {
 
 function goToCurrentWeek() {
   currentMonday.value = getMondayOfDate(new Date())
-  selectedAnchorDate.value = new Date().toISOString().split('T')[0]
+  selectedAnchorDate.value = formatYmd(new Date())
   loadWeekSchedule()
 }
 
@@ -525,8 +536,21 @@ const allWeeklyAssignments = computed(() => {
 async function loadShifts() {
   try {
     const res = await api.get('/api/ca-lam-viec', { params: { trangThai: 1 } })
-    shifts.value = res.data || []
-  } catch (e) {}
+    const dataList = Array.isArray(res.data) ? res.data : (res.data?.content || [])
+    shifts.value = dataList.map(s => {
+      const start = s.gioBatDau || s.startTime || '00:00:00'
+      const end = s.gioKetThuc || s.endTime || '00:00:00'
+      return {
+        ...s,
+        gioBatDau: start,
+        gioKetThuc: end,
+        startTime: start,
+        endTime: end
+      }
+    })
+  } catch (e) {
+    shifts.value = []
+  }
 }
 
 async function loadActiveEmployees() {
@@ -539,9 +563,12 @@ async function loadActiveEmployees() {
 async function loadWeekSchedule() {
   loading.value = true
   try {
-    const fromDate = weekDays.value[0].dateStr
-    const toDate = weekDays.value[6].dateStr
-    const res = await api.get('/api/lich-lam-viec/tuan', { params: { fromDate, toDate } })
+    const fromDate = weekDays.value[0]?.dateStr
+    const toDate = weekDays.value[6]?.dateStr
+    const params = {}
+    if (fromDate) params.fromDate = fromDate
+    if (toDate) params.toDate = toDate
+    const res = await api.get('/api/lich-lam-viec/tuan', { params })
     schedules.value = res.data || []
   } catch (e) {
     showToast(e?.response?.data?.message || 'Không thể tải lịch làm việc', 'error')

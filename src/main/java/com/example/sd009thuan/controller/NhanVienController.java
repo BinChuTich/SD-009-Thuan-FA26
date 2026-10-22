@@ -3,8 +3,11 @@ package com.example.sd009thuan.controller;
 import com.example.sd009thuan.dto.BulkEmailRequest;
 import com.example.sd009thuan.dto.BulkEmailResponse;
 import com.example.sd009thuan.dto.ExcelImportResult;
+import com.example.sd009thuan.dto.ForgotPasswordRequest;
+import com.example.sd009thuan.dto.LoginRequest;
 import com.example.sd009thuan.dto.NhanVienRequest;
 import com.example.sd009thuan.dto.NhanVienResponse;
+import jakarta.validation.Valid;
 import com.example.sd009thuan.entity.VaiTro;
 import com.example.sd009thuan.service.ExcelExportService;
 import com.example.sd009thuan.service.ExcelImportService;
@@ -35,6 +38,11 @@ public class NhanVienController {
         this.service = service;
         this.excelExportService = excelExportService;
         this.excelImportService = excelImportService;
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<NhanVienResponse> login(@RequestBody LoginRequest req) {
+        return ResponseEntity.ok(service.login(req));
     }
 
     @GetMapping
@@ -158,5 +166,10 @@ public class NhanVienController {
             @RequestHeader(value = "X-Current-User-Id", required = false) Long currentUserId) {
         service.deactivate(id, currentUserId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, Object>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest req) {
+        return ResponseEntity.ok(service.forgotPassword(req.email()));
     }
 }

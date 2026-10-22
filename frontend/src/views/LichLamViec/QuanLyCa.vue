@@ -344,9 +344,11 @@ function formatTimeDisplay(t) {
   if (!t) return '--:--'
   if (typeof t === 'string' && t.includes(':')) {
     const parts = t.split(':')
-    return `${parts[0]}:${parts[1]}`
+    const hh = (parts[0] || '00').padStart(2, '0')
+    const mm = (parts[1] || '00').padStart(2, '0')
+    return `${hh}:${mm}`
   }
-  return t
+  return String(t)
 }
 
 let filterDebounceTimer = null
@@ -382,13 +384,37 @@ async function loadShifts() {
   loading.value = true
   try {
     const params = {}
-    if (filters.keyword.trim()) params.keyword = filters.keyword.trim()
-    if (filters.trangThai !== '') params.trangThai = filters.trangThai
-    if (filters.gioBatDau) params.gioBatDau = filters.gioBatDau + ':00'
-    if (filters.gioKetThuc) params.gioKetThuc = filters.gioKetThuc + ':00'
+    if (filters.keyword && filters.keyword.trim()) params.keyword = filters.keyword.trim()
+    if (filters.trangThai !== '' && filters.trangThai !== null && filters.trangThai !== undefined) {
+      params.trangThai = Number(filters.trangThai)
+    }
+    if (filters.gioBatDau && filters.gioBatDau.trim()) {
+      const s = filters.gioBatDau.trim()
+      params.gioBatDau = s.length === 5 ? s + ':00' : s
+    }
+    if (filters.gioKetThuc && filters.gioKetThuc.trim()) {
+      const e = filters.gioKetThuc.trim()
+      params.gioKetThuc = e.length === 5 ? e + ':00' : e
+    }
 
     const res = await api.get('/api/ca-lam-viec', { params })
-    shiftList.value = res.data || []
+    const dataList = Array.isArray(res.data) ? res.data : (res.data?.content || [])
+    shiftList.value = dataList.map(s => {
+      const start = s.gioBatDau || s.startTime || '00:00:00'
+      const end = s.gioKetThuc || s.endTime || '00:00:00'
+      return {
+        ...s,
+        id: s.id,
+        maCa: s.maCa || '',
+        tenCa: s.tenCa || '',
+        gioBatDau: start,
+        gioKetThuc: end,
+        startTime: start,
+        endTime: end,
+        moTa: s.moTa || '',
+        trangThai: s.trangThai !== undefined && s.trangThai !== null ? s.trangThai : 1
+      }
+    })
   } catch (e) {
     showToast(e?.response?.data?.message || 'Không thể tải danh sách ca làm việc', 'error')
   } finally {
@@ -410,11 +436,14 @@ function openModalCreate() {
 }
 
 function openModalEdit(shift) {
+  if (!shift) return
   isEditing.value = true
   editingId.value = shift.id
   form.tenCa = shift.tenCa || ''
-  form.gioBatDau = shift.gioBatDau ? shift.gioBatDau.substring(0, 5) : ''
-  form.gioKetThuc = shift.gioKetThuc ? shift.gioKetThuc.substring(0, 5) : ''
+  const start = shift.gioBatDau || shift.startTime || '00:00'
+  const end = shift.gioKetThuc || shift.endTime || '00:00'
+  form.gioBatDau = start.substring(0, 5)
+  form.gioKetThuc = end.substring(0, 5)
   form.moTa = shift.moTa || ''
   form.trangThai = shift.trangThai !== undefined ? shift.trangThai : 1
   clearErrors()
@@ -511,8 +540,8 @@ function onModalTimeChange() {
     if (s.trangThai !== 1) continue
     if (isEditing.value && s.id === editingId.value) continue
 
-    const existingStart = s.gioBatDau
-    const existingEnd = s.gioKetThuc
+    const existingStart = s.gioBatDau || s.startTime || '00:00:00'
+    const existingEnd = s.gioKetThuc || s.endTime || '00:00:00'
 
     // Điều kiện giao nhau: startA < endB && endA > startB
     if (startSec < existingEnd && endSec > existingStart) {

@@ -2,6 +2,7 @@ package com.example.sd009thuan.service;
 
 import com.example.sd009thuan.dto.BulkEmailRequest;
 import com.example.sd009thuan.dto.BulkEmailResponse;
+import com.example.sd009thuan.dto.LoginRequest;
 import com.example.sd009thuan.dto.NhanVienRequest;
 import com.example.sd009thuan.dto.NhanVienResponse;
 import com.example.sd009thuan.entity.NhanVien;
@@ -10,6 +11,7 @@ import com.example.sd009thuan.repository.NhanVienRepository;
 import com.example.sd009thuan.repository.VaiTroRepository;
 import com.example.sd009thuan.spec.NhanVienSpecification;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -18,6 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import com.example.sd009thuan.entity.CaLamViec;
+import com.example.sd009thuan.entity.LichLamViec;
+import com.example.sd009thuan.repository.LichLamViecRepository;
+import com.example.sd009thuan.repository.LichSuCaLamViecRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -28,12 +36,31 @@ public class NhanVienService {
     private final VaiTroRepository roleRepo;
     private final FileStorageService fileStorageService;
     private final EmailService emailService;
+    private final LichLamViecRepository lichLamViecRepository;
+    private final LichSuCaLamViecRepository lichSuCaLamViecRepository;
 
-    public NhanVienService(NhanVienRepository repo, VaiTroRepository roleRepo, FileStorageService fileStorageService, EmailService emailService) {
+
+
+    public NhanVienService(
+            NhanVienRepository repo,
+            VaiTroRepository roleRepo,
+            FileStorageService fileStorageService,
+            EmailService emailService,
+            LichLamViecRepository lichLamViecRepository,
+            LichSuCaLamViecRepository lichSuCaLamViecRepository
+    ) {
         this.repo = repo;
         this.roleRepo = roleRepo;
         this.fileStorageService = fileStorageService;
         this.emailService = emailService;
+        this.lichLamViecRepository = lichLamViecRepository;
+        this.lichSuCaLamViecRepository = lichSuCaLamViecRepository;
+    }
+
+
+
+    static {
+        // init
     }
 
     @jakarta.annotation.PostConstruct
@@ -473,8 +500,161 @@ public class NhanVienService {
         String maVaiTro = x.getIdVaiTro().getMaVaiTro();
         String tenVaiTro = x.getIdVaiTro().getTenVaiTro();
         return (maVaiTro != null && "ADMIN".equalsIgnoreCase(maVaiTro.trim()))
-                || (tenVaiTro != null && tenVaiTro.toLowerCase().contains("quản trị"));
+                || (tenVaiTro != null && (tenVaiTro.toLowerCase().contains("quản trị") || tenVaiTro.toLowerCase().contains("admin")));
+    }
+
+    private void validateShiftForEmployee(NhanVien emp) {
+        if (lichLamViecRepository == null || lichSuCaLamViecRepository == null) {
+            return;
+        }
+        // 1. Nếu nhân viên đang có ca làm việc đang mở (chưa đóng ca), cho phép tiếp tục phiên làm việc
+        if (lichSuCaLamViecRepository.findTopByNhanVienIdAndTrangThaiOrderByThoiGianMoCaDesc(emp.getId(), 1).isPresent()) {
+            return;
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalTime now = LocalTime.now();
+
+        // 2. Kiểm tra các ca được xếp trong ngày hôm nay
+        List<LichLamViec> todayAssignments =
+                lichLamViecRepository.findByNhanVienIdAndNgayLamViecAndTrangThai(emp.getId(), today, 1);
+
+        for (LichLamViec assignment : todayAssignments) {
+            CaLamViec ca = assignment.getCaLamViec();
+            if (ca == null || (ca.getTrangThai() != null && ca.getTrangThai() != 1)) continue;
+            if (isTimeInShift(now, ca.getGioBatDau(), ca.getGioKetThuc())) {
+                return; // Đã đến giờ ca làm việc
+            }
+        }
+
+        // 3. Kiểm tra ca qua đêm bắt đầu từ ngày hôm qua kéo dài sang sáng hôm nay
+        List<LichLamViec> yesterdayAssignments =
+                lichLamViecRepository.findByNhanVienIdAndNgayLamViecAndTrangThai(emp.getId(), today.minusDays(1), 1);
+        for (LichLamViec assignment : yesterdayAssignments) {
+            CaLamViec ca = assignment.getCaLamViec();
+            if (ca == null || (ca.getTrangThai() != null && ca.getTrangThai() != 1)) continue;
+            LocalTime start = ca.getGioBatDau();
+            LocalTime end = ca.getGioKetThuc();
+            if (start != null && end != null && end.isBefore(start)) {
+                LocalTime endWindow = end.plusMinutes(30);
+                if (!now.isAfter(endWindow)) {
+                    return; // Vẫn đang trong khoảng thời gian kết thúc ca qua đêm
+                }
+            }
+        }
+
+        // 4. Nếu không nằm trong bất kỳ ca làm việc nào:
+        if (todayAssignments.isEmpty()) {
+            throw new IllegalArgumentException("Hôm nay bạn không có lịch làm việc được phân công! Vui lòng liên hệ Quản trị viên để xếp ca.");
+        }
+
+        StringBuilder sb = new StringBuilder("Hiện tại chưa đến giờ làm việc của bạn! Ca làm việc của bạn hôm nay: ");
+        boolean first = true;
+        for (LichLamViec assignment : todayAssignments) {
+            CaLamViec ca = assignment.getCaLamViec();
+            if (ca == null) continue;
+            if (!first) sb.append(", ");
+            sb.append(ca.getTenCa() != null ? ca.getTenCa() : "Ca làm việc");
+            if (ca.getGioBatDau() != null && ca.getGioKetThuc() != null) {
+                sb.append(" (").append(formatTime(ca.getGioBatDau())).append(" - ").append(formatTime(ca.getGioKetThuc())).append(")");
+            }
+            first = false;
+        }
+        sb.append(". Bạn chỉ có thể đăng nhập trước ca tối đa 30 phút.");
+        throw new IllegalArgumentException(sb.toString());
+    }
+
+    private boolean isTimeInShift(LocalTime now, LocalTime start, LocalTime end) {
+        if (start == null || end == null) return true;
+        LocalTime allowedStart = start.minusMinutes(30);
+        LocalTime allowedEnd = end.plusMinutes(30);
+
+        if (start.isBefore(end)) {
+            return !now.isBefore(allowedStart) && !now.isAfter(allowedEnd);
+        } else {
+            return !now.isBefore(allowedStart) || !now.isAfter(allowedEnd);
+        }
+    }
+
+    private String formatTime(LocalTime time) {
+        if (time == null) return "";
+        return String.format("%02d:%02d", time.getHour(), time.getMinute());
     }
 
     private String blank(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+
+    @Transactional(readOnly = true)
+    public NhanVienResponse login(LoginRequest req) {
+        if (req == null || req.tenTaiKhoan() == null || req.tenTaiKhoan().isBlank()) {
+            throw new IllegalArgumentException("Vui lòng nhập tên tài khoản hoặc email!");
+        }
+        if (req.matKhau() == null || req.matKhau().isBlank()) {
+            throw new IllegalArgumentException("Vui lòng nhập mật khẩu!");
+        }
+
+        String usernameOrEmail = req.tenTaiKhoan().trim();
+        NhanVien emp = repo.findByTenTaiKhoanIgnoreCase(usernameOrEmail)
+                .or(() -> repo.findByEmailIgnoreCase(usernameOrEmail))
+                .orElseThrow(() -> new IllegalArgumentException("Tài khoản hoặc mật khẩu không chính xác!"));
+
+        if (emp.getTrangThai() == null || emp.getTrangThai() != 1) {
+            throw new IllegalArgumentException("Tài khoản này đã bị khóa hoặc ngừng hoạt động! Vui lòng liên hệ Quản trị viên.");
+        }
+
+        String inputPassword = req.matKhau().trim();
+        if (!emp.getMatKhau().equals(inputPassword)) {
+            throw new IllegalArgumentException("Tài khoản hoặc mật khẩu không chính xác!");
+        }
+
+        // Admin có thể đăng nhập bất cứ lúc nào, Nhân viên bắt buộc phải đến ca làm việc
+        if (!isAdmin(emp)) {
+            validateShiftForEmployee(emp);
+        }
+
+        return toResponse(emp);
+    }
+
+    /**
+     * Quên mật khẩu: Kiểm tra email nhân viên, sinh mật khẩu mới và gửi qua email
+     */
+    @Transactional
+    public java.util.Map<String, Object> forgotPassword(String email) {
+        if (email == null || email.trim().isBlank()) {
+            throw new IllegalArgumentException("Vui lòng nhập địa chỉ email của bạn!");
+        }
+        String cleanEmail = email.trim();
+        NhanVien emp = repo.findByEmailIgnoreCase(cleanEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản nhân viên nào khớp với địa chỉ email: " + cleanEmail));
+
+        if (emp.getTrangThai() == null || emp.getTrangThai() != 1) {
+            throw new IllegalArgumentException("Tài khoản nhân viên này đang bị khóa hoặc ngừng hoạt động! Vui lòng liên hệ Quản trị viên.");
+        }
+
+        // Sinh mật khẩu mới ngẫu nhiên và lưu vào cơ sở dữ liệu
+        String newPassword = generateRandomPassword();
+        emp.setMatKhau(newPassword);
+        emp.setNgayCapNhat(Instant.now());
+        emp.setNguoiCapNhat("system_forgot_password");
+        repo.save(emp);
+
+        // Gửi email chứa thông tin tài khoản và mật khẩu mới
+        try {
+            emailService.sendResetPasswordEmail(
+                    emp.getEmail(),
+                    emp.getTenNhanVien(),
+                    emp.getMaNhanVien(),
+                    emp.getTenTaiKhoan(),
+                    newPassword
+            );
+        } catch (Exception ex) {
+            throw new RuntimeException("Lỗi gửi email: " + ex.getMessage());
+        }
+
+        return java.util.Map.of(
+                "success", true,
+                "message", "Mật khẩu mới đã được gửi về email " + cleanEmail + ". Vui lòng kiểm tra hộp thư!",
+                "email", cleanEmail,
+                "tenTaiKhoan", emp.getTenTaiKhoan()
+        );
+    }
 }

@@ -49,7 +49,14 @@ public class ExcelImportServiceValidationTest {
         roleNV.setMaVaiTro("NV");
         when(roleRepo.findByMaVaiTroIgnoreCaseAndTrangThai("NV", 1)).thenReturn(Optional.of(roleNV));
 
-        excelImportService = new ExcelImportService(nhanVienRepo, roleRepo, nhanVienService, emailService, regionService);
+        excelImportService = new ExcelImportService(
+                nhanVienRepo,
+                roleRepo,
+                nhanVienService,
+                emailService,
+                regionService,
+                null, null, null, null, null, null, null, null, null, null, null, null, null
+        );
     }
 
     @Test
