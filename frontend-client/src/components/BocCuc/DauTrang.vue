@@ -370,13 +370,6 @@ onUnmounted(() => {
                   :class="{ unread: n.unread }"
                   @click="handleNotiClick(n)"
                 >
-                  <div class="noti-card-icon" :class="`icon-${n.category}`">
-                    <span v-if="n.category === 'order'">📦</span>
-                    <span v-else-if="n.category === 'deal'">🔥</span>
-                    <span v-else-if="n.category === 'voucher'">🎟️</span>
-                    <span v-else>👋</span>
-                  </div>
-
                   <div class="noti-card-body">
                     <div class="noti-card-top">
                       <h4 class="noti-card-title">{{ n.title }}</h4>
@@ -397,7 +390,10 @@ onUnmounted(() => {
                     </div>
 
                     <div class="noti-card-foot">
-                      <span class="noti-time-text">🕒 {{ n.time }}</span>
+                      <span class="noti-time-text">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="noti-clock-icon"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        {{ n.time }}
+                      </span>
                       <span class="noti-link-cta">{{ n.actionText }} →</span>
                     </div>
                   </div>
@@ -1197,6 +1193,17 @@ onUnmounted(() => {
   justify-content: space-between;
   font-size: 11px;
   color: #94a3b8;
+}
+
+.noti-time-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.noti-clock-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
 }
 
 .noti-link-cta {
