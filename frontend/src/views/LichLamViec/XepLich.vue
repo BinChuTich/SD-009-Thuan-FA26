@@ -1,7 +1,12 @@
 <template>
   <div class="xep-lich-page">
     <!-- Tiêu đề trang -->
-    <div class="page-top-bar">
+    <div class="page-breadcrumb">
+      <router-link to="/xep-lich" class="crumb-parent">Lịch làm việc</router-link>
+      <span class="crumb-separator">/</span>
+      <span class="crumb-current">Xếp lịch nhân viên</span>
+    </div>
+    <div class="page-top-bar" v-if="false">
       <div class="title-with-icon">
         <div class="title-icon-box">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -805,12 +810,12 @@ onMounted(async () => {
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background-color: #f1ede7;
-  color: #8c7355;
+  background-color: #eaf2f6;
+  color: var(--blue, #496883);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(140, 115, 85, 0.12);
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.12);
 }
 
 .page-main-title {
@@ -851,7 +856,7 @@ onMounted(async () => {
   background: transparent;
   border: none;
   font-size: 1.2rem;
-  color: #8c7355;
+  color: var(--blue, #496883);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -860,7 +865,7 @@ onMounted(async () => {
 }
 
 .nav-arrow-btn:hover {
-  background-color: #f1ede7;
+  background-color: #eaf2f6;
 }
 
 .date-picker-clean {
@@ -888,9 +893,9 @@ onMounted(async () => {
 }
 
 .btn-today-pill:hover {
-  background-color: #f5efe7;
-  border-color: #8c7355;
-  color: #4a3824;
+  background-color: #f0f4f8;
+  border-color: var(--blue, #496883);
+  color: var(--blue, #496883);
 }
 
 .week-range-label {
@@ -929,8 +934,8 @@ onMounted(async () => {
 }
 
 .mode-btn.active {
-  background: #d8cbb8;
-  color: #43321f;
+  background: var(--blue, #496883);
+  color: #ffffff;
   font-weight: 700;
 }
 
@@ -951,15 +956,15 @@ onMounted(async () => {
 }
 
 .btn-export-template:hover {
-  background-color: #f5efe7;
+  background-color: #f0f4f8;
 }
 
 .btn-import-excel {
   height: 36px;
   padding: 0 15px;
   border-radius: 8px;
-  border: 1px solid #573f2f;
-  background-color: #6b4f3b; /* Nền nâu đậm #6B4F3B */
+  border: 1px solid var(--blue, #496883);
+  background-color: var(--blue, #496883);
   color: #ffffff;
   font-size: 0.85rem;
   font-weight: 700;
@@ -968,11 +973,11 @@ onMounted(async () => {
   gap: 6px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 6px rgba(107, 79, 59, 0.2);
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.2);
 }
 
 .btn-import-excel:hover {
-  background-color: #553e2d;
+  background-color: #3b576e;
 }
 
 /* Lưới lịch tuần (Calendar Table) */
@@ -997,8 +1002,8 @@ onMounted(async () => {
 }
 
 .schedule-grid-table th {
-  background-color: #ddd3c5 !important;
-  color: #3b2f23;
+  background-color: #f7f5ef !important;
+  color: var(--blue, #496883) !important;
   padding: 10px 8px;
   text-align: center;
 }
@@ -1020,13 +1025,13 @@ onMounted(async () => {
 
 .day-header-sub {
   font-size: 0.76rem;
-  color: #605141;
+  color: #7d8993;
   margin-top: 2px;
 }
 
 .today-header {
-  background-color: #d1c1af !important;
-  color: #2b1f13 !important;
+  background-color: #eaf2f6 !important;
+  color: var(--blue, #496883) !important;
 }
 
 .grid-shift-row {
@@ -1157,9 +1162,9 @@ onMounted(async () => {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  border: 1px dashed #c8b7a0;
+  border: 1px dashed var(--blue, #496883);
   background-color: #ffffff;
-  color: #8c7355;
+  color: var(--blue, #496883);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1168,9 +1173,9 @@ onMounted(async () => {
 }
 
 .btn-add-schedule-cell:hover:not(:disabled) {
-  background-color: #d8cbb8;
-  border-color: #8c7355;
-  color: #3b2a16;
+  background-color: #eaf2f6;
+  border-color: var(--blue, #496883);
+  color: var(--blue, #496883);
 }
 
 .btn-add-schedule-cell:disabled {
@@ -1191,8 +1196,8 @@ onMounted(async () => {
 }
 
 .minimal-styled-table th {
-  background-color: #ddd3c5 !important;
-  color: #3b2f23;
+  background-color: #f7f5ef !important;
+  color: var(--blue, #496883) !important;
   font-weight: 700;
   font-size: 0.78rem;
   letter-spacing: 0.5px;
@@ -1215,7 +1220,7 @@ onMounted(async () => {
 }
 
 .table-data-row:hover {
-  background-color: #faf7f2;
+  background-color: #f8fafc;
 }
 
 .minimal-styled-table td {
@@ -1224,8 +1229,8 @@ onMounted(async () => {
 }
 
 .badge-shift-title {
-  background-color: #f1ede7;
-  color: #8c7355;
+  background-color: #eaf2f6;
+  color: var(--blue, #496883);
   font-size: 0.78rem;
   font-weight: 700;
   padding: 3px 8px;
@@ -1381,9 +1386,9 @@ onMounted(async () => {
 }
 
 .form-control-minimal:focus {
-  border-color: #8c7355;
+  border-color: var(--blue, #496883);
   background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(140, 115, 85, 0.12);
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.15);
 }
 
 .input-error-border {
@@ -1420,8 +1425,8 @@ onMounted(async () => {
 .btn-save-modal {
   padding: 8px 22px;
   border-radius: 8px;
-  border: 1px solid #8c7355;
-  background: #8c7355;
+  border: 1px solid var(--blue, #496883);
+  background: var(--blue, #496883);
   color: #ffffff;
   font-weight: 700;
   cursor: pointer;
@@ -1476,8 +1481,8 @@ onMounted(async () => {
 }
 
 .file-dropzone-box:hover {
-  border-color: #8c7355;
-  background-color: #faf7f2;
+  border-color: var(--blue, #496883);
+  background-color: #f8fafc;
 }
 
 .file-input-hidden {
@@ -1488,8 +1493,8 @@ onMounted(async () => {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background-color: #f1ede7;
-  color: #8c7355;
+  background-color: #eaf2f6;
+  color: var(--blue, #496883);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1502,7 +1507,7 @@ onMounted(async () => {
 }
 
 .dropzone-prompt strong {
-  color: #8c7355;
+  color: var(--blue, #496883);
 }
 
 .file-selected-badge {

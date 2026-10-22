@@ -1145,11 +1145,11 @@ onMounted(async () => {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background-color: #f7eee1;
+  background-color: #eaf2f6;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #b18b52;
+  color: var(--blue, #496883);
   flex-shrink: 0;
 }
 
@@ -1255,12 +1255,12 @@ onMounted(async () => {
 }
 
 .btn-reset {
-  border: 1px solid #dfd5c2;
-  background-color: #fff8eb;
-  color: #957b48;
+  border: 1px solid #e2dacd;
+  background-color: #f4efe6;
+  color: #6d6352;
 }
 .btn-reset:hover {
-  background-color: #faeed7;
+  background-color: #ebe3d6;
 }
 
 .btn-export {
@@ -1273,8 +1273,8 @@ onMounted(async () => {
 }
 
 .btn-bulk-mail {
-  background-color: #f7eee1;
-  color: #a67c52;
+  background-color: #eaf2f6;
+  color: var(--blue, #496883);
   border: 1px solid #e5d3bc;
 }
 .btn-bulk-mail:hover:not(:disabled) {
@@ -1282,9 +1282,9 @@ onMounted(async () => {
   color: #8c6239;
 }
 .btn-bulk-mail.active {
-  background-color: #b38e6e;
+  background-color: var(--blue, #496883);
   color: #ffffff;
-  border-color: #a67c52;
+  border-color: var(--blue, #496883);
   box-shadow: 0 2px 6px rgba(179, 142, 110, 0.3);
 }
 .btn-bulk-mail:disabled {
@@ -1293,9 +1293,9 @@ onMounted(async () => {
 }
 
 .btn-primary {
-  background-color: #3b596a;
-  border: 1px solid #324b5a;
-  border-radius: 9999px;
+  background-color: var(--blue, #496883);
+  border: 1px solid var(--blue, #496883);
+  border-radius: 8px;
   color: #ffffff;
   padding: 0 1.4rem;
   box-shadow: 0 2px 6px rgba(59, 89, 106, 0.25);
@@ -1340,8 +1340,8 @@ onMounted(async () => {
 }
 
 .custom-table th {
-  background-color: #faf8f5;
-  color: #4a5568;
+  background-color: #f7f5ef;
+  color: var(--blue, #496883);
   font-weight: 700;
   text-transform: uppercase;
   font-size: 0.82rem;
@@ -1381,8 +1381,8 @@ onMounted(async () => {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background-color: #f0e6dc;
-  color: #8c6a46;
+  background-color: #eaf2f6;
+  color: var(--blue, #496883);
   font-size: 0.85rem;
   font-weight: 700;
   display: grid;
@@ -1398,7 +1398,7 @@ onMounted(async () => {
 }
 
 .text-blue {
-  color: #8c6a46;
+  color: var(--blue, #496883);
   font-family: monospace, sans-serif;
   letter-spacing: 0.4px;
 }
@@ -1432,7 +1432,7 @@ onMounted(async () => {
 
 .role-admin {
   font-weight: 700;
-  color: #8c6a46;
+  color: var(--blue, #496883);
 }
 
 .badge-status {
@@ -1440,7 +1440,7 @@ onMounted(async () => {
   font-size: 0.8rem;
   font-weight: 600;
   padding: 0.32rem 0.85rem;
-  border-radius: 9999px;
+  border-radius: 8px;
   white-space: nowrap;
   letter-spacing: 0.2px;
 }
@@ -1597,20 +1597,20 @@ onMounted(async () => {
 }
 
 .custom-table tr.row-selected td {
-  background-color: #fcf8f2 !important;
+  background-color: #f0f5f9 !important;
 }
 
 .selection-notice-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #fdfbf7;
-  border: 1px solid #ebdccb;
+  background-color: #f4f8fb;
+  border: 1px solid #cddde8;
   border-radius: 8px;
   padding: 0.65rem 1.1rem;
   margin-bottom: 0.95rem;
   font-size: 0.92rem;
-  color: #5a4b3d;
+  color: #355d74;
 }
 
 .selection-notice-left {
@@ -1619,7 +1619,7 @@ onMounted(async () => {
 }
 
 .selection-notice-badge {
-  background-color: #b38e6e;
+  background-color: var(--blue, #496883);
   color: #ffffff;
   font-size: 0.78rem;
   font-weight: 700;
@@ -1635,7 +1635,7 @@ onMounted(async () => {
 }
 
 .btn-notice-action {
-  background-color: #b38e6e;
+  background-color: var(--blue, #496883);
   color: #ffffff;
   border: none;
   border-radius: 6px;
@@ -1647,7 +1647,7 @@ onMounted(async () => {
 }
 
 .btn-notice-action:hover {
-  background-color: #9c7756;
+  background-color: #3b576e;
 }
 
 .btn-notice-clear {
@@ -1707,7 +1707,7 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid #eee9e0;
-  background-color: #faf8f5;
+  background-color: #f7f5ef;
 }
 
 .modal-title {
@@ -1745,7 +1745,7 @@ onMounted(async () => {
   justify-content: flex-end;
   gap: 0.75rem;
   border-top: 1px solid #eee9e0;
-  background-color: #faf8f5;
+  background-color: #f7f5ef;
 }
 
 .btn-cancel {
@@ -1766,7 +1766,7 @@ onMounted(async () => {
 }
 
 .btn-submit-action {
-  background-color: #3b596a;
+  background-color: var(--blue, #496883);
   color: #ffffff;
   border: none;
   padding: 0.58rem 1.45rem;
@@ -1791,8 +1791,8 @@ onMounted(async () => {
 
 /* Modal Gửi email */
 .recipient-summary-box {
-  background-color: #fdfbf7;
-  border: 1px solid #ebdccb;
+  background-color: #f4f8fb;
+  border: 1px solid #cddde8;
   border-radius: 8px;
   padding: 0.95rem 1.1rem;
   margin-bottom: 1.25rem;
@@ -1808,7 +1808,7 @@ onMounted(async () => {
 }
 
 .summary-count strong {
-  color: #b38e6e;
+  color: var(--blue, #496883);
 }
 
 .recipients-chip-list {
@@ -1873,13 +1873,13 @@ onMounted(async () => {
 }
 
 .type-card.active {
-  border-color: #b38e6e;
+  border-color: var(--blue, #496883);
   background-color: #faf3ea;
   box-shadow: 0 2px 8px rgba(179, 142, 110, 0.15);
 }
 
 .type-card input[type="radio"] {
-  accent-color: #b38e6e;
+  accent-color: var(--blue, #496883);
   margin-top: 0.2rem;
 }
 
@@ -1934,7 +1934,7 @@ onMounted(async () => {
 
 .modal-input:focus,
 .modal-textarea:focus {
-  border-color: #b38e6e;
+  border-color: var(--blue, #496883);
   background-color: #ffffff;
   box-shadow: 0 0 0 3px rgba(179, 142, 110, 0.12);
 }
@@ -1966,7 +1966,7 @@ onMounted(async () => {
   width: 34px;
   height: 34px;
   border: 3px solid #e7dfd4;
-  border-top-color: #b38e6e;
+  border-top-color: var(--blue, #496883);
   border-radius: 50%;
   animation: modalSpin 0.75s linear infinite;
 }
@@ -2064,8 +2064,8 @@ onMounted(async () => {
 .btn-outline-template {
   flex-shrink: 0;
   background: #ffffff;
-  border: 1px solid #bda88d;
-  color: #7b5936;
+  border: 1px solid #cbd5e1;
+  color: var(--blue, #496883);
   font-weight: 600;
   font-size: 0.84rem;
   padding: 0.5rem 0.95rem;
@@ -2078,8 +2078,8 @@ onMounted(async () => {
 }
 
 .btn-outline-template:hover:not(:disabled) {
-  background: #fdf8f2;
-  border-color: #9c7b55;
+  background: #eaf2f6;
+  border-color: var(--blue, #496883);
 }
 
 .upload-dropzone {
@@ -2203,7 +2203,7 @@ onMounted(async () => {
   font-size: 0.75rem;
   font-weight: 700;
   padding: 2px 7px;
-  border-radius: 9999px;
+  border-radius: 8px;
 }
 
 .errors-heading {
@@ -2284,7 +2284,7 @@ onMounted(async () => {
 }
 
 .btn-import-submit {
-  background-color: #3b596a;
+  background-color: var(--blue, #496883);
   color: #ffffff;
 }
 

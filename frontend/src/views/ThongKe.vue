@@ -1,7 +1,12 @@
 <template>
   <div class="statistics-page-wrapper">
     <!-- 1. Tiêu đề chính -->
-    <div class="page-top-bar">
+    <div class="page-breadcrumb">
+      <router-link to="/thong-ke" class="crumb-parent">Quản lý thống kê</router-link>
+      <span class="crumb-separator">/</span>
+      <span class="crumb-current">Thống kê doanh thu</span>
+    </div>
+    <div class="page-top-bar" v-if="false">
       <div class="title-with-icon">
         <div class="title-icon-box">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -217,41 +222,43 @@
         <div class="kpi-label">Tổng doanh thu</div>
       </div>
 
-      <!-- 2. Tiền mặt -->
+      <!-- 2. TIEN_MAT -->
+
+
       <div class="kpi-card">
-        <div class="kpi-icon-wrap pastel-blue">
+        <div class="kpi-icon-wrap pastel-blue clickable-kpi" @click="handleKpiFilter('cash')" title="Nhấp để lọc danh sách hóa đơn thanh toán tiền mặt">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="6" width="20" height="12" rx="2" />
             <circle cx="12" cy="12" r="2" />
             <path d="M6 12h.01M18 12h.01" />
           </svg>
         </div>
-        <div class="kpi-value text-dark">{{ formatCurrency(kpiData.cashRevenue) }}</div>
+        <div class="kpi-value text-dark clickable-kpi-text" @click="handleKpiFilter('cash')" title="Nhấp để lọc danh sách hóa đơn thanh toán tiền mặt">{{ formatCurrency(kpiData.cashRevenue) }}</div>
         <div class="kpi-label">Tiền mặt</div>
       </div>
 
       <!-- 3. Chuyển khoản -->
       <div class="kpi-card">
-        <div class="kpi-icon-wrap pastel-emerald">
+        <div class="kpi-icon-wrap pastel-emerald clickable-kpi" @click="handleKpiFilter('transfer')" title="Nhấp để lọc danh sách hóa đơn thanh toán chuyển khoản">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="4" width="20" height="16" rx="2" />
             <line x1="2" y1="10" x2="22" y2="10" />
           </svg>
         </div>
-        <div class="kpi-value text-dark">{{ formatCurrency(kpiData.transferRevenue) }}</div>
+        <div class="kpi-value text-dark clickable-kpi-text" @click="handleKpiFilter('transfer')" title="Nhấp để lọc danh sách hóa đơn thanh toán chuyển khoản">{{ formatCurrency(kpiData.transferRevenue) }}</div>
         <div class="kpi-label">Chuyển khoản</div>
       </div>
 
       <!-- 4. Tổng đơn hàng -->
       <div class="kpi-card">
-        <div class="kpi-icon-wrap pastel-purple">
+        <div class="kpi-icon-wrap pastel-purple clickable-kpi" @click="scrollToInvoices" title="Nhấp để xem danh sách toàn bộ hóa đơn trong kỳ">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="9" cy="21" r="1" />
             <circle cx="20" cy="21" r="1" />
             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
           </svg>
         </div>
-        <div class="kpi-value text-dark">{{ kpiData.totalOrders.toLocaleString('vi-VN') }}</div>
+        <div class="kpi-value text-dark clickable-kpi-text" @click="scrollToInvoices" title="Nhấp để xem danh sách toàn bộ hóa đơn trong kỳ">{{ kpiData.totalOrders.toLocaleString('vi-VN') }}</div>
         <div class="kpi-label">Tổng đơn hàng</div>
       </div>
 
@@ -325,7 +332,7 @@
                   :width="b.width"
                   :height="b.height"
                   rx="5"
-                  fill="#C8B6A6"
+                  :fill="b.value > 0 ? '#496883' : '#e5ded5'"
                   class="chart-bar-rect"
                 >
                   <title>{{ b.date }}: {{ b.value }} sản phẩm ({{ formatCurrency(b.revenue) }})</title>
@@ -334,9 +341,10 @@
                 <!-- Con số tổng MÀU ĐỎ trên đỉnh cột -->
                 <text
                   :x="b.x + b.width / 2"
-                  :y="b.y - 7"
-                  text-anchor="middle"
-                  class="bar-peak-number"
+                  v-if="b.value > 0 || barChartComputedData.length <= 10"
+                  :y="b.value > 0 ? b.y - 6 : 194" text-anchor="middle"
+
+                  :class="['bar-peak-number', { 'is-zero': b.value === 0 }]"
                 >
                   {{ b.value }}
                 </text>
@@ -344,8 +352,10 @@
                 <!-- Nhãn ngày tháng ở đáy cột -->
                 <text
                   :x="b.x + b.width / 2"
-                  y="222"
-                  text-anchor="middle"
+                  :y="barChartComputedData.length > 10 ? 218 : 220"
+                  :text-anchor="barChartComputedData.length > 10 ? 'end' : 'middle'"
+                  :transform="barChartComputedData.length > 10 ? `rotate(-35 ${b.x + b.width / 2} 218)` : ''"
+
                   class="bar-bottom-label"
                 >
                   {{ b.label }}
@@ -455,7 +465,7 @@
                   {{ formatCurrency(row.transfer) }}
                 </td>
                 <td style="text-align: center" class="font-bold text-black-bold">
-                  {{ row.orderCount }}
+                  <span class="cell-link-click" @click="handlePeriodRowClick(row.periodKey)" title="Nhấp để xem danh sách hóa đơn theo mốc thời gian này">{{ row.orderCount }} đơn</span>
                 </td>
                 <td style="text-align: right" class="text-gray-aov">
                   {{ formatCurrency(row.aov) }}
@@ -519,7 +529,7 @@
               <g v-if="orderStatusTotal > 0" class="callout-leader-group">
                 <circle cx="129" cy="46" r="3" fill="#16A34A" />
                 <polyline points="129,46 150,26 248,26" fill="none" stroke="#16A34A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-                <text x="152" y="20" fill="#15803d" font-size="10.5" font-weight="700">
+                <text x="152" y="20" fill="#15803d" font-size="12" font-weight="700">
                   Hoàn thành {{ orderStatusCounts.completed }} ({{ orderStatusPercentages.completed }}%)
                 </text>
               </g>
@@ -534,22 +544,218 @@
           <div class="status-legend-footer">
             <div class="legend-dot-item">
               <span class="legend-circle-dot dot-red"></span>
-              <span class="legend-text">Đã hủy ({{ orderStatusCounts.cancelled }})</span>
+              <span class="legend-text clickable-legend" @click="handleStatusFilter('6')" title="Nhấp để lọc danh sách hóa đơn Đã hủy">Đã hủy ({{ orderStatusCounts.cancelled }})</span>
             </div>
             <div class="legend-dot-item">
               <span class="legend-circle-dot dot-green"></span>
-              <span class="legend-text">Hoàn thành ({{ orderStatusCounts.completed }})</span>
+              <span class="legend-text clickable-legend" @click="handleStatusFilter('5')" title="Nhấp để lọc danh sách hóa đơn Hoàn thành">Hoàn thành ({{ orderStatusCounts.completed }})</span>
             </div>
             <div class="legend-dot-item">
               <span class="legend-circle-dot dot-orange"></span>
-              <span class="legend-text">Đang xử lý ({{ orderStatusCounts.processing }})</span>
+              <span class="legend-text clickable-legend" @click="handleStatusFilter('processing')" title="Nhấp để lọc danh sách hóa đơn Đang xử lý">Đang xử lý ({{ orderStatusCounts.processing }})</span>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 5. Khu vực Bảng 'Thống kê sản phẩm' (Full width ở cuối trang) -->
+    <!-- 5. Khu vực Bảng 'Danh sách hóa đơn trong kỳ' liên kết trực tiếp với Thống kê -->
+    <div id="invoices-section" class="content-card invoice-stats-card">
+      <div class="product-stats-toolbar">
+        <div class="card-title-group">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="title-sub-icon">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10 9 9 9 8 9" />
+          </svg>
+          <h3 class="card-heading">Hóa đơn trong kỳ thống kê</h3>
+          <span class="badge-total-count">{{ filteredInvoicesList.length }} hóa đơn</span>
+        </div>
+
+        <div class="invoice-toolbar-actions">
+          <!-- Tìm kiếm mã HĐ, khách hàng, SĐT, nhân viên -->
+          <div class="input-with-prefix-icon search-invoice-box">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              v-model="invoiceSearchQuery"
+              placeholder="Mã HĐ, khách hàng, SĐT..."
+              class="form-control-minimal with-icon"
+              @input="invoicePagination.page = 0"
+            />
+          </div>
+
+          <!-- Lọc loại đơn -->
+          <div class="select-wrapper-minimal">
+            <select v-model="invoiceTypeFilter" class="form-control-minimal" @change="invoicePagination.page = 0">
+              <option value="">Tất cả loại đơn</option>
+              <option value="1">Tại quầy</option>
+              <option value="2">Online</option>
+            </select>
+          </div>
+
+          <!-- Lọc hình thức thanh toán -->
+          <div class="select-wrapper-minimal">
+            <select v-model="invoicePaymentFilter" class="form-control-minimal" @change="invoicePagination.page = 0">
+              <option value="">Tất cả hình thức TT</option>
+              <option value="Tiền mặt">Tiền mặt</option>
+              <option value="Chuyển khoản">Chuyển khoản</option>
+              <option value="Kết hợp">Kết hợp</option>
+            </select>
+          </div>
+
+          <!-- Lọc trạng thái -->
+          <div class="select-wrapper-minimal">
+            <select v-model="invoiceStatusFilter" class="form-control-minimal" @change="invoicePagination.page = 0">
+              <option value="">Tất cả trạng thái</option>
+              <option value="5">Hoàn thành</option>
+              <option value="processing">Đang xử lý</option>
+              <option value="6">Đã hủy</option>
+            </select>
+          </div>
+
+          <!-- Nút Đặt lại lọc HĐ -->
+          <button type="button" class="btn-reset-round small" @click="resetInvoiceFilters" title="Đặt lại bộ lọc hóa đơn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6" />
+              <path d="M1 20v-6h6" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            <span>Đặt lại</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Bảng danh sách hóa đơn -->
+      <div class="table-responsive-clean">
+        <table class="minimal-styled-table">
+          <thead>
+            <tr class="header-brown-beige">
+              <th style="width: 50px; text-align: center">STT</th>
+              <th style="width: 130px">MÃ HÓA ĐƠN</th>
+              <th style="width: 150px">THỜI GIAN</th>
+              <th style="min-width: 180px">KHÁCH HÀNG</th>
+              <th style="width: 140px">NHÂN VIÊN</th>
+              <th style="width: 110px; text-align: center">LOẠI ĐƠN</th>
+              <th style="width: 130px; text-align: center">THANH TOÁN</th>
+              <th style="width: 140px; text-align: right">TỔNG TIỀN</th>
+              <th style="width: 120px; text-align: center">TRẠNG THÁI</th>
+              <th style="width: 100px; text-align: center">THAO TÁC</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="paginatedInvoices.length === 0">
+              <td colspan="10" style="text-align: center; padding: 2.5rem; color: #8c979d;">
+                Không có hóa đơn nào phù hợp với bộ lọc trong khoảng thời gian này.
+              </td>
+            </tr>
+            <tr v-for="(inv, idx) in paginatedInvoices" :key="inv.id || idx" class="table-data-row invoice-row-hover">
+              <td style="text-align: center" class="text-muted-stt">
+                {{ (invoicePagination.page * invoicePagination.size) + idx + 1 }}
+              </td>
+              <td>
+                <span class="code-cell-clickable" @click="goToInvoiceDetail(inv.maHoaDon)" title="Xem chi tiết hóa đơn này">
+                  {{ inv.maHoaDon }}
+                </span>
+              </td>
+              <td class="text-muted-sm">
+                {{ formatDateTimeDisplay(inv.ngayTao) }}
+              </td>
+              <td>
+                <div class="customer-info-cell">
+                  <strong class="cust-name-text">{{ inv.tenKhachHang }}</strong>
+                  <span v-if="inv.soDienThoaiKhachHang" class="cust-phone-text">{{ inv.soDienThoaiKhachHang }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="employee-name-tag">{{ inv.tenNhanVien || '---' }}</span>
+              </td>
+              <td style="text-align: center">
+                <span class="badge-order-type" :class="Number(inv.loaiDon) === 1 ? 'type-pos' : 'type-online'">
+                  {{ Number(inv.loaiDon) === 1 ? 'Tại quầy' : 'Online' }}
+                </span>
+              </td>
+              <td style="text-align: center">
+                <span class="badge-pay-method" :class="getPayMethodClass(inv.hinhThucThanhToan)">
+                  {{ inv.hinhThucThanhToan || 'Tiền mặt' }}
+                </span>
+              </td>
+              <td style="text-align: right" class="font-bold text-black-bold">
+                {{ formatCurrency(inv.tienSauGiamGia || inv.tongTien) }}
+              </td>
+              <td style="text-align: center">
+                <span class="badge-invoice-status" :class="getInvoiceStatusClass(inv.trangThai)">
+                  {{ getInvoiceStatusText(inv.trangThai) }}
+                </span>
+              </td>
+              <td style="text-align: center">
+                <button
+                  type="button"
+                  class="btn-detail-link"
+                  @click="goToInvoiceDetail(inv.maHoaDon)"
+                  title="Nhấp để mở trang chi tiết hóa đơn"
+                >
+                  Chi tiết →
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Phân trang hóa đơn -->
+      <div class="product-table-footer">
+        <div class="footer-left-count">
+          Hiển thị <strong>{{ filteredInvoicesList.length ? (invoicePagination.page * invoicePagination.size + 1) : 0 }} - {{ Math.min((invoicePagination.page + 1) * invoicePagination.size, filteredInvoicesList.length) }}</strong> / <strong>{{ filteredInvoicesList.length }}</strong> hóa đơn
+        </div>
+
+        <div class="footer-center-pagination">
+          <button
+            type="button"
+            class="pg-btn"
+            :disabled="invoicePagination.page === 0"
+            @click="invoicePagination.page--"
+          >
+            ‹
+          </button>
+          <button
+            v-for="pNo in visibleInvoicePageNumbers"
+            :key="pNo"
+            type="button"
+            class="pg-btn"
+            :class="{ active: pNo === invoicePagination.page }"
+            @click="invoicePagination.page = pNo"
+          >
+            {{ pNo + 1 }}
+          </button>
+          <button
+            type="button"
+            class="pg-btn"
+            :disabled="invoicePagination.page >= invoiceTotalPages - 1"
+            @click="invoicePagination.page++"
+          >
+            ›
+          </button>
+        </div>
+
+        <div class="footer-right-size">
+          <div class="select-wrapper-minimal size-select">
+            <select v-model.number="invoicePagination.size" class="form-control-minimal" @change="invoicePagination.page = 0">
+              <option :value="5">Hiển thị 5 bản ghi / trang</option>
+              <option :value="10">Hiển thị 10 bản ghi / trang</option>
+              <option :value="20">Hiển thị 20 bản ghi / trang</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Khu vực Bảng 'Thống kê sản phẩm' (Full width ở cuối trang) -->
     <div class="content-card product-stats-card">
       <!-- Thanh công cụ đầu Card -->
       <div class="product-stats-toolbar">
@@ -715,10 +921,12 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '@/api'
 import * as XLSX from 'xlsx'
 import { showToast } from '@/utils/dialog.js'
 
+const router = useRouter()
 const defaultProductImage = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=150&auto=format&fit=crop&q=80'
 
 // 1. Quản lý Bộ lọc thống kê
@@ -917,7 +1125,7 @@ const brandDonutSlices = computed(() => {
       name: item.name,
       value: val,
       percentage: percent,
-      color: item.color || '#8C7355',
+      color: item.color || '#496883',
       dashArray: `${dashLength} ${circumference}`,
       dashOffset: offset
     }
@@ -1050,6 +1258,155 @@ function goToProductPage(page) {
   productPagination.page = page
 }
 
+// Quản lý Danh sách hóa đơn trong kỳ thống kê
+const allInvoicesList = ref([])
+const invoiceSearchQuery = ref('')
+const invoicePaymentFilter = ref('')
+const invoiceStatusFilter = ref('')
+const invoiceTypeFilter = ref('')
+const invoicePagination = reactive({
+  page: 0,
+  size: 10
+})
+
+function resetInvoiceFilters() {
+  invoiceSearchQuery.value = ''
+  invoicePaymentFilter.value = ''
+  invoiceStatusFilter.value = ''
+  invoiceTypeFilter.value = ''
+  invoicePagination.page = 0
+}
+
+const filteredInvoicesList = computed(() => {
+  let list = [...allInvoicesList.value]
+  const q = invoiceSearchQuery.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter(inv =>
+      (inv.maHoaDon && inv.maHoaDon.toLowerCase().includes(q)) ||
+      (inv.tenKhachHang && inv.tenKhachHang.toLowerCase().includes(q)) ||
+      (inv.soDienThoaiKhachHang && inv.soDienThoaiKhachHang.includes(q)) ||
+      (inv.tenNhanVien && inv.tenNhanVien.toLowerCase().includes(q))
+    )
+  }
+
+  if (invoicePaymentFilter.value) {
+    list = list.filter(inv => {
+      const p = (inv.hinhThucThanhToan || '').toLowerCase()
+      const target = invoicePaymentFilter.value.toLowerCase()
+      return p.includes(target)
+    })
+  }
+
+  if (invoiceTypeFilter.value) {
+    list = list.filter(inv => Number(inv.loaiDon) === Number(invoiceTypeFilter.value))
+  }
+
+  if (invoiceStatusFilter.value) {
+    if (invoiceStatusFilter.value === 'processing') {
+      list = list.filter(inv => Number(inv.trangThai) >= 1 && Number(inv.trangThai) <= 4)
+    } else {
+      list = list.filter(inv => Number(inv.trangThai) === Number(invoiceStatusFilter.value))
+    }
+  }
+
+  return list
+})
+
+const invoiceTotalPages = computed(() => {
+  return Math.ceil(filteredInvoicesList.value.length / invoicePagination.size) || 1
+})
+
+const visibleInvoicePageNumbers = computed(() => {
+  const total = invoiceTotalPages.value
+  const curr = invoicePagination.page
+  const start = Math.max(0, curr - 2)
+  const end = Math.min(total, start + 5)
+  return Array.from({ length: end - start }, (_, i) => start + i)
+})
+
+const paginatedInvoices = computed(() => {
+  const start = invoicePagination.page * invoicePagination.size
+  return filteredInvoicesList.value.slice(start, start + invoicePagination.size)
+})
+
+function goToInvoiceDetail(maHoaDon) {
+  if (!maHoaDon) return
+  router.push(`/hoa-don/${maHoaDon}`)
+}
+
+function scrollToInvoices() {
+  const el = document.getElementById('invoices-section')
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth' })
+  }
+}
+
+function handleKpiFilter(type) {
+  resetInvoiceFilters()
+  if (type === 'cash') {
+    invoicePaymentFilter.value = 'Tiền mặt'
+  } else if (type === 'transfer') {
+    invoicePaymentFilter.value = 'Chuyển khoản'
+  }
+  scrollToInvoices()
+}
+
+function handleStatusFilter(status) {
+  resetInvoiceFilters()
+  invoiceStatusFilter.value = status
+  scrollToInvoices()
+}
+
+function handlePeriodRowClick(periodKey) {
+  if (periodKey === 'today') setQuickFilter('today')
+  else if (periodKey === 'thisWeek' || periodKey === 'week') setQuickFilter('7days')
+  else if (periodKey === 'thisMonth') setQuickFilter('thisMonth')
+  else if (periodKey === 'thisYear') setQuickFilter('thisYear')
+  scrollToInvoices()
+}
+
+function formatDateTimeDisplay(dtStr) {
+  if (!dtStr) return '--:--'
+  try {
+    const d = new Date(dtStr)
+    if (isNaN(d.getTime())) return dtStr
+    const hh = String(d.getHours()).padStart(2, '0')
+    const min = String(d.getMinutes()).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const yyyy = d.getFullYear()
+    return `${hh}:${min} ${dd}/${mm}/${yyyy}`
+  } catch (e) {
+    return dtStr
+  }
+}
+
+function getInvoiceStatusText(st) {
+  const n = Number(st)
+  if (n === 5) return 'Hoàn thành'
+  if (n === 6) return 'Đã hủy'
+  if (n === 2) return 'Đã xác nhận'
+  if (n === 3) return 'Chờ vận chuyển'
+  if (n === 4) return 'Đang vận chuyển'
+  if (n === 7) return 'Giao hàng thất bại'
+  return 'Chờ xác nhận'
+}
+
+function getInvoiceStatusClass(st) {
+  const n = Number(st)
+  if (n === 5) return 'status-completed'
+  if (n === 6) return 'status-cancelled'
+  if (n >= 2 && n <= 4) return 'status-processing'
+  return 'status-pending'
+}
+
+function getPayMethodClass(method) {
+  const m = (method || '').toLowerCase()
+  if (m.includes('kết hợp')) return 'pay-combined'
+  if (m.includes('chuyển khoản') || m.includes('ngân hàng') || m.includes('vnpay')) return 'pay-transfer'
+  return 'pay-cash'
+}
+
 // 8. Định dạng số tiền
 function formatCurrency(val) {
   if (val == null || isNaN(val)) return '0 đ'
@@ -1099,6 +1456,10 @@ async function fetchOverviewData() {
 
       if (Array.isArray(data.timeSummary)) {
         timeSummaryRows.value = data.timeSummary
+      }
+
+      if (Array.isArray(data.invoices)) {
+        allInvoicesList.value = data.invoices
       }
 
       if (Array.isArray(data.products)) {
@@ -1269,14 +1630,14 @@ onMounted(async () => {
 
 .title-icon-box {
   width: 38px;
-  height: 38px;
+  height: 40px;
   border-radius: 10px;
   background-color: #f1ede7;
-  color: #8c7355;
+  color: var(--blue, #496883);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(140, 115, 85, 0.12);
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.12);
 }
 
 .page-main-title {
@@ -1310,7 +1671,7 @@ onMounted(async () => {
 }
 
 .filter-icon {
-  color: #8c7355;
+  color: var(--blue, #496883);
 }
 
 .filter-title-text {
@@ -1330,7 +1691,7 @@ onMounted(async () => {
   background-color: #fbf9f6;
   border: 1px solid #e2dbcf;
   color: #556268;
-  font-size: 0.84rem;
+  font-size: 0.95rem;
   font-weight: 600;
   padding: 6px 14px;
   border-radius: 9999px;
@@ -1347,28 +1708,29 @@ onMounted(async () => {
 
 /* Nút đang chọn: tone màu nâu be nhạt (#D8CBB8 / #8C7355) */
 .pill-btn.active {
-  background-color: #d8cbb8;
-  border-color: #c2b19b;
-  color: #4a3824;
+  background-color: var(--blue, #496883);
+  border-color: var(--blue, #496883);
+  color: #ffffff;
   font-weight: 700;
-  box-shadow: 0 2px 6px rgba(140, 115, 85, 0.18);
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.25);
 }
 
 .btn-export-excel {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background-color: #d8cbb8;
-  border-color: #c4b5a2;
-  color: #43321f;
+  background-color: var(--blue, #496883);
+  background-color: #edf5ef;
+  border-color: #cce5d3;
+  color: #247541;
   font-weight: 700;
   margin-left: 6px;
 }
 
 .btn-export-excel:hover {
-  background-color: #c8b7a0;
-  border-color: #b5a28b;
-  color: #2e2213;
+  background-color: #deede1;
+  border-color: #b3dac0;
+  color: #1e6336;
 }
 
 /* Hàng giữa: 5 trường lọc + Nút Đặt lại */
@@ -1388,7 +1750,7 @@ onMounted(async () => {
 }
 
 .field-label-tiny {
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: #6c787e;
   text-transform: uppercase;
@@ -1397,12 +1759,12 @@ onMounted(async () => {
 
 .form-control-minimal {
   width: 100%;
-  height: 38px;
+  height: 40px;
   background-color: #fcfbf9;
   border: 1px solid #dfd8cc;
   border-radius: 8px;
   padding: 0 10px;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   color: #334155;
   outline: none;
   transition: all 0.2s;
@@ -1411,9 +1773,9 @@ onMounted(async () => {
 }
 
 .form-control-minimal:focus {
-  border-color: #8c7355;
+  border-color: var(--blue, #496883);
   background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(140, 115, 85, 0.12);
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.15);
 }
 
 .input-error-border {
@@ -1426,7 +1788,7 @@ onMounted(async () => {
   align-items: center;
   gap: 6px;
   color: #dc2626;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   font-weight: 600;
   margin-top: 4px;
 }
@@ -1440,7 +1802,7 @@ onMounted(async () => {
 .prefix-icon {
   position: absolute;
   left: 10px;
-  color: #8c7355;
+  color: var(--blue, #496883);
   pointer-events: none;
 }
 
@@ -1453,13 +1815,13 @@ onMounted(async () => {
 }
 
 .btn-reset-round {
-  height: 38px;
+  height: 40px;
   padding: 0 14px;
   border-radius: 20px;
   border: 1px solid #d5cbc0;
   background-color: #ffffff;
   color: #5d6c73;
-  font-size: 0.84rem;
+  font-size: 0.95rem;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -1470,7 +1832,7 @@ onMounted(async () => {
 }
 
 .btn-reset-round:hover {
-  background-color: #f5efe7;
+  background-color: #f0f4f8;
   border-color: #b5a494;
   color: #39464c;
 }
@@ -1478,7 +1840,7 @@ onMounted(async () => {
 .btn-reset-round.small {
   height: 34px;
   padding: 0 11px;
-  font-size: 0.8rem;
+  font-size: 0.88rem;
 }
 
 /* Hàng dưới cùng: Trạng thái ngày */
@@ -1486,7 +1848,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.86rem;
+  font-size: 0.92rem;
   color: #55656d;
 }
 
@@ -1494,7 +1856,7 @@ onMounted(async () => {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background-color: #2563eb;
+  background-color: #3b576e;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
   display: inline-block;
   flex-shrink: 0;
@@ -1546,7 +1908,7 @@ onMounted(async () => {
 .pastel-orange { background-color: #fff3e0; color: #e65100; }
 
 .kpi-value {
-  font-size: 1.25rem;
+  font-size: 1.4rem;
   font-weight: 700;
   line-height: 1.3;
   margin-bottom: 0.35rem;
@@ -1555,7 +1917,7 @@ onMounted(async () => {
 }
 
 .kpi-label {
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   font-weight: 500;
   color: #7e8b93;
 }
@@ -1581,7 +1943,7 @@ onMounted(async () => {
 }
 
 .title-sub-icon {
-  color: #8c7355;
+  color: var(--blue, #496883);
 }
 
 .card-heading {
@@ -1594,12 +1956,13 @@ onMounted(async () => {
 .badge-unit,
 .badge-fixed-row,
 .badge-total-orders {
-  font-size: 0.74rem;
+  font-size: 0.82rem;
   font-weight: 600;
   padding: 3px 8px;
   border-radius: 6px;
-  background-color: #f2ede7;
-  color: #76695b;
+  background-color: #eaf2f6;
+  border: 1px solid #d3e1ec;
+  color: var(--blue, #496883);
 }
 
 /* Bar Chart styling */
@@ -1625,18 +1988,42 @@ onMounted(async () => {
 }
 
 .chart-bar-rect:hover {
-  fill: #8c7355;
+  fill: #3b576e !important;
   opacity: 0.95;
 }
 
 .bar-peak-number {
-  font-size: 12px;
+  font-size: 10px;
+  font-weight: 500;
+  fill: var(--blue, #496883);
+}
+
+.unused-peak-rule {
+  font-size: 13px;
   font-weight: 700;
-  fill: #dc2626; /* Số đỏ trên đỉnh cột */
+  fill: var(--blue, #496883);
+}
+
+.bar-peak-number.is-zero {
+  font-size: 9px;
+  font-weight: 400;
+  fill: #94a3b8;
+}
+
+.unused-zero-rule {
+  font-size: 11px;
+  font-weight: 500;
+  fill: #a0abb2;
 }
 
 .bar-bottom-label {
-  font-size: 11px;
+  font-size: 9.5px;
+  font-weight: 400;
+  fill: #64748b;
+}
+
+.unused-label-rule {
+  font-size: 12px;
   font-weight: 600;
   fill: #64748b;
 }
@@ -1646,7 +2033,7 @@ onMounted(async () => {
   background: #fbf9f6;
   border: 1px solid #d5cbc0;
   padding: 3px 9px;
-  font-size: 0.76rem;
+  font-size: 0.84rem;
   font-weight: 600;
   color: #635345;
   border-radius: 14px;
@@ -1718,13 +2105,13 @@ onMounted(async () => {
 }
 
 .donut-center-label {
-  font-size: 0.74rem;
+  font-size: 0.82rem;
   color: #8c979d;
   font-weight: 500;
 }
 
 .donut-center-val {
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   color: #2c3e50;
   font-weight: 700;
 }
@@ -1741,7 +2128,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   padding: 2px 4px;
 }
 
@@ -1776,9 +2163,10 @@ onMounted(async () => {
 
 .callout-pill.green-callout {
   display: inline-block;
-  background-color: #dcfce7;
-  color: #15803d;
-  font-size: 0.78rem;
+  background-color: #eaf5ed;
+  border: 1px solid #bce1c7;
+  color: #247541;
+  font-size: 0.88rem;
   font-weight: 700;
   padding: 3px 10px;
   border-radius: 9999px;
@@ -1798,7 +2186,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   color: #556268;
 }
 
@@ -1820,16 +2208,17 @@ onMounted(async () => {
 .minimal-styled-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
 }
 
 .minimal-styled-table th {
-  background-color: #ddd3c5 !important; /* Header màu nâu be nhạt */
-  color: #3b2f23;
+  background-color: #f7f5ef !important;
+  border-bottom: 2px solid #e9e5db !important;
+  color: var(--blue, #496883) !important;
   font-weight: 700;
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   letter-spacing: 0.5px;
-  padding: 10px 14px;
+  padding: 13px 14px;
   text-transform: uppercase;
   border: none;
 }
@@ -1854,23 +2243,32 @@ onMounted(async () => {
 }
 
 .minimal-styled-table td {
-  padding: 12px 14px;
+  padding: 13px 14px;
   vertical-align: middle;
 }
 
 /* Định dạng màu sắc cột theo yêu cầu */
 .text-black-bold {
-  color: #0f172a;
+  color: #1e293b;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.unused-black-bold {
+  color: #1e293b;
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
 
 .text-blue-amount {
-  color: #2563eb;
+  color: var(--blue, #496883);
+  font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
 
 .text-green-amount {
-  color: #16a34a;
+  color: #3b576e;
+  font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
 
@@ -1883,18 +2281,20 @@ onMounted(async () => {
   display: inline-block;
   padding: 3px 10px;
   border-radius: 9999px;
-  font-size: 0.76rem;
+  font-size: 0.84rem;
   font-weight: 700;
 }
 
 .growth-positive {
-  background-color: #dcfce7;
-  color: #15803d;
+  background-color: #eaf5ed;
+  border: 1px solid #bce1c7;
+  color: #247541;
 }
 
 .growth-negative {
-  background-color: #fee2e2;
-  color: #b91c1c;
+  background-color: #f7edeb;
+  border: 1px solid #ecc9c3;
+  color: #b34a3b;
 }
 
 /* 5. Khu vực Bảng Thống kê sản phẩm */
@@ -1941,22 +2341,22 @@ onMounted(async () => {
 }
 
 .product-title-bold {
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #1e293b;
   line-height: 1.35;
 }
 
 .product-size-hint {
-  font-size: 0.76rem;
+  font-size: 0.84rem;
   color: #8c979d;
   font-weight: 500;
 }
 
 .brand-badge-tag {
   background-color: #f5f2eb;
-  color: #605141;
-  font-size: 0.76rem;
+  color: #496883;
+  font-size: 0.84rem;
   font-weight: 600;
   padding: 3px 8px;
   border-radius: 6px;
@@ -1967,7 +2367,8 @@ onMounted(async () => {
 }
 
 .text-green-stock {
-  color: #16a34a;
+  color: #3b576e;
+  font-variant-numeric: tabular-nums;
 }
 
 .text-muted-stt {
@@ -1991,7 +2392,7 @@ onMounted(async () => {
 }
 
 .footer-left-count {
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   color: #64748b;
 }
 
@@ -2012,7 +2413,7 @@ onMounted(async () => {
   border: 1px solid #e2dbcf;
   background-color: #ffffff;
   color: #475569;
-  font-size: 0.84rem;
+  font-size: 0.95rem;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -2022,14 +2423,14 @@ onMounted(async () => {
 }
 
 .pg-btn:hover:not(:disabled) {
-  background-color: #f5efe7;
+  background-color: #f0f4f8;
   border-color: #bfae9d;
   color: #2c3e50;
 }
 
 .pg-btn.active {
-  background-color: #8c7355 !important; /* Nút phân trang active màu nâu đậm */
-  border-color: #8c7355 !important;
+  background-color: var(--blue, #496883) !important;
+  border-color: var(--blue, #496883) !important;
   color: #ffffff !important;
 }
 
@@ -2071,5 +2472,183 @@ onMounted(async () => {
   .kpi-cards-grid {
     grid-template-columns: 1fr;
   }
+}
+/* Liên kết hóa đơn với thống kê */
+.clickable-kpi {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.clickable-kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(73, 104, 131, 0.16);
+}
+.clickable-kpi-text {
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.clickable-kpi-text:hover {
+  color: var(--blue, #496883);
+  text-decoration: underline;
+}
+.cell-link-click {
+  cursor: pointer;
+  color: var(--blue, #496883);
+  font-variant-numeric: tabular-nums;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background-color: #eaf2f6;
+  border: 1px solid #d0deea;
+  transition: all 0.15s;
+}
+.cell-link-click:hover {
+  background-color: #496883;
+  color: #ffffff;
+  border-color: #496883;
+  text-decoration: underline;
+}
+.clickable-legend {
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.clickable-legend:hover {
+  background-color: #f1ede7;
+  text-decoration: underline;
+}
+.invoice-stats-card {
+  margin-top: 1.25rem;
+}
+.badge-total-count {
+  font-size: 0.88rem;
+  background-color: #f1ede7;
+  color: var(--blue, #496883);
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+.invoice-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.search-invoice-box {
+  width: 220px;
+}
+.code-cell-clickable {
+  color: var(--blue, #496883);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background-color: #eaf2f6;
+  border: 1px solid #d0deea;
+  display: inline-block;
+  transition: all 0.15s;
+}
+.code-cell-clickable:hover {
+  background-color: #3b576e;
+  color: #ffffff;
+}
+.customer-info-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cust-name-text {
+  font-size: 0.95rem;
+  color: #2b353b;
+}
+.cust-phone-text {
+  font-size: 0.82rem;
+  color: #8c979d;
+}
+.employee-name-tag {
+  font-size: 0.88rem;
+  color: #556268;
+}
+.badge-order-type {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-block;
+}
+.type-pos {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+.type-online {
+  background-color: #e0e7ff;
+  color: #4338ca;
+}
+.badge-pay-method {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-block;
+}
+.pay-cash {
+  background-color: #f0fdf4;
+  color: #247541;
+  border: 1px solid #bbf7d0;
+}
+.pay-transfer {
+  background-color: #eaf2f6;
+  border: 1px solid #d0deea;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+.pay-combined {
+  background-color: #faf5ff;
+  color: #7e22ce;
+  border: 1px solid #e9d5ff;
+}
+.badge-invoice-status {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  display: inline-block;
+}
+.status-completed {
+  background-color: #eaf5ed;
+  border: 1px solid #bce1c7;
+  color: #166534;
+}
+.status-cancelled {
+  background-color: #f7edeb;
+  border: 1px solid #ecc9c3;
+  color: #991b1b;
+}
+.status-processing {
+  background-color: #fef9c3;
+  color: #854d0e;
+}
+.status-pending {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+.btn-detail-link {
+  border: 1px solid #dcd3c8;
+  background: #ffffff;
+  color: var(--blue, #496883);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-detail-link:hover {
+  background-color: #3b576e;
+  color: #ffffff;
+  border-color: var(--blue, #496883);
+}
+.invoice-row-hover:hover {
+  background-color: #faf8f5;
 }
 </style>

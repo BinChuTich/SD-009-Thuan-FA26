@@ -24,7 +24,7 @@ public interface LichSuCaLamViecRepository extends JpaRepository<LichSuCaLamViec
            "                  OR (l.maGiaoCa IS NOT NULL AND LOWER(l.maGiaoCa) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
            "                  OR (l.lichLamViec IS NOT NULL AND LOWER(l.lichLamViec.caLamViec.maCa) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
            "                  OR (l.lichLamViec IS NOT NULL AND LOWER(l.lichLamViec.caLamViec.tenCa) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-           "                  OR EXISTS (SELECT 1 FROM HoaDon hd WHERE hd.idNhanVien.id = l.nhanVien.id AND LOWER(hd.maHoaDon) LIKE LOWER(CONCAT('%', :keyword, '%')))) " +
+           "                  OR EXISTS (SELECT 1 FROM HoaDon hd WHERE (hd.idGiaoCa.id = l.id OR hd.idNhanVien.id = l.nhanVien.id) AND LOWER(hd.maHoaDon) LIKE LOWER(CONCAT('%', :keyword, '%')))) " +
            "AND (:fromDate IS NULL OR l.thoiGianMoCa >= :fromDate) " +
            "AND (:toDate IS NULL OR l.thoiGianMoCa <= :toDate) " +
            "AND (:trangThai IS NULL OR l.trangThai = :trangThai) " +

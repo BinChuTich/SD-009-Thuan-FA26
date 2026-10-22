@@ -1,7 +1,12 @@
 <template>
   <div class="quan-ly-ca-page">
     <!-- Tiêu đề trang -->
-    <div class="page-top-bar">
+    <div class="page-breadcrumb">
+      <router-link to="/ca-lam-viec" class="crumb-parent">Lịch làm việc</router-link>
+      <span class="crumb-separator">/</span>
+      <span class="crumb-current">Quản lý ca làm việc</span>
+    </div>
+    <div class="page-top-bar" v-if="false">
       <div class="title-with-icon">
         <div class="title-icon-box">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -669,12 +674,12 @@ onMounted(() => {
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background-color: #f1ede7;
-  color: #8c7355;
+  background-color: #eaf2f6;
+  color: var(--blue, #496883);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(140, 115, 85, 0.12);
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.12);
 }
 
 .page-main-title {
@@ -701,7 +706,7 @@ onMounted(() => {
 }
 
 .filter-icon {
-  color: #8c7355;
+  color: var(--blue, #496883);
 }
 
 .filter-grid-fields {
@@ -718,7 +723,7 @@ onMounted(() => {
 }
 
 .field-label-tiny {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: #6c787e;
   text-transform: uppercase;
@@ -734,7 +739,7 @@ onMounted(() => {
 .prefix-icon {
   position: absolute;
   left: 10px;
-  color: #8c7355;
+  color: var(--blue, #496883);
   pointer-events: none;
 }
 
@@ -753,9 +758,9 @@ onMounted(() => {
 }
 
 .form-control-minimal:focus {
-  border-color: #8c7355;
+  border-color: var(--blue, #496883);
   background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(140, 115, 85, 0.12);
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.15);
 }
 
 .form-control-minimal.with-icon {
@@ -790,17 +795,17 @@ onMounted(() => {
 }
 
 .btn-reset-filter:hover {
-  background-color: #f5efe7;
-  border-color: #b5a494;
+  background-color: #f4f7f9;
+  border-color: #b8c8d2;
 }
 
 .btn-primary-beige {
   height: 38px;
   padding: 0 16px;
   border-radius: 8px;
-  border: 1px solid #c8b7a0;
-  background-color: #d8cbb8;
-  color: #4a3824;
+  border: 1px solid var(--blue, #496883);
+  background-color: var(--blue, #496883) !important;
+  color: #ffffff !important;
   font-size: 0.86rem;
   font-weight: 700;
   display: inline-flex;
@@ -809,12 +814,12 @@ onMounted(() => {
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s;
-  box-shadow: 0 2px 6px rgba(140, 115, 85, 0.15);
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.2);
 }
 
 .btn-primary-beige:hover {
-  background-color: #cbb9a3;
-  color: #3b2a16;
+  background-color: #3b576e;
+  color: #ffffff;
 }
 
 .filter-error-msg {
@@ -835,10 +840,11 @@ onMounted(() => {
 }
 
 .minimal-styled-table th {
-  background-color: #ddd3c5 !important;
-  color: #3b2f23;
+  background-color: #f7f5ef !important;
+  border-bottom: 2px solid #e9e5db !important;
+  color: var(--blue, #496883) !important;
   font-weight: 700;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   letter-spacing: 0.5px;
   padding: 10px 14px;
   text-transform: uppercase;
@@ -880,8 +886,8 @@ onMounted(() => {
 }
 
 .shift-code-tag {
-  background-color: #f1ede7;
-  color: #8c7355;
+  background-color: #eaf2f6;
+  color: var(--blue, #496883);
   font-size: 0.74rem;
   font-weight: 700;
   padding: 2px 6px;
@@ -889,7 +895,7 @@ onMounted(() => {
 }
 
 .shift-desc-hint {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   color: #8a969b;
   margin-top: 3px;
 }
@@ -898,7 +904,7 @@ onMounted(() => {
   display: inline-block;
   padding: 3px 10px;
   border-radius: 9999px;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 700;
 }
 
@@ -975,7 +981,7 @@ onMounted(() => {
   border-radius: 50%;
   border: 1px solid #dfd8cc;
   background-color: #ffffff;
-  color: #8c7355;
+  color: var(--blue, #496883);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -985,7 +991,7 @@ onMounted(() => {
 
 .btn-circle-edit:hover {
   background-color: #f2eee7;
-  border-color: #8c7355;
+  border-color: var(--blue, #496883);
 }
 
 /* Modal styling */
@@ -1095,7 +1101,7 @@ onMounted(() => {
 
 .error-text-red {
   color: #dc2626;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 600;
 }
 
@@ -1127,8 +1133,8 @@ onMounted(() => {
 .btn-save-modal {
   padding: 8px 22px;
   border-radius: 8px;
-  border: 1px solid #8c7355;
-  background: #8c7355;
+  border: 1px solid var(--blue, #496883);
+  background: var(--blue, #496883);
   color: #ffffff;
   font-weight: 700;
   cursor: pointer;
@@ -1141,7 +1147,7 @@ onMounted(() => {
 }
 
 .btn-save-modal:hover:not(:disabled) {
-  background: #755f45;
+  background: #3b576e;
 }
 
 @media (max-width: 900px) {

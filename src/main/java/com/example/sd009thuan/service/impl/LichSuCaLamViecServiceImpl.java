@@ -334,6 +334,37 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
         dto.setTongTienHeThong(cashSum.add(transferSum));
         dto.setTienMatDuKien(dauCa.add(cashSum).subtract(tienChi));
 
+        java.util.List<ShiftCashSummaryDTO.ShiftInvoiceDTO> shiftInvoices = new java.util.ArrayList<>();
+        for (HoaDon h : validInvoices) {
+            ShiftCashSummaryDTO.ShiftInvoiceDTO item = new ShiftCashSummaryDTO.ShiftInvoiceDTO();
+            item.setId(h.getId());
+            item.setMaHoaDon(h.getMaHoaDon());
+            item.setTenKhachHang(h.getTenKhachHang() != null ? h.getTenKhachHang() : "Khách lẻ");
+            item.setSoDienThoaiKhachHang(h.getSoDienThoaiKhachHang());
+            BigDecimal amount = h.getTienSauGiamGia() != null && h.getTienSauGiamGia().compareTo(BigDecimal.ZERO) > 0
+                    ? h.getTienSauGiamGia() : (h.getTongTien() != null ? h.getTongTien() : BigDecimal.ZERO);
+            item.setTongTien(amount);
+            item.setNgayTao(h.getNgayTao());
+            item.setLoaiDon(h.getLoaiDon());
+            item.setTrangThai(h.getTrangThai());
+            item.setTrangThaiThanhToan(h.getTrangThaiThanhToan());
+
+            java.util.List<HinhThucThanhToan> matchingPts = payments.stream()
+                    .filter(p -> p.getIdHoaDon() != null && h.getId().equals(p.getIdHoaDon().getId()))
+                    .toList();
+            if (!matchingPts.isEmpty()) {
+                String ptNames = matchingPts.stream()
+                        .map(p -> p.getIdPhuongThuc() != null ? p.getIdPhuongThuc().getTenPhuongThuc() : "Thanh toán")
+                        .distinct()
+                        .collect(java.util.stream.Collectors.joining(", "));
+                item.setHinhThucThanhToan(ptNames);
+            } else {
+                item.setHinhThucThanhToan(Integer.valueOf(1).equals(h.getLoaiDon()) ? "Tiền mặt" : "Chuyển khoản");
+            }
+            shiftInvoices.add(item);
+        }
+        dto.setDanhSachHoaDon(shiftInvoices);
+
         return dto;
     }
 

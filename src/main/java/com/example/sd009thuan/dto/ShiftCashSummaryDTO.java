@@ -1,6 +1,9 @@
 package com.example.sd009thuan.dto;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ShiftCashSummaryDTO {
     private Long id;
@@ -15,6 +18,7 @@ public class ShiftCashSummaryDTO {
     private BigDecimal tienChiTrongCa = BigDecimal.ZERO;
     private BigDecimal tienMatDuKien = BigDecimal.ZERO;
     private long soHoaDon = 0;
+    private List<ShiftInvoiceDTO> danhSachHoaDon = new ArrayList<>();
 
     public ShiftCashSummaryDTO() {
         super();
@@ -120,6 +124,10 @@ public class ShiftCashSummaryDTO {
         return soHoaDon;
     }
 
+    public void setSoHoaDon(long soHoaDon) {
+        this.soHoaDon = soHoaDon;
+    }
+
     public BigDecimal getTienChiTrongCa() {
         return tienChiTrongCa;
     }
@@ -128,7 +136,47 @@ public class ShiftCashSummaryDTO {
         this.tienChiTrongCa = tienChiTrongCa != null ? tienChiTrongCa : BigDecimal.ZERO;
     }
 
-    public void setSoHoaDon(long soHoaDon) {
-        this.soHoaDon = soHoaDon;
+    public List<ShiftInvoiceDTO> getDanhSachHoaDon() {
+        return danhSachHoaDon;
+    }
+
+    public void setDanhSachHoaDon(List<ShiftInvoiceDTO> danhSachHoaDon) {
+        this.danhSachHoaDon = danhSachHoaDon != null ? danhSachHoaDon : new ArrayList<>();
+    }
+
+    public static class ShiftInvoiceDTO {
+        private Long id;
+        private String maHoaDon;
+        private String tenKhachHang;
+        private String soDienThoaiKhachHang;
+        private BigDecimal tongTien;
+        private String hinhThucThanhToan;
+        private Instant ngayTao;
+        private Integer loaiDon;
+        private Integer trangThai;
+        private Integer trangThaiThanhToan;
+
+        public ShiftInvoiceDTO() {}
+
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
+        public String getMaHoaDon() { return maHoaDon; }
+        public void setMaHoaDon(String maHoaDon) { this.maHoaDon = maHoaDon; }
+        public String getTenKhachHang() { return tenKhachHang; }
+        public void setTenKhachHang(String tenKhachHang) { this.tenKhachHang = tenKhachHang; }
+        public String getSoDienThoaiKhachHang() { return soDienThoaiKhachHang; }
+        public void setSoDienThoaiKhachHang(String soDienThoaiKhachHang) { this.soDienThoaiKhachHang = soDienThoaiKhachHang; }
+        public BigDecimal getTongTien() { return tongTien; }
+        public void setTongTien(BigDecimal tongTien) { this.tongTien = tongTien; }
+        public String getHinhThucThanhToan() { return hinhThucThanhToan; }
+        public void setHinhThucThanhToan(String hinhThucThanhToan) { this.hinhThucThanhToan = hinhThucThanhToan; }
+        public Instant getNgayTao() { return ngayTao; }
+        public void setNgayTao(Instant ngayTao) { this.ngayTao = ngayTao; }
+        public Integer getLoaiDon() { return loaiDon; }
+        public void setLoaiDon(Integer loaiDon) { this.loaiDon = loaiDon; }
+        public Integer getTrangThai() { return trangThai; }
+        public void setTrangThai(Integer trangThai) { this.trangThai = trangThai; }
+        public Integer getTrangThaiThanhToan() { return trangThaiThanhToan; }
+        public void setTrangThaiThanhToan(Integer trangThaiThanhToan) { this.trangThaiThanhToan = trangThaiThanhToan; }
     }
 }

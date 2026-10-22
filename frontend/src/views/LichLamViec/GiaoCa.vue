@@ -1,8 +1,13 @@
 <template>
   <div class="giao-ca-page">
     <!-- Thanh điều hướng và tiêu đề trên cùng -->
-    <div class="page-top-bar">
-      <div class="title-with-icon">
+    <div class="page-top-header">
+      <div class="page-breadcrumb">
+        <router-link to="/giao-ca" class="crumb-parent">Lịch làm việc</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">Vào ca & Giao ca</span>
+      </div>
+      <div class="title-with-icon" v-if="false">
         <div class="title-icon-box">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
@@ -1045,7 +1050,7 @@ onMounted(async () => {
   height: 42px;
   border-radius: 12px;
   background-color: #f1ede7;
-  color: #8c7355;
+  color: var(--blue, #496883);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1077,22 +1082,22 @@ onMounted(async () => {
   transition: all 0.2s ease;
   border: 1px solid #e2dad0;
   background-color: #ffffff;
-  color: #634b35;
+  color: var(--blue, #496883);
 }
 
 .btn-history-link:hover {
   background-color: #faf7f2;
-  border-color: #8c7355;
+  border-color: var(--blue, #496883);
 }
 
 .btn-pos-link {
-  background-color: #634b35;
+  background-color: var(--blue, #496883);
   color: #ffffff;
-  border-color: #634b35;
+  border-color: var(--blue, #496883);
 }
 
 .btn-pos-link:hover {
-  background-color: #4e3a29;
+  background-color: #3b576e;
 }
 
 /* KHỐI CA ĐANG MỞ */
@@ -1144,7 +1149,7 @@ onMounted(async () => {
 
 .shift-code-tag {
   font-size: 0.88rem;
-  color: #634b35;
+  color: var(--blue, #496883);
 }
 
 .shift-info-grid {
@@ -1178,7 +1183,7 @@ onMounted(async () => {
   color: #8c979d;
 }
 
-.text-brown { color: #8c7355; }
+.text-brown { color: var(--blue, #496883); }
 .text-green { color: #2e7d32; }
 .text-blue { color: #1976d2; }
 .text-note { font-weight: normal; font-size: 0.88rem; color: #5a666e; }
@@ -1195,7 +1200,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #634b35;
+  color: var(--blue, #496883);
 }
 
 .metrics-title {
@@ -1212,7 +1217,7 @@ onMounted(async () => {
   border-radius: 8px;
   border: 1px solid #e2dad0;
   background-color: #faf8f5;
-  color: #634b35;
+  color: var(--blue, #496883);
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
@@ -1279,7 +1284,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #634b35;
+  color: var(--blue, #496883);
   margin-bottom: 1.25rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid #f1ede7;
@@ -1364,7 +1369,7 @@ onMounted(async () => {
 
 .staff-code-locked {
   font-size: 0.76rem;
-  color: #8c7355;
+  color: var(--blue, #496883);
   font-weight: 500;
 }
 
@@ -1399,7 +1404,7 @@ onMounted(async () => {
 }
 
 .form-control-minimal:focus {
-  border-color: #8c7355;
+  border-color: var(--blue, #496883);
   box-shadow: 0 0 0 3px rgba(140, 115, 85, 0.12);
 }
 
@@ -1418,7 +1423,7 @@ onMounted(async () => {
   height: 0;
   border-left: 4.5px solid transparent;
   border-right: 4.5px solid transparent;
-  border-top: 5px solid #8c7355;
+  border-top: 5px solid var(--blue, #496883);
   pointer-events: none;
 }
 
@@ -1445,7 +1450,7 @@ onMounted(async () => {
   right: 12px;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #8c7355;
+  color: var(--blue, #496883);
   pointer-events: none;
 }
 
@@ -1532,11 +1537,11 @@ onMounted(async () => {
   gap: 8px;
   padding: 11px 24px;
   border-radius: 8px;
-  background-color: #634b35;
+  background-color: var(--blue, #496883);
   color: #ffffff;
   font-size: 0.92rem;
   font-weight: 700;
-  border: 1px solid #543e2a;
+  border: 1px solid var(--blue, #496883);
   cursor: pointer;
   transition: all 0.2s;
   box-shadow: 0 4px 14px rgba(99, 75, 53, 0.25);
@@ -1544,7 +1549,7 @@ onMounted(async () => {
 }
 
 .btn-submit-close-shift:hover:not(:disabled) {
-  background-color: #4e3a29;
+  background-color: #3b576e;
   border-color: #402f20;
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(99, 75, 53, 0.32);
@@ -1563,7 +1568,7 @@ onMounted(async () => {
 }
 
 .open-shift-card {
-  border-top: 5px solid #8c7355;
+  border-top: 5px solid var(--blue, #496883);
 }
 
 .open-shift-header {
@@ -1615,7 +1620,7 @@ onMounted(async () => {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  color: #634b35;
+  color: var(--blue, #496883);
   font-size: 0.88rem;
 }
 
@@ -1629,7 +1634,7 @@ onMounted(async () => {
   border-radius: 8px;
   border: 1px solid #8c7355;
   background-color: #ffffff;
-  color: #634b35;
+  color: var(--blue, #496883);
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
@@ -1637,7 +1642,7 @@ onMounted(async () => {
 }
 
 .btn-use-last-cash:hover {
-  background-color: #634b35;
+  background-color: var(--blue, #496883);
   color: #ffffff;
 }
 
@@ -1693,7 +1698,7 @@ onMounted(async () => {
 .btn-text-more {
   background: none;
   border: none;
-  color: #8c7355;
+  color: var(--blue, #496883);
   font-size: 0.84rem;
   font-weight: 600;
   cursor: pointer;
@@ -1723,7 +1728,7 @@ onMounted(async () => {
 
 .header-brown-beige {
   background-color: #f7f4ee;
-  color: #634b35;
+  color: var(--blue, #496883);
   border-bottom: 2px solid #e8e2d8;
 }
 
@@ -1768,7 +1773,7 @@ onMounted(async () => {
 .btn-action-view {
   background-color: #faf5ee;
   border: 1px solid #dcd5ca;
-  color: #634b35;
+  color: var(--blue, #496883);
   padding: 4px 10px;
   border-radius: 6px;
   font-size: 0.78rem;
@@ -1778,9 +1783,9 @@ onMounted(async () => {
 }
 
 .btn-action-view:hover {
-  background-color: #634b35;
+  background-color: var(--blue, #496883);
   color: #ffffff;
-  border-color: #634b35;
+  border-color: var(--blue, #496883);
 }
 
 /* BIÊN BẢN IN */
@@ -1867,7 +1872,7 @@ onMounted(async () => {
   padding: 8px 18px;
   border-radius: 8px;
   border: none;
-  background-color: #634b35;
+  background-color: var(--blue, #496883);
   color: #ffffff;
   font-size: 0.88rem;
   font-weight: 600;

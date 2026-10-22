@@ -839,20 +839,20 @@ onMounted(() => {
   align-items: center;
   gap: 0.45rem;
   padding: 0.4rem 1.1rem;
-  background-color: #b38e6e;
+  background-color: var(--blue, #496883);
   color: #ffffff;
   border: none;
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(179, 142, 110, 0.25);
+  box-shadow: 0 1px 3px rgba(73, 104, 131, 0.25);
   transition: all 0.2s ease;
 }
 
 .btn-scan-pill:hover {
-  background-color: #9c7756;
-  box-shadow: 0 2px 6px rgba(179, 142, 110, 0.35);
+  background-color: #3b576e;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.35);
 }
 
 .btn-back-pill {
@@ -1174,7 +1174,7 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background-color: #3b596a;
+  background-color: var(--blue, #496883);
   color: #ffffff;
 }
 .btn-primary:hover {

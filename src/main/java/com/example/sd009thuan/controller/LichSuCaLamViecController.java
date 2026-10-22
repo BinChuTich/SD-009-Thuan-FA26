@@ -59,6 +59,16 @@ public class LichSuCaLamViecController {
         return ResponseEntity.ok(service.getCurrentOpenShift(id).orElse(null));
     }
 
+    @GetMapping("/{id}/hoa-don")
+    public ResponseEntity<?> getShiftInvoices(@PathVariable Long id) {
+        try {
+            ShiftCashSummaryDTO summary = service.getShiftSummary(id);
+            return ResponseEntity.ok(summary.getDanhSachHoaDon());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
     @GetMapping("/{id}/summary")
     public ResponseEntity<?> getShiftSummary(@PathVariable Long id) {
         try {

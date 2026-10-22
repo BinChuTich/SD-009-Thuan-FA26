@@ -235,12 +235,34 @@ public class HoaDonService {
 
     // Lấy lịch sử thao tác hóa đơn theo ID
     public List<LichSuHoaDon> getLichSuByHoaDonId(Long idHoaDon) {
-        return lichSuHoaDonRepository.findByIdHoaDon_IdOrderByThoiGianDesc(idHoaDon);
+        List<LichSuHoaDon> list = lichSuHoaDonRepository.findByIdHoaDon_IdOrderByThoiGianDesc(idHoaDon);
+        enrichLichSuNguoiThucHien(list);
+        return list;
     }
 
     // Lấy lịch sử thao tác hóa đơn theo Mã
     public List<LichSuHoaDon> getLichSuByMaHoaDon(String maHoaDon) {
-        return lichSuHoaDonRepository.findByIdHoaDon_MaHoaDonOrderByThoiGianDesc(maHoaDon);
+        List<LichSuHoaDon> list = lichSuHoaDonRepository.findByIdHoaDon_MaHoaDonOrderByThoiGianDesc(maHoaDon);
+        enrichLichSuNguoiThucHien(list);
+        return list;
+    }
+
+    private void enrichLichSuNguoiThucHien(List<LichSuHoaDon> list) {
+        if (list == null) return;
+        for (LichSuHoaDon log : list) {
+            String actor = log.getNguoiThucHien();
+            if (actor == null || actor.trim().isEmpty() || "Nhân viên bán hàng".equals(actor) || "Nhân viên".equals(actor)) {
+                if (log.getIdHoaDon() != null) {
+                    HoaDon hd = log.getIdHoaDon();
+                    String realName = (hd.getIdNhanVien() != null && hd.getIdNhanVien().getTenNhanVien() != null && !hd.getIdNhanVien().getTenNhanVien().trim().isEmpty())
+                            ? hd.getIdNhanVien().getTenNhanVien()
+                            : (hd.getNguoiTao() != null && !hd.getNguoiTao().trim().isEmpty() && !hd.getNguoiTao().equals("Nhân viên bán hàng") ? hd.getNguoiTao() : null);
+                    if (realName != null) {
+                        log.setNguoiThucHien(realName);
+                    }
+                }
+            }
+        }
     }
 
     // Lấy thông tin thanh toán theo ID hóa đơn
@@ -389,6 +411,11 @@ public class HoaDonService {
     // Tạo hóa đơn chờ tại quầy mới
     @Transactional
     public HoaDon createWaitingInvoice() {
+        return createWaitingInvoice(null, null, null);
+    }
+
+    @Transactional
+    public HoaDon createWaitingInvoice(Long idNhanVien, String nguoiTao, Long idGiaoCa) {
         HoaDon hd = new HoaDon();
         hd.setMaHoaDon(generateNextMaHoaDon());
         hd.setLoaiDon(1); // 1: Tại quầy
@@ -403,12 +430,39 @@ public class HoaDonService {
         hd.setNgayCapNhat(Instant.now());
         hd.setNguoiTao("Nhân viên bán hàng");
         hd.setGhiChu("Hóa đơn chờ tại quầy");
-        nhanVienRepository.findTopByOrderByIdDesc().ifPresent(hd::setIdNhanVien);
-        if (hd.getIdNhanVien() != null && lichSuCaLamViecRepository != null) {
+        if (idNhanVien != null) {
+            nhanVienRepository.findById(idNhanVien).ifPresent(nv -> {
+                hd.setIdNhanVien(nv);
+                if (nv.getTenNhanVien() != null && !nv.getTenNhanVien().isEmpty() && (nguoiTao == null || nguoiTao.trim().isEmpty())) {
+                    hd.setNguoiTao(nv.getTenNhanVien());
+                }
+            });
+        }
+        if (hd.getIdNhanVien() == null) {
+            nhanVienRepository.findTopByOrderByIdDesc().ifPresent(nv -> {
+            hd.setIdNhanVien(nv);
+            if (nv.getTenNhanVien() != null && !nv.getTenNhanVien().isEmpty()) {
+                hd.setNguoiTao(nv.getTenNhanVien());
+            }
+        });
+        if (idGiaoCa != null && lichSuCaLamViecRepository != null) {
+            lichSuCaLamViecRepository.findById(idGiaoCa).ifPresent(hd::setIdGiaoCa);
+        } else if (hd.getIdNhanVien() != null && lichSuCaLamViecRepository != null) {
             lichSuCaLamViecRepository.findTopByNhanVienIdAndTrangThaiOrderByThoiGianMoCaDesc(hd.getIdNhanVien().getId(), 1)
                     .ifPresent(hd::setIdGiaoCa);
         }
-        return hoaDonRepository.save(hd);
+        HoaDon saved = hoaDonRepository.save(hd);
+        try {
+            LichSuHoaDon log1 = new LichSuHoaDon();
+            log1.setIdHoaDon(saved);
+            log1.setTrangThai(1);
+            log1.setThoiGian(saved.getNgayTao());
+            log1.setGhiChu("Tạo hóa đơn tại quầy");
+            log1.setNguoiThucHien(saved.getNguoiTao());
+            log1.setVaiTroNguoiThucHien("Nhân viên");
+            lichSuHoaDonRepository.save(log1);
+        } catch (Exception ignored) {}
+        return saved;
     }
 
     // Đồng bộ danh sách sản phẩm của hóa đơn chờ và trừ / hoàn tồn kho tương ứng
@@ -525,7 +579,9 @@ public class HoaDonService {
 
         // Thiết lập ngày tạo mặc định
         if (hoaDon.getNgayTao() == null) {
+            if (hoaDon.getNgayTao() == null) {
             hoaDon.setNgayTao(Instant.now());
+        }
         }
 
         // Thiết lập trạng thái hóa đơn mặc định
@@ -676,6 +732,7 @@ public class HoaDonService {
         try {
             LichSuHoaDon log = new LichSuHoaDon();
             log.setIdHoaDon(saved);
+            log.setTrangThai(saved.getTrangThai());
             log.setThoiGian(Instant.now());
             String desc = "Cập nhật thông tin đơn hàng / khách hàng";
             if (hoaDonMoi.getGhiChu() != null && !hoaDonMoi.getGhiChu().trim().isEmpty() && !hoaDonMoi.getGhiChu().trim().equalsIgnoreCase("Giao hàng thất bại")) {
@@ -683,7 +740,11 @@ public class HoaDonService {
             }
             if (desc.length() > 250) desc = desc.substring(0, 250);
             log.setHanhDong(desc);
-            String nguoiTh = saved.getNguoiCapNhat() != null ? saved.getNguoiCapNhat() : "Nhân viên";
+            String nguoiTh = (saved.getNguoiCapNhat() != null && !saved.getNguoiCapNhat().equals("Nhân viên bán hàng") && !saved.getNguoiCapNhat().equals("Nhân viên"))
+                    ? saved.getNguoiCapNhat()
+                    : ((saved.getIdNhanVien() != null && saved.getIdNhanVien().getTenNhanVien() != null)
+                    ? saved.getIdNhanVien().getTenNhanVien()
+                    : (saved.getNguoiTao() != null && !saved.getNguoiTao().isEmpty() && !saved.getNguoiTao().equals("Nhân viên bán hàng") ? saved.getNguoiTao() : "Nhân viên"));
             if (nguoiTh.length() > 95) nguoiTh = nguoiTh.substring(0, 95);
             log.setNguoiThucHien(nguoiTh);
             log.setVaiTroNguoiThucHien("Nhân viên");
@@ -861,12 +922,17 @@ public class HoaDonService {
         try {
             LichSuHoaDon log = new LichSuHoaDon();
             log.setIdHoaDon(saved);
+            log.setTrangThai(saved.getTrangThai());
             log.setThoiGian(Instant.now());
             if (actionDesc.length() > 250) {
                 actionDesc = actionDesc.substring(0, 250);
             }
             log.setHanhDong(actionDesc);
-            String nguoiTh = saved.getNguoiCapNhat() != null ? saved.getNguoiCapNhat() : "Nhân viên";
+            String nguoiTh = (saved.getNguoiCapNhat() != null && !saved.getNguoiCapNhat().equals("Nhân viên bán hàng") && !saved.getNguoiCapNhat().equals("Nhân viên"))
+                    ? saved.getNguoiCapNhat()
+                    : ((saved.getIdNhanVien() != null && saved.getIdNhanVien().getTenNhanVien() != null)
+                    ? saved.getIdNhanVien().getTenNhanVien()
+                    : (saved.getNguoiTao() != null && !saved.getNguoiTao().isEmpty() && !saved.getNguoiTao().equals("Nhân viên bán hàng") ? saved.getNguoiTao() : "Nhân viên"));
             if (nguoiTh.length() > 95) nguoiTh = nguoiTh.substring(0, 95);
             log.setNguoiThucHien(nguoiTh);
             log.setVaiTroNguoiThucHien("Nhân viên");
@@ -961,6 +1027,7 @@ public class HoaDonService {
         try {
             LichSuHoaDon log = new LichSuHoaDon();
             log.setIdHoaDon(saved);
+            log.setTrangThai(saved.getTrangThai());
             log.setThoiGian(Instant.now());
             String desc = (trangThaiThanhToan == 1) ? "Xác nhận đã thanh toán hóa đơn" : "Chuyển trạng thái sang chưa thanh toán";
             if (ghiChu != null && !ghiChu.trim().isEmpty()) {
@@ -968,7 +1035,11 @@ public class HoaDonService {
             }
             if (desc.length() > 250) desc = desc.substring(0, 250);
             log.setHanhDong(desc);
-            String nguoiTh = saved.getNguoiCapNhat() != null ? saved.getNguoiCapNhat() : "Nhân viên";
+            String nguoiTh = (saved.getNguoiCapNhat() != null && !saved.getNguoiCapNhat().equals("Nhân viên bán hàng") && !saved.getNguoiCapNhat().equals("Nhân viên"))
+                    ? saved.getNguoiCapNhat()
+                    : ((saved.getIdNhanVien() != null && saved.getIdNhanVien().getTenNhanVien() != null)
+                    ? saved.getIdNhanVien().getTenNhanVien()
+                    : (saved.getNguoiTao() != null && !saved.getNguoiTao().isEmpty() && !saved.getNguoiTao().equals("Nhân viên bán hàng") ? saved.getNguoiTao() : "Nhân viên"));
             if (nguoiTh.length() > 95) nguoiTh = nguoiTh.substring(0, 95);
             log.setNguoiThucHien(nguoiTh);
             log.setVaiTroNguoiThucHien("Nhân viên");
@@ -1179,10 +1250,18 @@ public class HoaDonService {
         hoaDon.setTienSauGiamGia(finalAmount);
         hoaDon.setGhiChu(dto.getGhiChu() != null && !dto.getGhiChu().trim().isEmpty()
                 ? dto.getGhiChu().trim() : (loaiDon == 1 ? "Bán hàng tại quầy" : "Đơn giao hàng"));
-        hoaDon.setNgayTao(Instant.now());
+        if (hoaDon.getNgayTao() == null) {
+            hoaDon.setNgayTao(Instant.now());
+        }
         hoaDon.setNgayCapNhat(Instant.now());
-        hoaDon.setNguoiTao("Nhân viên bán hàng");
-        hoaDon.setNguoiCapNhat("Nhân viên bán hàng");
+        String staffCreator = (dto.getNguoiTao() != null && !dto.getNguoiTao().trim().isEmpty())
+                ? dto.getNguoiTao().trim()
+                : (hoaDon.getNguoiTao() != null && !hoaDon.getNguoiTao().trim().isEmpty() && !hoaDon.getNguoiTao().equals("Nhân viên bán hàng"))
+                ? hoaDon.getNguoiTao().trim()
+                : ((hoaDon.getIdNhanVien() != null && hoaDon.getIdNhanVien().getTenNhanVien() != null)
+                ? hoaDon.getIdNhanVien().getTenNhanVien() : "Nhân viên bán hàng");
+        hoaDon.setNguoiTao(staffCreator);
+        hoaDon.setNguoiCapNhat(staffCreator);
 
         HoaDon saved = hoaDonRepository.save(hoaDon);
 
@@ -1330,6 +1409,71 @@ public class HoaDonService {
         } catch (Exception ignored) {}
 
         // 9. Lưu lịch sử đơn hàng
+        try {
+            String staffName = (dto.getNguoiTao() != null && !dto.getNguoiTao().trim().isEmpty())
+                    ? dto.getNguoiTao().trim()
+                    : ((saved.getIdNhanVien() != null && saved.getIdNhanVien().getTenNhanVien() != null)
+                    ? saved.getIdNhanVien().getTenNhanVien()
+                    : (saved.getNguoiTao() != null && !saved.getNguoiTao().isEmpty() ? saved.getNguoiTao() : "Nhân viên bán hàng"));
+
+            boolean alreadyLoggedCreated = false;
+            try {
+                List<LichSuHoaDon> existingLogs = lichSuHoaDonRepository.findByIdHoaDon_IdOrderByThoiGianAsc(saved.getId());
+                if (existingLogs != null && !existingLogs.isEmpty()) {
+                    for (LichSuHoaDon ex : existingLogs) {
+                        if (ex.getGhiChu() != null && ex.getGhiChu().contains("Tạo hóa đơn")) {
+                            alreadyLoggedCreated = true;
+                            if (staffName != null && !staffName.equals("Nhân viên bán hàng") && "Nhân viên bán hàng".equals(ex.getNguoiThucHien())) {
+                                ex.setNguoiThucHien(staffName);
+                                lichSuHoaDonRepository.save(ex);
+                            }
+                            break;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            if (!alreadyLoggedCreated) {
+                LichSuHoaDon log1 = new LichSuHoaDon();
+                log1.setIdHoaDon(saved);
+                log1.setTrangThai(1);
+                log1.setThoiGian(saved.getNgayTao() != null ? saved.getNgayTao() : Instant.now());
+                log1.setGhiChu(loaiDon == 1 ? "Tạo hóa đơn tại quầy" : "Tạo đơn hàng giao");
+                log1.setNguoiThucHien(staffName);
+                log1.setVaiTroNguoiThucHien("Nhân viên");
+                lichSuHoaDonRepository.save(log1);
+            }
+
+            if (Integer.valueOf(1).equals(saved.getTrangThaiThanhToan())) {
+                LichSuHoaDon logPay = new LichSuHoaDon();
+                logPay.setIdHoaDon(saved);
+                logPay.setTrangThai(saved.getTrangThai());
+                logPay.setThoiGian(Instant.now());
+                String pMethod = dto.getPhuongThucThanhToan() != null && !dto.getPhuongThucThanhToan().isEmpty()
+                        ? dto.getPhuongThucThanhToan() : "Tiền mặt";
+                BigDecimal paidAmount = saved.getTienSauGiamGia() != null ? saved.getTienSauGiamGia() : saved.getTongTien();
+                logPay.setGhiChu(String.format("Thanh toán thành công qua %s (%,d đ)", pMethod, paidAmount != null ? paidAmount.longValue() : 0));
+                logPay.setNguoiThucHien(staffName);
+                logPay.setVaiTroNguoiThucHien("Nhân viên");
+                lichSuHoaDonRepository.save(logPay);
+            }
+
+            if (Integer.valueOf(5).equals(saved.getTrangThai())) {
+                LichSuHoaDon log2 = new LichSuHoaDon();
+                log2.setIdHoaDon(saved);
+                log2.setTrangThai(5);
+                log2.setThoiGian(Instant.now());
+                log2.setGhiChu("Hoàn thành đơn hàng tại quầy");
+                log2.setNguoiThucHien(staffName);
+                log2.setVaiTroNguoiThucHien("Nhân viên");
+                lichSuHoaDonRepository.save(log2);
+            }
+        } catch (Exception ignored) {}
+
+        return saved;
+    }
+
+    private HoaDon oldLogHistoryDummy(HoaDon saved, int loaiDon) {
         try {
             LichSuHoaDon log1 = new LichSuHoaDon();
             log1.setIdHoaDon(saved);

@@ -1,8 +1,13 @@
 <template>
   <div class="lich-su-ca-page">
     <!-- Tiêu đề trang -->
-    <div class="page-top-bar">
-      <div class="title-with-icon">
+    <div class="page-top-header">
+      <div class="page-breadcrumb">
+        <router-link to="/lich-su-ca" class="crumb-parent">Lịch làm việc</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">Lịch sử hoạt động</span>
+      </div>
+      <div class="title-with-icon" v-if="false">
         <div class="title-icon-box">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10" />
@@ -367,14 +372,15 @@
           <div class="form-group-item">
             <label class="modal-field-label">Tiền mặt đầu ca (VNĐ) <span class="required-star">*</span></label>
             <input
-              type="number"
+              type="text"
               min="0"
               step="1000"
-              v-model.number="moCaForm.tienMatDauCa"
-              placeholder="Nhập số tiền mặt đầu ca (ví dụ: 1000000)"
+              :value="displayMoCaTien"
+              @focus="$event.target.select()"
+              placeholder="Nhập số tiền mặt đầu ca (ví dụ: 1.000.000)"
               class="form-control-minimal modal-input"
               :class="{ 'input-error-border': moCaErrors.tienMatDauCa }"
-              @input="validateMoCaTien"
+              @input="onMoCaTienInput"
             />
             <span v-if="moCaErrors.tienMatDauCa" class="error-text-red">{{ moCaErrors.tienMatDauCa }}</span>
             <small class="hint-currency">{{ formatCurrency(moCaForm.tienMatDauCa || 0) }}</small>
@@ -451,13 +457,15 @@
           <div class="form-group-item">
             <label class="modal-field-label">Tiền chi từ két trong ca (VNĐ)</label>
             <input
-              type="number"
+              type="text"
               min="0"
               step="1000"
-              v-model.number="dongCaForm.tienChiTrongCa"
+              :value="displayDongCaTienChi"
+              @focus="$event.target.select()"
               placeholder="Nhập số tiền chi từ két (nếu có chi phí lặt vặt, đổi tiền lẻ)..."
+              @input="onDongCaTienChiInput"
               class="form-control-minimal modal-input"
-              @input="computeClosingDiff"
+
             />
             <small class="hint-currency">{{ formatCurrency(dongCaForm.tienChiTrongCa || 0) }}</small>
           </div>
@@ -466,14 +474,16 @@
           <div class="form-group-item">
             <label class="modal-field-label">Tiền mặt kiểm kê thực tế cuối ca (VNĐ) <span class="required-star">*</span></label>
             <input
-              type="number"
+              type="text"
               min="0"
               step="1000"
-              v-model.number="dongCaForm.tienMatCuoiCa"
+              :value="displayDongCaTienCuoi"
+              @focus="$event.target.select()"
               placeholder="Nhập tổng số tiền mặt đếm được trong két..."
               class="form-control-minimal modal-input"
               :class="{ 'input-error-border': dongCaErrors.tienMatCuoiCa }"
-              @input="computeClosingDiff"
+              @input="onDongCaTienCuoiInput"
+
             />
             <span v-if="dongCaErrors.tienMatCuoiCa" class="error-text-red">{{ dongCaErrors.tienMatCuoiCa }}</span>
             <small class="hint-currency">{{ formatCurrency(dongCaForm.tienMatCuoiCa || 0) }}</small>
@@ -646,6 +656,52 @@
           <div v-if="receiptShift?.ghiChu" class="receipt-note-box">
             <strong>Ghi chú:</strong>
             <p>{{ receiptShift.ghiChu }}</p>
+          </div>
+
+          <!-- DANH SÁCH HÓA ĐƠN ĐÃ BÁN TRONG CA -->
+          <div class="receipt-invoices-wrap">
+            <div class="receipt-section-subtitle">
+              <span>HÓA ĐƠN BÁN TRONG CA ({{ receiptShift?.danhSachHoaDon?.length || 0 }} ĐƠN)</span>
+            </div>
+            <table class="receipt-inner-table">
+              <thead>
+                <tr>
+                  <th style="width: 40px; text-align: center">STT</th>
+                  <th style="width: 110px">MÃ HĐ</th>
+                  <th>KHÁCH HÀNG</th>
+                  <th style="text-align: center; width: 100px">HÌNH THỨC</th>
+                  <th style="text-align: right; width: 120px">TỔNG TIỀN</th>
+                  <th style="text-align: center; width: 90px" class="no-print">XEM</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="!receiptShift?.danhSachHoaDon || receiptShift.danhSachHoaDon.length === 0">
+                  <td colspan="6" style="text-align: center; color: #8c979d; padding: 12px;">
+                    Không có hóa đơn phát sinh trong ca này.
+                  </td>
+                </tr>
+                <tr v-for="(hd, hidx) in receiptShift?.danhSachHoaDon" :key="hd.id || hidx">
+                  <td style="text-align: center" class="text-muted">{{ hidx + 1 }}</td>
+                  <td>
+                    <router-link :to="'/hoa-don/' + hd.maHoaDon" class="receipt-hd-link font-bold" target="_blank" title="Nhấp để xem chi tiết hóa đơn">
+                      {{ hd.maHoaDon }}
+                    </router-link>
+                  </td>
+                  <td>{{ hd.tenKhachHang || 'Khách lẻ' }}</td>
+                  <td style="text-align: center">
+                    <span class="badge-mini-pay">{{ hd.hinhThucThanhToan || 'Tiền mặt' }}</span>
+                  </td>
+                  <td style="text-align: right" class="font-bold">
+                    {{ formatCurrency(hd.tongTien) }}
+                  </td>
+                  <td style="text-align: center" class="no-print">
+                    <button type="button" class="btn-receipt-action-view" @click="$router.push('/hoa-don/' + hd.maHoaDon)">
+                      Xem →
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           <div class="receipt-signatures">
@@ -882,6 +938,28 @@ const moCaForm = reactive({
   ghiChu: ''
 })
 
+// Format số có dấu chấm phân cách hàng nghìn (VD: 1250000 -> 1.250.000)
+const formatNumberWithDots = (val) => {
+  if (val === null || val === undefined || val === '') return ''
+  const num = typeof val === 'number' ? val : Number(String(val).replace(/\D/g, ''))
+  if (Number.isNaN(num)) return ''
+  return String(Math.round(num)).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+const parseNumberFromDots = (str) => {
+  if (str === null || str === undefined || str === '') return 0
+  const cleaned = String(str).replace(/\D/g, '')
+  return cleaned ? Number(cleaned) : 0
+}
+
+const displayMoCaTien = computed(() => formatNumberWithDots(moCaForm.tienMatDauCa))
+const onMoCaTienInput = (e) => {
+  const parsed = parseNumberFromDots(e.target.value)
+  moCaForm.tienMatDauCa = parsed
+  validateMoCaTien()
+  e.target.value = formatNumberWithDots(parsed)
+}
+
 const moCaErrors = reactive({
   tienMatDauCa: ''
 })
@@ -952,6 +1030,22 @@ const dongCaErrors = reactive({
   tienMatCuoiCa: '',
   lyDoChenhLech: ''
 })
+
+const displayDongCaTienChi = computed(() => formatNumberWithDots(dongCaForm.tienChiTrongCa))
+const onDongCaTienChiInput = (e) => {
+  const parsed = parseNumberFromDots(e.target.value)
+  dongCaForm.tienChiTrongCa = parsed
+  computeClosingDiff()
+  e.target.value = formatNumberWithDots(parsed)
+}
+
+const displayDongCaTienCuoi = computed(() => formatNumberWithDots(dongCaForm.tienMatCuoiCa))
+const onDongCaTienCuoiInput = (e) => {
+  const parsed = parseNumberFromDots(e.target.value)
+  dongCaForm.tienMatCuoiCa = parsed
+  computeClosingDiff()
+  e.target.value = formatNumberWithDots(parsed)
+}
 
 const calculatedDiff = ref(0)
 
@@ -1080,7 +1174,24 @@ const receiptShift = ref(null)
 async function openReceiptModal(shift) {
   if (!shift) return
   try {
-    const res = await api.get(`/api/lich-su-ca/${shift.id}`)
+    const [res, summaryRes] = await Promise.all([
+      api.get(`/api/lich-su-ca/${shift.id}`),
+      api.get(`/api/lich-su-ca/${shift.id}/summary`)
+    ])
+    receiptShift.value = {
+      ...(res.data || shift),
+      danhSachHoaDon: summaryRes.data?.danhSachHoaDon || []
+    }
+  } catch (e) {
+    receiptShift.value = shift
+  }
+  showReceiptModal.value = true
+}
+
+async function oldOpenReceiptModalDummy(shift) {
+  if (!shift) return
+  try {
+    const res = null
     receiptShift.value = res.data || shift
   } catch (e) {
     receiptShift.value = shift
@@ -1136,8 +1247,8 @@ onMounted(async () => {
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background-color: #f1ede7;
-  color: #8c7355;
+  background-color: #eaf2f6;
+  color: var(--blue, #496883);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1161,9 +1272,9 @@ onMounted(async () => {
   height: 38px;
   padding: 0 16px;
   border-radius: 8px;
-  border: 1px solid #c8b7a0;
-  background-color: #d8cbb8;
-  color: #4a3824;
+  border: 1px solid var(--blue, #496883);
+  background-color: var(--blue, #496883);
+  color: #ffffff;
   font-size: 0.86rem;
   font-weight: 700;
   display: inline-flex;
@@ -1175,15 +1286,15 @@ onMounted(async () => {
 }
 
 .btn-open-shift:hover {
-  background-color: #cbb9a3;
+  background-color: #3b576e;
 }
 
 .btn-close-shift {
   height: 38px;
   padding: 0 16px;
   border-radius: 8px;
-  border: 1px solid #573f2f;
-  background-color: #6b4f3b;
+  border: 1px solid var(--blue, #496883);
+  background-color: var(--blue, #496883);
   color: #ffffff;
   font-size: 0.86rem;
   font-weight: 700;
@@ -1195,7 +1306,7 @@ onMounted(async () => {
 }
 
 .btn-close-shift:hover {
-  background-color: #553e2d;
+  background-color: #3b576e;
 }
 
 /* Filter card */
@@ -1219,7 +1330,7 @@ onMounted(async () => {
 }
 
 .field-label-tiny {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: #6c787e;
   text-transform: uppercase;
@@ -1235,7 +1346,7 @@ onMounted(async () => {
 .prefix-icon {
   position: absolute;
   left: 10px;
-  color: #8c7355;
+  color: var(--blue, #496883);
   pointer-events: none;
 }
 
@@ -1254,9 +1365,9 @@ onMounted(async () => {
 }
 
 .form-control-minimal:focus {
-  border-color: #8c7355;
+  border-color: var(--blue, #496883);
   background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(140, 115, 85, 0.12);
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.15);
 }
 
 .form-control-minimal.with-icon {
@@ -1285,7 +1396,7 @@ onMounted(async () => {
 }
 
 .btn-refresh-clean:hover {
-  background-color: #f5efe7;
+  background-color: #f4f7f9;
   border-color: #b5a494;
 }
 
@@ -1307,10 +1418,11 @@ onMounted(async () => {
 }
 
 .minimal-styled-table th {
-  background-color: #ddd3c5 !important;
-  color: #3b2f23;
+  background-color: #f7f5ef !important;
+  border-bottom: 2px solid #e9e5db !important;
+  color: var(--blue, #496883) !important;
   font-weight: 700;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   letter-spacing: 0.5px;
   padding: 10px 14px;
   text-transform: uppercase;
@@ -1375,9 +1487,9 @@ onMounted(async () => {
 
 .shift-name-tag {
   display: inline-block;
-  background-color: #f1ede7;
-  color: #8c7355;
-  font-size: 0.78rem;
+  background-color: #eaf2f6;
+  color: var(--blue, #496883);
+  font-size: 0.82rem;
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 4px;
@@ -1435,14 +1547,14 @@ onMounted(async () => {
 .diff-reason-tooltip {
   cursor: help;
   color: #3b82f6;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
 }
 
 .badge-shift-state {
   display: inline-block;
   padding: 3px 10px;
   border-radius: 9999px;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 700;
 }
 
@@ -1502,12 +1614,12 @@ onMounted(async () => {
 }
 
 .pg-btn:hover:not(:disabled) {
-  background-color: #f5efe7;
+  background-color: #f4f7f9;
 }
 
 .pg-btn.active {
-  background-color: #8c7355 !important;
-  border-color: #8c7355 !important;
+  background-color: var(--blue, #496883) !important;
+  border-color: var(--blue, #496883) !important;
   color: #ffffff !important;
 }
 
@@ -1614,14 +1726,14 @@ onMounted(async () => {
 }
 
 .hint-currency {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   color: #0284c7;
   font-weight: 600;
 }
 
 .error-text-red {
   color: #dc2626;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 600;
 }
 
@@ -1683,8 +1795,8 @@ onMounted(async () => {
 .btn-save-modal {
   padding: 8px 22px;
   border-radius: 8px;
-  border: 1px solid #8c7355;
-  background: #8c7355;
+  border: 1px solid var(--blue, #496883);
+  background: var(--blue, #496883);
   color: #ffffff;
   font-weight: 700;
   cursor: pointer;
@@ -1734,8 +1846,8 @@ onMounted(async () => {
 
 .btn-row-action:hover {
   background-color: #f7f4ee;
-  border-color: #8c7355;
-  color: #8c7355;
+  border-color: var(--blue, #496883);
+  color: var(--blue, #496883);
   transform: translateY(-1px);
 }
 
@@ -1833,7 +1945,7 @@ onMounted(async () => {
 .receipt-subtitle {
   font-size: 0.85rem;
   font-weight: 700;
-  color: #8c7355;
+  color: var(--blue, #496883);
   letter-spacing: 1px;
   margin: 4px 0 6px 0;
 }
@@ -1897,7 +2009,7 @@ onMounted(async () => {
 
 .row-highlight-accent td {
   background: #fdfbf7;
-  color: #8c7355;
+  color: var(--blue, #496883);
   font-weight: 700;
 }
 
@@ -1991,6 +2103,69 @@ onMounted(async () => {
 
 .btn-print-receipt:hover {
   background: #0f172a;
+}
+
+.receipt-invoices-wrap {
+  margin: 16px 0 12px;
+  background-color: #faf8f5;
+  border: 1px solid #e7ded4;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.receipt-section-subtitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--blue, #496883);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.receipt-inner-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.receipt-inner-table th {
+  background-color: #efe8df;
+  color: #493b2f;
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.receipt-inner-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #eee8e0;
+}
+.receipt-hd-link {
+  color: #2563eb;
+  text-decoration: none;
+}
+.receipt-hd-link:hover {
+  text-decoration: underline;
+}
+.badge-mini-pay {
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.btn-receipt-action-view {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-receipt-action-view:hover {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
 }
 
 @media print {

@@ -1362,7 +1362,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   color: #7f8c8d;
   margin-bottom: 0;
 }
@@ -1537,7 +1537,7 @@ onMounted(() => {
 }
 
 .filter-field-label {
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: #475569;
   margin: 0;
@@ -1719,7 +1719,7 @@ onMounted(() => {
   height: 24px;
   padding: 0 6px;
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #3b4b53;
   background-color: #f7f5ee;
@@ -1751,14 +1751,14 @@ onMounted(() => {
 }
 
 .product-table th {
-  background-color: #faf8f5;
-  color: #4a5568;
+  background-color: #f7f5ef;
+  color: var(--blue, #496883);
   font-weight: 700;
   text-transform: uppercase;
   padding: 0.95rem 1rem;
   text-align: left;
   border-bottom: 2px solid #e9e5db;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   letter-spacing: 0.5px;
   white-space: nowrap;
 }
@@ -1807,7 +1807,7 @@ onMounted(() => {
   padding: 0.4rem 0.9rem;
   background-color: #fff8eb;
   color: #957b48;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 600;
   border-radius: 6px;
   border: 1px solid #dfd5c2;
@@ -2011,7 +2011,7 @@ onMounted(() => {
   padding: 3px 10px;
   border-radius: 12px;
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
 }
 .stock-badge.in-stock {
   background-color: #eaf5ed;
@@ -2035,7 +2035,7 @@ onMounted(() => {
   padding: 0.35rem 0.8rem;
   font-weight: 700;
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   white-space: nowrap;
 }
 
@@ -2056,7 +2056,7 @@ onMounted(() => {
   padding: 0.35rem 0.8rem;
   font-weight: 700;
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   white-space: nowrap;
   border: 1px solid transparent;
   cursor: pointer;
@@ -2692,7 +2692,7 @@ textarea.form-control {
 }
 
 .pdm-code {
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #496883;
   background: #edf2f7;
@@ -2888,7 +2888,7 @@ textarea.form-control {
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 4px 10px;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -3207,7 +3207,7 @@ textarea.form-control {
 }
 
 .errors-desc {
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   color: #b91c1c;
   margin: 0;
 }
@@ -3224,7 +3224,7 @@ textarea.form-control {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   color: #7f1d1d;
   line-height: 1.4;
 }
@@ -3258,7 +3258,7 @@ textarea.form-control {
   gap: 0.75rem;
   padding: 1rem 1.5rem;
   border-top: 1px solid #efeae0;
-  background-color: #faf8f5;
+  background-color: #f7f5ef;
   margin-top: 0;
 }
 

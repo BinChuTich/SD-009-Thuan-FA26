@@ -114,7 +114,65 @@ public class ThongKeServiceImpl implements ThongKeService {
         // 9. Bảng Thống kê sản phẩm (STT, Mã, Tên, Thương hiệu, Size, Đã bán, Doanh thu, Tồn kho)
         List<ProductStatDTO> productStats = buildProductStats(filteredDetails, brandId, productKeyword);
 
-        return new ThongKeOverviewDTO(kpi, barChart, brandDonut, orderStatusDonut, timeSummary, productStats);
+        // 10. Danh sách hóa đơn trong kỳ thống kê
+        List<InvoiceStatDTO> invoiceStats = buildInvoiceStats(allInvoices, paymentsByInvoice);
+        ThongKeOverviewDTO overview = new ThongKeOverviewDTO(kpi, barChart, brandDonut, orderStatusDonut, timeSummary, productStats);
+        overview.setInvoices(invoiceStats);
+        return overview;
+    }
+
+    private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, List<HinhThucThanhToan>> paymentsByInvoice) {
+        if (invoices == null || invoices.isEmpty()) return Collections.emptyList();
+        List<InvoiceStatDTO> list = new ArrayList<>();
+        for (HoaDon h : invoices) {
+            InvoiceStatDTO dto = new InvoiceStatDTO();
+            dto.setId(h.getId());
+            dto.setMaHoaDon(h.getMaHoaDon());
+            dto.setNgayTao(h.getNgayTao());
+            dto.setTenKhachHang(h.getTenKhachHang() != null ? h.getTenKhachHang() : "Khách lẻ");
+            dto.setSoDienThoaiKhachHang(h.getSoDienThoaiKhachHang());
+            String staff = "Nhân viên";
+            if (h.getIdNhanVien() != null && h.getIdNhanVien().getTenNhanVien() != null) {
+                staff = h.getIdNhanVien().getTenNhanVien();
+            } else if (h.getNguoiTao() != null && !h.getNguoiTao().isEmpty()) {
+                staff = h.getNguoiTao();
+            }
+            dto.setTenNhanVien(staff);
+            dto.setLoaiDon(h.getLoaiDon() != null ? h.getLoaiDon() : 1);
+            dto.setTongTien(h.getTongTien() != null ? h.getTongTien() : BigDecimal.ZERO);
+            dto.setTienSauGiamGia(h.getTienSauGiamGia() != null ? h.getTienSauGiamGia() : dto.getTongTien());
+            dto.setTrangThai(h.getTrangThai() != null ? h.getTrangThai() : 1);
+            dto.setTrangThaiThanhToan(h.getTrangThaiThanhToan() != null ? h.getTrangThaiThanhToan() : 0);
+
+            List<HinhThucThanhToan> pays = paymentsByInvoice != null ? paymentsByInvoice.get(h.getId()) : null;
+            if (pays != null && !pays.isEmpty()) {
+                boolean hasCash = pays.stream().anyMatch(p -> {
+                    String pt = p.getIdPhuongThuc() != null ? p.getIdPhuongThuc().getTenPhuongThuc().toLowerCase() : "";
+                    return pt.contains("tiền mặt") || pt.contains("tien mat");
+                });
+                boolean hasTransfer = pays.stream().anyMatch(p -> {
+                    String pt = p.getIdPhuongThuc() != null ? p.getIdPhuongThuc().getTenPhuongThuc().toLowerCase() : "";
+                    return pt.contains("chuyển khoản") || pt.contains("ngân hàng") || pt.contains("vnpay");
+                });
+                if (hasCash && hasTransfer) {
+                    dto.setHinhThucThanhToan("Kết hợp");
+                } else if (hasTransfer) {
+                    dto.setHinhThucThanhToan("Chuyển khoản");
+                } else {
+                    dto.setHinhThucThanhToan("Tiền mặt");
+                }
+            } else {
+                dto.setHinhThucThanhToan(Integer.valueOf(1).equals(h.getLoaiDon()) ? "Tiền mặt" : "Chuyển khoản");
+            }
+            list.add(dto);
+        }
+        list.sort((a, b) -> {
+            if (a.getNgayTao() == null && b.getNgayTao() == null) return 0;
+            if (a.getNgayTao() == null) return 1;
+            if (b.getNgayTao() == null) return -1;
+            return b.getNgayTao().compareTo(a.getNgayTao());
+        });
+        return list;
     }
 
     private OrderStatusDonutDTO buildOrderStatusDonut(List<HoaDon> invoices) {

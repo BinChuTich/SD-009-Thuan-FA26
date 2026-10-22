@@ -995,7 +995,7 @@ onBeforeUnmount(() => {
 }
 
 .crumb-parent:hover {
-  color: #3e5c76;
+  color: var(--blue, #496883);
 }
 
 .crumb-separator {
@@ -1005,14 +1005,14 @@ onBeforeUnmount(() => {
 }
 
 .crumb-current {
-  color: #3e5c76;
+  color: var(--blue, #496883);
   font-weight: 600;
 }
 
 .card-box {
   background: #ffffff;
   border-radius: 10px;
-  border: 1px solid #ebd9c8;
+  border: 1px solid var(--line, #e9e5db);
   padding: 22px 26px;
   margin-bottom: 22px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
@@ -1021,7 +1021,7 @@ onBeforeUnmount(() => {
 .card-heading {
   font-size: 1rem;
   font-weight: 700;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   margin: 0;
 }
 
@@ -1054,13 +1054,13 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #3e5c76;
+  color: var(--blue, #496883);
 }
 
 .filter-title {
   font-size: 1rem;
   font-weight: 700;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   margin: 0;
 }
 
@@ -1091,7 +1091,7 @@ onBeforeUnmount(() => {
   border: 1.5px solid #c8d6df;
   border-radius: 8px;
   background: #edf4f7;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -1110,7 +1110,7 @@ onBeforeUnmount(() => {
 
 .btn-export {
   background-color: #f7ebe1;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   border: 1.5px solid #e5c3a3;
   height: 35px;
   padding: 0 16px;
@@ -1206,7 +1206,7 @@ onBeforeUnmount(() => {
   transform: translateY(-50%);
   background: transparent;
   border: none;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   padding: 5px;
   border-radius: 6px;
   cursor: pointer;
@@ -1282,12 +1282,15 @@ onBeforeUnmount(() => {
 }
 
 .custom-table th {
-  background-color: #f5efeb;
-  color: #3e5c76;
+  background-color: #f7f5ef;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
+  color: var(--blue, #496883);
   font-weight: 700;
   padding: 13px 14px;
   white-space: nowrap;
-  border-bottom: 1px solid #ebd9c8;
+  border-bottom: 2px solid #e9e5db;
 }
 
 .custom-table td {

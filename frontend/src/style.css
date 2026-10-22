@@ -38,7 +38,8 @@ body {
     background: var(--bg);
     color: var(--text);
     font-family: var(--system-font);
-    font-size: 11px;
+    font-size: 14px;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
@@ -58,6 +59,19 @@ a {
 }
 
 /* ================= GLOBAL PAGE BREADCRUMB ================= */
+.page-top-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.page-top-header .page-breadcrumb {
+    margin-bottom: 0 !important;
+}
+
 .page-breadcrumb {
     display: flex;
     align-items: center;
@@ -75,7 +89,7 @@ a {
 }
 
 .crumb-parent:hover {
-    color: #3e5c76 !important;
+    color: var(--blue, #496883) !important;
     text-decoration: underline !important;
 }
 
@@ -87,7 +101,7 @@ a {
 }
 
 .crumb-current {
-    color: #3e5c76 !important;
+    color: var(--blue, #496883) !important;
     font-weight: 700 !important;
 }
 
@@ -212,7 +226,8 @@ a {
     border-radius: 8px;
     color: #5d6a70;
     text-decoration: none;
-    font-size: 11px;
+    font-size: 14px;
+    line-height: 1.5;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -291,7 +306,7 @@ a {
     border-radius: 7px;
     color: #7a8589;
     text-decoration: none;
-    font-size: 10px;
+    font-size: 12.5px;
     transition: all 0.2s ease;
 }
 
@@ -301,19 +316,19 @@ a {
 }
 
 .tree-item.active {
-    background: #f0e1c1;
-    color: #8a6d35;
+    background: #e7f0f4;
+    color: #355d74;
     font-weight: 700;
 }
 
 .tree-branch {
     width: 18px;
     color: #b0b7b8;
-    font-size: 8px;
+    font-size: 0.88rem;
 }
 
 .tree-item.active .tree-branch {
-    color: #cfb477;
+    color: #496883;
 }
 
 .menu-group {
@@ -337,7 +352,8 @@ a {
     align-items: center;
     padding: 0 24px;
     color: #6c7477;
-    font-size: 11px;
+    font-size: 14px;
+    line-height: 1.5;
 }
 
 .header-title {
@@ -349,7 +365,7 @@ a {
     display: flex;
     gap: 9px;
     align-items: center;
-    font-size: 10px;
+    font-size: 12.5px;
 }
 
 .header-right a {
@@ -842,7 +858,7 @@ a {
 }
 
 .pos-title p {
-    font-size: 8.5px;
+    font-size: 0.85rem;
     color: #929999;
     margin: 2px 0 0;
 }
@@ -858,7 +874,7 @@ a {
     border: 1px solid #e5dfd2;
     border-radius: 6px;
     padding: 6px 12px;
-    font-size: 8.5px;
+    font-size: 0.85rem;
     font-weight: 600;
     color: #556268;
     cursor: pointer;
@@ -877,7 +893,7 @@ a {
 .invoice-tab .badge {
     background: #cf4f4f;
     color: #fff;
-    font-size: 7px;
+    font-size: 0.8rem;
     padding: 1px 5px;
     border-radius: 10px;
 }
@@ -917,7 +933,7 @@ a {
 .cart-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 8px;
+    font-size: 0.88rem;
 }
 
 .cart-table th {
@@ -955,12 +971,12 @@ a {
 .empty-state p {
     margin: 0;
     font-weight: 600;
-    font-size: 9.5px;
+    font-size: 0.88rem;
     color: #657378;
 }
 
 .empty-state small {
-    font-size: 8px;
+    font-size: 0.88rem;
     color: #a1a7a7;
 }
 
@@ -969,7 +985,7 @@ a {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 7.5px;
+    font-size: 0.82rem;
     color: #9a9e9e;
     border-top: 1px solid #f4f0e8;
 }
@@ -985,7 +1001,7 @@ a {
     border: 1px solid #e4ded2;
     background: #fff;
     border-radius: 4px;
-    font-size: 8px;
+    font-size: 0.88rem;
     cursor: pointer;
 }
 
@@ -1001,7 +1017,7 @@ a {
     border: none;
     border-radius: 5px;
     padding: 6px 12px;
-    font-size: 8px;
+    font-size: 0.88rem;
     font-weight: 600;
     cursor: pointer;
 }
@@ -1032,7 +1048,7 @@ a {
 }
 
 .form-group label {
-    font-size: 7.5px;
+    font-size: 0.82rem;
     font-weight: 700;
     color: #4a5960;
     letter-spacing: 0.3px;
@@ -1043,7 +1059,7 @@ a {
     border: 1px solid #ded8cb;
     border-radius: 6px;
     padding: 7px 10px;
-    font-size: 8px;
+    font-size: 0.88rem;
     color: #33434c;
     outline: none;
     background: #fff;
@@ -1065,7 +1081,7 @@ a {
 .summary-line {
     display: flex;
     justify-content: space-between;
-    font-size: 8.5px;
+    font-size: 0.85rem;
     color: #6a7478;
 }
 
@@ -1079,7 +1095,7 @@ a {
 }
 
 .total-line span {
-    font-size: 10px;
+    font-size: 12.5px;
     font-weight: 700;
     color: #394850;
 }
@@ -1140,7 +1156,7 @@ a {
 }
 
 .switch-label {
-    font-size: 8px;
+    font-size: 0.88rem;
     font-weight: 600;
     color: #515e63;
 }
@@ -1155,7 +1171,7 @@ a {
     border: 1px solid #ded8cb;
     border-radius: 5px;
     padding: 6px 8px;
-    font-size: 8px;
+    font-size: 0.88rem;
     outline: none;
 }
 
@@ -1165,7 +1181,7 @@ a {
     color: #8b6e35;
     border-radius: 5px;
     padding: 6px 10px;
-    font-size: 7.5px;
+    font-size: 0.82rem;
     font-weight: 700;
     cursor: pointer;
 }
@@ -1174,7 +1190,7 @@ a {
     border: 1px solid #ded8cb;
     border-radius: 6px;
     padding: 7px 10px;
-    font-size: 8px;
+    font-size: 0.88rem;
     resize: none;
     height: 48px;
     outline: none;
@@ -1191,7 +1207,7 @@ a {
     background: #fff;
     border-radius: 5px;
     padding: 7px 2px;
-    font-size: 7.5px;
+    font-size: 0.82rem;
     font-weight: 600;
     color: #556268;
     cursor: pointer;
@@ -1211,7 +1227,7 @@ a {
     border: none;
     border-radius: 6px;
     padding: 9px;
-    font-size: 9px;
+    font-size: 0.88rem;
     font-weight: 700;
     cursor: pointer;
     margin-top: 4px;
@@ -1232,14 +1248,14 @@ a {
 }
 
 .recent-head h3 {
-    font-size: 10px;
+    font-size: 12.5px;
     font-weight: 700;
     margin: 0;
     color: #3b4c54;
 }
 
 .recent-head p {
-    font-size: 7.5px;
+    font-size: 0.82rem;
     color: #9da3a3;
     margin: 2px 0 0;
 }
@@ -1268,18 +1284,376 @@ a {
 }
 
 .order-code {
-    font-size: 8px;
+    font-size: 0.88rem;
     color: #356385;
 }
 
 .customer-name {
-    font-size: 7px;
+    font-size: 0.8rem;
     color: #9aa0a0;
 }
 
 .order-total {
-    font-size: 8px;
+    font-size: 0.88rem;
     color: #404f56;
+}
+
+/* =========================================================================
+   HỆ THỐNG ĐỒNG BỘ GIAO DIỆN TOÀN DIỆN (GLOBAL UNIFIED DESIGN SYSTEM)
+   - Bảng màu: Brand Blue (#496883), Soft Background (#f7f5ef), Slate Text (#3d4a50)
+   - Typography: Base 14px, Tiêu đề Card 1.05rem, Bảng dữ liệu 0.88rem, Nhãn 0.83rem
+   - Đồng bộ toàn bộ các màn: Bán hàng, Hóa đơn, Sản phẩm, Khách hàng, Nhân viên, Giảm giá, Lịch ca
+========================================================================= */
+
+/* 1. KHUNG VÙNG CHỨA CÁC TRANG */
+.page-container,
+.customer-page-wrapper,
+.employee-page-wrapper,
+.hoa-don-container,
+.product-page-container,
+.statistics-page-wrapper,
+.voucher-page-wrapper,
+.dot-giam-gia-wrapper,
+.lich-su-ca-page,
+.giao-ca-page,
+.pos-screen-wrapper,
+.variant-page-container,
+.product-form-container {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    font-family: var(--system-font) !important;
+    color: var(--text, #3d4a50) !important;
+}
+
+/* 2. KHỐI THẺ CHỨA (CARDS & BOXES) */
+.content-card,
+.card-box,
+.filter-card,
+.table-card,
+.product-card,
+.filter-card-box,
+.form-card,
+.form-section-card {
+    background: #ffffff !important;
+    border: 1px solid var(--line, #e9e5db) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 1px 3px rgba(65, 60, 50, 0.03) !important;
+    margin-bottom: 1.25rem !important;
+}
+
+/* Header trong Card */
+.card-header-filter,
+.table-header-row,
+.filter-top-row,
+.card-box-header,
+.card-section-header,
+.filter-header-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.filter-title,
+.table-title,
+.filter-header-title,
+.filter-title-text,
+.section-title,
+.card-title-text,
+.page-main-title {
+    font-family: var(--system-font) !important;
+    font-size: 1.05rem !important;
+    font-weight: 700 !important;
+    color: var(--blue, #496883) !important;
+    margin: 0 !important;
+}
+
+/* 3. NHÃN & Ô NHẬP LIỆU (FORM CONTROLS) */
+.form-group label,
+.form-field label,
+.filter-label,
+.field-label,
+.field-label-tiny,
+.filter-field-label,
+.search-label,
+.item-label {
+    font-family: var(--system-font) !important;
+    font-size: 0.83rem !important;
+    font-weight: 600 !important;
+    color: #555e65 !important;
+    margin-bottom: 5px !important;
+    display: inline-block !important;
+}
+
+.form-control,
+.filter-text-input,
+.form-field input,
+.input-inner input,
+.input-inner-custom input,
+.filter-date-input,
+.form-control-minimal,
+.form-input {
+    font-family: var(--system-font) !important;
+    font-size: 0.88rem !important;
+    color: var(--text, #3d4a50) !important;
+    background-color: #ffffff !important;
+    border: 1px solid #d4dde2 !important;
+    border-radius: 8px !important;
+    height: 38px !important;
+    padding: 0 12px !important;
+    box-sizing: border-box !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.form-control:focus,
+.filter-text-input:focus,
+.form-field input:focus,
+.input-inner input:focus,
+.input-inner-custom input:focus,
+.filter-date-input:focus,
+.form-control-minimal:focus,
+.form-input:focus {
+    border-color: var(--blue, #496883) !important;
+    box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12) !important;
+    outline: none !important;
+}
+
+/* 4. BẢNG DỮ LIỆU ĐỒNG BỘ (UNIFIED TABLES) */
+.custom-table,
+.pos-custom-table,
+.table-styled,
+.product-table {
+    width: 100% !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    font-size: 0.88rem !important;
+    font-family: var(--system-font) !important;
+}
+
+.custom-table th,
+.pos-custom-table thead th,
+.table-styled th,
+.product-table th {
+    background-color: #f7f5ef !important;
+    color: var(--blue, #496883) !important;
+    font-weight: 700 !important;
+    font-size: 0.82rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    padding: 12px 14px !important;
+    border-bottom: 2px solid var(--line, #e9e5db) !important;
+    white-space: nowrap !important;
+    text-align: left !important;
+}
+
+.custom-table td,
+.pos-custom-table tbody td,
+.table-styled td,
+.product-table td {
+    padding: 11px 14px !important;
+    border-bottom: 1px solid #f0ede6 !important;
+    color: var(--text, #3d4a50) !important;
+    font-size: 0.88rem !important;
+    vertical-align: middle !important;
+}
+
+.custom-table tr:hover td,
+.pos-custom-table tbody tr:hover td,
+.table-row:hover td {
+    background-color: #fafbfc !important;
+}
+
+.text-code,
+.code-highlight,
+.code-val {
+    color: var(--blue, #496883) !important;
+    font-weight: 700 !important;
+}
+
+/* 5. CÁC NÚT THAO TÁC CHÍNH (UNIFIED BUTTONS) */
+.btn-primary,
+.btn-header-primary,
+.btn-create,
+.btn-save {
+    background-color: var(--blue, #496883) !important;
+    border: 1px solid var(--blue, #496883) !important;
+    color: #ffffff !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    height: 36px !important;
+    padding: 0 16px !important;
+    border-radius: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 2px 4px rgba(73, 104, 131, 0.2) !important;
+}
+
+.btn-primary:hover,
+.btn-header-primary:hover,
+.btn-create:hover,
+.btn-save:hover {
+    background-color: #3b576e !important;
+    border-color: #3b576e !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 8px rgba(73, 104, 131, 0.3) !important;
+}
+
+.btn-reset,
+.btn-refresh,
+.btn-refresh-clean,
+.btn-header-outline,
+.btn-secondary,
+.btn-back-pill,
+.btn-back-top {
+    background-color: #ffffff !important;
+    border: 1px solid #d4dde2 !important;
+    color: #555e65 !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    height: 36px !important;
+    padding: 0 14px !important;
+    border-radius: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.btn-reset:hover,
+.btn-refresh:hover,
+.btn-refresh-clean:hover,
+.btn-header-outline:hover,
+.btn-secondary:hover,
+.btn-back-pill:hover,
+.btn-back-top:hover {
+    background-color: #f4f7f9 !important;
+    border-color: #b8c8d2 !important;
+    color: var(--blue, #496883) !important;
+}
+
+.btn-export,
+.btn-export-excel {
+    background-color: #edf5ef !important;
+    border: 1px solid #cce5d3 !important;
+    color: #247541 !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    height: 36px !important;
+    padding: 0 15px !important;
+    border-radius: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.btn-export:hover,
+.btn-export-excel:hover {
+    background-color: #def0e2 !important;
+    border-color: #b3dac0 !important;
+    transform: translateY(-1px) !important;
+}
+
+/* 6. HUY HIỆU TRẠNG THÁI (STATUS BADGES) */
+.badge-status,
+.status-pill {
+    display: inline-block !important;
+    padding: 0.32rem 0.85rem !important;
+    border-radius: 9999px !important;
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.2px !important;
+    white-space: nowrap !important;
+}
+
+.status-active,
+.badge-active,
+.badge-paid,
+.pill.done {
+    background-color: #eaf5ed !important;
+    color: #247541 !important;
+    border: 1px solid #bce1c7 !important;
+}
+
+.status-inactive,
+.badge-inactive,
+.badge-cancel,
+.pill.cancel {
+    background-color: #f7edeb !important;
+    color: #b34a3b !important;
+    border: 1px solid #ecc9c3 !important;
+}
+
+.status-pending,
+.badge-pending,
+.badge-unpaid,
+.pill.wait {
+    background-color: #fef8ec !important;
+    color: #b27b18 !important;
+    border: 1px solid #f8e1b5 !important;
+}
+
+.status-blue,
+.badge-store,
+.pill.ship {
+    background-color: #eaf2f6 !important;
+    color: #38627d !important;
+    border: 1px solid #c5d9e5 !important;
+}
+
+/* 7. PHÂN TRANG (PAGINATION) */
+.pagination-row,
+.pagination-wrap {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-top: 1.25rem !important;
+    padding-top: 1rem !important;
+    border-top: 1px solid #f0ede6 !important;
+}
+
+.pagination-info {
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    color: #555e65 !important;
+}
+
+.page-btn {
+    height: 32px !important;
+    min-width: 32px !important;
+    padding: 0 8px !important;
+    border-radius: 6px !important;
+    border: 1px solid #d4dde2 !important;
+    background: #ffffff !important;
+    color: #555e65 !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.page-btn:hover:not(:disabled) {
+    background-color: #f4f7f9 !important;
+    border-color: #b8c8d2 !important;
+    color: var(--blue, #496883) !important;
+}
+
+.page-btn.active {
+    background-color: var(--blue, #496883) !important;
+    border-color: var(--blue, #496883) !important;
+    color: #ffffff !important;
+}
+
+.page-btn:disabled {
+    opacity: 0.45 !important;
+    cursor: not-allowed !important;
 }
 
 /* ================= RESPONSIVE ================= */

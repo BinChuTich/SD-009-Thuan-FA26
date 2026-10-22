@@ -2085,8 +2085,8 @@ watch(() => route.query.sanPhamId, async (newId) => {
 }
 
 .variant-data-table th {
-  background-color: #faf8f5;
-  color: #4a5568;
+  background-color: #f7f5ef;
+  color: var(--blue, #496883);
   font-weight: 700;
   text-transform: uppercase;
   padding: 12px 14px;
@@ -2865,7 +2865,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
   gap: 0.75rem;
   padding: 1rem 1.5rem;
   border-top: 1px solid #efeae0;
-  background-color: #faf8f5;
+  background-color: #f7f5ef;
 }
 
 .btn {

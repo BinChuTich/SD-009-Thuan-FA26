@@ -11,6 +11,7 @@ public class ThongKeOverviewDTO {
     private OrderStatusDonutDTO orderStatusDonut;
     private List<TimeSummaryRowDTO> timeSummary;
     private List<ProductStatDTO> products;
+    private List<InvoiceStatDTO> invoices = new ArrayList<>();
 
     public ThongKeOverviewDTO() {
         super();
@@ -79,6 +80,60 @@ public class ThongKeOverviewDTO {
     }
 
     public void setProducts(List<ProductStatDTO> products) {
+        this.products = products;
+    }
+
+    public List<InvoiceStatDTO> getInvoices() {
+        return invoices;
+    }
+
+    public void setInvoices(List<InvoiceStatDTO> invoices) {
+        this.invoices = invoices != null ? invoices : new ArrayList<>();
+    }
+
+    public static class InvoiceStatDTO {
+        private Long id;
+        private String maHoaDon;
+        private java.time.Instant ngayTao;
+        private String tenKhachHang;
+        private String soDienThoaiKhachHang;
+        private String tenNhanVien;
+        private Integer loaiDon;
+        private BigDecimal tongTien;
+        private BigDecimal tienSauGiamGia;
+        private String hinhThucThanhToan;
+        private Integer trangThai;
+        private Integer trangThaiThanhToan;
+
+        public InvoiceStatDTO() {}
+
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
+        public String getMaHoaDon() { return maHoaDon; }
+        public void setMaHoaDon(String maHoaDon) { this.maHoaDon = maHoaDon; }
+        public java.time.Instant getNgayTao() { return ngayTao; }
+        public void setNgayTao(java.time.Instant ngayTao) { this.ngayTao = ngayTao; }
+        public String getTenKhachHang() { return tenKhachHang; }
+        public void setTenKhachHang(String tenKhachHang) { this.tenKhachHang = tenKhachHang; }
+        public String getSoDienThoaiKhachHang() { return soDienThoaiKhachHang; }
+        public void setSoDienThoaiKhachHang(String soDienThoaiKhachHang) { this.soDienThoaiKhachHang = soDienThoaiKhachHang; }
+        public String getTenNhanVien() { return tenNhanVien; }
+        public void setTenNhanVien(String tenNhanVien) { this.tenNhanVien = tenNhanVien; }
+        public Integer getLoaiDon() { return loaiDon; }
+        public void setLoaiDon(Integer loaiDon) { this.loaiDon = loaiDon; }
+        public BigDecimal getTongTien() { return tongTien; }
+        public void setTongTien(BigDecimal tongTien) { this.tongTien = tongTien; }
+        public BigDecimal getTienSauGiamGia() { return tienSauGiamGia; }
+        public void setTienSauGiamGia(BigDecimal tienSauGiamGia) { this.tienSauGiamGia = tienSauGiamGia; }
+        public String getHinhThucThanhToan() { return hinhThucThanhToan; }
+        public void setHinhThucThanhToan(String hinhThucThanhToan) { this.hinhThucThanhToan = hinhThucThanhToan; }
+        public Integer getTrangThai() { return trangThai; }
+        public void setTrangThai(Integer trangThai) { this.trangThai = trangThai; }
+        public Integer getTrangThaiThanhToan() { return trangThaiThanhToan; }
+        public void setTrangThaiThanhToan(Integer trangThaiThanhToan) { this.trangThaiThanhToan = trangThaiThanhToan; }
+    }
+
+    public void setOldProducts(List<ProductStatDTO> products) {
         this.products = products;
     }
 

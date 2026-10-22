@@ -115,11 +115,29 @@ public class HoaDonController {
 
     // Tạo hóa đơn chờ tại quầy mới
     @PostMapping("/waiting")
-    public ResponseEntity<HoaDon> createWaitingInvoice() {
-        return ResponseEntity.ok(hoaDonService.createWaitingInvoice());
+    public ResponseEntity<HoaDon> createWaitingInvoice(@RequestBody(required = false) Map<String, Object> body) {
+        Long idNhanVien = null;
+        String nguoiTao = null;
+        Long idGiaoCa = null;
+        if (body != null) {
+            if (body.get("idNhanVien") != null) {
+                try { idNhanVien = Long.valueOf(body.get("idNhanVien").toString()); } catch (Exception ignored) {}
+            }
+            if (body.get("nguoiTao") != null) {
+                nguoiTao = body.get("nguoiTao").toString();
+            }
+            if (body.get("idGiaoCa") != null) {
+                try { idGiaoCa = Long.valueOf(body.get("idGiaoCa").toString()); } catch (Exception ignored) {}
+            }
+        }
+        return ResponseEntity.ok(hoaDonService.createWaitingInvoice(idNhanVien, nguoiTao, idGiaoCa));
+    } /*
     }
 
-    // Đồng bộ danh sách sản phẩm trong giỏ hàng của hóa đơn chờ
+
+    }
+
+    */ // Đồng bộ danh sách sản phẩm trong giỏ hàng của hóa đơn chờ
     @PostMapping("/{id}/sync-cart")
     public ResponseEntity<List<ChiTietHoaDon>> syncCart(
             @PathVariable Long id,
