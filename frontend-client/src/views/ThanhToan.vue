@@ -249,8 +249,18 @@ const handlePlaceOrder = async () => {
     return
   }
 
+  // Kiểm tra an toàn: nếu có sản phẩm hết hàng thì chặn đặt hàng
+  const outOfStockItems = activeCheckoutItems.value.filter(i => (i.maxStock != null ? i.maxStock : 99) <= 0)
+  if (outOfStockItems.length > 0) {
+    alert(`Sản phẩm "${outOfStockItems[0].productName}" hiện đã hết hàng trong kho. Vui lòng quay lại giỏ hàng để cập nhật!`)
+    return
+  }
+
   submitting.value = true
   try {
+    const checkoutAmount = Math.round(Number(finalTotal.value))
+    const purchasedIds = activeCheckoutItems.value.map(i => i.variantId)
+
     const payload = {
       tenKhachHang: customerName.value.trim(),
       soDienThoai: customerPhone.value.trim(),
@@ -258,7 +268,7 @@ const handlePlaceOrder = async () => {
       diaChiNhanHang: fullDeliveryAddress.value,
       ghiChu: orderNote.value.trim(),
       phuongThucThanhToan: paymentMethod.value,
-      tongTien: finalTotal.value,
+      tongTien: checkoutAmount,
       phiVanChuyen: shippingFee.value,
       giamGia: voucherDiscount.value,
       chiTiet: activeCheckoutItems.value.map(i => ({
@@ -272,21 +282,21 @@ const handlePlaceOrder = async () => {
     const savedOrder = res.data
     createdOrder.value = savedOrder
 
-    // Xóa những sản phẩm đã đặt khỏi giỏ hàng
-    const purchasedIds = activeCheckoutItems.value.map(i => i.variantId)
-    removeMultipleFromCart(purchasedIds)
-    sessionStorage.removeItem('fftshirt_checkout_items')
-    sessionStorage.removeItem('fftshirt_checkout_voucher')
-
-    // Nếu chọn thanh toán qua cổng VNPAY -> Mở popup nhỏ & chuyển trang chính sang /don-hang như video
+    // Nếu chọn thanh toán qua cổng VNPAY -> Mở popup nhỏ & chuyển trang chính sang /don-hang
     if (paymentMethod.value === 'VNPAY') {
+      const vnpAmount = Math.max(1, Math.round(Number(savedOrder?.tienSauGiamGia || savedOrder?.tongTien || checkoutAmount)))
       const vnpPayload = {
         orderCode: savedOrder.maHoaDon,
-        amount: finalTotal.value,
+        amount: vnpAmount,
         orderInfo: `Thanh toan don hang ${savedOrder.maHoaDon}`
       }
       const vnpRes = await api.post('/api/vnpay/create-payment', vnpPayload)
       if (vnpRes.data && vnpRes.data.paymentUrl) {
+        // Chỉ xóa giỏ hàng khi tạo liên kết thanh toán VNPAY thành công
+        removeMultipleFromCart(purchasedIds)
+        sessionStorage.removeItem('fftshirt_checkout_items')
+        sessionStorage.removeItem('fftshirt_checkout_voucher')
+
         // Mở cửa sổ con (popup window) ở giữa màn hình
         const width = 850
         const height = 750
@@ -305,7 +315,10 @@ const handlePlaceOrder = async () => {
       }
     }
 
-    // Nếu là COD: Hiển thị ngay màn hình ĐẶT HÀNG THÀNH CÔNG chuyên nghiệp, rõ ràng
+    // Nếu là COD: Xóa giỏ hàng và hiển thị ngay màn hình ĐẶT HÀNG THÀNH CÔNG chuyên nghiệp
+    removeMultipleFromCart(purchasedIds)
+    sessionStorage.removeItem('fftshirt_checkout_items')
+    sessionStorage.removeItem('fftshirt_checkout_voucher')
     orderSuccess.value = true
     window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (err) {
