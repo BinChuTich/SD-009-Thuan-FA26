@@ -1558,6 +1558,14 @@ public class HoaDonService {
 
         hoaDon.setTrangThaiThanhToan(0); // 0 = Chưa thanh toán
 
+        // Gán khách hàng nếu có
+        if (dto.getIdKhachHang() != null) {
+            khachHangRepository.findById(dto.getIdKhachHang()).ifPresent(hoaDon::setIdKhachHang);
+        }
+        if (hoaDon.getIdKhachHang() == null && dto.getSoDienThoai() != null && !dto.getSoDienThoai().trim().isEmpty()) {
+            khachHangRepository.findBySoDienThoai(dto.getSoDienThoai().trim()).ifPresent(hoaDon::setIdKhachHang);
+        }
+
         hoaDon.setTenKhachHang(dto.getTenKhachHang() != null ? dto.getTenKhachHang().trim() : "Khách hàng online");
         hoaDon.setSoDienThoaiKhachHang(dto.getSoDienThoai() != null ? dto.getSoDienThoai().trim() : "");
         hoaDon.setEmail(dto.getEmail() != null ? dto.getEmail().trim() : "");

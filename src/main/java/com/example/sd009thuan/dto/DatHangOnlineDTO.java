@@ -9,6 +9,7 @@ import java.util.List;
 @Getter
 @Setter
 public class DatHangOnlineDTO {
+    private Long idKhachHang;
     private String tenKhachHang;
     private String soDienThoai;
     private String email;

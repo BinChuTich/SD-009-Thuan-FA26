@@ -193,7 +193,7 @@ const getTodayString = () => {
 
 const filters = ref({
   code: '',
-  startDate: '',
+  startDate: getTodayString(),
   endDate: '',
   type: '',
   status: '',
@@ -553,7 +553,7 @@ const loadHoaDon = async () => {
 const handleRefresh = async () => {
   filters.value = {
     code: '',
-    startDate: '',
+    startDate: getTodayString(),
     endDate: '',
     type: '',
     status: '',
@@ -637,6 +637,7 @@ const refreshHoaDonWhenVisible = () => {
 }
 
 onMounted(() => {
+  filters.value.startDate = getTodayString()
   loadHoaDon()
   document.addEventListener('visibilitychange', refreshHoaDonWhenVisible)
 })

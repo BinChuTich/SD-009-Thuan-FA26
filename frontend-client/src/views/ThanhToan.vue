@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import {
@@ -11,47 +11,26 @@ import {
   removeMultipleFromCart
 } from '@/utils/luuTruGioHang.js'
 import { formatCurrency } from '@/utils/dinhDang.js'
+import { currentClientUser, isClientLoggedIn } from '@/utils/taiKhoanKhachHang.js'
 import SoDiaChiGiaoHang from '@/components/ThanhToan/SoDiaChiGiaoHang.vue'
 import PhuongThucThanhToan from '@/components/ThanhToan/PhuongThucThanhToan.vue'
 import XemLaiDonHang from '@/components/ThanhToan/XemLaiDonHang.vue'
 
 const router = useRouter()
 
-// 1. Địa chỉ đã lưu (Theo chuẩn 2 cấp hành chính mới: Tỉnh/Thành phố & Phường/Xã)
-const savedAddresses = ref([
-  {
-    id: 1,
-    name: 'Dương Ngọc Chiến',
-    phone: '0988776655',
-    address: '123 ngõ abc, Phường Hoàn Kiếm, Thành phố Hà Nội',
-    province: 'Thành phố Hà Nội',
-    district: '',
-    ward: 'Phường Hoàn Kiếm',
-    street: '123 ngõ abc'
-  },
-  {
-    id: 2,
-    name: 'Dương Ngọc Chiến',
-    phone: '0988776655',
-    address: '321 ngõ abc, Phường Bến Nghé, Thành phố Hồ Chí Minh',
-    province: 'Thành phố Hồ Chí Minh',
-    district: '',
-    ward: 'Phường Bến Nghé',
-    street: '321 ngõ abc'
-  }
-])
-
-const selectedAddressId = ref(1)
+// 1. Địa chỉ đã lưu (tải động theo tài khoản người dùng đăng nhập)
+const savedAddresses = ref([])
+const selectedAddressId = ref(null)
 const isCustomAddress = ref(false)
 
 // Form người nhận
-const customerName = ref('Dương Ngọc Chiến')
-const customerPhone = ref('0988776655')
-const customerEmail = ref('chien.duong@example.com')
-const selectedProvince = ref('Thành phố Hà Nội')
+const customerName = ref('')
+const customerPhone = ref('')
+const customerEmail = ref('')
+const selectedProvince = ref('')
 const selectedDistrict = ref('')
-const selectedWard = ref('Phường Hoàn Kiếm')
-const streetAddress = ref('123 ngõ abc')
+const selectedWard = ref('')
+const streetAddress = ref('')
 const orderNote = ref('')
 
 // Phương thức thanh toán: 'COD' | 'VNPAY'
@@ -61,19 +40,94 @@ const onSelectSavedAddress = (addr) => {
   if (!addr) return
   selectedAddressId.value = addr.id
   isCustomAddress.value = false
-  customerName.value = addr.name
-  customerPhone.value = addr.phone
-  selectedProvince.value = addr.province
-  selectedDistrict.value = addr.district
-  selectedWard.value = addr.ward
-  streetAddress.value = addr.street
+  if (addr.name) customerName.value = addr.name
+  if (addr.phone) customerPhone.value = addr.phone
+  selectedProvince.value = addr.province || ''
+  selectedDistrict.value = addr.district || ''
+  selectedWard.value = addr.ward || ''
+  streetAddress.value = addr.street || ''
 }
 
 const selectCustomAddress = () => {
   selectedAddressId.value = null
   isCustomAddress.value = true
   streetAddress.value = ''
+  selectedProvince.value = ''
+  selectedDistrict.value = ''
+  selectedWard.value = ''
 }
+
+const handleOpenLogin = () => {
+  window.dispatchEvent(new CustomEvent('open-client-login'))
+}
+
+// Tải thông tin người nhận & danh sách địa chỉ đã lưu
+const loadCustomerData = async () => {
+  if (isClientLoggedIn.value && currentClientUser.value) {
+    customerName.value = currentClientUser.value.name || ''
+    customerPhone.value = currentClientUser.value.phone || ''
+    customerEmail.value = currentClientUser.value.email || ''
+
+    const customerId = currentClientUser.value.id
+    if (customerId) {
+      try {
+        const res = await api.get(`/api/khach-hang/${customerId}/dia-chi`)
+        const list = Array.isArray(res.data) ? res.data : []
+        if (list && list.length > 0) {
+          savedAddresses.value = list.map(item => ({
+            id: item.id,
+            name: currentClientUser.value.name || '',
+            phone: currentClientUser.value.phone || '',
+            address: [item.diaChiCuThe, item.phuong, item.huyen, item.thanhPho].filter(Boolean).join(', '),
+            province: item.thanhPho || '',
+            district: item.huyen || '',
+            ward: item.phuong || '',
+            street: item.diaChiCuThe || '',
+            macDinh: !!item.macDinh
+          }))
+
+          const defaultAddr = savedAddresses.value.find(a => a.macDinh) || savedAddresses.value[0]
+          if (defaultAddr) {
+            onSelectSavedAddress(defaultAddr)
+          }
+          return
+        }
+      } catch (err) {
+        console.warn('Không thể tải sổ địa chỉ khách hàng:', err)
+      }
+    }
+
+    // Đã đăng nhập nhưng chưa có địa chỉ lưu
+    savedAddresses.value = []
+    selectedAddressId.value = null
+    isCustomAddress.value = true
+    selectedProvince.value = ''
+    selectedDistrict.value = ''
+    selectedWard.value = ''
+    streetAddress.value = ''
+  } else {
+    // Khách hàng mua hàng khi không đăng nhập:
+    // Để trống toàn bộ để khách tự nhập bên thông tin người nhận
+    savedAddresses.value = []
+    selectedAddressId.value = null
+    isCustomAddress.value = true
+    customerName.value = ''
+    customerPhone.value = ''
+    customerEmail.value = ''
+    selectedProvince.value = ''
+    selectedDistrict.value = ''
+    selectedWard.value = ''
+    streetAddress.value = ''
+  }
+}
+
+onMounted(() => {
+  loadCustomerData()
+})
+
+watch(isClientLoggedIn, () => {
+  loadCustomerData()
+})
 
 const fullDeliveryAddress = computed(() => {
   const parts = [
@@ -152,9 +206,9 @@ const copyOrderCode = (code) => {
 const goToOrderDetail = () => {
   orderSuccess.value = false
   if (createdOrder.value?.maHoaDon) {
-    router.push(`/don-hang?code=${createdOrder.value.maHoaDon}`)
+    router.push(`/tra-cuu?code=${createdOrder.value.maHoaDon}`)
   } else {
-    router.push('/don-hang')
+    router.push('/tra-cuu')
   }
 }
 
@@ -197,7 +251,7 @@ const validateForm = () => {
 
   // 3. Kiểm tra email
   const email = (customerEmail.value || '').trim()
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const emailRegex = /^[^s@]+@[^s@]+.[^s@]+$/
   if (!email) {
     errors.value.customerEmail = 'Vui lòng điền địa chỉ email để nhận hóa đơn điện tử'
     isValid = false
@@ -262,6 +316,7 @@ const handlePlaceOrder = async () => {
     const purchasedIds = activeCheckoutItems.value.map(i => i.variantId)
 
     const payload = {
+      idKhachHang: isClientLoggedIn.value && currentClientUser.value?.id ? currentClientUser.value.id : null,
       tenKhachHang: customerName.value.trim(),
       soDienThoai: customerPhone.value.trim(),
       email: customerEmail.value.trim(),
@@ -292,12 +347,10 @@ const handlePlaceOrder = async () => {
       }
       const vnpRes = await api.post('/api/vnpay/create-payment', vnpPayload)
       if (vnpRes.data && vnpRes.data.paymentUrl) {
-        // Chỉ xóa giỏ hàng khi tạo liên kết thanh toán VNPAY thành công
         removeMultipleFromCart(purchasedIds)
         sessionStorage.removeItem('fftshirt_checkout_items')
         sessionStorage.removeItem('fftshirt_checkout_voucher')
 
-        // Mở cửa sổ con (popup window) ở giữa màn hình
         const width = 850
         const height = 750
         const left = Math.max(0, (window.screen.width - width) / 2)
@@ -308,14 +361,13 @@ const handlePlaceOrder = async () => {
           `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`
         )
 
-        // Chuyển trang chính sang trang Đơn hàng kèm thông báo chờ thanh toán
         sessionStorage.setItem('vnpay_pending_toast', 'true')
-        router.push(`/don-hang?code=${savedOrder.maHoaDon}`)
+        router.push(`/tra-cuu?code=${savedOrder.maHoaDon}`)
         return
       }
     }
 
-    // Nếu là COD: Xóa giỏ hàng và hiển thị ngay màn hình ĐẶT HÀNG THÀNH CÔNG chuyên nghiệp
+    // Nếu là COD
     removeMultipleFromCart(purchasedIds)
     sessionStorage.removeItem('fftshirt_checkout_items')
     sessionStorage.removeItem('fftshirt_checkout_voucher')
@@ -439,6 +491,7 @@ const handlePlaceOrder = async () => {
             :saved-addresses="savedAddresses"
             :selected-address-id="selectedAddressId"
             :is-custom-address="isCustomAddress"
+            :is-logged-in="isClientLoggedIn"
             :errors="errors"
             v-model:customer-name="customerName"
             v-model:customer-phone="customerPhone"
@@ -449,6 +502,7 @@ const handlePlaceOrder = async () => {
             :full-delivery-address="fullDeliveryAddress"
             @selectSavedAddress="onSelectSavedAddress"
             @selectCustomAddress="selectCustomAddress"
+            @openLoginModal="handleOpenLogin"
             @clearError="clearFieldError"
           />
 

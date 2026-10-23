@@ -44,9 +44,8 @@
         <div class="footer-col">
           <h4 class="col-title">HỖ TRỢ KHÁCH HÀNG</h4>
           <ul class="footer-links">
-            <li><router-link to="/tra-cuu-don-hang">Tra cứu đơn hàng</router-link></li>
-            <li><router-link to="/don-hang">Đơn hàng của tôi</router-link></li>
-            <li><router-link to="/uu-dai">Chương trình ưu đãi</router-link></li>
+            <li><router-link to="/tra-cuu">Tra cứu đơn hàng</router-link></li>
+                        <li><router-link to="/uu-dai">Chương trình ưu đãi</router-link></li>
             <li><router-link to="/lien-he">Liên hệ hỗ trợ</router-link></li>
           </ul>
         </div>

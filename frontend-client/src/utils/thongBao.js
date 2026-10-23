@@ -131,7 +131,7 @@ export const fetchNotifications = async () => {
         time: formatTimeAgo(o.ngayCapNhat || o.ngayTao),
         timestamp: new Date(o.ngayCapNhat || o.ngayTao || Date.now()).getTime(),
         unread: !readIds.value.has(notiId),
-        link: `/don-hang?code=${orderCode}`,
+        link: `/tra-cuu?code=${orderCode}`,
         actionText: 'Xem chi tiết đơn'
       })
     })
