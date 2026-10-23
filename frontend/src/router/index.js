@@ -48,17 +48,13 @@ import MauSac from '../views/ThuocTinh/MauSac.vue'
 import KichCo from '../views/ThuocTinh/KichCo.vue'
 import HoaTiet from '../views/ThuocTinh/HoaTiet.vue'
 
-<<<<<<< HEAD
 // Chat
 import Chat from '../views/Chat.vue'
-import TrangChuOnline from '@/views/TrangChuOnline.vue'
-=======
 // Lịch làm việc
 import QuanLyCa from '../views/LichLamViec/QuanLyCa.vue'
 import XepLich from '../views/LichLamViec/XepLich.vue'
 import GiaoCa from '../views/LichLamViec/GiaoCa.vue'
 import LichSuHoatDong from '../views/LichLamViec/LichSuHoatDong.vue'
->>>>>>> 6bbb1788003e1b0c3e9df94c6159201274721e1a
 
 const routes = [
     // Trang đăng nhập công khai
@@ -289,13 +285,6 @@ const routes = [
         path: '/chat',
         name: 'Chat',
         component: Chat
-    },
-
-    // Trang Chu Online
-    {
-        path: '/trang-chu-onl',
-        name: 'TrangChuOnline',
-        component: TrangChuOnline
     },
 
     // 9. Lịch làm việc (Cả Admin và Nhân viên)

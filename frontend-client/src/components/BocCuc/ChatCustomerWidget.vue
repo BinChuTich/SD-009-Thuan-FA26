@@ -337,11 +337,11 @@ onBeforeUnmount(() => {
 <style scoped>
 /* Giữ CSS cũ + bổ sung */
 .customer-chat-root{position:fixed;right:24px;bottom:24px;z-index:99999;font-family:Inter,Arial,sans-serif;color:#252b36}
-.customer-chat-launcher{position:relative;width:58px;height:58px;border:0;border-radius:50%;background:#d7091b;color:white;font-size:30px;box-shadow:0 8px 24px #9d001c42;cursor:pointer}
+.customer-chat-launcher{position:relative;width:58px;height:58px;border:0;border-radius:50%;background:#496883;color:white;font-size:30px;box-shadow:0 8px 24px #9d001c42;cursor:pointer}
 .customer-chat-launcher i{position:absolute;right:2px;top:1px;width:12px;height:12px;border:2px solid white;border-radius:50%;background:#18c37e}
 .customer-chat-launcher.active{font-size:34px}
 .customer-chat-panel{position:absolute;right:0;bottom:76px;width:min(390px,calc(100vw - 28px));height:min(590px,calc(100dvh - 120px));min-height:390px;background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 18px 60px #18203330;display:flex;flex-direction:column;border:1px solid #eceef2}
-.customer-chat-header{height:68px;flex-shrink:0;background:#d5091b;color:#fff;display:flex;align-items:center;padding:0 12px 0 17px;gap:8px}
+.customer-chat-header{height:68px;flex-shrink:0;background:#496883;color:#fff;display:flex;align-items:center;padding:0 12px 0 17px;gap:8px}
 .customer-chat-logo{width:36px;height:36px;border-radius:50%;background:#ffffff26;display:grid;place-items:center;font-size:22px}
 .customer-chat-heading{display:flex;flex-direction:column;gap:4px;flex:1}
 .customer-chat-heading strong{font-size:14px}
@@ -358,7 +358,7 @@ onBeforeUnmount(() => {
 .customer-chat-row.customer{align-self:flex-end;margin-left:auto;align-items:flex-end}
 .customer-chat-row.ai,.customer-chat-row.agent{align-items:flex-start}
 .customer-chat-bubble{font-size:13px;line-height:1.5;padding:10px 12px;border-radius:13px;background:#f3f4f7;color:#303643;overflow-wrap:anywhere}
-.customer-chat-row.customer .customer-chat-bubble{background:#d5091b;color:white;border-bottom-right-radius:4px}
+.customer-chat-row.customer .customer-chat-bubble{background:#496883;color:white;border-bottom-right-radius:4px}
 .customer-chat-row small{font-size:10px;color:#959ba5;margin:4px 2px}
 .customer-chat-suggestions{display:grid;gap:7px;margin-top:16px}
 .customer-chat-suggestions small{color:#8b919b;font-size:11px}

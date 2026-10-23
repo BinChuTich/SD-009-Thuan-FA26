@@ -2,6 +2,8 @@
 import DauTrang from '@/components/BocCuc/DauTrang.vue'
 import ChanTrang from '@/components/BocCuc/ChanTrang.vue'
 import HopChatTuVan from '@/components/BocCuc/HopChatTuVan.vue'
+import Chat from '@/components/BocCuc/ChatCustomerWidget.vue'
+const customerId = 2;
 </script>
 
 <template>
@@ -11,7 +13,7 @@ import HopChatTuVan from '@/components/BocCuc/HopChatTuVan.vue'
       <router-view />
     </main>
     <ChanTrang />
-    <HopChatTuVan />
+    <Chat :customer-id="customerId" />
   </div>
 </template>
 

@@ -1,18 +1,9 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-<<<<<<< HEAD
-import GlobalDialog from '@/components/GlobalDialog.vue'
-import { getCurrentUser, setCurrentUser, logout } from '@/utils/auth.js'
-import { useRoute } from 'vue-router'
 import AdminAiChat from './components/AdminAiChat.vue'
-
-const route = useRoute()
-const showAdminAi = computed(() => route.path !== '/trang-chu-onl')
-=======
 import { useRouter, useRoute } from 'vue-router'
 import GlobalDialog from '@/components/GlobalDialog.vue'
 import { getCurrentUser, setCurrentUser, logout, isAdmin } from '@/utils/auth.js'
->>>>>>> 6bbb1788003e1b0c3e9df94c6159201274721e1a
 
 const openMenus = ref({
   sanPham: true,
@@ -240,6 +231,15 @@ function handleLoginAdmin() {
           <span class="menu-text">Quản lý khách hàng</span>
         </router-link>
 
+        <router-link to="/chat" class="menu-item" active-class="active">
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 2H4C2.9 2 2 2.9 2 4v14c0 1.1.9 2 2 2h3v3l5-3h8c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 14H5v-2h14v2zm0-4H5v-2h14v2zm0-4H5V6h14v2z"/>
+            </svg>
+          </span>
+          <span class="menu-text">Hỗ trợ trực tuyến</span>
+        </router-link>
+
         <!-- 7. Quản lý nhân viên (Chỉ Quản trị viên) -->
         <router-link v-if="isUserAdmin" to="/nhan-vien" class="menu-item" active-class="active">
           <span class="menu-icon">
@@ -412,7 +412,7 @@ function handleLoginAdmin() {
     </div>
 
     <GlobalDialog />
-    <AdminAiChat v-if="showAdminAi" />
+    <AdminAiChat />
   </div>
 </template>
 

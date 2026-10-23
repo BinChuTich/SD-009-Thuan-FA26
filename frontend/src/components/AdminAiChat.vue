@@ -310,11 +310,11 @@ async function sendAiMessage() {
   height: 56px;
   border-radius: 50%;
   border: none;
-  background: #d5091b;
+  background: #496883;
   color: #fff;
   font-size: 24px;
   cursor: pointer;
-  box-shadow: 0 6px 18px rgba(213, 9, 27, 0.35);
+  box-shadow: 0 6px 18px rgba(21, 75, 106, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -322,7 +322,7 @@ async function sendAiMessage() {
 }
 .ai-float-btn:hover {
   transform: scale(1.06);
-  background: #b80718;
+  background: #2e3e4c;
 }
 .ai-float-btn.open {
   background: #333;
@@ -348,7 +348,7 @@ async function sendAiMessage() {
   justify-content: space-between;
   align-items: center;
   padding: 14px 16px;
-  background: #d5091b;
+  background: #496883;
   color: #fff;
   flex-shrink: 0;
 }
@@ -425,7 +425,7 @@ async function sendAiMessage() {
   white-space: pre-wrap;
 }
 .ai-msg.user .ai-bubble {
-  background: #d5091b;
+  background: #496883;
   color: #fff;
   border-bottom-right-radius: 4px;
 }
