@@ -27,10 +27,10 @@ const emit = defineEmits([
 ])
 
 const getStock = (item) => {
-  if (item.maxStock != null) return item.maxStock
-  if (item.soLuongTon != null) return item.soLuongTon
-  if (item.soLuong != null) return item.soLuong
-  if (item.stock != null) return item.stock
+  if (item.maxStock != null) return Number(item.maxStock)
+  if (item.soLuongTon != null) return Number(item.soLuongTon)
+  if (item.soLuong != null) return Number(item.soLuong)
+  if (item.stock != null) return Number(item.stock)
   return 0
 }
 </script>
@@ -80,8 +80,10 @@ const getStock = (item) => {
             <input
               type="checkbox"
               :value="item.variantId"
-              :checked="selectedItemIds.includes(item.variantId)"
+              :checked="selectedItemIds.includes(item.variantId) && getStock(item) > 0"
+              :disabled="getStock(item) <= 0"
               @change="(e) => {
+                if (getStock(item) <= 0) return
                 const next = e.target.checked
                   ? [...selectedItemIds, item.variantId]
                   : selectedItemIds.filter(id => id !== item.variantId)
@@ -131,11 +133,11 @@ const getStock = (item) => {
 
           <!-- Cột Số lượng Stepper [ - ] input [ + ] -->
           <div class="td-qty">
-            <div class="stepper-wrap">
+            <div class="stepper-wrap" :class="{ 'stepper-disabled': getStock(item) <= 0 }">
               <button
                 class="step-btn"
-                :disabled="item.quantity <= 1"
-                @click="emit('qtyChange', item.variantId, -1, item.quantity, item.maxStock)"
+                :disabled="item.quantity <= 1 || getStock(item) <= 0"
+                @click="emit('qtyChange', item.variantId, -1, item.quantity, getStock(item))"
                 title="Giảm 1"
               >
                 -
@@ -143,15 +145,16 @@ const getStock = (item) => {
               <input
                 type="number"
                 class="step-num-input"
-                :value="item.quantity"
+                :value="getStock(item) <= 0 ? 0 : item.quantity"
                 min="1"
-                :max="item.maxStock || 99"
-                @change="emit('setQty', item.variantId, $event.target.value, item.maxStock)"
+                :max="getStock(item)"
+                :disabled="getStock(item) <= 0"
+                @change="emit('setQty', item.variantId, $event.target.value, getStock(item))"
               />
               <button
                 class="step-btn"
-                :disabled="item.quantity >= (item.maxStock || 99)"
-                @click="emit('qtyChange', item.variantId, 1, item.quantity, item.maxStock)"
+                :disabled="getStock(item) <= 0 || item.quantity >= getStock(item)"
+                @click="emit('qtyChange', item.variantId, 1, item.quantity, getStock(item))"
                 title="Tăng 1"
               >
                 +
@@ -380,6 +383,16 @@ const getStock = (item) => {
 
 .step-btn:hover:not(:disabled) {
   background: #e2e8f0;
+}
+
+.step-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.stepper-wrap.stepper-disabled {
+  opacity: 0.55;
+  background: #f1f5f9;
 }
 
 .step-num {

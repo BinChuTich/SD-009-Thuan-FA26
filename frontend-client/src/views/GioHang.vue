@@ -50,19 +50,23 @@ const toggleSelectAll = () => {
 }
 
 const handleQtyChange = (variantId, delta, currentQty, maxStock) => {
+  const limit = maxStock != null ? Number(maxStock) : 99
+  if (limit <= 0 && delta > 0) return
   const newQty = currentQty + delta
   if (newQty <= 0) {
     handleRemove(variantId)
     return
   }
-  if (maxStock && newQty > maxStock) return
+  if (limit > 0 && newQty > limit) return
   updateCartQuantity(variantId, newQty)
 }
 
 const handleSetQuantity = (variantId, newQty, maxStock) => {
+  const limit = maxStock != null ? Number(maxStock) : 99
+  if (limit <= 0) return
   let q = parseInt(newQty, 10)
   if (isNaN(q) || q < 1) q = 1
-  if (maxStock && q > maxStock) q = maxStock
+  if (limit > 0 && q > limit) q = limit
   updateCartQuantity(variantId, q)
 }
 
@@ -147,6 +151,11 @@ const goToCheckout = () => {
     return
   }
   const itemsToCheckout = cartItems.value.filter(item => selectedItemIds.value.includes(item.variantId))
+  const outOfStockItems = itemsToCheckout.filter(item => (item.maxStock != null ? Number(item.maxStock) : 99) <= 0)
+  if (outOfStockItems.length > 0) {
+    alert(`Sản phẩm "${outOfStockItems[0].productName}" hiện đã hết hàng trong kho. Vui lòng bỏ chọn để tiếp tục!`)
+    return
+  }
   setCheckoutItems(itemsToCheckout)
   setCheckoutVoucher(appliedVoucher.value)
   router.push('/thanh-toan')
@@ -169,7 +178,11 @@ const syncCartStock = async () => {
             item.maxStock = freshStock
             updated = true
           }
-          if (freshStock > 0 && item.quantity > freshStock) {
+          if (freshStock <= 0) {
+            item.quantity = 0
+            selectedItemIds.value = selectedItemIds.value.filter(id => id !== item.variantId)
+            updated = true
+          } else if (item.quantity > freshStock) {
             item.quantity = freshStock
             updated = true
           }
