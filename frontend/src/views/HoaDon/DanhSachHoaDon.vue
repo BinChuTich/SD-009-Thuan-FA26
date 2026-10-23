@@ -29,11 +29,11 @@ const exporting = ref(false)
 const escapeHtml = (str) => {
   if (str == null) return ''
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
 }
 
 const exportExcel = () => {
@@ -201,13 +201,13 @@ const filters = ref({
 })
 
 watch(
-  () => [filters.value.startDate, filters.value.endDate],
-  ([start, end]) => {
-    if (start && end && start > end) {
-      showToast('Ngày bắt đầu không được lớn hơn ngày kết thúc!', 'warning')
-      filters.value.endDate = ''
+    () => [filters.value.startDate, filters.value.endDate],
+    ([start, end]) => {
+      if (start && end && start > end) {
+        showToast('Ngày bắt đầu không được lớn hơn ngày kết thúc!', 'warning')
+        filters.value.endDate = ''
+      }
     }
-  }
 )
 
 const onStatusComboboxChange = () => {
@@ -332,8 +332,8 @@ const extractInvoiceArray = (resData) => {
 const isWaitingInvoice = (item) => {
   if (!item || typeof item !== 'object') return false
   const isStoreWaiting = Number(item.loaiDon) === 1
-    && Number(item.trangThai) === 1
-    && (item.trangThaiThanhToan == null || Number(item.trangThaiThanhToan) === 0)
+      && Number(item.trangThai) === 1
+      && (item.trangThaiThanhToan == null || Number(item.trangThaiThanhToan) === 0)
   const note = String(item.ghiChu || '').toLowerCase()
   const isWaitingNote = note.includes('hóa đơn chờ') || note.includes('hoa don cho')
   return isStoreWaiting || isWaitingNote
@@ -433,8 +433,8 @@ const loadHoaDon = async () => {
         if ((!Array.isArray(details) || details.length === 0) && (item.id || item.maHoaDon)) {
           try {
             const detailRes = item.id
-              ? await api.get(`/api/hoa-don/${item.id}/chi-tiet`)
-              : await api.get(`/api/hoa-don/code/${encodeURIComponent(item.maHoaDon)}/chi-tiet`)
+                ? await api.get(`/api/hoa-don/${item.id}/chi-tiet`)
+                : await api.get(`/api/hoa-don/code/${encodeURIComponent(item.maHoaDon)}/chi-tiet`)
             if (Array.isArray(detailRes?.data) && detailRes.data.length > 0) {
               details = detailRes.data
             }
@@ -455,8 +455,8 @@ const loadHoaDon = async () => {
         }
 
         const productTotal = calcProductTotal > 0
-          ? calcProductTotal
-          : Number(item.tongTienHang ?? item.tienHang ?? item.tongTien ?? 0)
+            ? calcProductTotal
+            : Number(item.tongTienHang ?? item.tienHang ?? item.tongTien ?? 0)
 
         // Khấu trừ voucher giảm giá
         let discount = 0
@@ -708,10 +708,10 @@ onBeforeUnmount(() => {
                 class="form-control input-has-prefix"
             />
             <button
-              class="btn-qr-inline" v-if="false"
-              type="button"
-              title="Quét QR Hóa Đơn"
-              @click="showQrScanner = true"
+                class="btn-qr-inline" v-if="false"
+                type="button"
+                title="Quét QR Hóa Đơn"
+                @click="showQrScanner = true"
             >
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="7" height="7"></rect>
@@ -727,14 +727,14 @@ onBeforeUnmount(() => {
         <div class="form-group">
           <label>Loại đơn hàng</label>
           <Select2Combobox
-            v-model="filters.type"
-            :options="loaiDonOptions"
-            value-key="value"
-            label-key="label"
-            placeholder="Tất cả loại đơn"
-            all-label="Tất cả loại đơn"
-            search-placeholder="Tìm loại đơn..."
-            @change="resetPage"
+              v-model="filters.type"
+              :options="loaiDonOptions"
+              value-key="value"
+              label-key="label"
+              placeholder="Tất cả loại đơn"
+              all-label="Tất cả loại đơn"
+              search-placeholder="Tìm loại đơn..."
+              @change="resetPage"
           />
         </div>
 
@@ -742,14 +742,14 @@ onBeforeUnmount(() => {
         <div class="form-group">
           <label>Trạng thái đơn hàng</label>
           <Select2Combobox
-            v-model="filters.status"
-            :options="trangThaiDonOptions"
-            value-key="value"
-            label-key="label"
-            placeholder="Tất cả trạng thái"
-            all-label="Tất cả trạng thái"
-            search-placeholder="Tìm trạng thái..."
-            @change="onStatusComboboxChange"
+              v-model="filters.status"
+              :options="trangThaiDonOptions"
+              value-key="value"
+              label-key="label"
+              placeholder="Tất cả trạng thái"
+              all-label="Tất cả trạng thái"
+              search-placeholder="Tìm trạng thái..."
+              @change="onStatusComboboxChange"
           />
         </div>
 
@@ -757,14 +757,14 @@ onBeforeUnmount(() => {
         <div class="form-group">
           <label>Trạng thái thanh toán</label>
           <Select2Combobox
-            v-model="filters.paymentStatus"
-            :options="paymentStatusOptions"
-            value-key="value"
-            label-key="label"
-            placeholder="Tất cả thanh toán"
-            all-label="Tất cả thanh toán"
-            search-placeholder="Tìm trạng thái thanh toán..."
-            @change="resetPage"
+              v-model="filters.paymentStatus"
+              :options="paymentStatusOptions"
+              value-key="value"
+              label-key="label"
+              placeholder="Tất cả thanh toán"
+              all-label="Tất cả thanh toán"
+              search-placeholder="Tìm trạng thái thanh toán..."
+              @change="resetPage"
           />
         </div>
 
@@ -965,9 +965,9 @@ onBeforeUnmount(() => {
 
     <!-- Modal Quét QR Hóa Đơn -->
     <QrScannerModal v-if="false"
-      :show="showQrScanner"
-      @close="showQrScanner = false"
-      @scan-success="handleQrScanSuccess"
+                    :show="showQrScanner"
+                    @close="showQrScanner = false"
+                    @scan-success="handleQrScanSuccess"
     />
   </div>
 </template>

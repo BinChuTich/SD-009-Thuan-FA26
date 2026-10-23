@@ -143,6 +143,9 @@ const loadWaitingInvoices = async () => {
           const sp = ctsp.idSanPham || {}
           const ms = ctsp.idMauSac || {}
           const kc = ctsp.idKichCo || {}
+          const origPrice = ctsp.giaBan != null ? Number(ctsp.giaBan) : (ct.donGia != null ? Number(ct.donGia) : 0)
+          const curPrice = ct.donGia != null ? Number(ct.donGia) : origPrice
+          const hasDiscount = origPrice > curPrice
           return {
             id: ctsp.id || ct.id,
             chiTietHoaDonId: ct.id,
@@ -152,7 +155,10 @@ const loadWaitingInvoices = async () => {
             color: ms.tenMau || ms.tenMauSac || ct.tenMauSac || 'Mặc định',
             size: kc.tenKichCo || ct.tenKichCo || 'Freesize',
             stock: ctsp.soLuong != null ? Number(ctsp.soLuong) : 50,
-            price: ct.donGia != null ? Number(ct.donGia) : (ctsp.giaBan != null ? Number(ctsp.giaBan) : 0),
+            originalPrice: origPrice,
+            price: curPrice,
+            hasDiscount: hasDiscount,
+            discountText: hasDiscount ? ('-' + formatShortMoney(origPrice - curPrice)) : '',
             quantity: ct.soLuong || 1,
             image: ct.anhDaiDien || ctsp.anhDaiDien || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
           }
@@ -317,26 +323,112 @@ const barcodeInput = ref('')
 const isLoadingProducts = ref(false)
 const productList = ref([])
 
-// Gọi API lấy toàn bộ biến thể sản phẩm đang bán (HOÀN TOÀN TỪ CSDL, KHÔNG DÙNG MOCK)
+// Rút gọn số tiền (VD: 50.000 -> 50k, 1.500.000 -> 1.5tr)
+const formatShortMoney = (val) => {
+  if (!val) return '0đ'
+  const num = Number(val)
+  if (isNaN(num)) return String(val)
+  if (num >= 1000000) {
+    const tr = num / 1000000
+    return (tr % 1 === 0 ? tr : tr.toFixed(1)) + 'tr'
+  }
+  if (num >= 1000) {
+    const k = num / 1000
+    return (k % 1 === 0 ? k : k.toFixed(0)) + 'k'
+  }
+  return num.toLocaleString('vi-VN') + 'đ'
+}
+
+// Tự động tải lại biến thể sản phẩm & chiến dịch giảm giá khi mở modal chọn sản phẩm
+watch(showProductModal, (isOpen) => {
+  if (isOpen) {
+    fetchProductVariants()
+  }
+})
+
+// Gọi API lấy toàn bộ biến thể sản phẩm đang bán kèm đợt giảm giá (HOÀN TOÀN TỪ CSDL)
 const fetchProductVariants = async () => {
   try {
     isLoadingProducts.value = true
-    const res = await api.get('/api/chi-tiet-san-pham/filter', {
-      params: { trangThai: 1, size: 300 }
+    const [resVariants, resActiveVariantsMap] = await Promise.allSettled([
+      api.get('/api/chi-tiet-san-pham/filter', {
+        params: { trangThai: 1, size: 500 }
+      }),
+      api.get('/api/dot-giam-gia/active-variants-map')
+    ])
+
+    const content = (resVariants.status === 'fulfilled' && (resVariants.value.data?.content || (Array.isArray(resVariants.value.data) ? resVariants.value.data : []))) || []
+    const activeMap = (resActiveVariantsMap.status === 'fulfilled' && resActiveVariantsMap.value.data && typeof resActiveVariantsMap.value.data === 'object')
+      ? resActiveVariantsMap.value.data
+      : {}
+
+    productList.value = content.map((item, idx) => {
+      const origPrice = item.giaBan != null ? Number(item.giaBan) : 0
+      let salePrice = origPrice
+      let hasDiscount = false
+      let discountText = ''
+      let discountCampaignName = ''
+
+      // 1. Kiểm tra thông tin giảm giá từ DTO backend (ChiTietSanPhamResponse)
+      if (item.coGiamGia && item.giaSauGiam != null && Number(item.giaSauGiam) < origPrice) {
+        hasDiscount = true
+        salePrice = Number(item.giaSauGiam)
+        discountCampaignName = item.tenDotGiamGia || ''
+        if (item.phanTramGiam != null && Number(item.phanTramGiam) > 0) {
+          const pt = Number(item.phanTramGiam)
+          discountText = `-${pt % 1 === 0 ? pt : pt.toFixed(0)}%`
+        } else {
+          discountText = `-${formatShortMoney(origPrice - salePrice)}`
+        }
+      }
+
+      // 2. Bổ sung/đồng bộ tức thì từ activeVariantsMap (nếu có đợt giảm giá mới nhất)
+      const dggInfo = activeMap[item.id]
+      if (dggInfo) {
+        let computedSalePrice = origPrice
+        let computedText = ''
+        const loai = Number(dggInfo.loaiGiamGia)
+        if (loai === 2) {
+          // Giảm theo số tiền (VNĐ)
+          const cashVal = Number(dggInfo.giaTriGiam || 0)
+          computedSalePrice = Math.max(0, origPrice - cashVal)
+          computedText = `-${formatShortMoney(cashVal)}`
+        } else {
+          // Giảm theo %
+          const pt = Number(dggInfo.phanTramGiam || 0)
+          let discountAmt = (origPrice * pt) / 100
+          if (dggInfo.giamToiDa && Number(dggInfo.giamToiDa) > 0 && discountAmt > Number(dggInfo.giamToiDa)) {
+            discountAmt = Number(dggInfo.giamToiDa)
+          }
+          computedSalePrice = Math.max(0, origPrice - discountAmt)
+          computedText = `-${pt % 1 === 0 ? pt : pt.toFixed(0)}%`
+        }
+
+        if (computedSalePrice < salePrice || (!hasDiscount && computedSalePrice < origPrice)) {
+          salePrice = computedSalePrice
+          hasDiscount = true
+          discountText = computedText
+          discountCampaignName = dggInfo.tenDotGiamGia || discountCampaignName
+        }
+      }
+
+      return {
+        id: item.id,
+        sanPhamId: item.idSanPham?.id || item.idSanPham || item.id,
+        code: item.idSanPham?.maSanPham || item.maSanPham || item.maChiTietSanPham || `SP00${idx + 1}`,
+        variantCode: item.maChiTietSanPham || `CTSP0${idx + 1}`,
+        name: item.idSanPham?.tenSanPham || item.tenSanPham || 'Áo Phông Cao Cấp',
+        color: item.idMauSac?.tenMau || item.idMauSac?.tenMauSac || item.tenMauSac || 'Mặc định',
+        size: item.idKichCo?.tenKichCo || item.tenKichCo || 'Freesize',
+        stock: item.soLuong != null ? Number(item.soLuong) : 0,
+        originalPrice: origPrice,
+        price: hasDiscount ? salePrice : origPrice,
+        hasDiscount: hasDiscount,
+        discountText: discountText,
+        discountCampaignName: discountCampaignName,
+        image: item.anhDaiDien || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
+      }
     })
-    const content = res.data?.content || (Array.isArray(res.data) ? res.data : [])
-    productList.value = content.map((item, idx) => ({
-      id: item.id,
-      sanPhamId: item.idSanPham?.id || item.id,
-      code: item.idSanPham?.maSanPham || item.maSanPham || item.maChiTietSanPham || `SP00${idx + 1}`,
-      variantCode: item.maChiTietSanPham || `CTSP0${idx + 1}`,
-      name: item.idSanPham?.tenSanPham || item.tenSanPham || 'Áo Phông Cao Cấp',
-      color: item.idMauSac?.tenMau || item.idMauSac?.tenMauSac || item.tenMauSac || 'Mặc định',
-      size: item.idKichCo?.tenKichCo || item.tenKichCo || 'Freesize',
-      stock: item.soLuong != null ? Number(item.soLuong) : 0,
-      price: item.giaBan != null ? Number(item.giaBan) : 0,
-      image: item.anhDaiDien || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
-    }))
   } catch (e) {
     console.error('Không tải được danh sách CTSP từ CSDL:', e)
     productList.value = []
@@ -2235,7 +2327,14 @@ onMounted(async () => {
               <tr v-else v-for="(item, idx) in currentInvoice.cart" :key="item.id">
                 <td class="text-muted">{{ idx + 1 }}</td>
                 <td class="code-highlight">{{ item.variantCode || item.code }}</td>
-                <td class="font-600">{{ item.name }}</td>
+                <td class="font-600">
+                  <div class="cart-product-name-wrap">
+                    <span>{{ item.name }}</span>
+                    <span v-if="item.hasDiscount && (item.discountText || item.discountCampaignName)" class="cart-discount-badge" :title="item.discountCampaignName">
+                      {{ item.discountText || item.discountCampaignName }}
+                    </span>
+                  </div>
+                </td>
                 <td>{{ item.color }}</td>
                 <td>{{ item.size }}</td>
                 <td class="text-center">
@@ -2252,7 +2351,13 @@ onMounted(async () => {
                     <button class="qty-btn" @click="updateQuantity(item, 1)">+</button>
                   </div>
                 </td>
-                <td class="text-right font-price">{{ formatMoney(item.price) }}</td>
+                <td class="text-right font-price">
+                  <div v-if="item.hasDiscount && item.originalPrice > item.price" class="cart-price-col">
+                    <span class="cart-price-sale">{{ formatMoney(item.price) }}</span>
+                    <span class="cart-price-old">{{ formatMoney(item.originalPrice) }}</span>
+                  </div>
+                  <span v-else>{{ formatMoney(item.price) }}</span>
+                </td>
                 <td class="text-center">
                   <button class="btn-trash-row" @click="removeFromCart(item)" title="Xóa khỏi giỏ">
                     🗑️
@@ -2860,19 +2965,32 @@ onMounted(async () => {
               v-for="p in filteredProducts"
               :key="p.id"
               class="modal-product-card"
-              :class="{ 'card-out-of-stock': p.stock <= 0 }"
+              :class="{ 'card-out-of-stock': p.stock <= 0, 'has-discount-border': p.hasDiscount }"
               @click="p.stock > 0 && selectProduct(p)"
           >
-            <img :src="p.image" :alt="p.name" class="modal-p-img" />
+            <div class="modal-p-img-wrapper">
+              <img :src="p.image" :alt="p.name" class="modal-p-img" />
+              <span v-if="p.hasDiscount" class="modal-badge-discount">{{ p.discountText }}</span>
+            </div>
             <div class="modal-p-details">
-              <div class="modal-p-name">{{ p.name }}</div>
+              <div class="modal-p-name-row">
+                <span class="modal-p-name">{{ p.name }}</span>
+                <span v-if="p.hasDiscount && p.discountCampaignName" class="modal-campaign-tag" :title="p.discountCampaignName">
+                  🔥 {{ p.discountCampaignName }}
+                </span>
+              </div>
               <div class="modal-p-meta">
                 <span>Mã: <b>{{ p.variantCode || p.code }}</b></span> |
                 <span>Màu: {{ p.color }}</span> |
                 <span>Size: {{ p.size }}</span>
               </div>
               <div class="modal-p-price-row">
-                <span class="modal-p-price">{{ formatMoney(p.price) }}</span>
+                <div v-if="p.hasDiscount && p.originalPrice > p.price" class="modal-p-price-wrap">
+                  <span class="modal-p-price sale">{{ formatMoney(p.price) }}</span>
+                  <span class="modal-p-old-price">{{ formatMoney(p.originalPrice) }}</span>
+                  <span class="modal-p-discount-pct">{{ p.discountText }}</span>
+                </div>
+                <span v-else class="modal-p-price">{{ formatMoney(p.price) }}</span>
                 <span class="modal-p-stock" :class="{ 'stock-zero': p.stock <= 0 }">
                   {{ p.stock > 0 ? `Còn lại: ${p.stock}` : 'Hết hàng' }}
                 </span>
@@ -4464,10 +4582,114 @@ onMounted(async () => {
   gap: 14px;
 }
 
+.modal-p-img-wrapper {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.modal-badge-discount {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  line-height: 1.2;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+.modal-p-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.modal-campaign-tag {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.modal-p-price-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
 .modal-p-price {
   font-weight: 600;
   color: #c94a29;
   font-size: 0.88rem;
+}
+
+.modal-p-price.sale {
+  color: #dc2626;
+  font-size: 0.94rem;
+  font-weight: 700;
+}
+
+.modal-p-old-price {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+.modal-p-discount-pct {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0 4px;
+  border-radius: 3px;
+  line-height: 1.3;
+}
+
+.cart-product-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cart-discount-badge {
+  display: inline-block;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.cart-price-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.cart-price-sale {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.cart-price-old {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-decoration: line-through;
 }
 
 .modal-p-stock {

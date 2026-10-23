@@ -424,9 +424,12 @@ public class ChiTietSanPhamService {
             }
         }
 
-        // Kiểm tra giảm giá liên kết (chỉ theo chính biến thể này)
+        // Kiểm tra giảm giá liên kết (ưu tiên theo biến thể, fallback theo sản phẩm cha)
         Instant now = Instant.now();
         List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsByVariantId(ct.getId(), now);
+        if ((activeDiscounts == null || activeDiscounts.isEmpty()) && ct.getIdSanPham() != null && ct.getIdSanPham().getId() != null) {
+            activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsBySanPhamId(ct.getIdSanPham().getId(), now);
+        }
         Boolean coGiamGia = false;
         BigDecimal giaSauGiam = null;
         BigDecimal phanTramGiam = null;
@@ -446,14 +449,33 @@ public class ChiTietSanPhamService {
                 .orElse(activeDiscounts.get(0));
 
             if (bestDgg.getIdDotGiamGia() != null) {
-                tenDotGiamGia = bestDgg.getIdDotGiamGia().getTenDotGiamGia();
-                phanTramGiam = bestDgg.getPhanTramGiamBienThe() != null 
+                DotGiamGia dgg = bestDgg.getIdDotGiamGia();
+                tenDotGiamGia = dgg.getTenDotGiamGia();
+                boolean isCash = Integer.valueOf(2).equals(dgg.getLoaiGiamGia());
+                if (isCash) {
+                    BigDecimal cashDiscount = dgg.getGiaTriGiam() != null ? dgg.getGiaTriGiam() : BigDecimal.ZERO;
+                    if (ct.getGiaBan() != null) {
+                        giaSauGiam = ct.getGiaBan().subtract(cashDiscount).max(BigDecimal.ZERO);
+                        if (ct.getGiaBan().compareTo(BigDecimal.ZERO) > 0) {
+                            phanTramGiam = cashDiscount.multiply(BigDecimal.valueOf(100)).divide(ct.getGiaBan(), 0, java.math.RoundingMode.HALF_UP);
+                        }
+                    } else {
+                        giaSauGiam = BigDecimal.ZERO;
+                    }
+                } else {
+                    phanTramGiam = bestDgg.getPhanTramGiamBienThe() != null 
                         ? bestDgg.getPhanTramGiamBienThe() 
-                        : bestDgg.getIdDotGiamGia().getPhanTramGiam();
-            }
-            if (ct.getGiaBan() != null && phanTramGiam != null && phanTramGiam.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal factor = BigDecimal.valueOf(100).subtract(phanTramGiam).max(BigDecimal.ZERO);
-                giaSauGiam = ct.getGiaBan().multiply(factor).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+                        : (dgg.getPhanTramGiam() != null ? dgg.getPhanTramGiam() : BigDecimal.ZERO);
+                    if (ct.getGiaBan() != null && phanTramGiam != null && phanTramGiam.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal discountAmt = ct.getGiaBan().multiply(phanTramGiam).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+                        if (dgg.getGiamToiDa() != null && dgg.getGiamToiDa().compareTo(BigDecimal.ZERO) > 0 && discountAmt.compareTo(dgg.getGiamToiDa()) > 0) {
+                            discountAmt = dgg.getGiamToiDa();
+                        }
+                        giaSauGiam = ct.getGiaBan().subtract(discountAmt).max(BigDecimal.ZERO);
+                    } else {
+                        giaSauGiam = ct.getGiaBan();
+                    }
+                }
             } else {
                 giaSauGiam = ct.getGiaBan();
             }
