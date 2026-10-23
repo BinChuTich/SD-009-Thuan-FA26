@@ -43,7 +43,7 @@ const goToProduct = (id) => {
         <p class="script-subtitle">Bộ sưu tập áo phông bán chạy nhất mùa này với chất liệu Cotton cao cấp</p>
       </div>
 
-      <!-- Tab lọc danh mục nhanh ngay trên trang chủ -->
+      <!-- Tab lọc danh mục n hanh ngay trên trang chủ -->
       <div class="home-cat-tabs">
         <button
           v-for="tab in categoryTabs"
