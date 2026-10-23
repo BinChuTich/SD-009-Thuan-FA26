@@ -71,8 +71,11 @@ public class ThongKeServiceImpl implements ThongKeService {
         Instant fromInstant = fromDate.atStartOfDay(zone).toInstant();
         Instant toInstant = toDate.atTime(LocalTime.MAX).atZone(zone).toInstant();
 
-        // 1. Lấy toàn bộ hóa đơn trong khoảng thời gian lọc
-        List<HoaDon> allInvoices = hoaDonRepository.findByNgayTaoBetween(fromInstant, toInstant);
+        // 1. Lấy toàn bộ hóa đơn trong khoảng thời gian lọc (loại trừ hoàn toàn hóa đơn chờ tại quầy)
+        List<HoaDon> rawInvoices = hoaDonRepository.findByNgayTaoBetween(fromInstant, toInstant);
+        List<HoaDon> allInvoices = rawInvoices.stream()
+                .filter(h -> !isWaitingInvoice(h))
+                .toList();
 
         // 2. Tính toán Donut Trạng thái đơn hàng (Đã hủy, Hoàn thành, Đang xử lý)
         OrderStatusDonutDTO orderStatusDonut = buildOrderStatusDonut(allInvoices);
@@ -121,7 +124,19 @@ public class ThongKeServiceImpl implements ThongKeService {
         return overview;
     }
 
-    private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, List<HinhThucThanhToan>> paymentsByInvoice) {
+        private boolean isWaitingInvoice(HoaDon h) {
+        if (h == null) return false;
+        boolean isStoreDraft = Integer.valueOf(1).equals(h.getLoaiDon())
+                && Integer.valueOf(1).equals(h.getTrangThai())
+                && (h.getTrangThaiThanhToan() == null || Integer.valueOf(0).equals(h.getTrangThaiThanhToan()));
+        boolean isWaitingNote = h.getGhiChu() != null && h.getGhiChu().toLowerCase().contains("hóa đơn chờ");
+        boolean isZeroStoreDraft = Integer.valueOf(1).equals(h.getLoaiDon())
+                && Integer.valueOf(1).equals(h.getTrangThai())
+                && (h.getTongTien() == null || BigDecimal.ZERO.compareTo(h.getTongTien()) == 0);
+        return isStoreDraft || isWaitingNote || isZeroStoreDraft;
+    }
+
+private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, List<HinhThucThanhToan>> paymentsByInvoice) {
         if (invoices == null || invoices.isEmpty()) return Collections.emptyList();
         List<InvoiceStatDTO> list = new ArrayList<>();
         for (HoaDon h : invoices) {
@@ -492,6 +507,7 @@ public class ThongKeServiceImpl implements ThongKeService {
         Instant cStart = currStart.atStartOfDay(zone).toInstant();
         Instant cEnd = currEnd.atTime(LocalTime.MAX).atZone(zone).toInstant();
         List<HoaDon> currInvoices = hoaDonRepository.findByNgayTaoBetween(cStart, cEnd).stream()
+                .filter(h -> !isWaitingInvoice(h))
                 .filter(h -> (Integer.valueOf(5).equals(h.getTrangThai()) || Integer.valueOf(1).equals(h.getTrangThaiThanhToan()))
                         && !Integer.valueOf(6).equals(h.getTrangThai()))
                 .toList();
@@ -499,6 +515,7 @@ public class ThongKeServiceImpl implements ThongKeService {
         Instant pStart = prevStart.atStartOfDay(zone).toInstant();
         Instant pEnd = prevEnd.atTime(LocalTime.MAX).atZone(zone).toInstant();
         List<HoaDon> prevInvoices = hoaDonRepository.findByNgayTaoBetween(pStart, pEnd).stream()
+                .filter(h -> !isWaitingInvoice(h))
                 .filter(h -> (Integer.valueOf(5).equals(h.getTrangThai()) || Integer.valueOf(1).equals(h.getTrangThaiThanhToan()))
                         && !Integer.valueOf(6).equals(h.getTrangThai()))
                 .toList();

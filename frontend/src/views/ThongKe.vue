@@ -1279,8 +1279,20 @@ function resetInvoiceFilters() {
   invoicePagination.page = 0
 }
 
+// Kiểm tra hóa đơn chờ tại quầy (tuyệt đối không hiển thị ở màn thống kê)
+const isWaitingInvoice = (inv) => {
+  if (!inv || typeof inv !== 'object') return false
+  const isStoreWaiting = Number(inv.loaiDon) === 1 &&
+      Number(inv.trangThai) === 1 &&
+      (inv.trangThaiThanhToan == null || Number(inv.trangThaiThanhToan) === 0)
+  const note = String(inv.ghiChu || '').toLowerCase()
+  const isWaitingNote = note.includes('hóa đơn chờ') || note.includes('hoa don cho')
+  const isZeroStoreDraft = Number(inv.loaiDon) === 1 && Number(inv.trangThai) === 1 && Number(inv.tienSauGiamGia || inv.tongTien || 0) === 0
+  return isStoreWaiting || isWaitingNote || isZeroStoreDraft
+}
+
 const filteredInvoicesList = computed(() => {
-  let list = [...allInvoicesList.value]
+  let list = allInvoicesList.value.filter(inv => !isWaitingInvoice(inv))
   const q = invoiceSearchQuery.value.trim().toLowerCase()
   if (q) {
     list = list.filter(inv =>
@@ -1466,7 +1478,7 @@ async function fetchOverviewData() {
       }
 
       if (Array.isArray(data.invoices)) {
-        allInvoicesList.value = data.invoices
+        allInvoicesList.value = data.invoices.filter(inv => !isWaitingInvoice(inv))
       }
 
       if (Array.isArray(data.products)) {
