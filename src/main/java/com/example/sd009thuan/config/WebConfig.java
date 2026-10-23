@@ -34,6 +34,13 @@ public class WebConfig implements WebMvcConfigurer {
         String location = Paths.get(uploadDir).toAbsolutePath().normalize().toUri().toString();
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations(location.endsWith("/") ? location : location + "/");
+
+        java.nio.file.Path imgDir = Paths.get("frontend/public/images").toAbsolutePath().normalize();
+        if (java.nio.file.Files.exists(imgDir)) {
+            String imgLocation = imgDir.toUri().toString();
+            registry.addResourceHandler("/images/**")
+                    .addResourceLocations(imgLocation.endsWith("/") ? imgLocation : imgLocation + "/");
+        }
     }
 
     @org.springframework.context.annotation.Bean

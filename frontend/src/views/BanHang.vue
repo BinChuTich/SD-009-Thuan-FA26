@@ -160,7 +160,7 @@ const loadWaitingInvoices = async () => {
             hasDiscount: hasDiscount,
             discountText: hasDiscount ? ('-' + formatShortMoney(origPrice - curPrice)) : '',
             quantity: ct.soLuong || 1,
-            image: ct.anhDaiDien || ctsp.anhDaiDien || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
+            image: ct.anhDaiDien || ctsp.anhDaiDien || '/images/products/default_tshirt.jpg'
           }
         })
       } catch (e) {
@@ -426,7 +426,7 @@ const fetchProductVariants = async () => {
         hasDiscount: hasDiscount,
         discountText: discountText,
         discountCampaignName: discountCampaignName,
-        image: item.anhDaiDien || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
+        image: item.anhDaiDien || '/images/products/default_tshirt.jpg'
       }
     })
   } catch (e) {

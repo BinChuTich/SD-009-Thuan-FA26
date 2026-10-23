@@ -1048,7 +1048,7 @@ const formatVariantImageUrl = (url) => {
 
 // Ảnh sản phẩm mặc định chuẩn áo phông
 const defaultProductImages = [
-  'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80',
+  '/images/products/default_tshirt.jpg',
   'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=300&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=300&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=300&auto=format&fit=crop&q=80',
@@ -1099,7 +1099,7 @@ const productSourceList = ref([
     id: 1,
     ma: 'SP001',
     ten: 'Áo Phông Nam Basic Cotton Cổ Tròn',
-    hinhAnh: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80',
+    hinhAnh: '/images/products/sp01_front.jpg',
     thuongHieu: 'FF Shirt',
     chatLieu: 'Cotton 100%',
     gia: 199000,

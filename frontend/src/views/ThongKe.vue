@@ -654,51 +654,43 @@
         </table>
       </div>
 
-      <!-- Phân trang hóa đơn -->
-      <div class="product-table-footer">
-        <div class="footer-left-count">
-          Hiển thị <strong>{{ filteredInvoicesList.length ? (invoicePagination.page * invoicePagination.size + 1) : 0 }} - {{ Math.min((invoicePagination.page + 1) * invoicePagination.size, filteredInvoicesList.length) }}</strong> / <strong>{{ filteredInvoicesList.length }}</strong> hóa đơn
+      <!-- PHÂN TRANG HÓA ĐƠN -->
+      <div v-if="filteredInvoicesList.length > 0" class="pagination-section">
+        <div class="pagination-info">
+          Hiển thị {{ filteredInvoicesList.length ? (invoicePagination.page * invoicePagination.size + 1) : 0 }} - {{ Math.min((invoicePagination.page + 1) * invoicePagination.size, filteredInvoicesList.length) }} / {{ filteredInvoicesList.length }} hóa đơn
         </div>
 
-        <div class="footer-center-pagination">
+        <div class="pagination-buttons">
           <button
             type="button"
-            class="pg-btn"
+            class="btn-pager"
             :disabled="invoicePagination.page === 0"
-            @click="invoicePagination.page--"
+            @click="changeInvoicePage(invoicePagination.page)"
           >
             ‹
           </button>
+
+          <template v-for="(p, idx) in visibleInvoicePages" :key="idx">
+            <span v-if="p === '...'" class="pg-dots">...</span>
+            <button
+              v-else
+              type="button"
+              class="btn-pager"
+              :class="{ active: p === invoicePagination.page + 1 }"
+              @click="changeInvoicePage(p)"
+            >
+              {{ p }}
+            </button>
+          </template>
+
           <button
-            v-for="pNo in visibleInvoicePageNumbers"
-            :key="pNo"
             type="button"
-            class="pg-btn"
-            :class="{ active: pNo === invoicePagination.page }"
-            @click="invoicePagination.page = pNo"
-          >
-            {{ pNo + 1 }}
-          </button>
-          <button
-            type="button"
-            class="pg-btn"
+            class="btn-pager"
             :disabled="invoicePagination.page >= invoiceTotalPages - 1"
-            @click="invoicePagination.page++"
+            @click="changeInvoicePage(invoicePagination.page + 2)"
           >
             ›
           </button>
-        </div>
-
-        <div class="footer-right-size">
-          <div class="size-select-wrap">
-            <Select2Combobox
-              v-model.number="invoicePagination.size"
-              :options="pageSizeInvoiceOptions"
-              :searchable="false"
-              placeholder="Chọn số bản ghi"
-              @change="invoicePagination.page = 0"
-            />
-          </div>
         </div>
       </div>
     </div>
@@ -772,14 +764,14 @@
               <td>
                 <div class="product-name-with-thumb">
                   <img
-                    :src="p.image || defaultProductImage"
-                    alt="thumbnail"
+                    :src="formatProductImage(p.image, p)"
+                    :alt="p.name"
                     class="product-thumb-img"
-                    @error="p.image = defaultProductImage"
+                    @error="onImgError($event, p)"
                   />
                   <div class="product-info-text">
-                    <strong class="product-title-bold">{{ p.name }}</strong>
-                    <span class="product-size-hint">Size: {{ p.sizes || 'Free Size' }}</span>
+                    <strong class="product-title-bold" :title="p.name">{{ p.name }}</strong>
+                    <span class="product-size-hint">Size: {{ p.sizes || 'Tiêu chuẩn' }}</span>
                   </div>
                 </div>
               </td>
@@ -803,51 +795,43 @@
         </table>
       </div>
 
-      <!-- Chân bảng: Phân trang -->
-      <div class="product-table-footer">
-        <div class="footer-left-count">
-          Hiển thị <strong>{{ filteredProductsList.length ? (productPagination.page * productPagination.size + 1) : 0 }} - {{ Math.min((productPagination.page + 1) * productPagination.size, filteredProductsList.length) }}</strong> / <strong>{{ filteredProductsList.length }}</strong> bản ghi
+      <!-- PHÂN TRANG SẢN PHẨM -->
+      <div v-if="filteredProductsList.length > 0" class="pagination-section">
+        <div class="pagination-info">
+          Hiển thị {{ filteredProductsList.length ? (productPagination.page * productPagination.size + 1) : 0 }} - {{ Math.min((productPagination.page + 1) * productPagination.size, filteredProductsList.length) }} / {{ filteredProductsList.length }} sản phẩm
         </div>
 
-        <div class="footer-center-pagination">
+        <div class="pagination-buttons">
           <button
             type="button"
-            class="pg-btn"
+            class="btn-pager"
             :disabled="productPagination.page === 0"
-            @click="goToProductPage(productPagination.page - 1)"
+            @click="changeProductPage(productPagination.page)"
           >
             ‹
           </button>
+
+          <template v-for="(p, idx) in visibleProductPages" :key="idx">
+            <span v-if="p === '...'" class="pg-dots">...</span>
+            <button
+              v-else
+              type="button"
+              class="btn-pager"
+              :class="{ active: p === productPagination.page + 1 }"
+              @click="changeProductPage(p)"
+            >
+              {{ p }}
+            </button>
+          </template>
+
           <button
-            v-for="pNo in visibleProductPageNumbers"
-            :key="pNo"
             type="button"
-            class="pg-btn"
-            :class="{ active: pNo === productPagination.page }"
-            @click="goToProductPage(pNo)"
-          >
-            {{ pNo + 1 }}
-          </button>
-          <button
-            type="button"
-            class="pg-btn"
+            class="btn-pager"
             :disabled="productPagination.page >= productTotalPages - 1"
-            @click="goToProductPage(productPagination.page + 1)"
+            @click="changeProductPage(productPagination.page + 2)"
           >
             ›
           </button>
-        </div>
-
-        <div class="footer-right-size">
-          <div class="size-select-wrap">
-            <Select2Combobox
-              v-model.number="productPagination.size"
-              :options="pageSizeProductOptions"
-              :searchable="false"
-              placeholder="Chọn số bản ghi"
-              @change="productPagination.page = 0"
-            />
-          </div>
         </div>
       </div>
     </div>
@@ -864,7 +848,56 @@ import { showToast } from '@/utils/dialog.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const router = useRouter()
-const defaultProductImage = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=150&auto=format&fit=crop&q=80'
+const defaultProductImage = '/images/products/default_tshirt.jpg'
+
+// Đồng bộ ảnh sản phẩm chuẩn với hệ thống
+function formatProductImage(url, product) {
+  if (!url || typeof url !== 'string' || url.trim() === '' || url.includes('photo-1521572267360-ee0c2909d518')) {
+    const sid = product?.id
+    const scode = (product?.code || product?.maSanPham || '').toUpperCase()
+    if (sid === 1 || scode.includes('SP001') || scode.includes('SP01')) return '/images/products/sp01_front.jpg'
+    if (sid === 2 || scode.includes('SP002') || scode.includes('SP02')) return '/images/products/sp02_front.jpg'
+    if (sid === 3 || scode.includes('SP003') || scode.includes('SP03')) return '/images/products/sp03_front.jpg'
+    if (sid === 4 || scode.includes('SP004') || scode.includes('SP04')) return '/images/products/sp04_front.jpg'
+    return defaultProductImage
+  }
+
+  let cleanUrl = url.trim()
+  if (cleanUrl.includes('|')) {
+    cleanUrl = cleanUrl.split('|')[1].trim()
+  }
+
+  if (cleanUrl.startsWith('data:') || cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+    return cleanUrl
+  }
+
+  if (cleanUrl.startsWith('/images/')) {
+    return cleanUrl
+  }
+
+  if (cleanUrl.startsWith('/uploads/') || cleanUrl.startsWith('uploads/')) {
+    const path = cleanUrl.startsWith('/') ? cleanUrl : '/' + cleanUrl
+    return `http://localhost:8080${path}`
+  }
+
+  return cleanUrl.startsWith('/') ? cleanUrl : `/${cleanUrl}`
+}
+
+function onImgError(e, product) {
+  const sid = product?.id
+  const scode = (product?.code || product?.maSanPham || '').toUpperCase()
+  if (sid === 1 || scode.includes('SP001') || scode.includes('SP01')) {
+    e.target.src = '/images/products/sp01_front.jpg'
+  } else if (sid === 2 || scode.includes('SP002') || scode.includes('SP02')) {
+    e.target.src = '/images/products/sp02_front.jpg'
+  } else if (sid === 3 || scode.includes('SP003') || scode.includes('SP03')) {
+    e.target.src = '/images/products/sp03_front.jpg'
+  } else if (sid === 4 || scode.includes('SP004') || scode.includes('SP04')) {
+    e.target.src = '/images/products/sp04_front.jpg'
+  } else {
+    e.target.src = defaultProductImage
+  }
+}
 const activeBottomTab = ref('both')
 
 // 1. Quản lý Bộ lọc thống kê
@@ -1242,13 +1275,35 @@ const productTotalPages = computed(() => {
   return Math.ceil(filteredProductsList.value.length / productPagination.size) || 1
 })
 
-const visibleProductPageNumbers = computed(() => {
+const visibleProductPages = computed(() => {
   const total = productTotalPages.value
-  const curr = productPagination.page
-  const start = Math.max(0, curr - 2)
-  const end = Math.min(total, start + 5)
-  return Array.from({ length: end - start }, (_, i) => start + i)
+  const curr = productPagination.page + 1
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+  const pages = []
+  if (curr <= 4) {
+    for (let i = 1; i <= 5; i++) pages.push(i)
+    pages.push('...')
+    pages.push(total)
+  } else if (curr >= total - 3) {
+    pages.push(1)
+    pages.push('...')
+    for (let i = total - 4; i <= total; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    pages.push('...')
+    for (let i = curr - 1; i <= curr + 1; i++) pages.push(i)
+    pages.push('...')
+    pages.push(total)
+  }
+  return pages
 })
+
+function changeProductPage(p) {
+  if (p === '...' || p < 1 || p > productTotalPages.value) return
+  productPagination.page = p - 1
+}
 
 const paginatedProducts = computed(() => {
   const start = productPagination.page * productPagination.size
@@ -1330,13 +1385,35 @@ const invoiceTotalPages = computed(() => {
   return Math.ceil(filteredInvoicesList.value.length / invoicePagination.size) || 1
 })
 
-const visibleInvoicePageNumbers = computed(() => {
+const visibleInvoicePages = computed(() => {
   const total = invoiceTotalPages.value
-  const curr = invoicePagination.page
-  const start = Math.max(0, curr - 2)
-  const end = Math.min(total, start + 5)
-  return Array.from({ length: end - start }, (_, i) => start + i)
+  const curr = invoicePagination.page + 1
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+  const pages = []
+  if (curr <= 4) {
+    for (let i = 1; i <= 5; i++) pages.push(i)
+    pages.push('...')
+    pages.push(total)
+  } else if (curr >= total - 3) {
+    pages.push(1)
+    pages.push('...')
+    for (let i = total - 4; i <= total; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    pages.push('...')
+    for (let i = curr - 1; i <= curr + 1; i++) pages.push(i)
+    pages.push('...')
+    pages.push(total)
+  }
+  return pages
 })
+
+function changeInvoicePage(p) {
+  if (p === '...' || p < 1 || p > invoiceTotalPages.value) return
+  invoicePagination.page = p - 1
+}
 
 const paginatedInvoices = computed(() => {
   const start = invoicePagination.page * invoicePagination.size
@@ -2384,64 +2461,67 @@ onMounted(async () => {
   letter-spacing: 0.2px;
 }
 
-/* Chân bảng: Phân trang */
-.product-table-footer {
+/* PHÂN TRANG ĐỒNG BỘ CHUẨN CÁC MÀN KHÁC (Danh sách hóa đơn, Đợt giảm giá, ...) */
+.pagination-section {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding-top: 1.15rem;
-  margin-top: 0.5rem;
-  border-top: 1px solid #f1ece5;
-  flex-wrap: wrap;
-  gap: 12px;
+  align-items: center;
+  padding-top: 18px;
+  margin-top: 8px;
 }
 
-.footer-left-count {
-  font-size: 0.92rem;
-  color: #64748b;
+.pagination-info {
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #555e65;
+  line-height: 1.5;
 }
 
-.footer-left-count strong {
-  color: #1e293b;
-}
-
-.footer-center-pagination {
+.pagination-buttons {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
-.pg-btn {
+.btn-pager {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
-  border: 1px solid #e2dbcf;
-  background-color: #ffffff;
-  color: #475569;
-  font-size: 0.95rem;
+  border: 1px solid #ded5c7;
+  background: #ffffff;
+  color: #555e65;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.84rem;
   font-weight: 600;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
   transition: all 0.2s;
 }
 
-.pg-btn:hover:not(:disabled) {
-  background-color: #f0f4f8;
-  border-color: #bfae9d;
-  color: #2c3e50;
+.btn-pager.active {
+  background: #36536b;
+  border-color: #36536b;
+  color: #ffffff;
 }
 
-.pg-btn.active {
-  background-color: var(--blue, #496883) !important;
-  border-color: var(--blue, #496883) !important;
-  color: #ffffff !important;
+.btn-pager:hover:not(:disabled):not(.active) {
+  background: #f4ede4;
 }
 
-.pg-btn:disabled {
-  opacity: 0.45;
+.btn-pager:disabled {
+  opacity: 0.35;
   cursor: not-allowed;
+}
+
+.pg-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  color: #8c979d;
+  font-size: 0.85rem;
 }
 
 /* Responsive adjustments */

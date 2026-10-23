@@ -37,7 +37,7 @@ public class ThongKeServiceImpl implements ThongKeService {
     };
 
     private static final String DEFAULT_PRODUCT_IMAGE =
-            "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=120&auto=format&fit=crop&q=80";
+            "/images/products/default_tshirt.jpg";
 
     public ThongKeServiceImpl(
             HoaDonRepository hoaDonRepository,
@@ -631,10 +631,46 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
 
             long[] saleData = salesByProduct.getOrDefault(sp.getId(), new long[]{0, 0});
 
-            // Lấy ảnh thumbnail sản phẩm
+            // Lấy ảnh thumbnail sản phẩm đồng bộ chính xác
             List<HinhAnh> imgs = hinhAnhRepository.findByIdSanPham_Id(sp.getId());
-            String imgUrl = (imgs != null && !imgs.isEmpty() && imgs.get(0).getDuongDan() != null)
-                    ? imgs.get(0).getDuongDan() : DEFAULT_PRODUCT_IMAGE;
+            String imgUrl = null;
+            if (imgs != null && !imgs.isEmpty()) {
+                // Ưu tiên 1: Ảnh chung của sản phẩm (không phải biến thể hay màu riêng)
+                for (HinhAnh img : imgs) {
+                    String ten = img.getTenAnh();
+                    if (ten != null && !ten.startsWith("COLOR_") && !ten.startsWith("CTSP_")
+                            && img.getDuongDan() != null && !img.getDuongDan().isBlank()) {
+                        imgUrl = img.getDuongDan().trim();
+                        break;
+                    }
+                }
+                // Ưu tiên 2: Ảnh đầu tiên bất kỳ
+                if (imgUrl == null) {
+                    for (HinhAnh img : imgs) {
+                        if (img.getDuongDan() != null && !img.getDuongDan().isBlank()) {
+                            imgUrl = img.getDuongDan().trim();
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Đồng bộ fallback theo bộ ảnh áo phông chuẩn trong hệ thống nếu chưa có ảnh
+            if (imgUrl == null || imgUrl.isBlank() || imgUrl.contains("photo-1521572267360-ee0c2909d518")) {
+                Long sid = sp.getId();
+                String scode = sp.getMaSanPham() != null ? sp.getMaSanPham().toUpperCase() : "";
+                if (Long.valueOf(1).equals(sid) || scode.contains("SP001") || scode.contains("SP01")) {
+                    imgUrl = "/images/products/sp01_front.jpg";
+                } else if (Long.valueOf(2).equals(sid) || scode.contains("SP002") || scode.contains("SP02")) {
+                    imgUrl = "/images/products/sp02_front.jpg";
+                } else if (Long.valueOf(3).equals(sid) || scode.contains("SP003") || scode.contains("SP03")) {
+                    imgUrl = "/images/products/sp03_front.jpg";
+                } else if (Long.valueOf(4).equals(sid) || scode.contains("SP004") || scode.contains("SP04")) {
+                    imgUrl = "/images/products/sp04_front.jpg";
+                } else {
+                    imgUrl = DEFAULT_PRODUCT_IMAGE;
+                }
+            }
 
             stats.add(new ProductStatDTO(
                     sp.getId(),

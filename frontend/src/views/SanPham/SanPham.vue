@@ -801,7 +801,7 @@ import { isAdmin } from '@/utils/auth.js'
 
 const router = useRouter()
 
-const defaultImage = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80'
+const defaultImage = '/images/products/default_tshirt.jpg'
 
 // Tùy chọn trạng thái cho Select2 Combobox
 const trangThaiOptions = [
@@ -1269,12 +1269,14 @@ const formatDate = (val) => {
 }
 
 const formatImageUrl = (url) => {
-  if (!url) return ''
+  if (!url) return defaultImage
   let cleanUrl = url
   if (cleanUrl.includes('|')) {
     cleanUrl = cleanUrl.split('|')[1]
   }
+  if (!cleanUrl || cleanUrl.includes('photo-1521572267360-ee0c2909d518')) return defaultImage
   if (cleanUrl.startsWith('data:') || cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) return cleanUrl
+  if (cleanUrl.startsWith('/images/')) return cleanUrl
   return `http://localhost:8080${cleanUrl.startsWith('/') ? '' : '/'}${cleanUrl}`
 }
 
