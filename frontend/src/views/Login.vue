@@ -128,7 +128,6 @@ const handleForgotPassword = async () => {
     console.error('Quên mật khẩu thất bại:', err)
     if (err.response && err.response.data) {
       const msg = err.response.data.message || err.response.data.error || 'Không tìm thấy tài khoản nhân viên khớp với email này!'
-      // Hiển thị trực tiếp lỗi dưới chân ô email
       forgotEmailError.value = msg
     } else {
       forgotError.value = 'Không thể kết nối đến máy chủ. Vui lòng thử lại sau ít phút!'
@@ -163,11 +162,6 @@ const handleForgotPassword = async () => {
 
       <!-- Thông báo lỗi nếu có -->
       <div v-if="errorMessage" class="login-error-alert">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
         <span>{{ errorMessage }}</span>
       </div>
 
@@ -175,13 +169,7 @@ const handleForgotPassword = async () => {
       <form class="login-form" @submit.prevent="handleLogin" novalidate>
         <div class="form-group" :class="{ 'has-error': usernameError }">
           <label class="form-label">Tài khoản / Email</label>
-          <div class="input-with-icon">
-            <span class="field-icon">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            </span>
+          <div class="input-wrapper">
             <input
               v-model="username"
               type="text"
@@ -195,11 +183,6 @@ const handleForgotPassword = async () => {
             />
           </div>
           <div v-if="usernameError" class="field-error-text">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
             <span>{{ usernameError }}</span>
           </div>
         </div>
@@ -211,17 +194,11 @@ const handleForgotPassword = async () => {
               Quên mật khẩu?
             </a>
           </div>
-          <div class="input-with-icon">
-            <span class="field-icon">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-            </span>
+          <div class="input-wrapper">
             <input
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
-              class="form-input"
+              class="form-input has-toggle"
               :class="{ 'input-error': passwordError }"
               placeholder="Nhập mật khẩu..."
               autocomplete="current-password"
@@ -235,22 +212,10 @@ const handleForgotPassword = async () => {
               tabindex="-1"
               title="Ẩn/hiện mật khẩu"
             >
-              <svg v-if="!showPassword" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                <line x1="1" y1="1" x2="23" y2="23" />
-              </svg>
+              {{ showPassword ? 'Ẩn' : 'Hiện' }}
             </button>
           </div>
           <div v-if="passwordError" class="field-error-text">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
             <span>{{ passwordError }}</span>
           </div>
         </div>
@@ -260,7 +225,6 @@ const handleForgotPassword = async () => {
           <span>{{ loading ? 'Đang xác thực...' : 'Đăng nhập vào hệ thống' }}</span>
         </button>
       </form>
-
 
       <div class="login-footer">
         © 2026 FF-Tshirt Fashion Store. Hệ thống quản lý bán hàng.
@@ -274,12 +238,6 @@ const handleForgotPassword = async () => {
           <button class="btn-close-modal" @click="closeForgotPasswordModal" :disabled="forgotLoading" title="Đóng">&times;</button>
 
           <div class="forgot-modal-header">
-            <div class="forgot-icon-circle">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-              </svg>
-            </div>
             <h3 class="forgot-modal-title">CẤP LẠI MẬT KHẨU</h3>
             <p class="forgot-modal-desc">
               Nhập địa chỉ email nhân viên hoặc quản trị viên của bạn. Hệ thống sẽ tạo mật khẩu mới và gửi trực tiếp về email này.
@@ -288,20 +246,11 @@ const handleForgotPassword = async () => {
 
           <!-- Alert thông báo lỗi -->
           <div v-if="forgotError" class="modal-alert alert-danger">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
             <span>{{ forgotError }}</span>
           </div>
 
           <!-- Alert thông báo thành công -->
           <div v-if="forgotMessage" class="modal-alert alert-success">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
             <span>{{ forgotMessage }}</span>
           </div>
 
@@ -309,13 +258,7 @@ const handleForgotPassword = async () => {
           <form @submit.prevent="handleForgotPassword" class="forgot-modal-form" novalidate>
             <div class="form-group" :class="{ 'has-error': forgotEmailError }">
               <label class="form-label">Email tài khoản</label>
-              <div class="input-with-icon">
-                <span class="field-icon">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                    <polyline points="22,6 12,13 2,6"/>
-                  </svg>
-                </span>
+              <div class="input-wrapper">
                 <input
                   v-model="forgotEmail"
                   type="text"
@@ -329,11 +272,6 @@ const handleForgotPassword = async () => {
                 />
               </div>
               <div v-if="forgotEmailError" class="field-error-text">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="8" x2="12" y2="12"></line>
-                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                </svg>
                 <span>{{ forgotEmailError }}</span>
               </div>
             </div>
@@ -357,8 +295,7 @@ const handleForgotPassword = async () => {
                 Quay lại đăng nhập
               </button>
             </div>
-
-      </form>
+          </form>
         </div>
       </div>
     </transition>
@@ -499,9 +436,6 @@ const handleForgotPassword = async () => {
 }
 
 .login-error-alert {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   background: #fef2f2;
   border: 1px solid #fecaca;
   color: #dc2626;
@@ -510,6 +444,7 @@ const handleForgotPassword = async () => {
   font-size: 0.86rem;
   font-weight: 500;
   margin-bottom: 1.25rem;
+  text-align: center;
 }
 
 .login-form {
@@ -530,25 +465,16 @@ const handleForgotPassword = async () => {
   color: #496883;
 }
 
-.input-with-icon {
+.input-wrapper {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.field-icon {
-  position: absolute;
-  left: 12px;
-  color: #94a3b8;
-  display: flex;
-  align-items: center;
-  pointer-events: none;
-}
-
 .form-input {
   width: 100%;
   height: 42px;
-  padding: 0 40px 0 36px;
+  padding: 0 14px;
   border: 1.5px solid #e9e5db;
   border-radius: 9px;
   font-size: 0.9rem;
@@ -558,6 +484,10 @@ const handleForgotPassword = async () => {
   transition: all 0.2s ease;
   box-sizing: border-box;
   font-family: inherit;
+}
+
+.form-input.has-toggle {
+  padding-right: 50px;
 }
 
 .form-input:focus {
@@ -575,20 +505,12 @@ const handleForgotPassword = async () => {
 }
 
 .field-error-text {
-  display: flex;
-  align-items: center;
-  gap: 5px;
   font-size: 0.77rem;
   color: #dc2626;
   font-weight: 500;
   margin-top: 4px;
   line-height: 1.35;
   animation: errorSlideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.field-error-text svg {
-  flex-shrink: 0;
-  color: #ef4444;
 }
 
 @keyframes errorSlideDown {
@@ -598,19 +520,24 @@ const handleForgotPassword = async () => {
 
 .btn-toggle-eye {
   position: absolute;
-  right: 10px;
+  right: 8px;
   background: none;
   border: none;
-  color: #94a3b8;
+  color: #496883;
+  font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
-  padding: 6px;
+  padding: 4px 8px;
   display: flex;
   align-items: center;
   border-radius: 6px;
+  user-select: none;
+  transition: all 0.15s ease;
 }
 
 .btn-toggle-eye:hover {
-  color: #496883;
+  color: #2c3e50;
+  background-color: #f1ede7;
 }
 
 .btn-submit-login {
@@ -636,40 +563,6 @@ const handleForgotPassword = async () => {
   background: #365066;
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(73, 104, 131, 0.32);
-}
-
-.quick-admin-login-wrap {
-  margin-top: 0.85rem;
-  text-align: center;
-}
-
-.btn-quick-admin-login {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.65rem 1rem;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: #496883;
-  background-color: #f3f6f9;
-  border: 1.5px dashed #b8c9d9;
-  border-radius: 9px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-family: inherit;
-}
-
-.btn-quick-admin-login:hover:not(:disabled) {
-  background-color: #e4edf5;
-  color: #1e3347;
-  border-color: #496883;
-}
-
-.btn-quick-admin-login:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .btn-submit-login:disabled {
@@ -772,20 +665,6 @@ const handleForgotPassword = async () => {
   margin-bottom: 1.25rem;
 }
 
-.forgot-icon-circle {
-  width: 54px;
-  height: 54px;
-  margin: 0 auto 0.85rem;
-  border-radius: 50%;
-  background: #f7f5ef;
-  border: 2px solid #ecd8af;
-  color: #496883;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 3px 8px rgba(210, 167, 100, 0.18);
-}
-
 .forgot-modal-title {
   margin: 0 0 0.45rem;
   font-size: 1.15rem;
@@ -802,18 +681,12 @@ const handleForgotPassword = async () => {
 }
 
 .modal-alert {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   padding: 10px 14px;
   border-radius: 9px;
   font-size: 0.82rem;
   margin-bottom: 1.2rem;
   line-height: 1.45;
-}
-
-.modal-alert svg {
-  flex-shrink: 0;
+  text-align: center;
 }
 
 .alert-danger {

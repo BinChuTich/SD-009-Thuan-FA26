@@ -8,14 +8,6 @@
     </div>
     <div class="page-top-bar" v-if="false">
       <div class="title-with-icon">
-        <div class="title-icon-box">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="20" x2="18" y2="10" />
-            <line x1="12" y1="20" x2="12" y2="4" />
-            <line x1="6" y1="20" x2="6" y2="14" />
-            <line x1="2" y1="20" x2="22" y2="20" />
-          </svg>
-        </div>
         <h1 class="page-main-title">Thống kê doanh thu</h1>
       </div>
     </div>
@@ -25,9 +17,6 @@
       <!-- Hàng trên: Tiêu đề bộ lọc & Cụm nút lọc nhanh + Xuất Excel -->
       <div class="filter-top-row">
         <div class="filter-heading">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="filter-icon">
-            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-          </svg>
           <span class="filter-title-text">Bộ lọc thống kê</span>
         </div>
 
@@ -88,11 +77,6 @@
             @click="handleExportExcel"
             title="Xuất dữ liệu thống kê ra file Excel"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
             Xuất Excel
           </button>
         </div>
@@ -128,62 +112,46 @@
           </div>
         </div>
 
-        <!-- Kiểu thống kê -->
+        <!-- Kiểu thống kê (Select2) -->
         <div class="filter-field-item">
           <label class="field-label-tiny">Thống kê</label>
-          <div class="select-wrapper-minimal">
-            <select v-model="filters.statType" class="form-control-minimal" @change="applyFilters">
-              <option value="day">Theo ngày</option>
-              <option value="week">Theo tuần</option>
-              <option value="month">Theo tháng</option>
-              <option value="year">Theo năm</option>
-            </select>
-          </div>
+          <Select2Combobox
+            v-model="filters.statType"
+            :options="statTypeOptions"
+            placeholder="Kiểu thống kê"
+            search-placeholder="Tìm kiểu thống kê..."
+            @change="applyFilters"
+          />
         </div>
 
-        <!-- Thương hiệu -->
+        <!-- Thương hiệu (Select2) -->
         <div class="filter-field-item">
           <label class="field-label-tiny">Thương hiệu</label>
-          <div class="input-with-prefix-icon">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="prefix-icon">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
-            <select v-model="filters.brand" class="form-control-minimal with-icon" @change="applyFilters">
-              <option value="">Tất cả thương hiệu</option>
-              <option v-for="b in brandOptions" :key="b.id" :value="b.id">
-                {{ b.ten || b.tenThuongHieu }}
-              </option>
-            </select>
-          </div>
+          <Select2Combobox
+            v-model="filters.brand"
+            :options="brandComboboxOptions"
+            placeholder="Tất cả thương hiệu"
+            all-label="Tất cả thương hiệu"
+            search-placeholder="Tìm thương hiệu..."
+            @change="applyFilters"
+          />
         </div>
 
         <!-- Tìm sản phẩm -->
         <div class="filter-field-item search-item">
           <label class="field-label-tiny">Tìm sản phẩm</label>
-          <div class="input-with-prefix-icon">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="prefix-icon">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="text"
-              v-model="filters.productKeyword"
-              placeholder="Mã hoặc tên sản phẩm..."
-              class="form-control-minimal with-icon"
-              @input="debounceFilter"
-            />
-          </div>
+          <input
+            type="text"
+            v-model="filters.productKeyword"
+            placeholder="Mã hoặc tên sản phẩm..."
+            class="form-control-minimal"
+            @input="debounceFilter"
+          />
         </div>
 
         <!-- Nút Đặt lại -->
         <div class="filter-reset-action">
           <button type="button" class="btn-reset-round" @click="resetFilters" title="Đặt lại bộ lọc về mặc định">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M23 4v6h-6" />
-              <path d="M1 20v-6h6" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
             <span>Đặt lại</span>
           </button>
         </div>
@@ -191,11 +159,6 @@
 
       <!-- Báo lỗi khoảng ngày nếu Từ ngày > Đến ngày -->
       <div v-if="dateFilterError" class="filter-error-msg">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
         <span>{{ dateFilterError }}</span>
       </div>
 
@@ -203,96 +166,76 @@
       <div class="filter-status-row">
         <span class="blue-status-dot"></span>
         <span class="filter-status-text">
-          Đang hiển thị dữ liệu từ ngày <strong>{{ formatDateDisplay(filters.fromDate) }}</strong> đến ngày <strong>{{ formatDateDisplay(filters.toDate) }}</strong>
+          <template v-if="filters.fromDate && filters.toDate">
+            Đang hiển thị dữ liệu từ ngày <strong>{{ formatDateDisplay(filters.fromDate) }}</strong> đến ngày <strong>{{ formatDateDisplay(filters.toDate) }}</strong>
+          </template>
+          <template v-else-if="filters.fromDate">
+            Đang hiển thị dữ liệu từ ngày <strong>{{ formatDateDisplay(filters.fromDate) }}</strong>
+          </template>
+          <template v-else-if="filters.toDate">
+            Đang hiển thị dữ liệu đến ngày <strong>{{ formatDateDisplay(filters.toDate) }}</strong>
+          </template>
+          <template v-else>
+            Đang hiển thị tất cả dữ liệu
+          </template>
         </span>
       </div>
     </div>
 
-    <!-- 2. Hàng 6 Thẻ chỉ số tổng quan (6 KPI Cards) -->
+    <!-- 2. Hàng 6 Thẻ chỉ số tổng quan (1 dòng thu nhỏ tối giản, không màu viền/chữ) -->
     <div class="kpi-cards-grid">
       <!-- 1. Tổng doanh thu -->
-      <div class="kpi-card">
-        <div class="kpi-icon-wrap pastel-green">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-            <polyline points="17 6 23 6 23 12" />
-          </svg>
+      <div class="kpi-card" title="Tổng doanh thu (Toàn bộ doanh thu)">
+        <div class="kpi-card-header">
+          <span class="kpi-label">Tổng doanh thu</span>
+          <span class="kpi-hint">Toàn bộ</span>
         </div>
         <div class="kpi-value text-dark">{{ formatCurrency(kpiData.totalRevenue) }}</div>
-        <div class="kpi-label">Tổng doanh thu</div>
       </div>
 
-      <!-- 2. TIEN_MAT -->
-
-
-      <div class="kpi-card">
-        <div class="kpi-icon-wrap pastel-blue clickable-kpi" @click="handleKpiFilter('cash')" title="Nhấp để lọc danh sách hóa đơn thanh toán tiền mặt">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="2" y="6" width="20" height="12" rx="2" />
-            <circle cx="12" cy="12" r="2" />
-            <path d="M6 12h.01M18 12h.01" />
-          </svg>
+      <!-- 2. Tiền mặt -->
+      <div class="kpi-card clickable-kpi-card" @click="handleKpiFilter('cash')" title="Nhấp để lọc danh sách hóa đơn thanh toán tiền mặt">
+        <div class="kpi-card-header">
+          <span class="kpi-label">Tiền mặt</span>
+          <span class="kpi-hint">Lọc →</span>
         </div>
-        <div class="kpi-value text-dark clickable-kpi-text" @click="handleKpiFilter('cash')" title="Nhấp để lọc danh sách hóa đơn thanh toán tiền mặt">{{ formatCurrency(kpiData.cashRevenue) }}</div>
-        <div class="kpi-label">Tiền mặt</div>
+        <div class="kpi-value text-dark">{{ formatCurrency(kpiData.cashRevenue) }}</div>
       </div>
 
       <!-- 3. Chuyển khoản -->
-      <div class="kpi-card">
-        <div class="kpi-icon-wrap pastel-emerald clickable-kpi" @click="handleKpiFilter('transfer')" title="Nhấp để lọc danh sách hóa đơn thanh toán chuyển khoản">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="2" y="4" width="20" height="16" rx="2" />
-            <line x1="2" y1="10" x2="22" y2="10" />
-          </svg>
+      <div class="kpi-card clickable-kpi-card" @click="handleKpiFilter('transfer')" title="Nhấp để lọc danh sách hóa đơn thanh toán chuyển khoản">
+        <div class="kpi-card-header">
+          <span class="kpi-label">Chuyển khoản</span>
+          <span class="kpi-hint">Lọc →</span>
         </div>
-        <div class="kpi-value text-dark clickable-kpi-text" @click="handleKpiFilter('transfer')" title="Nhấp để lọc danh sách hóa đơn thanh toán chuyển khoản">{{ formatCurrency(kpiData.transferRevenue) }}</div>
-        <div class="kpi-label">Chuyển khoản</div>
+        <div class="kpi-value text-dark">{{ formatCurrency(kpiData.transferRevenue) }}</div>
       </div>
 
       <!-- 4. Tổng đơn hàng -->
-      <div class="kpi-card">
-        <div class="kpi-icon-wrap pastel-purple clickable-kpi" @click="scrollToInvoices" title="Nhấp để xem danh sách toàn bộ hóa đơn trong kỳ">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="9" cy="21" r="1" />
-            <circle cx="20" cy="21" r="1" />
-            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-          </svg>
+      <div class="kpi-card clickable-kpi-card" @click="scrollToInvoices" title="Nhấp để xem danh sách toàn bộ hóa đơn trong kỳ">
+        <div class="kpi-card-header">
+          <span class="kpi-label">Tổng đơn hàng</span>
+          <span class="kpi-hint">Xem HĐ →</span>
         </div>
-        <div class="kpi-value text-dark clickable-kpi-text" @click="scrollToInvoices" title="Nhấp để xem danh sách toàn bộ hóa đơn trong kỳ">{{ kpiData.totalOrders.toLocaleString('vi-VN') }}</div>
-        <div class="kpi-label">Tổng đơn hàng</div>
+        <div class="kpi-value text-dark">{{ kpiData.totalOrders.toLocaleString('vi-VN') }} đơn</div>
       </div>
 
       <!-- 5. Giá trị TB đơn (AOV) -->
-      <div class="kpi-card">
-        <div class="kpi-icon-wrap pastel-pink">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="4" y="2" width="16" height="20" rx="2" />
-            <line x1="8" y1="6" x2="16" y2="6" />
-            <line x1="16" y1="14" x2="16" y2="18" />
-            <path d="M16 10h.01" />
-            <path d="M12 10h.01" />
-            <path d="M8 10h.01" />
-            <path d="M12 14h.01" />
-            <path d="M8 14h.01" />
-            <path d="M12 18h.01" />
-            <path d="M8 18h.01" />
-          </svg>
+      <div class="kpi-card" title="Giá trị trung bình đơn hàng (AOV)">
+        <div class="kpi-card-header">
+          <span class="kpi-label">Giá trị TB đơn</span>
+          <span class="kpi-hint">AOV</span>
         </div>
         <div class="kpi-value text-dark">{{ formatCurrency(kpiData.aov) }}</div>
-        <div class="kpi-label">Giá trị TB đơn (AOV)</div>
       </div>
 
       <!-- 6. Sản phẩm đã bán -->
-      <div class="kpi-card">
-        <div class="kpi-icon-wrap pastel-orange">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-            <line x1="12" y1="22.08" x2="12" y2="12" />
-          </svg>
+      <div class="kpi-card" title="Tổng số lượng sản phẩm đã bán">
+        <div class="kpi-card-header">
+          <span class="kpi-label">Sản phẩm đã bán</span>
+          <span class="kpi-hint">Đã xuất</span>
         </div>
-        <div class="kpi-value text-dark">{{ kpiData.totalItemsSold.toLocaleString('vi-VN') }}</div>
-        <div class="kpi-label">Sản phẩm đã bán</div>
+        <div class="kpi-value text-dark">{{ kpiData.totalItemsSold.toLocaleString('vi-VN') }} cái</div>
       </div>
     </div>
 
@@ -302,11 +245,6 @@
       <div class="content-card chart-card-col-2">
         <div class="card-title-row">
           <div class="card-title-group">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="title-sub-icon">
-              <line x1="18" y1="20" x2="18" y2="10" />
-              <line x1="12" y1="20" x2="12" y2="4" />
-              <line x1="6" y1="20" x2="6" y2="14" />
-            </svg>
             <h3 class="card-heading">Sản phẩm bán được theo {{ statTypeHeading }}</h3>
           </div>
           <span class="badge-unit">Đơn vị: Sản phẩm</span>
@@ -343,7 +281,6 @@
                   :x="b.x + b.width / 2"
                   v-if="b.value > 0 || barChartComputedData.length <= 10"
                   :y="b.value > 0 ? b.y - 6 : 194" text-anchor="middle"
-
                   :class="['bar-peak-number', { 'is-zero': b.value === 0 }]"
                 >
                   {{ b.value }}
@@ -354,9 +291,9 @@
                   :x="b.x + b.width / 2"
                   :y="barChartComputedData.length > 10 ? 218 : 220"
                   :text-anchor="barChartComputedData.length > 10 ? 'end' : 'middle'"
-                  :transform="barChartComputedData.length > 10 ? `rotate(-35 ${b.x + b.width / 2} 218)` : ''"
-
+                  :transform="barChartComputedData.length > 10 ? `rotate(-45 ${b.x + b.width / 2} 218)` : ''"
                   class="bar-bottom-label"
+                  v-if="barChartComputedData.length <= 15 || idx % (barChartComputedData.length > 25 ? 3 : 2) === 0 || idx === barChartComputedData.length - 1"
                 >
                   {{ b.label }}
                 </text>
@@ -366,137 +303,10 @@
         </div>
       </div>
 
-      <!-- Bên phải (1/3): Biểu đồ Thương hiệu (Donut Chart) -->
-      <div class="content-card chart-card-col-1">
-        <div class="card-title-row">
-          <div class="card-title-group">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="title-sub-icon">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 2a10 10 0 0 1 10 10" />
-            </svg>
-            <h3 class="card-heading">Thương hiệu</h3>
-          </div>
-          <button type="button" class="btn-toggle-metric" @click="toggleBrandMetric">
-            {{ brandMetric === 'revenue' ? 'Theo doanh thu' : 'Theo số lượng' }}
-          </button>
-        </div>
-
-        <!-- Biểu đồ Donut Thương hiệu -->
-        <div class="donut-chart-wrapper">
-          <div class="donut-svg-box">
-            <svg class="donut-svg" viewBox="0 0 180 180">
-              <circle cx="90" cy="90" r="70" fill="none" stroke="#f5f2eb" stroke-width="26" />
-              <circle
-                v-for="(slice, i) in brandDonutSlices"
-                :key="i"
-                cx="90"
-                cy="90"
-                r="70"
-                fill="none"
-                :stroke="slice.color"
-                stroke-width="26"
-                :stroke-dasharray="slice.dashArray"
-                :stroke-dashoffset="slice.dashOffset"
-                class="donut-segment"
-              >
-                <title>{{ slice.name }}: {{ slice.percentage }}% ({{ brandMetric === 'revenue' ? formatCurrency(slice.value) : slice.value + ' chiếc' }})</title>
-              </circle>
-            </svg>
-            <div class="donut-center-info">
-              <span class="donut-center-label">Tổng</span>
-              <strong class="donut-center-val">{{ brandDonutTotalDisplay }}</strong>
-            </div>
-          </div>
-
-          <!-- Chú thích thương hiệu -->
-          <div class="donut-legend-list">
-            <div v-for="(slice, i) in brandDonutSlices" :key="i" class="legend-row-item">
-              <div class="legend-left-col">
-                <span class="legend-color-dot" :style="{ backgroundColor: slice.color }"></span>
-                <span class="legend-name-text">{{ slice.name }}</span>
-              </div>
-              <span class="legend-percent-tag">{{ slice.percentage }}%</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 4. Khu vực Bảng tổng hợp theo thời gian & Biểu đồ trạng thái đơn (Tỷ lệ 2:1) -->
-    <div class="charts-row-split-2-1">
-      <!-- Bên trái (2/3): Bảng doanh thu theo mốc thời gian -->
-      <div class="content-card time-table-card">
-        <div class="card-title-row">
-          <div class="card-title-group">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="title-sub-icon">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-            <h3 class="card-heading">Doanh thu theo mốc thời gian</h3>
-          </div>
-          <span class="badge-fixed-row">4 mốc so sánh</span>
-        </div>
-
-        <div class="table-responsive-clean">
-          <table class="minimal-styled-table">
-            <thead>
-              <tr class="header-brown-beige">
-                <th style="width: 130px">THỜI GIAN</th>
-                <th style="width: 160px; text-align: right">TỔNG DOANH THU</th>
-                <th style="width: 140px; text-align: right">TIỀN MẶT</th>
-                <th style="width: 140px; text-align: right">CHUYỂN KHOẢN</th>
-                <th style="width: 100px; text-align: center">SỐ ĐƠN</th>
-                <th style="width: 130px; text-align: right">AOV</th>
-                <th style="width: 130px; text-align: center">TĂNG TRƯỞNG</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in timeSummaryRows" :key="row.periodKey" class="table-data-row">
-                <td class="font-bold text-dark">{{ row.periodName }}</td>
-                <td style="text-align: right" class="font-bold text-black-bold">
-                  {{ formatCurrency(row.totalRevenue) }}
-                </td>
-                <td style="text-align: right" class="text-blue-amount">
-                  {{ formatCurrency(row.cash) }}
-                </td>
-                <td style="text-align: right" class="text-green-amount">
-                  {{ formatCurrency(row.transfer) }}
-                </td>
-                <td style="text-align: center" class="font-bold text-black-bold">
-                  <span class="cell-link-click" @click="handlePeriodRowClick(row.periodKey)" title="Nhấp để xem danh sách hóa đơn theo mốc thời gian này">{{ row.orderCount }} đơn</span>
-                </td>
-                <td style="text-align: right" class="text-gray-aov">
-                  {{ formatCurrency(row.aov) }}
-                </td>
-                <td style="text-align: center">
-                  <span
-                    class="badge-growth-pill"
-                    :class="Number(row.growthRate) > 0 ? 'growth-positive' : Number(row.growthRate) < 0 ? 'growth-negative' : 'growth-neutral'"
-                  >
-                    <span v-if="Number(row.growthRate) > 0">↑ +{{ row.growthRate }}%</span>
-                    <span v-else-if="Number(row.growthRate) < 0">↓ {{ row.growthRate }}%</span>
-                    <span v-else>0.0%</span>
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Bên phải (1/3): Biểu đồ Donut Trạng thái đơn hàng -->
+      <!-- Bên phải (38%): Biểu đồ Donut Trạng thái đơn hàng -->
       <div class="content-card order-status-card">
         <div class="card-title-row">
           <div class="card-title-group">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="title-sub-icon">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-              <polyline points="10 9 9 9 8 9" />
-            </svg>
             <h3 class="card-heading">Trạng thái đơn hàng</h3>
           </div>
           <span class="badge-total-orders">Tổng {{ orderStatusTotal }} đơn</span>
@@ -559,73 +369,209 @@
       </div>
     </div>
 
-    <!-- 5. Khu vực Bảng 'Danh sách hóa đơn trong kỳ' liên kết trực tiếp với Thống kê -->
-    <div id="invoices-section" class="content-card invoice-stats-card">
+    <!-- 4. Khu vực Bảng tổng hợp theo thời gian & Biểu đồ trạng thái đơn (Tỷ lệ 2:1) -->
+    <div class="charts-row-split-2-1">
+      <!-- Bên trái (2/3): Bảng doanh thu theo mốc thời gian -->
+      <div class="content-card time-table-card">
+        <div class="card-title-row">
+          <div class="card-title-group">
+            <h3 class="card-heading">Doanh thu theo mốc thời gian</h3>
+          </div>
+          <span class="badge-fixed-row">4 mốc so sánh</span>
+        </div>
+
+        <div class="table-responsive-clean">
+          <table class="minimal-styled-table">
+            <thead>
+              <tr class="header-brown-beige">
+                <th style="width: 130px">THỜI GIAN</th>
+                <th style="width: 160px; text-align: right">TỔNG DOANH THU</th>
+                <th style="width: 140px; text-align: right">TIỀN MẶT</th>
+                <th style="width: 140px; text-align: right">CHUYỂN KHOẢN</th>
+                <th style="width: 100px; text-align: center">SỐ ĐƠN</th>
+                <th style="width: 130px; text-align: right">AOV</th>
+                <th style="width: 130px; text-align: center">TĂNG TRƯỞNG</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in timeSummaryRows" :key="row.periodKey" class="table-data-row">
+                <td class="font-bold text-dark">{{ row.periodName }}</td>
+                <td style="text-align: right" class="font-bold text-black-bold">
+                  {{ formatCurrency(row.totalRevenue) }}
+                </td>
+                <td style="text-align: right" class="text-blue-amount">
+                  {{ formatCurrency(row.cash) }}
+                </td>
+                <td style="text-align: right" class="text-green-amount">
+                  {{ formatCurrency(row.transfer) }}
+                </td>
+                <td style="text-align: center" class="font-bold text-black-bold">
+                  <span class="cell-link-click" @click="handlePeriodRowClick(row.periodKey)" title="Nhấp để xem danh sách hóa đơn theo mốc thời gian này">{{ row.orderCount }} đơn</span>
+                </td>
+                <td style="text-align: right" class="text-gray-aov">
+                  {{ formatCurrency(row.aov) }}
+                </td>
+                <td style="text-align: center">
+                  <span
+                    class="badge-growth-pill"
+                    :class="Number(row.growthRate) > 0 ? 'growth-positive' : Number(row.growthRate) < 0 ? 'growth-negative' : 'growth-neutral'"
+                  >
+                    <span v-if="Number(row.growthRate) > 0">↑ +{{ row.growthRate }}%</span>
+                    <span v-else-if="Number(row.growthRate) < 0">↓ {{ row.growthRate }}%</span>
+                    <span v-else>0.0%</span>
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Bên phải (38%): Biểu đồ Thương hiệu (Donut Chart) -->
+      <div class="content-card chart-card-col-1">
+        <div class="card-title-row">
+          <div class="card-title-group">
+            <h3 class="card-heading">Cơ cấu thương hiệu</h3>
+          </div>
+          <button type="button" class="btn-toggle-metric" @click="toggleBrandMetric">
+            {{ brandMetric === 'revenue' ? 'Theo doanh thu' : 'Theo số lượng' }}
+          </button>
+        </div>
+
+        <!-- Biểu đồ Donut Thương hiệu -->
+        <div class="donut-chart-wrapper">
+          <div class="donut-svg-box">
+            <svg class="donut-svg" viewBox="0 0 180 180">
+              <circle cx="90" cy="90" r="70" fill="none" stroke="#f5f2eb" stroke-width="26" />
+              <circle
+                v-for="(slice, i) in brandDonutSlices"
+                :key="i"
+                cx="90"
+                cy="90"
+                r="70"
+                fill="none"
+                :stroke="slice.color"
+                stroke-width="26"
+                :stroke-dasharray="slice.dashArray"
+                :stroke-dashoffset="slice.dashOffset"
+                class="donut-segment"
+              >
+                <title>{{ slice.name }}: {{ slice.percentage }}% ({{ brandMetric === 'revenue' ? formatCurrency(slice.value) : slice.value + ' chiếc' }})</title>
+              </circle>
+            </svg>
+            <div class="donut-center-info">
+              <span class="donut-center-label">Tổng</span>
+              <strong class="donut-center-val">{{ brandDonutTotalDisplay }}</strong>
+            </div>
+          </div>
+
+          <!-- Chú thích thương hiệu -->
+          <div class="donut-legend-list">
+            <div v-for="(slice, i) in brandDonutSlices" :key="i" class="legend-row-item">
+              <div class="legend-left-col">
+                <span class="legend-color-dot" :style="{ backgroundColor: slice.color }"></span>
+                <span class="legend-name-text">{{ slice.name }}</span>
+              </div>
+              <span class="legend-percent-tag">{{ slice.percentage }}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Khu vực Dữ liệu chi tiết: Hóa đơn trong kỳ & Thống kê sản phẩm -->
+    <div class="bottom-tables-container">
+      <div class="tables-tab-switch-bar">
+        <div class="tab-buttons-group">
+          <button
+            type="button"
+            class="tab-switch-btn"
+            :class="{ active: activeBottomTab === 'invoices' }"
+            @click="activeBottomTab = 'invoices'"
+          >
+            Hóa đơn trong kỳ ({{ filteredInvoicesList.length }})
+          </button>
+          <button
+            type="button"
+            class="tab-switch-btn"
+            :class="{ active: activeBottomTab === 'products' }"
+            @click="activeBottomTab = 'products'"
+          >
+            Thống kê sản phẩm ({{ filteredProductsList.length }})
+          </button>
+          <button
+            type="button"
+            class="tab-switch-btn"
+            :class="{ active: activeBottomTab === 'both' }"
+            @click="activeBottomTab = 'both'"
+          >
+            Xem tất cả
+          </button>
+        </div>
+      </div>
+
+      <!-- Bảng 1: Hóa đơn trong kỳ -->
+      <div
+        v-show="activeBottomTab === 'invoices' || activeBottomTab === 'both'"
+        id="invoices-section"
+        class="content-card invoice-stats-card"
+      >
       <div class="product-stats-toolbar">
         <div class="card-title-group">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="title-sub-icon">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-            <polyline points="10 9 9 9 8 9" />
-          </svg>
           <h3 class="card-heading">Hóa đơn trong kỳ thống kê</h3>
           <span class="badge-total-count">{{ filteredInvoicesList.length }} hóa đơn</span>
         </div>
 
         <div class="invoice-toolbar-actions">
           <!-- Tìm kiếm mã HĐ, khách hàng, SĐT, nhân viên -->
-          <div class="input-with-prefix-icon search-invoice-box">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
+          <div class="search-invoice-box">
             <input
               type="text"
               v-model="invoiceSearchQuery"
               placeholder="Mã HĐ, khách hàng, SĐT..."
-              class="form-control-minimal with-icon"
+              class="form-control-minimal"
               @input="invoicePagination.page = 0"
             />
           </div>
 
-          <!-- Lọc loại đơn -->
-          <div class="select-wrapper-minimal">
-            <select v-model="invoiceTypeFilter" class="form-control-minimal" @change="invoicePagination.page = 0">
-              <option value="">Tất cả loại đơn</option>
-              <option value="1">Tại quầy</option>
-              <option value="2">Online</option>
-            </select>
+          <!-- Lọc loại đơn (Select2) -->
+          <div class="invoice-filter-combobox">
+            <Select2Combobox
+              v-model="invoiceTypeFilter"
+              :options="invoiceTypeOptions"
+              placeholder="Tất cả loại đơn"
+              all-label="Tất cả loại đơn"
+              search-placeholder="Tìm loại đơn..."
+              @change="invoicePagination.page = 0"
+            />
           </div>
 
-          <!-- Lọc hình thức thanh toán -->
-          <div class="select-wrapper-minimal">
-            <select v-model="invoicePaymentFilter" class="form-control-minimal" @change="invoicePagination.page = 0">
-              <option value="">Tất cả hình thức TT</option>
-              <option value="Tiền mặt">Tiền mặt</option>
-              <option value="Chuyển khoản">Chuyển khoản</option>
-              <option value="Kết hợp">Kết hợp</option>
-            </select>
+          <!-- Lọc hình thức thanh toán (Select2) -->
+          <div class="invoice-filter-combobox">
+            <Select2Combobox
+              v-model="invoicePaymentFilter"
+              :options="invoicePaymentOptions"
+              placeholder="Tất cả hình thức TT"
+              all-label="Tất cả hình thức TT"
+              search-placeholder="Tìm hình thức TT..."
+              @change="invoicePagination.page = 0"
+            />
           </div>
 
-          <!-- Lọc trạng thái -->
-          <div class="select-wrapper-minimal">
-            <select v-model="invoiceStatusFilter" class="form-control-minimal" @change="invoicePagination.page = 0">
-              <option value="">Tất cả trạng thái</option>
-              <option value="5">Hoàn thành</option>
-              <option value="processing">Đang xử lý</option>
-              <option value="6">Đã hủy</option>
-            </select>
+          <!-- Lọc trạng thái (Select2) -->
+          <div class="invoice-filter-combobox">
+            <Select2Combobox
+              v-model="invoiceStatusFilter"
+              :options="invoiceStatusOptions"
+              placeholder="Tất cả trạng thái"
+              all-label="Tất cả trạng thái"
+              search-placeholder="Tìm trạng thái..."
+              @change="invoicePagination.page = 0"
+            />
           </div>
 
           <!-- Nút Đặt lại lọc HĐ -->
           <button type="button" class="btn-reset-round small" @click="resetInvoiceFilters" title="Đặt lại bộ lọc hóa đơn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M23 4v6h-6" />
-              <path d="M1 20v-6h6" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
             <span>Đặt lại</span>
           </button>
         </div>
@@ -744,64 +690,52 @@
         </div>
 
         <div class="footer-right-size">
-          <div class="select-wrapper-minimal size-select">
-            <select v-model.number="invoicePagination.size" class="form-control-minimal" @change="invoicePagination.page = 0">
-              <option :value="5">Hiển thị 5 bản ghi / trang</option>
-              <option :value="10">Hiển thị 10 bản ghi / trang</option>
-              <option :value="20">Hiển thị 20 bản ghi / trang</option>
-            </select>
+          <div class="size-select-wrap">
+            <Select2Combobox
+              v-model.number="invoicePagination.size"
+              :options="pageSizeInvoiceOptions"
+              :searchable="false"
+              placeholder="Chọn số bản ghi"
+              @change="invoicePagination.page = 0"
+            />
           </div>
         </div>
       </div>
     </div>
 
     <!-- 6. Khu vực Bảng 'Thống kê sản phẩm' (Full width ở cuối trang) -->
-    <div class="content-card product-stats-card">
+    <div v-show="activeBottomTab === 'products' || activeBottomTab === 'both'" class="content-card product-stats-card">
       <!-- Thanh công cụ đầu Card -->
       <div class="product-stats-toolbar">
         <div class="card-title-group">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="title-sub-icon">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-            <line x1="12" y1="22.08" x2="12" y2="12" />
-          </svg>
           <h3 class="card-heading">Thống kê sản phẩm</h3>
         </div>
 
         <div class="product-stats-actions">
           <!-- Ô tìm kiếm Mã, tên, thương hiệu -->
-          <div class="input-with-prefix-icon search-product-box">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
+          <div class="search-product-box">
             <input
               type="text"
               v-model="productTableQuery"
               placeholder="Mã, tên, thương hiệu..."
-              class="form-control-minimal with-icon"
+              class="form-control-minimal"
               @input="onProductSearchChange"
             />
           </div>
 
-          <!-- Combobox lọc sắp xếp -->
-          <div class="select-wrapper-minimal">
-            <select v-model="productSortBy" class="form-control-minimal" @change="sortProductTable">
-              <option value="best_seller">Bán chạy nhất</option>
-              <option value="slow_seller">Bán chậm nhất</option>
-              <option value="highest_revenue">Doanh thu cao nhất</option>
-              <option value="highest_stock">Tồn kho nhiều nhất</option>
-              <option value="highest_return">Số lượng trả nhiều nhất</option>
-            </select>
+          <!-- Combobox lọc sắp xếp (Select2) -->
+          <div class="product-sort-combobox">
+            <Select2Combobox
+              v-model="productSortBy"
+              :options="productSortOptions"
+              placeholder="Sắp xếp sản phẩm"
+              search-placeholder="Tìm tiêu chí sắp xếp..."
+              @change="sortProductTable"
+            />
           </div>
 
           <!-- Nút Đặt lại -->
           <button type="button" class="btn-reset-round small" @click="resetProductTableFilters">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M23 4v6h-6" />
-              <path d="M1 20v-6h6" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
             <span>Đặt lại</span>
           </button>
         </div>
@@ -905,16 +839,18 @@
         </div>
 
         <div class="footer-right-size">
-          <div class="select-wrapper-minimal size-select">
-            <select v-model.number="productPagination.size" class="form-control-minimal" @change="productPagination.page = 0">
-              <option :value="5">Hiển thị 5 bản ghi / trang</option>
-              <option :value="10">Hiển thị 10 bản ghi / trang</option>
-              <option :value="20">Hiển thị 20 bản ghi / trang</option>
-              <option :value="50">Hiển thị 50 bản ghi / trang</option>
-            </select>
+          <div class="size-select-wrap">
+            <Select2Combobox
+              v-model.number="productPagination.size"
+              :options="pageSizeProductOptions"
+              :searchable="false"
+              placeholder="Chọn số bản ghi"
+              @change="productPagination.page = 0"
+            />
           </div>
         </div>
       </div>
+    </div>
     </div>
   </div>
 </template>
@@ -925,9 +861,11 @@ import { useRouter } from 'vue-router'
 import api from '@/api'
 import * as XLSX from 'xlsx'
 import { showToast } from '@/utils/dialog.js'
+import Select2Combobox from '@/components/Select2Combobox.vue'
 
 const router = useRouter()
 const defaultProductImage = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=150&auto=format&fit=crop&q=80'
+const activeBottomTab = ref('both')
 
 // 1. Quản lý Bộ lọc thống kê
 const quickFilter = ref('today')
@@ -937,11 +875,75 @@ const loadingOverview = ref(false)
 
 const filters = reactive({
   fromDate: getTodayDateString(),
-  toDate: getTodayDateString(),
+  toDate: '',
   statType: 'day',
   brand: '',
   productKeyword: ''
 })
+
+// Cấu hình Options Select2 cho Thống kê
+const statTypeOptions = [
+  { value: 'day', label: 'Theo ngày' },
+  { value: 'week', label: 'Theo tuần' },
+  { value: 'month', label: 'Theo tháng' },
+  { value: 'year', label: 'Theo năm' }
+]
+
+const brandComboboxOptions = computed(() => {
+  const list = [{ value: '', label: 'Tất cả thương hiệu' }]
+  if (Array.isArray(brandOptions.value)) {
+    brandOptions.value.forEach(b => {
+      list.push({
+        value: b.id,
+        label: b.ten || b.tenThuongHieu || `Thương hiệu #${b.id}`
+      })
+    })
+  }
+  return list
+})
+
+// Cấu hình Options Select2 cho Danh sách Hóa đơn
+const invoiceTypeOptions = [
+  { value: '', label: 'Tất cả loại đơn' },
+  { value: '1', label: 'Tại quầy' },
+  { value: '2', label: 'Online' }
+]
+
+const invoicePaymentOptions = [
+  { value: '', label: 'Tất cả hình thức TT' },
+  { value: 'Tiền mặt', label: 'Tiền mặt' },
+  { value: 'Chuyển khoản', label: 'Chuyển khoản' },
+  { value: 'Kết hợp', label: 'Kết hợp' }
+]
+
+const invoiceStatusOptions = [
+  { value: '', label: 'Tất cả trạng thái' },
+  { value: '5', label: 'Hoàn thành' },
+  { value: 'processing', label: 'Đang xử lý' },
+  { value: '6', label: 'Đã hủy' }
+]
+
+const pageSizeInvoiceOptions = [
+  { value: 5, label: 'Hiển thị 5 bản ghi / trang' },
+  { value: 10, label: 'Hiển thị 10 bản ghi / trang' },
+  { value: 20, label: 'Hiển thị 20 bản ghi / trang' }
+]
+
+// Cấu hình Options Select2 cho Thống kê sản phẩm
+const productSortOptions = [
+  { value: 'best_seller', label: 'Bán chạy nhất' },
+  { value: 'slow_seller', label: 'Bán chậm nhất' },
+  { value: 'highest_revenue', label: 'Doanh thu cao nhất' },
+  { value: 'highest_stock', label: 'Tồn kho nhiều nhất' },
+  { value: 'highest_return', label: 'Số lượng trả nhiều nhất' }
+]
+
+const pageSizeProductOptions = [
+  { value: 5, label: 'Hiển thị 5 bản ghi / trang' },
+  { value: 10, label: 'Hiển thị 10 bản ghi / trang' },
+  { value: 20, label: 'Hiển thị 20 bản ghi / trang' },
+  { value: 50, label: 'Hiển thị 50 bản ghi / trang' }
+]
 
 const statTypeHeading = computed(() => {
   if (filters.statType === 'week') return 'Tuần'
@@ -978,7 +980,7 @@ function setQuickFilter(type) {
     filters.toDate = todayStr
   } else if (type === 'today') {
     filters.fromDate = todayStr
-    filters.toDate = todayStr
+    filters.toDate = ''
   } else if (type === '7days') {
     const past7 = new Date()
     past7.setDate(now.getDate() - 6)
@@ -1335,10 +1337,15 @@ function goToInvoiceDetail(maHoaDon) {
 }
 
 function scrollToInvoices() {
-  const el = document.getElementById('invoices-section')
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth' })
+  if (activeBottomTab.value === 'products') {
+    activeBottomTab.value = 'invoices'
   }
+  setTimeout(() => {
+    const el = document.getElementById('invoices-section')
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, 50)
 }
 
 function handleKpiFilter(type) {
@@ -1498,7 +1505,8 @@ async function handleExportExcel() {
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    const fileName = `BaoCao_ThongKe_DoanhThu_${filters.fromDate}_den_${filters.toDate}.xlsx`
+    const toDatePart = filters.toDate || getTodayDateString()
+    const fileName = `BaoCao_ThongKe_DoanhThu_${filters.fromDate}_den_${toDatePart}.xlsx`
     link.setAttribute('download', fileName)
     document.body.appendChild(link)
     link.click()
@@ -1517,7 +1525,7 @@ function exportClientExcelFallback() {
     const wb = XLSX.utils.book_new()
     const kpiSummaryRows = [
       ['BÁO CÁO THỐNG KÊ DOANH THU & KINH DOANH'],
-      ['Thời gian lọc:', `Từ ${formatDateDisplay(filters.fromDate)} đến ${formatDateDisplay(filters.toDate)}`],
+      ['Thời gian lọc:', filters.toDate ? `Từ ${formatDateDisplay(filters.fromDate)} đến ${formatDateDisplay(filters.toDate)}` : `Từ ${formatDateDisplay(filters.fromDate)}`],
       ['Kiểu thống kê:', filters.statType === 'day' ? 'Theo ngày' : filters.statType === 'week' ? 'Theo tuần' : filters.statType === 'month' ? 'Theo tháng' : 'Theo năm'],
       [],
       ['CHỈ SỐ TỔNG QUAN (KPIS)', 'GIÁ TRỊ'],
@@ -1567,7 +1575,8 @@ function exportClientExcelFallback() {
     const wsProducts = XLSX.utils.aoa_to_sheet(productRows)
     XLSX.utils.book_append_sheet(wb, wsProducts, 'ThongKeSanPham')
 
-    const fileName = `Thong-ke-doanh-thu-${filters.fromDate}-den-${filters.toDate}.xlsx`
+    const toDateFallback = filters.toDate || getTodayDateString()
+    const fileName = `Thong-ke-doanh-thu-${filters.fromDate}-den-${toDateFallback}.xlsx`
     XLSX.writeFile(wb, fileName)
     showToast('Xuất file Excel thống kê thành công!', 'success')
   } catch (e) {
@@ -1628,18 +1637,6 @@ onMounted(async () => {
   gap: 12px;
 }
 
-.title-icon-box {
-  width: 38px;
-  height: 40px;
-  border-radius: 10px;
-  background-color: #f1ede7;
-  color: var(--blue, #496883);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.12);
-}
-
 .page-main-title {
   margin: 0;
   font-size: 1.5rem;
@@ -1668,10 +1665,6 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.filter-icon {
-  color: var(--blue, #496883);
 }
 
 .filter-title-text {
@@ -1718,8 +1711,7 @@ onMounted(async () => {
 .btn-export-excel {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background-color: var(--blue, #496883);
+  justify-content: center;
   background-color: #edf5ef;
   border-color: #cce5d3;
   color: #247541;
@@ -1736,11 +1728,23 @@ onMounted(async () => {
 /* Hàng giữa: 5 trường lọc + Nút Đặt lại */
 .filter-fields-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1.1fr 1.6fr auto;
+  grid-template-columns: 1fr 1fr 1fr 1.15fr 1.5fr auto;
   gap: 12px;
   align-items: flex-end;
   padding-top: 1rem;
   border-top: 1px solid #f2eee8;
+}
+
+@media (max-width: 1200px) {
+  .filter-fields-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .filter-fields-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .filter-field-item {
@@ -1750,11 +1754,11 @@ onMounted(async () => {
 }
 
 .field-label-tiny {
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  color: #6c787e;
+  color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
 }
 
 .form-control-minimal {
@@ -1793,30 +1797,9 @@ onMounted(async () => {
   margin-top: 4px;
 }
 
-.input-with-prefix-icon {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.prefix-icon {
-  position: absolute;
-  left: 10px;
-  color: var(--blue, #496883);
-  pointer-events: none;
-}
-
-.form-control-minimal.with-icon {
-  padding-left: 32px;
-}
-
-.select-wrapper-minimal {
-  position: relative;
-}
-
 .btn-reset-round {
   height: 40px;
-  padding: 0 14px;
+  padding: 0 16px;
   border-radius: 20px;
   border: 1px solid #d5cbc0;
   background-color: #ffffff;
@@ -1825,7 +1808,7 @@ onMounted(async () => {
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
@@ -1839,7 +1822,7 @@ onMounted(async () => {
 
 .btn-reset-round.small {
   height: 34px;
-  padding: 0 11px;
+  padding: 0 14px;
   font-size: 0.88rem;
 }
 
@@ -1867,66 +1850,104 @@ onMounted(async () => {
   font-weight: 700;
 }
 
-/* 2. Hàng 6 Thẻ chỉ số tổng quan (6 KPI Cards) */
+/* 2. Hàng 6 Thẻ chỉ số tổng quan (1 hàng ngang thu nhỏ gọn, khung viền tối giản) */
 .kpi-cards-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 14px;
+  gap: 10px;
+}
+
+@media (max-width: 1024px) {
+  .kpi-cards-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+}
+
+@media (max-width: 580px) {
+  .kpi-cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
 }
 
 .kpi-card {
   background-color: #ffffff;
-  border-radius: 16px;
+  border-radius: 10px;
   border: 1px solid #ece6dc;
-  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.025);
-  padding: 1.15rem 1rem;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.02);
+  padding: 0.72rem 0.85rem;
   display: flex;
   flex-direction: column;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  justify-content: center;
+  min-height: 70px;
+  box-sizing: border-box;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .kpi-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
-.kpi-icon-wrap {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+.kpi-card.clickable-kpi-card {
+  cursor: pointer;
+}
+
+.kpi-card.clickable-kpi-card:hover {
+  border-color: var(--blue, #496883);
+}
+
+.kpi-card-header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin-bottom: 0.85rem;
-}
-
-.pastel-green { background-color: #e8f5e9; color: #2e7d32; }
-.pastel-blue { background-color: #e3f2fd; color: #1565c0; }
-.pastel-emerald { background-color: #e0f2f1; color: #00796b; }
-.pastel-purple { background-color: #f3e5f5; color: #7b1fa2; }
-.pastel-pink { background-color: #fce4ec; color: #c2185b; }
-.pastel-orange { background-color: #fff3e0; color: #e65100; }
-
-.kpi-value {
-  font-size: 1.4rem;
-  font-weight: 700;
-  line-height: 1.3;
-  margin-bottom: 0.35rem;
-  letter-spacing: -0.3px;
-  word-break: break-word;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 3px;
 }
 
 .kpi-label {
-  font-size: 0.88rem;
-  font-weight: 500;
-  color: #7e8b93;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* 3 & 4. Lưới biểu đồ 2:1 */
+.kpi-hint {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.kpi-value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #1e293b;
+  line-height: 1.25;
+  margin-bottom: 0;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 3 & 4. Lưới biểu đồ (Tỷ lệ 1.6 : 1 rộng rãi) */
 .charts-row-split-2-1 {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1.6fr 1fr;
   gap: 14px;
+}
+
+@media (max-width: 1024px) {
+  .charts-row-split-2-1 {
+    grid-template-columns: 1fr;
+  }
 }
 
 .card-title-row {
@@ -1940,10 +1961,6 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.title-sub-icon {
-  color: var(--blue, #496883);
 }
 
 .card-heading {
@@ -1998,33 +2015,15 @@ onMounted(async () => {
   fill: var(--blue, #496883);
 }
 
-.unused-peak-rule {
-  font-size: 13px;
-  font-weight: 700;
-  fill: var(--blue, #496883);
-}
-
 .bar-peak-number.is-zero {
   font-size: 9px;
   font-weight: 400;
   fill: #94a3b8;
 }
 
-.unused-zero-rule {
-  font-size: 11px;
-  font-weight: 500;
-  fill: #a0abb2;
-}
-
 .bar-bottom-label {
   font-size: 9.5px;
   font-weight: 400;
-  fill: #64748b;
-}
-
-.unused-label-rule {
-  font-size: 12px;
-  font-weight: 600;
   fill: #64748b;
 }
 
@@ -2161,18 +2160,6 @@ onMounted(async () => {
   margin-bottom: 0.5rem;
 }
 
-.callout-pill.green-callout {
-  display: inline-block;
-  background-color: #eaf5ed;
-  border: 1px solid #bce1c7;
-  color: #247541;
-  font-size: 0.88rem;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 9999px;
-  border: 1px solid #bbf7d0;
-}
-
 .status-legend-footer {
   display: flex;
   align-items: center;
@@ -2200,7 +2187,7 @@ onMounted(async () => {
 .dot-green { background-color: #22c55e; }
 .dot-orange { background-color: #f59e0b; }
 
-/* 4 & 5. Bảng dữ liệu tối giản: Header nền nâu be nhạt (#DDD3C5) */
+/* 4 & 5. Bảng dữ liệu tối giản */
 .table-responsive-clean {
   overflow-x: auto;
 }
@@ -2247,17 +2234,11 @@ onMounted(async () => {
   vertical-align: middle;
 }
 
-/* Định dạng màu sắc cột theo yêu cầu */
+/* Định dạng màu sắc cột */
 .text-black-bold {
   color: #1e293b;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-}
-
-.unused-black-bold {
-  color: #1e293b;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
 }
 
 .text-blue-amount {
@@ -2316,6 +2297,18 @@ onMounted(async () => {
 
 .search-product-box {
   width: 240px;
+}
+
+.product-sort-combobox {
+  min-width: 195px;
+}
+
+.invoice-filter-combobox {
+  min-width: 165px;
+}
+
+.size-select-wrap {
+  width: 220px;
 }
 
 .product-name-with-thumb {
@@ -2439,10 +2432,6 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
-.size-select {
-  width: 210px;
-}
-
 /* Responsive adjustments */
 @media (max-width: 1280px) {
   .kpi-cards-grid {
@@ -2473,15 +2462,8 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 }
+
 /* Liên kết hóa đơn với thống kê */
-.clickable-kpi {
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.clickable-kpi:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(73, 104, 131, 0.16);
-}
 .clickable-kpi-text {
   cursor: pointer;
   transition: color 0.15s;
@@ -2650,5 +2632,55 @@ onMounted(async () => {
 }
 .invoice-row-hover:hover {
   background-color: #faf8f5;
+}
+
+/* 5. Khu vực chuyển đổi Tab danh sách bên dưới */
+.bottom-tables-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.tables-tab-switch-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid #ece6dc;
+  padding-bottom: 8px;
+}
+
+.tab-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tab-switch-btn {
+  background-color: #ffffff;
+  border: 1px solid #dfd8cc;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #556268;
+  padding: 8px 18px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.tab-switch-btn:hover {
+  color: #1e293b;
+  background-color: #f5efe6;
+  border-color: #cbbeab;
+}
+
+.tab-switch-btn.active {
+  color: #ffffff;
+  background-color: var(--blue, #496883);
+  border-color: var(--blue, #496883);
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(73, 104, 131, 0.25);
 }
 </style>
