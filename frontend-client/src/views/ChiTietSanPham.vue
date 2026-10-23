@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
@@ -139,7 +139,7 @@ const currentStock = computed(() => {
 // Giá bán
 const currentPrice = computed(() => {
   if (currentVariant.value) {
-    if (product.value?.coGiamGia && currentVariant.value.giaSauGiam) {
+    if (currentVariant.value.coGiamGia && currentVariant.value.giaSauGiam) {
       return currentVariant.value.giaSauGiam
     }
     return currentVariant.value.giaBan || currentVariant.value.gia || 0
@@ -155,6 +155,9 @@ const originalPrice = computed(() => {
 })
 
 const hasDiscount = computed(() => {
+  if (currentVariant.value) {
+    return !!currentVariant.value.coGiamGia && (originalPrice.value > currentPrice.value)
+  }
   return product.value?.coGiamGia === true || (originalPrice.value > currentPrice.value)
 })
 

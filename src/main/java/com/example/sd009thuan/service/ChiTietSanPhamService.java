@@ -427,9 +427,6 @@ public class ChiTietSanPhamService {
         // Kiểm tra giảm giá liên kết (ưu tiên theo biến thể, fallback theo sản phẩm cha)
         Instant now = Instant.now();
         List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsByVariantId(ct.getId(), now);
-        if ((activeDiscounts == null || activeDiscounts.isEmpty()) && ct.getIdSanPham() != null && ct.getIdSanPham().getId() != null) {
-            activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsBySanPhamId(ct.getIdSanPham().getId(), now);
-        }
         Boolean coGiamGia = false;
         BigDecimal giaSauGiam = null;
         BigDecimal phanTramGiam = null;
