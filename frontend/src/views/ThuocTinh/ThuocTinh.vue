@@ -798,9 +798,9 @@ watch(() => route.query.tab, (newTab) => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background-color: #3b596a;
+  background-color: var(--blue, #496883);
   color: #ffffff;
-  border: 1px solid #324b5a;
+  border: 1px solid var(--blue, #496883);
   padding: 0.6rem 1.4rem;
   border-radius: 9999px;
   font-size: 0.92rem;
@@ -1388,8 +1388,8 @@ watch(() => route.query.tab, (newTab) => {
 .btn-submit {
   height: 2.4rem;
   padding: 0 1.25rem;
-  background-color: #3b596a;
-  border: 1px solid #324b5a;
+  background-color: var(--blue, #496883);
+  border: 1px solid var(--blue, #496883);
   border-radius: 8px;
   color: #ffffff;
   font-size: 0.88rem;

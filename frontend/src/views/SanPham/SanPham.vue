@@ -19,7 +19,7 @@
           <span>Biến thể</span>
         </button>
 
-        <button type="button" class="btn btn-header-outline" @click="goToAttributesPage" title="Quản lý thuộc tính">
+        <button v-if="isAdmin()" type="button" class="btn btn-header-outline" @click="goToAttributesPage" title="Quản lý thuộc tính">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="4" y1="21" x2="4" y2="14"></line>
             <line x1="4" y1="10" x2="4" y2="3"></line>
@@ -34,7 +34,7 @@
           <span>Thuộc tính</span>
         </button>
 
-        <button type="button" class="btn btn-header-primary" @click="goToAddPage" title="Thêm mới sản phẩm">
+        <button v-if="isAdmin()" type="button" class="btn btn-header-primary" @click="goToAddPage" title="Thêm mới sản phẩm">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -208,7 +208,7 @@
             <span>{{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}</span>
           </button>
 
-          <button type="button" class="btn btn-filter-import" @click="openImportModal" title="Nhập danh sách sản phẩm từ file Excel">
+          <button v-if="isAdmin()" type="button" class="btn btn-filter-import" @click="openImportModal" title="Nhập danh sách sản phẩm từ file Excel">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="17 8 12 3 7 8"/>
@@ -346,8 +346,9 @@
             <!-- Cột thao tác: Chuyển trạng thái kinh doanh, Xem chi tiết biến thể -->
             <td style="text-align: center;">
               <div class="action-buttons-group">
-                <!-- 1. Switch chuyển trạng thái kinh doanh -->
+                <!-- 1. Switch chuyển trạng thái kinh doanh (Chỉ Admin) -->
                 <label
+                  v-if="isAdmin()"
                   class="switch-toggle"
                   :title="item.trangThai === 1 ? 'Đang kinh doanh (nhấn để ngừng)' : 'Đang ngừng kinh doanh (nhấn để bật)'"
                 >
@@ -359,8 +360,9 @@
                   <span class="slider-round"></span>
                 </label>
 
-                <!-- 2. Icon chỉnh sửa biến thể sản phẩm -->
+                <!-- 2. Icon chỉnh sửa biến thể sản phẩm (Chỉ Admin) -->
                 <button
+                    v-if="isAdmin()"
                     class="btn-action btn-edit"
                     @click="goToEditVariant(item)"
                     title="Chỉnh sửa biến thể"
@@ -795,6 +797,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
+import { isAdmin } from '@/utils/auth.js'
 
 const router = useRouter()
 
@@ -1359,7 +1362,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   color: #7f8c8d;
   margin-bottom: 0;
 }
@@ -1534,7 +1537,7 @@ onMounted(() => {
 }
 
 .filter-field-label {
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: #475569;
   margin: 0;
@@ -1716,7 +1719,7 @@ onMounted(() => {
   height: 24px;
   padding: 0 6px;
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #3b4b53;
   background-color: #f7f5ee;
@@ -1748,14 +1751,14 @@ onMounted(() => {
 }
 
 .product-table th {
-  background-color: #faf8f5;
-  color: #4a5568;
+  background-color: #f7f5ef;
+  color: var(--blue, #496883);
   font-weight: 700;
   text-transform: uppercase;
   padding: 0.95rem 1rem;
   text-align: left;
   border-bottom: 2px solid #e9e5db;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   letter-spacing: 0.5px;
   white-space: nowrap;
 }
@@ -1804,7 +1807,7 @@ onMounted(() => {
   padding: 0.4rem 0.9rem;
   background-color: #fff8eb;
   color: #957b48;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 600;
   border-radius: 6px;
   border: 1px solid #dfd5c2;
@@ -2008,7 +2011,7 @@ onMounted(() => {
   padding: 3px 10px;
   border-radius: 12px;
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
 }
 .stock-badge.in-stock {
   background-color: #eaf5ed;
@@ -2032,7 +2035,7 @@ onMounted(() => {
   padding: 0.35rem 0.8rem;
   font-weight: 700;
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   white-space: nowrap;
 }
 
@@ -2053,7 +2056,7 @@ onMounted(() => {
   padding: 0.35rem 0.8rem;
   font-weight: 700;
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   white-space: nowrap;
   border: 1px solid transparent;
   cursor: pointer;
@@ -2689,7 +2692,7 @@ textarea.form-control {
 }
 
 .pdm-code {
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #496883;
   background: #edf2f7;
@@ -2885,7 +2888,7 @@ textarea.form-control {
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 4px 10px;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -3204,7 +3207,7 @@ textarea.form-control {
 }
 
 .errors-desc {
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   color: #b91c1c;
   margin: 0;
 }
@@ -3221,7 +3224,7 @@ textarea.form-control {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   color: #7f1d1d;
   line-height: 1.4;
 }
@@ -3255,7 +3258,7 @@ textarea.form-control {
   gap: 0.75rem;
   padding: 1rem 1.5rem;
   border-top: 1px solid #efeae0;
-  background-color: #faf8f5;
+  background-color: #f7f5ef;
   margin-top: 0;
 }
 

@@ -993,8 +993,8 @@ onMounted(() => {
 }
 
 .product-table th {
-  background-color: #faf8f5;
-  color: #4a5568;
+  background-color: #f7f5ef;
+  color: var(--blue, #496883);
   font-weight: 700;
   text-transform: uppercase;
   padding: 0.95rem 1rem;
@@ -1410,7 +1410,7 @@ onMounted(() => {
   margin-top: 1.5rem;
   padding-top: 1.25rem;
   border-top: 1px solid #efeae0;
-  background-color: #faf8f5;
+  background-color: #f7f5ef;
 }
 
 .btn-secondary {

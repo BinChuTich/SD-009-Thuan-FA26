@@ -127,6 +127,10 @@ public class DotGiamGiaService {
         return dotGiamGiaRepository.findAll();
     }
 
+    public List<DotGiamGia> getActiveCampaigns() {
+        return dotGiamGiaRepository.findActiveCampaigns(Instant.now());
+    }
+
     public Optional<DotGiamGia> getById(Long id) {
         return dotGiamGiaRepository.findById(id);
     }

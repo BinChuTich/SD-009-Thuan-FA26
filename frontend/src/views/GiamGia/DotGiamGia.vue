@@ -1797,32 +1797,28 @@ const validateNgayBatDauValue = (rawVal, isFromInput = false) => {
     if (!isFromInput) {
       errors.value.ngayBatDau = 'Từ ngày không được để trống!'
     }
-    return
+    return false
   }
   const startMs = new Date(rawVal).getTime()
-  if (isNaN(startMs)) return
+  if (isNaN(startMs)) return false
 
-  const isOriginalStart = isEditing.value && originalNgayBatDau.value && rawVal === toInputDateTime(originalNgayBatDau.value)
-  if (!isOriginalStart) {
-    const minMs = getCurrentMinuteFloorMs()
-    if (startMs < minMs) {
-      // Lập tức khóa cứng không cho chọn ngược lại thời gian hiện tại
-      const currentStr = getCurrentDateTimeString()
-      formData.value.ngayBatDau = currentStr
-      errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
-      showToast('Thời gian bắt đầu không được trước thời gian hiện tại!', 'error')
-      return
-    }
+  const minMs = getCurrentMinuteFloorMs()
+  if (startMs < minMs) {
+    errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
+    return false
   }
 
   if (formData.value.ngayKetThuc) {
     const endMs = new Date(formData.value.ngayKetThuc).getTime()
-    if (!isNaN(endMs) && endMs <= startMs) {
-      errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
-    } else {
-      clearError('ngayKetThuc')
+    if (!isNaN(endMs)) {
+      if (endMs <= startMs) {
+        errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
+      } else if (endMs >= minMs) {
+        clearError('ngayKetThuc')
+      }
     }
   }
+  return true
 }
 
 const handleNgayBatDauInput = (e) => {
@@ -1842,30 +1838,25 @@ const validateNgayKetThucValue = (rawVal, isFromInput = false) => {
     if (!isFromInput) {
       errors.value.ngayKetThuc = 'Đến ngày không được để trống!'
     }
-    return
+    return false
   }
   const endMs = new Date(rawVal).getTime()
-  if (isNaN(endMs)) return
+  if (isNaN(endMs)) return false
 
   const minMs = getCurrentMinuteFloorMs()
   if (endMs < minMs) {
     errors.value.ngayKetThuc = 'Thời gian kết thúc không được trước thời gian hiện tại!'
-    showToast('Thời gian kết thúc không được trước thời gian hiện tại!', 'error')
-    formData.value.ngayKetThuc = ''
-    return
+    return false
   }
 
   if (formData.value.ngayBatDau) {
     const startMs = new Date(formData.value.ngayBatDau).getTime()
     if (!isNaN(startMs) && endMs <= startMs) {
-      errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
-      showToast('Đến ngày phải sau thời gian bắt đầu!', 'error')
-      formData.value.ngayKetThuc = ''
-      return
-    } else {
-      clearError('ngayKetThuc')
+      errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
+      return false
     }
   }
+  return true
 }
 
 const handleNgayKetThucInput = (e) => {
@@ -2447,6 +2438,10 @@ const openEditView = async (item) => {
     trangThai: item.trangThai != null ? item.trangThai : 1
   }
 
+  // Báo đỏ ngay khi mở form nếu đợt giảm giá có thời gian trong quá khứ
+  validateNgayBatDauValue(formData.value.ngayBatDau, false)
+  validateNgayKetThucValue(formData.value.ngayKetThuc, false)
+
   try {
     await Promise.all([
       loadActiveCampaignProducts(item.id),
@@ -2478,6 +2473,10 @@ const openEditView = async (item) => {
         originalNgayKetThuc.value = res.data.ngayKetThuc
       }
       if (res.data.trangThai != null) formData.value.trangThai = res.data.trangThai
+
+      // Kiểm tra validate ngay khi mở sửa để báo đỏ nếu đợt giảm giá có thời gian trong quá khứ
+      validateNgayBatDauValue(formData.value.ngayBatDau, false)
+      validateNgayKetThucValue(formData.value.ngayKetThuc, false)
     }
   } catch (e) {
     console.warn('Lỗi khi tải chi tiết đợt giảm giá:', e)
@@ -2572,33 +2571,13 @@ const onSaveClick = () => {
   }
 
   // 3. Kiểm tra Từ ngày
-  if (!formData.value.ngayBatDau || formData.value.ngayBatDau.trim() === '') {
-    errors.value.ngayBatDau = 'Từ ngày không được để trống!'
+  if (!validateNgayBatDauValue(formData.value.ngayBatDau, false)) {
     hasError = true
-  } else {
-    const startMs = new Date(formData.value.ngayBatDau).getTime()
-    const isOriginalStart = isEditing.value && originalNgayBatDau.value && formData.value.ngayBatDau === toInputDateTime(originalNgayBatDau.value)
-    if (!isOriginalStart && startMs < getCurrentMinuteFloorMs()) {
-      errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
-      hasError = true
-    }
   }
 
   // 4. Kiểm tra Đến ngày (Bắt buộc, không cho để trống)
-  if (!formData.value.ngayKetThuc || formData.value.ngayKetThuc.trim() === '') {
-    errors.value.ngayKetThuc = 'Đến ngày không được để trống!'
+  if (!validateNgayKetThucValue(formData.value.ngayKetThuc, false)) {
     hasError = true
-  } else {
-    const endMs = new Date(formData.value.ngayKetThuc).getTime()
-    if (endMs < getCurrentMinuteFloorMs()) {
-      errors.value.ngayKetThuc = 'Thời gian kết thúc không được trước thời gian hiện tại!'
-      hasError = true
-    } else if (formData.value.ngayBatDau) {
-      if (endMs <= new Date(formData.value.ngayBatDau).getTime()) {
-        errors.value.ngayKetThuc = 'Đến ngày phải sau thời gian bắt đầu!'
-        hasError = true
-      }
-    }
   }
 
   // 5. Kiểm tra sản phẩm & biến thể áp dụng (Báo đỏ nếu chưa chọn)
@@ -3040,12 +3019,12 @@ onUnmounted(() => {
 }
 
 .btn-reset {
-  border: 1px solid #dfd5c2;
-  background-color: #fff8eb;
-  color: #957b48;
+  border: 1px solid #e2dacd;
+  background-color: #f4efe6;
+  color: #6d6352;
 }
 .btn-reset:hover {
-  background-color: #faeed7;
+  background-color: #ebe3d6;
 }
 
 .btn-export {
@@ -3058,7 +3037,7 @@ onUnmounted(() => {
 }
 
 .btn-primary {
-  background-color: #3b596a;
+  background-color: var(--blue, #496883);
   color: #ffffff;
 }
 .btn-primary:hover {
@@ -3091,13 +3070,15 @@ onUnmounted(() => {
   table-layout: fixed;
 }
 .custom-table-styled th {
-  background-color: #faf9f6;
-  color: #556268;
+  background-color: #f7f5ef;
+  color: var(--blue, #496883);
+  text-transform: uppercase;
   font-weight: 700;
   padding: 0.72rem 0.45rem;
   text-align: left;
-  border-bottom: 1px solid #ede9de;
-  font-size: 0.86rem;
+  border-bottom: 2px solid #e9e5db;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
 }
 .custom-table-styled td {
   padding: 0.75rem 0.45rem;
@@ -3261,11 +3242,11 @@ onUnmounted(() => {
 
 .btn-icon-power {
   color: #b45309;
-  background-color: #fff8eb;
+  background-color: #f4efe6;
   border-color: #dfd5c2;
 }
 .btn-icon-power:hover {
-  background-color: #faeed7;
+  background-color: #ebe3d6;
   border-color: #c8b99c;
   color: #92400e;
   transform: scale(1.05);
@@ -3291,7 +3272,7 @@ onUnmounted(() => {
   padding-top: 0.85rem;
 }
 .select-page-size-custom {
-  border: 1px solid #dfd5c2;
+  border: 1px solid #e2dacd;
   border-radius: 6px;
   padding: 0.35rem 0.65rem;
   font-size: 0.82rem;
@@ -3336,7 +3317,8 @@ onUnmounted(() => {
   border-radius: 6px;
   border: 1px solid #e5e7eb;
   background-color: #ffffff;
-  color: #556268;
+  color: var(--blue, #496883);
+  text-transform: uppercase;
   font-size: 0.85rem;
   display: inline-flex;
   align-items: center;
@@ -3350,7 +3332,7 @@ onUnmounted(() => {
   background-color: #f0f7ff;
 }
 .pg-btn-box.pg-active {
-  background-color: #3b596a;
+  background-color: var(--blue, #496883);
   border-color: #3b596a;
   color: #ffffff;
   font-weight: 700;
@@ -3740,7 +3722,7 @@ onUnmounted(() => {
   justify-content: flex-end;
   align-items: center;
   gap: 0.75rem;
-  background-color: #faf9f6;
+  background-color: #f7f5ef;
 }
 
 .btn-secondary {
@@ -4025,7 +4007,8 @@ onUnmounted(() => {
   min-width: 0;
 }
 .video-form-label {
-  font-size: 0.86rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
   font-weight: 600;
   color: #374151;
 }
@@ -4144,7 +4127,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 0 1.15rem;
-  background-color: #faf9f6;
+  background-color: #f7f5ef;
   border: 1px solid #e5e7eb;
   border-left: 1px solid #ede9de;
   border-top-right-radius: 8px;
@@ -4238,8 +4221,8 @@ onUnmounted(() => {
   width: 100%;
   padding: 0.65rem;
   background: #fff8eb;
-  color: #957b48;
-  border: 1px solid #dfd5c2;
+  color: #6d6352;
+  border: 1px solid #e2dacd;
   border-radius: 8px;
   font-size: 0.9rem;
   font-weight: 600;

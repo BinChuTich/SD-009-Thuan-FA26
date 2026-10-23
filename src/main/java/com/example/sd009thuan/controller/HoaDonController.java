@@ -94,6 +94,19 @@ public class HoaDonController {
         return ResponseEntity.ok(hoaDonService.create(hoaDon));
     }
 
+    // Hủy tất cả hóa đơn chờ của ngày hôm trước khi sang ngày mới
+    @PostMapping("/cancel-expired-waiting")
+    public ResponseEntity<Map<String, Object>> cancelExpiredWaiting() {
+        List<HoaDon> cancelled = hoaDonService.cancelExpiredWaitingInvoices();
+        List<String> codes = cancelled.stream().map(HoaDon::getMaHoaDon).toList();
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", cancelled.size(),
+                "cancelledCodes", codes,
+                "message", "Đã hủy " + cancelled.size() + " hóa đơn chờ của ngày trước"
+        ));
+    }
+
     // Lấy danh sách hóa đơn chờ tại quầy
     @GetMapping("/waiting")
     public ResponseEntity<List<HoaDon>> getWaitingInvoices() {
@@ -102,11 +115,29 @@ public class HoaDonController {
 
     // Tạo hóa đơn chờ tại quầy mới
     @PostMapping("/waiting")
-    public ResponseEntity<HoaDon> createWaitingInvoice() {
-        return ResponseEntity.ok(hoaDonService.createWaitingInvoice());
+    public ResponseEntity<HoaDon> createWaitingInvoice(@RequestBody(required = false) Map<String, Object> body) {
+        Long idNhanVien = null;
+        String nguoiTao = null;
+        Long idGiaoCa = null;
+        if (body != null) {
+            if (body.get("idNhanVien") != null) {
+                try { idNhanVien = Long.valueOf(body.get("idNhanVien").toString()); } catch (Exception ignored) {}
+            }
+            if (body.get("nguoiTao") != null) {
+                nguoiTao = body.get("nguoiTao").toString();
+            }
+            if (body.get("idGiaoCa") != null) {
+                try { idGiaoCa = Long.valueOf(body.get("idGiaoCa").toString()); } catch (Exception ignored) {}
+            }
+        }
+        return ResponseEntity.ok(hoaDonService.createWaitingInvoice(idNhanVien, nguoiTao, idGiaoCa));
+    } /*
     }
 
-    // Đồng bộ danh sách sản phẩm trong giỏ hàng của hóa đơn chờ
+
+    }
+
+    */ // Đồng bộ danh sách sản phẩm trong giỏ hàng của hóa đơn chờ
     @PostMapping("/{id}/sync-cart")
     public ResponseEntity<List<ChiTietHoaDon>> syncCart(
             @PathVariable Long id,
@@ -404,10 +435,22 @@ public class HoaDonController {
     // Xóa hóa đơn theo ID
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (hoaDonService.getById(id).isEmpty()) {
+        if (!hoaDonService.existsById(id)) {
             return ResponseEntity.notFound().build();
         }
         hoaDonService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+    // Đặt hàng online từ Website Client
+    @PostMapping("/dat-hang-online")
+    public ResponseEntity<?> datHangOnline(@RequestBody com.example.sd009thuan.dto.DatHangOnlineDTO dto) {
+        try {
+            HoaDon saved = hoaDonService.createHoaDonOnline(dto);
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage() != null ? e.getMessage() : "Đặt hàng online thất bại!"));
+        }
+    }
+
 }

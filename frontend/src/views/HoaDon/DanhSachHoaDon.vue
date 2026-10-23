@@ -193,7 +193,7 @@ const getTodayString = () => {
 
 const filters = ref({
   code: '',
-  startDate: getTodayString(),
+  startDate: '',
   endDate: '',
   type: '',
   status: '',
@@ -396,8 +396,11 @@ const loadHoaDon = async () => {
           1: 'Nguyễn Văn Admin'
         }
 
-        let employeeName = '---'
-        if (nhanVienObj?.tenNhanVien) {
+        let employeeName = ''
+        const isOnline = Number(item.loaiDon) === 2 || String(item.loaiDon).toLowerCase().includes('online') || String(item.ghiChu || '').toLowerCase().includes('online')
+        if (isOnline) {
+          employeeName = ''
+        } else if (nhanVienObj?.tenNhanVien) {
           employeeName = nhanVienObj.tenNhanVien
         } else if (empCatalog[item.idNhanVien]) {
           employeeName = empCatalog[item.idNhanVien]
@@ -410,11 +413,9 @@ const loadHoaDon = async () => {
         } else if (item.maNhanVien) {
           employeeName = item.maNhanVien
         } else if (Number(item.loaiDon) === 1) {
-          // Đơn tại quầy: lấy người tạo nếu có
           employeeName = item.nguoiTao || 'Nhân viên bán hàng'
         } else {
-          // Đơn online không có nhân viên phụ trách
-          employeeName = 'Đơn Online'
+          employeeName = ''
         }
 
         // 3. Phiếu giảm giá (khóa ngoại PhieuGiamGia)
@@ -552,7 +553,7 @@ const loadHoaDon = async () => {
 const handleRefresh = async () => {
   filters.value = {
     code: '',
-    startDate: getTodayString(),
+    startDate: '',
     endDate: '',
     type: '',
     status: '',
@@ -707,7 +708,7 @@ onBeforeUnmount(() => {
                 class="form-control input-has-prefix"
             />
             <button
-              class="btn-qr-inline"
+              class="btn-qr-inline" v-if="false"
               type="button"
               title="Quét QR Hóa Đơn"
               @click="showQrScanner = true"
@@ -793,7 +794,7 @@ onBeforeUnmount(() => {
       <!-- DÒNG CUỐI CÙNG: CỤM NÚT THAO TÁC -->
       <div class="filter-actions-bottom">
         <div class="actions-right">
-          <button class="btn-scan-qr" type="button" @click="showQrScanner = true">
+          <button class="btn-scan-qr" v-if="false" type="button" @click="showQrScanner = true">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="7"></rect>
               <rect x="14" y="3" width="7" height="7"></rect>
@@ -963,7 +964,7 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Modal Quét QR Hóa Đơn -->
-    <QrScannerModal
+    <QrScannerModal v-if="false"
       :show="showQrScanner"
       @close="showQrScanner = false"
       @scan-success="handleQrScanSuccess"
@@ -995,7 +996,7 @@ onBeforeUnmount(() => {
 }
 
 .crumb-parent:hover {
-  color: #3e5c76;
+  color: var(--blue, #496883);
 }
 
 .crumb-separator {
@@ -1005,14 +1006,14 @@ onBeforeUnmount(() => {
 }
 
 .crumb-current {
-  color: #3e5c76;
+  color: var(--blue, #496883);
   font-weight: 600;
 }
 
 .card-box {
   background: #ffffff;
   border-radius: 10px;
-  border: 1px solid #ebd9c8;
+  border: 1px solid var(--line, #e9e5db);
   padding: 22px 26px;
   margin-bottom: 22px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
@@ -1021,7 +1022,7 @@ onBeforeUnmount(() => {
 .card-heading {
   font-size: 1rem;
   font-weight: 700;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   margin: 0;
 }
 
@@ -1054,13 +1055,13 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #3e5c76;
+  color: var(--blue, #496883);
 }
 
 .filter-title {
   font-size: 1rem;
   font-weight: 700;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   margin: 0;
 }
 
@@ -1091,7 +1092,7 @@ onBeforeUnmount(() => {
   border: 1.5px solid #c8d6df;
   border-radius: 8px;
   background: #edf4f7;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -1110,7 +1111,7 @@ onBeforeUnmount(() => {
 
 .btn-export {
   background-color: #f7ebe1;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   border: 1.5px solid #e5c3a3;
   height: 35px;
   padding: 0 16px;
@@ -1206,7 +1207,7 @@ onBeforeUnmount(() => {
   transform: translateY(-50%);
   background: transparent;
   border: none;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   padding: 5px;
   border-radius: 6px;
   cursor: pointer;
@@ -1282,12 +1283,15 @@ onBeforeUnmount(() => {
 }
 
 .custom-table th {
-  background-color: #f5efeb;
-  color: #3e5c76;
+  background-color: #f7f5ef;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
+  color: var(--blue, #496883);
   font-weight: 700;
   padding: 13px 14px;
   white-space: nowrap;
-  border-bottom: 1px solid #ebd9c8;
+  border-bottom: 2px solid #e9e5db;
 }
 
 .custom-table td {

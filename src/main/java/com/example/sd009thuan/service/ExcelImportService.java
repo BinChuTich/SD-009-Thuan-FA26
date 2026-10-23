@@ -7,6 +7,7 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,6 +30,7 @@ public class ExcelImportService {
     private final VaiTroRepository roleRepo;
     private final NhanVienService nhanVienService;
     private final EmailService emailService;
+    private final AdministrativeRegionService administrativeRegionService;
 
     private final SanPhamRepository sanPhamRepository;
     private final SanPhamService sanPhamService;
@@ -44,8 +46,10 @@ public class ExcelImportService {
     private final MauSacRepository mauSacRepository;
     private final KichCoRepository kichCoRepository;
 
+    @Autowired
     public ExcelImportService(NhanVienRepository repo, VaiTroRepository roleRepo,
                               NhanVienService nhanVienService, EmailService emailService,
+                              AdministrativeRegionService administrativeRegionService,
                               SanPhamRepository sanPhamRepository, SanPhamService sanPhamService,
                               ChiTietSanPhamRepository chiTietSanPhamRepository, HinhAnhRepository hinhAnhRepository,
                               DanhMucRepository danhMucRepository, ThuongHieuRepository thuongHieuRepository,
@@ -57,6 +61,7 @@ public class ExcelImportService {
         this.roleRepo = roleRepo;
         this.nhanVienService = nhanVienService;
         this.emailService = emailService;
+        this.administrativeRegionService = administrativeRegionService;
         this.sanPhamRepository = sanPhamRepository;
         this.sanPhamService = sanPhamService;
         this.chiTietSanPhamRepository = chiTietSanPhamRepository;
@@ -70,6 +75,28 @@ public class ExcelImportService {
         this.hoaTietRepository = hoaTietRepository;
         this.mauSacRepository = mauSacRepository;
         this.kichCoRepository = kichCoRepository;
+    }
+
+    public ExcelImportService(NhanVienRepository repo, VaiTroRepository roleRepo,
+                              NhanVienService nhanVienService, EmailService emailService,
+                              SanPhamRepository sanPhamRepository, SanPhamService sanPhamService,
+                              ChiTietSanPhamRepository chiTietSanPhamRepository, HinhAnhRepository hinhAnhRepository,
+                              DanhMucRepository danhMucRepository, ThuongHieuRepository thuongHieuRepository,
+                              ChatLieuRepository chatLieuRepository, CoAoRepository coAoRepository,
+                              TayAoRepository tayAoRepository, XuatXuRepository xuatXuRepository,
+                              HoaTietRepository hoaTietRepository, MauSacRepository mauSacRepository,
+                              KichCoRepository kichCoRepository) {
+        this(repo, roleRepo, nhanVienService, emailService, null,
+             sanPhamRepository, sanPhamService, chiTietSanPhamRepository, hinhAnhRepository,
+             danhMucRepository, thuongHieuRepository, chatLieuRepository, coAoRepository,
+             tayAoRepository, xuatXuRepository, hoaTietRepository, mauSacRepository, kichCoRepository);
+    }
+
+    public ExcelImportService(NhanVienRepository repo, VaiTroRepository roleRepo,
+                              NhanVienService nhanVienService, EmailService emailService,
+                              AdministrativeRegionService administrativeRegionService) {
+        this(repo, roleRepo, nhanVienService, emailService, administrativeRegionService,
+             null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /**
@@ -219,6 +246,9 @@ public class ExcelImportService {
                 if (fullName.isBlank()) {
                     errors.add(String.format("Dòng %d: Họ tên nhân viên không được để trống", displayRow));
                     rowHasError = true;
+                } else if (!fullName.matches("^[\\p{L}\\s'.-]+$")) {
+                    errors.add(String.format("Dòng %d: Họ tên '%s' không hợp lệ (không được chứa chữ số hoặc ký tự đặc biệt)", displayRow, fullName));
+                    rowHasError = true;
                 }
 
                 // 2. Kiểm tra Email
@@ -227,7 +257,7 @@ public class ExcelImportService {
                     errors.add(String.format("Dòng %d: Email không được để trống", displayRow));
                     rowHasError = true;
                 } else if (!email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
-                    errors.add(String.format("Dòng %d: Email '%s' không đúng định dạng chuẩn", displayRow, email));
+                    errors.add(String.format("Dòng %d: Email '%s' không đúng định dạng chuẩn (ví dụ: example@gmail.com)", displayRow, email));
                     rowHasError = true;
                 } else {
                     // Kiểm tra trùng lặp nội bộ trong file Excel
@@ -278,7 +308,12 @@ public class ExcelImportService {
                 }
 
                 // 5. Ngày sinh
-                LocalDate dob = parseDate(dobStr);
+                LocalDate dob = null;
+                if (dobStr.isBlank()) {
+                    errors.add(String.format("Dòng %d: Ngày sinh không được để trống", displayRow));
+                    rowHasError = true;
+                } else {
+                    dob = parseDate(dobStr);
                 if (dob == null) {
                     errors.add(String.format("Dòng %d: Ngày sinh '%s' không hợp lệ (định dạng chuẩn: yyyy-MM-dd hoặc dd/MM/yyyy)", displayRow, dobStr));
                     rowHasError = true;
@@ -290,7 +325,26 @@ public class ExcelImportService {
                     rowHasError = true;
                 }
 
-                // 6. Địa chỉ
+                }
+
+                // 6. Địa chỉ: Kiểm tra Tỉnh/Thành phố hợp lệ và Phường/Xã có thuộc Tỉnh/Thành phố đó không
+                if (administrativeRegionService != null) {
+                    AdministrativeRegionService.AddressValidationResult addrResult = administrativeRegionService.validateAddress(queQuan, phuong);
+                    if (!addrResult.valid()) {
+                        for (String addrErr : addrResult.errors()) {
+                            errors.add(String.format("Dòng %d: %s", displayRow, addrErr));
+                        }
+                        rowHasError = true;
+                    } else {
+                        // Chuẩn hóa tên theo danh mục chính thức sau sáp nhập 2025
+                        if (addrResult.matchedProvince() != null) {
+                            queQuan = addrResult.matchedProvince().name();
+                        }
+                        if (addrResult.matchedWard() != null) {
+                            phuong = addrResult.matchedWard().name();
+                        }
+                    }
+                } else {
                 if (queQuan.isBlank()) {
                     errors.add(String.format("Dòng %d: Tỉnh / Thành phố không được để trống", displayRow));
                     rowHasError = true;
@@ -298,6 +352,8 @@ public class ExcelImportService {
                 if (phuong.isBlank()) {
                     errors.add(String.format("Dòng %d: Phường / Xã không được để trống", displayRow));
                     rowHasError = true;
+                }
+
                 }
 
                 // 7. Chức vụ / Vai trò

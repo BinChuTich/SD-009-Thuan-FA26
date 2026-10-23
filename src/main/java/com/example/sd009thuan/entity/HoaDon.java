@@ -39,6 +39,12 @@ public class HoaDon {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private KhachHang idKhachHang;
 
+    // Lượt giao ca làm việc
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_giao_ca")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private LichSuCaLamViec idGiaoCa;
+
     // Phiếu giảm giá
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_phieu_giam_gia")
@@ -188,16 +194,16 @@ public class HoaDon {
     }
     // Chi tiết hóa đơn
     @JsonIgnore
-    @OneToMany(mappedBy = "idHoaDon")
+    @OneToMany(mappedBy = "idHoaDon", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ChiTietHoaDon> chiTietHoaDons = new LinkedHashSet<>();
 
     // Hình thức thanh toán
     @JsonIgnore
-    @OneToMany(mappedBy = "idHoaDon")
+    @OneToMany(mappedBy = "idHoaDon", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<HinhThucThanhToan> hinhThucThanhToan = new LinkedHashSet<>();
 
     @JsonIgnore
-    @OneToMany(mappedBy = "idHoaDon")
+    @OneToMany(mappedBy = "idHoaDon", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<LichSuHoaDon> lichSuHoaDons = new LinkedHashSet<>();
 
     // Các trường tiện ích lấy trực tiếp từ bảng khóa ngoại
@@ -303,6 +309,25 @@ public class HoaDon {
         }
     }
 
+    @com.fasterxml.jackson.annotation.JsonSetter("idGiaoCa")
+    public void setJsonGiaoCa(Object obj) {
+        if (obj == null) {
+            this.idGiaoCa = null;
+        } else if (obj instanceof LichSuCaLamViec gc) {
+            this.idGiaoCa = gc;
+        } else if (obj instanceof Number num) {
+            LichSuCaLamViec gc = new LichSuCaLamViec();
+            gc.setId(num.longValue());
+            this.idGiaoCa = gc;
+        } else if (obj instanceof java.util.Map<?, ?> map && map.get("id") != null) {
+            try {
+                LichSuCaLamViec gc = new LichSuCaLamViec();
+                gc.setId(Long.valueOf(map.get("id").toString()));
+                this.idGiaoCa = gc;
+            } catch (Exception ignored) {}
+        }
+    }
+
     @com.fasterxml.jackson.annotation.JsonSetter("idNhanVien")
     public void setJsonNhanVien(Object obj) {
         if (obj == null) {
@@ -320,5 +345,33 @@ public class HoaDon {
                 this.idNhanVien = nv;
             } catch (Exception ignored) {}
         }
+    }
+@JsonProperty("phuongThucThanhToan")
+    public String getPhuongThucThanhToan() {
+        if (this.ghiChu != null) {
+            String upper = this.ghiChu.toUpperCase();
+            if (upper.contains("VNPAY")) {
+                return "Cổng thanh toán VNPAY";
+            }
+            if (upper.contains("COD")) {
+                return "Thanh toán khi nhận hàng (COD)";
+            }
+        }
+        if (this.hinhThucThanhToan != null && !this.hinhThucThanhToan.isEmpty()) {
+            for (HinhThucThanhToan httt : this.hinhThucThanhToan) {
+                if (httt.getIdPhuongThuc() != null && httt.getIdPhuongThuc().getTenPhuongThuc() != null) {
+                    return httt.getIdPhuongThuc().getTenPhuongThuc();
+                }
+            }
+        }
+        return "Thanh toán khi nhận hàng (COD)";
+    }
+
+    @JsonProperty("isVnPay")
+    public Boolean isVnPay() {
+        if (this.ghiChu != null && this.ghiChu.toUpperCase().contains("VNPAY")) {
+            return true;
+        }
+        return false;
     }
 }

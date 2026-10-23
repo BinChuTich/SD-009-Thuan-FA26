@@ -691,7 +691,7 @@ onMounted(() => {
 
 <style scoped>
 .customer-page-wrapper {
-  padding: 0 2.2rem 3rem;
+  padding: 1.25rem 2rem 3rem;
   background-color: var(--bg, #f7f5ef);
   min-height: calc(100vh - 48px);
   color: var(--text, #3d4a50);
@@ -837,9 +837,9 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background-color: #3b596a;
+  background-color: var(--blue, #496883);
   color: #ffffff;
-  border: 1px solid #324b5a;
+  border: 1px solid var(--blue, #496883);
   border-radius: 8px;
   padding: 0 1.4rem;
   font-weight: 600;
@@ -884,8 +884,8 @@ onMounted(() => {
 }
 
 .custom-table th {
-  background-color: #faf8f5;
-  color: #4a5568;
+  background-color: #f7f5ef;
+  color: var(--blue, #496883);
   font-weight: 700;
   text-transform: uppercase;
   font-size: 0.82rem;
@@ -1140,7 +1140,7 @@ onMounted(() => {
 }
 
 .address-form-box {
-  background-color: #faf8f5;
+  background-color: #f7f5ef;
   border: 1px solid #e8e2d5;
   border-radius: 10px;
   padding: 1.25rem 1.4rem;

@@ -189,17 +189,20 @@
                 </td>
                 <td style="text-align: center">
                   <div class="action-buttons">
+                    <!-- Bỏ nút switch khi là Quản trị viên (chỉ hiển thị cho Nhân viên thông thường) -->
                     <label
+                      v-if="!isAdmin(item)"
                       class="switch-toggle"
-                      :class="{ 'switch-self': isCurrentLoggedIn(item) }"
-                      :title="isCurrentLoggedIn(item) ? (item.status === 'active' ? 'Tài khoản đang đăng nhập (khóa sẽ đăng xuất)' : 'Tài khoản đang đăng nhập (nhấn để mở lại)') : (item.status === 'active' ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)')"
+                      :title="item.status === 'active' ? 'Đang hoạt động (nhấn để tắt)' : 'Đang ngừng hoạt động (nhấn để bật)'"
+                      @click.stop.prevent="toggleStatus(item)"
                     >
                       <input
                         type="checkbox"
                         :checked="item.status === 'active'"
-                        @click.prevent="toggleStatus(item)"
+                        readonly
+                        tabindex="-1"
                       />
-                      <span class="slider-round" :class="{ 'slider-self': isCurrentLoggedIn(item) }"></span>
+                      <span class="slider-round"></span>
                     </label>
                     <button
                       class="btn-circle-action btn-edit"
@@ -438,6 +441,86 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- Modal Đồng Bộ Lịch Nhân Sự khi Ngừng hoạt động nhân viên -->
+    <Teleport to="body">
+      <div v-if="showSyncScheduleModal" class="modal-overlay" @click.self="showSyncScheduleModal = false">
+        <div class="modal-dialog modal-schedule-sync">
+          <div class="modal-header">
+            <div class="modal-title-with-icon">
+              <div class="modal-icon-badge warning">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+              <h3 class="modal-title">Đồng Bộ Lịch Nhân Sự</h3>
+            </div>
+            <button type="button" class="btn-close-modal" @click="showSyncScheduleModal = false">✕</button>
+          </div>
+
+          <div class="modal-body">
+            <div class="sync-alert-notice">
+              Nhân viên <strong>{{ syncEmployeeTarget?.fullName }} ({{ syncEmployeeTarget?.code }})</strong> đang được phân công <strong>{{ syncAffectedShifts.length }} ca làm việc</strong> từ hôm nay trở đi. Việc ngừng hoạt động nhân viên này sẽ làm các ca này bị trống lịch!
+            </div>
+
+            <div class="affected-shifts-table-box">
+              <strong class="affected-title">Các ca bị ảnh hưởng trống lịch:</strong>
+              <div class="table-scroll-sync">
+                <table class="sync-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 45px; text-align: center">STT</th>
+                      <th>NGÀY LÀM VIỆC</th>
+                      <th>CA LÀM VIỆC</th>
+                      <th style="text-align: center">KHUNG GIỜ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(s, idx) in syncAffectedShifts" :key="s.id">
+                      <td style="text-align: center">{{ idx + 1 }}</td>
+                      <td><strong>{{ formatDateVn(s.ngayLamViec) }}</strong></td>
+                      <td>{{ s.caLamViec?.tenCa }}</td>
+                      <td style="text-align: center">{{ formatTime(s.caLamViec?.gioBatDau) }} - {{ formatTime(s.caLamViec?.gioKetThuc) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Chọn người thay thế -->
+            <div class="sync-replacement-box">
+              <label class="modal-field-label">Chọn nhân viên thay thế ngay:</label>
+              <select v-model="syncReplacementEmployeeId" class="sync-select">
+                <option value="">-- Chọn nhân viên thay thế (Đang hoạt động) --</option>
+                <option
+                  v-for="nv in activeReplacementCandidates"
+                  :key="nv.id"
+                  :value="nv.id"
+                >
+                  {{ nv.code }} - {{ nv.fullName }} ({{ nv.phone || 'Chưa có SĐT' }})
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-cancel" @click="showSyncScheduleModal = false">
+              Không
+            </button>
+            <button
+              type="button"
+              class="btn-submit-action btn-sync-confirm"
+              :disabled="!syncReplacementEmployeeId || syncingReplacement"
+              @click="submitSyncReplacement"
+            >
+              {{ syncingReplacement ? 'Đang thay thế...' : 'Có, thêm ngay' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -455,6 +538,13 @@ const roles = ref([])
 
 function isCurrentLoggedIn(emp) {
   return isCurrentLoggedInUser(emp)
+}
+
+function isAdmin(emp) {
+  if (!emp) return false
+  const roleName = (emp.role || emp.tenVaiTro || '').trim().toLowerCase()
+  const roleCode = (emp.maVaiTro || emp.idVaiTro?.maVaiTro || '').trim().toUpperCase()
+  return roleName.includes('quản trị') || roleCode === 'ADMIN' || isCurrentLoggedIn(emp)
 }
 const trangThaiOptions = [
   { value: '1', label: 'Hoạt động' },
@@ -576,35 +666,19 @@ function goToEdit(id) {
 }
 
 async function toggleStatus(item) {
+  const isSelf = isCurrentLoggedIn(item)
   const isLocking = item.status === 'active'
   const actionText = isLocking ? 'khóa tài khoản' : 'mở khóa tài khoản'
-  const isSelf = isCurrentLoggedIn(item)
 
-  if (isSelf && isLocking) {
-    const confirmed = await showConfirm({
-      title: 'Cảnh báo: Tài khoản đang đăng nhập!',
-      message: `Bạn đang thao tác khóa tài khoản của chính bạn đang đăng nhập (${item.fullName} - ${item.code}).\n\nSau khi khóa tài khoản này thành "Ngừng hoạt động", hệ thống sẽ LẬP TỨC ĐĂNG XUẤT phiên làm việc của bạn ra ngoài!\n\nBạn có chắc chắn muốn khóa tài khoản và đăng xuất ngay bây giờ không?`,
-      type: 'warning',
-      confirmText: 'Khóa tài khoản & Đăng xuất ngay',
-      cancelText: 'Hủy bỏ'
+  // Ràng buộc bảo mật đối với Quản trị viên:
+  // Tuyệt đối không cho phép chuyển trạng thái 'Ngừng hoạt động' đối với tài khoản Quản trị viên
+  if (isAdmin(item)) {
+    showAlert({
+      title: 'Hành động không được phép',
+      message: 'Bạn không thể chuyển trạng thái ngừng hoạt động đối với tài khoản Quản trị viên',
+      type: 'warning'
     })
-    if (!confirmed) return
-
-    try {
-      await api.patch(`/api/nhan-vien/${item.id}/toggle-status`)
-      showToast('Tài khoản đã bị khóa. Hệ thống đang tự động đăng xuất...', 'info')
-      setTimeout(() => {
-        logout()
-      }, 500)
-      return
-    } catch (e) {
-      showAlert({
-        title: 'Thao tác thất bại',
-        message: e?.response?.data?.message || 'Không thể thay đổi trạng thái nhân viên.',
-        type: 'error'
-      })
-      return
-    }
+    return
   }
 
   const confirmed = await showConfirm({
@@ -624,6 +698,17 @@ async function toggleStatus(item) {
     item.trangThai = isLocking ? 0 : 1
     if (isLocking) {
       selectedEmployeesMap.value.delete(item.id)
+
+      // Quét tự động các ca tương lai của nhân viên bị khóa (Đồng Bộ Lịch Nhân Sự)
+      try {
+        const syncRes = await api.get(`/api/lich-lam-viec/kiem-tra-dong-bo-nhan-vien/${item.id}`)
+        if (syncRes.data?.hasUpcomingShifts) {
+          syncEmployeeTarget.value = item
+          syncAffectedShifts.value = syncRes.data.shifts || []
+          syncReplacementEmployeeId.value = ''
+          showSyncScheduleModal.value = true
+        }
+      } catch (errSync) {}
     }
     showToast(`${isLocking ? 'Khóa' : 'Mở khóa'} nhân viên thành công!`, 'success')
   } catch (e) {
@@ -632,6 +717,54 @@ async function toggleStatus(item) {
       message: e?.response?.data?.message || 'Không thể thay đổi trạng thái nhân viên.',
       type: 'error'
     })
+  }
+}
+
+// Quản lý Modal Đồng Bộ Lịch Nhân Sự
+const showSyncScheduleModal = ref(false)
+const syncEmployeeTarget = ref(null)
+const syncAffectedShifts = ref([])
+const syncReplacementEmployeeId = ref('')
+const syncingReplacement = ref(false)
+
+const activeReplacementCandidates = computed(() => {
+  return employees.value.filter(e => e.status === 'active' && e.id !== syncEmployeeTarget.value?.id)
+})
+
+function formatDateVn(dStr) {
+  if (!dStr) return '--/--/----'
+  const parts = dStr.split('-')
+  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`
+  return dStr
+}
+
+function formatTime(t) {
+  if (!t) return '--:--'
+  if (typeof t === 'string' && t.includes(':')) {
+    const parts = t.split(':')
+    return `${parts[0]}:${parts[1]}`
+  }
+  return t
+}
+
+async function submitSyncReplacement() {
+  if (!syncReplacementEmployeeId.value) return
+  syncingReplacement.value = true
+  try {
+    await api.post('/api/lich-lam-viec/thay-the-nhan-vien', {
+      nhanVienCuId: syncEmployeeTarget.value.id,
+      nhanVienMoiId: Number(syncReplacementEmployeeId.value)
+    })
+    showToast('Đã thay thế nhân sự thành công cho toàn bộ các ca bị ảnh hưởng!', 'success')
+    showSyncScheduleModal.value = false
+  } catch (e) {
+    showAlert({
+      title: 'Lỗi thay thế nhân sự',
+      message: e?.response?.data?.message || 'Không thể thay thế nhân sự.',
+      type: 'error'
+    })
+  } finally {
+    syncingReplacement.value = false
   }
 }
 
@@ -1012,11 +1145,11 @@ onMounted(async () => {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background-color: #f7eee1;
+  background-color: #eaf2f6;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #b18b52;
+  color: var(--blue, #496883);
   flex-shrink: 0;
 }
 
@@ -1122,12 +1255,12 @@ onMounted(async () => {
 }
 
 .btn-reset {
-  border: 1px solid #dfd5c2;
-  background-color: #fff8eb;
-  color: #957b48;
+  border: 1px solid #e2dacd;
+  background-color: #f4efe6;
+  color: #6d6352;
 }
 .btn-reset:hover {
-  background-color: #faeed7;
+  background-color: #ebe3d6;
 }
 
 .btn-export {
@@ -1140,8 +1273,8 @@ onMounted(async () => {
 }
 
 .btn-bulk-mail {
-  background-color: #f7eee1;
-  color: #a67c52;
+  background-color: #eaf2f6;
+  color: var(--blue, #496883);
   border: 1px solid #e5d3bc;
 }
 .btn-bulk-mail:hover:not(:disabled) {
@@ -1149,9 +1282,9 @@ onMounted(async () => {
   color: #8c6239;
 }
 .btn-bulk-mail.active {
-  background-color: #b38e6e;
+  background-color: var(--blue, #496883);
   color: #ffffff;
-  border-color: #a67c52;
+  border-color: var(--blue, #496883);
   box-shadow: 0 2px 6px rgba(179, 142, 110, 0.3);
 }
 .btn-bulk-mail:disabled {
@@ -1160,9 +1293,9 @@ onMounted(async () => {
 }
 
 .btn-primary {
-  background-color: #3b596a;
-  border: 1px solid #324b5a;
-  border-radius: 9999px;
+  background-color: var(--blue, #496883);
+  border: 1px solid var(--blue, #496883);
+  border-radius: 8px;
   color: #ffffff;
   padding: 0 1.4rem;
   box-shadow: 0 2px 6px rgba(59, 89, 106, 0.25);
@@ -1207,8 +1340,8 @@ onMounted(async () => {
 }
 
 .custom-table th {
-  background-color: #faf8f5;
-  color: #4a5568;
+  background-color: #f7f5ef;
+  color: var(--blue, #496883);
   font-weight: 700;
   text-transform: uppercase;
   font-size: 0.82rem;
@@ -1248,8 +1381,8 @@ onMounted(async () => {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background-color: #f0e6dc;
-  color: #8c6a46;
+  background-color: #eaf2f6;
+  color: var(--blue, #496883);
   font-size: 0.85rem;
   font-weight: 700;
   display: grid;
@@ -1265,7 +1398,7 @@ onMounted(async () => {
 }
 
 .text-blue {
-  color: #8c6a46;
+  color: var(--blue, #496883);
   font-family: monospace, sans-serif;
   letter-spacing: 0.4px;
 }
@@ -1299,7 +1432,7 @@ onMounted(async () => {
 
 .role-admin {
   font-weight: 700;
-  color: #8c6a46;
+  color: var(--blue, #496883);
 }
 
 .badge-status {
@@ -1307,7 +1440,7 @@ onMounted(async () => {
   font-size: 0.8rem;
   font-weight: 600;
   padding: 0.32rem 0.85rem;
-  border-radius: 9999px;
+  border-radius: 8px;
   white-space: nowrap;
   letter-spacing: 0.2px;
 }
@@ -1464,20 +1597,20 @@ onMounted(async () => {
 }
 
 .custom-table tr.row-selected td {
-  background-color: #fcf8f2 !important;
+  background-color: #f0f5f9 !important;
 }
 
 .selection-notice-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #fdfbf7;
-  border: 1px solid #ebdccb;
+  background-color: #f4f8fb;
+  border: 1px solid #cddde8;
   border-radius: 8px;
   padding: 0.65rem 1.1rem;
   margin-bottom: 0.95rem;
   font-size: 0.92rem;
-  color: #5a4b3d;
+  color: #355d74;
 }
 
 .selection-notice-left {
@@ -1486,7 +1619,7 @@ onMounted(async () => {
 }
 
 .selection-notice-badge {
-  background-color: #b38e6e;
+  background-color: var(--blue, #496883);
   color: #ffffff;
   font-size: 0.78rem;
   font-weight: 700;
@@ -1502,7 +1635,7 @@ onMounted(async () => {
 }
 
 .btn-notice-action {
-  background-color: #b38e6e;
+  background-color: var(--blue, #496883);
   color: #ffffff;
   border: none;
   border-radius: 6px;
@@ -1514,7 +1647,7 @@ onMounted(async () => {
 }
 
 .btn-notice-action:hover {
-  background-color: #9c7756;
+  background-color: #3b576e;
 }
 
 .btn-notice-clear {
@@ -1574,7 +1707,7 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid #eee9e0;
-  background-color: #faf8f5;
+  background-color: #f7f5ef;
 }
 
 .modal-title {
@@ -1612,7 +1745,7 @@ onMounted(async () => {
   justify-content: flex-end;
   gap: 0.75rem;
   border-top: 1px solid #eee9e0;
-  background-color: #faf8f5;
+  background-color: #f7f5ef;
 }
 
 .btn-cancel {
@@ -1633,7 +1766,7 @@ onMounted(async () => {
 }
 
 .btn-submit-action {
-  background-color: #3b596a;
+  background-color: var(--blue, #496883);
   color: #ffffff;
   border: none;
   padding: 0.58rem 1.45rem;
@@ -1658,8 +1791,8 @@ onMounted(async () => {
 
 /* Modal Gửi email */
 .recipient-summary-box {
-  background-color: #fdfbf7;
-  border: 1px solid #ebdccb;
+  background-color: #f4f8fb;
+  border: 1px solid #cddde8;
   border-radius: 8px;
   padding: 0.95rem 1.1rem;
   margin-bottom: 1.25rem;
@@ -1675,7 +1808,7 @@ onMounted(async () => {
 }
 
 .summary-count strong {
-  color: #b38e6e;
+  color: var(--blue, #496883);
 }
 
 .recipients-chip-list {
@@ -1740,13 +1873,13 @@ onMounted(async () => {
 }
 
 .type-card.active {
-  border-color: #b38e6e;
+  border-color: var(--blue, #496883);
   background-color: #faf3ea;
   box-shadow: 0 2px 8px rgba(179, 142, 110, 0.15);
 }
 
 .type-card input[type="radio"] {
-  accent-color: #b38e6e;
+  accent-color: var(--blue, #496883);
   margin-top: 0.2rem;
 }
 
@@ -1801,7 +1934,7 @@ onMounted(async () => {
 
 .modal-input:focus,
 .modal-textarea:focus {
-  border-color: #b38e6e;
+  border-color: var(--blue, #496883);
   background-color: #ffffff;
   box-shadow: 0 0 0 3px rgba(179, 142, 110, 0.12);
 }
@@ -1833,7 +1966,7 @@ onMounted(async () => {
   width: 34px;
   height: 34px;
   border: 3px solid #e7dfd4;
-  border-top-color: #b38e6e;
+  border-top-color: var(--blue, #496883);
   border-radius: 50%;
   animation: modalSpin 0.75s linear infinite;
 }
@@ -1931,8 +2064,8 @@ onMounted(async () => {
 .btn-outline-template {
   flex-shrink: 0;
   background: #ffffff;
-  border: 1px solid #bda88d;
-  color: #7b5936;
+  border: 1px solid #cbd5e1;
+  color: var(--blue, #496883);
   font-weight: 600;
   font-size: 0.84rem;
   padding: 0.5rem 0.95rem;
@@ -1945,8 +2078,8 @@ onMounted(async () => {
 }
 
 .btn-outline-template:hover:not(:disabled) {
-  background: #fdf8f2;
-  border-color: #9c7b55;
+  background: #eaf2f6;
+  border-color: var(--blue, #496883);
 }
 
 .upload-dropzone {
@@ -2070,7 +2203,7 @@ onMounted(async () => {
   font-size: 0.75rem;
   font-weight: 700;
   padding: 2px 7px;
-  border-radius: 9999px;
+  border-radius: 8px;
 }
 
 .errors-heading {
@@ -2117,6 +2250,17 @@ onMounted(async () => {
   box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.35);
 }
 
+.switch-guard-locked {
+  cursor: not-allowed !important;
+  opacity: 0.8;
+}
+
+.switch-guard-locked .slider-round.slider-guard-locked {
+  cursor: not-allowed !important;
+  background-color: #8c7355 !important;
+  box-shadow: 0 0 0 2px rgba(140, 115, 85, 0.45);
+}
+
 .error-item {
   display: flex;
   align-items: flex-start;
@@ -2140,11 +2284,103 @@ onMounted(async () => {
 }
 
 .btn-import-submit {
-  background-color: #3b596a;
+  background-color: var(--blue, #496883);
   color: #ffffff;
 }
 
 .btn-import-submit:hover:not(:disabled) {
   background-color: #2d4554;
+}
+
+/* Modal Đồng Bộ Lịch Nhân Sự */
+.modal-schedule-sync {
+  max-width: 580px;
+}
+
+.modal-icon-badge.warning {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+.sync-alert-notice {
+  background-color: #fffbeb;
+  border: 1px solid #fef3c7;
+  color: #92400e;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.affected-shifts-table-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.affected-title {
+  font-size: 0.86rem;
+  color: #1e293b;
+}
+
+.table-scroll-sync {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.sync-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.sync-table th {
+  background-color: #ddd3c5 !important;
+  color: #3b2f23;
+  padding: 8px 10px;
+  font-weight: 700;
+  text-align: left;
+  position: sticky;
+  top: 0;
+}
+
+.sync-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f1ece5;
+}
+
+.sync-replacement-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sync-select {
+  width: 100%;
+  height: 38px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 0.88rem;
+  outline: none;
+  background-color: #ffffff;
+}
+
+.sync-select:focus {
+  border-color: #8c7355;
+  box-shadow: 0 0 0 3px rgba(140, 115, 85, 0.15);
+}
+
+.btn-sync-confirm {
+  background-color: #8c7355 !important;
+  color: #ffffff !important;
+}
+
+.btn-sync-confirm:hover:not(:disabled) {
+  background-color: #745e44 !important;
 }
 </style>

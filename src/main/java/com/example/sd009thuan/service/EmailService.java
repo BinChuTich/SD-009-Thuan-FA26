@@ -568,9 +568,9 @@ public class EmailService {
             if (discount.compareTo(BigDecimal.ZERO) > 0) {
                 String voucherName = hoaDon.getIdPhieuGiamGia() != null ? hoaDon.getIdPhieuGiamGia().getTenPhieuGiamGia() : "Phiếu giảm giá";
                 voucherRowHtml = "<div style=\"display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13.5px; color: #16a34a;\">" +
-                        "<span>Giảm giá (" + voucherName + "):</span>" +
-                        "<span style=\"font-weight: 600;\">-" + formatMoney(discount) + "</span>" +
-                        "</div>";
+                                 "<span>Giảm giá (" + voucherName + "):</span>" +
+                                 "<span style=\"font-weight: 600;\">-" + formatMoney(discount) + "</span>" +
+                                 "</div>";
             }
 
             String customerName = hoaDon.getTenKhachHangHienThi() != null ? hoaDon.getTenKhachHangHienThi() : "Quý khách";
@@ -689,7 +689,7 @@ public class EmailService {
 
                     <!-- Footer -->
                     <div style="background-color: #f7f5ef; border-top: 1px solid #e8e4de; padding: 20px 30px; text-align: center; font-size: 12.5px; color: #777;">
-                        <p style="margin: 0 0 6px;">Mọi thắc mắc về đơn hàng, vui lòng liên hệ Hotline: <b>0988.888.888</b> hoặc email hỗ trợ.</p>
+                        <p style="margin: 0 0 6px;">Mọi thắc mắc về đơn hàng, vui lòng liên hệ Hotline: <b>0988.888.888</b> hoặc email hỗ trợ: <b>fftshirt.vn@gmail.com</b>.</p>
                         <p style="margin: 0; color: #999;">© 2026 FF T-Shirt Store. All rights reserved.</p>
                     </div>
                 </div>
@@ -717,4 +717,136 @@ public class EmailService {
             e.printStackTrace();
         }
     }
+
+    /**
+     * Gửi email yêu cầu liên hệ / hỗ trợ của khách hàng về hòm thư fftshirt.vn@gmail.com
+     */
+    @Async
+    public void sendContactEmail(String name, String phone, String email, String messageContent) {
+        String recipientEmail = "fftshirt.vn@gmail.com";
+        if (mailSender == null) {
+            log.warn("==> [EmailService] JavaMailSender chưa sẵn sàng. Không thể gửi email liên hệ.");
+            return;
+        }
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(senderEmail, "FF T-Shirt Official");
+            helper.setTo(recipientEmail);
+            if (email != null && !email.isBlank()) {
+                helper.setReplyTo(email.trim());
+            }
+            helper.setSubject("[FF T-Shirt Hỗ Trợ] Yêu cầu mới từ " + (name != null ? name : "Khách hàng"));
+
+            String timeNow = DATE_FORMATTER.format(Instant.now());
+
+            String content = """
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,0.06); color: #333333; line-height: 1.6;">
+                    <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 24px; text-align: center; color: #ffffff;">
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px;">YÊU CẦU LIÊN HỆ & HỖ TRỢ KHÁCH HÀNG</h2>
+                        <p style="margin: 6px 0 0; font-size: 13px; color: #ecd8af;">Hệ Thống Website FF T-Shirt</p>
+                    </div>
+                    <div style="padding: 24px;">
+                        <p style="font-size: 14px; color: #64748b; margin-top: 0;">Thời gian tiếp nhận: <strong>{{timeNow}}</strong></p>
+                        
+                        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                            <p style="margin: 0 0 8px; font-size: 14px;"><strong>Họ và tên khách hàng:</strong> {{name}}</p>
+                            <p style="margin: 0 0 8px; font-size: 14px;"><strong>Số điện thoại:</strong> <a href="tel:{{phone}}" style="color: #0284c7; text-decoration: none; font-weight: 700;">{{phone}}</a></p>
+                            <p style="margin: 0; font-size: 14px;"><strong>Email liên hệ:</strong> <a href="mailto:{{email}}" style="color: #0284c7; text-decoration: none;">{{email}}</a></p>
+                        </div>
+
+                        <div style="margin-bottom: 15px;">
+                            <strong style="font-size: 14.5px; color: #1e293b;">Nội dung tin nhắn cần hỗ trợ:</strong>
+                            <div style="background-color: #fffdfa; border-left: 4px solid #d2a764; border-radius: 4px; padding: 16px; margin-top: 8px; font-size: 14px; color: #334155; line-height: 1.6; white-space: pre-wrap;">{{messageContent}}</div>
+                        </div>
+                    </div>
+                    <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 20px; text-align: center; font-size: 12px; color: #94a3b8;">
+                        Email này được gửi tự động từ hệ thống website FF T-Shirt trực tiếp tới hòm thư <strong>fftshirt.vn@gmail.com</strong>.
+                    </div>
+                </div>
+            """
+                    .replace("{{timeNow}}", timeNow)
+                    .replace("{{name}}", name != null ? name : "Chưa cung cấp")
+                    .replace("{{phone}}", phone != null ? phone : "Chưa cung cấp")
+                    .replace("{{email}}", (email != null && !email.isBlank()) ? email : "Chưa cung cấp")
+                    .replace("{{messageContent}}", messageContent != null ? messageContent : "");
+
+            helper.setText(content, true);
+            log.info("==> [EmailService] Đang kết nối SMTP gửi email liên hệ của {} tới {}", name, recipientEmail);
+            mailSender.send(message);
+            log.info("==> [EmailService] Đã gửi email liên hệ tới {} THÀNH CÔNG!", recipientEmail);
+        } catch (Exception e) {
+            log.error("==> [EmailService Lỗi] Không thể gửi email liên hệ tới {}: {}", recipientEmail, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Gửi email đặt lại mật khẩu cho người dùng.
+     * resetUrl cần là đường dẫn đầy đủ có chứa token đặt lại mật khẩu.
+     */
+    @Async
+    public void sendResetPasswordEmail(String toEmail, String fullName, String account,
+                                       String resetToken, String resetUrl) {
+        if (toEmail == null || toEmail.isBlank() || !toEmail.contains("@")) {
+            log.warn("Bỏ qua email đặt lại mật khẩu vì địa chỉ email không hợp lệ.");
+            return;
+        }
+        if (resetUrl == null || resetUrl.isBlank()) {
+            log.warn("Bỏ qua email đặt lại mật khẩu gửi tới {} vì resetUrl đang trống.", toEmail);
+            return;
+        }
+
+        try {
+            if (mailSender == null) {
+                log.info("[EmailService Mock] Email đặt lại mật khẩu dành cho tài khoản '{}' sẽ được gửi tới {}. URL: {}",
+                        account, toEmail, resetUrl);
+                return;
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(senderEmail, "FF T-Shirt");
+            helper.setTo(toEmail.trim());
+            helper.setSubject("[FF T-Shirt] Yêu cầu đặt lại mật khẩu");
+
+            String safeName = escapeHtml(fullName != null && !fullName.isBlank() ? fullName : "bạn");
+            String safeAccount = escapeHtml(account != null && !account.isBlank() ? account : "Không xác định");
+            String safeResetUrl = escapeHtml(resetUrl.trim());
+
+            String html = """
+                <div style="font-family: Arial, Helvetica, sans-serif; max-width: 580px; margin: 20px auto; padding: 32px; border: 1px solid #e8e4de; border-radius: 14px; color: #333; line-height: 1.6;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h2 style="color: #4a3427; margin-bottom: 8px;">FF T-Shirt</h2>
+                        <p style="color: #777; margin-top: 0;">Yêu cầu đặt lại mật khẩu</p>
+                    </div>
+                    <p>Xin chào <strong>%s</strong>,</p>
+                    <p>Hệ thống nhận được yêu cầu đặt lại mật khẩu cho tài khoản <strong>%s</strong>.</p>
+                    <p>Nhấn nút bên dưới để tạo mật khẩu mới. Vì lý do bảo mật, vui lòng không chia sẻ liên kết này với người khác.</p>
+                    <div style="text-align: center; margin: 28px 0;">
+                        <a href="%s" style="display: inline-block; background: #7b5943; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 24px; font-weight: bold;">Đặt lại mật khẩu</a>
+                    </div>
+                    <p style="font-size: 13px; color: #666;">Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.</p>
+                    <p style="font-size: 12px; color: #999;">Email tự động từ hệ thống FF T-Shirt. Vui lòng không trả lời email này.</p>
+                </div>
+                """.formatted(safeName, safeAccount, safeResetUrl);
+
+            helper.setText(html, true);
+            mailSender.send(message);
+            log.info("Đã gửi email đặt lại mật khẩu tới {}", toEmail);
+        } catch (Exception e) {
+            log.error("Không thể gửi email đặt lại mật khẩu tới {}: {}", toEmail, e.getMessage(), e);
+        }
+    }
+
+    /** Mã hóa ký tự đặc biệt trước khi chèn dữ liệu vào HTML. */
+    private String escapeHtml(String value) {
+        if (value == null) return "";
+        return value.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
 }

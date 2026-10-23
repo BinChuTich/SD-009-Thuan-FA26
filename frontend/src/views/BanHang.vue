@@ -1,11 +1,13 @@
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
 import { getProvinces, getWardsByProvince } from '@/services/provincesApi.js'
+import { getCurrentUser } from '@/utils/auth.js'
 
 const router = useRouter()
+const route = useRoute()
 
 /* ==========================================================
    TOAST & MODAL SYSTEM (Thay thế hoàn toàn alert/confirm)
@@ -82,6 +84,9 @@ const currentInvoice = computed(() => {
 
 // Tải danh sách hóa đơn chờ từ CSDL
 const loadWaitingInvoices = async () => {
+  try {
+    await api.post('/api/hoa-don/cancel-expired-waiting').catch(() => {})
+  } catch (e) {}
   try {
     isLoadingInvoices.value = true
     let res = null
@@ -174,7 +179,9 @@ const loadWaitingInvoices = async () => {
         customerPay: null,
         cashAmount: null,
         transferAmount: null,
-        note: (inv.ghiChu && inv.ghiChu !== 'Hóa đơn chờ tại quầy') ? inv.ghiChu : ''
+        note: (inv.ghiChu && inv.ghiChu !== 'Hóa đơn chờ tại quầy') ? inv.ghiChu : '',
+        isTransferPaid: Number(inv.trangThaiThanhToan) === 1,
+        transferTransactionCode: ''
       }
     }))
 
@@ -198,9 +205,13 @@ const addWaitingInvoice = async () => {
   }
 
   try {
+    const currentUser = getCurrentUser()
+    const staffName = currentUser?.tenNhanVien || currentUser?.tenTaiKhoan || 'Nhân viên bán hàng'
+    const staffId = currentUser?.id || null
+
     let newInv = null
     try {
-      const res = await api.post('/api/hoa-don/waiting')
+      const res = await api.post('/api/hoa-don/waiting', { idNhanVien: staffId, nguoiTao: staffName })
       newInv = res.data
     } catch {
       const res = await api.post('/api/hoa-don', {
@@ -233,7 +244,9 @@ const addWaitingInvoice = async () => {
         customerPay: null,
         cashAmount: null,
         transferAmount: null,
-        note: ''
+        note: '',
+        isTransferPaid: false,
+        transferTransactionCode: ''
       }
       waitingInvoices.value.push(newTab)
       activeInvoiceId.value = newInv.id
@@ -254,29 +267,37 @@ const selectInvoice = (id) => {
 const confirmRemoveInvoice = (inv) => {
   if (!inv) return
   openConfirm(
-    'Xác nhận hủy hóa đơn',
-    `Bạn có chắc chắn muốn hủy hóa đơn chờ "${inv.code}" không? Hóa đơn này sẽ được xóa hoàn toàn khỏi cơ sở dữ liệu.`,
-    async () => {
-      try {
-        if (inv.id) {
-          await api.delete(`/api/hoa-don/${inv.id}`)
-        }
-        waitingInvoices.value = waitingInvoices.value.filter(i => i.id !== inv.id)
-        showToast(`Đã hủy thành công hóa đơn ${inv.code}!`)
-
-        // Nếu đã xóa hết, tự động tạo mới 1 hóa đơn chờ trên DB
-        if (waitingInvoices.value.length === 0) {
-          await addWaitingInvoice()
-        } else {
-          if (activeInvoiceId.value === inv.id) {
-            activeInvoiceId.value = waitingInvoices.value[0].id
+      'Xác nhận hủy hóa đơn',
+      `Bạn có chắc chắn muốn hủy hóa đơn chờ "${inv.code}" không? Hóa đơn này sẽ được xóa hoàn toàn khỏi cơ sở dữ liệu.`,
+      async () => {
+        try {
+          if (inv.cart && inv.cart.length > 0) {
+            inv.cart.forEach(item => {
+              const p = productList.value.find(x => x.id === item.id)
+              if (p) {
+                p.stock += item.quantity
+              }
+            })
           }
+          if (inv.id) {
+            await api.delete(`/api/hoa-don/${inv.id}`)
+          }
+          waitingInvoices.value = waitingInvoices.value.filter(i => i.id !== inv.id)
+          showToast(`Đã hủy thành công hóa đơn ${inv.code}!`)
+
+          // Nếu đã xóa hết, tự động tạo mới 1 hóa đơn chờ trên DB
+          if (waitingInvoices.value.length === 0) {
+            await addWaitingInvoice()
+          } else {
+            if (activeInvoiceId.value === inv.id) {
+              activeInvoiceId.value = waitingInvoices.value[0].id
+            }
+          }
+        } catch (err) {
+          console.error('Lỗi khi hủy hóa đơn:', err)
+          showToast('Không thể hủy hóa đơn khỏi cơ sở dữ liệu!', 'warning')
         }
-      } catch (err) {
-        console.error('Lỗi khi hủy hóa đơn:', err)
-        showToast('Không thể hủy hóa đơn khỏi cơ sở dữ liệu!', 'warning')
       }
-    }
   )
 }
 
@@ -349,15 +370,44 @@ const filteredProducts = computed(() => {
   if (!searchProductText.value) return productList.value
   const kw = searchProductText.value.toLowerCase().trim()
   return productList.value.filter(p =>
-    (p.name && p.name.toLowerCase().includes(kw)) ||
-    (p.code && p.code.toLowerCase().includes(kw)) ||
-    (p.variantCode && p.variantCode.toLowerCase().includes(kw)) ||
-    (p.color && p.color.toLowerCase().includes(kw)) ||
-    (p.size && p.size.toLowerCase().includes(kw))
+      (p.name && p.name.toLowerCase().includes(kw)) ||
+      (p.code && p.code.toLowerCase().includes(kw)) ||
+      (p.variantCode && p.variantCode.toLowerCase().includes(kw)) ||
+      (p.color && p.color.toLowerCase().includes(kw)) ||
+      (p.size && p.size.toLowerCase().includes(kw))
   )
 })
 
+const getMaxStockForItem = (item) => {
+  const p = productList.value.find(x => x.id === item.id)
+  return item.quantity + (p ? Math.max(0, p.stock) : 0)
+}
+
 const selectProduct = (prod) => {
+  const p = productList.value.find(item => item.id === prod.id) || prod
+  if (p.stock <= 0) {
+    showToast('Sản phẩm đã hết hàng trong kho!', 'warning')
+    return
+  }
+
+  const exist = currentInvoice.value.cart.find(i => i.id === prod.id)
+  if (exist) {
+    exist.quantity++
+  } else {
+    currentInvoice.value.cart.push({
+      ...prod,
+      quantity: 1
+    })
+  }
+
+  // Trừ trực tiếp số lượng tồn kho khả dụng ngay khi thêm vào giỏ hàng
+  p.stock--
+
+  syncCurrentCartToDb()
+  showToast(`Đã thêm "${prod.name} (${prod.color} - ${prod.size})" vào giỏ hàng!`)
+}
+
+const _oldSelectProduct = (prod) => { if (true) return;
   if (prod.stock <= 0) {
     showToast('Sản phẩm đã hết hàng trong kho!', 'warning')
     return
@@ -386,9 +436,9 @@ const handleBarcodeScan = () => {
   const code = barcodeInput.value?.trim().toLowerCase()
   if (!code) return
   const found = productList.value.find(p =>
-    (p.code && p.code.toLowerCase() === code) ||
-    (p.variantCode && p.variantCode.toLowerCase() === code) ||
-    String(p.id) === code
+      (p.code && p.code.toLowerCase() === code) ||
+      (p.variantCode && p.variantCode.toLowerCase() === code) ||
+      String(p.id) === code
   )
   if (found) {
     selectProduct(found)
@@ -399,6 +449,28 @@ const handleBarcodeScan = () => {
 }
 
 const updateQuantity = (item, delta) => {
+  const p = productList.value.find(x => x.id === item.id)
+  if (delta > 0) {
+    if (p && p.stock < delta) {
+      showToast(`Trong kho chỉ còn thêm tối đa ${p.stock} sản phẩm!`, 'warning')
+      return
+    }
+    item.quantity += delta
+    if (p) p.stock -= delta
+    syncCurrentCartToDb()
+  } else if (delta < 0) {
+    const absDelta = Math.abs(delta)
+    if (item.quantity <= absDelta) {
+      removeFromCart(item)
+      return
+    }
+    item.quantity -= absDelta
+    if (p) p.stock += absDelta
+    syncCurrentCartToDb()
+  }
+}
+
+const _oldUpdateQuantity = (item, delta) => { if (true) return;
   const newQty = item.quantity + delta
   if (newQty <= 0) {
     removeFromCart(item)
@@ -414,6 +486,27 @@ const updateQuantity = (item, delta) => {
 
 const handleQuantityInput = (item, event) => {
   let val = parseInt(event.target.value, 10)
+  const p = productList.value.find(x => x.id === item.id)
+  const maxAvailable = item.quantity + (p ? Math.max(0, p.stock) : 0)
+  if (isNaN(val) || val <= 0) {
+    val = 1
+  }
+  if (val > maxAvailable) {
+    showToast(`Số lượng khả dụng chỉ còn tối đa ${maxAvailable}!`, 'warning')
+    val = maxAvailable
+  }
+  const delta = val - item.quantity
+  if (delta !== 0) {
+    item.quantity = val
+    if (p) p.stock -= delta
+    syncCurrentCartToDb()
+  } else {
+    event.target.value = item.quantity
+  }
+}
+
+const _oldHandleQuantityInput = (item, event) => { if (true) return;
+  let val = parseInt(event.target.value, 10)
   if (isNaN(val) || val <= 0) {
     item.quantity = 1
   } else if (val > item.stock) {
@@ -426,6 +519,16 @@ const handleQuantityInput = (item, event) => {
 }
 
 const removeFromCart = (item) => {
+  const p = productList.value.find(x => x.id === item.id)
+  if (p) {
+    p.stock += item.quantity
+  }
+  currentInvoice.value.cart = currentInvoice.value.cart.filter(i => i.id !== item.id)
+  syncCurrentCartToDb()
+  showToast('Đã xóa sản phẩm khỏi giỏ hàng!')
+}
+
+const _oldRemoveFromCart = (item) => { if (true) return;
   currentInvoice.value.cart = currentInvoice.value.cart.filter(i => i.id !== item.id)
   syncCurrentCartToDb()
   showToast('Đã xóa sản phẩm khỏi giỏ hàng!')
@@ -573,14 +676,14 @@ const syncInvoiceDeliveryFromAddress = async (inv, addrObj) => {
     inv.deliveryAddress = formatAddrObj(addrObj)
 
     const cleanStr = (s) => (s || '').toLowerCase()
-      .replace(/^(tỉnh|thành phố|tp\.|tp|quận|huyện|thị xã|tx\.|tx|phường|xã|thị trấn|tt\.|tt)\s+/gi, '')
-      .trim()
+        .replace(/^(tỉnh|thành phố|tp\.|tp|quận|huyện|thị xã|tx\.|tx|phường|xã|thị trấn|tt\.|tt)\s+/gi, '')
+        .trim()
 
     const matchP = provincesList.value.find(p =>
-      p.name.toLowerCase() === (addrObj.thanhPho || '').toLowerCase() ||
-      cleanStr(p.name) === cleanStr(addrObj.thanhPho) ||
-      p.name.toLowerCase().includes(cleanStr(addrObj.thanhPho)) ||
-      (addrObj.thanhPho || '').toLowerCase().includes(cleanStr(p.name))
+        p.name.toLowerCase() === (addrObj.thanhPho || '').toLowerCase() ||
+        cleanStr(p.name) === cleanStr(addrObj.thanhPho) ||
+        p.name.toLowerCase().includes(cleanStr(addrObj.thanhPho)) ||
+        (addrObj.thanhPho || '').toLowerCase().includes(cleanStr(p.name))
     )
 
     if (matchP) {
@@ -591,10 +694,10 @@ const syncInvoiceDeliveryFromAddress = async (inv, addrObj) => {
       }
 
       const matchW = wards.find(w =>
-        w.name.toLowerCase() === (addrObj.phuong || '').toLowerCase() ||
-        cleanStr(w.name) === cleanStr(addrObj.phuong) ||
-        w.name.toLowerCase().includes(cleanStr(addrObj.phuong)) ||
-        (addrObj.phuong || '').toLowerCase().includes(cleanStr(w.name))
+          w.name.toLowerCase() === (addrObj.phuong || '').toLowerCase() ||
+          cleanStr(w.name) === cleanStr(addrObj.phuong) ||
+          w.name.toLowerCase().includes(cleanStr(addrObj.phuong)) ||
+          (addrObj.phuong || '').toLowerCase().includes(cleanStr(w.name))
       )
       if (matchW) {
         inv.deliveryWardCode = matchW.code
@@ -669,7 +772,13 @@ const submitAddCustomerAddress = async () => {
 
   savingCustomerAddress.value = true
   try {
+    const currentUser = getCurrentUser()
+    const staffName = currentUser?.tenNhanVien || currentUser?.tenTaiKhoan || 'Nhân viên bán hàng'
+    const staffId = currentUser?.id || null
+
     const payload = {
+      idNhanVien: staffId,
+      nguoiTao: staffName,
       thanhPho: newAddressForm.value.thanhPho.trim(),
       huyen: newAddressForm.value.huyen?.trim() || '',
       phuong: newAddressForm.value.phuong.trim(),
@@ -742,12 +851,20 @@ const selectCustomer = async (cust) => {
     await syncInvoiceDeliveryFromAddress(currentInvoice.value, cust)
   }
 
-  // Kiểm tra số voucher cá nhân dành riêng cho khách hàng này
-  const personalCount = availableVouchers.value.filter(v => isVoucherPersonal(v) && isVoucherForCustomer(v, cust.id)).length
-  if (personalCount > 0) {
-    showToast(`Đã chọn "${cust.tenKhachHang}" (Có ${personalCount} phiếu giảm giá cá nhân khả dụng)!`)
+  // Tự động kiểm tra và áp dụng phiếu cá nhân tốt nhất cho khách hàng
+  const bestVoucher = findBestPersonalVoucherForCustomer(cust.id, cust.tenKhachHang, totalAmount.value)
+  if (bestVoucher) {
+    currentInvoice.value.voucher = bestVoucher
+    const discount = calculateDiscountAmount(bestVoucher, totalAmount.value)
+    showToast(`Đã chọn "${cust.tenKhachHang}" và tự động áp dụng phiếu cá nhân "${bestVoucher.maPhieuGiamGia}" (-${formatMoney(discount)})!`)
   } else {
-    showToast(`Đã chọn khách hàng "${cust.tenKhachHang}"!`)
+    // Kiểm tra số voucher cá nhân dành riêng cho khách hàng này
+    const personalCount = availableVouchers.value.filter(v => isVoucherPersonal(v) && isVoucherForCustomer(v, cust.id, cust.tenKhachHang)).length
+    if (personalCount > 0) {
+      showToast(`Đã chọn "${cust.tenKhachHang}" (Có ${personalCount} phiếu cá nhân khả dụng)!`)
+    } else {
+      showToast(`Đã chọn khách hàng "${cust.tenKhachHang}"!`)
+    }
   }
 }
 
@@ -836,6 +953,7 @@ const submitQuickAddCustomer = async () => {
     })
     showQuickAddCustomerModal.value = false
     await loadCustomerAddressesForCurrent(created.id)
+    autoApplyBestPersonalVoucher(false)
     showToast('Đã thêm mới khách hàng vào cơ sở dữ liệu!')
   } catch (err) {
     console.error('Lỗi khi thêm khách hàng:', err)
@@ -849,7 +967,7 @@ const submitQuickAddCustomer = async () => {
 const availableVouchers = ref([])
 
 // Helper: Phân biệt phiếu Cá nhân vs phiếu Công khai
-const isVoucherPersonal = (v) => {
+function isVoucherPersonal(v) {
   if (!v) return false
   if (v.hinhThuc) {
     const h = String(v.hinhThuc).trim().toLowerCase()
@@ -863,14 +981,92 @@ const isVoucherPersonal = (v) => {
 }
 
 // Helper: Kiểm tra voucher có được phép áp dụng cho khách hàng hiện tại hay không
-const isVoucherForCustomer = (v, customerId) => {
+function isVoucherForCustomer(v, customerId, customerName) {
   if (!v) return false
   if (!isVoucherPersonal(v)) return true // Phiếu công khai: áp dụng cho tất cả
   if (!customerId) return false // Phiếu cá nhân: yêu cầu phải có khách hàng thành viên
   if (Array.isArray(v.idKhachHangList) && v.idKhachHangList.length > 0) {
-    return v.idKhachHangList.some(id => String(id) === String(customerId))
+    if (v.idKhachHangList.some(id => String(id) === String(customerId))) return true
+  }
+  if (customerName && Array.isArray(v.danhSachKhachHang) && v.danhSachKhachHang.length > 0) {
+    const cName = String(customerName).trim().toLowerCase()
+    if (v.danhSachKhachHang.some(name => String(name).trim().toLowerCase() === cName)) return true
   }
   return false
+}
+
+// Helper: Tính mức tiền giảm giá thực tế của một voucher dựa vào tổng giá trị đơn hàng
+function calculateDiscountAmount(v, subtotal) {
+  if (!v || subtotal <= 0) return 0
+  if (v.hoaDonToiThieu && subtotal < Number(v.hoaDonToiThieu)) return 0
+
+  if (isPercentVoucher(v)) {
+    const percent = Number(v.giaTriGiamGia || 0)
+    let amount = (subtotal * percent) / 100
+    if (v.giamToiDa && amount > Number(v.giamToiDa)) {
+      amount = Number(v.giamToiDa)
+    }
+    return Math.min(amount, subtotal)
+  } else {
+    return Math.min(Number(v.giaTriGiamGia || 0), subtotal)
+  }
+}
+
+// Helper: Tìm phiếu giảm giá cá nhân hợp lệ mang lại mức giảm cao nhất cho khách hàng
+function findBestPersonalVoucherForCustomer(customerId, customerName, subtotal) {
+  if (!customerId) return null
+  const now = new Date()
+
+  const eligible = availableVouchers.value.filter(v => {
+    // Phải là phiếu cá nhân
+    if (!isVoucherPersonal(v)) return false
+    // Phải thuộc quyền sở hữu của khách hàng này
+    if (!isVoucherForCustomer(v, customerId, customerName)) return false
+    // Trạng thái đang hoạt động (1 hoặc null)
+    if (v.trangThai != null && Number(v.trangThai) !== 1) return false
+    // Còn số lượt sử dụng
+    if (v.soLuongSuDung != null && Number(v.soLuongSuDung) <= 0) return false
+    // Còn hạn sử dụng
+    if (v.ngayBatDau && new Date(v.ngayBatDau) > now) return false
+    if (v.ngayKetThuc && new Date(v.ngayKetThuc) < now) return false
+    // Thỏa mãn giá trị đơn hàng tối thiểu
+    if (v.hoaDonToiThieu && Number(subtotal) < Number(v.hoaDonToiThieu)) return false
+
+    return true
+  })
+
+  if (eligible.length === 0) return null
+
+  // Sắp xếp ưu tiên: mức giảm cao nhất
+  eligible.sort((a, b) => {
+    const discountA = calculateDiscountAmount(a, subtotal)
+    const discountB = calculateDiscountAmount(b, subtotal)
+    if (discountB !== discountA) {
+      return discountB - discountA
+    }
+    return (Number(b.id) || 0) - (Number(a.id) || 0)
+  })
+
+  return eligible[0]
+}
+
+function autoApplyBestPersonalVoucher(silent = false) {
+  if (!currentInvoice.value) return
+  const custId = currentInvoice.value.customerId
+  if (!custId) return
+
+  const subtotal = totalAmount.value
+  const bestVoucher = findBestPersonalVoucherForCustomer(custId, currentInvoice.value.customerName, subtotal)
+
+  if (bestVoucher) {
+    if (!currentInvoice.value.voucher || currentInvoice.value.voucher.id !== bestVoucher.id) {
+      currentInvoice.value.voucher = bestVoucher
+      const discount = calculateDiscountAmount(bestVoucher, subtotal)
+      if (!silent) {
+        showToast(`Tự động áp dụng phiếu cá nhân "${bestVoucher.maPhieuGiamGia}" (-${formatMoney(discount)})!`)
+      }
+    }
+  }
 }
 
 const fetchVouchers = async () => {
@@ -884,7 +1080,7 @@ const fetchVouchers = async () => {
       if (inv.voucher && inv.voucher.id) {
         const fullV = availableVouchers.value.find(v => v.id === inv.voucher.id)
         if (fullV) {
-          if (isVoucherPersonal(fullV) && !isVoucherForCustomer(fullV, inv.customerId)) {
+          if (isVoucherPersonal(fullV) && !isVoucherForCustomer(fullV, inv.customerId, inv.customerName)) {
             inv.voucher = null
           } else {
             inv.voucher = fullV
@@ -899,7 +1095,7 @@ const fetchVouchers = async () => {
 }
 
 // 1 = Giảm theo % | 2 = Giảm theo tiền mặt (VNĐ)
-const isPercentVoucher = (v) => {
+function isPercentVoucher(v) {
   if (!v) return false
   const loai = Number(v.loaiPhieuGiamGia)
   if (loai === 1) return true
@@ -908,7 +1104,7 @@ const isPercentVoucher = (v) => {
   return val > 0 && val <= 100
 }
 
-const formatVoucherDiscountLabel = (v) => {
+function formatVoucherDiscountLabel(v) {
   if (isPercentVoucher(v)) {
     return `-${v.giaTriGiamGia}%`
   }
@@ -929,18 +1125,20 @@ const personalVouchersCount = computed(() => personalVouchers.value.length)
 const customerPersonalVouchers = computed(() => {
   const custId = currentInvoice.value?.customerId
   if (!custId) return []
-  return availableVouchers.value.filter(v => isVoucherPersonal(v) && isVoucherForCustomer(v, custId))
+  return availableVouchers.value.filter(v => isVoucherPersonal(v) && isVoucherForCustomer(v, custId, currentInvoice.value?.customerName))
 })
 const customerPersonalCount = computed(() => customerPersonalVouchers.value.length)
 
-// Danh sách voucher hiển thị trong combobox (phân loại rõ ràng [Công khai] và [Cá nhân])
+// Danh sách voucher hiển thị trong combobox:
+// - Khi KHÔNG chọn khách hàng: TUYỆT ĐỐI CHỈ hiển thị các phiếu giảm giá CÔNG KHAI.
+// - Khi ĐÃ chọn khách hàng: Chỉ hiển thị phiếu cá nhân thuộc khách hàng đó + phiếu công khai.
 const formattedVouchers = computed(() => {
   const currentCustId = currentInvoice.value?.customerId
+  const currentCustName = currentInvoice.value?.customerName
 
   if (currentCustId) {
     const personalForCust = []
     const publicList = []
-    const otherPersonal = []
 
     availableVouchers.value.forEach(v => {
       if (!isVoucherPersonal(v)) {
@@ -948,23 +1146,19 @@ const formattedVouchers = computed(() => {
           id: v.id,
           label: `[Công khai] ${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
         })
-      } else if (isVoucherForCustomer(v, currentCustId)) {
+      } else if (isVoucherForCustomer(v, currentCustId, currentCustName)) {
         personalForCust.push({
           id: v.id,
           label: `[Cá nhân] ${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
         })
-      } else {
-        otherPersonal.push({
-          id: v.id,
-          label: `[Cá nhân - KH khác] ${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
-        })
       }
+      // Tuyệt đối KHÔNG hiển thị phiếu cá nhân của khách hàng khác
     })
 
-    return [...personalForCust, ...publicList, ...otherPersonal]
+    return [...personalForCust, ...publicList]
   } else {
+    // Khi chưa chọn khách hàng (Khách lẻ / vãng lai): CHỈ hiển thị phiếu CÔNG KHAI
     const publicList = []
-    const personalList = []
 
     availableVouchers.value.forEach(v => {
       if (!isVoucherPersonal(v)) {
@@ -972,15 +1166,10 @@ const formattedVouchers = computed(() => {
           id: v.id,
           label: `[Công khai] ${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
         })
-      } else {
-        personalList.push({
-          id: v.id,
-          label: `[Cá nhân - Cần chọn KH] ${v.maPhieuGiamGia} - ${v.tenPhieuGiamGia} (${formatVoucherDiscountLabel(v)})`
-        })
       }
     })
 
-    return [...publicList, ...personalList]
+    return publicList
   }
 })
 
@@ -1011,10 +1200,10 @@ const selectedVoucherId = computed({
         return
       }
 
-      if (!isVoucherForCustomer(found, currentInvoice.value.customerId)) {
+      if (!isVoucherForCustomer(found, currentInvoice.value.customerId, currentInvoice.value.customerName)) {
         const targetNames = (found.danhSachKhachHang && found.danhSachKhachHang.length > 0)
-          ? found.danhSachKhachHang.join(', ')
-          : 'khách hàng khác'
+            ? found.danhSachKhachHang.join(', ')
+            : 'khách hàng khác'
         showToast(`Phiếu "${found.maPhieuGiamGia}" là phiếu CÁ NHÂN chỉ dành riêng cho: ${targetNames}!`, 'warning')
         const prev = currentInvoice.value.voucher
         currentInvoice.value.voucher = null
@@ -1039,24 +1228,11 @@ const voucherDiscount = computed(() => {
   const subtotal = totalAmount.value
 
   // Nếu là phiếu cá nhân mà khách hàng không hợp lệ -> không tính giảm giá
-  if (isVoucherPersonal(v) && !isVoucherForCustomer(v, currentInvoice.value.customerId)) {
+  if (isVoucherPersonal(v) && !isVoucherForCustomer(v, currentInvoice.value.customerId, currentInvoice.value.customerName)) {
     return 0
   }
 
-  if (v.hoaDonToiThieu && subtotal < Number(v.hoaDonToiThieu)) {
-    return 0
-  }
-
-  if (isPercentVoucher(v)) {
-    const percent = Number(v.giaTriGiamGia || 0)
-    let amount = (subtotal * percent) / 100
-    if (v.giamToiDa && amount > Number(v.giamToiDa)) {
-      amount = Number(v.giamToiDa)
-    }
-    return Math.min(amount, subtotal)
-  } else {
-    return Math.min(Number(v.giaTriGiamGia || 0), subtotal)
-  }
+  return calculateDiscountAmount(v, subtotal)
 })
 
 /* ==========================================================
@@ -1122,6 +1298,72 @@ const addQuickCash = (delta) => {
   currentInvoice.value.customerPay = current + delta
 }
 
+// =========================================================================
+// ĐỊNH DẠNG SỐ TIỀN VỚI DẤU CHẤM PHÂN CÁCH HÀNG NGHÌN (VD: 1250000 -> 1.250.000)
+// =========================================================================
+const formatNumberWithDots = (val) => {
+  if (val === null || val === undefined || val === '') return ''
+  const num = typeof val === 'number' ? val : Number(String(val).replace(/\D/g, ''))
+  if (Number.isNaN(num)) return ''
+  return String(Math.round(num)).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+const parseNumberFromDots = (str) => {
+  if (str === null || str === undefined || str === '') return null
+  const cleaned = String(str).replace(/\D/g, '')
+  return cleaned ? Number(cleaned) : null
+}
+
+const displayCustomerPay = computed(() => {
+  return formatNumberWithDots(currentInvoice.value?.customerPay)
+})
+
+const onCustomerPayFormattedInput = (e) => {
+  const val = parseNumberFromDots(e.target.value)
+  if (currentInvoice.value) {
+    currentInvoice.value.customerPay = val
+  }
+  e.target.value = formatNumberWithDots(val)
+}
+
+const displayCashAmount = computed(() => {
+  return formatNumberWithDots(currentInvoice.value?.cashAmount)
+})
+
+const onCashAmountFormattedInput = (e) => {
+  const val = parseNumberFromDots(e.target.value)
+  if (currentInvoice.value) {
+    currentInvoice.value.cashAmount = val
+  }
+  onCashAmountInput()
+  e.target.value = formatNumberWithDots(val)
+}
+
+const displayTransferAmount = computed(() => {
+  return formatNumberWithDots(currentInvoice.value?.transferAmount)
+})
+
+const onTransferAmountFormattedInput = (e) => {
+  const val = parseNumberFromDots(e.target.value)
+  if (currentInvoice.value) {
+    currentInvoice.value.transferAmount = val
+  }
+  onTransferAmountInput()
+  e.target.value = formatNumberWithDots(val)
+}
+
+const displayShippingFee = computed(() => {
+  return formatNumberWithDots(currentInvoice.value?.shippingFee)
+})
+
+const onShippingFeeFormattedInput = (e) => {
+  const val = parseNumberFromDots(e.target.value)
+  if (currentInvoice.value) {
+    currentInvoice.value.shippingFee = val
+  }
+  e.target.value = formatNumberWithDots(val)
+}
+
 // Khởi tạo các giá trị tiền khi chọn phương thức thanh toán kết hợp
 const initKetHopAmounts = () => {
   if (!currentInvoice.value) return
@@ -1179,64 +1421,406 @@ const fillTransferRemaining = () => {
   currentInvoice.value.transferAmount = Math.max(0, finalTotal.value - cash)
 }
 
-// Tạo URL mã VietQR động theo số tiền và mã hóa đơn
+/* ==========================================================
+   TÍCH HỢP API THANH TOÁN CHUYỂN KHOẢN (VIETQR / BANK API)
+========================================================== */
+const isCheckingPayment = ref(false)
+const isConfirmingPayment = ref(false)
+let paymentPollingTimer = null
+
+// Chế độ xem mã QR: 'VNPAY' | 'VIETQR'
+const qrViewMode = ref('VIETQR')
+
+const transferApiInfo = ref({
+  bankId: 'MB',
+  bankName: 'VNPAY-QR',
+  accountNo: '0988888888',
+  accountName: 'FF T-SHIRT STORE',
+  qrCodeUrl: '',
+  vnpayQrUrl: '',
+  vietQrUrl: '',
+  vnpayUrl: '',
+  content: '',
+  amount: 0,
+  transactionCode: ''
+})
+
+// Số tiền mục tiêu chuyển khoản của đơn hàng hiện tại
+const transferTargetAmount = computed(() => {
+  if (!currentInvoice.value) return 0
+  if (currentInvoice.value.paymentMethod === 'KET_HOP') {
+    return Math.max(0, Number(currentInvoice.value.transferAmount) || 0)
+  }
+  return finalTotal.value
+})
+
+// Nội dung thanh toán VNPAY chuẩn hóa
+const transferContent = computed(() => {
+  const code = currentInvoice.value?.code || 'POS'
+  const clean = code.replace(/[^a-zA-Z0-9_-]/g, '')
+  return `VNPAY ${clean}`
+})
+
+// Tạo URL mã VNPAY-QR / VietQR động theo số tiền và mã hóa đơn
 const getVietQrUrl = (amount) => {
   const code = currentInvoice.value?.code || 'POS'
   const amt = Math.max(0, Math.round(Number(amount) || 0))
-  return `https://img.vietqr.io/image/MB-0988888888-compact2.png?amount=${amt}&addInfo=${encodeURIComponent('Thanh toan ' + code)}&accountName=FF%20TSHIRT%20STORE`
+  const cleanCode = code.replace(/[^a-zA-Z0-9_-]/g, '')
+  const noiDung = `VNPAY ${cleanCode}`
+  return `https://img.vietqr.io/image/MB-0988888888-compact2.png?amount=${amt}&addInfo=${encodeURIComponent(noiDung)}&accountName=FF%20TSHIRT%20STORE`
 }
+
+const transferQrUrl = computed(() => {
+  if (true) {
+    return transferApiInfo.value.vietQrUrl || getVietQrUrl(transferTargetAmount.value)
+
+  }
+  // Mặc định là VNPAY-QR: lấy QR code đã tích hợp link cổng thanh toán VNPAY (theo chuẩn vnpay_jsp)
+  if (transferApiInfo.value.vnpayQrUrl) {
+    return transferApiInfo.value.vnpayQrUrl
+  }
+  if (transferApiInfo.value.qrCodeUrl) {
+    return transferApiInfo.value.qrCodeUrl
+  }
+  if (transferApiInfo.value.vnpayUrl) {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=${encodeURIComponent(transferApiInfo.value.vnpayUrl)}`
+  }
+  return getVietQrUrl(transferTargetAmount.value)
+})
+
+// Mở trang cổng thanh toán VNPAY (hỗ trợ SDK vnpay.js từ vnpay_pay.jsp mẫu hoặc popup)
+const openVNPayPortal = () => {
+  const targetUrl = transferApiInfo.value.vnpayUrl
+  if (targetUrl) {
+    if (window.vnpay && typeof window.vnpay.open === 'function') {
+      window.vnpay.open({ width: 768, height: 600, url: targetUrl })
+    } else {
+      window.open(targetUrl, '_blank')
+    }
+  } else {
+    const code = currentInvoice.value?.code || 'POS'
+    const amt = transferTargetAmount.value
+    api.get(`/api/payment/vnpay/create-url?maHoaDon=${code}&soTien=${amt}&bankCode=`)
+        .then(res => {
+          if (res.data?.url) {
+            transferApiInfo.value.vnpayUrl = res.data.url
+            if (window.vnpay && typeof window.vnpay.open === 'function') {
+              window.vnpay.open({ width: 768, height: 600, url: res.data.url })
+            } else {
+              window.open(res.data.url, '_blank')
+            }
+          }
+        })
+        .catch(() => showToast('Không thể mở cổng VNPAY lúc này', 'warning'))
+  }
+}
+
+// Gọi API lấy thông tin chuyển khoản từ backend
+const fetchTransferInfoFromApi = async (amount) => {
+  if (!currentInvoice.value) return
+  const code = currentInvoice.value.code || 'POS'
+  const amt = Math.max(0, Math.round(Number(amount) || 0))
+  try {
+    const res = await api.post('/api/payment/transfer-info', {
+      maHoaDon: code,
+      soTien: amt
+    })
+    if (res?.data) {
+      transferApiInfo.value = {
+        bankId: res.data.maNganHang || 'VNPAY',
+        bankName: res.data.nganHang || 'VNPAY-QR',
+        accountNo: res.data.soTaiKhoan || '0988888888',
+        accountName: res.data.tenChuTaiKhoan || 'FF T-SHIRT STORE',
+        qrCodeUrl: res.data.qrCodeUrl || '',
+        vnpayQrUrl: res.data.vnpayQrUrl || res.data.qrCodeUrl || '',
+        vietQrUrl: res.data.vietQrUrl || getVietQrUrl(amt),
+        vnpayUrl: res.data.vnpayUrl || '',
+        content: res.data.noiDungChuyenKhoan || `VNPAY ${code}`,
+        amount: amt,
+        transactionCode: res.data.maGiaoDich || ''
+      }
+      if (res.data.daThanhToan) {
+        currentInvoice.value.isTransferPaid = true
+      }
+    }
+  } catch (err) {
+    console.warn('API /api/payment/transfer-info chưa sẵn sàng, dùng fallback cấu hình:', err)
+  }
+}
+
+// Sao chép thông tin vào clipboard
+const copyToClipboard = async (text, label) => {
+  if (!text && text !== 0) return
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(String(text))
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = String(text)
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+    showToast(`Đã sao chép ${label}: ${text}`)
+  } catch (e) {
+    showToast(`Không thể sao chép ${label}`, 'warning')
+  }
+}
+
+// Kiểm tra trạng thái thanh toán từ API
+const checkPaymentStatus = async (isManual = true) => {
+  if (!currentInvoice.value) return
+  const code = currentInvoice.value.code
+  if (!code) return
+
+  try {
+    if (isManual) isCheckingPayment.value = true
+    const res = await api.get(`/api/payment/check-status/${code}`)
+    if (res?.data?.daThanhToan) {
+      currentInvoice.value.isTransferPaid = true
+      currentInvoice.value.transferTransactionCode = res.data.maGiaoDich || `TRANS-${code}`
+      stopPaymentPolling()
+      const isKetHopCheck = currentInvoice.value.paymentMethod === 'KET_HOP'
+      if (!isKetHopCheck) {
+        currentInvoice.value.paymentMethod = 'CHUYEN_KHOAN'
+      }
+      if (!isKetHopCheck) {
+        currentInvoice.value.customerPay = finalTotal.value
+      }
+      const canAutoCheckout =
+          !isKetHopCheck ||
+          (Number(currentInvoice.value.cashAmount || 0) + Number(currentInvoice.value.transferAmount || 0) >= finalTotal.value)
+      if (false && canAutoCheckout && currentInvoice.value.cart.length > 0 && !isProcessing.value) {
+        showToast(`✓ Đã nhận tiền chuyển khoản thành công! Đang tự động thanh toán và in hóa đơn...`)
+        setTimeout(() => {
+          handleCheckout()
+        }, 500)
+      } else {
+        showToast(`✓ Đã nhận thanh toán chuyển khoản cho hóa đơn ${code}!`)
+      }
+      stopPaymentPolling()
+    } else {
+      if (isManual) {
+        showToast(`Đang chờ giao dịch chuyển khoản cho đơn hàng ${code}...`, 'info')
+      }
+    }
+  } catch (err) {
+    if (isManual) {
+      showToast('Không thể kết nối đến máy chủ kiểm tra thanh toán!', 'warning')
+    }
+  } finally {
+    if (isManual) isCheckingPayment.value = false
+  }
+}
+
+// Xác nhận đã nhận tiền chuyển khoản trực tiếp (Khi khách chuyển thành công)
+const confirmTransferPaymentDirect = async () => {
+  if (currentInvoice.value && currentInvoice.value.cart.length === 0) {
+    showToast('Giỏ hàng trống! Vui lòng chọn sản phẩm trước khi thanh toán.', 'warning')
+    return
+  }
+  if (!currentInvoice.value) return
+  const code = currentInvoice.value.code
+  const isKetHop = currentInvoice.value.paymentMethod === 'KET_HOP'
+  const amt = isKetHop ? Number(currentInvoice.value.transferAmount || 0) : finalTotal.value
+
+  try {
+    currentInvoice.value.isTransferPaid = true
+    currentInvoice.value.transferTransactionCode = `TRANS-${code}`
+    stopPaymentPolling()
+    if (!isKetHop) {
+      currentInvoice.value.paymentMethod = 'CHUYEN_KHOAN'
+      currentInvoice.value.customerPay = finalTotal.value
+    }
+    const canAutoCheckoutDirect =
+        !isKetHop ||
+        (Number(currentInvoice.value.cashAmount || 0) + Number(currentInvoice.value.transferAmount || 0) >= finalTotal.value)
+    if (false && canAutoCheckoutDirect && !isProcessing.value) {
+      showToast(`✓ Đã nhận tiền chuyển khoản! Đang tự động thanh toán và in hóa đơn...`)
+      setTimeout(() => {
+        handleCheckout()
+      }, 400)
+      return
+    }
+    isConfirmingPayment.value = true
+    const res = await api.post('/api/payment/confirm-transfer', {
+      maHoaDon: code,
+      soTien: amt,
+      ghiChu: 'Thu ngân xác nhận chuyển khoản thành công',
+      phuongThuc: 'Chuyển khoản'
+    })
+    currentInvoice.value.isTransferPaid = true
+    currentInvoice.value.transferTransactionCode = res?.data?.maGiaoDich || `TRANS-${code}`; /*
+    stopPaymentPolling()
+    if (!isKetHop) {
+      currentInvoice.value.customerPay = finalTotal.value
+    }
+    if (!isKetHop) {
+      currentInvoice.value.paymentMethod = 'CHUYEN_KHOAN'
+    }
+    const canAutoCheckoutDirect =
+      !isKetHop ||
+      (Number(currentInvoice.value.cashAmount || 0) + Number(currentInvoice.value.transferAmount || 0) >= finalTotal.value)
+    if (false && canAutoCheckoutDirect && !isProcessing.value) {
+      showToast(`✓ Đã nhận tiền chuyển khoản! Đang tự động thanh toán và in hóa đơn...`)
+      setTimeout(() => {
+        handleCheckout()
+      }, 500)
+    } else {
+    */ if (true) { showToast(`Đã xác nhận thanh toán chuyển khoản ${formatMoney(amt)} thành công!`)
+    }
+    stopPaymentPolling()
+  } catch (err) {
+    console.error('Lỗi khi xác nhận chuyển khoản:', err)
+    currentInvoice.value.isTransferPaid = true
+    stopPaymentPolling()
+    if (!isKetHop) {
+      currentInvoice.value.customerPay = finalTotal.value
+    }
+    if (!isKetHop) {
+      currentInvoice.value.paymentMethod = 'CHUYEN_KHOAN'
+    }
+    const canAutoCheckoutDirectCatch =
+        !isKetHop ||
+        (Number(currentInvoice.value.cashAmount || 0) + Number(currentInvoice.value.transferAmount || 0) >= finalTotal.value)
+    if (false && canAutoCheckoutDirectCatch && !isProcessing.value) {
+      showToast(`✓ Đã ghi nhận chuyển khoản! Đang tự động thanh toán và in hóa đơn...`)
+      setTimeout(() => {
+        handleCheckout()
+      }, 500)
+    } else {
+      showToast(`Đã ghi nhận chuyển khoản cho hóa đơn ${code}!`)
+    }
+    stopPaymentPolling()
+  } finally {
+    isConfirmingPayment.value = false
+  }
+}
+
+// Tự động Polling kiểm tra thanh toán mỗi 4 giây
+const startPaymentPolling = () => {
+  stopPaymentPolling()
+  // Tắt tự động polling thanh toán
+  return
+}
+const _unusedPolling = () => {
+  stopPaymentPolling()
+  paymentPollingTimer = setInterval(() => {
+    if (
+        currentInvoice.value &&
+        !currentInvoice.value.isTransferPaid &&
+        (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN' ||
+            (currentInvoice.value.paymentMethod === 'KET_HOP' && Number(currentInvoice.value.transferAmount) > 0))
+    ) {
+      checkPaymentStatus(false)
+    } else {
+      stopPaymentPolling()
+    }
+  }, 4000)
+}
+
+const stopPaymentPolling = () => {
+  if (paymentPollingTimer) {
+    clearInterval(paymentPollingTimer)
+    paymentPollingTimer = null
+  }
+}
+
+onUnmounted(() => {
+  if (typeof dayCheckTimer !== 'undefined' && dayCheckTimer) clearInterval(dayCheckTimer)
+  if (typeof onTabVisibilityChange === 'function') {
+    document.removeEventListener('visibilitychange', onTabVisibilityChange)
+  }
+  stopPaymentPolling()
+})
 
 // Tự động cập nhật số tiền khách đưa khi tổng tiền hóa đơn thay đổi
 watch(
-  finalTotal,
-  (newTotal, oldTotal) => {
-    if (!currentInvoice.value) return
-    const curPay = currentInvoice.value.customerPay
-    // Nếu chưa nhập tiền, hoặc bằng 0, hoặc trước đó đang bằng đúng oldTotal thì tự động cập nhật theo newTotal
-    if (curPay === null || curPay === undefined || curPay === '' || curPay === 0 || (oldTotal != null && Number(curPay) === Number(oldTotal))) {
-      currentInvoice.value.customerPay = newTotal > 0 ? newTotal : null
-    }
-
-    if (currentInvoice.value.paymentMethod === 'KET_HOP') {
-      const curCash = currentInvoice.value.cashAmount
-      if (curCash != null && curCash !== '' && Number(curCash) > 0) {
-        currentInvoice.value.transferAmount = Math.max(0, newTotal - Number(curCash))
-      } else {
-        currentInvoice.value.transferAmount = newTotal
+    finalTotal,
+    (newTotal, oldTotal) => {
+      if (!currentInvoice.value) return
+      const curPay = currentInvoice.value.customerPay
+      // Nếu chưa nhập tiền, hoặc bằng 0, hoặc trước đó đang bằng đúng oldTotal thì tự động cập nhật theo newTotal
+      if (curPay === null || curPay === undefined || curPay === '' || curPay === 0 || (oldTotal != null && Number(curPay) === Number(oldTotal))) {
+        currentInvoice.value.customerPay = newTotal > 0 ? newTotal : null
       }
-    }
-  },
-  { immediate: true }
+
+      if (currentInvoice.value.paymentMethod === 'KET_HOP') {
+        const curCash = currentInvoice.value.cashAmount
+        if (curCash != null && curCash !== '' && Number(curCash) > 0) {
+          currentInvoice.value.transferAmount = Math.max(0, newTotal - Number(curCash))
+        } else {
+          currentInvoice.value.transferAmount = newTotal
+        }
+      } else if (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN') {
+        currentInvoice.value.customerPay = newTotal
+        fetchTransferInfoFromApi(newTotal)
+      }
+    },
+    { immediate: true }
 )
 
-// Khi chuyển tab hóa đơn, nếu hóa đơn đó chưa có số tiền khách đưa thì tự động điền bằng finalTotal
+// Khi chuyển tab hóa đơn
 watch(
-  () => currentInvoice.value?.id,
-  () => {
-    if (!currentInvoice.value) return
-    const curPay = currentInvoice.value.customerPay
-    if (curPay === null || curPay === undefined || curPay === '' || curPay === 0) {
-      if (finalTotal.value > 0) {
-        currentInvoice.value.customerPay = finalTotal.value
+    () => currentInvoice.value?.id,
+    () => {
+      stopPaymentPolling()
+      if (!currentInvoice.value) return
+      const curPay = currentInvoice.value.customerPay
+      if (curPay === null || curPay === undefined || curPay === '' || curPay === 0) {
+        if (finalTotal.value > 0) {
+          currentInvoice.value.customerPay = finalTotal.value
+        }
       }
-    }
-    if (currentInvoice.value.paymentMethod === 'KET_HOP') {
-      initKetHopAmounts()
-    }
-  },
-  { immediate: true }
+      if (currentInvoice.value.paymentMethod === 'KET_HOP') {
+        initKetHopAmounts()
+        if (Number(currentInvoice.value.transferAmount) > 0) {
+          fetchTransferInfoFromApi(currentInvoice.value.transferAmount)
+          if (!currentInvoice.value.isTransferPaid) startPaymentPolling()
+        }
+      } else if (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN') {
+        fetchTransferInfoFromApi(finalTotal.value)
+        if (!currentInvoice.value.isTransferPaid) startPaymentPolling()
+      }
+    },
+    { immediate: true }
 )
 
 watch(() => currentInvoice.value?.paymentMethod, (newVal) => {
   if (newVal === 'CHUYEN_KHOAN') {
     currentInvoice.value.customerPay = finalTotal.value
+    fetchTransferInfoFromApi(finalTotal.value)
+    if (!currentInvoice.value.isTransferPaid) startPaymentPolling()
   } else if (newVal === 'TIEN_MAT') {
+    stopPaymentPolling()
     const curPay = currentInvoice.value.customerPay
     if (curPay === null || curPay === undefined || curPay === '' || curPay === 0) {
       currentInvoice.value.customerPay = finalTotal.value > 0 ? finalTotal.value : null
     }
   } else if (newVal === 'KET_HOP') {
     initKetHopAmounts()
+    if (Number(currentInvoice.value.transferAmount) > 0) {
+      fetchTransferInfoFromApi(currentInvoice.value.transferAmount)
+      if (!currentInvoice.value.isTransferPaid) startPaymentPolling()
+    } else {
+      stopPaymentPolling()
+    }
+  }
+})
+
+// Theo dõi khi số tiền chuyển khoản ở hình thức Kết Hợp thay đổi
+watch(() => currentInvoice.value?.transferAmount, (newVal) => {
+  if (currentInvoice.value?.paymentMethod === 'KET_HOP') {
+    const amt = Number(newVal) || 0
+    if (amt > 0) {
+      fetchTransferInfoFromApi(amt)
+      if (!currentInvoice.value.isTransferPaid) startPaymentPolling()
+    } else {
+      stopPaymentPolling()
+    }
   }
 })
 
@@ -1244,24 +1828,45 @@ watch(() => currentInvoice.value?.paymentMethod, (newVal) => {
 
 // Tự động kiểm tra và hủy phiếu cá nhân nếu đổi hoặc xóa khách hàng trên hóa đơn
 watch(
-  () => currentInvoice.value?.customerId,
-  (newCustId, oldCustId) => {
-    if (newCustId === oldCustId) return
-    const curVoucher = currentInvoice.value?.voucher
-    if (curVoucher && isVoucherPersonal(curVoucher)) {
-      if (!newCustId || !isVoucherForCustomer(curVoucher, newCustId)) {
-        currentInvoice.value.voucher = null
-        if (!newCustId) {
-          showToast(`Đã hủy phiếu giảm giá cá nhân "${curVoucher.maPhieuGiamGia}" vì chuyển sang Khách lẻ!`, 'warning')
-        } else {
-          showToast(`Đã hủy phiếu giảm giá cá nhân "${curVoucher.maPhieuGiamGia}" vì không thuộc khách hàng mới!`, 'warning')
+    () => currentInvoice.value?.customerId,
+    (newCustId, oldCustId) => {
+      if (newCustId === oldCustId) return
+      const curVoucher = currentInvoice.value?.voucher
+      if (curVoucher && isVoucherPersonal(curVoucher)) {
+        if (!newCustId || !isVoucherForCustomer(curVoucher, newCustId, currentInvoice.value?.customerName)) {
+          currentInvoice.value.voucher = null
+          if (!newCustId) {
+            showToast(`Đã hủy phiếu giảm giá cá nhân "${curVoucher.maPhieuGiamGia}" vì chuyển sang Khách lẻ!`, 'warning')
+          } else {
+            showToast(`Đã hủy phiếu giảm giá cá nhân "${curVoucher.maPhieuGiamGia}" vì không thuộc khách hàng mới!`, 'warning')
+          }
         }
+      }
+      // Nếu chọn khách hàng mới và chưa có voucher, tự động áp dụng phiếu cá nhân tốt nhất
+      if (newCustId && !currentInvoice.value?.voucher) {
+        autoApplyBestPersonalVoucher(false)
+      }
+    }
+)
+
+// Khi thêm hoặc bớt sản phẩm làm thay đổi tổng tiền:
+// Nếu đơn hàng có khách hàng và chưa có voucher, tự động áp dụng phiếu cá nhân thỏa mãn điều kiện tối thiểu
+watch(totalAmount, (newSubtotal) => {
+  if (!currentInvoice.value) return
+  const custId = currentInvoice.value.customerId
+  if (custId && newSubtotal > 0) {
+    if (!currentInvoice.value.voucher) {
+      const best = findBestPersonalVoucherForCustomer(custId, currentInvoice.value.customerName, newSubtotal)
+      if (best) {
+        currentInvoice.value.voucher = best
+        const discount = calculateDiscountAmount(best, newSubtotal)
+        showToast(`Đơn hàng đủ điều kiện tối thiểu, tự động áp dụng phiếu cá nhân "${best.maPhieuGiamGia}" (-${formatMoney(discount)})!`)
       }
     }
   }
-)
+})
 
-const formatMoney = (val) => {
+function formatMoney(val) {
   return Number(val || 0).toLocaleString('vi-VN') + ' đ'
 }
 
@@ -1279,7 +1884,7 @@ const handleCheckout = async () => {
   // Kiểm tra tính hợp lệ của phiếu giảm giá trước khi thanh toán
   if (currentInvoice.value.voucher) {
     const v = currentInvoice.value.voucher
-    if (isVoucherPersonal(v) && !isVoucherForCustomer(v, currentInvoice.value.customerId)) {
+    if (isVoucherPersonal(v) && !isVoucherForCustomer(v, currentInvoice.value.customerId, currentInvoice.value.customerName)) {
       showToast(`Phiếu giảm giá "${v.maPhieuGiamGia}" là phiếu CÁ NHÂN không thuộc khách hàng này!`, 'warning')
       return
     }
@@ -1332,18 +1937,37 @@ const handleCheckout = async () => {
 
     const isKetHop = currentInvoice.value.paymentMethod === 'KET_HOP'
     const cashVal = isKetHop
-      ? Number(currentInvoice.value.cashAmount || 0)
-      : (currentInvoice.value.paymentMethod === 'TIEN_MAT' ? Number(currentInvoice.value.customerPay || finalTotal.value) : 0)
+        ? Number(currentInvoice.value.cashAmount || 0)
+        : (currentInvoice.value.paymentMethod === 'TIEN_MAT' ? Number(currentInvoice.value.customerPay || finalTotal.value) : 0)
     const transferVal = isKetHop
-      ? Number(currentInvoice.value.transferAmount || 0)
-      : (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN' ? finalTotal.value : 0)
+        ? Number(currentInvoice.value.transferAmount || 0)
+        : (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN' ? finalTotal.value : 0)
+
+    let resolvedPaymentMethod = 'Tiền mặt'
+    if (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN') {
+      resolvedPaymentMethod = 'Chuyển khoản ngân hàng'
+    } else if (isKetHop) {
+      if (cashVal > 0 && transferVal > 0) {
+        resolvedPaymentMethod = 'Kết hợp'
+      } else if (transferVal > 0) {
+        resolvedPaymentMethod = 'Chuyển khoản ngân hàng'
+      } else {
+        resolvedPaymentMethod = 'Tiền mặt'
+      }
+    }
 
     let noteExtra = ''
-    if (isKetHop) {
+    if (resolvedPaymentMethod === 'Kết hợp') {
       noteExtra = ` [Thanh toán kết hợp: Tiền mặt ${formatMoney(cashVal)}, Chuyển khoản ${formatMoney(transferVal)}]`
     }
 
+    const currentUser = getCurrentUser()
+    const staffName = currentUser?.tenNhanVien || currentUser?.tenTaiKhoan || 'Nhân viên bán hàng'
+    const staffId = currentUser?.id || null
+
     const payload = {
+      idNhanVien: staffId,
+      nguoiTao: staffName,
       maHoaDon: currentInvoice.value.code,
       loaiDon: currentInvoice.value.isDelivery ? 2 : 1,
       idKhachHang: currentInvoice.value.customerId || null,
@@ -1356,9 +1980,9 @@ const handleCheckout = async () => {
       phiShip: shippingFee.value,
       trangThai: currentInvoice.value.isDelivery ? 1 : 5,
       trangThaiThanhToan: 1,
-      phuongThucThanhToan: currentInvoice.value.paymentMethod === 'TIEN_MAT' ? 'Tiền mặt' : (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN' ? 'Chuyển khoản' : 'Kết hợp'),
-      tienMat: cashVal,
-      tienChuyenKhoan: transferVal,
+      phuongThucThanhToan: resolvedPaymentMethod,
+      tienMat: resolvedPaymentMethod.includes('Chuyển khoản') ? 0 : cashVal,
+      tienChuyenKhoan: resolvedPaymentMethod === 'Tiền mặt' ? 0 : transferVal,
       ghiChu: (currentInvoice.value.note?.trim() || (currentInvoice.value.isDelivery ? 'Đơn giao hàng từ POS' : 'Thanh toán tại quầy')) + noteExtra,
       chiTietList: currentInvoice.value.cart.map(item => ({
         sanPhamId: item.id,
@@ -1378,6 +2002,7 @@ const handleCheckout = async () => {
     }
 
     const savedCode = res?.data?.maHoaDon || currentInvoice.value.code
+    stopPaymentPolling()
     showToast(`Thanh toán đơn hàng ${savedCode} thành công!`)
 
     // Chuyển tab hóa đơn hoặc tạo mới nếu là hóa đơn duy nhất
@@ -1405,7 +2030,75 @@ const handleCheckout = async () => {
   }
 }
 
+// Kiểm tra tham số trả về từ Cổng VNPAY (vnpay_return theo chuẩn vnpay_jsp)
+const checkVNPayReturnParams = () => {
+  const query = route.query
+  if (query && query.vnp_ResponseCode) {
+    const responseCode = String(query.vnp_ResponseCode)
+    const txnRef = String(query.vnp_TxnRef || '')
+    let invCode = txnRef
+    if (txnRef.includes('_')) {
+      invCode = txnRef.split('_')[0]
+    }
+    const amt = Number(query.vnp_Amount || 0) / 100
+    const transNo = query.vnp_TransactionNo || 'VNPAY'
+
+    if (responseCode === '00') {
+      showToast(`✓ Thanh toán VNPAY thành công cho đơn ${invCode}! (+${formatMoney(amt)})`)
+      api.post('/api/payment/confirm-transfer', {
+        maHoaDon: invCode,
+        soTien: amt,
+        maGiaoDich: `VNPAY-${transNo}`,
+        ghiChu: 'Thanh toán thành công qua Cổng VNPAY Sandbox',
+        phuongThuc: 'Chuyển khoản'
+      }).then(() => {
+        const found = waitingInvoices.value.find(inv => inv.code === invCode || inv.code?.replace(/[^a-zA-Z0-9_-]/g, '') === invCode)
+        if (found) {
+          activeInvoiceId.value = found.id
+          found.isTransferPaid = true
+          handleCheckout()
+        } else if (currentInvoice.value && (currentInvoice.value.code === invCode || currentInvoice.value.code?.replace(/[^a-zA-Z0-9_-]/g, '') === invCode)) {
+          currentInvoice.value.isTransferPaid = true
+          handleCheckout()
+        }
+      }).catch(err => {
+        console.error('Lỗi lưu kết quả VNPAY return:', err)
+      })
+    } else {
+      showToast(`Giao dịch VNPAY không thành công (Mã lỗi: ${responseCode})`, 'warning')
+    }
+    router.replace({ path: route.path, query: {} })
+  }
+}
+
+// Phát hiện khi sang ngày mới để tự động hủy các hóa đơn chờ ngày trước
+let recordedDateStr = new Date().toDateString()
+let dayCheckTimer = null
+
+const checkNewDayTransition = async () => {
+  const todayStr = new Date().toDateString()
+  if (todayStr !== recordedDateStr) {
+    recordedDateStr = todayStr
+    try {
+      await api.post('/api/hoa-don/cancel-expired-waiting')
+    } catch (e) {
+      console.warn('Lỗi gọi API hủy hóa đơn chờ cũ:', e)
+    }
+    await loadWaitingInvoices()
+    showToast('Đã sang ngày mới, hệ thống tự động hủy các hóa đơn chờ của ngày trước!', 'info')
+  }
+}
+
+const onTabVisibilityChange = () => {
+  if (document.visibilityState === 'visible') {
+    checkNewDayTransition()
+  }
+}
+
 onMounted(async () => {
+  dayCheckTimer = setInterval(checkNewDayTransition, 30000)
+  document.addEventListener('visibilitychange', onTabVisibilityChange)
+  checkVNPayReturnParams()
   await loadWaitingInvoices()
   fetchProductVariants()
   fetchVouchers()
@@ -1476,9 +2169,9 @@ onMounted(async () => {
                 ({{ inv.cart.reduce((sum, item) => sum + item.quantity, 0) }})
               </span>
               <button
-                class="btn-close-tab"
-                @click.stop="confirmRemoveInvoice(inv)"
-                title="Hủy hóa đơn này"
+                  class="btn-close-tab"
+                  @click.stop="confirmRemoveInvoice(inv)"
+                  title="Hủy hóa đơn này"
               >✕</button>
             </div>
           </div>
@@ -1554,7 +2247,7 @@ onMounted(async () => {
                         @change="handleQuantityInput(item, $event)"
                         class="qty-input"
                         min="1"
-                        :max="item.stock"
+                        :max="getMaxStockForItem(item)"
                     />
                     <button class="qty-btn" @click="updateQuantity(item, 1)">+</button>
                   </div>
@@ -1599,10 +2292,10 @@ onMounted(async () => {
                 + Thêm địa chỉ mới
               </button>
               <button
-                v-if="customerAddressesList.length > 0"
-                type="button"
-                class="btn-sub-addr-action"
-                @click="openSelectAddressModal"
+                  v-if="customerAddressesList.length > 0"
+                  type="button"
+                  class="btn-sub-addr-action"
+                  @click="openSelectAddressModal"
               >
                 Sổ địa chỉ ({{ customerAddressesList.length }})
               </button>
@@ -1692,27 +2385,27 @@ onMounted(async () => {
               <div class="pos-form-group">
                 <label class="group-label-gray" style="font-size: 0.78rem;">Tỉnh / Thành phố <span class="text-danger">*</span></label>
                 <Select2Combobox
-                  v-model="currentInvoice.deliveryProvinceCode"
-                  :options="provincesList"
-                  value-key="code"
-                  label-key="name"
-                  placeholder="-- Tỉnh / Thành phố --"
-                  search-placeholder="Tìm Tỉnh / TP..."
-                  @change="onDeliveryProvinceChange"
+                    v-model="currentInvoice.deliveryProvinceCode"
+                    :options="provincesList"
+                    value-key="code"
+                    label-key="name"
+                    placeholder="-- Tỉnh / Thành phố --"
+                    search-placeholder="Tìm Tỉnh / TP..."
+                    @change="onDeliveryProvinceChange"
                 />
               </div>
 
               <div class="pos-form-group">
                 <label class="group-label-gray" style="font-size: 0.78rem;">Phường / Xã <span class="text-danger">*</span></label>
                 <Select2Combobox
-                  v-model="currentInvoice.deliveryWardCode"
-                  :options="deliveryWardsList"
-                  value-key="code"
-                  label-key="name"
-                  :disabled="!currentInvoice.deliveryProvinceCode"
-                  placeholder="-- Phường / Xã --"
-                  search-placeholder="Tìm Phường / Xã..."
-                  @change="onDeliveryWardChange"
+                    v-model="currentInvoice.deliveryWardCode"
+                    :options="deliveryWardsList"
+                    value-key="code"
+                    label-key="name"
+                    :disabled="!currentInvoice.deliveryProvinceCode"
+                    placeholder="-- Phường / Xã --"
+                    search-placeholder="Tìm Phường / Xã..."
+                    @change="onDeliveryWardChange"
                 />
               </div>
             </div>
@@ -1737,10 +2430,11 @@ onMounted(async () => {
             <div class="pos-form-group">
               <label class="group-label-gray">Phí vận chuyển (đ)</label>
               <input
-                  type="number"
+                  type="text"
                   min="0"
                   step="1000"
-                  v-model.number="currentInvoice.shippingFee"
+                  :value="displayShippingFee"
+                  @input="onShippingFeeFormattedInput"
                   @focus="$event.target.select()"
                   placeholder="Nhập phí vận chuyển..."
                   class="pos-form-input"
@@ -1757,23 +2451,24 @@ onMounted(async () => {
                   {{ publicVouchersCount }} công khai
                 </span>
                 <span
-                  class="badge-v-stat personal-stat"
-                  :class="{ 'has-personal': customerPersonalCount > 0 }"
-                  :title="currentInvoice.customerId ? `Có ${customerPersonalCount} phiếu cá nhân của khách hàng này` : `Có ${personalVouchersCount} phiếu cá nhân trong hệ thống`"
+                    v-if="currentInvoice.customerId"
+                    class="badge-v-stat personal-stat"
+                    :class="{ 'has-personal': customerPersonalCount > 0 }"
+                    :title="`Có ${customerPersonalCount} phiếu cá nhân của khách hàng này`"
                 >
-                  {{ currentInvoice.customerId ? `${customerPersonalCount} của KH` : `${personalVouchersCount} cá nhân` }}
+                  {{ `${customerPersonalCount} của KH` }}
                 </span>
               </div>
             </div>
 
             <Select2Combobox
-              v-model="selectedVoucherId"
-              :options="formattedVouchers"
-              value-key="id"
-              label-key="label"
-              placeholder="-- Không áp dụng voucher --"
-              all-label="-- Không áp dụng voucher --"
-              search-placeholder="Tìm kiếm mã hoặc tên voucher (Công khai / Cá nhân)..."
+                v-model="selectedVoucherId"
+                :options="formattedVouchers"
+                value-key="id"
+                label-key="label"
+                placeholder="-- Không áp dụng voucher --"
+                all-label="-- Không áp dụng voucher --"
+                search-placeholder="Tìm kiếm mã hoặc tên voucher (Công khai / Cá nhân)..."
             />
 
             <!-- Huy hiệu hiển thị chi tiết khi áp dụng voucher -->
@@ -1803,15 +2498,11 @@ onMounted(async () => {
             </div>
 
             <small
-              v-if="currentInvoice.voucher && currentInvoice.voucher.hoaDonToiThieu && totalAmount < Number(currentInvoice.voucher.hoaDonToiThieu)"
-              class="voucher-min-alert"
+                v-if="currentInvoice.voucher && currentInvoice.voucher.hoaDonToiThieu && totalAmount < Number(currentInvoice.voucher.hoaDonToiThieu)"
+                class="voucher-min-alert"
             >
               Đơn hàng tối thiểu {{ formatMoney(currentInvoice.voucher.hoaDonToiThieu) }} để áp dụng voucher này (Hiện tại: {{ formatMoney(totalAmount) }})
             </small>
-
-            <div v-if="!currentInvoice.customerId && personalVouchersCount > 0" class="voucher-guest-hint">
-              <em>Đang là Khách lẻ. Hãy chọn khách hàng để mở khóa các phiếu giảm giá cá nhân.</em>
-            </div>
           </div>
 
           <!-- Dòng tóm tắt tiền tệ -->
@@ -1861,68 +2552,210 @@ onMounted(async () => {
             <div class="pos-form-group">
               <label class="group-label-gray">Tiền mặt</label>
               <input
-                type="number"
-                min="0"
-                step="1000"
-                v-model.number="currentInvoice.cashAmount"
-                @input="onCashAmountInput"
-                @focus="$event.target.select()"
-                placeholder="Nhập số tiền mặt..."
-                class="pos-form-input input-money"
+                  type="text"
+                  min="0"
+                  step="1000"
+                  :value="displayCashAmount"
+                  @input="onCashAmountFormattedInput"
+
+                  @focus="$event.target.select()"
+                  placeholder="Nhập số tiền mặt..."
+                  class="pos-form-input input-money"
               />
             </div>
 
             <div class="pos-form-group">
               <label class="group-label-gray">Chuyển khoản</label>
               <input
-                type="number"
-                min="0"
-                step="1000"
-                v-model.number="currentInvoice.transferAmount"
-                @input="onTransferAmountInput"
-                @focus="$event.target.select()"
-                placeholder="Nhập số tiền chuyển khoản..."
-                class="pos-form-input input-money"
+                  type="text"
+                  min="0"
+                  step="1000"
+                  :value="displayTransferAmount"
+                  @input="onTransferAmountFormattedInput"
+
+                  @focus="$event.target.select()"
+                  placeholder="Nhập số tiền chuyển khoản..."
+                  class="pos-form-input input-money"
               />
 
-              <!-- Mã QR chuyển khoản tối giản khi transferAmount > 0 -->
-              <div v-if="currentInvoice.transferAmount > 0" class="minimal-qr-box">
-                <img
-                  :src="getVietQrUrl(currentInvoice.transferAmount)"
-                  :alt="`QR chuyển khoản ${formatMoney(currentInvoice.transferAmount)}`"
-                  class="minimal-qr-img"
-                />
-                <div class="minimal-qr-meta">
-                  <div>Ngân hàng: <strong>MBBank</strong></div>
-                  <div>STK: <strong>0988888888</strong></div>
-                  <div>Chủ TK: <strong>FF T-SHIRT STORE</strong></div>
-                  <div>Số tiền: <strong class="text-accent-red">{{ formatMoney(currentInvoice.transferAmount) }}</strong></div>
-                  <div>Nội dung: <strong>{{ currentInvoice.code }}</strong></div>
-                  <a :href="getVietQrUrl(currentInvoice.transferAmount)" target="_blank" class="minimal-qr-link">Lưu mã QR</a>
+              <!-- VNPAY-QR TỐI GIẢN (TÍCH HỢP API VNPAY) -->
+              <div v-if="currentInvoice.transferAmount > 0" class="vnpay-box-compact" :class="{ 'is-paid': currentInvoice.isTransferPaid }">
+                <div class="vnpay-top-bar">
+                  <div class="vnpay-brand-group">
+                    <div class="vnpay-brand-chip">
+                      <span class="vnp-blue">Viet</span><span class="vnp-red">QR</span><span class="vnp-sub">·Napas</span>
+                    </div>
+                    <div class="vnpay-mode-tabs" v-if="false">
+                      <button
+                          type="button"
+                          class="vnpay-tab-btn"
+                          :class="{ active: qrViewMode === 'VNPAY' }"
+                          @click="qrViewMode = 'VNPAY'"
+                          title="Mã QR Cổng thanh toán VNPAY"
+                      >
+                        VNPAY-QR
+                      </button>
+                      <button
+                          type="button"
+                          class="vnpay-tab-btn"
+                          :class="{ active: qrViewMode === 'VIETQR' }"
+                          @click="qrViewMode = 'VIETQR'"
+                          title="Mã VietQR chuyển khoản ngân hàng"
+                      >
+                        VietQR
+                      </button>
+                    </div>
+                  </div>
+                  <span class="vnpay-status-badge" :class="currentInvoice.isTransferPaid ? 'paid' : 'waiting'">
+                    <span class="status-dot"></span>
+                    {{ currentInvoice.isTransferPaid ? 'Đã thanh toán' : 'Chờ quét mã' }}
+                  </span>
+                </div>
+
+                <div class="vnpay-body-compact">
+                  <div class="vnpay-qr-wrap">
+                    <img
+                        :src="transferQrUrl"
+                        :alt="`Mã QR thanh toán ${formatMoney(currentInvoice.transferAmount)}`"
+                        class="vnpay-qr-img"
+                    />
+                    <div v-if="currentInvoice.isTransferPaid" class="vnpay-paid-overlay">
+                      <span class="vnpay-check">✓</span>
+                    </div>
+                  </div>
+
+                  <div class="vnpay-meta-wrap">
+                    <div class="vnpay-meta-row">
+                      <span class="meta-label">Số tiền:</span>
+                      <strong class="meta-amount">{{ formatMoney(currentInvoice.transferAmount) }}</strong>
+                    </div>
+                    <div class="vnpay-meta-row">
+                      <span class="meta-label">Mã GD:</span>
+                      <span class="meta-code">{{ currentInvoice.code }}</span>
+                      <button type="button" class="btn-copy-tiny" @click="copyToClipboard(currentInvoice.code, 'Mã GD')">Sao chép</button>
+                    </div>
+                    <span class="vnpay-hint-text">
+                      Quét qua 40+ ứng dụng ngân hàng hoặc Ví điện tử
+                    </span>
+
+                    <div v-if="currentInvoice.isTransferPaid" class="vnpay-paid-actions">
+                      <div class="vnpay-success-chip">✓ Đã nhận tiền chuyển khoản thành công</div>
+                      <button type="button" class="btn-vnpay-print-direct" :disabled="isProcessing" @click="handleCheckout">🖨️ In hóa đơn</button>
+                    </div>
+                    <div v-else class="vnpay-action-btns">
+                      <button
+                          type="button"
+                          class="btn-vnpay-portal" v-if="false"
+                          @click="openVNPayPortal"
+                          title="Mở Cổng VNPAY Sandbox thanh toán ngay"
+                      >
+                        🚀 Mở cổng VNPAY
+                      </button>
+                      <button
+                          type="button"
+                          class="btn-vnpay-confirm"
+                          :disabled="isConfirmingPayment"
+                          @click="confirmTransferPaymentDirect"
+                      >
+                        ✓ Đã nhận tiền
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </template>
 
-          <!-- 2. Thanh toán CHUYỂN KHOẢN TOÀN BỘ -->
+          <!-- 2. Thanh toán CHUYỂN KHOẢN TOÀN BỘ (VNPAY-QR TỐI GIẢN) -->
           <div v-else-if="currentInvoice.paymentMethod === 'CHUYEN_KHOAN'" class="pos-form-group">
             <div class="pay-input-header">
               <label class="group-label-gray">Chuyển khoản</label>
               <span class="font-bold-dark">{{ formatMoney(finalTotal) }}</span>
             </div>
-            <div class="minimal-qr-box">
-              <img
-                :src="getVietQrUrl(finalTotal)"
-                :alt="`QR chuyển khoản ${formatMoney(finalTotal)}`"
-                class="minimal-qr-img"
-              />
-              <div class="minimal-qr-meta">
-                <div>Ngân hàng: <strong>MBBank</strong></div>
-                <div>STK: <strong>0988888888</strong></div>
-                <div>Chủ TK: <strong>FF T-SHIRT STORE</strong></div>
-                <div>Số tiền: <strong class="text-accent-red">{{ formatMoney(finalTotal) }}</strong></div>
-                <div>Nội dung: <strong>{{ currentInvoice.code }}</strong></div>
-                <a :href="getVietQrUrl(finalTotal)" target="_blank" class="minimal-qr-link">Lưu mã QR</a>
+
+            <!-- VNPAY-QR TỐI GIẢN (TÍCH HỢP API VNPAY) -->
+            <div class="vnpay-box-compact" :class="{ 'is-paid': currentInvoice.isTransferPaid }">
+              <div class="vnpay-top-bar">
+                <div class="vnpay-brand-group">
+                  <div class="vnpay-brand-chip">
+                    <span class="vnp-blue">Viet</span><span class="vnp-red">QR</span><span class="vnp-sub">·Napas</span>
+                  </div>
+                  <div class="vnpay-mode-tabs" v-if="false">
+                    <button
+                        type="button"
+                        class="vnpay-tab-btn"
+                        :class="{ active: qrViewMode === 'VNPAY' }"
+                        @click="qrViewMode = 'VNPAY'"
+                        title="Mã QR Cổng thanh toán VNPAY"
+                    >
+                      VNPAY-QR
+                    </button>
+                    <button
+                        type="button"
+                        class="vnpay-tab-btn"
+                        :class="{ active: qrViewMode === 'VIETQR' }"
+                        @click="qrViewMode = 'VIETQR'"
+                        title="Mã VietQR chuyển khoản ngân hàng"
+                    >
+                      VietQR
+                    </button>
+                  </div>
+                </div>
+                <span class="vnpay-status-badge" :class="currentInvoice.isTransferPaid ? 'paid' : 'waiting'">
+                  <span class="status-dot"></span>
+                  {{ currentInvoice.isTransferPaid ? 'Đã thanh toán' : 'Chờ quét mã' }}
+                </span>
+              </div>
+
+              <div class="vnpay-body-compact">
+                <div class="vnpay-qr-wrap">
+                  <img
+                      :src="transferQrUrl"
+                      :alt="`Mã QR thanh toán ${formatMoney(finalTotal)}`"
+                      class="vnpay-qr-img"
+                  />
+                  <div v-if="currentInvoice.isTransferPaid" class="vnpay-paid-overlay">
+                    <span class="vnpay-check">✓</span>
+                  </div>
+                </div>
+
+                <div class="vnpay-meta-wrap">
+                  <div class="vnpay-meta-row">
+                    <span class="meta-label">Số tiền:</span>
+                    <strong class="meta-amount">{{ formatMoney(finalTotal) }}</strong>
+                  </div>
+                  <div class="vnpay-meta-row">
+                    <span class="meta-label">Mã GD:</span>
+                    <span class="meta-code">{{ currentInvoice.code }}</span>
+                    <button type="button" class="btn-copy-tiny" @click="copyToClipboard(currentInvoice.code, 'Mã GD')">Sao chép</button>
+                  </div>
+                  <span class="vnpay-hint-text">
+                    Quét qua 40+ ứng dụng ngân hàng hoặc Ví điện tử
+                  </span>
+
+                  <div v-if="currentInvoice.isTransferPaid" class="vnpay-paid-actions">
+                    <div class="vnpay-success-chip">✓ Đã nhận tiền chuyển khoản thành công</div>
+                    <button type="button" class="btn-vnpay-print-direct" :disabled="isProcessing" @click="handleCheckout">🖨️ In hóa đơn</button>
+                  </div>
+                  <div v-else class="vnpay-action-btns">
+                    <button
+                        type="button"
+                        class="btn-vnpay-portal" v-if="false"
+                        @click="openVNPayPortal"
+                        title="Mở Cổng VNPAY Sandbox thanh toán ngay"
+                    >
+                      🚀 Mở cổng VNPAY
+                    </button>
+                    <button
+                        type="button"
+                        class="btn-vnpay-confirm"
+                        :disabled="isConfirmingPayment"
+                        @click="confirmTransferPaymentDirect"
+                    >
+                      ✓ Đã nhận tiền
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1941,8 +2774,9 @@ onMounted(async () => {
             </div>
 
             <input
-                type="number"
-                v-model.number="currentInvoice.customerPay"
+                type="text"
+                :value="displayCustomerPay"
+                @input="onCustomerPayFormattedInput"
                 @focus="$event.target.select()"
                 placeholder="Nhập số tiền khách đưa..."
                 class="pos-form-input input-money"
@@ -2103,26 +2937,26 @@ onMounted(async () => {
             <div class="pos-form-group">
               <label class="group-label-gray">Tỉnh / Thành phố</label>
               <Select2Combobox
-                v-model="quickCustomerProvinceCode"
-                :options="provincesList"
-                value-key="code"
-                label-key="name"
-                placeholder="-- Chọn Tỉnh / Thành phố --"
-                search-placeholder="Tìm Tỉnh / Thành phố..."
-                @change="onQuickCustomerProvinceChange"
+                  v-model="quickCustomerProvinceCode"
+                  :options="provincesList"
+                  value-key="code"
+                  label-key="name"
+                  placeholder="-- Chọn Tỉnh / Thành phố --"
+                  search-placeholder="Tìm Tỉnh / Thành phố..."
+                  @change="onQuickCustomerProvinceChange"
               />
             </div>
             <div class="pos-form-group">
               <label class="group-label-gray">Phường / Xã</label>
               <Select2Combobox
-                v-model="quickCustomerWardCode"
-                :options="quickCustomerWardsList"
-                value-key="code"
-                label-key="name"
-                :disabled="!quickCustomerProvinceCode"
-                placeholder="-- Chọn Phường / Xã --"
-                search-placeholder="Tìm Phường / Xã..."
-                @change="onQuickCustomerWardChange"
+                  v-model="quickCustomerWardCode"
+                  :options="quickCustomerWardsList"
+                  value-key="code"
+                  label-key="name"
+                  :disabled="!quickCustomerProvinceCode"
+                  placeholder="-- Chọn Phường / Xã --"
+                  search-placeholder="Tìm Phường / Xã..."
+                  @change="onQuickCustomerWardChange"
               />
             </div>
           </div>
@@ -2158,26 +2992,26 @@ onMounted(async () => {
             <div class="pos-form-group">
               <label class="group-label-gray">Tỉnh / Thành phố <span class="text-danger">*</span></label>
               <Select2Combobox
-                v-model="addrModalProvinceCode"
-                :options="provincesList"
-                value-key="code"
-                label-key="name"
-                placeholder="-- Chọn Tỉnh / TP --"
-                search-placeholder="Tìm Tỉnh / Thành phố..."
-                @change="onAddrModalProvinceChange"
+                  v-model="addrModalProvinceCode"
+                  :options="provincesList"
+                  value-key="code"
+                  label-key="name"
+                  placeholder="-- Chọn Tỉnh / TP --"
+                  search-placeholder="Tìm Tỉnh / Thành phố..."
+                  @change="onAddrModalProvinceChange"
               />
             </div>
             <div class="pos-form-group">
               <label class="group-label-gray">Phường / Xã <span class="text-danger">*</span></label>
               <Select2Combobox
-                v-model="addrModalWardCode"
-                :options="addrModalWardsList"
-                value-key="code"
-                label-key="name"
-                :disabled="!addrModalProvinceCode"
-                placeholder="-- Chọn Phường / Xã --"
-                search-placeholder="Tìm Phường / Xã..."
-                @change="onAddrModalWardChange"
+                  v-model="addrModalWardCode"
+                  :options="addrModalWardsList"
+                  value-key="code"
+                  label-key="name"
+                  :disabled="!addrModalProvinceCode"
+                  placeholder="-- Chọn Phường / Xã --"
+                  search-placeholder="Tìm Phường / Xã..."
+                  @change="onAddrModalWardChange"
               />
             </div>
           </div>
@@ -2185,10 +3019,10 @@ onMounted(async () => {
           <div class="pos-form-group">
             <label class="group-label-gray">Địa chỉ cụ thể <span class="text-danger">*</span></label>
             <input
-              type="text"
-              v-model="newAddressForm.diaChiCuThe"
-              placeholder="Số nhà, ngõ, tên đường..."
-              class="pos-form-input"
+                type="text"
+                v-model="newAddressForm.diaChiCuThe"
+                placeholder="Số nhà, ngõ, tên đường..."
+                class="pos-form-input"
             />
           </div>
 
@@ -2219,11 +3053,11 @@ onMounted(async () => {
 
         <div class="modal-body-form" style="max-height: 52vh; overflow-y: auto; padding-right: 4px;">
           <div
-            v-for="addr in customerAddressesList"
-            :key="addr.id"
-            class="addr-item-card"
-            :class="{ 'addr-active': currentInvoice.deliveryAddress === formatAddrObj(addr) }"
-            @click="chooseSavedAddress(addr)"
+              v-for="addr in customerAddressesList"
+              :key="addr.id"
+              class="addr-item-card"
+              :class="{ 'addr-active': currentInvoice.deliveryAddress === formatAddrObj(addr) }"
+              @click="chooseSavedAddress(addr)"
           >
             <div class="addr-item-content">
               <div class="addr-item-text">{{ formatAddrObj(addr) }}</div>
@@ -2280,6 +3114,9 @@ onMounted(async () => {
 .crumb-current {
   color: #496883;
   font-weight: 600;
+
+
+
 }
 
 /* Grid Layout 2 Cột */
@@ -2321,6 +3158,9 @@ onMounted(async () => {
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 600;
+
+
+
   color: #496883;
   cursor: pointer;
   transition: all 0.2s;
@@ -2349,6 +3189,9 @@ onMounted(async () => {
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 600;
+
+
+
   color: #647074;
   cursor: pointer;
   display: flex;
@@ -2388,7 +3231,7 @@ onMounted(async () => {
 
 .cart-title-text {
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 600;
   color: #496883;
 }
 
@@ -2397,6 +3240,9 @@ onMounted(async () => {
   color: #c94a29;
   font-size: 0.75rem;
   font-weight: 600;
+
+
+
   padding: 3px 10px;
   border-radius: 12px;
   border: 1px solid #f5d6a6;
@@ -2420,7 +3266,7 @@ onMounted(async () => {
   border: 1px solid #d6d0c3;
   border-right: none;
   border-radius: 6px 0 0 6px;
-  font-size: 0.82rem;
+
   outline: none;
 }
 
@@ -2454,6 +3300,9 @@ onMounted(async () => {
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 600;
+
+
+
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -2477,6 +3326,9 @@ onMounted(async () => {
   background-color: #f7f5ef;
   color: #496883;
   font-weight: 600;
+
+
+
   padding: 10px 12px;
   border-bottom: 1px solid #e9e5db;
   text-align: left;
@@ -2498,15 +3350,24 @@ onMounted(async () => {
 
 .code-highlight {
   font-weight: 600;
+
+
+
   color: #496883;
 }
 
 .font-600 {
   font-weight: 600;
+
+
+
 }
 
 .font-price {
   font-weight: 600;
+
+
+
   color: #c94a29;
 }
 
@@ -2525,6 +3386,9 @@ onMounted(async () => {
   background: #f7f5ef;
   cursor: pointer;
   font-weight: 600;
+
+
+
   color: #496883;
 }
 
@@ -2538,6 +3402,9 @@ onMounted(async () => {
   border: none;
   text-align: center;
   font-weight: 600;
+
+
+
   font-size: 0.85rem;
   outline: none;
 }
@@ -2558,7 +3425,7 @@ onMounted(async () => {
 /* ==================== CỘT PHẢI ==================== */
 .card-bold-title {
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 600;
   color: #496883;
   margin: 0;
 }
@@ -2577,6 +3444,9 @@ onMounted(async () => {
   border-radius: 10px;
   border: 1px solid #d6d0c3;
   font-weight: 600;
+
+
+
 }
 
 .customer-search-relative {
@@ -2615,13 +3485,16 @@ onMounted(async () => {
 
 .cust-name {
   font-weight: 600;
+
+
+
   color: #496883;
   font-size: 0.88rem;
   margin-right: 6px;
 }
 
 .cust-phone {
-  font-size: 0.82rem;
+
   color: #647074;
 }
 
@@ -2631,6 +3504,9 @@ onMounted(async () => {
   color: #c94a29;
   font-size: 0.78rem;
   font-weight: 600;
+
+
+
   cursor: pointer;
 }
 
@@ -2665,6 +3541,9 @@ onMounted(async () => {
 
 .c-name {
   font-weight: 600;
+
+
+
   font-size: 0.86rem;
   color: #333;
 }
@@ -2684,7 +3563,7 @@ onMounted(async () => {
 
 .order-title-brand {
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 600;
   color: #496883;
 }
 
@@ -2753,7 +3632,7 @@ onMounted(async () => {
 }
 
 .text-discount-bold {
-  font-weight: 700;
+  font-weight: 600;
   color: #2e7d32;
 }
 
@@ -2766,7 +3645,7 @@ onMounted(async () => {
 
 .total-label {
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 600;
   color: #333;
 }
 
@@ -2777,12 +3656,12 @@ onMounted(async () => {
 }
 
 .font-bold-dark {
-  font-weight: 700;
+  font-weight: 600;
   color: #333;
 }
 
 .text-change-bold {
-  font-weight: 700;
+  font-weight: 600;
   color: #2e7d32;
   font-size: 0.95rem;
 }
@@ -2797,6 +3676,9 @@ onMounted(async () => {
   font-size: 0.76rem;
   color: #c94a29;
   font-weight: 600;
+
+
+
 }
 
 .pos-form-group {
@@ -2807,9 +3689,12 @@ onMounted(async () => {
 }
 
 .group-label-gray {
-  font-size: 0.82rem;
+
   color: #647074;
   font-weight: 600;
+
+
+
 }
 
 /* ==================== PHIẾU GIẢM GIÁ (CÔNG KHAI & CÁ NHÂN) ==================== */
@@ -2835,6 +3720,9 @@ onMounted(async () => {
   padding: 2px 7px;
   border-radius: 12px;
   font-weight: 600;
+
+
+
   white-space: nowrap;
   user-select: none;
 }
@@ -2855,7 +3743,7 @@ onMounted(async () => {
   background-color: #fef3c7;
   color: #b45309;
   border: 1px solid #fde68a;
-  font-weight: 700;
+  font-weight: 600;
   box-shadow: 0 1px 3px rgba(180, 83, 9, 0.15);
 }
 
@@ -2895,7 +3783,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.82rem;
+
   margin-bottom: 2px;
   color: #1e293b;
 }
@@ -2904,7 +3792,7 @@ onMounted(async () => {
   font-size: 0.65rem;
   padding: 1px 6px;
   border-radius: 4px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.3px;
 }
 
@@ -2925,7 +3813,7 @@ onMounted(async () => {
 
 .text-accent-red {
   color: #c94a29;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .voucher-min-alert {
@@ -2981,6 +3869,9 @@ onMounted(async () => {
   color: #496883;
   font-size: 0.78rem;
   font-weight: 600;
+
+
+
   cursor: pointer;
   padding: 0;
   text-decoration: underline;
@@ -2999,6 +3890,9 @@ onMounted(async () => {
   padding: 3px 8px;
   font-size: 0.75rem;
   font-weight: 600;
+
+
+
   color: #496883;
   cursor: pointer;
   transition: all 0.15s;
@@ -3009,46 +3903,364 @@ onMounted(async () => {
   border-color: #496883;
 }
 
-/* ==================== MÃ QR CHUYỂN KHOẢN TỐI GIẢN ==================== */
-.minimal-qr-box {
+
+.vnpay-brand-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vnpay-mode-tabs {
+  display: inline-flex;
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.vnpay-tab-btn {
+  background: transparent;
+  border: none;
+  font-size: 0.66rem;
+  font-weight: 600;
+
+
+
+  color: #64748b;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vnpay-tab-btn:hover {
+  color: #1e293b;
+}
+
+.vnpay-tab-btn.active {
+  background: #ffffff;
+  color: #005baa;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.btn-vnpay-portal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: linear-gradient(135deg, #005baa, #0284c7);
+  color: #ffffff;
+  border: 1px solid #005baa;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
+
+
+
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-vnpay-portal:hover {
+  opacity: 0.92;
+  box-shadow: 0 2px 4px rgba(0, 91, 170, 0.25);
+}
+
+.vnpay-qr-wrap {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.vnpay-qr-wrap:hover {
+  transform: scale(1.03);
+  box-shadow: 0 3px 8px rgba(0, 91, 170, 0.18);
+}
+
+/* ==================== VNPAY-QR COMPACT BOX ==================== */
+.vnpay-box-compact {
+  background: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.vnpay-box-compact.is-paid {
+  border-color: #34a853;
+  background: #f6fcf8;
+}
+
+.vnpay-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.vnpay-brand-chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 900;
+  font-size: 0.85rem;
+  letter-spacing: 0.2px;
+}
+
+.vnp-blue {
+  color: #005baa;
+}
+
+.vnp-red {
+  color: #ea1d25;
+}
+
+.vnp-sub {
+  color: #1e293b;
+  font-weight: 600;
+  font-size: 0.78rem;
+  margin-left: 1px;
+}
+
+.vnpay-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+
+
+
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.vnpay-status-badge.waiting {
+  background: #fff7ed;
+  color: #ea580c;
+  border: 1px solid #ffedd5;
+}
+
+.vnpay-status-badge.paid {
+  background: #e6f4ea;
+  color: #137333;
+  border: 1px solid #b7e1cd;
+}
+
+.vnpay-status-badge .status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.vnpay-status-badge.waiting .status-dot {
+  animation: pulseDot 1.4s infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.8); }
+}
+
+.vnpay-body-compact {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #fbfaf7;
-  border: 1px solid #e9e5db;
-  border-radius: 6px;
-  padding: 8px 10px;
-  margin-top: 8px;
 }
 
-.minimal-qr-img {
-  width: 78px;
-  height: 78px;
-  border-radius: 4px;
-  border: 1px solid #e2e8f0;
-  object-fit: contain;
-  background: #ffffff;
+.vnpay-qr-wrap {
+  position: relative;
+  width: 82px;
+  height: 82px;
   flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  padding: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.minimal-qr-meta {
+.vnpay-qr-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.vnpay-paid-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(34, 197, 94, 0.9);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vnpay-check {
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.vnpay-meta-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.vnpay-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.meta-label {
+  color: #64748b;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.meta-amount {
+  color: #ea1d25;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.meta-code {
+  font-family: monospace;
+  font-weight: 600;
+  color: #1e3a5f;
+  background: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 4px;
   font-size: 0.76rem;
-  color: #475569;
-  line-height: 1.45;
 }
 
-.minimal-qr-link {
-  display: inline-block;
-  margin-top: 2px;
-  color: #496883;
+.btn-copy-tiny {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 0.68rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.btn-copy-tiny:hover {
+  background: #005baa;
+  color: #ffffff;
+  border-color: #005baa;
+}
+
+.vnpay-hint-text {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  line-height: 1.2;
+  margin-top: 1px;
+}
+
+.vnpay-action-btns {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.btn-vnpay-confirm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: #005baa;
+  color: #ffffff;
+  border: 1px solid #005baa;
+  border-radius: 4px;
+  padding: 4px 12px;
   font-size: 0.74rem;
   font-weight: 600;
-  text-decoration: underline;
+
+
+
   cursor: pointer;
+  transition: all 0.15s;
 }
 
-.minimal-qr-link:hover {
-  color: #1e3a5f;
+.btn-vnpay-confirm:hover:not(:disabled) {
+  background: #004c8f;
+}
+
+.btn-vnpay-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.vnpay-success-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #e6f4ea;
+  color: #137333;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.74rem;
+  font-weight: 600;
+
+
+
+  margin-top: 4px;
+}
+
+.vnpay-paid-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.btn-vnpay-print-direct {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #059669;
+  color: #ffffff;
+  border: 1px solid #059669;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
+
+
+
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-vnpay-print-direct:hover:not(:disabled) {
+  background: #047857;
+}
+
+.btn-vnpay-print-direct:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.vnpay-mini-spin {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #cbd5e1;
+  border-top-color: #005baa;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
 .pos-form-input, .pos-form-textarea, .pos-form-select {
@@ -3069,7 +4281,7 @@ onMounted(async () => {
 }
 
 .input-money {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.95rem;
 }
 
@@ -3102,6 +4314,9 @@ onMounted(async () => {
   border-radius: 6px;
   font-size: 0.88rem;
   font-weight: 600;
+
+
+
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -3119,6 +4334,9 @@ onMounted(async () => {
   border-radius: 6px;
   font-size: 0.88rem;
   font-weight: 600;
+
+
+
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -3170,7 +4388,7 @@ onMounted(async () => {
   margin: 0;
   font-size: 1.05rem;
   color: #496883;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .btn-modal-close {
@@ -3229,6 +4447,9 @@ onMounted(async () => {
 .modal-p-name {
   font-size: 0.9rem;
   font-weight: 600;
+
+
+
   color: #333;
 }
 
@@ -3244,7 +4465,7 @@ onMounted(async () => {
 }
 
 .modal-p-price {
-  font-weight: 700;
+  font-weight: 600;
   color: #c94a29;
   font-size: 0.88rem;
 }
@@ -3253,6 +4474,9 @@ onMounted(async () => {
   font-size: 0.78rem;
   color: #2e7d32;
   font-weight: 600;
+
+
+
 }
 
 .stock-zero {
@@ -3265,8 +4489,11 @@ onMounted(async () => {
   border: 1px solid #496883;
   padding: 6px 14px;
   border-radius: 4px;
-  font-size: 0.82rem;
+
   font-weight: 600;
+
+
+
   cursor: pointer;
 }
 
@@ -3299,6 +4526,9 @@ onMounted(async () => {
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 600;
+
+
+
   cursor: pointer;
 }
 
@@ -3310,6 +4540,9 @@ onMounted(async () => {
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 600;
+
+
+
   cursor: pointer;
 }
 
@@ -3332,6 +4565,9 @@ onMounted(async () => {
   gap: 10px;
   font-size: 0.88rem;
   font-weight: 600;
+
+
+
   z-index: 99999;
   border: 1px solid #4a6880;
 }
@@ -3374,7 +4610,7 @@ onMounted(async () => {
 }
 
 .tab-loading-indicator {
-  font-size: 0.82rem;
+
   color: #8a9292;
   font-style: italic;
   padding: 6px 10px;
@@ -3397,7 +4633,7 @@ onMounted(async () => {
   margin: 0;
   font-size: 1.05rem;
   color: #1e3a5f;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .confirm-icon {
@@ -3425,6 +4661,9 @@ onMounted(async () => {
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 600;
+
+
+
   cursor: pointer;
 }
 
@@ -3436,6 +4675,9 @@ onMounted(async () => {
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 600;
+
+
+
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -3462,6 +4704,9 @@ onMounted(async () => {
   padding: 4px 10px;
   font-size: 0.78rem;
   font-weight: 600;
+
+
+
   cursor: pointer;
 }
 
@@ -3484,6 +4729,9 @@ onMounted(async () => {
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 600;
+
+
+
   margin-top: 6px;
   transition: background-color 0.2s;
 }
@@ -3562,6 +4810,9 @@ onMounted(async () => {
   padding: 4px 10px;
   font-size: 0.78rem;
   font-weight: 600;
+
+
+
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -3596,6 +4847,9 @@ onMounted(async () => {
   color: #496883;
   font-size: 0.78rem;
   font-weight: 600;
+
+
+
   text-decoration: underline;
   cursor: pointer;
   padding: 0;
@@ -3644,6 +4898,9 @@ onMounted(async () => {
   color: #137333;
   font-size: 0.72rem;
   font-weight: 600;
+
+
+
   padding: 2px 6px;
   border-radius: 4px;
   margin-top: 4px;
@@ -3657,6 +4914,9 @@ onMounted(async () => {
   border-radius: 4px;
   font-size: 0.78rem;
   font-weight: 600;
+
+
+
   cursor: pointer;
 }
 </style>

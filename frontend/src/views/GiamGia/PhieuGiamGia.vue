@@ -656,7 +656,8 @@ const openCreateModal = () => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
 }
 
 .menu-toggle-icon {
@@ -813,12 +814,12 @@ const openCreateModal = () => {
 }
 
 .btn-reset {
-  border: 1px solid #dfd5c2;
-  background-color: #fff8eb;
-  color: #957b48;
+  border: 1px solid #e2dacd;
+  background-color: #f4efe6;
+  color: #6d6352;
 }
 .btn-reset:hover {
-  background-color: #faeed7;
+  background-color: #ebe3d6;
 }
 
 .btn-export {
@@ -866,17 +867,19 @@ const openCreateModal = () => {
 .custom-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.95rem; /* To rõ ~15.2px */
+  font-size: 0.88rem;
 }
 
 .custom-table th {
-  background-color: #faf9f6;
-  color: #6f7c82;
+  background-color: #f7f5ef;
+  color: var(--blue, #496883);
+  text-transform: uppercase;
   font-weight: 700;
   padding: 0.95rem 1rem;
   text-align: left;
-  border-bottom: 1px solid #efede7;
-  font-size: 0.95rem;
+  border-bottom: 2px solid #e9e5db;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
   white-space: nowrap;
 }
 
@@ -991,8 +994,8 @@ const openCreateModal = () => {
   align-items: center;
   gap: 0.4rem;
   background-color: #f7eee1;
-  border: 1px solid #dfd5c2;
-  color: #957b48;
+  border: 1px solid #e2dacd;
+  color: #6d6352;
   padding: 0.35rem 0.75rem;
   border-radius: 6px;
   font-size: 0.85rem;
@@ -1002,7 +1005,7 @@ const openCreateModal = () => {
 }
 
 .btn-refresh:hover {
-  background-color: #faeed7;
+  background-color: #ebe3d6;
 }
 
 .refresh-icon.spin {
@@ -1018,7 +1021,8 @@ const openCreateModal = () => {
 .table-empty-cell {
   text-align: center;
   padding: 2.5rem 1rem !important;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
 }
 
 /* Cột hành động: Các nút thao tác */
@@ -1207,7 +1211,8 @@ const openCreateModal = () => {
 
 .confirm-message-text {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
   color: #435158;
   line-height: 1.5;
 }
@@ -1239,7 +1244,7 @@ const openCreateModal = () => {
 
 /* Bảng tóm tắt thông số phiếu trong Modal */
 .confirm-summary-panel {
-  background-color: #faf9f6;
+  background-color: #f7f5ef;
   border: 1px solid #efeae0;
   border-radius: 8px;
   padding: 0.9rem 1.1rem;
@@ -1299,7 +1304,7 @@ const openCreateModal = () => {
   justify-content: flex-end;
   align-items: center;
   gap: 0.75rem;
-  background-color: #faf9f6;
+  background-color: #f7f5ef;
 }
 
 .btn-secondary {

@@ -12,6 +12,8 @@ import java.util.List;
 public interface LichSuHoaDonRepository extends JpaRepository<LichSuHoaDon, Long> {
     List<LichSuHoaDon> findByIdHoaDon_IdOrderByThoiGianDesc(Long idHoaDon);
 
+    List<LichSuHoaDon> findByIdHoaDon_IdOrderByThoiGianAsc(Long idHoaDon);
+
     List<LichSuHoaDon> findByIdHoaDon_MaHoaDonOrderByThoiGianDesc(String maHoaDon);
 }
 
