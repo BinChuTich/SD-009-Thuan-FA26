@@ -397,7 +397,8 @@ const loadHoaDon = async () => {
         }
 
         let employeeName = ''
-        const isOnline = Number(item.loaiDon) === 2 || String(item.loaiDon).toLowerCase().includes('online') || String(item.ghiChu || '').toLowerCase().includes('online')
+        const hasStaff = Boolean(item.idNhanVien || item.nhanVien || (item.nguoiTao && !String(item.nguoiTao || '').toLowerCase().includes('khách') && !String(item.nguoiTao || '').toLowerCase().includes('client') && !String(item.nguoiTao || '').toLowerCase().includes('website')))
+        const isOnline = Number(item.loaiDon) === 2 && !hasStaff && !String(item.ghiChu || '').toLowerCase().includes('pos') && !String(item.ghiChu || '').toLowerCase().includes('quầy')
         if (isOnline) {
           employeeName = ''
         } else if (nhanVienObj?.tenNhanVien) {
@@ -503,7 +504,7 @@ const loadHoaDon = async () => {
           createTime: formatTime(item.ngayTao),
           createDate: formatDate(item.ngayTao),
           rawDate: item.ngayTao,
-          type: Number(item.loaiDon) === 1 ? 'Tại cửa hàng' : 'Online',
+          type: isOnline ? 'Online' : 'Tại cửa hàng',
           status: Number(item.trangThai),
           paymentStatus: Number(item.trangThaiThanhToan ?? 0),
           note: item.ghiChu || ''
@@ -522,7 +523,7 @@ const loadHoaDon = async () => {
           createTime: formatTime(item.ngayTao),
           createDate: formatDate(item.ngayTao),
           rawDate: item.ngayTao,
-          type: Number(item.loaiDon) === 1 ? 'Tại cửa hàng' : 'Online',
+          type: isOnline ? 'Online' : 'Tại cửa hàng',
           status: (() => {
             let st = Number(item.trangThaiHienThi || item.trangThai || 1)
             const n = String(item.ghiChu || '').toLowerCase()

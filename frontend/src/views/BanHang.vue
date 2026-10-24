@@ -182,7 +182,7 @@ const loadWaitingInvoices = async () => {
         customerId: inv.idKhachHang?.id || null,
         customerName: isKhachLe ? '' : rawCust,
         customerPhone: inv.soDienThoaiKhachHang || '',
-        isDelivery: Number(inv.loaiDon) === 2,
+        isDelivery: Boolean(inv.diaChiNhanHang && inv.diaChiNhanHang !== 'Bán tại quầy' && inv.diaChiNhanHang !== '—') || Number(inv.phiVanChuyen || 0) > 0,
         deliveryAddress: (inv.diaChiNhanHang && inv.diaChiNhanHang !== 'Bán tại quầy') ? inv.diaChiNhanHang : '',
         shippingFee: Number(inv.phiVanChuyen || 0),
         voucher: inv.idPhieuGiamGia || null,
@@ -2435,7 +2435,7 @@ const handleCheckout = async () => {
       idNhanVien: staffId,
       nguoiTao: staffName,
       maHoaDon: currentInvoice.value.code,
-      loaiDon: currentInvoice.value.isDelivery ? 2 : 1,
+      loaiDon: 1, // Bất kể đơn giao hàng nhưng phát sinh tại quầy thì loại đơn vẫn là Tại quầy (1)
       idKhachHang: currentInvoice.value.customerId || null,
       idPhieuGiamGia: currentInvoice.value.voucher?.id || null,
       tenKhachHang: currentInvoice.value.customerName?.trim() || 'Khách lẻ',
@@ -3541,17 +3541,6 @@ onMounted(async () => {
           </div>
 
           <div class="modal-footer-right-actions">
-            <div class="page-size-selector-wrap">
-              <span class="page-size-label">Hiển thị:</span>
-              <select v-model="productModalPageSize" class="page-size-select">
-                <option :value="5">5 / trang</option>
-                <option :value="8">8 / trang</option>
-                <option :value="10">10 / trang</option>
-                <option :value="15">15 / trang</option>
-                <option :value="20">20 / trang</option>
-              </select>
-            </div>
-
             <button type="button" class="btn-pager-close" @click="showProductModal = false">
               Đóng
             </button>

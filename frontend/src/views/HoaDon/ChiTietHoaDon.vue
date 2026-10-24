@@ -850,11 +850,15 @@ const loadDetail = async (identifier) => {
     invoiceData.value.createTime = formatDateTime(data['ngayTao'] || data['createdAt'])
     invoiceData.value.lastUpdated = formatDateTime(data['ngayCapNhat'] || data['updatedAt'] || data['thoiGianThanhToan'] || data['ngayTao'] || data['createdAt'])
 
+    const hasDelivery = Boolean(data['diaChiNhanHang'] && data['diaChiNhanHang'] !== 'Bán tại quầy' && data['diaChiNhanHang'] !== '—') || Number(data['phiVanChuyen'] || data['phiShip'] || 0) > 0 || Boolean(data['donViVanChuyen'] && data['donViVanChuyen'] !== '—')
+    const hasStaffCreator = Boolean(data['idNhanVien'] || data['nhanVien'] || (data['nguoiTao'] && !String(data['nguoiTao']).toLowerCase().includes('khách') && !String(data['nguoiTao']).toLowerCase().includes('client') && !String(data['nguoiTao']).toLowerCase().includes('website')))
+    const isOnlineChannel = Number(data['loaiDon']) === 2 && !hasStaffCreator && !String(data['ghiChu'] || '').toLowerCase().includes('pos') && !String(data['ghiChu'] || '').toLowerCase().includes('quầy')
+
     invoiceData.value.delivery = {
       address: getString(data['diaChiNhanHang'], data['diaChi'], data['address'], '—'),
-      type: Number(data['loaiDon']) === 1 ? 'Tại quầy' : 'Online',
+      type: isOnlineChannel ? 'Online' : 'Tại quầy',
       carrier: getString(data['donViVanChuyen'], data['tenDonViVanChuyen'], data['carrier'], '—'),
-      receiveType: Number(data['loaiDon']) === 1 ? 'Nhận tại quầy' : 'Giao hàng tận nơi',
+      receiveType: hasDelivery ? 'Giao hàng tận nơi' : 'Nhận tại quầy',
       note: getString(data['ghiChu'], data['note'], '—')
     }
 

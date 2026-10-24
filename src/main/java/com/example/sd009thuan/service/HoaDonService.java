@@ -85,6 +85,18 @@ public class HoaDonService {
     // Đồng bộ tính toán tổng tiền và tiền sau giảm giá từ danh sách sản phẩm chi tiết
     private void syncInvoiceTotals(HoaDon hoaDon) {
         if (hoaDon == null || hoaDon.getId() == null) return;
+        // Chuẩn hóa loại đơn: Bất kể đơn giao hàng nhưng phát sinh tại quầy thì luôn là Tại quầy (1)
+        if (Integer.valueOf(2).equals(hoaDon.getLoaiDon())) {
+            boolean isStoreCreated = hoaDon.getIdNhanVien() != null
+                    || (hoaDon.getNguoiTao() != null && !hoaDon.getNguoiTao().isBlank())
+                    || (hoaDon.getGhiChu() != null && (hoaDon.getGhiChu().toLowerCase().contains("pos") || hoaDon.getGhiChu().toLowerCase().contains("quầy")));
+            if (isStoreCreated) {
+                hoaDon.setLoaiDon(1);
+                try {
+                    hoaDonRepository.save(hoaDon);
+                } catch (Exception ignored) {}
+            }
+        }
         try {
             List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(hoaDon.getId());
             if (items != null && !items.isEmpty()) {
@@ -1204,15 +1216,18 @@ public class HoaDonService {
             hoaDon.setMaHoaDon(generateNextMaHoaDon());
         }
 
-        // 2. Loại đơn (1: Tại quầy, 2: Giao hàng)
-        Integer loaiDon = dto.getLoaiDon() != null ? dto.getLoaiDon() : 1;
+        // 2. Loại đơn: Mọi hoạt động phát sinh từ quầy (POS) bất kể có giao hàng hay không thì luôn là Tại quầy (1)
+        Integer loaiDon = 1;
         hoaDon.setLoaiDon(loaiDon);
+
+        boolean isDelivery = (dto.getPhiShip() != null && dto.getPhiShip().compareTo(java.math.BigDecimal.ZERO) > 0)
+                || (dto.getDiaChiNhanHang() != null && !dto.getDiaChiNhanHang().trim().isEmpty() && !dto.getDiaChiNhanHang().trim().equalsIgnoreCase("Bán tại quầy"));
 
         // 3. Trạng thái đơn & trạng thái thanh toán
         Integer trangThai = dto.getTrangThai();
         if (trangThai == null) {
-            trangThai = (loaiDon == 1) ? 5 : 2; // 5: Hoàn thành tại quầy, 2: Đã xác nhận nếu giao hàng xử lý tại quầy
-        } else if (loaiDon == 2 && trangThai == 1) {
+            trangThai = (!isDelivery) ? 5 : 2; // 5: Hoàn thành tại quầy, 2: Đã xác nhận nếu giao hàng xử lý tại quầy
+        } else if (isDelivery && trangThai == 1) {
             // Đơn giao hàng xử lý tại quầy không còn trạng thái chờ xác nhận mà chuyển sang đã xác nhận
             trangThai = 2;
         }
@@ -1220,7 +1235,7 @@ public class HoaDonService {
 
         Integer trangThaiThanhToan = dto.getTrangThaiThanhToan();
         if (trangThaiThanhToan == null) {
-            trangThaiThanhToan = (loaiDon == 1) ? 1 : 0; // 1: Đã thanh toán
+            trangThaiThanhToan = (!isDelivery) ? 1 : 0; // 1: Đã thanh toán
         }
         hoaDon.setTrangThaiThanhToan(trangThaiThanhToan);
 
@@ -1465,7 +1480,7 @@ public class HoaDonService {
                 log1.setIdHoaDon(saved);
                 log1.setTrangThai(1);
                 log1.setThoiGian(saved.getNgayTao() != null ? saved.getNgayTao() : Instant.now());
-                log1.setGhiChu(loaiDon == 1 ? "Tạo hóa đơn tại quầy" : "Tạo đơn hàng giao");
+                log1.setGhiChu(!isDelivery ? "Tạo hóa đơn tại quầy" : "Tạo đơn giao hàng tại quầy");
                 log1.setNguoiThucHien(staffName);
                 log1.setVaiTroNguoiThucHien("Nhân viên");
                 lichSuHoaDonRepository.save(log1);
