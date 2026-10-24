@@ -566,13 +566,23 @@ public class NhanVienService {
 
     private boolean isTimeInShift(LocalTime now, LocalTime start, LocalTime end) {
         if (start == null || end == null) return true;
-        LocalTime allowedStart = start.minusMinutes(30);
-        LocalTime allowedEnd = end.plusMinutes(30);
+        int nowMin = now.getHour() * 60 + now.getMinute();
+        int startMin = start.getHour() * 60 + start.getMinute();
+        int endMin = end.getHour() * 60 + end.getMinute();
 
-        if (start.isBefore(end)) {
-            return !now.isBefore(allowedStart) && !now.isAfter(allowedEnd);
+        int allowedStart = startMin - 30;
+        int allowedEnd = endMin + 30;
+
+        if (startMin < endMin) {
+            if (allowedStart < 0) {
+                return (nowMin >= allowedStart + 1440) || (nowMin <= allowedEnd);
+            } else if (allowedEnd >= 1440) {
+                return (nowMin >= allowedStart) || (nowMin <= allowedEnd - 1440);
+            } else {
+                return nowMin >= allowedStart && nowMin <= allowedEnd;
+            }
         } else {
-            return !now.isBefore(allowedStart) || !now.isAfter(allowedEnd);
+            return nowMin >= allowedStart || nowMin <= allowedEnd;
         }
     }
 
@@ -606,9 +616,9 @@ public class NhanVienService {
             throw new IllegalArgumentException("Tài khoản hoặc mật khẩu không chính xác!");
         }
 
-        // Admin có thể đăng nhập bất cứ lúc nào, Nhân viên bắt buộc phải đến ca làm việc
+        // Nhân viên chưa đến ca hoặc không có ca vẫn đăng nhập được vào hệ thống (ở Chế độ xem)
         if (!isAdmin(emp)) {
-            validateShiftForEmployee(emp);
+            // validateShiftForEmployee(emp);
         }
 
         return toResponse(emp);

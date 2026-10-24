@@ -4,7 +4,7 @@
     <div class="page-breadcrumb">
       <router-link to="/xep-lich" class="crumb-parent">Lịch làm việc</router-link>
       <span class="crumb-separator">/</span>
-      <span class="crumb-current">Xếp lịch nhân viên</span>
+      <span class="crumb-current">Lịch làm việc</span>
     </div>
     <div class="page-top-bar" v-if="false">
       <div class="title-with-icon">
@@ -16,7 +16,7 @@
             <line x1="3" y1="10" x2="21" y2="10" />
           </svg>
         </div>
-        <h1 class="page-main-title">Xếp lịch nhân viên</h1>
+        <h1 class="page-main-title">Lịch làm việc</h1>
       </div>
     </div>
 
@@ -949,15 +949,24 @@ function onFileDrop(e) {
 
 async function downloadTemplate() {
   try {
-    const res = await api.get('/api/lich-lam-viec/template', { responseType: 'blob' })
+    const weekStart = weekDays.value[0]?.dateStr
+    const weekEnd = weekDays.value[6]?.dateStr
+    const params = {}
+    if (weekStart && weekEnd) {
+      params.fromDate = weekStart
+      params.toDate = weekEnd
+    }
+    const res = await api.get('/api/lich-lam-viec/template', { params, responseType: 'blob' })
     const url = window.URL.createObjectURL(new Blob([res.data]))
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', 'Lich_Lam_Viec_Template.xlsx')
+    const fileName = weekStart && weekEnd ? `Lich_Lam_Viec_${weekStart}_den_${weekEnd}.xlsx` : 'Lich_Lam_Viec.xlsx'
+    link.setAttribute('download', fileName)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    showToast('Đã tải file template Excel!', 'success')
+    window.URL.revokeObjectURL(url)
+    showToast('Đã xuất file Excel theo dữ liệu thực của bảng thành công!', 'success')
   } catch (e) {
     showToast('Không thể tải file template', 'error')
   }

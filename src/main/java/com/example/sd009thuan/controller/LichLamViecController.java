@@ -100,10 +100,20 @@ public class LichLamViecController {
     }
 
     @GetMapping("/template")
-    public ResponseEntity<byte[]> downloadTemplate() {
-        byte[] bytes = service.exportTemplate();
+    public ResponseEntity<byte[]> downloadTemplate(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
+    ) {
+        byte[] bytes = service.exportTemplate(fromDate, toDate);
+        String filename = "Lich_Lam_Viec";
+        if (fromDate != null && toDate != null) {
+            filename += "_" + fromDate + "_den_" + toDate;
+        } else {
+            filename += "_Template";
+        }
+        filename += ".xlsx";
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Lich_Lam_Viec_Template.xlsx\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(bytes);
     }

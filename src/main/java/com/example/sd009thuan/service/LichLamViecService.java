@@ -28,5 +28,6 @@ public interface LichLamViecService {
     ExcelImportResult importExcel(MultipartFile file);
 
     byte[] exportTemplate();
-}
 
+    byte[] exportTemplate(LocalDate fromDate, LocalDate toDate);
+}

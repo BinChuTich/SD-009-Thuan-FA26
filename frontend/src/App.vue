@@ -123,7 +123,15 @@ const activeEmployees = ref([])
 const lastClosedShift = ref(null)
 const submittingMoCa = ref(false)
 
-const currentTimeStr = ref('')
+function getNowTime() {
+  const now = new Date()
+  const hh = String(now.getHours()).padStart(2, '0')
+  const mm = String(now.getMinutes()).padStart(2, '0')
+  const ss = String(now.getSeconds()).padStart(2, '0')
+  return `${hh}:${mm}:${ss}`
+}
+
+const currentTimeStr = ref(getNowTime())
 const currentDateStr = ref('')
 let clockTimer = null
 
@@ -136,12 +144,8 @@ const moCaForm = ref({
 })
 
 function updateClock() {
+  currentTimeStr.value = getNowTime()
   const now = new Date()
-  const hh = String(now.getHours()).padStart(2, '0')
-  const mm = String(now.getMinutes()).padStart(2, '0')
-  const ss = String(now.getSeconds()).padStart(2, '0')
-  currentTimeStr.value = `${hh}:${mm}:${ss}`
-
   const dd = String(now.getDate()).padStart(2, '0')
   const mo = String(now.getMonth() + 1).padStart(2, '0')
   const yyyy = now.getFullYear()
@@ -209,13 +213,20 @@ function getShiftStatus(ca) {
   const earlyMinutes = startMinutes - 30
 
   if (endMinutes > startMinutes) {
+    const allowedEnd = endMinutes + 30
+    if (allowedEnd >= 1440 && nowMinutes <= allowedEnd - 1440) {
+      return { status: 'current', label: 'Đang trong khung giờ ca', canOpen: true }
+    }
+    if (earlyMinutes < 0 && nowMinutes >= earlyMinutes + 1440) {
+      return { status: 'current', label: 'Đang trong khung giờ ca', canOpen: true }
+    }
     if (nowMinutes < earlyMinutes) {
       return {
         status: 'future',
         label: `Chưa đến giờ (bắt đầu lúc ${ca.gioBatDau.substring(0, 5)})`,
         canOpen: false
       }
-    } else if (nowMinutes > endMinutes + 30) {
+    } else if (nowMinutes > allowedEnd) {
       return {
         status: 'past',
         label: `Đã quá giờ ca (kết thúc lúc ${ca.gioKetThuc.substring(0, 5)})`,
@@ -840,10 +851,10 @@ function printReceipt() {
               <span class="tree-branch">├─</span>
               <span>Quản lý ca làm việc</span>
             </router-link>
-            <!-- Xếp lịch nhân viên (Cả Quản trị viên và Nhân viên xem) -->
+            <!-- Lịch làm việc (Cả Quản trị viên và Nhân viên xem) -->
             <router-link to="/xep-lich" class="tree-item" active-class="active">
               <span class="tree-branch">├─</span>
-              <span>Xếp lịch nhân viên</span>
+              <span>Lịch làm việc</span>
             </router-link>
             <!-- Lịch sử hoạt động (Cả Quản trị viên và Nhân viên) -->
             <router-link to="/lich-su-ca" class="tree-item" active-class="active">
@@ -872,7 +883,9 @@ function printReceipt() {
             <div v-else class="header-shift-in-progress">
               <div class="active-shift-pill" title="Đang trong ca làm việc">
                 <span class="active-shift-dot"></span>
-                <span>{{ currentOpenShift.caLamViec?.tenCa || 'Đang trong ca' }}</span>
+                <span class="active-shift-name">{{ currentOpenShift.caLamViec?.tenCa || 'Đang trong ca' }}</span>
+                <span class="active-shift-divider">•</span>
+                <span class="active-shift-clock">{{ currentTimeStr }}</span>
               </div>
               <button
                 type="button"
@@ -2500,6 +2513,40 @@ button, input, select, textarea {
   align-items: center;
   gap: 7px;
   user-select: none;
+  box-shadow: 0 1px 2px rgba(22, 101, 52, 0.06);
+}
+
+.active-shift-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #16a34a;
+  display: inline-block;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.25);
+  animation: pulseShiftDot 2s infinite ease-in-out;
+}
+
+@keyframes pulseShiftDot {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.active-shift-name {
+  font-weight: 600;
+}
+
+.active-shift-divider {
+  color: #86efac;
+  font-weight: 400;
+  font-size: 0.85rem;
+}
+
+.active-shift-clock {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #15803d;
 }
 
 .btn-header-end-shift {
