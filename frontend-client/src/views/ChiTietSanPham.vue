@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
@@ -139,7 +139,7 @@ const currentStock = computed(() => {
 // Giá bán
 const currentPrice = computed(() => {
   if (currentVariant.value) {
-    if (product.value?.coGiamGia && currentVariant.value.giaSauGiam) {
+    if (currentVariant.value.coGiamGia && currentVariant.value.giaSauGiam) {
       return currentVariant.value.giaSauGiam
     }
     return currentVariant.value.giaBan || currentVariant.value.gia || 0
@@ -155,6 +155,9 @@ const originalPrice = computed(() => {
 })
 
 const hasDiscount = computed(() => {
+  if (currentVariant.value) {
+    return !!currentVariant.value.coGiamGia && (originalPrice.value > currentPrice.value)
+  }
   return product.value?.coGiamGia === true || (originalPrice.value > currentPrice.value)
 })
 
@@ -227,13 +230,28 @@ const availableSizes = computed(() => {
   return Array.from(map.values())
 })
 
+watch(currentStock, (newStock) => {
+  if (newStock <= 0) {
+    quantity.value = 0
+  } else if (quantity.value <= 0) {
+    quantity.value = 1
+  } else if (quantity.value > newStock) {
+    quantity.value = newStock
+  }
+}, { immediate: true })
+
 const increaseQty = () => {
-  if (quantity.value < (currentStock.value || 99)) {
+  if (currentStock.value <= 0) return
+  if (quantity.value < currentStock.value) {
     quantity.value++
   }
 }
 
 const decreaseQty = () => {
+  if (currentStock.value <= 0) {
+    quantity.value = 0
+    return
+  }
   if (quantity.value > 1) {
     quantity.value--
   }
@@ -395,24 +413,24 @@ onMounted(() => {
 
               <div class="option-row align-center">
                 <label class="option-label">Số Lượng</label>
-                <div class="quantity-stepper-box">
-                  <button class="step-btn" :disabled="quantity <= 1" @click="decreaseQty">-</button>
-                  <span class="qty-display">{{ quantity }}</span>
-                  <button class="step-btn" :disabled="quantity >= (currentStock || 99)" @click="increaseQty">+</button>
+                <div class="quantity-stepper-box" :class="{ 'stepper-disabled': currentStock <= 0 }">
+                  <button class="step-btn" :disabled="currentStock <= 0 || quantity <= 1" @click="decreaseQty">-</button>
+                  <span class="qty-display">{{ currentStock <= 0 ? 0 : quantity }}</span>
+                  <button class="step-btn" :disabled="currentStock <= 0 || quantity >= currentStock" @click="increaseQty">+</button>
                 </div>
-                <span class="stock-helper-text">
-                  {{ currentVariant ? `Còn ${currentStock} sản phẩm` : 'Vui lòng chọn màu và size' }}
+                <span class="stock-helper-text" :class="{ 'out-of-stock-text': currentStock <= 0 }">
+                  {{ !currentVariant ? 'Vui lòng chọn màu và size' : (currentStock > 0 ? `Còn ${currentStock} sản phẩm` : 'Đã hết hàng') }}
                 </span>
               </div>
             </div>
 
             <!-- 2 Nút thao tác mang màu #496883 & #d2a764 -->
             <div class="action-buttons-pair">
-              <button class="btn-add-to-cart" @click="handleAddToCart">
-                Thêm vào giỏ hàng
+              <button class="btn-add-to-cart" :disabled="currentStock <= 0" @click="handleAddToCart">
+                {{ currentStock <= 0 ? 'Tạm hết hàng' : 'Thêm vào giỏ hàng' }}
               </button>
-              <button class="btn-buy-now-solid" @click="handleBuyNow">
-                Mua ngay
+              <button class="btn-buy-now-solid" :disabled="currentStock <= 0" @click="handleBuyNow">
+                {{ currentStock <= 0 ? 'Hết hàng' : 'Mua ngay' }}
               </button>
             </div>
 
@@ -761,6 +779,25 @@ onMounted(() => {
   background: #e0b875;
   transform: translateY(-2px);
   box-shadow: 0 6px 18px rgba(210, 167, 100, 0.5);
+}
+
+.btn-add-to-cart:disabled,
+.btn-buy-now-solid:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.quantity-stepper-box.stepper-disabled {
+  opacity: 0.6;
+  background: #f1f5f9;
+}
+
+.stock-helper-text.out-of-stock-text {
+  color: #ef4444;
+  font-weight: 700;
 }
 
 .guarantee-perks-row {

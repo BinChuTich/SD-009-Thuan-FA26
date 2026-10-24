@@ -639,7 +639,7 @@ public class NhanVienService {
 
         // Gửi email chứa thông tin tài khoản và mật khẩu mới
         try {
-            emailService.sendResetPasswordEmail(
+            emailService.sendForgotPasswordEmail(
                     emp.getEmail(),
                     emp.getTenNhanVien(),
                     emp.getMaNhanVien(),

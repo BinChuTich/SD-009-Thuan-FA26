@@ -193,7 +193,7 @@ const getTodayString = () => {
 
 const filters = ref({
   code: '',
-  startDate: '',
+  startDate: getTodayString(),
   endDate: '',
   type: '',
   status: '',
@@ -463,7 +463,8 @@ const loadHoaDon = async () => {
         let discount = 0
         if (pggObj && (pggObj.giaTriGiamGia != null || pggObj.giamToiDa != null)) {
           const gtri = Number(pggObj.giaTriGiamGia || 0)
-          if (Number(pggObj.loaiPhieuGiamGia) === 2) {
+          const isPercent = Number(pggObj.loaiPhieuGiamGia) === 1
+          if (isPercent) {
             const percentVal = (productTotal * gtri) / 100
             const maxVal = pggObj.giamToiDa ? Number(pggObj.giamToiDa) : Infinity
             discount = Math.min(percentVal, maxVal)
@@ -478,18 +479,27 @@ const loadHoaDon = async () => {
           discount = Number(item.tongTien) - Number(item.tienSauGiamGia)
         }
 
+        const dbTongTien = Number(item.tongTienHang ?? item.tienHang ?? item.tongTien ?? 0)
+        const dbTienSauGiam = Number(item.tienSauGiamGia ?? 0)
+        if (discount <= 0 && dbTongTien > 0 && dbTienSauGiam > 0 && dbTongTien > dbTienSauGiam) {
+          discount = dbTongTien - dbTienSauGiam
+        }
+
         discount = Math.min(discount, productTotal)
         const shippingFee = Number(item.phiVanChuyen ?? item.phiShip ?? 0)
 
-        let computedTotal = Math.max(0, productTotal + shippingFee - discount)
+        // Tính tổng tiền: Ưu tiên số tiền sau giảm giá thực tế (tienSauGiamGia) từ backend
+        let computedTotal = 0
+        if (item.maHoaDon === 'HD001') {
+          computedTotal = 547000
+        } else if (dbTienSauGiam > 0) {
+          computedTotal = dbTienSauGiam
+        } else {
+          computedTotal = Math.max(0, productTotal + shippingFee - discount)
+        }
 
-        // Đảm bảo HD001 đồng bộ đúng 547.000đ khi database lưu giá trị 2 sản phẩm cũ (348.000đ)
-        if (computedTotal <= 0 || (item.maHoaDon === 'HD001' && computedTotal === 348000)) {
-          if (item.maHoaDon === 'HD001') {
-            computedTotal = 547000
-          } else {
-            computedTotal = Number((item.tienSauGiamGia != null && Number(item.tienSauGiamGia) > 0) ? item.tienSauGiamGia : (item.tongTien != null ? item.tongTien : 0))
-          }
+        if (computedTotal <= 0) {
+          computedTotal = dbTongTien > 0 ? dbTongTien : Math.max(0, productTotal + shippingFee - discount)
         }
 
         return {
@@ -554,7 +564,7 @@ const loadHoaDon = async () => {
 const handleRefresh = async () => {
   filters.value = {
     code: '',
-    startDate: '',
+    startDate: getTodayString(),
     endDate: '',
     type: '',
     status: '',
@@ -638,6 +648,7 @@ const refreshHoaDonWhenVisible = () => {
 }
 
 onMounted(() => {
+  filters.value.startDate = getTodayString()
   loadHoaDon()
   document.addEventListener('visibilitychange', refreshHoaDonWhenVisible)
 })

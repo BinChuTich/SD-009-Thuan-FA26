@@ -246,9 +246,10 @@ const openPayModal = async () => {
   if (!selectedOrder.value || !selectedOrder.value.maHoaDon) return
   payingVnpay.value = true
   try {
+    const payAmount = Math.max(1, Math.round(Number(selectedOrder.value.tienSauGiamGia || selectedOrder.value.tongTienSauGiam || selectedOrder.value.tongTien || 0)))
     const res = await api.post('/api/vnpay/create-payment', {
       orderCode: selectedOrder.value.maHoaDon,
-      amount: selectedOrder.value.tongTien,
+      amount: payAmount,
       orderInfo: `Thanh toan don hang ${selectedOrder.value.maHoaDon}`
     })
     if (res.data && res.data.paymentUrl) {

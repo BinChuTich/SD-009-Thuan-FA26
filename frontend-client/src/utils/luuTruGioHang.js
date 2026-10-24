@@ -23,8 +23,11 @@ export const saveCart = () => {
 export const addToCart = (product, variant, quantity = 1) => {
   if (!product || !variant) return false
 
+  const rawStock = variant.soLuongTon != null ? variant.soLuongTon : (variant.soLuong != null ? variant.soLuong : 99)
+  const maxStock = Number(rawStock)
+  if (maxStock <= 0) return false
+
   const existing = cartItems.value.find(item => item.variantId === variant.id)
-  const maxStock = variant.soLuongTon != null ? variant.soLuongTon : (variant.soLuong != null ? variant.soLuong : 99)
 
   if (existing) {
     existing.quantity += quantity
@@ -55,10 +58,16 @@ export const addToCart = (product, variant, quantity = 1) => {
 export const updateCartQuantity = (variantId, quantity) => {
   const item = cartItems.value.find(i => i.variantId === variantId)
   if (item) {
+    const limit = item.maxStock != null ? Number(item.maxStock) : 99
+    if (limit <= 0) {
+      item.quantity = 0
+      saveCart()
+      return
+    }
     if (quantity <= 0) {
       removeFromCart(variantId)
     } else {
-      item.quantity = Math.min(quantity, item.maxStock || 99)
+      item.quantity = Math.min(quantity, limit)
       saveCart()
     }
   }

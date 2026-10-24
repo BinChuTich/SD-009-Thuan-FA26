@@ -9,6 +9,8 @@ import {
   markAsRead,
   markAllAsRead
 } from '@/utils/thongBao.js'
+import { currentClientUser, isClientLoggedIn, logoutClient } from '@/utils/taiKhoanKhachHang.js'
+import ModalDangNhap from '@/components/BocCuc/ModalDangNhap.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -59,11 +61,22 @@ const dealUnreadCount = computed(() => {
   return notifications.value.filter(n => (n.category === 'deal' || n.category === 'voucher') && n.unread).length
 })
 
-const currentUser = ref({
-  name: 'DƯƠNG NGỌC CHIẾN',
-  phone: '0988776655',
-  email: 'chien.duong@example.com'
-})
+const showLoginModal = ref(false)
+const openLoginModal = () => {
+  showLoginModal.value = true
+  showUserMenu.value = false
+  showNoti.value = false
+}
+
+const handleLoginSuccess = (userData) => {
+  showToast(`Xin chào ${userData.name}! Đăng nhập thành công.`)
+}
+
+const handleLogout = () => {
+  logoutClient()
+  showUserMenu.value = false
+  showToast('Đã đăng xuất tài khoản!')
+}
 
 const toggleUserMenu = () => {
   showUserMenu.value = !showUserMenu.value
@@ -74,7 +87,7 @@ const toggleNoti = () => {
   showNoti.value = !showNoti.value
   showUserMenu.value = false
   if (showNoti.value) {
-    fetchNotifications()
+  fetchNotifications()
   }
 }
 
@@ -201,6 +214,7 @@ onMounted(() => {
   window.addEventListener('scroll', handleScroll, { passive: true })
   window.addEventListener('click', handleDocumentClick)
   window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('open-client-login', openLoginModal)
   fetchNotifications()
 })
 
@@ -208,6 +222,7 @@ onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
   window.removeEventListener('click', handleDocumentClick)
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('open-client-login', openLoginModal)
 })
 </script>
 
@@ -272,8 +287,7 @@ onUnmounted(() => {
           >
             ƯU ĐÃI
           </a>
-          <router-link to="/don-hang" class="nav-item" active-class="active">ĐƠN HÀNG</router-link>
-          <router-link to="/tra-cuu" class="nav-item" active-class="active">TRA CỨU</router-link>
+                    <router-link to="/tra-cuu" class="nav-item" active-class="active">TRA CỨU</router-link>
           <router-link to="/lien-he" class="nav-item" active-class="active">LIÊN HỆ</router-link>
         </nav>
 
@@ -370,13 +384,6 @@ onUnmounted(() => {
                   :class="{ unread: n.unread }"
                   @click="handleNotiClick(n)"
                 >
-                  <div class="noti-card-icon" :class="`icon-${n.category}`">
-                    <span v-if="n.category === 'order'">📦</span>
-                    <span v-else-if="n.category === 'deal'">🔥</span>
-                    <span v-else-if="n.category === 'voucher'">🎟️</span>
-                    <span v-else>👋</span>
-                  </div>
-
                   <div class="noti-card-body">
                     <div class="noti-card-top">
                       <h4 class="noti-card-title">{{ n.title }}</h4>
@@ -397,7 +404,10 @@ onUnmounted(() => {
                     </div>
 
                     <div class="noti-card-foot">
-                      <span class="noti-time-text">🕒 {{ n.time }}</span>
+                      <span class="noti-time-text">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="noti-clock-icon"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        {{ n.time }}
+                      </span>
                       <span class="noti-link-cta">{{ n.actionText }} →</span>
                     </div>
                   </div>
@@ -426,38 +436,58 @@ onUnmounted(() => {
           <!-- Vạch phân cách -->
           <div class="account-divider desktop-only"></div>
 
-          <!-- Avatar / Tên khách hàng (Desktop) dịch sang bên phải -->
+          <!-- Nút ĐĂNG NHẬP (khi chưa đăng nhập) hoặc Avatar / Tên khách hàng (khi đã đăng nhập) -->
           <div class="action-dropdown-wrap desktop-only user-account-wrap">
-            <button class="user-profile-btn" @click="toggleUserMenu">
+            <!-- 1. Khi chưa đăng nhập: Hiển thị nút ĐĂNG NHẬP -->
+            <button
+              v-if="!isClientLoggedIn"
+              class="user-profile-btn btn-header-login"
+              @click="openLoginModal"
+              title="Bấm để đăng nhập tài khoản"
+            >
               <span class="user-avatar-circle">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
               </span>
-              <span class="user-name-text">{{ currentUser.name }}</span>
-              <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 12 15 18 9"></polyline>
-              </svg>
+              <span class="user-name-text">ĐĂNG NHẬP</span>
             </button>
 
-            <!-- Popup tài khoản -->
-            <div v-if="showUserMenu" class="dropdown-popup user-popup">
-              <div class="user-summary">
-                <strong>{{ currentUser.name }}</strong>
-                <span>{{ currentUser.phone }}</span>
+            <!-- 2. Khi đã đăng nhập: Hiển thị tên tài khoản + dropdown -->
+            <template v-else>
+              <button class="user-profile-btn" @click="toggleUserMenu">
+                <span class="user-avatar-circle">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </span>
+                <span class="user-name-text">{{ currentClientUser?.name || 'Tài khoản' }}</span>
+                <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+
+              <!-- Popup tài khoản -->
+              <div v-if="showUserMenu" class="dropdown-popup user-popup">
+                <div class="user-summary">
+                  <strong>{{ currentClientUser?.name }}</strong>
+                  <span>{{ currentClientUser?.phone || currentClientUser?.email }}</span>
+                </div>
+                <div class="popup-menu-divider"></div>
+                                <router-link to="/tra-cuu-don-hang" class="menu-link" @click="showUserMenu = false">
+                  🚚 Tra cứu đơn hàng
+                </router-link>
+                <router-link to="/gio-hang" class="menu-link" @click="showUserMenu = false">
+                  🛒 Giỏ hàng ({{ cartCount }})
+                </router-link>
+                <div class="popup-menu-divider"></div>
+                <button type="button" class="menu-link menu-logout-btn" @click="handleLogout">
+                  🚪 Đăng xuất
+                </button>
               </div>
-              <div class="popup-menu-divider"></div>
-              <router-link to="/don-hang" class="menu-link" @click="showUserMenu = false">
-                📄 Đơn mua của tôi
-              </router-link>
-              <router-link to="/tra-cuu-don-hang" class="menu-link" @click="showUserMenu = false">
-                🚚 Tra cứu đơn hàng
-              </router-link>
-              <router-link to="/gio-hang" class="menu-link" @click="showUserMenu = false">
-                🛒 Giỏ hàng ({{ cartCount }})
-              </router-link>
-            </div>
+            </template>
           </div>
         </div>
       </div>
@@ -518,10 +548,7 @@ onUnmounted(() => {
           >
             🔥 ƯU ĐÃI
           </a>
-          <router-link to="/don-hang" class="mobile-nav-link" @click="closeMobileMenu">
-            📄 ĐƠN HÀNG
-          </router-link>
-          <router-link to="/tra-cuu" class="mobile-nav-link" @click="closeMobileMenu">
+                    <router-link to="/tra-cuu" class="mobile-nav-link" @click="closeMobileMenu">
             🔍 TRA CỨU
           </router-link>
           <router-link to="/lien-he" class="mobile-nav-link" @click="closeMobileMenu">
@@ -538,9 +565,17 @@ onUnmounted(() => {
         </nav>
 
         <div class="mobile-drawer-footer">
-          <div class="mob-user-info">
-            <strong>{{ currentUser.name }}</strong>
-            <p>{{ currentUser.phone }}</p>
+          <div class="mob-user-info" v-if="isClientLoggedIn">
+            <strong>{{ currentClientUser?.name }}</strong>
+            <p>{{ currentClientUser?.phone || currentClientUser?.email }}</p>
+            <button type="button" class="mob-btn-action-logout" @click="closeMobileMenu(); handleLogout()">
+              🚪 Đăng xuất
+            </button>
+          </div>
+          <div class="mob-user-info" v-else>
+            <button type="button" class="mob-btn-action-login" @click="closeMobileMenu(); openLoginModal()">
+              👤 ĐĂNG NHẬP / ĐĂNG KÝ
+            </button>
           </div>
           <div class="mob-hotline">
             Hotline CSKH: <strong>1900 6677</strong>
@@ -548,6 +583,12 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Modal Đăng nhập / Đăng ký tài khoản -->
+    <ModalDangNhap
+      v-model="showLoginModal"
+      @login-success="handleLoginSuccess"
+    />
   </header>
 </template>
 
@@ -1199,6 +1240,17 @@ onUnmounted(() => {
   color: #94a3b8;
 }
 
+.noti-time-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.noti-clock-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
 .noti-link-cta {
   font-weight: 700;
   color: #496883;
@@ -1346,6 +1398,57 @@ onUnmounted(() => {
 .menu-link:hover {
   background-color: #f8fafc;
   color: #496883;
+}
+
+.menu-logout-btn {
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: #ef4444;
+}
+
+.menu-logout-btn:hover {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+.btn-header-login {
+  padding: 4px 14px 4px 5px;
+}
+
+.btn-header-login:hover {
+  border-color: #d2a764;
+  background-color: #fdfbf7;
+}
+
+.btn-header-login:hover .user-name-text {
+  color: #b45309;
+}
+
+.mob-btn-action-login {
+  width: 100%;
+  padding: 10px 14px;
+  background: #d2a764;
+  color: #1e293b;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.mob-btn-action-logout {
+  margin-top: 6px;
+  padding: 5px 10px;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 /* 3. MOBILE SLIDE-OUT DRAWER */
