@@ -121,6 +121,16 @@ public class HoaDonController {
         return ResponseEntity.ok(hoaDonService.createHoaDonPos(dto));
     }
 
+    // Cập nhật đơn vị vận chuyển
+    @PutMapping("/{id}/don-vi-van-chuyen")
+    public ResponseEntity<?> updateDonViVanChuyen(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, String> body
+    ) {
+        String carrier = body != null ? body.get("donViVanChuyen") : null;
+        return ResponseEntity.ok(hoaDonService.updateDonViVanChuyen(id, carrier));
+    }
+
     // Cập nhật thông tin hóa đơn theo ID
     @PutMapping("/{id}")
     public ResponseEntity<HoaDon> update(

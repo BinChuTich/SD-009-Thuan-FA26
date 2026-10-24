@@ -171,7 +171,7 @@ const onProvinceChange = async (newProvince) => {
             :value="customerPhone"
             @input="emit('update:customerPhone', $event.target.value); emit('clearError', 'customerPhone')"
             type="tel"
-            placeholder="Nhập số điện thoại (ví dụ: 0988776655)..."
+            placeholder="Nhập số điện thoại người nhận..."
             class="form-control"
             :class="{ 'input-error': errors?.customerPhone }"
           />

@@ -23,6 +23,31 @@ const invoiceId = ref(null)
 
 const loading = ref(false)
 const updatingStatus = ref(false)
+const creatingGhnOrder = ref(false)
+const handleCreateGhnOrder = async () => {
+  if (!invoiceData.value.code) return
+  creatingGhnOrder.value = true
+  try {
+    const payload = {
+      orderCode: invoiceData.value.code,
+      toName: invoiceData.value.customer?.name || 'Khách hàng',
+      toPhone: invoiceData.value.customer?.phone || '0988888888',
+      toAddress: invoiceData.value.delivery?.address || 'Hà Nội',
+      codAmount: invoiceData.value.summary?.totalPayable || 0,
+      weight: 250
+    }
+    const res = await api.post('/api/ghn/create-order', payload)
+    if (res.data?.orderCode) {
+      invoiceData.value.delivery.trackingCode = res.data.orderCode
+      invoiceData.value.delivery.carrier = 'Giao Hàng Nhanh (GHN)'
+      alert('Tạo vận đơn GHN thành công! Mã vận đơn: ' + res.data.orderCode)
+    }
+  } catch (err) {
+    alert('Không thể tạo vận đơn GHN: ' + (err.response?.data?.message || err.message))
+  } finally {
+    creatingGhnOrder.value = false
+  }
+}
 const showHistoryModal = ref(false)
 const hasAutoPrinted = ref(false)
 const orderLogs = ref([])
@@ -821,7 +846,8 @@ const loadDetail = async (identifier) => {
     invoiceData.value.delivery = {
       address: getString(data['diaChiNhanHang'], data['diaChi'], data['address'], '—'),
       type: Number(data['loaiDon']) === 1 ? 'Tại quầy' : 'Online',
-      carrier: getString(data['donViVanChuyen'], data['tenDonViVanChuyen'], data['carrier'], '—'),
+      carrier: getString(data['donViVanChuyen'], data['tenDonViVanChuyen'], data['carrier'], Number(data['loaiDon']) === 2 ? 'Giao Hàng Nhanh (GHN)' : '—'),
+      trackingCode: getString(data['maVanDon'], data['trackingCode'], ''),
       receiveType: Number(data['loaiDon']) === 1 ? 'Nhận tại quầy' : 'Giao hàng tận nơi',
       note: getString(data['ghiChu'], data['note'], '—')
     }
@@ -1939,7 +1965,19 @@ onBeforeUnmount(() => {
               </div>
               <div class="info-list-row">
                 <span class="info-row-label">Đơn vị vận chuyển</span>
-                <span class="info-row-val">{{ invoiceData.delivery.carrier || '—' }}</span>
+                <span class="info-row-val">{{ invoiceData.delivery.carrier || 'Giao Hàng Nhanh (GHN)' }}</span>
+              </div>
+              <div class="info-list-row" v-if="invoiceData.delivery.trackingCode">
+                <span class="info-row-label">Mã vận đơn GHN</span>
+                <span class="info-row-val font-mono" style="color: #ea580c; font-weight: 700;">
+                  {{ invoiceData.delivery.trackingCode }}
+                </span>
+              </div>
+              <div class="info-list-row" v-else-if="Number(invoiceData.type) === 2 || invoiceData.delivery.type === 'Online'">
+                <span class="info-row-label">Vận đơn GHN</span>
+                <button type="button" class="btn-create-ghn" :disabled="creatingGhnOrder" @click="handleCreateGhnOrder">
+                  {{ creatingGhnOrder ? 'Đang tạo...' : '🚚 Tạo vận đơn GHN' }}
+                </button>
               </div>
               <div class="info-list-row">
                 <span class="info-row-label">Ghi chú</span>
@@ -4791,4 +4829,142 @@ onBeforeUnmount(() => {
     font-weight: normal !important;
   }
 }
+
+.badge-carrier-styled {
+  background: #eef4f8;
+  color: #2b5c76;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #d0e0ec;
+}
+.btn-small-carrier-edit {
+  background: #ffffff;
+  border: 1px solid #d5c8b8;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #3e5c76;
+  padding: 2px 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-small-carrier-edit:hover {
+  background: #3e5c76;
+  color: #ffffff;
+}
+.modal-carrier-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+}
+.modal-carrier-card {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 440px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+.modal-carrier-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #eee;
+}
+.btn-carrier-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #94a3b8;
+  cursor: pointer;
+}
+.modal-carrier-body {
+  padding: 18px 20px;
+}
+.carrier-opt-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.carrier-opt-card {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.carrier-opt-card.active {
+  border-color: #3e5c76;
+  background: #f0f7fb;
+}
+.carrier-opt-text {
+  margin-left: 10px;
+  display: flex;
+  flex-direction: column;
+}
+.carrier-opt-title {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: #1e293b;
+}
+.carrier-opt-desc {
+  font-size: 11.5px;
+  color: #64748b;
+}
+.modal-carrier-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid #eee;
+  background: #fafafa;
+}
+.btn-carrier-cancel {
+  padding: 8px 16px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-carrier-save {
+  padding: 8px 18px;
+  border: none;
+  background: #3e5c76;
+  color: #ffffff;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+
+.btn-create-ghn {
+  background: #ea580c;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-create-ghn:hover {
+  background: #c2410c;
+}
+.btn-create-ghn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 </style>

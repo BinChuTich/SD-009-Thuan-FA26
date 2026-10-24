@@ -26,3 +26,4 @@ export const logoutClient = () => {
   currentClientUser.value = null
   localStorage.removeItem(USER_STORAGE_KEY)
 }
+

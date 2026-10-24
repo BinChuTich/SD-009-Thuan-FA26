@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import {
@@ -10,48 +10,28 @@ import {
   getCheckoutVoucher,
   removeMultipleFromCart
 } from '@/utils/luuTruGioHang.js'
+import { currentClientUser, isClientLoggedIn } from '@/utils/taiKhoanKhachHang.js'
 import { formatCurrency } from '@/utils/dinhDang.js'
+import { showAppAlert } from '@/utils/thongBaoDialog.js'
 import SoDiaChiGiaoHang from '@/components/ThanhToan/SoDiaChiGiaoHang.vue'
 import PhuongThucThanhToan from '@/components/ThanhToan/PhuongThucThanhToan.vue'
 import XemLaiDonHang from '@/components/ThanhToan/XemLaiDonHang.vue'
 
 const router = useRouter()
 
-// 1. Địa chỉ đã lưu (Theo chuẩn 2 cấp hành chính mới: Tỉnh/Thành phố & Phường/Xã)
-const savedAddresses = ref([
-  {
-    id: 1,
-    name: 'Dương Ngọc Chiến',
-    phone: '0988776655',
-    address: '123 ngõ abc, Phường Hoàn Kiếm, Thành phố Hà Nội',
-    province: 'Thành phố Hà Nội',
-    district: '',
-    ward: 'Phường Hoàn Kiếm',
-    street: '123 ngõ abc'
-  },
-  {
-    id: 2,
-    name: 'Dương Ngọc Chiến',
-    phone: '0988776655',
-    address: '321 ngõ abc, Phường Bến Nghé, Thành phố Hồ Chí Minh',
-    province: 'Thành phố Hồ Chí Minh',
-    district: '',
-    ward: 'Phường Bến Nghé',
-    street: '321 ngõ abc'
-  }
-])
+// 1. Địa chỉ đã lưu (Khách hàng tự điền địa chỉ thật hoặc lấy từ tài khoản)
+const savedAddresses = ref([])
+const selectedAddressId = ref(null)
+const isCustomAddress = ref(true)
 
-const selectedAddressId = ref(1)
-const isCustomAddress = ref(false)
-
-// Form người nhận
-const customerName = ref('Dương Ngọc Chiến')
-const customerPhone = ref('0988776655')
-const customerEmail = ref('chien.duong@example.com')
-const selectedProvince = ref('Thành phố Hà Nội')
+// Form người nhận (mặc định lấy theo tài khoản đăng nhập nếu có, ngược lại để trống để khách hàng tự điền)
+const customerName = ref(currentClientUser.value?.name || '')
+const customerPhone = ref(currentClientUser.value?.phone || '')
+const customerEmail = ref(currentClientUser.value?.email || '')
+const selectedProvince = ref('')
 const selectedDistrict = ref('')
-const selectedWard = ref('Phường Hoàn Kiếm')
-const streetAddress = ref('123 ngõ abc')
+const selectedWard = ref('')
+const streetAddress = ref('')
 const orderNote = ref('')
 
 // Phương thức thanh toán: 'COD' | 'VNPAY'
@@ -106,10 +86,57 @@ const voucherDiscount = computed(() => {
   return Math.min(appliedVoucher.value.discount || 0, checkoutSubtotal.value)
 })
 
+// Dịch vụ GHN Express tính phí và thời gian giao hàng tự động
+const calculatedGhnFee = ref(30000)
+const ghnLeadTime = ref('')
+const ghnLoading = ref(false)
+
+const updateGhnShipping = async () => {
+  if (!selectedProvince.value) return
+  ghnLoading.value = true
+  try {
+    const feeRes = await api.post('/api/ghn/fee', {
+      toProvinceName: selectedProvince.value,
+      toWardCode: selectedWard.value || '',
+      weight: Math.max(200, activeCheckoutItems.value.length * 200),
+      insuranceValue: checkoutSubtotal.value
+    })
+    if (feeRes.data?.total != null) {
+      calculatedGhnFee.value = Number(feeRes.data.total)
+    }
+  } catch (e) {
+    console.warn('GHN fee fallback:', e)
+  }
+
+  try {
+    const ltRes = await api.post('/api/ghn/leadtime', {
+      toProvinceName: selectedProvince.value,
+      toWardCode: selectedWard.value || ''
+    })
+    if (ltRes.data?.formattedDate) {
+      ghnLeadTime.value = ltRes.data.formattedDate
+    }
+  } catch (e) {
+    console.warn('GHN leadtime fallback:', e)
+  } finally {
+    ghnLoading.value = false
+  }
+}
+
+watch([selectedProvince, selectedWard], () => {
+  updateGhnShipping()
+})
+
+onMounted(() => {
+  if (selectedProvince.value) {
+    updateGhnShipping()
+  }
+})
+
 // Tính tiền
 const shippingFee = computed(() => {
   if (checkoutSubtotal.value >= 499000 || checkoutSubtotal.value === 0 || appliedVoucher.value?.code === 'FREESHIP') return 0
-  return 30000
+  return calculatedGhnFee.value || 30000
 })
 
 const finalTotal = computed(() => {
@@ -191,7 +218,7 @@ const validateForm = () => {
     errors.value.customerPhone = 'Vui lòng điền số điện thoại người nhận'
     isValid = false
   } else if (!phoneRegex.test(phone)) {
-    errors.value.customerPhone = 'Số điện thoại không hợp lệ (gồm 10 chữ số, ví dụ: 0988776655)'
+    errors.value.customerPhone = 'Số điện thoại không hợp lệ (gồm 10 chữ số)'
     isValid = false
   }
 
@@ -252,7 +279,7 @@ const handlePlaceOrder = async () => {
   // Kiểm tra an toàn: nếu có sản phẩm hết hàng thì chặn đặt hàng
   const outOfStockItems = activeCheckoutItems.value.filter(i => (i.maxStock != null ? i.maxStock : 99) <= 0)
   if (outOfStockItems.length > 0) {
-    alert(`Sản phẩm "${outOfStockItems[0].productName}" hiện đã hết hàng trong kho. Vui lòng quay lại giỏ hàng để cập nhật!`)
+    await showAppAlert(`Sản phẩm "${outOfStockItems[0].productName}" hiện đã hết hàng trong kho. Vui lòng quay lại giỏ hàng để cập nhật!`, 'Sản phẩm hết hàng', 'warning')
     return
   }
 
@@ -268,6 +295,7 @@ const handlePlaceOrder = async () => {
       diaChiNhanHang: fullDeliveryAddress.value,
       ghiChu: orderNote.value.trim(),
       phuongThucThanhToan: paymentMethod.value,
+      donViVanChuyen: 'Giao Hàng Nhanh (GHN)',
       tongTien: checkoutAmount,
       phiVanChuyen: shippingFee.value,
       giamGia: voucherDiscount.value,
@@ -323,7 +351,7 @@ const handlePlaceOrder = async () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (err) {
     console.error('Lỗi đặt hàng:', err)
-    alert(err.response?.data?.message || 'Không thể hoàn tất đơn hàng. Vui lòng thử lại sau!')
+    await showAppAlert(err.response?.data?.message || 'Không thể hoàn tất đơn hàng. Vui lòng thử lại sau!', 'Lỗi đặt hàng', 'error')
   } finally {
     submitting.value = false
   }
@@ -465,6 +493,8 @@ const handlePlaceOrder = async () => {
           :shipping-fee="shippingFee"
           :voucher-discount="voucherDiscount"
           :final-total="finalTotal"
+          :ghn-lead-time="ghnLeadTime"
+          :ghn-loading="ghnLoading"
           v-model:order-note="orderNote"
           :submitting="submitting"
           @placeOrder="handlePlaceOrder"

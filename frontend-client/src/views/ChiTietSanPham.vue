@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
-import { addToCart } from '@/utils/luuTruGioHang.js'
+import { addToCart, setCheckoutItems, cartItems } from '@/utils/luuTruGioHang.js'
 import { getProductById, MOCK_PRODUCTS_CATALOG } from '@/utils/danhMucSanPham.js'
 import ThuVienHinhAnh from '@/components/ChiTietSanPham/ThuVienHinhAnh.vue'
 import ThongTinMoTa from '@/components/ChiTietSanPham/ThongTinMoTa.vue'
@@ -281,6 +281,13 @@ const handleBuyNow = () => {
   }
 
   addToCart(product.value, currentVariant.value, quantity.value)
+  const itemToBuy = cartItems.value.find(i => i.variantId === currentVariant.value.id)
+  if (itemToBuy) {
+    setCheckoutItems([{
+      ...itemToBuy,
+      quantity: quantity.value
+    }])
+  }
   router.push('/thanh-toan')
 }
 

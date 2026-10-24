@@ -1,14 +1,22 @@
 /**
  * Quản lý lưu trữ giỏ hàng Online (Tiếng Việt)
  */
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const CART_KEY = 'fftshirt_client_cart'
 
 const loadCart = () => {
   try {
     const raw = localStorage.getItem(CART_KEY)
-    return raw ? JSON.parse(raw) : []
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    // Khôi phục và đảm bảo mỗi sản phẩm luôn có số lượng hợp lệ >= 1
+    return parsed.map(item => ({
+      ...item,
+      quantity: Math.max(1, Number(item.quantity) || 1),
+      maxStock: item.maxStock != null ? Number(item.maxStock) : 99
+    }))
   } catch (e) {
     return []
   }
@@ -17,8 +25,21 @@ const loadCart = () => {
 export const cartItems = ref(loadCart())
 
 export const saveCart = () => {
-  localStorage.setItem(CART_KEY, JSON.stringify(cartItems.value))
+  try {
+    localStorage.setItem(CART_KEY, JSON.stringify(cartItems.value))
+  } catch (e) {
+    console.warn('Lỗi lưu giỏ hàng:', e)
+  }
 }
+
+// Tự động đồng bộ giỏ hàng vào localStorage mỗi khi có bất kỳ thay đổi nào
+watch(
+  cartItems,
+  () => {
+    saveCart()
+  },
+  { deep: true }
+)
 
 export const addToCart = (product, variant, quantity = 1) => {
   if (!product || !variant) return false
@@ -58,18 +79,17 @@ export const addToCart = (product, variant, quantity = 1) => {
 export const updateCartQuantity = (variantId, quantity) => {
   const item = cartItems.value.find(i => i.variantId === variantId)
   if (item) {
-    const limit = item.maxStock != null ? Number(item.maxStock) : 99
-    if (limit <= 0) {
-      item.quantity = 0
-      saveCart()
-      return
-    }
     if (quantity <= 0) {
       removeFromCart(variantId)
-    } else {
-      item.quantity = Math.min(quantity, limit)
-      saveCart()
+      return
     }
+    const limit = item.maxStock != null ? Number(item.maxStock) : 99
+    if (limit > 0) {
+      item.quantity = Math.min(quantity, limit)
+    } else {
+      item.quantity = 1
+    }
+    saveCart()
   }
 }
 
