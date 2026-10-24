@@ -1211,7 +1211,10 @@ public class HoaDonService {
         // 3. Trạng thái đơn & trạng thái thanh toán
         Integer trangThai = dto.getTrangThai();
         if (trangThai == null) {
-            trangThai = (loaiDon == 1) ? 5 : 1; // 5: Hoàn thành tại quầy, 1: Chờ xử lý nếu giao hàng
+            trangThai = (loaiDon == 1) ? 5 : 2; // 5: Hoàn thành tại quầy, 2: Đã xác nhận nếu giao hàng xử lý tại quầy
+        } else if (loaiDon == 2 && trangThai == 1) {
+            // Đơn giao hàng xử lý tại quầy không còn trạng thái chờ xác nhận mà chuyển sang đã xác nhận
+            trangThai = 2;
         }
         hoaDon.setTrangThai(trangThai);
 
@@ -1480,6 +1483,17 @@ public class HoaDonService {
                 logPay.setNguoiThucHien(staffName);
                 logPay.setVaiTroNguoiThucHien("Nhân viên");
                 lichSuHoaDonRepository.save(logPay);
+            }
+
+            if (Integer.valueOf(2).equals(saved.getTrangThai())) {
+                LichSuHoaDon log2 = new LichSuHoaDon();
+                log2.setIdHoaDon(saved);
+                log2.setTrangThai(2);
+                log2.setThoiGian(Instant.now());
+                log2.setGhiChu("Đã xác nhận đơn hàng giao tại quầy");
+                log2.setNguoiThucHien(staffName);
+                log2.setVaiTroNguoiThucHien("Nhân viên");
+                lichSuHoaDonRepository.save(log2);
             }
 
             if (Integer.valueOf(5).equals(saved.getTrangThai())) {

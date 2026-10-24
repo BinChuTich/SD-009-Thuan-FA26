@@ -258,11 +258,14 @@ const isOnlineWaitingConfirm = computed(() => {
   return isOnlineDelivery.value && Number(invoiceData.value.status) === 1
 })
 
-// Điều kiện in hóa đơn: Đơn online chờ xác nhận là CHƯA in hóa đơn, đơn đã hủy không in hóa đơn
+// Điều kiện in hóa đơn: Chỉ trạng thái "Đã xác nhận" (status = 2) mới in hóa đơn, các trạng thái sau không cần in hóa đơn
 const canPrintInvoice = computed(() => {
-  if (isOnlineWaitingConfirm.value) return false
-  if (Number(invoiceData.value.status) === 6) return false
-  return true
+  const st = Number(invoiceData.value.status)
+  const isStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
+  // Đơn tại quầy khi hoàn thành (status 5) tại quầy được in hóa đơn
+  if (isStore && st === 5) return true
+  // Đối với các đơn (đặc biệt đơn giao hàng), chỉ trạng thái Đã xác nhận (status = 2) mới in hóa đơn
+  return st === 2
 })
 
 // =========================================================================
@@ -736,6 +739,7 @@ const loadDetail = async (identifier) => {
   invoiceCode.value = queryParam
   invoiceData.value = createDefaultInvoice(queryParam)
   loading.value = true
+  hasAutoPrinted.value = false
 
   try {
     let res = null
@@ -1063,7 +1067,7 @@ const loadDetail = async (identifier) => {
       loading.value = false
       // Tự động in hóa đơn nếu chuyển hướng từ thanh toán (query param autoPrint=true)
       if ((route.query?.autoPrint === 'true' || route.query?.autoPrint === '1') && !hasAutoPrinted.value) {
-        if (!isOnlineWaitingConfirm.value && Number(invoiceData.value.status) !== 6) {
+        if (canPrintInvoice.value) {
           hasAutoPrinted.value = true
           setTimeout(() => {
             handlePrint()
@@ -1550,7 +1554,7 @@ const handleConfirmPaymentAndPrint = () => {
         if (success) {
           showToast('Xác nhận thanh toán thành công!')
           if (code) await loadDetail(code)
-          if (!isOnlineWaitingConfirm.value) {
+          if (canPrintInvoice.value) {
             setTimeout(() => {
               handlePrint()
             }, 500)
@@ -1666,12 +1670,12 @@ const filteredProductItems = computed(() => {
 })
 
 const handlePrint = () => {
-  if (isOnlineWaitingConfirm.value) {
-    showToast('Đơn hàng online đang chờ xác nhận là chưa in hóa đơn!', 'warning')
-    return
-  }
-  if (Number(invoiceData.value.status) === 6) {
-    showToast('Đơn hàng đã hủy, không thể in hóa đơn!', 'warning')
+  if (!canPrintInvoice.value) {
+    if (isOnlineWaitingConfirm.value) {
+      showToast('Đơn hàng online đang chờ xác nhận là chưa in hóa đơn!', 'warning')
+    } else {
+      showToast('Chỉ trạng thái "Đã xác nhận" mới in hóa đơn, các trạng thái sau không cần in hóa đơn!', 'warning')
+    }
     return
   }
   const originalTitle = document.title

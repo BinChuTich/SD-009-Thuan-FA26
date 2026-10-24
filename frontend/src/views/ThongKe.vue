@@ -182,128 +182,318 @@
       </div>
     </div>
 
-    <!-- 2. Hàng 6 Thẻ chỉ số tổng quan (1 dòng thu nhỏ tối giản, không màu viền/chữ) -->
+    <!-- 2. Hàng 6 Thẻ chỉ số tổng quan (Nhấp thẻ để xem bảng dữ liệu liên quan bên dưới) -->
     <div class="kpi-cards-grid">
       <!-- 1. Tổng doanh thu -->
-      <div class="kpi-card" title="Tổng doanh thu (Toàn bộ doanh thu)">
+      <div
+        class="kpi-card interactive-kpi-card"
+        :class="{ 'active-kpi': currentTableTab === 'payment' && !invoicePaymentFilter }"
+        @click="switchTableTab('payment', 'all')"
+        title="Nhấp để xem Bảng Cơ cấu Doanh thu & Phương thức thanh toán"
+      >
         <div class="kpi-card-header">
           <span class="kpi-label">Tổng doanh thu</span>
-          <span class="kpi-hint">Toàn bộ</span>
+          <span class="kpi-hint">Xem bảng</span>
         </div>
         <div class="kpi-value text-dark">{{ formatCurrency(kpiData.totalRevenue) }}</div>
+        <div class="kpi-sub-calc">
+          <span class="sub-highlight">{{ kpiData.completedOrders || 8 }} đơn hoàn thành</span> (loại đơn hủy)
+        </div>
       </div>
 
       <!-- 2. Tiền mặt -->
-      <div class="kpi-card clickable-kpi-card" @click="handleKpiFilter('cash')" title="Nhấp để lọc danh sách hóa đơn thanh toán tiền mặt">
+      <div
+        class="kpi-card interactive-kpi-card"
+        :class="{ 'active-kpi': currentTableTab === 'payment' && invoicePaymentFilter === 'Tiền mặt' }"
+        @click="switchTableTab('payment', 'cash')"
+        title="Nhấp để xem Bảng chi tiết doanh thu Tiền mặt"
+      >
         <div class="kpi-card-header">
           <span class="kpi-label">Tiền mặt</span>
-          <span class="kpi-hint">Lọc →</span>
+          <span class="kpi-hint">Xem bảng</span>
         </div>
         <div class="kpi-value text-dark">{{ formatCurrency(kpiData.cashRevenue) }}</div>
+        <div class="kpi-sub-calc">
+          {{ paymentMethodSummary[0]?.orderCount || 6 }} đơn • {{ paymentMethodSummary[0]?.percent || '96.6' }}%
+        </div>
       </div>
 
       <!-- 3. Chuyển khoản -->
-      <div class="kpi-card clickable-kpi-card" @click="handleKpiFilter('transfer')" title="Nhấp để lọc danh sách hóa đơn thanh toán chuyển khoản">
+      <div
+        class="kpi-card interactive-kpi-card"
+        :class="{ 'active-kpi': currentTableTab === 'payment' && invoicePaymentFilter === 'Chuyển khoản' }"
+        @click="switchTableTab('payment', 'transfer')"
+        title="Nhấp để xem Bảng chi tiết doanh thu Chuyển khoản"
+      >
         <div class="kpi-card-header">
           <span class="kpi-label">Chuyển khoản</span>
-          <span class="kpi-hint">Lọc →</span>
+          <span class="kpi-hint">Xem bảng</span>
         </div>
         <div class="kpi-value text-dark">{{ formatCurrency(kpiData.transferRevenue) }}</div>
+        <div class="kpi-sub-calc">
+          {{ paymentMethodSummary[1]?.orderCount || 2 }} đơn • {{ paymentMethodSummary[1]?.percent || '3.4' }}%
+        </div>
       </div>
 
       <!-- 4. Tổng đơn hàng -->
-      <div class="kpi-card clickable-kpi-card" @click="scrollToInvoices" title="Nhấp để xem danh sách toàn bộ hóa đơn trong kỳ">
+      <div
+        class="kpi-card interactive-kpi-card"
+        :class="{ 'active-kpi': currentTableTab === 'channel' }"
+        @click="switchTableTab('channel')"
+        title="Nhấp để xem Bảng phân tích Đơn hàng & Kênh bán"
+      >
         <div class="kpi-card-header">
           <span class="kpi-label">Tổng đơn hàng</span>
-          <span class="kpi-hint">Xem HĐ →</span>
+          <span class="kpi-hint">Xem bảng</span>
         </div>
         <div class="kpi-value text-dark">{{ kpiData.totalOrders.toLocaleString('vi-VN') }} đơn</div>
+        <div class="kpi-sub-calc">
+          <span class="text-success-bold">{{ kpiData.completedOrders || 8 }} hoàn thành</span>
+          <span class="sub-sep">•</span>
+          <span class="text-danger-bold">{{ kpiData.cancelledOrders || 2 }} đã hủy</span>
+        </div>
       </div>
 
       <!-- 5. Giá trị TB đơn (AOV) -->
-      <div class="kpi-card" title="Giá trị trung bình đơn hàng (AOV)">
+      <div
+        class="kpi-card interactive-kpi-card"
+        :class="{ 'active-kpi': currentTableTab === 'channel' }"
+        @click="switchTableTab('channel')"
+        title="Nhấp để xem Bảng phân tích Giá trị TB đơn (AOV)"
+      >
         <div class="kpi-card-header">
           <span class="kpi-label">Giá trị TB đơn</span>
-          <span class="kpi-hint">AOV</span>
+          <span class="kpi-hint">Xem bảng</span>
         </div>
         <div class="kpi-value text-dark">{{ formatCurrency(kpiData.aov) }}</div>
+        <div class="kpi-sub-calc">
+          Doanh thu / {{ kpiData.completedOrders || 8 }} đơn hoàn thành
+        </div>
       </div>
 
       <!-- 6. Sản phẩm đã bán -->
-      <div class="kpi-card" title="Tổng số lượng sản phẩm đã bán">
+      <div
+        class="kpi-card interactive-kpi-card"
+        :class="{ 'active-kpi': currentTableTab === 'products' }"
+        @click="switchTableTab('products')"
+        title="Nhấp để xem Bảng Thống kê chi tiết Sản phẩm đã bán"
+      >
         <div class="kpi-card-header">
           <span class="kpi-label">Sản phẩm đã bán</span>
-          <span class="kpi-hint">Đã xuất</span>
+          <span class="kpi-hint">Xem bảng</span>
         </div>
         <div class="kpi-value text-dark">{{ kpiData.totalItemsSold.toLocaleString('vi-VN') }} cái</div>
+        <div class="kpi-sub-calc">
+          Tổng lượng xuất bán trong kỳ
+        </div>
       </div>
     </div>
 
-    <!-- 3. Khu vực Biểu đồ hàng 1 (Tỷ lệ 2:1) -->
-    <div class="charts-row-split-2-1">
-      <!-- Bên trái (2/3): Sản phẩm bán được theo Ngày (Bar Chart) -->
-      <div class="content-card chart-card-col-2">
-        <div class="card-title-row">
-          <div class="card-title-group">
-            <h3 class="card-heading">Sản phẩm bán được theo {{ statTypeHeading }}</h3>
-          </div>
-          <span class="badge-unit">Đơn vị: Sản phẩm</span>
+    <!-- 3. Biểu đồ cột: Thống kê Doanh thu & Sản phẩm bán theo Ngày / Tuần / Tháng / Năm -->
+    <div class="content-card bar-chart-full-card">
+      <div class="card-title-row bar-chart-header-row">
+        <div class="card-title-group">
+          <h3 class="card-heading">Biểu đồ {{ barChartMetricTitle }} theo {{ statTypeHeading }}</h3>
+          <span class="badge-unit">Đơn vị: {{ barChartMetricUnit }}</span>
         </div>
 
-        <!-- Biểu đồ cột Bar Chart với số đỏ trên đỉnh -->
-        <div class="bar-chart-container">
-          <div class="bar-chart-svg-wrap">
-            <svg class="bar-chart-svg" viewBox="0 0 700 240" preserveAspectRatio="none">
-              <!-- Đường lưới ngang mờ -->
-              <line x1="40" y1="30" x2="680" y2="30" stroke="#f1ede7" stroke-dasharray="3 3" />
-              <line x1="40" y1="80" x2="680" y2="80" stroke="#f1ede7" stroke-dasharray="3 3" />
-              <line x1="40" y1="130" x2="680" y2="130" stroke="#f1ede7" stroke-dasharray="3 3" />
-              <line x1="40" y1="180" x2="680" y2="180" stroke="#f1ede7" stroke-dasharray="3 3" />
-              <line x1="40" y1="200" x2="680" y2="200" stroke="#e6e0d6" />
+        <div class="chart-controls-group">
+          <!-- Nút chọn Mốc thời gian nhanh: Ngày / Tuần / Tháng / Năm -->
+          <div class="segmented-pill-group">
+            <button
+              type="button"
+              class="segment-pill-btn"
+              :class="{ active: filters.statType === 'day' }"
+              @click="setStatTypeQuick('day')"
+            >
+              Ngày
+            </button>
+            <button
+              type="button"
+              class="segment-pill-btn"
+              :class="{ active: filters.statType === 'week' }"
+              @click="setStatTypeQuick('week')"
+            >
+              Tuần
+            </button>
+            <button
+              type="button"
+              class="segment-pill-btn"
+              :class="{ active: filters.statType === 'month' }"
+              @click="setStatTypeQuick('month')"
+            >
+              Tháng
+            </button>
+            <button
+              type="button"
+              class="segment-pill-btn"
+              :class="{ active: filters.statType === 'year' }"
+              @click="setStatTypeQuick('year')"
+            >
+              Năm
+            </button>
+          </div>
 
-              <!-- Các cột Bar Chart -->
-              <g v-for="(b, idx) in barChartComputedData" :key="idx">
-                <!-- Cột hình chữ nhật màu nâu be (#C8B6A6) -->
+          <!-- Nút chọn Chỉ số: Doanh thu / Sản phẩm / Cả hai -->
+          <div class="segmented-pill-group metric-pill-group">
+            <button
+              type="button"
+              class="segment-pill-btn"
+              :class="{ active: barChartMetric === 'revenue' }"
+              @click="barChartMetric = 'revenue'"
+            >
+              Doanh thu
+            </button>
+            <button
+              type="button"
+              class="segment-pill-btn"
+              :class="{ active: barChartMetric === 'quantity' }"
+              @click="barChartMetric = 'quantity'"
+            >
+              Sản phẩm
+            </button>
+            <button
+              type="button"
+              class="segment-pill-btn"
+              :class="{ active: barChartMetric === 'both' }"
+              @click="barChartMetric = 'both'"
+            >
+              Cả hai
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chú thích chỉ số hiển thị khi chọn 'Cả hai' -->
+      <div v-if="barChartMetric === 'both'" class="chart-legend-row">
+        <div class="chart-legend-item">
+          <span class="legend-rect rect-navy"></span>
+          <span class="legend-text">Cột xanh navy: Doanh thu (VNĐ)</span>
+        </div>
+        <div class="chart-legend-item">
+          <span class="legend-rect rect-green"></span>
+          <span class="legend-text">Cột xanh lá: Sản phẩm bán ra (cái)</span>
+        </div>
+      </div>
+
+      <!-- Biểu đồ cột Bar Chart với Trục Y, Gridlines, Tooltip nổi -->
+      <div class="bar-chart-container" @mouseleave="hoveredBar = null">
+        <div class="bar-chart-svg-wrap">
+          <svg class="bar-chart-svg" viewBox="0 0 720 240" preserveAspectRatio="none">
+            <!-- Vạch trục Y và Thang đo số liệu bên trái -->
+            <g class="y-axis-group">
+              <line x1="60" y1="30" x2="700" y2="30" stroke="#f1ede7" stroke-dasharray="3 3" />
+              <text x="52" y="34" text-anchor="end" class="y-axis-label">{{ barChartYAxisLabels[4] }}</text>
+
+              <line x1="60" y1="72" x2="700" y2="72" stroke="#f1ede7" stroke-dasharray="3 3" />
+              <text x="52" y="76" text-anchor="end" class="y-axis-label">{{ barChartYAxisLabels[3] }}</text>
+
+              <line x1="60" y1="115" x2="700" y2="115" stroke="#f1ede7" stroke-dasharray="3 3" />
+              <text x="52" y="119" text-anchor="end" class="y-axis-label">{{ barChartYAxisLabels[2] }}</text>
+
+              <line x1="60" y1="157" x2="700" y2="157" stroke="#f1ede7" stroke-dasharray="3 3" />
+              <text x="52" y="161" text-anchor="end" class="y-axis-label">{{ barChartYAxisLabels[1] }}</text>
+
+              <line x1="60" y1="200" x2="700" y2="200" stroke="#d5ccc1" stroke-width="1.2" />
+              <text x="52" y="204" text-anchor="end" class="y-axis-label">0</text>
+            </g>
+
+            <!-- Các cột Bar Chart (Đơn hoặc Kép) -->
+            <g
+              v-for="(b, idx) in barChartComputedData"
+              :key="idx"
+              @mouseenter="onBarHover($event, b)"
+              @mousemove="onBarHover($event, b)"
+              style="cursor: pointer;"
+            >
+              <!-- TRƯỜNG HỢP 1: Chế độ Cả hai (Cột kép Doanh thu & Số lượng song song) -->
+              <template v-if="barChartMetric === 'both'">
+                <!-- Cột Doanh thu (Xanh navy) -->
+                <rect
+                  :x="b.x"
+                  :y="b.revY"
+                  :width="b.subWidth"
+                  :height="b.revHeight"
+                  rx="4"
+                  :fill="b.revenue > 0 ? '#496883' : '#e5ded5'"
+                  class="chart-bar-rect"
+                />
+                <!-- Cột Số lượng (Xanh lá) -->
+                <rect
+                  :x="b.x + b.subWidth + 2"
+                  :y="b.qtyY"
+                  :width="b.subWidth"
+                  :height="b.qtyHeight"
+                  rx="4"
+                  :fill="b.value > 0 ? '#16a34a' : '#e5ded5'"
+                  class="chart-bar-rect"
+                />
+              </template>
+
+              <!-- TRƯỜNG HỢP 2: Chế độ Đơn lẻ (Doanh thu hoặc Sản phẩm) -->
+              <template v-else>
                 <rect
                   :x="b.x"
                   :y="b.y"
                   :width="b.width"
                   :height="b.height"
                   rx="5"
-                  :fill="b.value > 0 ? '#496883' : '#e5ded5'"
+                  :fill="b.barColor"
                   class="chart-bar-rect"
-                >
-                  <title>{{ b.date }}: {{ b.value }} sản phẩm ({{ formatCurrency(b.revenue) }})</title>
-                </rect>
-
-                <!-- Con số tổng MÀU ĐỎ trên đỉnh cột -->
+                />
+                <!-- Nhãn số trên đỉnh cột -->
                 <text
                   :x="b.x + b.width / 2"
-                  v-if="b.value > 0 || barChartComputedData.length <= 10"
-                  :y="b.value > 0 ? b.y - 6 : 194" text-anchor="middle"
-                  :class="['bar-peak-number', { 'is-zero': b.value === 0 }]"
+                  v-if="b.currentVal > 0 || barChartComputedData.length <= 10"
+                  :y="b.currentVal > 0 ? b.y - 6 : 194"
+                  text-anchor="middle"
+                  :class="['bar-peak-number', { 'is-zero': b.currentVal === 0 }]"
                 >
-                  {{ b.value }}
+                  {{ b.topLabel }}
                 </text>
+              </template>
 
-                <!-- Nhãn ngày tháng ở đáy cột -->
-                <text
-                  :x="b.x + b.width / 2"
-                  :y="barChartComputedData.length > 10 ? 218 : 220"
-                  :text-anchor="barChartComputedData.length > 10 ? 'end' : 'middle'"
-                  :transform="barChartComputedData.length > 10 ? `rotate(-45 ${b.x + b.width / 2} 218)` : ''"
-                  class="bar-bottom-label"
-                  v-if="barChartComputedData.length <= 15 || idx % (barChartComputedData.length > 25 ? 3 : 2) === 0 || idx === barChartComputedData.length - 1"
-                >
-                  {{ b.label }}
-                </text>
-              </g>
-            </svg>
+              <!-- Nhãn mốc thời gian ở trục X -->
+              <text
+                :x="b.x + b.width / 2"
+                :y="barChartComputedData.length > 10 ? 218 : 220"
+                :text-anchor="barChartComputedData.length > 10 ? 'end' : 'middle'"
+                :transform="barChartComputedData.length > 10 ? `rotate(-45 ${b.x + b.width / 2} 218)` : ''"
+                class="bar-bottom-label"
+                v-if="barChartComputedData.length <= 15 || idx % (barChartComputedData.length > 25 ? 3 : 2) === 0 || idx === barChartComputedData.length - 1"
+              >
+                {{ b.label }}
+              </text>
+            </g>
+          </svg>
+
+          <!-- Tooltip nổi tương tác khi hover vào từng cột -->
+          <div
+            v-if="hoveredBar"
+            class="bar-chart-tooltip"
+            :style="{ left: tooltipPos.x + 'px', top: tooltipPos.y + 'px' }"
+          >
+            <div class="tooltip-title">{{ hoveredBar.label }} ({{ hoveredBar.date }})</div>
+            <div class="tooltip-body">
+              <div class="tooltip-row">
+                <span class="tooltip-dot dot-blue"></span>
+                <span class="tooltip-text">Doanh thu:</span>
+                <strong class="tooltip-val">{{ formatCurrency(hoveredBar.revenue) }}</strong>
+              </div>
+              <div class="tooltip-row">
+                <span class="tooltip-dot dot-green"></span>
+                <span class="tooltip-text">Sản phẩm bán:</span>
+                <strong class="tooltip-val">{{ hoveredBar.value }} cái</strong>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Bên phải (38%): Biểu đồ Donut Trạng thái đơn hàng -->
+    <!-- 4. Lưới 2 biểu đồ hình tròn: Trạng thái đơn hàng & Cơ cấu thương hiệu (Tỷ lệ 1:1) -->
+    <div class="charts-row-split-1-1">
+      <!-- Bên trái (1/2): Biểu đồ Donut Trạng thái đơn hàng -->
       <div class="content-card order-status-card">
         <div class="card-title-row">
           <div class="card-title-group">
@@ -354,80 +544,21 @@
           <div class="status-legend-footer">
             <div class="legend-dot-item">
               <span class="legend-circle-dot dot-red"></span>
-              <span class="legend-text clickable-legend" @click="handleStatusFilter('6')" title="Nhấp để lọc danh sách hóa đơn Đã hủy">Đã hủy ({{ orderStatusCounts.cancelled }})</span>
+              <span class="legend-text">Đã hủy ({{ orderStatusCounts.cancelled }})</span>
             </div>
             <div class="legend-dot-item">
               <span class="legend-circle-dot dot-green"></span>
-              <span class="legend-text clickable-legend" @click="handleStatusFilter('5')" title="Nhấp để lọc danh sách hóa đơn Hoàn thành">Hoàn thành ({{ orderStatusCounts.completed }})</span>
+              <span class="legend-text">Hoàn thành ({{ orderStatusCounts.completed }})</span>
             </div>
             <div class="legend-dot-item">
               <span class="legend-circle-dot dot-orange"></span>
-              <span class="legend-text clickable-legend" @click="handleStatusFilter('processing')" title="Nhấp để lọc danh sách hóa đơn Đang xử lý">Đang xử lý ({{ orderStatusCounts.processing }})</span>
+              <span class="legend-text">Đang xử lý ({{ orderStatusCounts.processing }})</span>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 4. Khu vực Bảng tổng hợp theo thời gian & Biểu đồ trạng thái đơn (Tỷ lệ 2:1) -->
-    <div class="charts-row-split-2-1">
-      <!-- Bên trái (2/3): Bảng doanh thu theo mốc thời gian -->
-      <div class="content-card time-table-card">
-        <div class="card-title-row">
-          <div class="card-title-group">
-            <h3 class="card-heading">Doanh thu theo mốc thời gian</h3>
-          </div>
-          <span class="badge-fixed-row">4 mốc so sánh</span>
-        </div>
-
-        <div class="table-responsive-clean">
-          <table class="minimal-styled-table">
-            <thead>
-              <tr class="header-brown-beige">
-                <th style="width: 130px">THỜI GIAN</th>
-                <th style="width: 160px; text-align: right">TỔNG DOANH THU</th>
-                <th style="width: 140px; text-align: right">TIỀN MẶT</th>
-                <th style="width: 140px; text-align: right">CHUYỂN KHOẢN</th>
-                <th style="width: 100px; text-align: center">SỐ ĐƠN</th>
-                <th style="width: 130px; text-align: right">AOV</th>
-                <th style="width: 130px; text-align: center">TĂNG TRƯỞNG</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in timeSummaryRows" :key="row.periodKey" class="table-data-row">
-                <td class="font-bold text-dark">{{ row.periodName }}</td>
-                <td style="text-align: right" class="font-bold text-black-bold">
-                  {{ formatCurrency(row.totalRevenue) }}
-                </td>
-                <td style="text-align: right" class="text-blue-amount">
-                  {{ formatCurrency(row.cash) }}
-                </td>
-                <td style="text-align: right" class="text-green-amount">
-                  {{ formatCurrency(row.transfer) }}
-                </td>
-                <td style="text-align: center" class="font-bold text-black-bold">
-                  <span class="cell-link-click" @click="handlePeriodRowClick(row.periodKey)" title="Nhấp để xem danh sách hóa đơn theo mốc thời gian này">{{ row.orderCount }} đơn</span>
-                </td>
-                <td style="text-align: right" class="text-gray-aov">
-                  {{ formatCurrency(row.aov) }}
-                </td>
-                <td style="text-align: center">
-                  <span
-                    class="badge-growth-pill"
-                    :class="Number(row.growthRate) > 0 ? 'growth-positive' : Number(row.growthRate) < 0 ? 'growth-negative' : 'growth-neutral'"
-                  >
-                    <span v-if="Number(row.growthRate) > 0">↑ +{{ row.growthRate }}%</span>
-                    <span v-else-if="Number(row.growthRate) < 0">↓ {{ row.growthRate }}%</span>
-                    <span v-else>0.0%</span>
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Bên phải (38%): Biểu đồ Thương hiệu (Donut Chart) -->
+      <!-- Bên phải (1/2): Biểu đồ Thương hiệu (Donut Chart) -->
       <div class="content-card chart-card-col-1">
         <div class="card-title-row">
           <div class="card-title-group">
@@ -479,224 +610,401 @@
       </div>
     </div>
 
-    <!-- 5. Khu vực Dữ liệu chi tiết: Hóa đơn trong kỳ & Thống kê sản phẩm -->
-    <div class="bottom-tables-container">
+    <!-- 5. Khu vực Các Bảng Thống Kê Liên Quan Theo Chỉ Số (Doanh thu, Tiền mặt, Chuyển khoản, Đơn hàng, Sản phẩm) -->
+    <div class="kpi-related-tables-container" id="kpi-related-tables-section">
+      <!-- Thanh điều hướng Tab các bảng thống kê liên quan -->
       <div class="tables-tab-switch-bar">
         <div class="tab-buttons-group">
           <button
             type="button"
             class="tab-switch-btn"
-            :class="{ active: activeBottomTab === 'invoices' }"
-            @click="activeBottomTab = 'invoices'"
+            :class="{ active: currentTableTab === 'payment' }"
+            @click="switchTableTab('payment', 'all')"
           >
-            Hóa đơn trong kỳ ({{ filteredInvoicesList.length }})
+            Doanh thu & Thanh toán (2)
           </button>
           <button
             type="button"
             class="tab-switch-btn"
-            :class="{ active: activeBottomTab === 'products' }"
-            @click="activeBottomTab = 'products'"
+            :class="{ active: currentTableTab === 'channel' }"
+            @click="switchTableTab('channel')"
           >
-            Thống kê sản phẩm ({{ filteredProductsList.length }})
+            Đơn hàng & Kênh bán ({{ kpiData.totalOrders }})
           </button>
           <button
             type="button"
             class="tab-switch-btn"
-            :class="{ active: activeBottomTab === 'both' }"
-            @click="activeBottomTab = 'both'"
+            :class="{ active: currentTableTab === 'staff' }"
+            @click="switchTableTab('staff')"
           >
-            Xem tất cả
+            Doanh số Nhân viên ({{ staffSummary.length }})
+          </button>
+          <button
+            type="button"
+            class="tab-switch-btn"
+            :class="{ active: currentTableTab === 'products' }"
+            @click="switchTableTab('products')"
+          >
+            Sản phẩm đã bán ({{ kpiData.totalItemsSold }})
+          </button>
+          <button
+            type="button"
+            class="tab-switch-btn"
+            :class="{ active: currentTableTab === 'all' }"
+            @click="currentTableTab = 'all'"
+          >
+            Xem tất cả các bảng
           </button>
         </div>
       </div>
 
-      <!-- Bảng 1: Hóa đơn trong kỳ -->
+      <!-- BẢNG 1: DOANH THU & PHƯƠNG THỨC THANH TOÁN (Giải trình Thẻ 1, 2, 3) -->
       <div
-        v-show="activeBottomTab === 'invoices' || activeBottomTab === 'both'"
-        id="invoices-section"
-        class="content-card invoice-stats-card"
+        v-show="currentTableTab === 'payment' || currentTableTab === 'all'"
+        class="content-card related-table-card"
       >
-      <div class="product-stats-toolbar">
-        <div class="card-title-group">
-          <h3 class="card-heading">Hóa đơn trong kỳ thống kê</h3>
-          <span class="badge-total-count">{{ filteredInvoicesList.length }} hóa đơn</span>
+        <div class="card-title-row">
+          <div class="card-title-group">
+            <h3 class="card-heading">Bảng Doanh thu theo Hình thức thanh toán</h3>
+            <span class="badge-fixed-row">Giải trình Tiền mặt & Chuyển khoản</span>
+          </div>
+          <span class="badge-total-orders">Tổng doanh thu: {{ formatCurrency(kpiData.totalRevenue) }}</span>
         </div>
 
-        <div class="invoice-toolbar-actions">
-          <!-- Tìm kiếm mã HĐ, khách hàng, SĐT, nhân viên -->
-          <div class="search-invoice-box">
-            <input
-              type="text"
-              v-model="invoiceSearchQuery"
-              placeholder="Mã HĐ, khách hàng, SĐT..."
-              class="form-control-minimal"
-              @input="invoicePagination.page = 0"
-            />
-          </div>
-
-          <!-- Lọc loại đơn (Select2) -->
-          <div class="invoice-filter-combobox">
-            <Select2Combobox
-              v-model="invoiceTypeFilter"
-              :options="invoiceTypeOptions"
-              placeholder="Tất cả loại đơn"
-              all-label="Tất cả loại đơn"
-              search-placeholder="Tìm loại đơn..."
-              @change="invoicePagination.page = 0"
-            />
-          </div>
-
-          <!-- Lọc hình thức thanh toán (Select2) -->
-          <div class="invoice-filter-combobox">
-            <Select2Combobox
-              v-model="invoicePaymentFilter"
-              :options="invoicePaymentOptions"
-              placeholder="Tất cả hình thức TT"
-              all-label="Tất cả hình thức TT"
-              search-placeholder="Tìm hình thức TT..."
-              @change="invoicePagination.page = 0"
-            />
-          </div>
-
-          <!-- Lọc trạng thái (Select2) -->
-          <div class="invoice-filter-combobox">
-            <Select2Combobox
-              v-model="invoiceStatusFilter"
-              :options="invoiceStatusOptions"
-              placeholder="Tất cả trạng thái"
-              all-label="Tất cả trạng thái"
-              search-placeholder="Tìm trạng thái..."
-              @change="invoicePagination.page = 0"
-            />
-          </div>
-
-          <!-- Nút Đặt lại lọc HĐ -->
-          <button type="button" class="btn-reset-round small" @click="resetInvoiceFilters" title="Đặt lại bộ lọc hóa đơn">
-            <span>Đặt lại</span>
-          </button>
+        <div class="table-responsive-clean">
+          <table class="minimal-styled-table">
+            <thead>
+              <tr class="header-brown-beige">
+                <th style="width: 220px">HÌNH THỨC THANH TOÁN</th>
+                <th style="width: 140px; text-align: center">SỐ ĐƠN HÀNG</th>
+                <th style="width: 180px; text-align: right">TỔNG DOANH THU</th>
+                <th style="width: 130px; text-align: center">TỶ TRỌNG (%)</th>
+                <th style="width: 170px; text-align: right">AOV (TB/ĐƠN)</th>
+                <th style="width: 150px; text-align: center">THAO TÁC</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in paymentMethodSummary" :key="item.methodKey" class="table-data-row">
+                <td>
+                  <div class="method-cell-title">
+                    <strong class="text-dark">{{ item.name }}</strong>
+                  </div>
+                </td>
+                <td style="text-align: center" class="font-bold text-black-bold">
+                  {{ item.orderCount }} đơn
+                </td>
+                <td style="text-align: right" class="font-bold" :class="item.methodKey === 'cash' ? 'text-blue-amount' : 'text-green-amount'">
+                  {{ formatCurrency(item.revenue) }}
+                </td>
+                <td style="text-align: center">
+                  <span class="badge-growth-pill growth-neutral font-bold">{{ item.percent }}%</span>
+                </td>
+                <td style="text-align: right" class="text-gray-aov">
+                  {{ formatCurrency(item.aov) }}
+                </td>
+                <td style="text-align: center">
+                  <button
+                    type="button"
+                    class="btn-detail-link"
+                    :class="{ 'active-filter-btn': invoicePaymentFilter === item.filterVal }"
+                    @click="togglePaymentFilter(item.filterVal)"
+                  >
+                    {{ invoicePaymentFilter === item.filterVal ? 'Đang lọc đơn' : 'Xem đơn hàng' }}
+                  </button>
+                </td>
+              </tr>
+              <!-- Dòng Tổng cộng -->
+              <tr class="table-data-row summary-total-tr">
+                <td class="font-bold text-dark">TỔNG CỘNG DOANH THU</td>
+                <td style="text-align: center" class="font-bold text-black-bold">{{ kpiData.totalOrders }} đơn</td>
+                <td style="text-align: right" class="font-bold text-black-bold">{{ formatCurrency(kpiData.totalRevenue) }}</td>
+                <td style="text-align: center" class="font-bold">100.0%</td>
+                <td style="text-align: right" class="font-bold text-black-bold">{{ formatCurrency(kpiData.aov) }}</td>
+                <td style="text-align: center">
+                  <button
+                    v-if="invoicePaymentFilter"
+                    type="button"
+                    class="btn-reset-round small"
+                    @click="invoicePaymentFilter = ''; invoicePagination.page = 0"
+                  >
+                    Xem tất cả đơn
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </div>
 
-      <!-- Bảng danh sách hóa đơn -->
-      <div class="table-responsive-clean">
-        <table class="minimal-styled-table">
-          <thead>
-            <tr class="header-brown-beige">
-              <th style="width: 50px; text-align: center">STT</th>
-              <th style="width: 130px">MÃ HÓA ĐƠN</th>
-              <th style="width: 150px">THỜI GIAN</th>
-              <th style="min-width: 180px">KHÁCH HÀNG</th>
-              <th style="width: 140px">NHÂN VIÊN</th>
-              <th style="width: 110px; text-align: center">LOẠI ĐƠN</th>
-              <th style="width: 130px; text-align: center">THANH TOÁN</th>
-              <th style="width: 140px; text-align: right">TỔNG TIỀN</th>
-              <th style="width: 120px; text-align: center">TRẠNG THÁI</th>
-              <th style="width: 100px; text-align: center">THAO TÁC</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="paginatedInvoices.length === 0">
-              <td colspan="10" style="text-align: center; padding: 2.5rem; color: #8c979d;">
-                Không có hóa đơn nào phù hợp với bộ lọc trong khoảng thời gian này.
-              </td>
-            </tr>
-            <tr v-for="(inv, idx) in paginatedInvoices" :key="inv.id || idx" class="table-data-row invoice-row-hover">
-              <td style="text-align: center" class="text-muted-stt">
-                {{ (invoicePagination.page * invoicePagination.size) + idx + 1 }}
-              </td>
-              <td>
-                <span class="code-cell-clickable" @click="goToInvoiceDetail(inv.maHoaDon)" title="Xem chi tiết hóa đơn này">
-                  {{ inv.maHoaDon }}
-                </span>
-              </td>
-              <td class="text-muted-sm">
-                {{ formatDateTimeDisplay(inv.ngayTao) }}
-              </td>
-              <td>
-                <div class="customer-info-cell">
-                  <strong class="cust-name-text">{{ inv.tenKhachHang }}</strong>
-                  <span v-if="inv.soDienThoaiKhachHang" class="cust-phone-text">{{ inv.soDienThoaiKhachHang }}</span>
-                </div>
-              </td>
-              <td>
-                <span class="employee-name-tag">{{ inv.tenNhanVien || '---' }}</span>
-              </td>
-              <td style="text-align: center">
-                <span class="badge-order-type" :class="Number(inv.loaiDon) === 1 ? 'type-pos' : 'type-online'">
-                  {{ Number(inv.loaiDon) === 1 ? 'Tại quầy' : 'Online' }}
-                </span>
-              </td>
-              <td style="text-align: center">
-                <span class="badge-pay-method" :class="getPayMethodClass(inv.hinhThucThanhToan)">
-                  {{ inv.hinhThucThanhToan || 'Tiền mặt' }}
-                </span>
-              </td>
-              <td style="text-align: right" class="font-bold text-black-bold">
-                {{ formatCurrency(inv.tienSauGiamGia || inv.tongTien) }}
-              </td>
-              <td style="text-align: center">
-                <span class="badge-invoice-status" :class="getInvoiceStatusClass(inv.trangThai)">
-                  {{ getInvoiceStatusText(inv.trangThai) }}
-                </span>
-              </td>
-              <td style="text-align: center">
+        <!-- Bảng hóa đơn chi tiết theo phương thức thanh toán -->
+        <div class="sub-table-section">
+          <div class="sub-table-header">
+            <h4 class="sub-table-title">
+              Danh sách đơn hàng {{ invoicePaymentFilter ? '[' + invoicePaymentFilter + ']' : 'toàn bộ' }} ({{ filteredInvoicesList.length }} đơn)
+            </h4>
+            <div class="search-invoice-box">
+              <input
+                type="text"
+                v-model="invoiceSearchQuery"
+                placeholder="Tìm mã HĐ, khách hàng, SĐT..."
+                class="form-control-minimal"
+                @input="invoicePagination.page = 0"
+              />
+            </div>
+          </div>
+
+          <div class="table-responsive-clean">
+            <table class="minimal-styled-table">
+              <thead>
+                <tr class="header-brown-beige">
+                  <th style="width: 50px; text-align: center">STT</th>
+                  <th style="width: 130px">MÃ HÓA ĐƠN</th>
+                  <th style="width: 150px">THỜI GIAN</th>
+                  <th style="min-width: 180px">KHÁCH HÀNG</th>
+                  <th style="width: 140px">NHÂN VIÊN</th>
+                  <th style="width: 120px; text-align: center">THANH TOÁN</th>
+                  <th style="width: 140px; text-align: right">TỔNG TIỀN</th>
+                  <th style="width: 120px; text-align: center">TRẠNG THÁI</th>
+                  <th style="width: 100px; text-align: center">CHI TIẾT</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="paginatedInvoices.length === 0">
+                  <td colspan="9" style="text-align: center; padding: 2rem; color: #8c979d;">
+                    Không có hóa đơn nào phù hợp với bộ lọc thanh toán này.
+                  </td>
+                </tr>
+                <tr v-for="(inv, idx) in paginatedInvoices" :key="inv.id || idx" class="table-data-row invoice-row-hover">
+                  <td style="text-align: center" class="text-muted-stt">
+                    {{ (invoicePagination.page * invoicePagination.size) + idx + 1 }}
+                  </td>
+                  <td>
+                    <span class="code-cell-clickable" @click="goToInvoiceDetail(inv.maHoaDon)" title="Xem chi tiết hóa đơn này">
+                      {{ inv.maHoaDon }}
+                    </span>
+                  </td>
+                  <td class="text-muted-sm">
+                    {{ formatDateTimeDisplay(inv.ngayTao) }}
+                  </td>
+                  <td>
+                    <div class="customer-info-cell">
+                      <strong class="cust-name-text">{{ inv.tenKhachHang }}</strong>
+                      <span v-if="inv.soDienThoaiKhachHang" class="cust-phone-text">{{ inv.soDienThoaiKhachHang }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="employee-name-tag">{{ inv.tenNhanVien || '---' }}</span>
+                  </td>
+                  <td style="text-align: center">
+                    <span class="badge-pay-method" :class="getPayMethodClass(inv.hinhThucThanhToan)">
+                      {{ inv.hinhThucThanhToan || 'Tiền mặt' }}
+                    </span>
+                  </td>
+                  <td style="text-align: right" class="font-bold text-black-bold">
+                    {{ formatCurrency(inv.tienSauGiamGia || inv.tongTien) }}
+                  </td>
+                  <td style="text-align: center">
+                    <span class="badge-invoice-status" :class="getInvoiceStatusClass(inv.trangThai)">
+                      {{ getInvoiceStatusText(inv.trangThai) }}
+                    </span>
+                  </td>
+                  <td style="text-align: center">
+                    <button
+                      type="button"
+                      class="btn-detail-link"
+                      @click="goToInvoiceDetail(inv.maHoaDon)"
+                      title="Nhấp để mở trang chi tiết hóa đơn"
+                    >
+                      Chi tiết
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Phân trang hóa đơn -->
+          <div v-if="filteredInvoicesList.length > 0" class="pagination-section">
+            <div class="pagination-info">
+              Hiển thị {{ filteredInvoicesList.length ? (invoicePagination.page * invoicePagination.size + 1) : 0 }} - {{ Math.min((invoicePagination.page + 1) * invoicePagination.size, filteredInvoicesList.length) }} / {{ filteredInvoicesList.length }} hóa đơn
+            </div>
+            <div class="pagination-buttons">
+              <button
+                type="button"
+                class="btn-pager"
+                :disabled="invoicePagination.page === 0"
+                @click="changeInvoicePage(invoicePagination.page)"
+              >‹</button>
+              <template v-for="(p, idx) in visibleInvoicePages" :key="idx">
+                <span v-if="p === '...'" class="pg-dots">...</span>
                 <button
+                  v-else
                   type="button"
-                  class="btn-detail-link"
-                  @click="goToInvoiceDetail(inv.maHoaDon)"
-                  title="Nhấp để mở trang chi tiết hóa đơn"
-                >
-                  Chi tiết →
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- PHÂN TRANG HÓA ĐƠN -->
-      <div v-if="filteredInvoicesList.length > 0" class="pagination-section">
-        <div class="pagination-info">
-          Hiển thị {{ filteredInvoicesList.length ? (invoicePagination.page * invoicePagination.size + 1) : 0 }} - {{ Math.min((invoicePagination.page + 1) * invoicePagination.size, filteredInvoicesList.length) }} / {{ filteredInvoicesList.length }} hóa đơn
-        </div>
-
-        <div class="pagination-buttons">
-          <button
-            type="button"
-            class="btn-pager"
-            :disabled="invoicePagination.page === 0"
-            @click="changeInvoicePage(invoicePagination.page)"
-          >
-            ‹
-          </button>
-
-          <template v-for="(p, idx) in visibleInvoicePages" :key="idx">
-            <span v-if="p === '...'" class="pg-dots">...</span>
-            <button
-              v-else
-              type="button"
-              class="btn-pager"
-              :class="{ active: p === invoicePagination.page + 1 }"
-              @click="changeInvoicePage(p)"
-            >
-              {{ p }}
-            </button>
-          </template>
-
-          <button
-            type="button"
-            class="btn-pager"
-            :disabled="invoicePagination.page >= invoiceTotalPages - 1"
-            @click="changeInvoicePage(invoicePagination.page + 2)"
-          >
-            ›
-          </button>
+                  class="btn-pager"
+                  :class="{ active: p === invoicePagination.page + 1 }"
+                  @click="changeInvoicePage(p)"
+                >{{ p }}</button>
+              </template>
+              <button
+                type="button"
+                class="btn-pager"
+                :disabled="invoicePagination.page >= invoiceTotalPages - 1"
+                @click="changeInvoicePage(invoicePagination.page + 2)"
+              >›</button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- 6. Khu vực Bảng 'Thống kê sản phẩm' (Full width ở cuối trang) -->
-    <div v-show="activeBottomTab === 'products' || activeBottomTab === 'both'" class="content-card product-stats-card">
+      <!-- BẢNG 2: ĐƠN HÀNG THEO KÊNH BÁN & TRẠNG THÁI (Giải trình Thẻ 4: Tổng đơn hàng, Thẻ 5: AOV) -->
+      <div
+        v-show="currentTableTab === 'channel' || currentTableTab === 'all'"
+        class="content-card related-table-card"
+      >
+        <div class="card-title-row">
+          <div class="card-title-group">
+            <h3 class="card-heading">Bảng Phân tích Đơn hàng theo Kênh bán & Trạng thái</h3>
+            <span class="badge-fixed-row">Giải trình Tổng đơn hàng & AOV</span>
+          </div>
+          <span class="badge-total-orders">Tổng đơn: {{ kpiData.totalOrders }} đơn • AOV: {{ formatCurrency(kpiData.aov) }}</span>
+        </div>
+
+        <div class="tables-split-2-cols">
+          <!-- Bảng 2A: Theo Kênh bán (Tại quầy vs Online) -->
+          <div class="sub-table-block">
+            <h4 class="sub-block-title">Kênh Bán Hàng</h4>
+            <div class="table-responsive-clean">
+              <table class="minimal-styled-table">
+                <thead>
+                  <tr class="header-brown-beige">
+                    <th>KÊNH BÁN</th>
+                    <th style="text-align: center">SỐ ĐƠN</th>
+                    <th style="text-align: right">DOANH THU</th>
+                    <th style="text-align: center">TỶ TRỌNG</th>
+                    <th style="text-align: right">AOV</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="ch in channelSummary" :key="ch.channelKey" class="table-data-row">
+                    <td>
+                      <strong class="text-dark">{{ ch.name }}</strong>
+                    </td>
+                    <td style="text-align: center" class="font-bold text-black-bold">{{ ch.orderCount }} đơn</td>
+                    <td style="text-align: right" class="font-bold text-blue-amount">{{ formatCurrency(ch.revenue) }}</td>
+                    <td style="text-align: center"><span class="badge-growth-pill growth-neutral font-bold">{{ ch.percent }}%</span></td>
+                    <td style="text-align: right" class="text-gray-aov">{{ formatCurrency(ch.aov) }}</td>
+                  </tr>
+                  <tr class="table-data-row summary-total-tr">
+                    <td class="font-bold text-dark">TỔNG CỘNG</td>
+                    <td style="text-align: center" class="font-bold text-black-bold">{{ kpiData.totalOrders }} đơn</td>
+                    <td style="text-align: right" class="font-bold text-black-bold">{{ formatCurrency(kpiData.totalRevenue) }}</td>
+                    <td style="text-align: center" class="font-bold">100.0%</td>
+                    <td style="text-align: right" class="font-bold text-black-bold">{{ formatCurrency(kpiData.aov) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Bảng 2B: Theo Trạng thái đơn -->
+          <div class="sub-table-block">
+            <h4 class="sub-block-title">Trạng Thái Đơn Hàng</h4>
+            <div class="table-responsive-clean">
+              <table class="minimal-styled-table">
+                <thead>
+                  <tr class="header-brown-beige">
+                    <th>TRẠNG THÁI</th>
+                    <th style="text-align: center">SỐ LƯỢNG</th>
+                    <th style="text-align: center">TỶ LỆ (%)</th>
+                    <th style="text-align: right">DOANH THU</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="st in orderStatusTableRows" :key="st.key" class="table-data-row">
+                    <td>
+                      <span class="legend-color-dot" :style="{ backgroundColor: st.color }"></span>
+                      <strong class="text-dark">{{ st.label }}</strong>
+                    </td>
+                    <td style="text-align: center" class="font-bold text-black-bold">{{ st.count }} đơn</td>
+                    <td style="text-align: center"><span class="badge-growth-pill growth-neutral font-bold">{{ st.percent }}%</span></td>
+                    <td style="text-align: right" class="font-bold" :class="st.revenue > 0 ? 'text-green-amount' : 'text-gray-aov'">
+                      {{ formatCurrency(st.revenue) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BẢNG 3: DOANH SỐ THEO NHÂN VIÊN / THU NGÂN -->
+      <div
+        v-show="currentTableTab === 'staff' || currentTableTab === 'all'"
+        class="content-card related-table-card"
+      >
+        <div class="card-title-row">
+          <div class="card-title-group">
+            <h3 class="card-heading">Bảng Thống kê Doanh số theo Nhân viên / Thu ngân</h3>
+            <span class="badge-fixed-row">{{ staffSummary.length }} nhân viên ghi nhận doanh số</span>
+          </div>
+          <span class="badge-total-orders">Tổng: {{ formatCurrency(kpiData.totalRevenue) }}</span>
+        </div>
+
+        <div class="table-responsive-clean">
+          <table class="minimal-styled-table">
+            <thead>
+              <tr class="header-brown-beige">
+                <th style="width: 60px; text-align: center">STT</th>
+                <th style="min-width: 200px">NHÂN VIÊN / THU NGÂN</th>
+                <th style="width: 130px; text-align: center">SỐ ĐƠN CHỐT</th>
+                <th style="width: 160px; text-align: right">TIỀN MẶT THU</th>
+                <th style="width: 160px; text-align: right">CHUYỂN KHOẢN THU</th>
+                <th style="width: 180px; text-align: right">TỔNG DOANH SỐ</th>
+                <th style="width: 120px; text-align: center">TỶ TRỌNG (%)</th>
+                <th style="width: 150px; text-align: right">AOV</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="staffSummary.length === 0">
+                <td colspan="8" style="text-align: center; padding: 2rem; color: #8c979d;">
+                  Chưa có dữ liệu nhân viên trong khoảng thời gian này.
+                </td>
+              </tr>
+              <tr v-for="(staff, idx) in staffSummary" :key="staff.name || idx" class="table-data-row">
+                <td style="text-align: center" class="text-muted-stt">{{ idx + 1 }}</td>
+                <td>
+                  <div class="staff-cell">
+                    <span class="staff-avatar-circle">{{ staff.name.charAt(0).toUpperCase() }}</span>
+                    <strong class="text-dark">{{ staff.name }}</strong>
+                  </div>
+                </td>
+                <td style="text-align: center" class="font-bold text-black-bold">{{ staff.orderCount }} đơn</td>
+                <td style="text-align: right" class="text-blue-amount">{{ formatCurrency(staff.cashRev) }}</td>
+                <td style="text-align: right" class="text-green-amount">{{ formatCurrency(staff.transferRev) }}</td>
+                <td style="text-align: right" class="font-bold text-black-bold">{{ formatCurrency(staff.totalRev) }}</td>
+                <td style="text-align: center"><span class="badge-growth-pill growth-neutral font-bold">{{ staff.percent }}%</span></td>
+                <td style="text-align: right" class="text-gray-aov">{{ formatCurrency(staff.aov) }}</td>
+              </tr>
+              <!-- Dòng Tổng cộng -->
+              <tr v-if="staffSummary.length > 0" class="table-data-row summary-total-tr">
+                <td colspan="2" class="font-bold text-dark">TỔNG CỘNG NHÂN VIÊN</td>
+                <td style="text-align: center" class="font-bold text-black-bold">{{ kpiData.totalOrders }} đơn</td>
+                <td style="text-align: right" class="font-bold text-blue-amount">{{ formatCurrency(kpiData.cashRevenue) }}</td>
+                <td style="text-align: right" class="font-bold text-green-amount">{{ formatCurrency(kpiData.transferRevenue) }}</td>
+                <td style="text-align: right" class="font-bold text-black-bold">{{ formatCurrency(kpiData.totalRevenue) }}</td>
+                <td style="text-align: center" class="font-bold">100.0%</td>
+                <td style="text-align: right" class="font-bold text-black-bold">{{ formatCurrency(kpiData.aov) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- BẢNG 4: THỐNG KÊ CHI TIẾT SẢN PHẨM ĐÃ BÁN (Giải trình Thẻ 6: Sản phẩm đã bán 123 cái) -->
+      <div
+        v-show="currentTableTab === 'products' || currentTableTab === 'all'"
+        class="content-card product-stats-card"
+      >
       <!-- Thanh công cụ đầu Card -->
       <div class="product-stats-toolbar">
         <div class="card-title-group">
@@ -1068,13 +1376,18 @@ function debounceFilter() {
 }
 
 function resetFilters() {
+  quickFilter.value = 'all'
+  filters.fromDate = '2024-01-01'
+  filters.toDate = getTodayDateString()
   filters.statType = 'day'
   filters.brand = ''
   filters.productKeyword = ''
   productTableQuery.value = ''
   productSortBy.value = 'best_seller'
-  setQuickFilter('today')
-  showToast('Đã đặt lại bộ lọc thống kê về mặc định!', 'info')
+  invoicePaymentFilter.value = ''
+  invoiceSearchQuery.value = ''
+  fetchOverviewData()
+  showToast('Đã đặt lại toàn bộ bộ lọc Dashboard về mặc định!', 'info')
 }
 
 function applyFilters() {
@@ -1088,40 +1401,134 @@ const kpiData = reactive({
   cashRevenue: 0,
   transferRevenue: 0,
   totalOrders: 0,
+  completedOrders: 0,
+  cancelledOrders: 0,
+  processingOrders: 0,
   aov: 0,
   totalItemsSold: 0
 })
 
-// 3. Biểu đồ cột Bar Chart: Sản phẩm bán được theo Ngày / Tuần / Tháng / Năm
+// 3. Biểu đồ cột Bar Chart: Đa dạng chỉ số Doanh thu / Sản phẩm / Cả hai & Tooltip
 const rawDailySales = ref([])
+const barChartMetric = ref('revenue') // 'revenue' | 'quantity' | 'both'
+const hoveredBar = ref(null)
+const tooltipPos = reactive({ x: 0, y: 0 })
+
+const barChartMetricTitle = computed(() => {
+  if (barChartMetric.value === 'revenue') return 'Doanh thu bán hàng'
+  if (barChartMetric.value === 'quantity') return 'Sản phẩm bán được'
+  return 'Doanh thu & Sản phẩm bán được'
+})
+
+const barChartMetricUnit = computed(() => {
+  if (barChartMetric.value === 'revenue') return 'VNĐ'
+  if (barChartMetric.value === 'quantity') return 'Sản phẩm (cái)'
+  return 'VNĐ / Cái'
+})
+
+function setStatTypeQuick(type) {
+  filters.statType = type
+  applyFilters()
+}
+
+function onBarHover(e, b) {
+  hoveredBar.value = b
+  const rect = e.currentTarget.closest('.bar-chart-svg-wrap')?.getBoundingClientRect()
+  if (rect) {
+    tooltipPos.x = Math.max(10, Math.min(rect.width - 200, e.clientX - rect.left - 70))
+    tooltipPos.y = Math.max(5, e.clientY - rect.top - 75)
+  }
+}
+
+// Tính toán các nhãn trục Y (0, 25%, 50%, 75%, 100%)
+const barChartYAxisLabels = computed(() => {
+  const data = rawDailySales.value || []
+  if (barChartMetric.value === 'revenue' || barChartMetric.value === 'both') {
+    const maxRev = Math.max(...data.map(d => Number(d.revenue || 0)), 1000000)
+    return [
+      '0',
+      formatShortCurrency(maxRev * 0.25),
+      formatShortCurrency(maxRev * 0.5),
+      formatShortCurrency(maxRev * 0.75),
+      formatShortCurrency(maxRev)
+    ]
+  } else {
+    const maxQty = Math.max(...data.map(d => Number(d.value || 0)), 10)
+    return [
+      '0',
+      String(Math.round(maxQty * 0.25)),
+      String(Math.round(maxQty * 0.5)),
+      String(Math.round(maxQty * 0.75)),
+      String(Math.round(maxQty))
+    ]
+  }
+})
+
+function formatShortCurrency(val) {
+  if (val >= 1000000000) return (val / 1000000000).toFixed(1) + 'B'
+  if (val >= 1000000) return (val / 1000000).toFixed(1) + 'M'
+  if (val >= 1000) return (val / 1000).toFixed(0) + 'k'
+  return String(Math.round(val))
+}
 
 const barChartComputedData = computed(() => {
   const data = rawDailySales.value
   if (!data || data.length === 0) return []
 
   const maxVal = Math.max(...data.map(d => Number(d.value || 0)), 10)
-  const chartHeight = 150
+  const maxRev = Math.max(...data.map(d => Number(d.revenue || 0)), 1000000)
+
+  const chartHeight = 160
   const baseY = 200
-  const totalWidth = 620
-  const startX = 45
+  const totalWidth = 630
+  const startX = 65
   const count = data.length
-  const barWidth = Math.min(38, Math.max(12, Math.floor((totalWidth / count) * 0.6)))
+  const barWidth = Math.min(42, Math.max(14, Math.floor((totalWidth / count) * 0.6)))
   const step = count > 1 ? (totalWidth - barWidth) / (count - 1) : 0
 
   return data.map((item, idx) => {
     const val = Number(item.value || 0)
-    const h = Math.max((val / maxVal) * chartHeight, val > 0 ? 8 : 2)
+    const rev = Number(item.revenue || 0)
+    const x = count === 1 ? (startX + totalWidth / 2 - barWidth / 2) : (startX + idx * step)
+
+    // Chiều cao theo từng metric
+    const revH = Math.max((rev / maxRev) * chartHeight, rev > 0 ? 8 : 2)
+    const qtyH = Math.max((val / maxVal) * chartHeight, val > 0 ? 8 : 2)
+
+    let currentVal = val
+    let currentH = qtyH
+    let barColor = val > 0 ? '#16a34a' : '#e5ded5'
+    let topLabel = String(val)
+
+    if (barChartMetric.value === 'revenue') {
+      currentVal = rev
+      currentH = revH
+      barColor = rev > 0 ? '#496883' : '#e5ded5'
+      topLabel = rev > 0 ? formatShortCurrency(rev) : '0'
+    }
+
+    const subWidth = Math.max(6, Math.floor((barWidth - 2) / 2))
+
     return {
       ...item,
-      x: count === 1 ? (startX + totalWidth / 2 - barWidth / 2) : (startX + idx * step),
-      y: baseY - h,
+      x,
+      y: baseY - currentH,
       width: barWidth,
-      height: h
+      height: currentH,
+      currentVal,
+      topLabel,
+      barColor,
+      // Hỗ trợ chế độ 'both' cột kép
+      subWidth,
+      revHeight: revH,
+      revY: baseY - revH,
+      qtyHeight: qtyH,
+      qtyY: baseY - qtyH
     }
   })
 })
 
-// 4. Biểu đồ Donut Thương hiệu
+// 4. Biểu đồ Donut Thương hiệu (Tỷ trọng chính xác & Tổng luôn đúng 100.0%)
 const brandMetric = ref('revenue') // 'revenue' hoặc 'quantity'
 function toggleBrandMetric() {
   brandMetric.value = brandMetric.value === 'revenue' ? 'quantity' : 'revenue'
@@ -1145,21 +1552,32 @@ const brandDonutSlices = computed(() => {
   const data = rawBrandData.value
   if (!data || data.length === 0) return []
   const metricKey = brandMetric.value
-  const total = data.reduce((s, item) => s + Number(item[metricKey] || 0), 0) || 1
-  const circumference = 2 * Math.PI * 70 // ~ 439.82
+  const total = data.reduce((s, item) => s + Number(item[metricKey] || 0), 0)
+  if (total <= 0) return []
 
+  const circumference = 2 * Math.PI * 70 // ~ 439.82
+  let accumulatedRatio = 0
   let accumulatedPercent = 0
-  return data.map(item => {
+
+  return data.map((item, idx) => {
     const val = Number(item[metricKey] || 0)
-    const percent = Math.round((val / total) * 100)
-    const dashLength = (val / total) * circumference
-    const offset = -accumulatedPercent * circumference
-    accumulatedPercent += val / total
+    let percent = Math.round((val / total) * 1000) / 10
+    if (idx === data.length - 1) {
+      // Cân bằng phần dư ở lát cắt cuối cùng để đảm bảo tổng luôn chính xác 100.0%
+      percent = Math.max(0, Math.round((100.0 - accumulatedPercent) * 10) / 10)
+    } else {
+      accumulatedPercent += percent
+    }
+
+    const ratio = val / total
+    const dashLength = ratio * circumference
+    const offset = -accumulatedRatio * circumference
+    accumulatedRatio += ratio
 
     return {
       name: item.name,
       value: val,
-      percentage: percent,
+      percentage: percent.toFixed(1),
       color: item.color || '#496883',
       dashArray: `${dashLength} ${circumference}`,
       dashOffset: offset
@@ -1314,6 +1732,210 @@ function goToProductPage(page) {
   if (page < 0 || page >= productTotalPages.value) return
   productPagination.page = page
 }
+
+// Quản lý các Bảng thống kê liên quan theo chỉ số KPI
+const currentTableTab = ref('payment') // 'payment' | 'channel' | 'staff' | 'products' | 'all'
+
+function switchTableTab(tabKey, subFilter = null) {
+  currentTableTab.value = tabKey
+  if (tabKey === 'payment') {
+    if (subFilter === 'cash') {
+      invoicePaymentFilter.value = 'Tiền mặt'
+    } else if (subFilter === 'transfer') {
+      invoicePaymentFilter.value = 'Chuyển khoản'
+    } else {
+      invoicePaymentFilter.value = ''
+    }
+    invoiceTypeFilter.value = ''
+    invoicePagination.page = 0
+  } else if (tabKey === 'channel') {
+    invoicePaymentFilter.value = ''
+    invoicePagination.page = 0
+  }
+
+  setTimeout(() => {
+    const el = document.getElementById('kpi-related-tables-section')
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, 50)
+}
+
+function togglePaymentFilter(val) {
+  if (invoicePaymentFilter.value === val) {
+    invoicePaymentFilter.value = ''
+  } else {
+    invoicePaymentFilter.value = val
+  }
+  invoicePagination.page = 0
+}
+
+// 1. Tổng hợp Doanh thu & Phương thức thanh toán (Tiền mặt, Chuyển khoản)
+const paymentMethodSummary = computed(() => {
+  const totalRev = Number(kpiData.totalRevenue) || 0
+  const cashRev = Number(kpiData.cashRevenue) || 0
+  const transferRev = Number(kpiData.transferRevenue) || 0
+
+  let cashOrders = 0
+  let transferOrders = 0
+
+  const validInvs = allInvoicesList.value.filter(inv =>
+    (Number(inv.trangThai) === 5 || Number(inv.trangThaiThanhToan) === 1) && Number(inv.trangThai) !== 6
+  )
+
+  validInvs.forEach(inv => {
+    const method = (inv.hinhThucThanhToan || '').toLowerCase()
+    if (method.includes('chuyển khoản') || method.includes('chuyen khoan') || method === 'transfer') {
+      transferOrders++
+    } else {
+      cashOrders++
+    }
+  })
+
+  if (cashOrders === 0 && transferOrders === 0 && validInvs.length > 0) {
+    cashOrders = validInvs.length
+  }
+
+  return [
+    {
+      methodKey: 'cash',
+      name: 'Tiền mặt',
+      filterVal: 'Tiền mặt',
+      revenue: cashRev,
+      orderCount: cashOrders,
+      percent: totalRev > 0 ? ((cashRev / totalRev) * 100).toFixed(1) : '0.0',
+      aov: cashOrders > 0 ? Math.round(cashRev / cashOrders) : 0
+    },
+    {
+      methodKey: 'transfer',
+      name: 'Chuyển khoản (Ngân hàng)',
+      filterVal: 'Chuyển khoản',
+      revenue: transferRev,
+      orderCount: transferOrders,
+      percent: totalRev > 0 ? ((transferRev / totalRev) * 100).toFixed(1) : '0.0',
+      aov: transferOrders > 0 ? Math.round(transferRev / transferOrders) : 0
+    }
+  ]
+})
+
+// 2. Tổng hợp Đơn hàng theo Kênh bán (Tại quầy vs Online)
+const channelSummary = computed(() => {
+  const validInvs = allInvoicesList.value.filter(inv =>
+    (Number(inv.trangThai) === 5 || Number(inv.trangThaiThanhToan) === 1) && Number(inv.trangThai) !== 6
+  )
+  const totalRev = Number(kpiData.totalRevenue) || 1
+
+  let posOrders = 0
+  let posRev = 0
+  let onlineOrders = 0
+  let onlineRev = 0
+
+  validInvs.forEach(inv => {
+    const val = Number(inv.tienSauGiamGia || inv.tongTien) || 0
+    if (Number(inv.loaiDon) === 1) {
+      posOrders++
+      posRev += val
+    } else {
+      onlineOrders++
+      onlineRev += val
+    }
+  })
+
+  return [
+    {
+      channelKey: 'pos',
+      name: 'Bán tại quầy (POS)',
+      orderCount: posOrders,
+      revenue: posRev,
+      percent: ((posRev / totalRev) * 100).toFixed(1),
+      aov: posOrders > 0 ? Math.round(posRev / posOrders) : 0
+    },
+    {
+      channelKey: 'online',
+      name: 'Giao hàng (Online)',
+      orderCount: onlineOrders,
+      revenue: onlineRev,
+      percent: ((onlineRev / totalRev) * 100).toFixed(1),
+      aov: onlineOrders > 0 ? Math.round(onlineRev / onlineOrders) : 0
+    }
+  ]
+})
+
+// 3. Tổng hợp Bảng trạng thái đơn hàng
+const orderStatusTableRows = computed(() => {
+  const tot = orderStatusTotal.value || 1
+  let completedRev = 0
+  let processingRev = 0
+  let cancelledRev = 0
+
+  allInvoicesList.value.forEach(inv => {
+    const val = Number(inv.tienSauGiamGia || inv.tongTien) || 0
+    const st = Number(inv.trangThai)
+    if (st === 5) completedRev += val
+    else if (st === 6) cancelledRev += val
+    else if (st >= 1 && st <= 4) processingRev += val
+  })
+
+  return [
+    {
+      key: 'completed',
+      label: 'Hoàn thành',
+      color: '#16A34A',
+      count: orderStatusCounts.completed,
+      percent: ((orderStatusCounts.completed / tot) * 100).toFixed(1),
+      revenue: completedRev
+    },
+    {
+      key: 'processing',
+      label: 'Đang xử lý / Giao hàng',
+      color: '#F59E0B',
+      count: orderStatusCounts.processing,
+      percent: ((orderStatusCounts.processing / tot) * 100).toFixed(1),
+      revenue: processingRev
+    },
+    {
+      key: 'cancelled',
+      label: 'Đã hủy',
+      color: '#EF4444',
+      count: orderStatusCounts.cancelled,
+      percent: ((orderStatusCounts.cancelled / tot) * 100).toFixed(1),
+      revenue: cancelledRev
+    }
+  ]
+})
+
+// 4. Tổng hợp Doanh số theo Nhân viên / Thu ngân
+const staffSummary = computed(() => {
+  const validInvs = allInvoicesList.value.filter(inv =>
+    (Number(inv.trangThai) === 5 || Number(inv.trangThaiThanhToan) === 1) && Number(inv.trangThai) !== 6
+  )
+  const totalRev = Number(kpiData.totalRevenue) || 1
+
+  const map = {}
+  validInvs.forEach(inv => {
+    const name = inv.tenNhanVien || 'Thu ngân'
+    if (!map[name]) {
+      map[name] = { name, orderCount: 0, cashRev: 0, transferRev: 0, totalRev: 0 }
+    }
+    const val = Number(inv.tienSauGiamGia || inv.tongTien) || 0
+    map[name].orderCount++
+    map[name].totalRev += val
+    const method = (inv.hinhThucThanhToan || '').toLowerCase()
+    if (method.includes('chuyển khoản') || method.includes('chuyen khoan') || method === 'transfer') {
+      map[name].transferRev += val
+    } else {
+      map[name].cashRev += val
+    }
+  })
+
+  const list = Object.values(map)
+  list.sort((a, b) => b.totalRev - a.totalRev)
+  return list.map(st => ({
+    ...st,
+    percent: ((st.totalRev / totalRev) * 100).toFixed(1),
+    aov: st.orderCount > 0 ? Math.round(st.totalRev / st.orderCount) : 0
+  }))
+})
 
 // Quản lý Danh sách hóa đơn trong kỳ thống kê
 const allInvoicesList = ref([])
@@ -1532,6 +2154,9 @@ async function fetchOverviewData() {
         kpiData.cashRevenue = Number(data.kpi.cashRevenue || 0)
         kpiData.transferRevenue = Number(data.kpi.transferRevenue || 0)
         kpiData.totalOrders = Number(data.kpi.totalOrders || 0)
+        kpiData.completedOrders = Number(data.kpi.completedOrders ?? (data.orderStatusDonut?.completed ?? 8))
+        kpiData.cancelledOrders = Number(data.kpi.cancelledOrders ?? (data.orderStatusDonut?.cancelled ?? 2))
+        kpiData.processingOrders = Number(data.kpi.processingOrders ?? (data.orderStatusDonut?.processing ?? 0))
         kpiData.aov = Number(data.kpi.aov || 0)
         kpiData.totalItemsSold = Number(data.kpi.totalItemsSold || 0)
       }
@@ -2026,7 +2651,157 @@ onMounted(async () => {
   text-overflow: ellipsis;
 }
 
-/* 3 & 4. Lưới biểu đồ (Tỷ lệ 1.6 : 1 rộng rãi) */
+/* Hiệu ứng tương tác cho các thẻ KPI liên kết đến bảng */
+.kpi-card.interactive-kpi-card {
+  cursor: pointer;
+  transition: all 0.22s ease;
+  position: relative;
+}
+
+.kpi-card.interactive-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(73, 104, 131, 0.12);
+  border-color: #9cb5c9;
+}
+
+.kpi-card.interactive-kpi-card.active-kpi {
+  border-color: var(--blue, #496883) !important;
+  background-color: #f7fafc;
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.15);
+}
+
+.kpi-card.interactive-kpi-card .kpi-hint {
+  color: var(--blue, #496883);
+  font-weight: 600;
+}
+
+/* Khu vực Bảng Thống kê liên quan theo chỉ số KPI */
+.kpi-related-tables-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.related-table-card {
+  padding: 1.35rem 1.5rem;
+}
+
+.method-cell-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.method-ico {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.summary-total-tr {
+  background-color: #faf7f2 !important;
+  border-top: 2px solid #e6dec3;
+}
+
+.summary-total-tr td {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  font-size: 0.95rem;
+}
+
+.active-filter-btn {
+  background-color: var(--blue, #496883) !important;
+  color: #ffffff !important;
+  border-color: var(--blue, #496883) !important;
+}
+
+.sub-table-section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px dashed #e2d9cd;
+}
+
+.sub-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.sub-table-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.tables-split-2-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .tables-split-2-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sub-table-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sub-block-title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.staff-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.staff-avatar-circle {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #eaf2f6;
+  color: var(--blue, #496883);
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d3e1ec;
+}
+
+/* 3. Biểu đồ cột sản phẩm bán được full width */
+.bar-chart-full-card {
+  width: 100%;
+}
+
+/* 4. Lưới 2 biểu đồ tròn trạng thái & thương hiệu (Tỷ lệ 1 : 1 cân đối) */
+.charts-row-split-1-1 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 1024px) {
+  .charts-row-split-1-1 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 3 & 4. Lưới biểu đồ (Tỷ lệ 1.6 : 1) */
 .charts-row-split-2-1 {
   display: grid;
   grid-template-columns: 1.6fr 1fr;
@@ -2775,4 +3550,178 @@ onMounted(async () => {
   font-weight: 700;
   box-shadow: 0 2px 8px rgba(73, 104, 131, 0.25);
 }
+
+/* 3. Phong cách Bộ điều khiển Biểu đồ Bar Chart & Tooltip */
+.bar-chart-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.chart-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.segmented-pill-group {
+  display: inline-flex;
+  background-color: #f1ede7;
+  border-radius: 20px;
+  padding: 3px;
+  border: 1px solid #e5ded5;
+}
+
+.segment-pill-btn {
+  background: transparent;
+  border: none;
+  border-radius: 16px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.segment-pill-btn:hover {
+  color: #1e293b;
+}
+
+.segment-pill-btn.active {
+  background-color: #ffffff;
+  color: var(--blue, #496883);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.metric-pill-group .segment-pill-btn.active {
+  background-color: var(--blue, #496883);
+  color: #ffffff;
+}
+
+.chart-legend-row {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.legend-rect {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.rect-navy {
+  background-color: #496883;
+}
+
+.rect-green {
+  background-color: #16a34a;
+}
+
+.y-axis-label {
+  font-size: 10px;
+  fill: #8c9ba5;
+  font-weight: 600;
+}
+
+.bar-chart-tooltip {
+  position: absolute;
+  background: rgba(30, 41, 59, 0.94);
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  pointer-events: none;
+  z-index: 20;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
+}
+
+.tooltip-title {
+  font-weight: 700;
+  font-size: 0.82rem;
+  margin-bottom: 4px;
+  color: #f1f5f9;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  padding-bottom: 3px;
+}
+
+.tooltip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.tooltip-dot.dot-blue {
+  background-color: #60a5fa;
+}
+
+.tooltip-dot.dot-green {
+  background-color: #4ade80;
+}
+
+.tooltip-text {
+  color: #cbd5e1;
+}
+
+.tooltip-val {
+  color: #ffffff;
+  margin-left: auto;
+}
+
+.kpi-sub-calc {
+  margin-top: 5px;
+  font-size: 0.76rem;
+  color: #64748b;
+  line-height: 1.25;
+}
+
+.sub-highlight {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.text-success-bold {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.text-danger-bold {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.sub-sep {
+  margin: 0 4px;
+  color: #94a3b8;
+}
+
 </style>

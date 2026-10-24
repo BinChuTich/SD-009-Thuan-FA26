@@ -104,12 +104,16 @@ public class ThongKeServiceImpl implements ThongKeService {
 
         // 5. Tính toán 6 Thẻ KPI tổng quan
         KpiDTO kpi = calculateKpis(validInvoices, filteredDetails, paymentsByInvoice, brandId, productKeyword);
+        kpi.setTotalOrders(allInvoices.size());
+        kpi.setCompletedOrders(orderStatusDonut.getCompleted());
+        kpi.setCancelledOrders(orderStatusDonut.getCancelled());
+        kpi.setProcessingOrders(orderStatusDonut.getProcessing());
 
         // 6. Biểu đồ cột: Sản phẩm bán được theo mốc thời gian
         List<BarChartItemDTO> barChart = buildBarChart(fromDate, toDate, statType, filteredDetails, zone);
 
-        // 7. Biểu đồ Donut: Thương hiệu
-        List<BrandDonutItemDTO> brandDonut = buildBrandDonut(validDetails);
+        // 7. Biểu đồ Donut: Thương hiệu (đảm bảo đồng bộ với bộ lọc)
+        List<BrandDonutItemDTO> brandDonut = buildBrandDonut(brandId != null ? filteredDetails : validDetails);
 
         // 8. Bảng tổng hợp 4 mốc thời gian (Hôm nay, Tuần này, Tháng này, Năm nay) kèm % Tăng trưởng
         List<TimeSummaryRowDTO> timeSummary = buildTimeSummary(zone);
@@ -117,8 +121,18 @@ public class ThongKeServiceImpl implements ThongKeService {
         // 9. Bảng Thống kê sản phẩm (STT, Mã, Tên, Thương hiệu, Size, Đã bán, Doanh thu, Tồn kho)
         List<ProductStatDTO> productStats = buildProductStats(filteredDetails, brandId, productKeyword);
 
-        // 10. Danh sách hóa đơn trong kỳ thống kê
-        List<InvoiceStatDTO> invoiceStats = buildInvoiceStats(allInvoices, paymentsByInvoice);
+        // 10. Danh sách hóa đơn trong kỳ thống kê (Đồng bộ theo bộ lọc)
+        List<HoaDon> displayedInvoices = allInvoices;
+        if (brandId != null || (productKeyword != null && !productKeyword.isBlank())) {
+            Set<Long> matchedInvoiceIds = filteredDetails.stream()
+                    .filter(d -> d.getIdHoaDon() != null)
+                    .map(d -> d.getIdHoaDon().getId())
+                    .collect(Collectors.toSet());
+            displayedInvoices = allInvoices.stream()
+                    .filter(h -> matchedInvoiceIds.contains(h.getId()))
+                    .toList();
+        }
+        List<InvoiceStatDTO> invoiceStats = buildInvoiceStats(displayedInvoices, paymentsByInvoice);
         ThongKeOverviewDTO overview = new ThongKeOverviewDTO(kpi, barChart, brandDonut, orderStatusDonut, timeSummary, productStats);
         overview.setInvoices(invoiceStats);
         return overview;

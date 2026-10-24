@@ -1442,6 +1442,42 @@ a {
     padding: 12px 14px !important;
     border-bottom: 2px solid var(--line, #e9e5db) !important;
     white-space: nowrap !important;
+    text-align: left;
+}
+
+.custom-table th.text-center,
+.pos-custom-table thead th.text-center,
+.table-styled th.text-center,
+.product-table th.text-center,
+.custom-table td.text-center,
+.pos-custom-table tbody td.text-center,
+.text-center,
+th.text-center,
+td.text-center {
+    text-align: center !important;
+}
+
+.custom-table th.text-right,
+.pos-custom-table thead th.text-right,
+.table-styled th.text-right,
+.product-table th.text-right,
+.custom-table td.text-right,
+.pos-custom-table tbody td.text-right,
+.text-right,
+th.text-right,
+td.text-right {
+    text-align: right !important;
+}
+
+.custom-table th.text-left,
+.pos-custom-table thead th.text-left,
+.table-styled th.text-left,
+.product-table th.text-left,
+.custom-table td.text-left,
+.pos-custom-table tbody td.text-left,
+.text-left,
+th.text-left,
+td.text-left {
     text-align: left !important;
 }
 
