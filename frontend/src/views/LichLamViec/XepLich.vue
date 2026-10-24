@@ -67,6 +67,19 @@
           </button>
         </div>
 
+        <!-- Phân ca hàng loạt -->
+        <button v-if="isAdmin()" type="button" class="btn-bulk-schedule" @click="openBulkModal" title="Phân ca hàng loạt cho nhân viên">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+            <line x1="12" y1="14" x2="12" y2="18" />
+            <line x1="10" y1="16" x2="14" y2="16" />
+          </svg>
+          <span>Phân ca hàng loạt</span>
+        </button>
+
         <!-- Xuất Template -->
         <button v-if="isAdmin()" type="button" class="btn-export-template" @click="downloadTemplate" title="Tải file mẫu Excel xếp lịch">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -398,10 +411,220 @@
       </div>
     </div>
   </div>
+    <!-- Modal Phân ca hàng loạt -->
+    <div v-if="showBulkModal" class="modal-backdrop-clean" @click.self="closeBulkModal">
+      <div class="modal-dialog-clean bulk-modal-dialog">
+        <!-- Header màu tối theo thiết kế -->
+        <div class="bulk-modal-header">
+          <div class="bulk-header-text">
+            <h3 class="bulk-modal-title">Phân ca hàng loạt</h3>
+            <p class="bulk-modal-subtitle">Chọn nhân viên, ca làm việc rồi tick ngày để thêm nhanh.</p>
+          </div>
+          <button type="button" class="bulk-btn-close" @click="closeBulkModal" title="Đóng">✕</button>
+        </div>
+
+        <div class="bulk-modal-body">
+          <!-- Cột trái: Cấu hình phân ca -->
+          <div class="bulk-left-col">
+            <!-- Chế độ -->
+            <div class="bulk-form-group">
+              <label class="bulk-field-label">Chế độ</label>
+              <div class="bulk-mode-toggle-group">
+                <button
+                  type="button"
+                  class="bulk-mode-toggle-btn"
+                  :class="{ active: bulkMode === 'week' }"
+                  @click="setBulkMode('week')"
+                >
+                  Theo tuần
+                </button>
+                <button
+                  type="button"
+                  class="bulk-mode-toggle-btn"
+                  :class="{ active: bulkMode === 'month' }"
+                  @click="setBulkMode('month')"
+                >
+                  Theo tháng
+                </button>
+              </div>
+            </div>
+
+            <!-- Chọn ngày/tháng mốc -->
+            <div class="bulk-form-group">
+              <label class="bulk-field-label">
+                {{ bulkMode === 'week' ? 'Chọn ngày mốc (tự lấy T2–CN)' : 'Chọn tháng' }}
+              </label>
+              <div class="bulk-input-icon-wrap">
+                <input
+                  v-if="bulkMode === 'week'"
+                  type="date"
+                  v-model="bulkAnchorDate"
+                  :min="todayYmd"
+                  class="bulk-control-input"
+                />
+                <input
+                  v-else
+                  type="month"
+                  v-model="bulkAnchorMonth"
+                  :min="todayYmd.substring(0, 7)"
+                  class="bulk-control-input"
+                />
+              </div>
+              <div v-if="bulkMode === 'week'" class="bulk-range-hint-text">
+                {{ bulkDateRangeLabel }}
+              </div>
+            </div>
+
+            <!-- Nhân viên * -->
+            <div class="bulk-form-group">
+              <label class="bulk-field-label">Nhân viên <span class="required-star">*</span></label>
+              <select v-model="bulkForm.nhanVienId" class="bulk-control-input">
+                <option value="">-- Chọn nhân viên --</option>
+                <option
+                  v-for="nv in activeEmployees"
+                  :key="nv.id"
+                  :value="nv.id"
+                >
+                  {{ nv.maNhanVien }} - {{ nv.tenNhanVien }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Ca làm việc * -->
+            <div class="bulk-form-group">
+              <label class="bulk-field-label">Ca làm việc <span class="required-star">*</span></label>
+              <select v-model="bulkForm.caLamViecId" class="bulk-control-input">
+                <option value="">-- Chọn ca mẫu --</option>
+                <option
+                  v-for="c in shifts"
+                  :key="c.id"
+                  :value="c.id"
+                >
+                  {{ c.tenCa }} ({{ formatTime(c.gioBatDau) }} - {{ formatTime(c.gioKetThuc) }})
+                </option>
+              </select>
+            </div>
+
+            <!-- Ghi chú -->
+            <div class="bulk-form-group">
+              <label class="bulk-field-label">Ghi chú</label>
+              <input
+                type="text"
+                v-model="bulkForm.ghiChu"
+                placeholder="VD: Tăng ca, trực thay..."
+                class="bulk-control-input"
+              />
+            </div>
+
+            <!-- Box chọn nhanh -->
+            <div class="bulk-quick-select-card">
+              <div class="bulk-quick-top-row">
+                <span class="bulk-quick-title">Đang chọn</span>
+                <span class="bulk-quick-badge">{{ bulkSelectedDates.length }} ngày</span>
+              </div>
+              <div class="bulk-quick-btn-group">
+                <button type="button" class="bulk-quick-action-btn" @click="bulkSelectAll">Chọn tất cả</button>
+                <button type="button" class="bulk-quick-action-btn" @click="bulkSelectWorkdays">Chỉ T2–T6</button>
+                <button type="button" class="bulk-quick-action-btn" @click="bulkClearSelection">Bỏ chọn</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cột phải: Danh sách ngày hiển thị -->
+          <div class="bulk-right-col">
+            <h4 class="bulk-right-title">
+              {{ bulkMode === 'week' ? 'Chọn ngày theo tuần' : 'Chọn ngày theo tháng' }}
+            </h4>
+
+            <!-- Giao diện Theo Tuần: Lưới các thẻ ngày -->
+            <template v-if="bulkMode === 'week'">
+              <div v-if="bulkDaysList.length > 0" class="bulk-cards-container">
+                <div
+                  v-for="day in bulkDaysList"
+                  :key="day.dateStr"
+                  class="bulk-day-item-card"
+                  :class="{ selected: isBulkDateChecked(day.dateStr) }"
+                  @click="toggleBulkDate(day.dateStr)"
+                >
+                  <input
+                    type="checkbox"
+                    :value="day.dateStr"
+                    :checked="isBulkDateChecked(day.dateStr)"
+                    class="bulk-day-native-checkbox"
+                    @click.stop="toggleBulkDate(day.dateStr)"
+                  />
+                  <div class="bulk-day-text-wrap">
+                    <div class="bulk-day-weekday-name">{{ day.dayOfWeekName }}</div>
+                    <div class="bulk-day-date-number">{{ day.displayDate }}</div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="bulk-no-days-alert">
+                Không có ngày nào từ ngày hiện tại trở đi trong khoảng thời gian này.
+              </div>
+            </template>
+
+            <!-- Giao diện Theo Tháng: Lưới lịch 7 cột đẹp mắt -->
+            <template v-else>
+              <div class="month-calendar-wrap">
+                <!-- Tiêu đề 7 thứ -->
+                <div class="month-calendar-header">
+                  <div class="month-header-cell">Thứ 2</div>
+                  <div class="month-header-cell">Thứ 3</div>
+                  <div class="month-header-cell">Thứ 4</div>
+                  <div class="month-header-cell">Thứ 5</div>
+                  <div class="month-header-cell">Thứ 6</div>
+                  <div class="month-header-cell">Thứ 7</div>
+                  <div class="month-header-cell">CN</div>
+                </div>
+
+                <!-- Lưới 42 ô ngày -->
+                <div class="month-calendar-grid">
+                  <div
+                    v-for="cell in bulkMonthCalendarCells"
+                    :key="cell.dateStr"
+                    class="month-day-cell"
+                    :class="{
+                      'other-month': !cell.isCurrentMonth,
+                      'past-day': cell.isPast,
+                      'selectable': cell.isSelectable,
+                      'selected': isBulkDateChecked(cell.dateStr)
+                    }"
+                    @click="cell.isSelectable && toggleBulkDate(cell.dateStr)"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="isBulkDateChecked(cell.dateStr)"
+                      :disabled="!cell.isSelectable"
+                      class="month-cell-checkbox"
+                      @click.stop="cell.isSelectable && toggleBulkDate(cell.dateStr)"
+                    />
+                    <span class="month-cell-day-num">{{ cell.dayNumber }}</span>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="bulk-modal-footer">
+          <button type="button" class="bulk-btn-cancel" @click="closeBulkModal">Hủy</button>
+          <button
+            type="button"
+            class="bulk-btn-submit"
+            :disabled="submittingBulk"
+            @click="submitBulkSchedule"
+          >
+            {{ submittingBulk ? 'Đang thêm...' : `Thêm mới (${bulkSelectedDates.length})` }}
+          </button>
+        </div>
+      </div>
+    </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import api from '@/api'
 import { showAlert, showConfirm, showToast } from '@/utils/dialog.js'
 import { isAdmin } from '@/utils/auth.js'
@@ -765,6 +988,257 @@ async function submitImportExcel() {
     }
   } finally {
     importing.value = false
+  }
+}
+
+// ==================== PHÂN CA HÀNG LOẠT ====================
+const showBulkModal = ref(false)
+const submittingBulk = ref(false)
+const bulkMode = ref('week') // 'week' | 'month'
+const bulkAnchorDate = ref(new Date().toISOString().split('T')[0])
+const bulkAnchorMonth = ref(new Date().toISOString().split('T')[0].substring(0, 7))
+const bulkSelectedDates = ref([])
+const bulkForm = reactive({
+  nhanVienId: '',
+  caLamViecId: '',
+  ghiChu: ''
+})
+
+function openBulkModal() {
+  bulkMode.value = 'week'
+  bulkAnchorDate.value = selectedAnchorDate.value || new Date().toISOString().split('T')[0]
+  bulkAnchorMonth.value = (selectedAnchorDate.value || new Date().toISOString().split('T')[0]).substring(0, 7)
+  bulkForm.nhanVienId = ''
+  bulkForm.caLamViecId = shifts.value[0]?.id || ''
+  bulkForm.ghiChu = ''
+  bulkSelectedDates.value = []
+  showBulkModal.value = true
+}
+
+function closeBulkModal() {
+  showBulkModal.value = false
+}
+
+function setBulkMode(mode) {
+  bulkMode.value = mode
+  bulkSelectedDates.value = []
+}
+
+const todayYmd = computed(() => formatYmd(new Date()))
+
+const bulkDaysList = computed(() => {
+  const todayStr = formatYmd(new Date())
+  if (bulkMode.value === 'week') {
+    const list = []
+    const anchor = bulkAnchorDate.value ? new Date(bulkAnchorDate.value) : new Date()
+    const mon = getMondayOfDate(anchor)
+    for (let i = 0; i < 7; i++) {
+      const cur = new Date(mon)
+      cur.setDate(mon.getDate() + i)
+      const yyyy = cur.getFullYear()
+      const mm = String(cur.getMonth() + 1).padStart(2, '0')
+      const dd = String(cur.getDate()).padStart(2, '0')
+      const dateStr = `${yyyy}-${mm}-${dd}`
+
+      // Bỏ qua những ngày trước ngày hiện tại
+      if (dateStr < todayStr) {
+        continue
+      }
+
+      const dOfWeek = cur.getDay() // 0: CN, 1: T2, 2: T3, 3: T4, 4: T5, 5: T6, 6: T7
+      list.push({
+        dateStr,
+        displayDate: `${dd}/${mm}/${yyyy}`,
+        dayOfWeek: dOfWeek,
+        dayOfWeekName: dOfWeek === 0 ? 'CN' : `Thứ ${dOfWeek + 1}`
+      })
+    }
+    return list
+  } else {
+    const list = []
+    const mStr = bulkAnchorMonth.value || formatYmd(new Date()).substring(0, 7)
+    const [yearStr, monthStr] = mStr.split('-')
+    const y = parseInt(yearStr, 10)
+    const m = parseInt(monthStr, 10) - 1
+    const lastDay = new Date(y, m + 1, 0).getDate()
+
+    for (let d = 1; d <= lastDay; d++) {
+      const cur = new Date(y, m, d)
+      const yyyy = cur.getFullYear()
+      const mm = String(cur.getMonth() + 1).padStart(2, '0')
+      const dd = String(cur.getDate()).padStart(2, '0')
+      const dateStr = `${yyyy}-${mm}-${dd}`
+
+      // Bỏ qua những ngày trước ngày hiện tại
+      if (dateStr < todayStr) {
+        continue
+      }
+
+      const dOfWeek = cur.getDay()
+      list.push({
+        dateStr,
+        displayDate: `${dd}/${mm}/${yyyy}`,
+        dayOfWeek: dOfWeek,
+        dayOfWeekName: dOfWeek === 0 ? 'CN' : `Thứ ${dOfWeek + 1}`
+      })
+    }
+    return list
+  }
+})
+
+const bulkDateRangeLabel = computed(() => {
+  if (bulkMode.value === 'week') {
+    const anchor = bulkAnchorDate.value ? new Date(bulkAnchorDate.value) : new Date()
+    const mon = getMondayOfDate(anchor)
+    const sun = new Date(mon)
+    sun.setDate(mon.getDate() + 6)
+    return `Tuần từ ${formatYmd(mon)} đến ${formatYmd(sun)}`
+  } else {
+    const mStr = bulkAnchorMonth.value || formatYmd(new Date()).substring(0, 7)
+    const [yearStr, monthStr] = mStr.split('-')
+    return `Tháng ${monthStr}/${yearStr}`
+  }
+})
+
+const bulkMonthCalendarCells = computed(() => {
+  const cells = []
+  const todayStr = formatYmd(new Date())
+  const mStr = bulkAnchorMonth.value || formatYmd(new Date()).substring(0, 7)
+  const [yearStr, monthStr] = mStr.split('-')
+  const y = parseInt(yearStr, 10)
+  const m = parseInt(monthStr, 10) - 1
+
+  const firstDay = new Date(y, m, 1)
+  const dayOfWeek = firstDay.getDay() // 0 = CN, 1 = T2, ..., 6 = T7
+  const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+  const startDate = new Date(y, m, 1 - diffToMonday)
+
+  // 6 hàng x 7 cột = 42 ô ngày
+  for (let i = 0; i < 42; i++) {
+    const cur = new Date(startDate)
+    cur.setDate(startDate.getDate() + i)
+    const yyyy = cur.getFullYear()
+    const mm = String(cur.getMonth() + 1).padStart(2, '0')
+    const dd = String(cur.getDate()).padStart(2, '0')
+    const dateStr = `${yyyy}-${mm}-${dd}`
+    const isCurrentMonth = cur.getMonth() === m
+    const isPast = dateStr < todayStr
+    const isSelectable = isCurrentMonth && !isPast
+
+    cells.push({
+      dateStr,
+      dayNumber: cur.getDate(),
+      dayOfWeek: cur.getDay(),
+      isCurrentMonth,
+      isPast,
+      isSelectable
+    })
+  }
+
+  return cells
+})
+
+watch(bulkDaysList, (newList) => {
+  if (bulkMode.value === 'week') {
+    const validSet = new Set(newList.map(d => d.dateStr))
+    bulkSelectedDates.value = bulkSelectedDates.value.filter(d => validSet.has(d))
+  }
+})
+
+watch(bulkMonthCalendarCells, (newCells) => {
+  if (bulkMode.value === 'month') {
+    const validSet = new Set(newCells.filter(c => c.isSelectable).map(c => c.dateStr))
+    bulkSelectedDates.value = bulkSelectedDates.value.filter(d => validSet.has(d))
+  }
+})
+
+function isBulkDateChecked(dateStr) {
+  return bulkSelectedDates.value.includes(dateStr)
+}
+
+function toggleBulkDate(dateStr) {
+  const idx = bulkSelectedDates.value.indexOf(dateStr)
+  if (idx > -1) {
+    bulkSelectedDates.value.splice(idx, 1)
+  } else {
+    bulkSelectedDates.value.push(dateStr)
+  }
+}
+
+function bulkSelectAll() {
+  if (bulkMode.value === 'week') {
+    bulkSelectedDates.value = bulkDaysList.value.map(d => d.dateStr)
+  } else {
+    bulkSelectedDates.value = bulkMonthCalendarCells.value
+      .filter(c => c.isSelectable)
+      .map(c => c.dateStr)
+  }
+}
+
+function bulkSelectWorkdays() {
+  if (bulkMode.value === 'week') {
+    bulkSelectedDates.value = bulkDaysList.value
+      .filter(d => d.dayOfWeek >= 1 && d.dayOfWeek <= 5)
+      .map(d => d.dateStr)
+  } else {
+    bulkSelectedDates.value = bulkMonthCalendarCells.value
+      .filter(c => c.isSelectable && c.dayOfWeek >= 1 && c.dayOfWeek <= 5)
+      .map(c => c.dateStr)
+  }
+}
+
+function bulkClearSelection() {
+  bulkSelectedDates.value = []
+}
+
+async function submitBulkSchedule() {
+  if (!bulkForm.nhanVienId) {
+    showToast('Vui lòng chọn nhân viên!', 'warning')
+    return
+  }
+  if (!bulkForm.caLamViecId) {
+    showToast('Vui lòng chọn ca làm việc!', 'warning')
+    return
+  }
+  if (bulkSelectedDates.value.length === 0) {
+    showToast('Vui lòng chọn ít nhất 1 ngày làm việc!', 'warning')
+    return
+  }
+
+  submittingBulk.value = true
+  try {
+    const payload = {
+      nhanVienId: Number(bulkForm.nhanVienId),
+      caLamViecId: Number(bulkForm.caLamViecId),
+      danhSachNgay: bulkSelectedDates.value,
+      ghiChu: bulkForm.ghiChu?.trim() || null
+    }
+
+    const res = await api.post('/api/lich-lam-viec/phan-ca-hang-loat', payload)
+    const data = res.data || {}
+    const successCount = data.successCount || 0
+    const skippedCount = data.skippedCount || 0
+
+    if (successCount > 0) {
+      let msg = `Đã phân ca thành công cho ${successCount} ngày!`
+      if (skippedCount > 0) {
+        msg += ` (Bỏ qua ${skippedCount} ngày do trùng lịch hoặc trong quá khứ)`
+      }
+      showToast(msg, 'success')
+      closeBulkModal()
+      await loadWeekSchedule()
+    } else {
+      let errMsg = 'Không thể phân ca cho các ngày đã chọn.'
+      if (data.skippedReasons && data.skippedReasons.length > 0) {
+        errMsg = data.skippedReasons.join('; ')
+      }
+      showToast(errMsg, 'error')
+    }
+  } catch (err) {
+    const msg = err.response?.data?.message || err.message || 'Lỗi khi phân ca hàng loạt!'
+    showToast(msg, 'error')
+  } finally {
+    submittingBulk.value = false
   }
 }
 
@@ -1558,6 +2032,443 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+/* Nút Phân ca hàng loạt Toolbar */
+.btn-bulk-schedule {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--blue, #496883);
+  background-color: var(--blue, #496883);
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.2);
+}
+
+.btn-bulk-schedule:hover {
+  background-color: #3b576e;
+  border-color: #3b576e;
+}
+
+/* Modal Phân ca hàng loạt */
+.bulk-modal-dialog {
+  max-width: 920px;
+  width: 95%;
+  padding: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.bulk-modal-header {
+  background-color: var(--blue, #496883);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bulk-modal-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.bulk-modal-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.82rem;
+  color: #eaf2f6;
+}
+
+.bulk-btn-close {
+  width: 28px;
+  height: 28px;
+  background-color: #ffffff;
+  color: var(--blue, #496883);
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bulk-btn-close:hover {
+  background-color: #f0f4f8;
+}
+
+.bulk-modal-body {
+  padding: 24px;
+  display: flex;
+  gap: 24px;
+  background-color: #ffffff;
+}
+
+.bulk-left-col {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.bulk-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bulk-field-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.bulk-mode-toggle-group {
+  display: flex;
+  border: 1px solid var(--blue, #496883);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.bulk-mode-toggle-btn {
+  flex: 1;
+  height: 34px;
+  border: none;
+  background: #ffffff;
+  color: var(--blue, #496883);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bulk-mode-toggle-btn.active {
+  background-color: var(--blue, #496883);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.bulk-control-input {
+  width: 100%;
+  height: 36px;
+  border: 1px solid #dfd8cc;
+  background-color: #fcfbf9;
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 0.86rem;
+  color: #3d4a50;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s;
+}
+
+.bulk-control-input:focus {
+  border-color: var(--blue, #496883);
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.15);
+  background-color: #ffffff;
+}
+
+.bulk-range-hint-text {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.bulk-quick-select-card {
+  border: 1px solid #e9e5db;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background-color: #fcfbf9;
+}
+
+.bulk-quick-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bulk-quick-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #3d4a50;
+}
+
+.bulk-quick-badge {
+  font-size: 0.78rem;
+  color: var(--blue, #496883);
+  background-color: #eaf2f6;
+  border: 1px solid #d5e4ec;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-weight: 600;
+}
+
+.bulk-quick-btn-group {
+  display: flex;
+  gap: 6px;
+}
+
+.bulk-quick-action-btn {
+  flex: 1;
+  padding: 6px 0;
+  border: 1px solid #dfd8cc;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #556268;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.bulk-quick-action-btn:hover {
+  border-color: var(--blue, #496883);
+  color: var(--blue, #496883);
+  background-color: #f0f4f8;
+}
+
+.bulk-right-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bulk-right-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 14px 0;
+}
+
+.bulk-cards-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.bulk-cards-container.cards-scrollable {
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.bulk-day-item-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e9e5db;
+  border-radius: 8px;
+  background-color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.bulk-day-item-card:hover {
+  border-color: var(--blue2, #6e96ad);
+  background-color: #fafcfe;
+}
+
+.bulk-day-item-card.selected {
+  border-color: var(--blue, #496883);
+  background-color: #eaf2f6;
+}
+
+.bulk-day-native-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--blue, #496883);
+}
+
+.bulk-day-text-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.bulk-day-weekday-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.bulk-day-date-number {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.bulk-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 24px;
+  border-top: 1px solid #f1ece5;
+  background-color: #faf8f5;
+}
+
+.bulk-btn-cancel {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid #d1c8bd;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #556268;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bulk-btn-cancel:hover {
+  background-color: #f1f5f9;
+}
+
+.bulk-btn-submit {
+  height: 36px;
+  padding: 0 20px;
+  border: 1px solid var(--blue, #496883);
+  border-radius: 6px;
+  background-color: var(--blue, #496883);
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.2);
+}
+
+.bulk-btn-submit:hover:not(:disabled) {
+  background-color: #3b576e;
+  border-color: #3b576e;
+}
+
+.bulk-btn-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bulk-no-days-alert {
+  padding: 24px 16px;
+  background-color: #fcfbf9;
+  border: 1px dashed #dfd8cc;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+/* Giao diện Lịch Tháng 7 cột */
+.month-calendar-wrap {
+  border: 1px solid #dfd8cc;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.month-calendar-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background-color: var(--blue, #496883);
+  color: #ffffff;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.month-header-cell {
+  padding: 10px 4px;
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.month-header-cell:last-child {
+  border-right: none;
+}
+
+.month-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background-color: #e9e5db;
+  gap: 1px;
+}
+
+.month-day-cell {
+  background-color: #ffffff;
+  min-height: 52px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: all 0.15s;
+}
+
+.month-day-cell.selectable {
+  cursor: pointer;
+}
+
+.month-day-cell.selectable:hover {
+  background-color: #f7fafc;
+}
+
+.month-day-cell.selected {
+  background-color: #eaf2f6 !important;
+}
+
+.month-day-cell.other-month {
+  background-color: #fcfbf9;
+  cursor: default;
+}
+
+.month-day-cell.past-day {
+  background-color: #fcfbf9;
+  cursor: not-allowed;
+}
+
+.month-cell-checkbox {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--blue, #496883);
+}
+
+.month-day-cell:not(.selectable) .month-cell-checkbox {
+  opacity: 0.25;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.month-cell-day-num {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.month-day-cell.other-month .month-cell-day-num,
+.month-day-cell.past-day .month-cell-day-num {
+  color: #cbd5e1;
+  font-weight: 500;
 }
 </style>
 

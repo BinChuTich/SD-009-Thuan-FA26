@@ -37,10 +37,29 @@ public class LichLamViecController {
         return ResponseEntity.ok(service.getWeeklySchedule(fromDate, toDate));
     }
 
+    @GetMapping("/hom-nay/{nhanVienId}")
+    public ResponseEntity<?> getTodayShiftsForEmployee(@PathVariable Long nhanVienId) {
+        LocalDate today = LocalDate.now();
+        var schedules = service.getWeeklySchedule(today, today);
+        var employeeSchedules = schedules.stream()
+                .filter(s -> s.getNhanVien() != null && nhanVienId.equals(s.getNhanVien().getId()))
+                .toList();
+        return ResponseEntity.ok(employeeSchedules);
+    }
+
     @PostMapping
     public ResponseEntity<?> assignShift(@Valid @RequestBody LichLamViecRequest req) {
         try {
             return ResponseEntity.status(HttpStatus.CREATED).body(service.assignShift(req));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/phan-ca-hang-loat")
+    public ResponseEntity<?> assignBulkShifts(@RequestBody LichLamViecRequest req) {
+        try {
+            return ResponseEntity.ok(service.assignBulkShifts(req));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }

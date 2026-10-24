@@ -1,5 +1,55 @@
+import { ref } from 'vue'
+
 // Quản lý thông tin phiên làm việc và người dùng đang đăng nhập
 const CURRENT_USER_KEY = 'ff_current_user'
+const ACTIVE_SHIFT_KEY = 'ff_active_shift'
+
+const activeShiftRef = ref(getActiveShift())
+
+/**
+ * Lấy thông tin ca làm việc đang mở trong phiên hiện tại
+ */
+export function getActiveShift() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_SHIFT_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch (e) {}
+  return null
+}
+
+/**
+ * Cập nhật ca làm việc đang mở
+ */
+export function setActiveShift(shift) {
+  if (shift) {
+    localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(shift))
+  } else {
+    localStorage.removeItem(ACTIVE_SHIFT_KEY)
+  }
+  activeShiftRef.value = shift || null
+  window.dispatchEvent(new CustomEvent('active-shift-changed', { detail: shift }))
+}
+
+/**
+ * Xóa trạng thái ca đang mở
+ */
+export function clearActiveShift() {
+  localStorage.removeItem(ACTIVE_SHIFT_KEY)
+  activeShiftRef.value = null
+  window.dispatchEvent(new CustomEvent('active-shift-changed', { detail: null }))
+}
+
+/**
+ * Kiểm tra xem người dùng hiện tại có đang ở Chế độ xem (chưa vào ca làm việc) hay không
+ * - Quản trị viên: luôn trả về false (không bị giới hạn)
+ * - Nhân viên: trả về true nếu chưa có ca làm việc nào đang mở
+ */
+export function isInViewMode() {
+  const user = getCurrentUser()
+  if (!user) return true
+  if (isAdmin()) return false
+  return !activeShiftRef.value
+}
 
 /**
  * Lấy thông tin tài khoản người dùng đang đăng nhập hiện tại
@@ -52,6 +102,7 @@ export function setCurrentUser(user) {
  */
 export function logout() {
   localStorage.removeItem(CURRENT_USER_KEY)
+  clearActiveShift()
   window.dispatchEvent(new CustomEvent('auth-changed', { detail: null }))
 }
 

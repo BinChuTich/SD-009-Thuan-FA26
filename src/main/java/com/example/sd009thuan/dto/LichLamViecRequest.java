@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Getter
 @Setter
@@ -17,9 +18,11 @@ public class LichLamViecRequest {
     @NotNull(message = "Vui lòng chọn ca làm việc")
     private Long caLamViecId;
 
-    @NotNull(message = "Vui lòng chọn ngày làm việc")
+
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate ngayLamViec;
+
+    private List<LocalDate> danhSachNgay;
 
     @Size(max = 255, message = "Ghi chú tối đa 255 ký tự")
     private String ghiChu;

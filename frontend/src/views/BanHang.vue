@@ -4,7 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
 import { getProvinces, getWardsByProvince } from '@/services/provincesApi.js'
-import { getCurrentUser } from '@/utils/auth.js'
+import { getCurrentUser, isInViewMode } from '@/utils/auth.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -160,7 +160,7 @@ const loadWaitingInvoices = async () => {
             hasDiscount: hasDiscount,
             discountText: hasDiscount ? ('-' + formatShortMoney(origPrice - curPrice)) : '',
             quantity: ct.soLuong || 1,
-            image: ct.anhDaiDien || ctsp.anhDaiDien || '/images/products/default_tshirt.jpg'
+            image: ct.anhDaiDien || ctsp.anhDaiDien || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
           }
         })
       } catch (e) {
@@ -205,6 +205,10 @@ const loadWaitingInvoices = async () => {
 
 // Thêm hóa đơn chờ mới (lưu thẳng vào CSDL, tối đa 5 hóa đơn)
 const addWaitingInvoice = async () => {
+  if (isInViewMode()) {
+    showToast('Bạn đang ở Chế độ xem (Chưa vào ca làm việc)! Vui lòng vào ca làm việc để tạo đơn.', 'warning')
+    return
+  }
   if (waitingInvoices.value.length >= 5) {
     showToast('Chỉ được tạo tối đa 5 hóa đơn chờ cùng lúc!', 'warning')
     return
@@ -271,6 +275,10 @@ const selectInvoice = (id) => {
 
 // Hủy hóa đơn chờ cụ thể
 const confirmRemoveInvoice = (inv) => {
+  if (isInViewMode()) {
+    showToast('Bạn đang ở Chế độ xem! Không thể hủy hóa đơn.', 'warning')
+    return
+  }
   if (!inv) return
   openConfirm(
       'Xác nhận hủy hóa đơn',
@@ -426,7 +434,7 @@ const fetchProductVariants = async () => {
         hasDiscount: hasDiscount,
         discountText: discountText,
         discountCampaignName: discountCampaignName,
-        image: item.anhDaiDien || '/images/products/default_tshirt.jpg'
+        image: item.anhDaiDien || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
       }
     })
   } catch (e) {
@@ -476,6 +484,10 @@ const getMaxStockForItem = (item) => {
 }
 
 const selectProduct = (prod) => {
+  if (isInViewMode()) {
+    showToast('Bạn đang ở Chế độ xem (Chưa vào ca làm việc)! Vui lòng vào ca làm việc để bán hàng.', 'warning')
+    return
+  }
   const p = productList.value.find(item => item.id === prod.id) || prod
   if (p.stock <= 0) {
     showToast('Sản phẩm đã hết hàng trong kho!', 'warning')
@@ -1968,6 +1980,10 @@ function formatMoney(val) {
 const isProcessing = ref(false)
 
 const handleCheckout = async () => {
+  if (isInViewMode()) {
+    showToast('Bạn đang ở Chế độ xem (Chưa vào ca làm việc)! Vui lòng vào ca làm việc để thanh toán.', 'warning')
+    return
+  }
   if (currentInvoice.value.cart.length === 0) {
     showToast('Giỏ hàng trống! Vui lòng chọn sản phẩm trước khi thanh toán.', 'warning')
     return
@@ -2187,6 +2203,8 @@ const onTabVisibilityChange = () => {
   }
 }
 
+const isViewMode = computed(() => isInViewMode())
+
 onMounted(async () => {
   dayCheckTimer = setInterval(checkNewDayTransition, 30000)
   document.addEventListener('visibilitychange', onTabVisibilityChange)
@@ -2237,7 +2255,7 @@ onMounted(async () => {
         <!-- Card 1: Hóa đơn chờ -->
         <div class="pos-panel-card">
           <div class="waiting-bar-top">
-            <button class="btn-create-invoice" @click="addWaitingInvoice" :disabled="isLoadingInvoices">
+            <button class="btn-create-invoice" @click="addWaitingInvoice" :disabled="isLoadingInvoices || isInViewMode()">
               + Thêm hóa đơn chờ
             </button>
             <span class="counter-text">{{ waitingInvoices.length }}/5 hóa đơn</span>
@@ -2920,10 +2938,10 @@ onMounted(async () => {
             </button>
             <button
                 class="btn-submit-checkout"
-                :disabled="isProcessing || currentInvoice.cart.length === 0"
+                :disabled="isProcessing || currentInvoice.cart.length === 0 || isViewMode"
                 @click="handleCheckout"
             >
-              {{ isProcessing ? 'Đang xử lý...' : 'Thanh toán' }}
+              {{ isViewMode ? 'Chế độ xem (Đã khóa)' : (isProcessing ? 'Đang xử lý...' : 'Thanh toán') }}
             </button>
           </div>
         </div>

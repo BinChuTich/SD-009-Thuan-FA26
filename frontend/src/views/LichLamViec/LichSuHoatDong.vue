@@ -17,21 +17,6 @@
         </div>
         <h1 class="page-main-title">Lịch sử hoạt động & Kiểm toán ca làm việc</h1>
       </div>
-
-      <div class="top-actions-cluster">
-        <!-- Nút chuyển tới màn hình Vào ca & Giao ca quầy -->
-        <button
-          type="button"
-          class="btn-open-shift"
-          @click="$router.push('/giao-ca')"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-          </svg>
-          <span>Vào ca & Giao ca quầy →</span>
-        </button>
-      </div>
     </div>
 
     <!-- Card Bộ lọc Lịch sử hoạt động -->
@@ -397,13 +382,12 @@
             />
           </div>
         </div>
-
         <div class="modal-footer-clean">
           <button type="button" class="btn-cancel-modal" @click="showMoCaModal = false">Hủy</button>
           <button
             type="button"
             class="btn-save-modal"
-            :disabled="submittingMoCa || !!moCaErrors.tienMatDauCa || !moCaForm.nhanVienId || !moCaForm.caLamViecId"
+            :disabled="submittingMoCa || !moCaErrors.tienMatDauCa || !moCaForm.nhanVienId || !moCaForm.caLamViecId"
             @click="submitMoCa"
           >
             {{ submittingMoCa ? 'Đang mở...' : 'Xác nhận mở ca' }}
@@ -2189,4 +2173,3 @@ onMounted(async () => {
 }
 
 </style>
-

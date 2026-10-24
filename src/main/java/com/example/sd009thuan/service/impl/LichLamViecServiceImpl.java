@@ -138,6 +138,106 @@ public class LichLamViecServiceImpl implements LichLamViecService {
     }
 
     @Override
+    public Map<String, Object> assignBulkShifts(LichLamViecRequest req) {
+        if (req.getNhanVienId() == null) {
+            throw new IllegalArgumentException("Vui lòng chọn một nhân viên");
+        }
+        if (req.getCaLamViecId() == null) {
+            throw new IllegalArgumentException("Vui lòng chọn ca làm việc");
+        }
+        if (req.getDanhSachNgay() == null || req.getDanhSachNgay().isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng chọn ít nhất một ngày làm việc");
+        }
+
+        NhanVien nv = nhanVienRepository.findById(req.getNhanVienId())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhân viên với ID: " + req.getNhanVienId()));
+
+        if (nv.getTrangThai() == null || nv.getTrangThai() != 1) {
+            throw new IllegalArgumentException("Nhân viên '" + nv.getTenNhanVien() + "' đang ở trạng thái 'Ngừng hoạt động', không thể phân ca!");
+        }
+
+        CaLamViec ca = caLamViecRepository.findById(req.getCaLamViecId())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy ca làm việc với ID: " + req.getCaLamViecId()));
+
+        if (ca.getTrangThai() == null || ca.getTrangThai() != 1) {
+            throw new IllegalArgumentException("Ca làm việc '" + ca.getTenCa() + "' đang ngừng hoạt động, không thể xếp lịch!");
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalTime nowTime = LocalTime.now();
+
+        List<String> successDates = new ArrayList<>();
+        List<String> skippedReasons = new ArrayList<>();
+
+        for (LocalDate date : req.getDanhSachNgay()) {
+            if (date == null) continue;
+
+            // Chặn quá khứ
+            if (date.isBefore(today)) {
+                skippedReasons.add("Ngày " + date + ": Đã qua trong quá khứ");
+                continue;
+            }
+            if (date.isEqual(today) && ca.getGioKetThuc() != null && ca.getGioKetThuc().isBefore(nowTime)) {
+                skippedReasons.add("Ngày " + date + ": Ca làm việc đã kết thúc giờ làm hôm nay");
+                continue;
+            }
+
+            // Check trùng ca đó
+            Optional<LichLamViec> existingSameShift = lichLamViecRepository.findByNhanVienIdAndCaLamViecIdAndNgayLamViec(
+                    nv.getId(), ca.getId(), date
+            );
+            if (existingSameShift.isPresent() && existingSameShift.get().getTrangThai() != null && existingSameShift.get().getTrangThai() == 1) {
+                skippedReasons.add("Ngày " + date + ": Nhân viên đã có lịch ca này");
+                continue;
+            }
+
+            // Check xung đột giờ
+            List<LichLamViec> sameDaySchedules = lichLamViecRepository.findByNhanVienIdAndNgayLamViecAndTrangThai(
+                    nv.getId(), date, 1
+            );
+            boolean conflict = false;
+            for (LichLamViec item : sameDaySchedules) {
+                CaLamViec otherCa = item.getCaLamViec();
+                if (otherCa != null && otherCa.getGioBatDau() != null && otherCa.getGioKetThuc() != null &&
+                    ca.getGioBatDau() != null && ca.getGioKetThuc() != null) {
+                    if (ca.getGioBatDau().isBefore(otherCa.getGioKetThuc()) && ca.getGioKetThuc().isAfter(otherCa.getGioBatDau())) {
+                        conflict = true;
+                        skippedReasons.add("Ngày " + date + ": Trùng khung giờ với ca '" + otherCa.getTenCa() + "'");
+                        break;
+                    }
+                }
+            }
+            if (conflict) continue;
+
+            // Lưu lịch
+            LichLamViec schedule;
+            if (existingSameShift.isPresent()) {
+                schedule = existingSameShift.get();
+                schedule.setTrangThai(1);
+                schedule.setGhiChu(req.getGhiChu());
+                schedule.setNgayCapNhat(LocalDateTime.now());
+            } else {
+                schedule = new LichLamViec();
+                schedule.setNhanVien(nv);
+                schedule.setCaLamViec(ca);
+                schedule.setNgayLamViec(date);
+                schedule.setGhiChu(req.getGhiChu());
+                schedule.setTrangThai(1);
+                schedule.setNgayTao(LocalDateTime.now());
+            }
+            lichLamViecRepository.save(schedule);
+            successDates.add(date.toString());
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("successCount", successDates.size());
+        result.put("skippedCount", skippedReasons.size());
+        result.put("successDates", successDates);
+        result.put("skippedReasons", skippedReasons);
+        return result;
+    }
+
+    @Override
     public void removeShift(Long id) {
         LichLamViec item = lichLamViecRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phân ca với ID: " + id));

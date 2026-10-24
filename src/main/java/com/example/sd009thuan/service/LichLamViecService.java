@@ -15,6 +15,8 @@ public interface LichLamViecService {
 
     LichLamViec assignShift(LichLamViecRequest request);
 
+    Map<String, Object> assignBulkShifts(LichLamViecRequest request);
+
     void removeShift(Long id);
 
     List<LichLamViec> getUpcomingShiftsForEmployee(Long nhanVienId);
