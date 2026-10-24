@@ -504,6 +504,15 @@ const discountFilterOptions = [
   { id: 'normal', name: 'Giá gốc (không giảm)' }
 ]
 
+const sortFilterOptions = [
+  { id: '', name: 'Mặc định (Mã CTSP)' },
+  { id: 'price_asc', name: 'Giá: Thấp đến cao' },
+  { id: 'price_desc', name: 'Giá: Cao đến thấp' },
+  { id: 'stock_desc', name: 'Tồn kho: Nhiều nhất' },
+  { id: 'stock_asc', name: 'Tồn kho: Ít nhất' },
+  { id: 'name_asc', name: 'Tên: A đến Z' }
+]
+
 const resetProductModalFilters = () => {
   searchProductText.value = ''
   filterColor.value = ''
@@ -3331,14 +3340,18 @@ onMounted(async () => {
 
             <div class="filter-group-inline sort-inline">
               <label class="filter-inline-label">Sắp xếp:</label>
-              <select v-model="filterSort" class="filter-inline-select">
-                <option value="">Mặc định (Mã CTSP)</option>
-                <option value="price_asc">Giá: Thấp đến cao</option>
-                <option value="price_desc">Giá: Cao đến thấp</option>
-                <option value="stock_desc">Tồn kho: Nhiều nhất</option>
-                <option value="stock_asc">Tồn kho: Ít nhất</option>
-                <option value="name_asc">Tên: A đến Z</option>
-              </select>
+              <div class="sort-select2-wrap">
+                <Select2Combobox
+                  v-model="filterSort"
+                  :options="sortFilterOptions"
+                  value-key="id"
+                  label-key="name"
+                  placeholder="Mặc định (Mã CTSP)"
+                  search-placeholder="Tìm kiếm..."
+                  :searchable="false"
+                  allow-clear
+                />
+              </div>
             </div>
 
             <button
@@ -3355,29 +3368,42 @@ onMounted(async () => {
           <div class="filter-bar-row filter-bar-facets">
             <div class="filter-facet-item">
               <label class="facet-label">Màu sắc</label>
-              <select v-model="filterColor" class="facet-select">
-                <option v-for="opt in colorFilterOptions" :key="opt.id" :value="opt.id">
-                  {{ opt.name }}
-                </option>
-              </select>
+              <Select2Combobox
+                v-model="filterColor"
+                :options="colorFilterOptions"
+                value-key="id"
+                label-key="name"
+                placeholder="Tất cả màu sắc"
+                search-placeholder="Tìm kiếm màu sắc..."
+                allow-clear
+              />
             </div>
 
             <div class="filter-facet-item">
               <label class="facet-label">Kích cỡ</label>
-              <select v-model="filterSize" class="facet-select">
-                <option v-for="opt in sizeFilterOptions" :key="opt.id" :value="opt.id">
-                  {{ opt.name }}
-                </option>
-              </select>
+              <Select2Combobox
+                v-model="filterSize"
+                :options="sizeFilterOptions"
+                value-key="id"
+                label-key="name"
+                placeholder="Tất cả kích cỡ"
+                search-placeholder="Tìm kiếm kích cỡ..."
+                allow-clear
+              />
             </div>
 
             <div class="filter-facet-item">
               <label class="facet-label">Chương trình ưu đãi</label>
-              <select v-model="filterDiscount" class="facet-select">
-                <option v-for="opt in discountFilterOptions" :key="opt.id" :value="opt.id">
-                  {{ opt.name }}
-                </option>
-              </select>
+              <Select2Combobox
+                v-model="filterDiscount"
+                :options="discountFilterOptions"
+                value-key="id"
+                label-key="name"
+                placeholder="Tất cả ưu đãi"
+                search-placeholder="Tìm kiếm ưu đãi..."
+                :searchable="false"
+                allow-clear
+              />
             </div>
           </div>
         </div>
@@ -5991,6 +6017,63 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
+  z-index: 50;
+}
+
+.product-modal-filter-bar :deep(.select2-wrapper) {
+  width: 100%;
+}
+
+.product-modal-filter-bar :deep(.select2-trigger) {
+  height: 36px;
+  min-height: 36px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background-color: #ffffff;
+  padding: 0 10px;
+  font-size: 0.82rem;
+  color: #1e293b;
+  box-sizing: border-box;
+}
+
+.product-modal-filter-bar :deep(.select2-trigger:hover:not(.disabled)) {
+  border-color: #496883;
+  background-color: #ffffff;
+}
+
+.product-modal-filter-bar :deep(.select2-trigger.trigger-focus) {
+  border-color: #496883;
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.12);
+  background-color: #ffffff;
+}
+
+.product-modal-filter-bar :deep(.select2-display-text) {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.product-modal-filter-bar :deep(.select2-dropdown) {
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+  z-index: 99999;
+}
+
+.product-modal-filter-bar :deep(.select2-option-item) {
+  font-size: 0.82rem;
+  padding: 7px 10px;
+}
+
+.product-modal-filter-bar :deep(.select2-search-input) {
+  height: 32px;
+  font-size: 0.82rem;
+  border-radius: 5px;
+}
+
+.sort-select2-wrap {
+  width: 205px;
 }
 
 .filter-bar-row {
@@ -6003,6 +6086,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 10px;
+  position: relative;
+  z-index: 10;
 }
 
 .filter-input-search-wrap {
@@ -6090,6 +6175,8 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
+  position: relative;
+  z-index: 5;
 }
 
 .filter-facet-item {
