@@ -142,11 +142,6 @@ const goToSizeShop = () => {
                 <span class="size-label">SIZE CHUẨN</span>
               </div>
               <p class="size-fit-desc">{{ sizeFitDescription }}</p>
-              
-              <div class="size-guarantee-note">
-                <span class="check-icon">✓</span>
-                <span>Hỗ trợ đổi size tận nhà miễn phí 60 ngày</span>
-              </div>
 
               <button class="btn-shop-this-size" @click="goToSizeShop">
                 Xem Các Mẫu Size {{ calculatedSize }} &rarr;

@@ -28,13 +28,6 @@ const activeTab = ref('desc')
       >
         Thông Số Kỹ Thuật
       </button>
-      <button
-        class="tab-title-btn"
-        :class="{ active: activeTab === 'policy' }"
-        @click="activeTab = 'policy'"
-      >
-        Chính Sách Đổi Trả &amp; Bảo Hành
-      </button>
     </div>
 
     <div class="tab-body-pane">
@@ -79,16 +72,6 @@ const activeTab = ref('desc')
             </tr>
           </tbody>
         </table>
-      </div>
-
-      <!-- 3. Chính sách đổi trả -->
-      <div v-if="activeTab === 'policy'" class="pane-content">
-        <h3>Cam Kết Dịch Vụ Khách Hàng FF T-Shirt</h3>
-        <ul class="policy-list">
-          <li><strong>Đổi hàng miễn phí trong 7 ngày:</strong> Đổi size, đổi màu tận nơi nếu không vừa vặn.</li>
-          <li><strong>Kiểm tra hàng trước khi thanh toán:</strong> Bạn hoàn toàn an tâm thử chất vải đúng mô tả mới nhận.</li>
-          <li><strong>Bảo hành đường may 6 tháng:</strong> Cam kết hoàn tiền hoặc đổi mới nếu có lỗi từ nhà sản xuất.</li>
-        </ul>
       </div>
     </div>
   </div>

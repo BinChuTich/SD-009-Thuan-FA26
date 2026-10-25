@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
-import { addToCart, setCheckoutItems, cartItems } from '@/utils/luuTruGioHang.js'
+import { addToCart, setCheckoutItems, cartItems, cartCount } from '@/utils/luuTruGioHang.js'
 import { getProductById, MOCK_PRODUCTS_CATALOG } from '@/utils/danhMucSanPham.js'
 import ThuVienHinhAnh from '@/components/ChiTietSanPham/ThuVienHinhAnh.vue'
 import ThongTinMoTa from '@/components/ChiTietSanPham/ThongTinMoTa.vue'
@@ -27,6 +27,7 @@ const allImages = ref([])
 // Toast notification
 const toastMessage = ref('')
 const showToast = ref(false)
+const showAddedModal = ref(false)
 
 const triggerToast = (msg) => {
   toastMessage.value = msg
@@ -257,6 +258,31 @@ const decreaseQty = () => {
   }
 }
 
+const showCartSuccessModal = ref(false)
+let cartSuccessTimer = null
+
+const closeCartSuccess = () => {
+  showCartSuccessModal.value = false
+  if (cartSuccessTimer) clearTimeout(cartSuccessTimer)
+}
+const addedItemInfo = ref({
+  name: '',
+  variant: '',
+  price: 0,
+  originalPrice: 0,
+  image: ''
+})
+
+const selectedColorName = computed(() => {
+  const c = availableColors.value.find(c => c.id === selectedColorId.value)
+  return c?.name || currentVariant.value?.tenMauSac || ''
+})
+
+const selectedSizeName = computed(() => {
+  const s = availableSizes.value.find(s => s.id === selectedSizeId.value)
+  return s?.name || currentVariant.value?.tenKichThuoc || ''
+})
+
 const handleAddToCart = () => {
   if (!currentVariant.value) {
     triggerToast('Vui lòng chọn màu sắc và kích cỡ!')
@@ -269,7 +295,16 @@ const handleAddToCart = () => {
 
   const ok = addToCart(product.value, currentVariant.value, quantity.value)
   if (ok) {
-    triggerToast(`Đã thêm ${quantity.value} sản phẩm vào giỏ hàng!`)
+    const colName = selectedColorName.value || currentVariant.value?.tenMauSac || ''
+    const sizeName = selectedSizeName.value || currentVariant.value?.tenKichThuoc || ''
+    addedItemInfo.value = {
+      name: product.value?.tenSanPham || 'Sản phẩm',
+      variant: colName && sizeName ? `${colName} / ${sizeName}` : (colName || sizeName || 'Tiêu chuẩn'),
+      price: currentPrice.value,
+      originalPrice: originalPrice.value,
+      image: currentVariant.value?.anhDaiDien || activeImage.value || ''
+    }
+    showCartSuccessModal.value = true
   }
 }
 
@@ -355,11 +390,7 @@ onMounted(() => {
               <span>Thương hiệu: <strong>{{ product.tenThuongHieu || 'FF T-Shirt' }}</strong></span>
             </div>
 
-            <div class="rating-line">
-              <span class="rating-num">5.0</span>
-              <div class="stars-stars">★★★★★</div>
-              <span class="rating-count">(18 đánh giá hài lòng)</span>
-            </div>
+
 
             <!-- Banner Đợt Giảm Giá Đang Hoạt Động -->
             <div class="flash-deal-banner" v-if="product?.coGiamGia && product?.ngayKetThucDotGiamGia && campaignRemainingTime">
@@ -431,27 +462,16 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- 2 Nút thao tác mang màu #496883 & #d2a764 -->
-            <div class="action-buttons-pair">
-              <button class="btn-add-to-cart" :disabled="currentStock <= 0" @click="handleAddToCart">
-                {{ currentStock <= 0 ? 'Tạm hết hàng' : 'Thêm vào giỏ hàng' }}
+                        <!-- Nút Thao tác: Thêm vào giỏ hàng cao cấp chuẩn thương hiệu -->
+            <div class="action-buttons-single">
+              <button class="btn-add-to-cart-primary" :disabled="currentStock <= 0" @click="handleAddToCart">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="9" cy="20" r="1.5"></circle>
+                  <circle cx="18" cy="20" r="1.5"></circle>
+                  <path d="M1 1h4l2.68 12.8a2 2 0 0 0 2 1.6h9.72a2 2 0 0 0 2-1.6L23 5H6"></path>
+                </svg>
+                <span>{{ currentStock <= 0 ? 'TẠM HẾT HÀNG' : 'THÊM VÀO GIỎ HÀNG' }}</span>
               </button>
-              <button class="btn-buy-now-solid" :disabled="currentStock <= 0" @click="handleBuyNow">
-                {{ currentStock <= 0 ? 'Hết hàng' : 'Mua ngay' }}
-              </button>
-            </div>
-
-            <!-- Dòng cam kết -->
-            <div class="guarantee-perks-row">
-              <div class="perk-item">
-                <span class="perk-icon">📞</span>
-                <span>Hỗ trợ khách hàng 24/7</span>
-              </div>
-              <div class="perk-divider">|</div>
-              <div class="perk-item">
-                <span class="perk-icon">🛡️</span>
-                <span>Đổi trả dễ dàng trong 7 ngày</span>
-              </div>
             </div>
           </div>
         </div>
@@ -463,6 +483,59 @@ onMounted(() => {
         <SanPhamLienQuan :related-products="relatedProducts" />
       </div>
     </div>
+  
+    <!-- ======================================================== -->
+    <!-- MODAL THÔNG BÁO THÊM GIỎ HÀNG THÀNH CÔNG (Chuẩn Ảnh 4)    -->
+    <!-- ======================================================== -->
+    <Teleport to="body">
+      <transition name="csc-slide">
+        <div
+          v-if="showCartSuccessModal"
+          class="csc-backdrop"
+          @mouseenter="clearTimeout(cartSuccessTimer)"
+          @mouseleave="cartSuccessTimer = setTimeout(() => { showCartSuccessModal = false }, 2500)"
+        >
+          <div class="csc-modal-card">
+            <!-- Header: Tiêu đề + Nút đóng ✕ -->
+            <div class="csc-header">
+              <h3 class="csc-title">Thêm vào giỏ hàng thành công</h3>
+              <button class="csc-close-btn" @click="closeCartSuccess" aria-label="Đóng">✕</button>
+            </div>
+
+            <div class="csc-divider"></div>
+
+            <!-- Body: Chi tiết sản phẩm vừa thêm -->
+            <div class="csc-body">
+              <div class="csc-thumb-wrapper">
+                <img
+                  :src="addedItemInfo.image || activeImage"
+                  :alt="addedItemInfo.name"
+                  class="csc-thumb-img"
+                />
+              </div>
+              <div class="csc-product-details">
+                <h4 class="csc-product-title">{{ addedItemInfo.name }}</h4>
+                <p class="csc-product-variant">{{ addedItemInfo.variant }}</p>
+                <div class="csc-product-price-row">
+                  <strong class="csc-sale-price">{{ formatCurrency(addedItemInfo.price) }}</strong>
+                  <span v-if="addedItemInfo.originalPrice && addedItemInfo.originalPrice > addedItemInfo.price" class="csc-original-price">
+                    {{ formatCurrency(addedItemInfo.originalPrice) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer Action: Nút XEM GIỎ HÀNG -> -->
+            <div class="csc-footer">
+              <router-link to="/gio-hang" class="btn-csc-action-cart" @click="closeCartSuccess">
+                <span>XEM GIỎ HÀNG</span>
+                <span class="csc-arrow">&rarr;</span>
+              </router-link>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
   </div>
 </template>
 
@@ -536,27 +609,9 @@ onMounted(() => {
   color: #cbd5e1;
 }
 
-.rating-line {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 18px;
-}
 
-.rating-num {
-  font-weight: 800;
-  color: #d2a764;
-}
 
-.stars-stars {
-  color: #d2a764;
-  font-size: 15px;
-}
 
-.rating-count {
-  font-size: 12px;
-  color: #94a3b8;
-}
 
 
 .flash-deal-banner {
@@ -885,5 +940,238 @@ onMounted(() => {
   .action-buttons-pair {
     grid-template-columns: 1fr;
   }
+}
+
+/* ======================================================== */
+/* NÚT THÊM VÀO GIỎ HÀNG & MODAL THÔNG BÁO (CHUẨN ẢNH 3 & 4) */
+/* ======================================================== */
+.action-buttons-single {
+  margin-top: 24px;
+}
+
+.btn-add-to-cart-primary {
+  width: 100%;
+  height: 52px;
+  background: #000000;
+  color: #ffffff;
+  border: 1.5px solid #000000;
+  border-radius: 9999px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  transition: all 0.22s ease-in-out;
+}
+
+.btn-add-to-cart-primary:hover:not(:disabled) {
+  background: #27272a;
+  border-color: #27272a;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+}
+
+.btn-add-to-cart-primary:disabled {
+  background: #94a3b8;
+  border-color: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* MODAL THÊM GIỎ HÀNG THÀNH CÔNG (Chuẩn Thiết Kế Ảnh 4) */
+.csc-backdrop {
+  position: fixed;
+  top: 80px;
+  right: 24px;
+  z-index: 99999;
+  pointer-events: none;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.csc-slide-enter-active,
+.csc-slide-leave-active {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.csc-slide-enter-from,
+.csc-slide-leave-to {
+  transform: translateX(115%);
+  opacity: 0;
+}
+
+.csc-modal-card {
+  pointer-events: auto;
+  position: relative;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 18px 18px;
+  max-width: 360px;
+  width: 360px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .csc-backdrop {
+    top: 68px;
+    right: 12px;
+    left: 12px;
+  }
+  .csc-modal-card {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+.csc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.csc-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.csc-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  color: #111827;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.csc-close-btn:hover {
+  background: #f3f4f6;
+  color: #000000;
+}
+
+.csc-divider {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 0 -24px 18px;
+}
+
+.csc-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.csc-thumb-wrapper {
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #f1f5f9;
+  flex-shrink: 0;
+  background: #f8fafc;
+}
+
+.csc-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.csc-product-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.csc-product-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.csc-product-variant {
+  font-size: 13.5px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.csc-product-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.csc-sale-price {
+  font-size: 15px;
+  font-weight: 800;
+  color: #000000;
+}
+
+.csc-original-price {
+  font-size: 13px;
+  color: #9ca3af;
+  text-decoration: line-through;
+}
+
+.csc-footer {
+  width: 100%;
+}
+
+.btn-csc-action-cart {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 20px;
+  border: 1.5px solid #000000;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: #000000;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-csc-action-cart:hover {
+  background: #000000;
+  color: #ffffff;
+}
+
+.csc-arrow {
+  font-size: 16px;
+  transition: transform 0.2s;
+}
+
+.btn-csc-action-cart:hover .csc-arrow {
+  transform: translateX(4px);
 }
 </style>

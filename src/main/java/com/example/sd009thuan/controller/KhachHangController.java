@@ -288,25 +288,42 @@ public class KhachHangController {
 
     @PostMapping({"/dang-nhap-google", "/login-google"})
     public ResponseEntity<?> dangNhapGoogle(@RequestBody Map<String, String> body) {
-        String email = body != null ? body.get("email") : null;
+        String input = body != null ? (body.get("email") != null ? body.get("email") : body.get("identifier")) : null;
         String name = body != null ? body.get("name") : null;
-        if (email == null || email.trim().isEmpty() || !email.contains("@")) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Địa chỉ Gmail không hợp lệ!"));
+        if (input == null || input.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Vui lòng nhập Email hoặc Số điện thoại tài khoản Google!"));
         }
-        email = email.trim().toLowerCase();
+        String cleanInput = input.trim();
+        Optional<KhachHang> optCustomer = Optional.empty();
 
-        Optional<KhachHang> optCustomer = service.findByEmail(email);
+        if (cleanInput.contains("@")) {
+            optCustomer = service.findByEmail(cleanInput.toLowerCase());
+        } else {
+            optCustomer = service.findByPhone(cleanInput);
+            if (optCustomer.isEmpty()) {
+                optCustomer = service.findByEmail(cleanInput.toLowerCase() + "@gmail.com");
+            }
+        }
+
+        if (optCustomer.isEmpty()) {
+            try {
+                optCustomer = Optional.ofNullable(service.findByIdentifier(cleanInput));
+            } catch (Exception ignored) {}
+        }
+
         KhachHang customer;
         if (optCustomer.isPresent()) {
             customer = optCustomer.get();
         } else {
-            String displayName = (name != null && !name.trim().isEmpty()) ? name.trim() : email.split("@")[0];
+            String emailToSave = cleanInput.contains("@") ? cleanInput.toLowerCase() : (cleanInput + "@gmail.com");
+            String displayName = (name != null && !name.trim().isEmpty()) ? name.trim() : emailToSave.split("@")[0];
+            String phoneToSave = cleanInput.matches("^[0-9]{9,11}$") ? cleanInput : null;
             KhachHangRequest req = new KhachHangRequest(
                     null,
-                    email.split("@")[0],
+                    emailToSave.split("@")[0],
                     displayName,
-                    email,
-                    null,
+                    emailToSave,
+                    phoneToSave,
                     "123456",
                     null,
                     true,

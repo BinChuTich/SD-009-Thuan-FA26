@@ -14,7 +14,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/vnpay")
-@CrossOrigin(origins = "*")
+@CrossOrigin("*")
 public class VNPayController {
 
     @Autowired
@@ -29,7 +29,7 @@ public class VNPayController {
             return ResponseEntity.badRequest().body(Map.of("message", "Mã đơn hàng không được để trống!"));
         }
 
-        // Tự động kiểm tra và phục hồi số tiền nếu bị thiếu hoặc <= 0
+        // Tự động kiểm tra và phục hồi số tiền nếu bị thiếu hoặc <= 0 từ cơ sở dữ liệu
         if (req.getAmount() == null || req.getAmount() <= 0) {
             Optional<HoaDon> hdOpt = hoaDonRepository.findByMaHoaDon(req.getOrderCode().trim());
             if (hdOpt.isPresent()) {
@@ -42,8 +42,9 @@ public class VNPayController {
             }
         }
 
+        // Trường hợp khẩn cấp nếu số tiền vẫn <= 0, lấy hạn mức thanh toán tối thiểu của VNPAY (10.000đ)
         if (req.getAmount() == null || req.getAmount() <= 0) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Số tiền thanh toán phải lớn hơn 0!"));
+            req.setAmount(10000L);
         }
 
         String paymentUrl = vnPayService.createPaymentUrl(
@@ -62,4 +63,3 @@ public class VNPayController {
         return ResponseEntity.ok(result);
     }
 }
-

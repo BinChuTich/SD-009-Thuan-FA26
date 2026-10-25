@@ -58,26 +58,6 @@ const emit = defineEmits([
         <h3 class="summary-card-title">TÓM TẮT ĐƠN HÀNG</h3>
       </div>
 
-      <!-- Tiến trình Freeship -->
-      <div class="freeship-box clickable-freeship" v-if="selectedCount > 0" @click="goToShop" title="Bấm vào đây để xem thêm sản phẩm đạt Freeship">
-        <div class="freeship-header-row">
-          <span class="fs-icon">🚚</span>
-          <span class="fs-text" v-if="selectedSubtotal >= 499000 || appliedVoucher?.code === 'FREESHIP'">
-            🎉 Đơn hàng đủ điều kiện <strong>Freeship</strong>!
-          </span>
-          <span class="fs-text" v-else>
-            Mua thêm <strong>{{ formatCurrency(499000 - selectedSubtotal) }}</strong> để được <strong>Freeship</strong>
-          </span>
-          <span class="fs-link-tag">Mua thêm →</span>
-        </div>
-        <div class="fs-progress-track">
-          <div
-            class="fs-progress-bar"
-            :style="{ width: `${Math.min(100, Math.round((selectedSubtotal / 499000) * 100))}%` }"
-          ></div>
-        </div>
-      </div>
-
       <!-- Khối Voucher khuyến mãi -->
       <div class="voucher-box-section">
         <label class="voucher-lbl">MÃ GIẢM GIÁ / VOUCHER</label>

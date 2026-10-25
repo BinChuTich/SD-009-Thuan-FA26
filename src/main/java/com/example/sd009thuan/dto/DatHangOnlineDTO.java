@@ -10,6 +10,7 @@ import java.util.List;
 @Setter
 public class DatHangOnlineDTO {
     private Long idKhachHang;
+    private Long idPhieuGiamGia;
     private String tenKhachHang;
     private String soDienThoai;
     private String email;
@@ -31,4 +32,3 @@ public class DatHangOnlineDTO {
         private BigDecimal donGia;
     }
 }
-
