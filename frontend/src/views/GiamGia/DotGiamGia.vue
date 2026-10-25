@@ -49,7 +49,7 @@
           <div class="form-field">
             <label class="filter-label">Tìm kiếm</label>
             <div class="input-inner-custom">
-              <span class="prefix-icon-svg">
+              <span class="prefix-icon-svg" v-if="false">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="11" cy="11" r="8"></circle>
                   <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -2984,7 +2984,7 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 .filter-text-input {
-  padding-left: 2.3rem;
+  padding-left: 0.85rem;
 }
 .filter-text-input:focus,
 .filter-date-input:focus {

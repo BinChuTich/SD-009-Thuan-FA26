@@ -32,7 +32,7 @@
         <div class="filter-col">
           <label class="field-label-tiny">Tìm kiếm ca làm việc</label>
           <div class="input-with-prefix-icon">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
+            <svg v-if="false" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -40,7 +40,7 @@
               type="text"
               v-model="filters.keyword"
               placeholder="Tìm theo tên ca..."
-              class="form-control-minimal with-icon"
+              class="form-control-minimal"
               @input="onFilterChange"
             />
           </div>

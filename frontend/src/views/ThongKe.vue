@@ -14,7 +14,7 @@
       <!-- 1. Tiêu đề chính -->
       <div class="page-top-bar">
         <div class="title-with-icon">
-          <div class="title-icon-box">
+          <div class="title-icon-box" v-if="false">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="20" x2="18" y2="10" />
               <line x1="12" y1="20" x2="12" y2="4" />
@@ -24,7 +24,7 @@
           </div>
           <div>
             <h1 class="page-main-title">Thống kê doanh thu</h1>
-            <p class="page-sub-title">Tổng hợp kinh doanh, phân tích sản phẩm và theo dõi tăng trưởng bán hàng</p>
+            <!-- Đã bỏ subtitle theo yêu cầu -->
           </div>
         </div>
 
@@ -36,11 +36,11 @@
             @click="openEmailModal"
             title="Mở bảng cấu hình và gửi email tổng kết doanh thu cho Admin"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg v-if="false" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
               <polyline points="22,6 12,13 2,6" />
             </svg>
-            <span>📧 Gửi mail tổng kết</span>
+            <span>Gửi mail tổng kết</span>
           </button>
 
           <!-- Nút Chuyển sang màn hình So sánh -->
@@ -50,7 +50,7 @@
             @click="switchViewMode('comparison')"
             title="Mở màn hình So sánh & Đối chiếu tăng trưởng doanh thu"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <svg v-if="false" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M16 3h5v5" />
               <path d="M4 20L21 3" />
               <path d="M21 16v5h-5" />
@@ -130,11 +130,11 @@
               @click="openEmailModal"
               title="Gửi email tổng kết doanh thu cho Admin"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg v-if="false" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                 <polyline points="22,6 12,13 2,6" />
               </svg>
-              <span>📧 Gửi mail tổng kết</span>
+              <span>Gửi mail tổng kết</span>
             </button>
 
             <!-- Nút So sánh -->
@@ -144,7 +144,7 @@
               @click="switchViewMode('comparison')"
               title="So sánh đối chiếu doanh thu theo Tháng / Quý / Năm"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg v-if="false" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="20" x2="18" y2="10" />
                 <line x1="12" y1="20" x2="12" y2="4" />
                 <line x1="6" y1="20" x2="6" y2="14" />
@@ -159,7 +159,7 @@
               @click="handleExportExcel"
               title="Xuất dữ liệu thống kê ra file Excel"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg v-if="false" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
@@ -840,23 +840,23 @@
           </button>
           <div>
             <h1 class="page-main-title">So sánh & Tăng trưởng doanh thu</h1>
-            <p class="page-sub-title">Đối chiếu doanh thu, đo lường tốc độ tăng trưởng và theo dõi biến động sức mua sản phẩm</p>
+            <!-- Đã bỏ subtitle theo yêu cầu -->
           </div>
         </div>
 
         <div class="top-bar-actions">
           <!-- Gửi mail tổng kết -->
           <button type="button" class="pill-btn btn-send-mail-highlight" @click="openEmailModal">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg v-if="false" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
               <polyline points="22,6 12,13 2,6" />
             </svg>
-            <span>📧 Gửi mail tổng kết</span>
+            <span>Gửi mail tổng kết</span>
           </button>
 
           <!-- Xuất Excel so sánh -->
           <button type="button" class="pill-btn btn-export-excel" @click="handleExportComparisonExcel">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg v-if="false" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
@@ -3860,5 +3860,13 @@ onMounted(async () => {
   .kpi-cards-grid {
     grid-template-columns: 1fr;
   }
+}
+/* Ẩn icon trong các ô lọc */
+.prefix-icon {
+  display: none !important;
+}
+
+.form-control-minimal.with-icon {
+  padding-left: 10px !important;
 }
 </style>

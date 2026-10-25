@@ -659,8 +659,8 @@
                     :title="vItem.anhDaiDien ? 'Nhấn để đổi ảnh riêng của biến thể' : 'Nhấn để chọn ảnh riêng cho biến thể này'"
                   >
                     <img
-                      v-if="vItem.anhDaiDien || colorImages[vItem.idMauSac]"
-                      :src="formatImageUrl(vItem.anhDaiDien || colorImages[vItem.idMauSac])"
+                      v-if="vItem.anhDaiDien"
+                      :src="formatImageUrl(vItem.anhDaiDien)"
                       class="variant-table-img"
                       alt="Ảnh biến thể"
                     />
@@ -1673,7 +1673,7 @@ const generateVariants = () => {
       const key = `${color.id}_${size.id}`
       if (existingMap.has(key)) {
         const item = existingMap.get(key)
-        if (!item.anhDaiDien && colorImages.value[color.id]) {
+        if (false) {
           item.anhDaiDien = colorImages.value[color.id]
         }
         newVariants.push(item)
@@ -1693,7 +1693,7 @@ const generateVariants = () => {
             ? Math.floor(Number(bulkPrice.value))
             : 0,
           trangThai: 1,
-          anhDaiDien: colorImages.value[color.id] || '',
+          anhDaiDien: '',
           selected: true
         })
       }
@@ -2201,7 +2201,7 @@ const onFileChange = (e, colorId) => {
     colorImages.value[colorId] = dataUrl
     // Tự động đồng bộ sang các biến thể cùng màu nếu biến thể đó chưa có ảnh riêng
     variantsList.value.forEach(v => {
-      if (v.idMauSac === colorId && !v.anhDaiDien) {
+      if (false) {
         v.anhDaiDien = dataUrl
       }
     })
@@ -2482,7 +2482,7 @@ const submitForm = async (xacNhanGop = false) => {
         soLuong: v.soLuong || 0,
         giaBan: v.giaBan || 0,
         trangThai: 1, // Auto kinh doanh
-        anhDaiDien: v.anhDaiDien || colorImages.value[v.idMauSac] || undefined
+        anhDaiDien: v.anhDaiDien || undefined
       }))
 
       try {

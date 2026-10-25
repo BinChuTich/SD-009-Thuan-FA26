@@ -210,7 +210,20 @@ public class HoaDonService {
                     try {
                         List<HinhAnh> imgs = hinhAnhRepository.findByIdSanPham_IdAndTrangThai(idSp, 1);
                         if (imgs != null && !imgs.isEmpty()) {
-                            ct.setAnhDaiDien(imgs.get(0).getDuongDan());
+                            String ctspTarget = "CTSP_" + ct.getIdChiTietSanPham().getId();
+                            String ctspCode = ct.getIdChiTietSanPham().getMaChiTietSanPham();
+                            String foundImg = null;
+                            for (HinhAnh ha : imgs) {
+                                String tenAnh = ha.getTenAnh();
+                                if (tenAnh != null) {
+                                    if (ctspTarget.equals(tenAnh)
+                                            || (ctspCode != null && !ctspCode.trim().isEmpty() && (tenAnh.equals("CTSP_" + ctspCode) || tenAnh.equalsIgnoreCase(ctspCode)))) {
+                                        foundImg = ha.getDuongDan();
+                                        break;
+                                    }
+                                }
+                            }
+                            ct.setAnhDaiDien(foundImg);
                         }
                     } catch (Exception ignored) {}
                 }

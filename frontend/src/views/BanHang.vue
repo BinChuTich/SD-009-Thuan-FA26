@@ -686,6 +686,8 @@ const visibleProductModalPages = computed(() => {
   return pages
 })
 
+const defaultProductImage = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'%3E%3C/circle%3E%3Cpolyline points='21 15 16 10 5 21'%3E%3C/polyline%3E%3C/svg%3E"
+
 const formatProductImage = (url, prod) => {
   const colorName = (prod?.color || prod?.tenMauSac || prod?.idMauSac?.tenMau || prod?.idMauSac?.tenMauSac || '').toLowerCase().trim()
   const colorHex = (prod?.colorHex || prod?.maHex || prod?.idMauSac?.maHex || '').toUpperCase().trim()
@@ -727,7 +729,9 @@ const formatProductImage = (url, prod) => {
     }
   }
 
-  // Fallback thông minh theo đúng biến thể và màu sắc
+  // Biến thể không có ảnh thì không tự fill ảnh biến thể khác, trả về ảnh placeholder
+  return defaultProductImage
+  /*
   if (isWhite) {
     return '/images/products/sp03_front.jpg'
   }
@@ -735,7 +739,7 @@ const formatProductImage = (url, prod) => {
     return '/images/products/sp02_front.jpg'
   }
   if (isBlack) {
-    return '/images/products/sp01_front.jpg'
+
   }
   if (vCode.includes('SP003') || pCode.includes('SP003') || vCode === 'CTSP06') {
     return '/images/products/sp03_front.jpg'
@@ -744,6 +748,7 @@ const formatProductImage = (url, prod) => {
     return '/images/products/sp04_front.jpg'
   }
   return '/images/products/sp01_front.jpg'
+  */
 }
 
 

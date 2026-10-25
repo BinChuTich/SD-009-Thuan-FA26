@@ -712,7 +712,7 @@ onBeforeUnmount(() => {
         <div class="form-group search-group">
           <label>Tìm kiếm</label>
           <div class="input-with-icon">
-            <span class="icon-prefix">
+            <span class="icon-prefix" v-if="false">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -723,7 +723,7 @@ onBeforeUnmount(() => {
                 @input="resetPage"
                 type="text"
                 placeholder="Tìm mã HĐ, tên KH, SĐT..."
-                class="form-control input-has-prefix"
+                class="form-control"
             />
             <button
                 class="btn-qr-inline" v-if="false"
