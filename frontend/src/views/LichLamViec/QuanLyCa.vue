@@ -651,10 +651,10 @@ onMounted(() => {
 
 .content-card {
   background-color: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #ece6dc;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
-  padding: 1.25rem 1.4rem;
+  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+  padding: 1.4rem 1.6rem;
   box-sizing: border-box;
 }
 
@@ -684,7 +684,7 @@ onMounted(() => {
 
 .page-main-title {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #2c3e50;
 }
@@ -1009,7 +1009,7 @@ onMounted(() => {
 
 .modal-dialog-clean {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 12px;
   width: 100%;
   max-width: 520px;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15);

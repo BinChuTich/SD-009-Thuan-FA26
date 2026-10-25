@@ -397,10 +397,13 @@ const loadHoaDon = async () => {
         }
 
         let employeeName = ''
-        const hasStaff = Boolean(item.idNhanVien || item.nhanVien || (item.nguoiTao && !String(item.nguoiTao || '').toLowerCase().includes('khách') && !String(item.nguoiTao || '').toLowerCase().includes('client') && !String(item.nguoiTao || '').toLowerCase().includes('website')))
-        const isOnline = Number(item.loaiDon) === 2 && !hasStaff && !String(item.ghiChu || '').toLowerCase().includes('pos') && !String(item.ghiChu || '').toLowerCase().includes('quầy')
+        const hasDeliveryAddress = Boolean(item.diaChiNhanHang && item.diaChiNhanHang !== 'Bán tại quầy' && item.diaChiNhanHang !== '—')
+        const hasShippingFee = Number(item.phiVanChuyen || item.phiShip || 0) > 0
+        const hasCarrier = Boolean(item.donViVanChuyen && item.donViVanChuyen !== '—')
+        const noteText = String(item.ghiChu || '').toLowerCase()
+        const isOnline = Number(item.loaiDon) === 2 || String(item.loaiDon || '').toLowerCase().includes('online') || noteText.includes('online') || (hasDeliveryAddress && (hasShippingFee || hasCarrier))
         if (isOnline) {
-          employeeName = ''
+          employeeName = nhanVienObj?.tenNhanVien || nhanVienObj?.tenTaiKhoan || item.tenNhanVien || empCatalog[item.idNhanVien] || empCatalog[item.nguoiTao] || ''
         } else if (nhanVienObj?.tenNhanVien) {
           employeeName = nhanVienObj.tenNhanVien
         } else if (empCatalog[item.idNhanVien]) {

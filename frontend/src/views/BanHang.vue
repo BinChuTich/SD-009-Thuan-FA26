@@ -183,7 +183,7 @@ const loadWaitingInvoices = async () => {
         customerId: inv.idKhachHang?.id || null,
         customerName: isKhachLe ? '' : rawCust,
         customerPhone: inv.soDienThoaiKhachHang || '',
-        isDelivery: Boolean(inv.diaChiNhanHang && inv.diaChiNhanHang !== 'Bán tại quầy' && inv.diaChiNhanHang !== '—') || Number(inv.phiVanChuyen || 0) > 0,
+        isDelivery: Number(inv.loaiDon) === 2 || Boolean(inv.diaChiNhanHang && inv.diaChiNhanHang !== 'Bán tại quầy' && inv.diaChiNhanHang !== '—') || Number(inv.phiVanChuyen || 0) > 0,
         deliveryAddress: (inv.diaChiNhanHang && inv.diaChiNhanHang !== 'Bán tại quầy') ? inv.diaChiNhanHang : '',
         shippingFee: Number(inv.phiVanChuyen || 0),
         voucher: inv.idPhieuGiamGia || null,
@@ -2505,7 +2505,7 @@ const handleCheckout = async () => {
       idNhanVien: staffId,
       nguoiTao: staffName,
       maHoaDon: currentInvoice.value.code,
-      loaiDon: 1, // Bất kể đơn giao hàng nhưng phát sinh tại quầy thì loại đơn vẫn là Tại quầy (1)
+      loaiDon: currentInvoice.value.isDelivery ? 2 : 1,
       idKhachHang: currentInvoice.value.customerId || null,
       idPhieuGiamGia: currentInvoice.value.voucher?.id || null,
       tenKhachHang: currentInvoice.value.customerName?.trim() || 'Khách lẻ',

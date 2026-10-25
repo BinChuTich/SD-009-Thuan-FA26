@@ -357,19 +357,21 @@ async function openMoCaModal() {
 async function checkActiveShiftAndPrompt() {
   if (!currentUser.value?.id) return
   try {
-    const res = await api.get(`/api/lich-su-ca/ca-hien-tai/${currentUser.value.id}`)
+    const res = await api.get(`/api/lich-su-ca/current/${currentUser.value.id}`)
     if (res.data && res.data.id) {
       currentOpenShift.value = res.data
       setActiveShift(res.data)
       showMoCaPopup.value = false
       return
+    } else {
+      currentOpenShift.value = null
+      clearActiveShift()
     }
   } catch (e) {
-    // 404 hoặc không có ca mở
+    console.warn('Lỗi kiểm tra ca làm việc:', e)
+    return
   }
 
-  currentOpenShift.value = null
-  clearActiveShift()
   if (!isUserAdmin.value) {
     const isDismissed = sessionStorage.getItem('dismissed_mo_ca_' + currentUser.value.id)
     if (!isDismissed) {

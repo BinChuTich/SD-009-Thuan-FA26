@@ -4,6 +4,13 @@
     <!-- VIEW 1: MÀN HÌNH THỐNG KÊ DOANH THU CHÍNH (OVERVIEW)              -->
     <!-- ================================================================= -->
     <template v-if="viewMode === 'overview'">
+      <!-- Breadcrumb chuẩn toàn hệ thống -->
+      <div class="page-breadcrumb">
+        <router-link to="/" class="crumb-parent">Trang chủ</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">Thống kê doanh thu</span>
+      </div>
+
       <!-- 1. Tiêu đề chính -->
       <div class="page-top-bar">
         <div class="title-with-icon">
@@ -392,10 +399,10 @@
                 preserveAspectRatio="xMidYMid meet"
               >
                 <!-- Đường lưới ngang mờ -->
-                <line x1="20" y1="50" :x2="barChartSvgWidth - 20" y2="50" stroke="#f1ede7" stroke-dasharray="3 3" />
-                <line x1="20" y1="100" :x2="barChartSvgWidth - 20" y2="100" stroke="#f1ede7" stroke-dasharray="3 3" />
-                <line x1="20" y1="150" :x2="barChartSvgWidth - 20" y2="150" stroke="#f1ede7" stroke-dasharray="3 3" />
-                <line x1="20" y1="200" :x2="barChartSvgWidth - 20" y2="200" stroke="#f1ede7" stroke-dasharray="3 3" />
+                <line x1="20" y1="50" :x2="barChartSvgWidth - 20" y2="50" stroke="#e9e5db" stroke-dasharray="3 3" />
+                <line x1="20" y1="100" :x2="barChartSvgWidth - 20" y2="100" stroke="#e9e5db" stroke-dasharray="3 3" />
+                <line x1="20" y1="150" :x2="barChartSvgWidth - 20" y2="150" stroke="#e9e5db" stroke-dasharray="3 3" />
+                <line x1="20" y1="200" :x2="barChartSvgWidth - 20" y2="200" stroke="#e9e5db" stroke-dasharray="3 3" />
                 <line x1="20" y1="240" :x2="barChartSvgWidth - 20" y2="240" stroke="#e2dbcf" stroke-width="1.2" />
 
                 <!-- Các cột Bar Chart -->
@@ -423,7 +430,7 @@
                     y="45"
                     :width="b.width + 8"
                     height="195"
-                    fill="#f1ede7"
+                    fill="#eaf2f6"
                     opacity="0.65"
                     rx="6"
                     class="bar-hover-guide"
@@ -436,7 +443,7 @@
                     :width="b.width"
                     :height="b.height"
                     rx="6"
-                    :fill="hoveredBar && hoveredBar.label === b.label ? '#8C7355' : (b.value > 0 ? '#C8B6A6' : '#E2DBCF')"
+                    :fill="hoveredBar && hoveredBar.label === b.label ? '#3B576E' : (b.value > 0 ? '#496883' : '#E2E8F0')"
                     class="chart-bar-rect"
                     :class="{ 'is-hovered': hoveredBar && hoveredBar.label === b.label }"
                   />
@@ -813,6 +820,15 @@
     <!-- VIEW 2: MÀN HÌNH SO SÁNH & TĂNG TRƯỞNG DOANH THU CHUYÊN SÂU        -->
     <!-- ================================================================= -->
     <template v-else-if="viewMode === 'comparison'">
+      <!-- Breadcrumb So sánh chuẩn toàn hệ thống -->
+      <div class="page-breadcrumb">
+        <router-link to="/" class="crumb-parent">Trang chủ</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-parent" @click="switchViewMode('overview')">Thống kê</span>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">So sánh & Tăng trưởng doanh thu</span>
+      </div>
+
       <!-- Thanh tiêu đề trang So sánh -->
       <div class="page-top-bar comparison-top-bar">
         <div class="title-with-icon">
@@ -1093,10 +1109,10 @@
         <div class="combo-chart-svg-wrap">
           <svg class="combo-chart-svg" viewBox="0 0 1000 340">
             <!-- Grid Lines (Padding-top >= 50px) -->
-            <line x1="50" y1="50" x2="950" y2="50" stroke="#f1ede7" stroke-dasharray="3 3" />
-            <line x1="50" y1="105" x2="950" y2="105" stroke="#f1ede7" stroke-dasharray="3 3" />
-            <line x1="50" y1="160" x2="950" y2="160" stroke="#f1ede7" stroke-dasharray="3 3" />
-            <line x1="50" y1="215" x2="950" y2="215" stroke="#f1ede7" stroke-dasharray="3 3" />
+            <line x1="50" y1="50" x2="950" y2="50" stroke="#e9e5db" stroke-dasharray="3 3" />
+            <line x1="50" y1="105" x2="950" y2="105" stroke="#e9e5db" stroke-dasharray="3 3" />
+            <line x1="50" y1="160" x2="950" y2="160" stroke="#e9e5db" stroke-dasharray="3 3" />
+            <line x1="50" y1="215" x2="950" y2="215" stroke="#e9e5db" stroke-dasharray="3 3" />
             <line x1="50" y1="270" x2="950" y2="270" stroke="#cbd5e1" stroke-width="1.5" />
 
             <!-- Cột Doanh thu (Stacked Bar: Tiền mặt ở dưới, Chuyển khoản ở trên) -->
@@ -1822,7 +1838,7 @@ const brandDonutSlices = computed(() => {
       name: item.name,
       value: val,
       percentage: percent,
-      color: item.color || '#8C7355',
+      color: item.color || '#496883',
       dashArray: `${dashLength} ${circumference}`,
       dashOffset: offset
     }
@@ -2402,10 +2418,10 @@ onMounted(async () => {
 /* Card chuẩn thiết kế */
 .content-card {
   background-color: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #ece6dc;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
-  padding: 1.25rem 1.4rem;
+  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+  padding: 1.4rem 1.6rem;
   box-sizing: border-box;
 }
 
@@ -2425,24 +2441,24 @@ onMounted(async () => {
 }
 
 .title-icon-box {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background-color: #f1ede7;
-  color: #8c7355;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background-color: #eaf2f6;
+  color: var(--blue, #496883);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(140, 115, 85, 0.15);
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.12);
 }
 
 .btn-back-square {
   width: 38px;
   height: 38px;
-  border-radius: 10px;
+  border-radius: 8px;
   background-color: #ffffff;
-  border: 1px solid #d5cbc0;
-  color: #4a3427;
+  border: 1px solid var(--line, #e9e5db);
+  color: var(--blue, #496883);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2451,13 +2467,13 @@ onMounted(async () => {
 }
 
 .btn-back-square:hover {
-  background-color: #f5efe7;
-  border-color: #8c7355;
+  background-color: #eaf2f6;
+  border-color: var(--blue, #496883);
 }
 
 .page-main-title {
   margin: 0;
-  font-size: 1.55rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #2c3e50;
   letter-spacing: -0.2px;
@@ -2494,15 +2510,15 @@ onMounted(async () => {
 }
 
 .pill-btn:hover {
-  background-color: #f0ebe1;
-  border-color: #d1c6b5;
-  color: #3b4d55;
+  background-color: #eaf2f6;
+  border-color: #bcd0dc;
+  color: var(--blue, #496883);
 }
 
 .pill-btn.active {
-  background-color: #d8cbb8;
-  border-color: #bfae9d;
-  color: #3b2e21;
+  background-color: var(--blue, #496883);
+  border-color: var(--blue, #496883);
+  color: #ffffff;
 }
 
 /* Nút Gửi mail nổi bật (Header) */
@@ -2535,29 +2551,29 @@ onMounted(async () => {
 
 /* Nút So sánh nổi bật */
 .btn-compare-highlight {
-  background-color: #8c7355;
-  border-color: #8c7355;
+  background-color: var(--blue, #496883);
+  border-color: var(--blue, #496883);
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(140, 115, 85, 0.25);
+  box-shadow: 0 2px 8px rgba(73, 104, 131, 0.25);
 }
 
 .btn-compare-highlight:hover {
-  background-color: #786044;
-  border-color: #786044;
+  background-color: #3b576e;
+  border-color: #3b576e;
   color: #ffffff;
 }
 
 /* Nút So sánh trong cụm pill */
 .btn-compare-pill {
-  background-color: #f5eee6;
-  border-color: #cfbeab;
-  color: #715539;
+  background-color: #eaf2f6;
+  border-color: #bcd0dc;
+  color: var(--blue, #496883);
   font-weight: 700;
 }
 
 .btn-compare-pill:hover {
-  background-color: #ebdccb;
-  color: #4a3427;
+  background-color: #d9e8f1;
+  color: #2c4350;
 }
 
 /* Nút Xuất Excel */
@@ -2594,7 +2610,7 @@ onMounted(async () => {
 }
 
 .filter-icon {
-  color: #8c7355;
+  color: var(--blue, #496883);
 }
 
 .filter-title-text {
@@ -2652,8 +2668,8 @@ onMounted(async () => {
 }
 
 .form-control-minimal:focus {
-  border-color: #8c7355;
-  box-shadow: 0 0 0 3px rgba(140, 115, 85, 0.12);
+  border-color: var(--blue, #496883);
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.15);
 }
 
 .form-control-minimal.small {
@@ -2702,8 +2718,8 @@ onMounted(async () => {
 .btn-reset-round {
   height: 38px;
   padding: 0 14px;
-  background: #fbf9f6;
-  border: 1px solid #d5cbc0;
+  background: #ffffff;
+  border: 1px solid var(--line, #e9e5db);
   border-radius: 8px;
   color: #556268;
   font-size: 0.84rem;
@@ -2716,9 +2732,9 @@ onMounted(async () => {
 }
 
 .btn-reset-round:hover {
-  background: #f1ebd8;
-  color: #3b2f23;
-  border-color: #bfae9d;
+  background: #eaf2f6;
+  color: var(--blue, #496883);
+  border-color: #bcd0dc;
 }
 
 .filter-error-msg {
@@ -2755,9 +2771,9 @@ onMounted(async () => {
 
 .kpi-card {
   background-color: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #ece6dc;
-  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.025);
+  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
   padding: 1.15rem 1rem;
   display: flex;
   flex-direction: column;
@@ -2818,9 +2834,9 @@ onMounted(async () => {
   gap: 6px;
   font-size: 0.76rem;
   font-weight: 600;
-  color: #8c7355;
-  background: #fbf9f6;
-  border: 1px dashed #d5cbc0;
+  color: var(--blue, #496883);
+  background: #eaf2f6;
+  border: 1px dashed #bcd0dc;
   padding: 4px 10px;
   border-radius: 6px;
   margin-bottom: 8px;
@@ -2832,7 +2848,7 @@ onMounted(async () => {
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: #c8b6a6 #f1ede7;
+  scrollbar-color: #cbd5e1 #f1f5f9;
   border-radius: 8px;
   padding-bottom: 6px;
 }
@@ -2842,17 +2858,17 @@ onMounted(async () => {
 }
 
 .bar-chart-scroll-wrap::-webkit-scrollbar-track {
-  background: #f1ede7;
+  background: #f1f5f9;
   border-radius: 4px;
 }
 
 .bar-chart-scroll-wrap::-webkit-scrollbar-thumb {
-  background: #c8b6a6;
+  background: #cbd5e1;
   border-radius: 4px;
 }
 
 .bar-chart-scroll-wrap::-webkit-scrollbar-thumb:hover {
-  background: #8c7355;
+  background: var(--blue, #496883);
 }
 
 .bar-chart-svg-wrap {
@@ -2884,8 +2900,8 @@ onMounted(async () => {
 }
 
 .chart-bar-rect.is-hovered {
-  fill: #8c7355 !important;
-  filter: drop-shadow(0 2px 6px rgba(140, 115, 85, 0.45));
+  fill: #3b576e !important;
+  filter: drop-shadow(0 2px 6px rgba(73, 104, 131, 0.35));
 }
 
 .bar-peak-number {
@@ -3020,7 +3036,7 @@ onMounted(async () => {
 }
 
 .title-sub-icon {
-  color: #8c7355;
+  color: var(--blue, #496883);
 }
 
 .card-heading {
@@ -3036,8 +3052,8 @@ onMounted(async () => {
   font-weight: 600;
   padding: 3px 8px;
   border-radius: 6px;
-  background-color: #f2ede7;
-  color: #76695b;
+  background-color: #eaf2f6;
+  color: var(--blue, #496883);
 }
 
 .badge-filter-status {
@@ -3214,10 +3230,11 @@ onMounted(async () => {
 }
 
 .minimal-styled-table th {
-  background-color: #ddd3c5 !important;
-  color: #3b2f23;
+  background-color: #f7f5ef !important;
+  border-bottom: 2px solid #e9e5db !important;
+  color: var(--blue, #496883) !important;
   font-weight: 700;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   letter-spacing: 0.5px;
   padding: 10px 14px;
   text-transform: uppercase;
@@ -3249,9 +3266,10 @@ onMounted(async () => {
 }
 
 .table-total-row td {
-  background-color: #faf5ed;
+  background-color: #f8fafc;
   font-weight: 700;
-  border-top: 2px solid #ddd3c5;
+  border-top: 2px solid #e9e5db;
+  color: var(--blue, #496883);
   padding: 12px 14px;
 }
 
@@ -3438,14 +3456,14 @@ onMounted(async () => {
 }
 
 .pg-btn:hover:not(:disabled) {
-  background-color: #f5efe7;
-  border-color: #bfae9d;
-  color: #2c3e50;
+  background-color: #eaf2f6;
+  border-color: #bcd0dc;
+  color: var(--blue, #496883);
 }
 
 .pg-btn.active {
-  background-color: #8c7355 !important;
-  border-color: #8c7355 !important;
+  background-color: var(--blue, #496883) !important;
+  border-color: var(--blue, #496883) !important;
   color: #ffffff !important;
 }
 
@@ -3594,7 +3612,7 @@ onMounted(async () => {
 
 .modal-card-custom {
   background-color: #ffffff;
-  border-radius: 18px;
+  border-radius: 12px;
   width: 100%;
   max-width: 530px;
   box-shadow: 0 20px 45px rgba(0, 0, 0, 0.2);
@@ -3703,8 +3721,8 @@ onMounted(async () => {
 }
 
 .radio-pill-btn.active {
-  background-color: #8c7355;
-  border-color: #8c7355;
+  background-color: var(--blue, #496883);
+  border-color: var(--blue, #496883);
   color: #ffffff;
 }
 

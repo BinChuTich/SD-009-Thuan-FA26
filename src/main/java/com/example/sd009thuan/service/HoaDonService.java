@@ -85,17 +85,15 @@ public class HoaDonService {
     // Đồng bộ tính toán tổng tiền và tiền sau giảm giá từ danh sách sản phẩm chi tiết
     private void syncInvoiceTotals(HoaDon hoaDon) {
         if (hoaDon == null || hoaDon.getId() == null) return;
-        // Chuẩn hóa loại đơn: Bất kể đơn giao hàng nhưng phát sinh tại quầy thì luôn là Tại quầy (1)
-        if (Integer.valueOf(2).equals(hoaDon.getLoaiDon())) {
-            boolean isStoreCreated = hoaDon.getIdNhanVien() != null
-                    || (hoaDon.getNguoiTao() != null && !hoaDon.getNguoiTao().isBlank())
-                    || (hoaDon.getGhiChu() != null && (hoaDon.getGhiChu().toLowerCase().contains("pos") || hoaDon.getGhiChu().toLowerCase().contains("quầy")));
-            if (isStoreCreated) {
-                hoaDon.setLoaiDon(1);
-                try {
-                    hoaDonRepository.save(hoaDon);
-                } catch (Exception ignored) {}
-            }
+        // Khôi phục đúng loại đơn cho đơn online / giao hàng nếu trước đó bị lưu nhầm thành 1
+        boolean hasDeliveryInfo = (hoaDon.getDiaChiNhanHang() != null && !hoaDon.getDiaChiNhanHang().isBlank()
+                && !hoaDon.getDiaChiNhanHang().equalsIgnoreCase("Bán tại quầy") && !hoaDon.getDiaChiNhanHang().equals("—"))
+                && (hoaDon.getPhiVanChuyen() != null && hoaDon.getPhiVanChuyen().compareTo(BigDecimal.ZERO) > 0);
+        if (hasDeliveryInfo && Integer.valueOf(1).equals(hoaDon.getLoaiDon())) {
+            hoaDon.setLoaiDon(2);
+            try {
+                hoaDonRepository.save(hoaDon);
+            } catch (Exception ignored) {}
         }
         try {
             List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(hoaDon.getId());
@@ -1234,12 +1232,12 @@ public class HoaDonService {
             hoaDon.setMaHoaDon(generateNextMaHoaDon());
         }
 
-        // 2. Loại đơn: Mọi hoạt động phát sinh từ quầy (POS) bất kể có giao hàng hay không thì luôn là Tại quầy (1)
-        Integer loaiDon = 1;
-        hoaDon.setLoaiDon(loaiDon);
-
         boolean isDelivery = (dto.getPhiShip() != null && dto.getPhiShip().compareTo(java.math.BigDecimal.ZERO) > 0)
                 || (dto.getDiaChiNhanHang() != null && !dto.getDiaChiNhanHang().trim().isEmpty() && !dto.getDiaChiNhanHang().trim().equalsIgnoreCase("Bán tại quầy"));
+
+        // 2. Loại đơn (1: Tại quầy, 2: Giao hàng)
+        Integer loaiDon = dto.getLoaiDon() != null ? dto.getLoaiDon() : (isDelivery ? 2 : 1);
+        hoaDon.setLoaiDon(loaiDon);
 
         // 3. Trạng thái đơn & trạng thái thanh toán
         Integer trangThai = dto.getTrangThai();

@@ -20,8 +20,11 @@ api.interceptors.request.use((config) => {
                           url.includes('/api/nhan-vien/logout') ||
                           url.includes('/api/nhan-vien/forgot-password') ||
                           url.includes('/api/lich-su-ca/mo-ca') ||
+                          url.includes('/api/lich-su-ca/dong-ca') ||
                           url.includes('/api/lich-su-ca/ca-hien-tai') ||
+                          url.includes('/api/lich-su-ca/current') ||
                           url.includes('/api/lich-su-ca/ca-dong-gan-nhat') ||
+                          url.includes('/api/lich-su-ca/last-closed') ||
                           url.includes('/api/lich-lam-viec/hom-nay')
 
     if (!isWhitelisted && isInViewMode()) {

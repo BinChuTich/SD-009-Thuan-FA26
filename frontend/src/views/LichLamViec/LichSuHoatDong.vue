@@ -1206,10 +1206,10 @@ onMounted(async () => {
 
 .content-card {
   background-color: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #ece6dc;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
-  padding: 1.25rem 1.4rem;
+  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+  padding: 1.4rem 1.6rem;
   box-sizing: border-box;
 }
 
@@ -1236,12 +1236,12 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(140, 115, 85, 0.12);
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.12);
 }
 
 .page-main-title {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #2c3e50;
 }
@@ -1266,7 +1266,7 @@ onMounted(async () => {
   gap: 6px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 6px rgba(140, 115, 85, 0.15);
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.15);
 }
 
 .btn-open-shift:hover {
@@ -1627,7 +1627,7 @@ onMounted(async () => {
 
 .modal-dialog-clean {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 12px;
   width: 100%;
   max-width: 480px;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15);

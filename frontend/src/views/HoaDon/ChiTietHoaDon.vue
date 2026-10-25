@@ -250,8 +250,14 @@ const invoiceData = ref(createDefaultInvoice(invoiceCode.value))
 
 // Xác định loại đơn hàng trực tuyến (Online / Giao hàng)
 const isOnlineDelivery = computed(() => {
-  return invoiceData.value.delivery?.type !== 'Tại quầy' && Number(invoiceData.value.delivery?.loaiDon) !== 1
+  return invoiceData.value.delivery?.type === 'Online'
+    || Number(invoiceData.value.delivery?.loaiDon) === 2
+    || Number(invoiceData.value.loaiDon) === 2
+    || (Boolean(invoiceData.value.delivery?.address && invoiceData.value.delivery?.address !== 'Bán tại quầy' && invoiceData.value.delivery?.address !== '—') && Number(invoiceData.value.summary?.shippingFee || invoiceData.value.phiVanChuyen || 0) > 0)
+    || Boolean(invoiceData.value.delivery?.carrier && invoiceData.value.delivery?.carrier !== '—')
 })
+
+const isAtStore = computed(() => !isOnlineDelivery.value)
 
 // Đơn hàng online đang ở trạng thái Chờ xác nhận (status = 1): CHƯA IN HÓA ĐƠN
 const isOnlineWaitingConfirm = computed(() => {
@@ -261,9 +267,8 @@ const isOnlineWaitingConfirm = computed(() => {
 // Điều kiện in hóa đơn: Chỉ trạng thái "Đã xác nhận" (status = 2) mới in hóa đơn, các trạng thái sau không cần in hóa đơn
 const canPrintInvoice = computed(() => {
   const st = Number(invoiceData.value.status)
-  const isStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
   // Đơn tại quầy khi hoàn thành (status 5) tại quầy được in hóa đơn
-  if (isStore && st === 5) return true
+  if (isAtStore.value && st === 5) return true
   // Đối với các đơn (đặc biệt đơn giao hàng), chỉ trạng thái Đã xác nhận (status = 2) mới in hóa đơn
   return st === 2
 })
@@ -851,15 +856,19 @@ const loadDetail = async (identifier) => {
     invoiceData.value.lastUpdated = formatDateTime(data['ngayCapNhat'] || data['updatedAt'] || data['thoiGianThanhToan'] || data['ngayTao'] || data['createdAt'])
 
     const hasDelivery = Boolean(data['diaChiNhanHang'] && data['diaChiNhanHang'] !== 'Bán tại quầy' && data['diaChiNhanHang'] !== '—') || Number(data['phiVanChuyen'] || data['phiShip'] || 0) > 0 || Boolean(data['donViVanChuyen'] && data['donViVanChuyen'] !== '—')
-    const hasStaffCreator = Boolean(data['idNhanVien'] || data['nhanVien'] || (data['nguoiTao'] && !String(data['nguoiTao']).toLowerCase().includes('khách') && !String(data['nguoiTao']).toLowerCase().includes('client') && !String(data['nguoiTao']).toLowerCase().includes('website')))
-    const isOnlineChannel = Number(data['loaiDon']) === 2 && !hasStaffCreator && !String(data['ghiChu'] || '').toLowerCase().includes('pos') && !String(data['ghiChu'] || '').toLowerCase().includes('quầy')
+    const isOnlineChannel = Number(data['loaiDon']) === 2
+      || String(data['loaiDon'] || '').toLowerCase().includes('online')
+      || String(data['ghiChu'] || '').toLowerCase().includes('online')
+      || hasDelivery
 
+    invoiceData.value.loaiDon = isOnlineChannel ? 2 : 1
     invoiceData.value.delivery = {
       address: getString(data['diaChiNhanHang'], data['diaChi'], data['address'], '—'),
       type: isOnlineChannel ? 'Online' : 'Tại quầy',
       carrier: getString(data['donViVanChuyen'], data['tenDonViVanChuyen'], data['carrier'], '—'),
       receiveType: hasDelivery ? 'Giao hàng tận nơi' : 'Nhận tại quầy',
-      note: getString(data['ghiChu'], data['note'], '—')
+      note: getString(data['ghiChu'], data['note'], '—'),
+      loaiDon: isOnlineChannel ? 2 : 1
     }
 
     // Danh sách sản phẩm
@@ -1019,8 +1028,8 @@ const loadDetail = async (identifier) => {
         currentStatus = 7
       }
     }
-    const isAtStore = Number(data['loaiDon']) === 1 || data['loaiDon'] === 'Tại quầy' || invoiceData.value.delivery?.type === 'Tại quầy'
-    applyOrderStatus(currentStatus, isAtStore)
+    const isStoreOrder = !isOnlineChannel
+    applyOrderStatus(currentStatus, isStoreOrder)
 
     // Lịch sử thao tác
     let rawLogs = data['lichSuHoaDon'] || data['lichSuHoaDons'] || data['lichSu']
@@ -1059,8 +1068,19 @@ const loadDetail = async (identifier) => {
         isDone: true
       }))
       orderLogs.value = mappedLogs
+
+      // Cập nhật mốc thời gian cho từng bước trên Stepper từ lịch sử hóa đơn
+      rawLogs.forEach(l => {
+        const stepStatus = Number(l.trangThai)
+        if (stepStatus >= 1 && stepStatus <= 5 && invoiceData.value.steps[stepStatus - 1]) {
+          const logTime = l.thoiGian || l.ngayTao || l.thoiGianTao
+          if (logTime) {
+            invoiceData.value.steps[stepStatus - 1].time = formatDateTime(logTime)
+          }
+        }
+      })
     } else {
-      orderLogs.value = buildLogsByStatus(currentStatus, data['ngayTao'] || data['createdAt'], isAtStore, {
+      orderLogs.value = buildLogsByStatus(currentStatus, data['ngayTao'] || data['createdAt'], isStoreOrder, {
         finishDate: data['thoiGianThanhToan'] || data['ngayCapNhat'] || data['updatedAt'],
         employeeName,
         note: data['ghiChu']
@@ -1070,6 +1090,10 @@ const loadDetail = async (identifier) => {
     const createTimeStr = formatDateTime(data['ngayTao'] || data['createdAt'])
     if (invoiceData.value.steps[0] && !invoiceData.value.steps[0].time) {
       invoiceData.value.steps[0].time = createTimeStr
+    }
+    const curStatusNum = Number(currentStatus)
+    if (curStatusNum >= 2 && curStatusNum <= 5 && invoiceData.value.steps[curStatusNum - 1] && !invoiceData.value.steps[curStatusNum - 1].time) {
+      invoiceData.value.steps[curStatusNum - 1].time = formatDateTime(data['ngayCapNhat'] || data['updatedAt'] || data['thoiGianThanhToan'] || data['ngayTao'])
     }
   } catch (err) {
     if (currentRequest !== requestId) return
@@ -1105,7 +1129,7 @@ watch(
 // STEPPER: HIỂN THỊ CÁC BƯỚC ĐÃ TỚI + DUY NHẤT 1 BƯỚC TIẾP THEO LIỀN KỀ (PENDING)
 // =========================================================================
 const visibleSteps = computed(() => {
-  const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
+  const isStore = isAtStore.value
   const curStatus = Number(invoiceData.value.status) || 1
   const createTime = invoiceData.value.createTime || invoiceData.value.steps[0]?.time || ''
   const finishTime = invoiceData.value.lastUpdated || invoiceData.value.paymentHistory?.time || createTime
@@ -1113,7 +1137,7 @@ const visibleSteps = computed(() => {
   // Đơn đã hủy (status = 6)
   if (curStatus === 6) {
     return [
-      { id: 1, name: isAtStore ? 'Hóa đơn chờ' : 'Chờ xác nhận', time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
+      { id: 1, name: isStore ? 'Hóa đơn chờ' : 'Chờ xác nhận', time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
       { id: 6, name: 'Đã hủy đơn', time: finishTime, done: false, active: true, pending: false, isCancelled: true, icon: 'cancelled' }
     ]
   }
@@ -1130,7 +1154,7 @@ const visibleSteps = computed(() => {
   }
 
   // Đơn tại quầy
-  if (isAtStore) {
+  if (isStore) {
     return [
       { id: 1, name: 'Hóa đơn chờ', time: createTime, done: curStatus >= 2, active: curStatus === 1, pending: false, icon: 'hourglass' },
       { id: 2, name: 'Đã xác nhận', time: curStatus >= 2 ? finishTime : '', done: curStatus >= 5, active: curStatus === 2, pending: curStatus < 2, icon: 'check' },
@@ -1160,9 +1184,8 @@ const visibleSteps = computed(() => {
 
 // Thông tin trạng thái kế tiếp
 const nextStatusInfo = computed(() => {
-  const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
   const cur = Number(invoiceData.value.status)
-  if (isAtStore) {
+  if (isAtStore.value) {
     if (cur === 1) return { nextStatus: 2, label: 'Xác Nhận Đơn Hàng' }
     if (cur === 2) return { nextStatus: 5, label: 'Hoàn Thành Đơn Hàng' }
     return null
@@ -1244,8 +1267,7 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null, cus
     }
 
     if (success) {
-      const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
-      applyOrderStatus(newStatus, isAtStore)
+      applyOrderStatus(newStatus, isAtStore.value)
       invoiceData.value.status = newStatus
       const option = statusOptions.find(o => o.value === newStatus)
       const labelText = option ? option.label : (newStatus === 7 ? 'Giao hàng thất bại' : newStatus)
@@ -1261,8 +1283,7 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null, cus
       }
       // Tự động in hóa đơn ngay khi đơn hàng chuyển sang trạng thái "Đã xác nhận" (status 2)
       // hoặc trạng thái "Hoàn thành" (status 5) đối với đơn tại quầy
-      const isStoreOrder = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
-      if (newStatus === 2 || (newStatus === 5 && isStoreOrder)) {
+      if (newStatus === 2 || (newStatus === 5 && isAtStore.value)) {
         setTimeout(() => {
           handlePrint()
         }, 500)

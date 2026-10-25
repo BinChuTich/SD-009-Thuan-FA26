@@ -472,7 +472,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
-import { getCurrentUser, getRoleCode } from '@/utils/auth.js'
+import { getCurrentUser, getRoleCode, setActiveShift, clearActiveShift } from '@/utils/auth.js'
 import { showAlert, showConfirm, showToast } from '@/utils/dialog.js'
 
 const router = useRouter()
@@ -757,8 +757,10 @@ async function checkCurrentOpenShift() {
     currentOpenShift.value = res.data || null
 
     if (currentOpenShift.value) {
+      setActiveShift(currentOpenShift.value)
       await loadShiftSummary(currentOpenShift.value.id)
     } else {
+      clearActiveShift()
       await loadLastClosedShift()
       autoSelectShiftAndEmployee()
     }
@@ -886,7 +888,7 @@ async function submitMoCa() {
 
   submittingMoCa.value = true
   try {
-    await api.post('/api/lich-su-ca/mo-ca', {
+    const res = await api.post('/api/lich-su-ca/mo-ca', {
       nhanVienId: Number(moCaForm.nhanVienId),
       caLamViecId: Number(moCaForm.caLamViecId),
       tienMatDauCa: Number(moCaForm.tienMatDauCa || 0),
@@ -895,9 +897,15 @@ async function submitMoCa() {
     })
 
     showToast('Mở ca làm việc thành công!', 'success')
-    await checkCurrentOpenShift()
+    const openedShift = res?.data || null
+    if (openedShift) {
+      setActiveShift(openedShift)
+      currentOpenShift.value = openedShift
+    } else {
+      await checkCurrentOpenShift()
+    }
     await loadRecentShifts()
-    window.dispatchEvent(new CustomEvent('shift-closed', { detail: closedShiftData }))
+    window.dispatchEvent(new CustomEvent('shift-opened', { detail: openedShift || currentOpenShift.value }))
 
     showAlert({
       title: 'Mở ca thành công!',
@@ -955,6 +963,7 @@ async function submitDongCa() {
     dongCaForm.lyDoChenhLech = ''
     dongCaForm.ghiChu = ''
 
+    clearActiveShift()
     await checkCurrentOpenShift()
     await loadRecentShifts()
     window.dispatchEvent(new CustomEvent('shift-closed', { detail: closedShiftData }))
@@ -1028,11 +1037,11 @@ onUnmounted(() => {
 <style scoped>
 .shift-inactive-empty-card {
   background: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #ece6dc;
+  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
   padding: 3rem 2rem;
   text-align: center;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
 }
 
 .empty-shift-content {
@@ -1091,6 +1100,7 @@ onUnmounted(() => {
   transform: translateY(-1px);
   box-shadow: 0 5px 14px rgba(73, 104, 131, 0.35);
 }
+
 .giao-ca-page {
   padding: 1.25rem 2rem 3rem;
   background-color: #f7f5ef;
@@ -1104,10 +1114,10 @@ onUnmounted(() => {
 
 .content-card {
   background-color: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #ece6dc;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
-  padding: 1.35rem 1.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+  padding: 1.4rem 1.6rem;
   box-sizing: border-box;
 }
 
@@ -1126,10 +1136,10 @@ onUnmounted(() => {
 }
 
 .title-icon-box {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background-color: #f1ede7;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background-color: #eaf2f6;
   color: var(--blue, #496883);
   display: flex;
   align-items: center;
@@ -1305,7 +1315,7 @@ onUnmounted(() => {
 }
 
 .btn-refresh-clean:hover {
-  background-color: #f1ede7;
+  background-color: #eaf2f6;
 }
 
 .metrics-grid {
@@ -1367,7 +1377,7 @@ onUnmounted(() => {
   color: var(--blue, #496883);
   margin-bottom: 1.25rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid #f1ede7;
+  border-bottom: 1px solid var(--line, #e9e5db);
 }
 
 .card-section-title h2 {
@@ -1425,7 +1435,7 @@ onUnmounted(() => {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #8c7355, #634b35);
+  background: linear-gradient(135deg, var(--blue, #496883), #3b576e);
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -1485,7 +1495,7 @@ onUnmounted(() => {
 
 .form-control-minimal:focus {
   border-color: var(--blue, #496883);
-  box-shadow: 0 0 0 3px rgba(140, 115, 85, 0.12);
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.15);
 }
 
 .select-wrapper-minimal {
@@ -2001,7 +2011,7 @@ onUnmounted(() => {
 
 .modal-dialog-clean {
   background-color: #ffffff;
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
