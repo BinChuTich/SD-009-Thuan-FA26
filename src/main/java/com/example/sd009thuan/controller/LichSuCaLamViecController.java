@@ -42,7 +42,7 @@ public class LichSuCaLamViecController {
         return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/last-closed")
+    @GetMapping({"/last-closed", "/ca-dong-gan-nhat"})
     public ResponseEntity<?> getLastClosedShift() {
         return ResponseEntity.ok(service.getLastClosedShift().orElse(null));
     }

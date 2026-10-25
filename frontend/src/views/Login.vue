@@ -52,6 +52,7 @@ const handleLogin = async () => {
 
     if (res.data) {
       const loggedUser = setCurrentUser(res.data)
+      try { sessionStorage.removeItem('dismissed_mo_ca_' + loggedUser.id); } catch(e) {}
       const redirectUrl = route.query.redirect
 
       if (redirectUrl) {

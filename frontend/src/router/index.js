@@ -300,8 +300,7 @@ const routes = [
     },
     {
         path: '/giao-ca',
-        name: 'GiaoCa',
-        component: GiaoCa,
+        redirect: '/lich-su-ca',
         meta: { roles: ['ADMIN', 'NV'] }
     },
     {
