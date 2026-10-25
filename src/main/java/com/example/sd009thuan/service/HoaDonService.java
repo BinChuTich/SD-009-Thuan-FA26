@@ -800,7 +800,7 @@ public class HoaDonService {
 
         hoaDon.setNgayCapNhat(Instant.now());
 
-        HoaDon saved = hoaDonRepository.save(hoaDon);
+                HoaDon saved = hoaDonRepository.save(hoaDon);
 
         // Nếu chuyển sang trạng thái 2 (Đã xác nhận), gửi email xác nhận đơn hàng cho khách nếu có email
         if (Integer.valueOf(2).equals(trangThai)) {
@@ -1253,8 +1253,8 @@ public class HoaDonService {
 
         hoaDon.setPhiVanChuyen(phiShip);
         hoaDon.setTongTien(tongTien);
-        BigDecimal tienSauGiam = tongTien.subtract(giamGia);
-        if (tienSauGiam.compareTo(BigDecimal.ZERO) < 0) tienSauGiam = BigDecimal.ZERO;
+        BigDecimal tienSauGiam = tongTien.subtract(giamGia).add(phiShip);
+        if (tienSauGiam.compareTo(BigDecimal.ZERO) < 0) tienSauGiam = phiShip;
         hoaDon.setTienSauGiamGia(tienSauGiam);
 
         String dvvc = (dto.getDonViVanChuyen() != null && !dto.getDonViVanChuyen().trim().isEmpty())
@@ -1262,9 +1262,11 @@ public class HoaDonService {
         String mvd = (dto.getMaVanDon() != null && !dto.getMaVanDon().trim().isEmpty())
                 ? dto.getMaVanDon().trim() : ("GHN" + System.currentTimeMillis());
 
+        String custEmail = (dto.getEmail() != null && !dto.getEmail().trim().isEmpty()) ? dto.getEmail().trim() : "";
+        String emailTag = (!custEmail.isEmpty() && custEmail.contains("@")) ? " [EMAIL: " + custEmail + "]" : "";
         String note = (dto.getGhiChu() != null && !dto.getGhiChu().trim().isEmpty())
-                ? dto.getGhiChu().trim() + " [Phương thức: " + pt + "] [ĐVVC: " + dvvc + "] [MVD: " + mvd + "]"
-                : "Đơn đặt hàng online qua website [Phương thức: " + pt + "] [ĐVVC: " + dvvc + "] [MVD: " + mvd + "]";
+                ? dto.getGhiChu().trim() + " [Phương thức: " + pt + "] [ĐVVC: " + dvvc + "] [MVD: " + mvd + "]" + emailTag
+                : "Đơn đặt hàng online qua website [Phương thức: " + pt + "] [ĐVVC: " + dvvc + "] [MVD: " + mvd + "]" + emailTag;
         hoaDon.setGhiChu(note);
         hoaDon.setDonViVanChuyen(dvvc);
         hoaDon.setMaVanDon(mvd);
@@ -1273,6 +1275,23 @@ public class HoaDonService {
         hoaDon.setNgayCapNhat(Instant.now());
         hoaDon.setNguoiTao("Khách hàng online");
         hoaDon.setNguoiCapNhat("Khách hàng online");
+
+        // Gắn liên kết Khách hàng thành viên nếu có
+        if (dto.getIdKhachHang() != null) {
+            khachHangRepository.findById(dto.getIdKhachHang()).ifPresent(hoaDon::setIdKhachHang);
+        }
+
+        // Gắn liên kết Phiếu giảm giá và cập nhật lượt sử dụng nếu có
+        if (dto.getIdPhieuGiamGia() != null) {
+            phieuGiamGiaRepository.findById(dto.getIdPhieuGiamGia()).ifPresent(pgg -> {
+                hoaDon.setIdPhieuGiamGia(pgg);
+                try {
+                    int used = pgg.getSoLuongSuDung() != null ? pgg.getSoLuongSuDung() : 0;
+                    pgg.setSoLuongSuDung(used + 1);
+                    phieuGiamGiaRepository.save(pgg);
+                } catch (Exception ignored) {}
+            });
+        }
 
         HoaDon saved = hoaDonRepository.save(hoaDon);
 
@@ -1319,7 +1338,7 @@ public class HoaDonService {
 
             if (calculatedTotal.compareTo(BigDecimal.ZERO) > 0 && (saved.getTongTien() == null || saved.getTongTien().compareTo(BigDecimal.ZERO) == 0)) {
                 saved.setTongTien(calculatedTotal);
-                BigDecimal finalAmount = calculatedTotal.add(phiShip).subtract(giamGia);
+                BigDecimal finalAmount = calculatedTotal.subtract(giamGia).add(phiShip);
                 if (finalAmount.compareTo(BigDecimal.ZERO) < 0) finalAmount = BigDecimal.ZERO;
                 saved.setTienSauGiamGia(finalAmount);
                 saved = hoaDonRepository.save(saved);
@@ -1344,7 +1363,7 @@ public class HoaDonService {
                 List<PhuongThucThanhToan> allPts = phuongThucThanhToanRepository.findAll();
                 PhuongThucThanhToan matchedPt = null;
                 for (PhuongThucThanhToan p : allPts) {
-                    if (p.getTenPhuongThuc() != null && p.getTenPhuongThuc().equalsIgnoreCase(pt)) {
+                    if (p.getTenPhuongThuc() != null && (p.getTenPhuongThuc().equalsIgnoreCase(pt) || p.getTenPhuongThuc().toLowerCase().contains("tiền mặt") || p.getTenPhuongThuc().toLowerCase().contains("cod"))) {
                         matchedPt = p;
                         break;
                     }
@@ -1365,11 +1384,14 @@ public class HoaDonService {
         }
 
         // Gửi email xác nhận nếu không phải VNPAY
-        if (!pt.equalsIgnoreCase("VNPAY") && saved.getEmail() != null && !saved.getEmail().isBlank()) {
+        String targetEmail = !custEmail.isEmpty() ? custEmail : (saved.getEmail() != null ? saved.getEmail() : "");
+        if (!pt.equalsIgnoreCase("VNPAY") && !targetEmail.isBlank() && targetEmail.contains("@")) {
             try {
                 List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(saved.getId());
-                emailService.sendOrderConfirmationEmail(saved, items, saved.getEmail());
-            } catch (Exception ignored) {}
+                emailService.sendOrderConfirmationEmail(saved, items, targetEmail);
+            } catch (Exception ex) {
+                System.err.println("==> Lỗi gửi email đặt hàng COD: " + ex.getMessage());
+            }
         }
 
         return saved;

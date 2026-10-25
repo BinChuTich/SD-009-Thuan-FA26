@@ -173,6 +173,15 @@ public class HoaDon {
         if (this.email != null && !this.email.trim().isEmpty()) {
             return this.email.trim();
         }
+        if (this.ghiChu != null && this.ghiChu.contains("[EMAIL:")) {
+            try {
+                int start = this.ghiChu.indexOf("[EMAIL:") + 7;
+                int end = this.ghiChu.indexOf("]", start);
+                if (end > start) {
+                    return this.ghiChu.substring(start, end).trim();
+                }
+            } catch (Exception ignored) {}
+        }
         if (idKhachHang != null && idKhachHang.getEmail() != null && !idKhachHang.getEmail().trim().isEmpty()) {
             return idKhachHang.getEmail().trim();
         }

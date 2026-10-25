@@ -1033,6 +1033,61 @@ const selectedVoucherId = computed({
   }
 })
 
+// 4.1 TÍNH TOÁN VÀ TỰ ĐỘNG CHỌN MÃ GIẢM GIÁ CÓ LỢI NHẤT CHO KHÁCH HÀNG
+const calculateDiscountForVoucher = (v, subtotal, custId) => {
+  if (!v || !subtotal || subtotal <= 0) return 0
+  if (isVoucherPersonal(v) && !isVoucherForCustomer(v, custId)) return 0
+  if (v.hoaDonToiThieu && subtotal < Number(v.hoaDonToiThieu)) return 0
+
+  if (isPercentVoucher(v)) {
+    const percent = Number(v.giaTriGiamGia || 0)
+    let amount = (subtotal * percent) / 100
+    if (v.giamToiDa && amount > Number(v.giamToiDa)) {
+      amount = Number(v.giamToiDa)
+    }
+    return Math.min(amount, subtotal)
+  } else {
+    return Math.min(Number(v.giaTriGiamGia || 0), subtotal)
+  }
+}
+
+const autoSelectBestVoucher = (notify = false) => {
+  if (!currentInvoice.value) return
+  const subtotal = totalAmount.value
+  const custId = currentInvoice.value.customerId
+
+  if (!availableVouchers.value || availableVouchers.value.length === 0 || subtotal <= 0) {
+    if (notify) showToast('Chưa có sản phẩm hoặc chưa có mã giảm giá hợp lệ!', 'warning')
+    return
+  }
+
+  let bestVoucher = null
+  let maxDiscount = 0
+
+  availableVouchers.value.forEach(v => {
+    if (isVoucherPersonal(v)) {
+      if (!custId || !isVoucherForCustomer(v, custId)) return
+    }
+    const discount = calculateDiscountForVoucher(v, subtotal, custId)
+    if (discount > maxDiscount) {
+      maxDiscount = discount
+      bestVoucher = v
+    }
+  })
+
+  if (bestVoucher && maxDiscount > 0) {
+    currentInvoice.value.voucher = bestVoucher
+    if (notify) {
+      const typeLabel = isVoucherPersonal(bestVoucher) ? 'Cá nhân' : 'Công khai'
+      showToast(`Đã tự động chọn mã tối ưu nhất [${typeLabel}]: "${bestVoucher.maPhieuGiamGia}" (Giảm ${formatMoney(maxDiscount)})!`)
+    }
+  } else {
+    if (notify) {
+      showToast('Không có mã giảm giá nào đạt điều kiện tối thiểu cho đơn hàng này!', 'warning')
+    }
+  }
+}
+
 const voucherDiscount = computed(() => {
   if (!currentInvoice.value || !currentInvoice.value.voucher) return 0
   const v = currentInvoice.value.voucher
@@ -3659,4 +3714,25 @@ onMounted(async () => {
   font-weight: 600;
   cursor: pointer;
 }
+
+.btn-best-voucher {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #b45309;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-best-voucher:hover {
+  background: #fde68a;
+  color: #92400e;
+  transform: translateY(-1px);
+}
+
 </style>

@@ -7,7 +7,8 @@ import {
   unreadCount,
   fetchNotifications,
   markAsRead,
-  markAllAsRead
+  markAllAsRead,
+  clearNotifications
 } from '@/utils/thongBao.js'
 import { currentClientUser, isClientLoggedIn, logoutClient } from '@/utils/taiKhoanKhachHang.js'
 import ModalDangNhap from '@/components/BocCuc/ModalDangNhap.vue'
@@ -70,10 +71,13 @@ const openLoginModal = () => {
 
 const handleLoginSuccess = (userData) => {
   showToast(`Xin chào ${userData.name}! Đăng nhập thành công.`)
+  fetchNotifications()
 }
 
 const handleLogout = () => {
   logoutClient()
+  clearNotifications()
+  showNoti.value = false
   showUserMenu.value = false
   showToast('Đã đăng xuất tài khoản!')
 }
@@ -308,8 +312,8 @@ onUnmounted(() => {
             </button>
           </div>
 
-          <!-- Chuông thông báo -->
-          <div class="action-dropdown-wrap noti-dropdown-wrap">
+          <!-- Chuông thông báo (Chỉ hiển thị khi tài khoản đã đăng nhập) -->
+          <div v-if="isClientLoggedIn" class="action-dropdown-wrap noti-dropdown-wrap">
             <button
               class="icon-btn noti-bell-btn"
               :class="{ 'has-unread': unreadCount > 0 }"
@@ -331,7 +335,7 @@ onUnmounted(() => {
               <!-- 1. Header Popup -->
               <div class="noti-popup-header">
                 <div class="noti-header-left">
-                  <span class="noti-header-title">Thông Báo</span>
+                  <span class="noti-header-title">Thông Báo Đơn Hàng</span>
                   <span class="noti-pill-unread" v-if="unreadCount > 0">{{ unreadCount }} mới</span>
                 </div>
                 <button
@@ -347,37 +351,10 @@ onUnmounted(() => {
                 </button>
               </div>
 
-              <!-- 2. Tabs phân loại thông báo -->
-              <div class="noti-filter-tabs">
-                <button
-                  class="noti-tab-btn"
-                  :class="{ active: notiFilterTab === 'all' }"
-                  @click="notiFilterTab = 'all'"
-                >
-                  Tất cả
-                </button>
-                <button
-                  class="noti-tab-btn"
-                  :class="{ active: notiFilterTab === 'order' }"
-                  @click="notiFilterTab = 'order'"
-                >
-                  Đơn hàng
-                  <span class="tab-badge" v-if="orderUnreadCount > 0">{{ orderUnreadCount }}</span>
-                </button>
-                <button
-                  class="noti-tab-btn"
-                  :class="{ active: notiFilterTab === 'deal' }"
-                  @click="notiFilterTab = 'deal'"
-                >
-                  Khuyến mãi
-                  <span class="tab-badge" v-if="dealUnreadCount > 0">{{ dealUnreadCount }}</span>
-                </button>
-              </div>
-
-              <!-- 3. Danh sách thông báo dạng cuộn -->
+              <!-- 2. Danh sách thông báo dạng cuộn -->
               <div class="noti-list-container">
                 <div
-                  v-for="n in filteredNotifications"
+                  v-for="n in notifications"
                   :key="n.id"
                   class="noti-card-item"
                   :class="{ unread: n.unread }"
@@ -391,17 +368,6 @@ onUnmounted(() => {
 
                     <p class="noti-card-desc">{{ n.desc }}</p>
 
-                    <!-- Thẻ voucher bấm copy nhanh -->
-                    <div
-                      v-if="n.voucherCode"
-                      class="noti-voucher-box"
-                      @click.stop="copyVoucher(n.voucherCode)"
-                      title="Bấm để sao chép mã voucher"
-                    >
-                      <span class="v-code-label">MÃ: <strong>{{ n.voucherCode }}</strong></span>
-                      <span class="v-copy-tag">Sao chép</span>
-                    </div>
-
                     <div class="noti-card-foot">
                       <span class="noti-time-text">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="noti-clock-icon"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
@@ -412,11 +378,11 @@ onUnmounted(() => {
                   </div>
                 </div>
 
-                <!-- Trạng thái trống khi tab không có thông báo nào -->
-                <div v-if="filteredNotifications.length === 0" class="noti-empty-wrap">
-                  <div class="empty-icon-wrap">🔔</div>
-                  <strong class="empty-title">Không có thông báo mới</strong>
-                  <p class="empty-sub">Bạn đã cập nhật toàn bộ thông báo trong danh mục này.</p>
+                <!-- Trạng thái trống khi chưa có thông báo đơn hàng nào -->
+                <div v-if="notifications.length === 0" class="noti-empty-wrap">
+                  <div class="empty-icon-wrap">📦</div>
+                  <strong class="empty-title">Chưa có thông báo đơn hàng</strong>
+                  <p class="empty-sub">Khi bạn đặt hàng thành công, thông báo và đường link theo dõi đơn hàng sẽ hiển thị tại đây.</p>
                 </div>
               </div>
             </div>
@@ -569,6 +535,7 @@ onUnmounted(() => {
             📞 LIÊN HỆ
           </router-link>
           <button
+            v-if="isClientLoggedIn"
             type="button"
             class="mobile-nav-link mobile-noti-btn"
             @click="closeMobileMenu(); showNoti = true"

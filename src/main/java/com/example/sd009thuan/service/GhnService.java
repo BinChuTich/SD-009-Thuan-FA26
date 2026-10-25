@@ -103,14 +103,33 @@ public class GhnService {
      * Tính cước phí vận chuyển GHN theo địa chỉ nhận
      */
     public Map<String, Object> calculateShippingFee(Integer toDistrictId, String toWardCode, Integer weight, Integer insuranceValue) {
+        return calculateShippingFee(null, toDistrictId, toWardCode, weight, insuranceValue);
+    }
+
+    public Map<String, Object> calculateShippingFee(String toProvinceName, Integer toDistrictId, String toWardCode, Integer weight, Integer insuranceValue) {
         int finalWeight = (weight != null && weight > 0) ? weight : 250; // mặc định áo thun ~250g
         int finalInsurance = (insuranceValue != null && insuranceValue > 0) ? Math.min(insuranceValue, 5000000) : 100000;
+
+        // Tự động map quận huyện chuẩn nếu chỉ có tên tỉnh thành
+        Integer resolvedDistrictId = toDistrictId;
+        if (resolvedDistrictId == null && toProvinceName != null) {
+            String pLower = toProvinceName.toLowerCase();
+            if (pLower.contains("hà nội") || pLower.contains("ha noi")) {
+                resolvedDistrictId = 1444; // Quận Đống Đa / Ba Đình
+            } else if (pLower.contains("hồ chí minh") || pLower.contains("ho chi minh") || pLower.contains("sài gòn")) {
+                resolvedDistrictId = 1442; // Quận 1 HCM
+            } else if (pLower.contains("đà nẵng") || pLower.contains("da nang")) {
+                resolvedDistrictId = 1530; // Hải Châu
+            } else {
+                resolvedDistrictId = 1482; // Liên tỉnh
+            }
+        }
 
         String url = ghnApiUrl + "/v2/shipping-order/fee";
         try {
             Map<String, Object> req = new HashMap<>();
             req.put("from_district_id", fromDistrictId);
-            req.put("to_district_id", toDistrictId != null ? toDistrictId : 1444);
+            req.put("to_district_id", resolvedDistrictId != null ? resolvedDistrictId : 1444);
             if (toWardCode != null && !toWardCode.isBlank()) {
                 req.put("to_ward_code", toWardCode);
             }
@@ -130,30 +149,45 @@ public class GhnService {
                     return Map.of(
                             "success", true,
                             "fee", fee.intValue(),
+                            "total", fee.intValue(),
+                            "carrier", "Giao Hàng Nhanh (GHN)",
                             "serviceName", "Giao Hàng Nhanh (GHN)",
                             "source", "GHN_ONLINE_API"
                     );
                 }
             }
         } catch (Exception e) {
-            log.info("==> [GHN API Fee] Không thể gọi GHN trực tiếp ({}). Tính phí dựa theo khoảng cách địa phương.", e.getMessage());
+            log.info("==> [GHN API Fee] Không thể gọi GHN trực tiếp ({}). Tính phí theo khoảng cách địa phương.", e.getMessage());
         }
 
         // Dự phòng thông minh chuẩn xác theo vùng miền
         int calculatedFee = 30000;
-        if (toDistrictId != null) {
-            if (toDistrictId.equals(fromDistrictId)) {
-                calculatedFee = 22000; // Nội quận Cầu Giấy
-            } else if (toDistrictId >= 1440 && toDistrictId <= 1500) {
-                calculatedFee = 26000; // Nội thành Hà Nội
+        if (toProvinceName != null && !toProvinceName.isBlank()) {
+            String pLower = toProvinceName.toLowerCase();
+            if (pLower.contains("hà nội") || pLower.contains("ha noi")) {
+                calculatedFee = (resolvedDistrictId != null && resolvedDistrictId.equals(fromDistrictId)) ? 22000 : 26000;
+            } else if (pLower.contains("hồ chí minh") || pLower.contains("ho chi minh") || pLower.contains("sài gòn")) {
+                calculatedFee = 30000;
+            } else if (pLower.contains("đà nẵng") || pLower.contains("da nang") || pLower.contains("hải phòng") || pLower.contains("cần thơ")) {
+                calculatedFee = 28000;
             } else {
-                calculatedFee = 32000; // Liên tỉnh
+                calculatedFee = 35000;
+            }
+        } else if (resolvedDistrictId != null) {
+            if (resolvedDistrictId.equals(fromDistrictId)) {
+                calculatedFee = 22000;
+            } else if (resolvedDistrictId >= 1440 && resolvedDistrictId <= 1460) {
+                calculatedFee = 26000;
+            } else {
+                calculatedFee = 35000;
             }
         }
 
         return Map.of(
                 "success", true,
                 "fee", calculatedFee,
+                "total", calculatedFee,
+                "carrier", "Giao Hàng Nhanh (GHN)",
                 "serviceName", "Giao Hàng Nhanh (GHN)",
                 "source", "GHN_ESTIMATED"
         );
@@ -163,12 +197,28 @@ public class GhnService {
      * Tính thời gian giao hàng dự kiến (Leadtime) từ GHN
      */
     public Map<String, Object> calculateLeadTime(Integer toDistrictId, String toWardCode) {
+        return calculateLeadTime(null, toDistrictId, toWardCode);
+    }
+
+    public Map<String, Object> calculateLeadTime(String toProvinceName, Integer toDistrictId, String toWardCode) {
+        Integer resolvedDistrictId = toDistrictId;
+        if (resolvedDistrictId == null && toProvinceName != null) {
+            String pLower = toProvinceName.toLowerCase();
+            if (pLower.contains("hà nội") || pLower.contains("ha noi")) {
+                resolvedDistrictId = 1444;
+            } else if (pLower.contains("hồ chí minh") || pLower.contains("ho chi minh")) {
+                resolvedDistrictId = 1442;
+            } else {
+                resolvedDistrictId = 1482;
+            }
+        }
+
         String url = ghnApiUrl + "/v2/shipping-order/leadtime";
         try {
             Map<String, Object> req = new HashMap<>();
             req.put("from_district_id", fromDistrictId);
             req.put("from_ward_code", fromWardCode);
-            req.put("to_district_id", toDistrictId != null ? toDistrictId : 1444);
+            req.put("to_district_id", resolvedDistrictId != null ? resolvedDistrictId : 1444);
             if (toWardCode != null && !toWardCode.isBlank()) {
                 req.put("to_ward_code", toWardCode);
             }
@@ -183,18 +233,31 @@ public class GhnService {
                     String formatted = DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy", Locale.forLanguageTag("vi-VN"))
                             .withZone(ZoneId.of("Asia/Ho_Chi_Minh"))
                             .format(Instant.ofEpochSecond(leadTimeEpoch));
-                    return Map.of("success", true, "leadtimeFormatted", formatted, "leadtimeTimestamp", leadTimeEpoch);
+                    return Map.of(
+                            "success", true,
+                            "leadtimeFormatted", formatted,
+                            "formattedDate", formatted,
+                            "leadtimeTimestamp", leadTimeEpoch,
+                            "carrier", "Giao Hàng Nhanh (GHN)"
+                    );
                 }
             }
         } catch (Exception ignored) {}
 
-        // Fallback: 2 ngày sau
-        Instant estimate = Instant.now().plusSeconds(2 * 24 * 3600);
+        // Fallback: 1-2 ngày đối với nội thành Hà Nội, 2-3 ngày đối với liên tỉnh
+        int daysToAdd = (toProvinceName != null && (toProvinceName.toLowerCase().contains("hà nội") || toProvinceName.toLowerCase().contains("ha noi"))) ? 1 : 2;
+        Instant estimate = Instant.now().plusSeconds(daysToAdd * 24L * 3600L);
         String fallbackStr = DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy", Locale.forLanguageTag("vi-VN"))
                 .withZone(ZoneId.of("Asia/Ho_Chi_Minh"))
                 .format(estimate);
 
-        return Map.of("success", true, "leadtimeFormatted", fallbackStr, "leadtimeTimestamp", estimate.getEpochSecond());
+        return Map.of(
+                "success", true,
+                "leadtimeFormatted", fallbackStr,
+                "formattedDate", fallbackStr,
+                "leadtimeTimestamp", estimate.getEpochSecond(),
+                "carrier", "Giao Hàng Nhanh (GHN)"
+        );
     }
 
     /**

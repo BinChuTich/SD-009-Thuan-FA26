@@ -35,30 +35,40 @@ public class GhnController {
     @PostMapping("/fee")
     public ResponseEntity<?> calculateFee(@RequestBody Map<String, Object> body) {
         Integer toDistrictId = null;
-        if (body.get("toDistrictId") != null) {
-            toDistrictId = Integer.valueOf(body.get("toDistrictId").toString());
+        if (body.get("toDistrictId") != null && !body.get("toDistrictId").toString().isBlank()) {
+            try {
+                toDistrictId = Integer.valueOf(body.get("toDistrictId").toString());
+            } catch (Exception ignored) {}
         }
+        String toProvinceName = body.get("toProvinceName") != null ? body.get("toProvinceName").toString() : null;
         String toWardCode = body.get("toWardCode") != null ? body.get("toWardCode").toString() : null;
         Integer weight = null;
-        if (body.get("weight") != null) {
-            weight = Integer.valueOf(body.get("weight").toString());
+        if (body.get("weight") != null && !body.get("weight").toString().isBlank()) {
+            try {
+                weight = Integer.valueOf(body.get("weight").toString());
+            } catch (Exception ignored) {}
         }
         Integer insuranceValue = null;
-        if (body.get("insuranceValue") != null) {
-            insuranceValue = Integer.valueOf(body.get("insuranceValue").toString());
+        if (body.get("insuranceValue") != null && !body.get("insuranceValue").toString().isBlank()) {
+            try {
+                insuranceValue = Integer.valueOf(body.get("insuranceValue").toString());
+            } catch (Exception ignored) {}
         }
 
-        return ResponseEntity.ok(ghnService.calculateShippingFee(toDistrictId, toWardCode, weight, insuranceValue));
+        return ResponseEntity.ok(ghnService.calculateShippingFee(toProvinceName, toDistrictId, toWardCode, weight, insuranceValue));
     }
 
     @PostMapping("/leadtime")
     public ResponseEntity<?> calculateLeadTime(@RequestBody Map<String, Object> body) {
         Integer toDistrictId = null;
-        if (body.get("toDistrictId") != null) {
-            toDistrictId = Integer.valueOf(body.get("toDistrictId").toString());
+        if (body.get("toDistrictId") != null && !body.get("toDistrictId").toString().isBlank()) {
+            try {
+                toDistrictId = Integer.valueOf(body.get("toDistrictId").toString());
+            } catch (Exception ignored) {}
         }
+        String toProvinceName = body.get("toProvinceName") != null ? body.get("toProvinceName").toString() : null;
         String toWardCode = body.get("toWardCode") != null ? body.get("toWardCode").toString() : null;
-        return ResponseEntity.ok(ghnService.calculateLeadTime(toDistrictId, toWardCode));
+        return ResponseEntity.ok(ghnService.calculateLeadTime(toProvinceName, toDistrictId, toWardCode));
     }
 
     @PostMapping("/create-order")

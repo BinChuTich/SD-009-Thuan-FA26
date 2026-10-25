@@ -681,9 +681,12 @@ public class EmailService {
 
                         <!-- Button CTA -->
                         <div style="text-align: center; margin-bottom: 10px;">
-                            <a href="http://localhost:5173/hoa-don/{{maDon}}" style="display: inline-block; background-color: #7b5943; color: #ffffff; text-decoration: none; font-size: 14.5px; font-weight: 600; padding: 12px 36px; border-radius: 24px; box-shadow: 0 2px 8px rgba(123,89,67,0.3);">
-                                Xem chi tiết đơn hàng
+                            <a href="http://localhost:5174/don-hang?code={{maDon}}" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-size: 14.5px; font-weight: 700; padding: 12px 36px; border-radius: 24px; box-shadow: 0 4px 14px rgba(15,23,42,0.25); letter-spacing: 0.3px;">
+                                📦 Theo Dõi Chi Tiết Đơn Hàng #{{maDon}}
                             </a>
+                            <div style="margin-top: 10px; font-size: 13px; color: #64748b;">
+                                Hoặc tra cứu trực tiếp tại: <a href="http://localhost:5174/don-hang?code={{maDon}}" style="color: #2563eb; font-weight: 600; text-decoration: underline;">http://localhost:5174/don-hang?code={{maDon}}</a>
+                            </div>
                         </div>
                     </div>
 
