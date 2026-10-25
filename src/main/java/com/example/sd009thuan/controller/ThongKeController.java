@@ -1,6 +1,7 @@
 package com.example.sd009thuan.controller;
 
 import com.example.sd009thuan.dto.ThongKeOverviewDTO;
+import com.example.sd009thuan.dto.ThongKeSoSanhDTO;
 import com.example.sd009thuan.service.ThongKeService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -76,6 +77,73 @@ public class ThongKeController {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("message", "Lỗi xuất báo cáo Excel: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/so-sanh")
+    public ResponseEntity<?> getComparison(
+            @RequestParam(required = false, defaultValue = "month") String compareMode,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer startYear,
+            @RequestParam(required = false) Integer endYear,
+            @RequestParam(required = false) Long brandId,
+            @RequestParam(required = false) String productKeyword,
+            @RequestParam(required = false) String fromDateA,
+            @RequestParam(required = false) String toDateA,
+            @RequestParam(required = false) String fromDateB,
+            @RequestParam(required = false) String toDateB
+    ) {
+        try {
+            ThongKeSoSanhDTO result = thongKeService.getComparison(
+                    compareMode, year, startYear, endYear, brandId, productKeyword, fromDateA, toDateA, fromDateB, toDateB
+            );
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("message", "Lỗi lấy dữ liệu so sánh doanh thu: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/export-so-sanh")
+    public ResponseEntity<?> exportComparisonExcel(
+            @RequestParam(required = false, defaultValue = "month") String compareMode,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer startYear,
+            @RequestParam(required = false) Integer endYear,
+            @RequestParam(required = false) Long brandId,
+            @RequestParam(required = false) String productKeyword,
+            @RequestParam(required = false) String fromDateA,
+            @RequestParam(required = false) String toDateA,
+            @RequestParam(required = false) String fromDateB,
+            @RequestParam(required = false) String toDateB
+    ) {
+        try {
+            byte[] bytes = thongKeService.exportComparisonExcel(
+                    compareMode, year, startYear, endYear, brandId, productKeyword, fromDateA, toDateA, fromDateB, toDateB
+            );
+            String fileName = "BaoCao_SoSanh_DoanhThu_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".xlsx";
+            String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replaceAll("\\+", "%20");
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encodedFileName + "\"; filename*=UTF-8''" + encodedFileName)
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(bytes);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("message", "Lỗi xuất báo cáo so sánh Excel: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/send-report-email")
+    public ResponseEntity<?> sendReportEmail(
+            @RequestParam(required = false, defaultValue = "month") String reportType,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) String recipientEmail
+    ) {
+        try {
+            Map<String, Object> result = thongKeService.sendReportEmail(reportType, year, month, recipientEmail);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("message", "Lỗi gửi email báo cáo: " + e.getMessage()));
         }
     }
 
