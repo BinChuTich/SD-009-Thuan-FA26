@@ -166,7 +166,7 @@ const loadWaitingInvoices = async () => {
             discountText: hasDiscount ? ('-' + formatShortMoney(origPrice - curPrice)) : '',
             quantity: ct.soLuong || 1,
             syncedQuantity: ct.soLuong || 1,
-            image: ct.anhDaiDien || ctsp.anhDaiDien || '/images/products/default_tshirt.jpg'
+            image: ct.anhDaiDien || ctsp.anhDaiDien || ''
           }
         })
       } catch (e) {
@@ -498,7 +498,7 @@ const fetchProductVariants = async () => {
         hasDiscount: hasDiscount,
         discountText: discountText,
         discountCampaignName: discountCampaignName,
-        image: item.anhDaiDien || '/images/products/default_tshirt.jpg'
+        image: item.anhDaiDien || item.hinhAnh || item.duongDan || item.image || ''
       }
     })
     enrichCartItemsWithProductList()
@@ -687,30 +687,63 @@ const visibleProductModalPages = computed(() => {
 })
 
 const formatProductImage = (url, prod) => {
-  if (!url || typeof url !== 'string' || url.trim() === '' || url.includes('photo-1521572267360-ee0c2909d518')) {
-    const sid = prod?.sanPhamId || prod?.id
-    const scode = (prod?.code || prod?.variantCode || '').toUpperCase()
-    if (sid === 1 || scode.includes('SP001') || scode.includes('SP01')) return '/images/products/sp01_front.jpg'
-    if (sid === 2 || scode.includes('SP002') || scode.includes('SP02')) return '/images/products/sp02_front.jpg'
-    if (sid === 3 || scode.includes('SP003') || scode.includes('SP03')) return '/images/products/sp03_front.jpg'
-    if (sid === 4 || scode.includes('SP004') || scode.includes('SP04')) return '/images/products/sp04_front.jpg'
-    return '/images/products/default_tshirt.jpg'
+  const colorName = (prod?.color || prod?.tenMauSac || prod?.idMauSac?.tenMau || prod?.idMauSac?.tenMauSac || '').toLowerCase().trim()
+  const colorHex = (prod?.colorHex || prod?.maHex || prod?.idMauSac?.maHex || '').toUpperCase().trim()
+  const prodName = (prod?.name || prod?.tenSanPham || prod?.idSanPham?.tenSanPham || '').toLowerCase().trim()
+  const vCode = (prod?.variantCode || prod?.maChiTietSanPham || '').toUpperCase().trim()
+  const pCode = (prod?.code || prod?.maSanPham || prod?.idSanPham?.maSanPham || '').toUpperCase().trim()
+
+  const isWhite = colorName.includes('trắng') || colorName.includes('white') || colorHex === '#FFFFFF' || colorHex === '#FFF'
+  const isBlack = colorName.includes('đen') || colorName.includes('black') || colorHex === '#000000' || colorHex === '#000'
+  const isPolo = prodName.includes('polo') || vCode.includes('SP002') || pCode.includes('SP002') || vCode === 'CTSP04' || vCode === 'CTSP05'
+
+  if (url && typeof url === 'string' && url.trim() !== '') {
+    let cleanUrl = url.trim()
+    if (cleanUrl.includes('|')) {
+      cleanUrl = cleanUrl.split('|')[1].trim()
+    }
+    // Uploaded base64 data hoặc remote URL
+    if (cleanUrl.startsWith('data:image/') || cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+      return cleanUrl
+    }
+    // Uploaded file trên backend
+    if (cleanUrl.startsWith('/uploads/') || cleanUrl.startsWith('uploads/')) {
+      const p = cleanUrl.startsWith('/') ? cleanUrl : '/' + cleanUrl
+      return `http://localhost:8080${p}`
+    }
+    // Static local image
+    if (cleanUrl.startsWith('/images/')) {
+      // Biến thể màu trắng không hiển thị nhầm áo đen sp01
+      if (isWhite && (cleanUrl.includes('sp01') || cleanUrl.includes('default_tshirt'))) {
+        return '/images/products/sp03_front.jpg'
+      }
+      // Biến thể Polo không hiển thị nhầm áo phông thường
+      if (isPolo && (cleanUrl.includes('sp01') || cleanUrl.includes('default_tshirt'))) {
+        return '/images/products/sp02_front.jpg'
+      }
+      if (!cleanUrl.includes('photo-1521572267360-ee0c2909d518') && !cleanUrl.includes('default_tshirt')) {
+        return cleanUrl
+      }
+    }
   }
-  let cleanUrl = url.trim()
-  if (cleanUrl.includes('|')) {
-    cleanUrl = cleanUrl.split('|')[1].trim()
+
+  // Fallback thông minh theo đúng biến thể và màu sắc
+  if (isWhite) {
+    return '/images/products/sp03_front.jpg'
   }
-  if (cleanUrl.startsWith('data:') || cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
-    return cleanUrl
+  if (isPolo) {
+    return '/images/products/sp02_front.jpg'
   }
-  if (cleanUrl.startsWith('/images/')) {
-    return cleanUrl
+  if (isBlack) {
+    return '/images/products/sp01_front.jpg'
   }
-  if (cleanUrl.startsWith('/uploads/') || cleanUrl.startsWith('uploads/')) {
-    const p = cleanUrl.startsWith('/') ? cleanUrl : '/' + cleanUrl
-    return `http://localhost:8080${p}`
+  if (vCode.includes('SP003') || pCode.includes('SP003') || vCode === 'CTSP06') {
+    return '/images/products/sp03_front.jpg'
   }
-  return cleanUrl.startsWith('/') ? cleanUrl : `/${cleanUrl}`
+  if (vCode.includes('SP004') || pCode.includes('SP004')) {
+    return '/images/products/sp04_front.jpg'
+  }
+  return '/images/products/sp01_front.jpg'
 }
 
 
@@ -2505,7 +2538,7 @@ const handleCheckout = async () => {
       idNhanVien: staffId,
       nguoiTao: staffName,
       maHoaDon: currentInvoice.value.code,
-      loaiDon: currentInvoice.value.isDelivery ? 2 : 1,
+      loaiDon: 1, // Đơn tạo/xác nhận tại quầy luôn có loaiDon = 1 (Tại quầy), kể cả khi có giao hàng
       idKhachHang: currentInvoice.value.customerId || null,
       idPhieuGiamGia: currentInvoice.value.voucher?.id || null,
       tenKhachHang: currentInvoice.value.customerName?.trim() || 'Khách lẻ',
@@ -3515,7 +3548,7 @@ onMounted(async () => {
                         :alt="p.name"
                         class="table-thumb-img"
                         loading="lazy"
-                        @error="(e) => e.target.src = '/images/products/default_tshirt.jpg'"
+                        @error="(e) => e.target.src = formatProductImage('', p)"
                       />
                       <span v-if="p.hasDiscount" class="thumb-badge-sale">{{ p.discountText }}</span>
                     </div>

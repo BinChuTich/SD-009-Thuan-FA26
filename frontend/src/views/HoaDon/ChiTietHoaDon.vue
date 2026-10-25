@@ -248,7 +248,7 @@ const createDefaultInvoice = (code) => ({
 
 const invoiceData = ref(createDefaultInvoice(invoiceCode.value))
 
-// Xác định loại đơn hàng trực tuyến (Online / Giao hàng)
+// Xác định loại đơn hàng có luồng giao hàng (giao hàng online hoặc giao hàng tạo tại quầy)
 const isOnlineDelivery = computed(() => {
   return invoiceData.value.delivery?.type === 'Online'
     || Number(invoiceData.value.delivery?.loaiDon) === 2
@@ -258,6 +258,18 @@ const isOnlineDelivery = computed(() => {
 })
 
 const isAtStore = computed(() => !isOnlineDelivery.value)
+
+// Loại đơn hiển thị: Nếu là đơn giao hàng mà được tạo / xác nhận tại quầy (bởi nhân viên bán hàng/POS/NV...) thì loại đơn là "Tại quầy", ngược lại là "Online"
+const displayLoaiDon = computed(() => {
+  const empCode = String(invoiceData.value.employee?.code || '').toUpperCase()
+  const empName = String(invoiceData.value.employee?.name || '')
+  const note = String(invoiceData.value.delivery?.note || '').toLowerCase()
+  const isStaff = empCode.startsWith('NV') || (empName && empName !== 'Đơn Online' && empName !== '---' && !empName.toLowerCase().includes('khách')) || note.includes('pos') || note.includes('tại quầy')
+  if (isStaff || Number(invoiceData.value.delivery?.loaiDon) === 1 || Number(invoiceData.value.loaiDon) === 1) {
+    return 'Tại quầy'
+  }
+  return 'Online'
+})
 
 // Đơn hàng online đang ở trạng thái Chờ xác nhận (status = 1): CHƯA IN HÓA ĐƠN
 const isOnlineWaitingConfirm = computed(() => {
@@ -801,7 +813,7 @@ const loadDetail = async (identifier) => {
       || employeeCatalog['name']
       || authStaffName
       || (Number(data['loaiDon']) === 1 ? (authStaffName || 'Nhân viên bán hàng') : 'Đơn Online')
-    let employeeCode = nhanVienObj['maNhanVien'] || employeeCatalog['code'] || '---'
+    let employeeCode = nhanVienObj['maNhanVien'] || employeeCatalog['code'] || (String(data['nguoiTao'] || '').toUpperCase().startsWith('NV') ? data['nguoiTao'] : '---')
 
     invoiceData.value.employee = {
       name: employeeName,
@@ -856,6 +868,7 @@ const loadDetail = async (identifier) => {
     invoiceData.value.lastUpdated = formatDateTime(data['ngayCapNhat'] || data['updatedAt'] || data['thoiGianThanhToan'] || data['ngayTao'] || data['createdAt'])
 
     const hasDelivery = Boolean(data['diaChiNhanHang'] && data['diaChiNhanHang'] !== 'Bán tại quầy' && data['diaChiNhanHang'] !== '—') || Number(data['phiVanChuyen'] || data['phiShip'] || 0) > 0 || Boolean(data['donViVanChuyen'] && data['donViVanChuyen'] !== '—')
+
     const isOnlineChannel = Number(data['loaiDon']) === 2
       || String(data['loaiDon'] || '').toLowerCase().includes('online')
       || String(data['ghiChu'] || '').toLowerCase().includes('online')
@@ -1778,7 +1791,7 @@ onBeforeUnmount(() => {
           <div class="meta-row">
             <span class="meta-label">Loại đơn:</span>
             <span class="meta-value">
-              <span class="badge-loai-don">{{ invoiceData.delivery.type || 'Tại quầy' }}</span>
+              <span class="badge-loai-don">{{ displayLoaiDon }}</span>
               <span v-if="isOnlineWaitingConfirm" class="badge-unprinted-pill" title="Đơn hàng online chờ xác nhận là chưa in hóa đơn">Chưa in HĐ</span>
             </span>
           </div>
@@ -2464,7 +2477,7 @@ onBeforeUnmount(() => {
           <div class="print-box-title">THÔNG TIN ĐƠN HÀNG</div>
           <div class="print-data-line">
             <span class="p-label">Hình thức:</span>
-            <span class="p-val font-bold">{{ invoiceData.delivery.type || 'Tại quầy' }}</span>
+            <span class="p-val font-bold">{{ displayLoaiDon }}</span>
           </div>
           <div class="print-data-line">
             <span class="p-label">Thu ngân:</span>

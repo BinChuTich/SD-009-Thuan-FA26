@@ -85,12 +85,12 @@ public class HoaDonService {
     // Đồng bộ tính toán tổng tiền và tiền sau giảm giá từ danh sách sản phẩm chi tiết
     private void syncInvoiceTotals(HoaDon hoaDon) {
         if (hoaDon == null || hoaDon.getId() == null) return;
-        // Khôi phục đúng loại đơn cho đơn online / giao hàng nếu trước đó bị lưu nhầm thành 1
-        boolean hasDeliveryInfo = (hoaDon.getDiaChiNhanHang() != null && !hoaDon.getDiaChiNhanHang().isBlank()
-                && !hoaDon.getDiaChiNhanHang().equalsIgnoreCase("Bán tại quầy") && !hoaDon.getDiaChiNhanHang().equals("—"))
-                && (hoaDon.getPhiVanChuyen() != null && hoaDon.getPhiVanChuyen().compareTo(BigDecimal.ZERO) > 0);
-        if (hasDeliveryInfo && Integer.valueOf(1).equals(hoaDon.getLoaiDon())) {
-            hoaDon.setLoaiDon(2);
+        // Đơn tạo hoặc xác nhận tại quầy (bởi nhân viên hoặc POS) thì loại đơn luôn là 1 (Tại quầy), kể cả khi có thông tin giao hàng
+        boolean isStaffOrStore = (hoaDon.getIdNhanVien() != null)
+                || (hoaDon.getNguoiTao() != null && hoaDon.getNguoiTao().toUpperCase().startsWith("NV"))
+                || (hoaDon.getGhiChu() != null && (hoaDon.getGhiChu().toLowerCase().contains("tại quầy") || hoaDon.getGhiChu().toLowerCase().contains("pos")));
+        if (isStaffOrStore && Integer.valueOf(2).equals(hoaDon.getLoaiDon())) {
+            hoaDon.setLoaiDon(1);
             try {
                 hoaDonRepository.save(hoaDon);
             } catch (Exception ignored) {}
@@ -1235,8 +1235,9 @@ public class HoaDonService {
         boolean isDelivery = (dto.getPhiShip() != null && dto.getPhiShip().compareTo(java.math.BigDecimal.ZERO) > 0)
                 || (dto.getDiaChiNhanHang() != null && !dto.getDiaChiNhanHang().trim().isEmpty() && !dto.getDiaChiNhanHang().trim().equalsIgnoreCase("Bán tại quầy"));
 
-        // 2. Loại đơn (1: Tại quầy, 2: Giao hàng)
-        Integer loaiDon = dto.getLoaiDon() != null ? dto.getLoaiDon() : (isDelivery ? 2 : 1);
+        // 2. Loại đơn (1: Tại quầy, 2: Giao hàng online)
+        // Khi tạo hoặc thanh toán tại quầy thì loại đơn luôn là 1 (Tại quầy), kể cả khi có giao hàng
+        Integer loaiDon = dto.getLoaiDon() != null ? dto.getLoaiDon() : 1;
         hoaDon.setLoaiDon(loaiDon);
 
         // 3. Trạng thái đơn & trạng thái thanh toán

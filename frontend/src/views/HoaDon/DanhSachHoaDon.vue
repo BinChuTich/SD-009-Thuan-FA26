@@ -401,7 +401,10 @@ const loadHoaDon = async () => {
         const hasShippingFee = Number(item.phiVanChuyen || item.phiShip || 0) > 0
         const hasCarrier = Boolean(item.donViVanChuyen && item.donViVanChuyen !== '—')
         const noteText = String(item.ghiChu || '').toLowerCase()
-        const isOnline = Number(item.loaiDon) === 2 || String(item.loaiDon || '').toLowerCase().includes('online') || noteText.includes('online') || (hasDeliveryAddress && (hasShippingFee || hasCarrier))
+        const creatorStr = String(item.nguoiTao || '').toUpperCase()
+        const isStaffCreator = creatorStr.startsWith('NV') || Boolean(item.idNhanVien) || noteText.includes('pos') || noteText.includes('tại quầy')
+        const isStoreOrder = Number(item.loaiDon) === 1 || isStaffCreator
+        const isOnline = !isStoreOrder && (Number(item.loaiDon) === 2 || String(item.loaiDon || '').toLowerCase().includes('online') || noteText.includes('online'))
         if (isOnline) {
           employeeName = nhanVienObj?.tenNhanVien || nhanVienObj?.tenTaiKhoan || item.tenNhanVien || empCatalog[item.idNhanVien] || empCatalog[item.nguoiTao] || ''
         } else if (nhanVienObj?.tenNhanVien) {
