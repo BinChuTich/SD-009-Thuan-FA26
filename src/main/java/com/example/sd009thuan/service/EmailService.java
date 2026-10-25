@@ -721,6 +721,221 @@ public class EmailService {
     /**
      * Gửi email báo cáo tổng kết doanh thu và so sánh định kỳ cho Ban quản trị (Admin)
      */
+    /**
+     * Gửi email yêu cầu liên hệ / hỗ trợ của khách hàng về hòm thư fftshirt.vn@gmail.com
+     */
+    @Async
+    public void sendContactEmail(String name, String phone, String email, String messageContent) {
+        String recipientEmail = "fftshirt.vn@gmail.com";
+        if (mailSender == null) {
+            log.warn("==> [EmailService] JavaMailSender chưa sẵn sàng. Không thể gửi email liên hệ.");
+            return;
+        }
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(senderEmail, "FF T-Shirt Official");
+            helper.setTo(recipientEmail);
+            if (email != null && !email.isBlank()) {
+                helper.setReplyTo(email.trim());
+            }
+            helper.setSubject("[FF T-Shirt Hỗ Trợ] Yêu cầu mới từ " + (name != null ? name : "Khách hàng"));
+
+            String timeNow = DATE_FORMATTER.format(Instant.now());
+
+            String content = """
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,0.06); color: #333333; line-height: 1.6;">
+                    <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 24px; text-align: center; color: #ffffff;">
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px;">YÊU CẦU LIÊN HỆ & HỖ TRỢ KHÁCH HÀNG</h2>
+                        <p style="margin: 6px 0 0; font-size: 13px; color: #ecd8af;">Hệ Thống Website FF T-Shirt</p>
+                    </div>
+                    <div style="padding: 24px;">
+                        <p style="font-size: 14px; color: #64748b; margin-top: 0;">Thời gian tiếp nhận: <strong>{{timeNow}}</strong></p>
+                        
+                        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                            <p style="margin: 0 0 8px; font-size: 14px;"><strong>Họ và tên khách hàng:</strong> {{name}}</p>
+                            <p style="margin: 0 0 8px; font-size: 14px;"><strong>Số điện thoại:</strong> <a href="tel:{{phone}}" style="color: #0284c7; text-decoration: none; font-weight: 700;">{{phone}}</a></p>
+                            <p style="margin: 0; font-size: 14px;"><strong>Email liên hệ:</strong> <a href="mailto:{{email}}" style="color: #0284c7; text-decoration: none;">{{email}}</a></p>
+                        </div>
+
+                        <div style="margin-bottom: 15px;">
+                            <strong style="font-size: 14.5px; color: #1e293b;">Nội dung tin nhắn cần hỗ trợ:</strong>
+                            <div style="background-color: #fffdfa; border-left: 4px solid #d2a764; border-radius: 4px; padding: 16px; margin-top: 8px; font-size: 14px; color: #334155; line-height: 1.6; white-space: pre-wrap;">{{messageContent}}</div>
+                        </div>
+                    </div>
+                    <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 20px; text-align: center; font-size: 12px; color: #94a3b8;">
+                        Email này được gửi tự động từ hệ thống website FF T-Shirt trực tiếp tới hòm thư <strong>fftshirt.vn@gmail.com</strong>.
+                    </div>
+                </div>
+            """
+            .replace("{{timeNow}}", timeNow)
+            .replace("{{name}}", name != null ? name : "Chưa cung cấp")
+            .replace("{{phone}}", phone != null ? phone : "Chưa cung cấp")
+            .replace("{{email}}", (email != null && !email.isBlank()) ? email : "Chưa cung cấp")
+            .replace("{{messageContent}}", messageContent != null ? messageContent : "");
+
+            helper.setText(content, true);
+            log.info("==> [EmailService] Đang kết nối SMTP gửi email liên hệ của {} tới {}", name, recipientEmail);
+            mailSender.send(message);
+            log.info("==> [EmailService] Đã gửi email liên hệ tới {} THÀNH CÔNG!", recipientEmail);
+        } catch (Exception e) {
+            log.error("==> [EmailService Lỗi] Không thể gửi email liên hệ tới {}: {}", recipientEmail, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Gửi email cấp lại mật khẩu mới cho nhân viên / người dùng khi quên mật khẩu.
+     * Mật khẩu mới được hiển thị rõ ràng trực tiếp trong email để người dùng đăng nhập ngay.
+     */
+    @Async
+    public void sendForgotPasswordEmail(String toEmail, String fullName, String employeeCode, String account, String newPassword) {
+        if (toEmail == null || toEmail.isBlank() || !toEmail.contains("@")) {
+            log.warn("Bỏ qua email cấp lại mật khẩu vì địa chỉ email không hợp lệ: {}", toEmail);
+            return;
+        }
+
+        try {
+            if (mailSender == null) {
+                log.info("[EmailService Mock] Cấp lại mật khẩu cho tài khoản '{}' ({}) thành công. Mật khẩu mới: {}", account, toEmail, newPassword);
+                return;
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(senderEmail, "FF T-Shirt");
+            helper.setTo(toEmail.trim());
+            helper.setSubject("[FF T-Shirt] Cấp lại mật khẩu đăng nhập tài khoản " + (account != null ? account : employeeCode));
+
+            String safeName = escapeHtml(fullName != null && !fullName.isBlank() ? fullName : "bạn");
+            String safeCode = escapeHtml(employeeCode != null && !employeeCode.isBlank() ? employeeCode : "---");
+            String safeAccount = escapeHtml(account != null && !account.isBlank() ? account : "Không xác định");
+            String safePassword = escapeHtml(newPassword != null ? newPassword : "");
+
+            String html = """
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h2 style="color: #4a3427; margin: 0 0 6px 0; font-size: 22px; font-weight: 700;">FF T-Shirt</h2>
+                        <p style="color: #777; margin: 0; font-size: 14px;">Thông báo cấp lại mật khẩu tài khoản</p>
+                    </div>
+
+                    <p style="margin: 0 0 12px 0; font-size: 14px;">Xin chào <strong>%s</strong>,</p>
+                    <p style="margin: 0 0 20px 0; font-size: 14px; color: #555555; line-height: 1.6;">
+                        Hệ thống đã nhận được yêu cầu cấp lại mật khẩu cho tài khoản của bạn. Mật khẩu đăng nhập mới đã được tạo thành công như sau:
+                    </p>
+
+                    <div style="background-color: #faf7f2; border: 1px solid #f0eae1; border-left: 4px solid #8c6d58; border-radius: 8px; padding: 20px 24px; margin: 0 0 24px 0; text-align: left;">
+                        <div style="margin-bottom: 12px; font-size: 14px; color: #333333;">
+                            <span style="font-weight: 700; color: #4a3427;">Mã nhân viên:</span>
+                            <span style="display: inline-block; background-color: #f1ebe5; color: #4a3427; font-weight: 700; font-size: 13.5px; padding: 2px 10px; border-radius: 4px; letter-spacing: 0.5px; margin-left: 6px;">%s</span>
+                        </div>
+                        <div style="margin-bottom: 12px; font-size: 14px; color: #333333;">
+                            <span style="font-weight: 700; color: #4a3427;">Tên tài khoản:</span>
+                            <span style="font-weight: 600; color: #1e3a8a; margin-left: 6px;">%s</span>
+                        </div>
+                        <div style="margin-bottom: 10px; font-size: 14px; color: #333333;">
+                            <span style="font-weight: 700; color: #4a3427;">Mật khẩu mới:</span>
+                            <span style="display: inline-block; background-color: #fce7e7; color: #b91c1c; font-weight: 700; font-size: 16px; padding: 4px 14px; border-radius: 4px; letter-spacing: 1px; margin-left: 6px; border: 1px dashed #f87171;">%s</span>
+                        </div>
+                        <div style="font-size: 13px; color: #666666; line-height: 1.5; margin-top: 14px; border-top: 1px dashed #d5cbc1; padding-top: 10px;">
+                            <i>Lưu ý: Vì lý do bảo mật, vui lòng đăng nhập ngay và đổi mật khẩu trong phần cài đặt tài khoản.</i>
+                        </div>
+                    </div>
+
+                    <div style="text-align: center; margin: 0 0 16px 0;">
+                        <a href="http://localhost:5173" style="display: inline-block; background-color: #7b5943; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 11px 34px; border-radius: 24px; box-shadow: 0 2px 6px rgba(123,89,67,0.25);">
+                            Đăng nhập hệ thống
+                        </a>
+                    </div>
+
+                    <p style="font-size: 12.5px; color: #888888; text-align: center; margin: 0 0 4px 0;">
+                        Nếu bạn không yêu cầu cấp lại mật khẩu, vui lòng liên hệ ngay với Quản trị viên để được hỗ trợ.
+                    </p>
+                    <p style="font-size: 12px; color: #aaaaaa; text-align: center; margin: 0;">
+                        Email tự động từ hệ thống FF T-Shirt. Vui lòng không trả lời email này.
+                    </p>
+                </div>
+                """.formatted(safeName, safeCode, safeAccount, safePassword);
+
+            helper.setText(html, true);
+            mailSender.send(message);
+            log.info("Đã gửi email cấp lại mật khẩu mới tới {}", toEmail);
+        } catch (Exception e) {
+            log.error("Không thể gửi email cấp lại mật khẩu tới {}: {}", toEmail, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Gửi email đặt lại mật khẩu cho người dùng (hỗ trợ tương thích ngược).
+     */
+    @Async
+    public void sendResetPasswordEmail(String toEmail, String fullName, String account,
+                                       String resetToken, String resetUrl) {
+        if (resetUrl != null && !resetUrl.startsWith("http://") && !resetUrl.startsWith("https://")) {
+            // Trường hợp caller truyền mật khẩu mới vào resetUrl
+            sendForgotPasswordEmail(toEmail, fullName, account, resetToken, resetUrl);
+            return;
+        }
+
+        if (toEmail == null || toEmail.isBlank() || !toEmail.contains("@")) {
+            log.warn("Bỏ qua email đặt lại mật khẩu vì địa chỉ email không hợp lệ.");
+            return;
+        }
+        if (resetUrl == null || resetUrl.isBlank()) {
+            log.warn("Bỏ qua email đặt lại mật khẩu gửi tới {} vì resetUrl đang trống.", toEmail);
+            return;
+        }
+
+        try {
+            if (mailSender == null) {
+                log.info("[EmailService Mock] Email đặt lại mật khẩu dành cho tài khoản '{}' sẽ được gửi tới {}. URL: {}",
+                        account, toEmail, resetUrl);
+                return;
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(senderEmail, "FF T-Shirt");
+            helper.setTo(toEmail.trim());
+            helper.setSubject("[FF T-Shirt] Yêu cầu đặt lại mật khẩu");
+
+            String safeName = escapeHtml(fullName != null && !fullName.isBlank() ? fullName : "bạn");
+            String safeAccount = escapeHtml(account != null && !account.isBlank() ? account : "Không xác định");
+            String safeResetUrl = escapeHtml(resetUrl.trim());
+
+            String html = """
+                <div style="font-family: Arial, Helvetica, sans-serif; max-width: 580px; margin: 20px auto; padding: 32px; border: 1px solid #e8e4de; border-radius: 14px; color: #333; line-height: 1.6;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h2 style="color: #4a3427; margin-bottom: 8px;">FF T-Shirt</h2>
+                        <p style="color: #777; margin-top: 0;">Yêu cầu đặt lại mật khẩu</p>
+                    </div>
+                    <p>Xin chào <strong>%s</strong>,</p>
+                    <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản <strong>%s</strong>.</p>
+                    <p>Nhấp vào nút bên dưới để tiến hành đặt mật khẩu mới:</p>
+                    <div style="text-align: center; margin: 28px 0;">
+                        <a href="%s" style="background-color: #4a3427; color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Đặt lại mật khẩu</a>
+                    </div>
+                    <p style="font-size: 13px; color: #777;">Nếu bạn không yêu cầu hành động này, vui lòng bỏ qua email này.</p>
+                </div>
+                """.formatted(safeName, safeAccount, safeResetUrl);
+
+            helper.setText(html, true);
+            mailSender.send(message);
+            log.info("Đã gửi email đặt lại mật khẩu tới {}", toEmail);
+        } catch (Exception e) {
+            log.error("Không thể gửi email đặt lại mật khẩu tới {}: {}", toEmail, e.getMessage(), e);
+        }
+    }
+
+    private String escapeHtml(String value) {
+        if (value == null) return "";
+        return value.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
     public boolean sendRevenueReportEmail(String toEmail, String subject, String htmlContent) {
         if (toEmail == null || toEmail.trim().isEmpty() || !toEmail.contains("@")) {
             log.warn("==> [EmailService] Bỏ qua gửi email báo cáo doanh thu: Địa chỉ email người nhận không hợp lệ ('{}')", toEmail);
