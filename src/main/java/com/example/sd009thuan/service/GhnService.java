@@ -143,7 +143,7 @@ public class GhnService {
                     "long bien", "ha dong"
             );
             boolean isInner = innerDistricts.stream().anyMatch(d::contains);
-            return isInner ? new BigDecimal("25000") : new BigDecimal("30000");
+            return isInner ? new BigDecimal("20000") : new BigDecimal("30000");
         }
 
         // 2. Miền Bắc lân cận

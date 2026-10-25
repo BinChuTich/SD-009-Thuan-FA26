@@ -1041,7 +1041,15 @@ const loadDetail = async (identifier) => {
     }
 
     if (Array.isArray(rawLogs) && rawLogs.length > 0) {
-      let mappedLogs = rawLogs.map((l, i) => ({
+      const filtered = rawLogs.filter(l => {
+        const text = `${l.hanhDong || ''} ${l.ghiChu || ''} ${l.thaoTac || ''} ${l.action || ''}`.toLowerCase()
+        const actor = `${l.nguoiThucHien || ''}`.toLowerCase()
+        if (text.includes('vietqr') || (text.includes('cổng') && text.includes('chuyển khoản')) || actor.includes('hệ thống thanh toán')) {
+          return false
+        }
+        return true
+      })
+      let mappedLogs = filtered.map((l, i) => ({
         id: l.id || i,
         action: l.hanhDong || l.ghiChu || l.thaoTac || l.action || 'Thao tác hóa đơn',
         hanhDong: l.hanhDong || l.ghiChu || l.thaoTac || l.action || 'Thao tác hóa đơn',

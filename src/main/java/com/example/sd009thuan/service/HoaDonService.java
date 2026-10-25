@@ -509,9 +509,27 @@ public class HoaDonService {
             }
         }
 
-        // Cập nhật tồn kho dựa trên chênh lệch (diff = newQty - oldQty)
+        // 1. Kiểm tra tồn kho khả dụng trước khi điều chỉnh (diff = newQty - oldQty)
         Set<Long> allVariantIds = new HashSet<>(oldQtyMap.keySet());
         allVariantIds.addAll(newQtyMap.keySet());
+        for (Long vid : allVariantIds) {
+            int oldQ = oldQtyMap.getOrDefault(vid, 0);
+            int newQ = newQtyMap.getOrDefault(vid, 0);
+            int diff = newQ - oldQ;
+            if (diff > 0) {
+                Optional<ChiTietSanPham> ctspOpt = chiTietSanPhamRepository.findById(vid);
+                if (ctspOpt.isPresent()) {
+                    ChiTietSanPham ctsp = ctspOpt.get();
+                    int curStock = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
+                    if (diff > curStock) {
+                        String spName = ctsp.getIdSanPham() != null ? ctsp.getIdSanPham().getTenSanPham() : "Sản phẩm";
+                        throw new IllegalArgumentException("Sản phẩm '" + spName + "' không đủ số lượng trong kho (chỉ còn tối đa " + (curStock + oldQ) + ")!");
+                    }
+                }
+            }
+        }
+
+        // 2. Cập nhật tồn kho dựa trên chênh lệch
         for (Long vid : allVariantIds) {
             int oldQ = oldQtyMap.getOrDefault(vid, 0);
             int newQ = newQtyMap.getOrDefault(vid, 0);
@@ -527,12 +545,12 @@ public class HoaDonService {
             }
         }
 
-        // Xóa chi tiết cũ sau khi đã tính toán điều chỉnh tồn kho
-
+        // 3. Xóa chi tiết cũ sau khi đã tính toán điều chỉnh tồn kho
         if (oldDetails != null && !oldDetails.isEmpty()) {
             chiTietHoaDonRepository.deleteAll(oldDetails);
         }
 
+        // 4. Tạo chi tiết hóa đơn mới
         BigDecimal calculatedTotal = BigDecimal.ZERO;
         if (items != null && !items.isEmpty()) {
             int itemIndex = 1;
@@ -542,16 +560,7 @@ public class HoaDonService {
                 Optional<ChiTietSanPham> ctspOpt = chiTietSanPhamRepository.findById(variantId);
                 if (ctspOpt.isEmpty()) continue;
                 ChiTietSanPham ctsp = ctspOpt.get();
-                int currentAvailable = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
                 int qty = item.getSoLuong() != null ? Math.max(1, item.getSoLuong()) : 1;
-                if (currentAvailable <= 0) {
-                    String spName = ctsp.getIdSanPham() != null ? ctsp.getIdSanPham().getTenSanPham() : "Sản phẩm";
-                    throw new IllegalArgumentException("Sản phẩm '" + spName + "' hiện đã hết hàng trong kho!");
-                }
-                if (qty > currentAvailable) {
-                    String spName = ctsp.getIdSanPham() != null ? ctsp.getIdSanPham().getTenSanPham() : "Sản phẩm";
-                    throw new IllegalArgumentException("Sản phẩm '" + spName + "' không đủ số lượng trong kho (chỉ còn " + currentAvailable + ")!");
-                }
                 BigDecimal unitPrice = item.getResolvedPrice();
                 if (unitPrice.compareTo(BigDecimal.ZERO) <= 0 && ctsp.getGiaBan() != null) {
                     unitPrice = ctsp.getGiaBan();
@@ -1330,15 +1339,18 @@ public class HoaDonService {
                 if (ctspOpt.isEmpty()) continue;
 
                 ChiTietSanPham ctsp = ctspOpt.get();
+                int previouslyDeducted = alreadyDeductedMap.getOrDefault(variantId, 0);
                 int currentAvailable = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
+                int totalAvailableForCheckout = currentAvailable + previouslyDeducted;
                 int qty = item.getSoLuong() != null ? Math.max(1, item.getSoLuong()) : 1;
-                if (currentAvailable <= 0) {
+                int diff = qty - previouslyDeducted;
+                if (totalAvailableForCheckout <= 0) {
                     String spName = ctsp.getIdSanPham() != null ? ctsp.getIdSanPham().getTenSanPham() : "Sản phẩm";
                     throw new IllegalArgumentException("Sản phẩm '" + spName + "' hiện đã hết hàng trong kho!");
                 }
-                if (qty > currentAvailable) {
+                if (diff > 0 && currentAvailable < diff) {
                     String spName = ctsp.getIdSanPham() != null ? ctsp.getIdSanPham().getTenSanPham() : "Sản phẩm";
-                    throw new IllegalArgumentException("Sản phẩm '" + spName + "' không đủ số lượng trong kho (chỉ còn " + currentAvailable + ")!");
+                    throw new IllegalArgumentException("Sản phẩm '" + spName + "' không đủ số lượng trong kho (chỉ còn thêm tối đa " + currentAvailable + ")!");
                 }
                 BigDecimal unitPrice = item.getResolvedPrice();
                 if (unitPrice.compareTo(BigDecimal.ZERO) <= 0 && ctsp.getGiaBan() != null) {
@@ -1358,8 +1370,6 @@ public class HoaDonService {
                 cthd.setTrangThai(1);
                 chiTietHoaDonRepository.save(cthd);
 
-                int previouslyDeducted = alreadyDeductedMap.getOrDefault(variantId, 0);
-                int diff = qty - previouslyDeducted;
                 processedVariants.add(variantId);
                 if (ctsp.getSoLuong() != null) {
                     if (diff != 0) {

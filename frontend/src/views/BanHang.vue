@@ -155,7 +155,7 @@ const loadWaitingInvoices = async () => {
             chiTietHoaDonId: ct.id,
             code: sp.maSanPham || ctsp.maChiTietSanPham || '',
             variantCode: ctsp.maChiTietSanPham || '',
-            name: sp.tenSanPham || 'Áo phông',
+            name: sp.tenSanPham || ctsp.tenSanPham || ct.tenSanPham || 'Áo Phông Cao Cấp',
             color: ms.tenMau || ms.tenMauSac || ct.tenMauSac || 'Mặc định',
             colorHex: ms.maHex || '',
             size: kc.tenKichCo || ct.tenKichCo || 'Freesize',
@@ -165,6 +165,7 @@ const loadWaitingInvoices = async () => {
             hasDiscount: hasDiscount,
             discountText: hasDiscount ? ('-' + formatShortMoney(origPrice - curPrice)) : '',
             quantity: ct.soLuong || 1,
+            syncedQuantity: ct.soLuong || 1,
             image: ct.anhDaiDien || ctsp.anhDaiDien || '/images/products/default_tshirt.jpg'
           }
         })
@@ -344,12 +345,76 @@ const formatShortMoney = (val) => {
   return num.toLocaleString('vi-VN') + 'đ'
 }
 
+const getCartItemName = (item) => {
+  if (item?.name && typeof item.name === 'string' && item.name.trim() !== '' && item.name !== 'Áo phông') {
+    return item.name
+  }
+  const found = productList.value.find(p => p.id === item?.id || (item?.variantCode && p.variantCode === item.variantCode))
+  if (found && found.name) return found.name
+  return item?.name || 'Áo Phông Cao Cấp'
+}
+
 // Tự động tải lại biến thể sản phẩm & chiến dịch giảm giá khi mở modal chọn sản phẩm
 watch(showProductModal, (isOpen) => {
   if (isOpen) {
     fetchProductVariants()
   }
 })
+
+// Tính toán số lượng của biến thể đang trong giỏ nhưng chưa đồng bộ vào CSDL (unsynced delta)
+const getUnsyncedQuantityForVariant = (variantId, variantCode) => {
+  let delta = 0
+  if (currentInvoice.value && Array.isArray(currentInvoice.value.cart)) {
+    for (const c of currentInvoice.value.cart) {
+      const match = (variantId != null && Number(c.id) === Number(variantId)) ||
+                    (variantCode && c.variantCode && String(c.variantCode).trim().toLowerCase() === String(variantCode).trim().toLowerCase())
+      if (match) {
+        const qty = Number(c.quantity || 0)
+        const synced = c.syncedQuantity != null ? Number(c.syncedQuantity) : qty
+        delta += (qty - synced)
+      }
+    }
+  }
+  return delta
+}
+
+// Đồng bộ tồn kho khả dụng (stock) theo dbStock trừ chênh lệch giỏ hàng chưa đồng bộ
+const refreshAvailableStock = () => {
+  if (!Array.isArray(productList.value)) return
+  for (const p of productList.value) {
+    if (p.dbStock == null) {
+      p.dbStock = p.stock != null ? Number(p.stock) : 0
+    }
+    const unsynced = getUnsyncedQuantityForVariant(p.id, p.variantCode)
+    p.stock = Math.max(0, p.dbStock - unsynced)
+  }
+}
+
+// Bổ sung đầy đủ thông tin (tên, màu, size, ảnh) cho các sản phẩm trong giỏ từ productList
+const enrichCartItemsWithProductList = () => {
+  if (!Array.isArray(productList.value) || productList.value.length === 0) return
+  if (!Array.isArray(waitingInvoices.value)) return
+  for (const inv of waitingInvoices.value) {
+    if (!Array.isArray(inv.cart)) continue
+    for (const item of inv.cart) {
+      const p = findProduct(item)
+      if (p) {
+        if (!item.name || item.name === 'Áo phông' || item.name === 'Áo Phông Cao Cấp') {
+          item.name = p.name
+        }
+        if (!item.color || item.color === 'Mặc định') item.color = p.color
+        if (!item.colorHex && p.colorHex) item.colorHex = p.colorHex
+        if (!item.size || item.size === 'Freesize') item.size = p.size
+        if (!item.image || item.image.includes('default_tshirt')) item.image = p.image
+        if (p.hasDiscount) {
+          item.hasDiscount = true
+          item.discountText = p.discountText
+          item.discountCampaignName = p.discountCampaignName
+        }
+      }
+    }
+  }
+}
 
 // Gọi API lấy toàn bộ biến thể sản phẩm đang bán kèm đợt giảm giá (HOÀN TOÀN TỪ CSDL)
 const fetchProductVariants = async () => {
@@ -426,7 +491,8 @@ const fetchProductVariants = async () => {
         color: item.idMauSac?.tenMau || item.idMauSac?.tenMauSac || item.tenMauSac || 'Mặc định',
         colorHex: item.idMauSac?.maHex || item.maHex || '',
         size: item.idKichCo?.tenKichCo || item.tenKichCo || 'Freesize',
-        stock: item.soLuong != null ? Number(item.soLuong) : 0,
+        dbStock: item.soLuong != null ? Number(item.soLuong) : 0,
+        stock: Math.max(0, (item.soLuong != null ? Number(item.soLuong) : 0) - getUnsyncedQuantityForVariant(item.id, item.maChiTietSanPham)),
         originalPrice: origPrice,
         price: hasDiscount ? salePrice : origPrice,
         hasDiscount: hasDiscount,
@@ -435,6 +501,7 @@ const fetchProductVariants = async () => {
         image: item.anhDaiDien || '/images/products/default_tshirt.jpg'
       }
     })
+    enrichCartItemsWithProductList()
   } catch (e) {
     console.error('Không tải được danh sách CTSP từ CSDL:', e)
     productList.value = []
@@ -458,6 +525,15 @@ const syncCurrentCartToDb = () => {
         giaDuocTinh: item.price
       }))
       await api.post(`/api/hoa-don/${currentInvoice.value.id}/sync-cart`, itemsPayload)
+      if (currentInvoice.value && Array.isArray(currentInvoice.value.cart)) {
+        for (const it of currentInvoice.value.cart) {
+          const p = findProduct(it)
+          if (p) {
+            p.dbStock = p.stock
+          }
+          it.syncedQuantity = it.quantity
+        }
+      }
     } catch (err) {
       console.warn('Đồng bộ giỏ hàng với CSDL:', err)
     }
@@ -639,62 +715,73 @@ const formatProductImage = (url, prod) => {
 
 
 
+const findProduct = (item) => {
+  if (!item) return null
+  // 1. Ưu tiên tìm chính xác theo ID biến thể chi tiết (ChiTietSanPham.id)
+  if (item.id != null) {
+    const foundById = productList.value.find(x => Number(x.id) === Number(item.id))
+    if (foundById) return foundById
+  }
+  // 2. Tìm theo Mã biến thể CTSP duy nhất (variantCode / maChiTietSanPham ví dụ CTSP04)
+  const vCode = item.variantCode || (typeof item.code === 'string' && item.code.toUpperCase().startsWith('CTSP') ? item.code : null)
+  if (vCode) {
+    const targetCode = String(vCode).trim().toLowerCase()
+    const foundByVCode = productList.value.find(x => x.variantCode && String(x.variantCode).trim().toLowerCase() === targetCode)
+    if (foundByVCode) return foundByVCode
+  }
+  // 3. Fallback: Nếu item truyền vào đã là biến thể trong productList có sẵn thông tin
+  if (item.stock != null && item.variantCode) {
+    return item
+  }
+  return null
+}
+
 const getMaxStockForItem = (item) => {
-  const p = productList.value.find(x => x.id === item.id)
-  return Math.max(1, item.quantity + (p ? Math.max(0, p.stock) : 0))
+  const p = findProduct(item)
+  const currentSynced = Number(item?.syncedQuantity || 0)
+  const dbStock = p ? Number(p.dbStock ?? p.stock ?? 0) : 0
+  return Math.max(1, dbStock + currentSynced)
 }
 
 const getRemainingStock = (item) => {
-  const p = productList.value.find(x => x.id === item.id)
+  const p = findProduct(item)
   return p ? Math.max(0, p.stock) : 0
 }
 
 const selectProduct = (prod) => {
-  const p = productList.value.find(item => item.id === prod.id) || prod
-  if (p.stock <= 0) {
+  const p = findProduct(prod) || prod
+  const available = Number(p.stock ?? prod.stock ?? 0)
+  if (available <= 0) {
     showToast('Sản phẩm đã hết hàng trong kho!', 'warning')
     return
   }
 
-  const exist = currentInvoice.value.cart.find(i => i.id === prod.id)
+  const targetId = p.id ?? prod.id
+  const targetVCode = p.variantCode || prod.variantCode
+
+  const exist = currentInvoice.value.cart.find(i => 
+    (targetId != null && Number(i.id) === Number(targetId)) ||
+    (targetVCode && i.variantCode && i.variantCode.toLowerCase() === targetVCode.toLowerCase())
+  )
   if (exist) {
-    exist.quantity++
-  } else {
-    currentInvoice.value.cart.push({
-      ...prod,
-      quantity: 1
-    })
-  }
-
-  // Trừ trực tiếp số lượng tồn kho khả dụng ngay khi thêm vào giỏ hàng
-  p.stock--
-
-  syncCurrentCartToDb()
-  showToast(`Đã thêm "${prod.name} (${prod.color} - ${prod.size})" vào giỏ hàng!`)
-}
-
-const _oldSelectProduct = (prod) => { if (true) return;
-  if (prod.stock <= 0) {
-    showToast('Sản phẩm đã hết hàng trong kho!', 'warning')
-    return
-  }
-
-  const exist = currentInvoice.value.cart.find(i => i.id === prod.id)
-  if (exist) {
-    if (exist.quantity >= prod.stock) {
-      showToast(`Trong kho chỉ còn tối đa ${prod.stock} sản phẩm!`, 'warning')
+    if (available < 1) {
+      showToast('Trong kho không còn đủ sản phẩm để thêm tiếp!', 'warning')
       return
     }
     exist.quantity++
   } else {
     currentInvoice.value.cart.push({
-      ...prod,
-      quantity: 1
+      ...p,
+      id: targetId,
+      variantCode: targetVCode,
+      quantity: 1,
+      syncedQuantity: 0
     })
   }
 
+  refreshAvailableStock()
   syncCurrentCartToDb()
-  showToast(`Đã thêm "${prod.name} (${prod.color} - ${prod.size})" vào giỏ hàng!`)
+  showToast(`Đã thêm "${p.name || prod.name} (${p.color || prod.color} - ${p.size || prod.size})" vào giỏ hàng!`)
 }
 
 // Quét barcode / nhập mã nhanh
@@ -702,9 +789,9 @@ const handleBarcodeScan = () => {
   const code = barcodeInput.value?.trim().toLowerCase()
   if (!code) return
   const found = productList.value.find(p =>
-      (p.code && p.code.toLowerCase() === code) ||
       (p.variantCode && p.variantCode.toLowerCase() === code) ||
-      String(p.id) === code
+      String(p.id) === code ||
+      (p.code && p.code.toLowerCase() === code)
   )
   if (found) {
     selectProduct(found)
@@ -715,14 +802,14 @@ const handleBarcodeScan = () => {
 }
 
 const updateQuantity = (item, delta) => {
-  const p = productList.value.find(x => x.id === item.id)
+  const p = findProduct(item)
   if (delta > 0) {
     if (p && p.stock < delta) {
       showToast(`Trong kho chỉ còn thêm tối đa ${p.stock} sản phẩm!`, 'warning')
       return
     }
     item.quantity += delta
-    if (p) p.stock -= delta
+    refreshAvailableStock()
     syncCurrentCartToDb()
   } else if (delta < 0) {
     const absDelta = Math.abs(delta)
@@ -731,28 +818,16 @@ const updateQuantity = (item, delta) => {
       return
     }
     item.quantity -= absDelta
-    if (p) p.stock += absDelta
+    refreshAvailableStock()
     syncCurrentCartToDb()
   }
 }
 
-const _oldUpdateQuantity = (item, delta) => { if (true) return;
-  const newQty = item.quantity + delta
-  if (newQty <= 0) {
-    removeFromCart(item)
-    return
-  }
-  if (newQty > item.stock) {
-    showToast(`Số lượng trong kho chỉ còn tối đa ${item.stock}!`, 'warning')
-    return
-  }
-  item.quantity = newQty
-  syncCurrentCartToDb()
-}
-
 const handleQuantityInput = (item, event) => {
-  const p = productList.value.find(x => x.id === item.id)
-  const maxAvailable = Math.max(1, item.quantity + (p ? Math.max(0, p.stock) : 0))
+  const p = findProduct(item)
+  const currentSynced = Number(item?.syncedQuantity || 0)
+  const dbStock = p ? Number(p.dbStock ?? p.stock ?? 0) : 0
+  const maxAvailable = Math.max(1, dbStock + currentSynced)
 
   let raw = event.target.value
   if (raw === '') {
@@ -774,34 +849,19 @@ const handleQuantityInput = (item, event) => {
     event.target.value = maxAvailable
   }
 
-  const delta = val - item.quantity
-  if (delta !== 0) {
+  if (val !== item.quantity) {
     item.quantity = val
-    if (p) p.stock -= delta
+    refreshAvailableStock()
     syncCurrentCartToDb()
   }
   event.target.value = item.quantity
 }
 
-const _oldHandleQuantityInput = (item, event) => { if (true) return;
-  let val = parseInt(event.target.value, 10)
-  if (isNaN(val) || val <= 0) {
-    item.quantity = 1
-  } else if (val > item.stock) {
-    showToast(`Số lượng trong kho chỉ còn tối đa ${item.stock}!`, 'warning')
-    item.quantity = item.stock
-  } else {
-    item.quantity = val
-  }
-  syncCurrentCartToDb()
-}
-
 const removeFromCart = (item) => {
-  const p = productList.value.find(x => x.id === item.id)
-  if (p) {
-    p.stock += item.quantity
-  }
-  currentInvoice.value.cart = currentInvoice.value.cart.filter(i => i.id !== item.id)
+  currentInvoice.value.cart = currentInvoice.value.cart.filter(i => 
+    !((item?.id != null && Number(i.id) === Number(item.id)) || (item?.variantCode && i.variantCode && item.variantCode === i.variantCode))
+  )
+  refreshAvailableStock()
   syncCurrentCartToDb()
   showToast('Đã xóa sản phẩm khỏi giỏ hàng!')
 }
@@ -955,6 +1015,7 @@ const autoCalculateShippingFee = async () => {
       provinceName: currentInvoice.value.deliveryProvince,
       districtName: currentInvoice.value.deliveryDistrict,
       wardName: currentInvoice.value.deliveryWard,
+      fullAddress: currentInvoice.value.deliveryAddress,
       insuranceValue: totalAmount.value
     })
     if (res && res.fee != null) {
@@ -2695,11 +2756,11 @@ onMounted(async () => {
               <thead>
               <tr>
                 <th class="text-center" style="width: 5%;">STT</th>
-                <th class="text-center" style="width: 12%;">Mã SP</th>
-                <th class="text-left" style="width: 28%;">Tên sản phẩm</th>
-                <th class="text-center" style="width: 16%;">Phân loại</th>
+                <th class="text-center" style="width: 15%;">Mã SP</th>
+                <th class="text-left" style="width: 25%;">Tên sản phẩm</th>
+                <th class="text-center" style="width: 15%;">Phân loại</th>
                 <th class="text-center" style="width: 17%;">Số lượng</th>
-                <th class="text-center" style="width: 14%;">Đơn giá</th>
+                <th class="text-center" style="width: 15%;">Đơn giá</th>
                 <th class="text-center" style="width: 8%;">Thao tác</th>
               </tr>
               </thead>
@@ -2717,7 +2778,7 @@ onMounted(async () => {
                 </td>
                 <td class="text-left font-600">
                   <div class="cart-product-name-wrap">
-                    <span class="cart-product-title" :title="item.name">{{ item.name }}</span>
+                    <span class="cart-product-title" :title="item.name || getCartItemName(item)">{{ item.name || getCartItemName(item) }}</span>
                     <span v-if="item.hasDiscount && (item.discountText || item.discountCampaignName)" class="cart-discount-badge" :title="item.discountCampaignName">
                       {{ item.discountText || item.discountCampaignName }}
                     </span>
@@ -2943,12 +3004,7 @@ onMounted(async () => {
           <div class="pos-form-group voucher-auto-wrapper">
             <div class="voucher-label-row">
               <label class="group-label-gray">Phiếu giảm giá (Voucher)</label>
-              <span class="badge-auto-apply">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                Tự động áp dụng mã tốt nhất
-              </span>
+              
             </div>
 
             <!-- Khi có phiếu giảm giá được tự động áp dụng -->
@@ -3432,8 +3488,9 @@ onMounted(async () => {
                   <th style="width: 115px;">MÃ BIẾN THỂ</th>
                   <th style="min-width: 220px;">TÊN SẢN PHẨM</th>
                   <th style="width: 110px; text-align: center;">MÀU SẮC</th>
-                  <th style="width: 85px; text-align: center;">KÍCH CỠ</th>
-                  <th style="width: 145px; text-align: right;">ĐƠN GIÁ</th>
+                  <th style="width: 80px; text-align: center;">KÍCH CỠ</th>
+                  <th style="width: 100px; text-align: center;">SỐ LƯỢNG TỒN</th>
+                  <th style="width: 135px; text-align: right;">ĐƠN GIÁ</th>
                   <th style="width: 105px; text-align: center;">THAO TÁC</th>
                 </tr>
               </thead>
@@ -3493,6 +3550,16 @@ onMounted(async () => {
                   <!-- Kích cỡ -->
                   <td style="text-align: center;" class="td-size">
                     <span class="size-badge">{{ p.size }}</span>
+                  </td>
+
+                  <!-- Số lượng tồn kho -->
+                  <td style="text-align: center;" class="td-stock">
+                    <span
+                      :class="['stock-badge', (p.stock || 0) > 0 ? 'in-stock' : 'out-of-stock']"
+                      :title="'Số lượng còn trong kho: ' + (p.stock ?? 0)"
+                    >
+                      {{ p.stock ?? 0 }}
+                    </span>
                   </td>
 
                   <!-- Đơn giá -->
@@ -4081,6 +4148,9 @@ onMounted(async () => {
   font-size: 0.78rem;
   color: #334155;
   letter-spacing: 0.3px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -6384,6 +6454,28 @@ onMounted(async () => {
   font-size: 0.88rem;
 }
 
+
+.stock-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  min-width: 38px;
+  text-align: center;
+}
+
+.stock-badge.in-stock {
+  background-color: #eaf5ed;
+  color: #247541;
+  border: 1px solid #bce1c7;
+}
+
+.stock-badge.out-of-stock {
+  background-color: #f7edeb;
+  color: #b34a3b;
+  border: 1px solid #ecc9c3;
+}
 .stock-pill {
   display: inline-block;
   padding: 2px 7px;

@@ -278,10 +278,32 @@ export async function calculateGhnShippingFee({
   provinceName,
   districtName,
   wardName = '',
+  fullAddress = '',
   weightGram = 500,
   insuranceValue = 0
 }) {
-  // 1. Thử gọi qua Backend proxy /api/ghn/calculate-fee
+  const cleanP = cleanVietnameseText(provinceName)
+  const cleanD = cleanVietnameseText(districtName)
+  const cleanW = cleanVietnameseText(wardName)
+  const cleanFull = cleanVietnameseText(fullAddress)
+  const combined = `${cleanP} ${cleanD} ${cleanW} ${cleanFull}`
+
+  // 1. NỘI THÀNH HÀ NỘI: Áp dụng giá ship ưu đãi rẻ hơn các khu vực khác (20.000 VNĐ)
+  if (cleanP.includes('ha noi') || cleanP.includes('hanoi') || combined.includes('ha noi') || combined.includes('hanoi')) {
+    const outer = [
+      'dong anh', 'gia lam', 'soc son', 'ba vi', 'chuong my', 'dan phuong', 
+      'hoai duc', 'me linh', 'my duc', 'phu xuyen', 'phuc tho', 'quoc oai', 
+      'thach that', 'thanh oai', 'thuong tin', 'ung hoa', 'son tay'
+    ]
+    const isOuter = outer.some(dist => combined.includes(dist))
+    return {
+      fee: isOuter ? 30000 : 20000,
+      source: 'REGIONAL_POLICY',
+      regionDescription: isOuter ? 'Ngoại thành Hà Nội (Tiêu chuẩn 1 ngày)' : 'Nội thành Hà Nội (Giao nhanh giá rẻ)'
+    }
+  }
+
+  // 2. Thử gọi qua Backend proxy /api/ghn/calculate-fee
   try {
     const res = await api.post('/api/ghn/calculate-fee', {
       toDistrictId: toDistrictId ? Number(toDistrictId) : null,
@@ -300,10 +322,10 @@ export async function calculateGhnShippingFee({
       }
     }
   } catch (err) {
-    // Fallback trực tiếp phía Client
+    // Fallback
   }
 
-  // 2. Thử gọi trực tiếp API GHN từ Client nếu có toDistrictId & toWardCode
+  // 3. Thử gọi trực tiếp API GHN từ Client nếu có toDistrictId & toWardCode
   if (toDistrictId && toWardCode) {
     try {
       const ghnRes = await axios.post(`${GHN_CONFIG.API_URL}/v2/shipping-order/fee`, {
@@ -333,38 +355,41 @@ export async function calculateGhnShippingFee({
           message: 'Tính phí vận chuyển thành công qua API GHN'
         }
       }
-    } catch (e) {
-      // Tiếp tục xuống bước 3 chính sách khu vực
-    }
+    } catch (e) {}
   }
 
-  // 3. Chính sách tính phí theo khu vực địa lý (Luôn đảm bảo hoạt động)
-  return calculateLocalRegionalFee(provinceName, districtName, wardName)
+  // 4. Chính sách tính phí theo khu vực địa lý cho các tỉnh thành khác
+  return calculateLocalRegionalFee(provinceName, districtName, wardName, fullAddress)
 }
 
 /**
  * Chính sách phí theo khu vực địa lý chuẩn
  */
-export function calculateLocalRegionalFee(provinceName = '', districtName = '', wardName = '') {
+export function calculateLocalRegionalFee(provinceName = '', districtName = '', wardName = '', fullAddress = '') {
   const p = cleanVietnameseText(provinceName)
   const d = cleanVietnameseText(districtName)
   const w = cleanVietnameseText(wardName)
-  const combined = `${d} ${w}`
+  const f = cleanVietnameseText(fullAddress)
+  const combined = `${p} ${d} ${w} ${f}`
 
-  // 1. Hà Nội (Nơi đặt kho hàng)
-  if (p.includes('ha noi') || p.includes('hanoi')) {
-    const outer = ['dong anh', 'gia lam', 'soc son', 'ba vi', 'chuong my', 'dan phuong', 'hoai duc', 'me linh', 'my duc', 'phu xuyen', 'phuc tho', 'quoc oai', 'thach that', 'thanh oai', 'thuong tin', 'ung hoa', 'son tay']
+  // 1. Hà Nội (Nội thành rẻ hơn các khu khác)
+  if (p.includes('ha noi') || p.includes('hanoi') || combined.includes('ha noi') || combined.includes('hanoi')) {
+    const outer = [
+      'dong anh', 'gia lam', 'soc son', 'ba vi', 'chuong my', 'dan phuong', 
+      'hoai duc', 'me linh', 'my duc', 'phu xuyen', 'phuc tho', 'quoc oai', 
+      'thach that', 'thanh oai', 'thuong tin', 'ung hoa', 'son tay'
+    ]
     const isOuter = outer.some(dist => combined.includes(dist))
     return {
-      fee: isOuter ? 30000 : 25000,
+      fee: isOuter ? 30000 : 20000,
       source: 'REGIONAL_POLICY',
-      regionDescription: isOuter ? 'Ngoại thành Hà Nội (Trong ngày)' : 'Nội thành Hà Nội (Hỏa tốc 2-4h)'
+      regionDescription: isOuter ? 'Ngoại thành Hà Nội (Tiêu chuẩn 1 ngày)' : 'Nội thành Hà Nội (Giao nhanh giá rẻ)'
     }
   }
 
   // 2. Miền Bắc lân cận
-  const north = ['bac ninh', 'hung yen', 'hai phong', 'hai duong', 'quang ninh', 'ha nam', 'nam dinh', 'ninh binh', 'thai binh', 'vinh phuc', 'phu tho', 'thai nguyen', 'bac giang']
-  if (north.some(prov => p.includes(prov))) {
+  const north = ['bac ninh', 'hung yen', 'hai phong', 'hai duong', 'quang ninh', 'ha nam', 'nam dinh', 'ninh binh', 'thai binh', 'vinh phuc', 'phu tho', 'thai nguyen', 'bac giang', 'lang son', 'hoa binh', 'tuyen quang', 'yen bai']
+  if (north.some(prov => combined.includes(prov))) {
     return {
       fee: 35000,
       source: 'REGIONAL_POLICY',
@@ -374,7 +399,7 @@ export function calculateLocalRegionalFee(provinceName = '', districtName = '', 
 
   // 3. Miền Trung
   const central = ['thanh hoa', 'nghe an', 'ha tinh', 'quang binh', 'quang tri', 'thua thien hue', 'hue', 'da nang', 'quang nam', 'quang ngai', 'binh dinh', 'khanh hoa', 'dak lak']
-  if (central.some(prov => p.includes(prov))) {
+  if (central.some(prov => combined.includes(prov))) {
     return {
       fee: 40000,
       source: 'REGIONAL_POLICY',
