@@ -15,6 +15,8 @@ public interface LichLamViecService {
 
     LichLamViec assignShift(LichLamViecRequest request);
 
+    Map<String, Object> assignBulkShifts(LichLamViecRequest request);
+
     void removeShift(Long id);
 
     List<LichLamViec> getUpcomingShiftsForEmployee(Long nhanVienId);
@@ -26,5 +28,6 @@ public interface LichLamViecService {
     ExcelImportResult importExcel(MultipartFile file);
 
     byte[] exportTemplate();
-}
 
+    byte[] exportTemplate(LocalDate fromDate, LocalDate toDate);
+}

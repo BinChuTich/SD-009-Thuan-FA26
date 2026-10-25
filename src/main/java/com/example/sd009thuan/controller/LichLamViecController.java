@@ -37,10 +37,29 @@ public class LichLamViecController {
         return ResponseEntity.ok(service.getWeeklySchedule(fromDate, toDate));
     }
 
+    @GetMapping("/hom-nay/{nhanVienId}")
+    public ResponseEntity<?> getTodayShiftsForEmployee(@PathVariable Long nhanVienId) {
+        LocalDate today = LocalDate.now();
+        var schedules = service.getWeeklySchedule(today, today);
+        var employeeSchedules = schedules.stream()
+                .filter(s -> s.getNhanVien() != null && nhanVienId.equals(s.getNhanVien().getId()))
+                .toList();
+        return ResponseEntity.ok(employeeSchedules);
+    }
+
     @PostMapping
     public ResponseEntity<?> assignShift(@Valid @RequestBody LichLamViecRequest req) {
         try {
             return ResponseEntity.status(HttpStatus.CREATED).body(service.assignShift(req));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/phan-ca-hang-loat")
+    public ResponseEntity<?> assignBulkShifts(@RequestBody LichLamViecRequest req) {
+        try {
+            return ResponseEntity.ok(service.assignBulkShifts(req));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
@@ -81,10 +100,20 @@ public class LichLamViecController {
     }
 
     @GetMapping("/template")
-    public ResponseEntity<byte[]> downloadTemplate() {
-        byte[] bytes = service.exportTemplate();
+    public ResponseEntity<byte[]> downloadTemplate(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
+    ) {
+        byte[] bytes = service.exportTemplate(fromDate, toDate);
+        String filename = "Lich_Lam_Viec";
+        if (fromDate != null && toDate != null) {
+            filename += "_" + fromDate + "_den_" + toDate;
+        } else {
+            filename += "_Template";
+        }
+        filename += ".xlsx";
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Lich_Lam_Viec_Template.xlsx\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(bytes);
     }
