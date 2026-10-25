@@ -13,9 +13,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @EnableAsync
 public class Sd009ThuanApplication {
-     public static void main(String[] args) {
+    public static void main(String[] args) {
         SpringApplication.run(Sd009ThuanApplication.class, args);
     }
-
 }
-
