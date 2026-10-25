@@ -9,13 +9,9 @@ const props = defineProps({
   },
   selectedAddressId: {
     type: [Number, String],
-    default: null
+    default: 1
   },
   isCustomAddress: {
-    type: Boolean,
-    default: false
-  },
-  isLoggedIn: {
     type: Boolean,
     default: false
   },
@@ -60,7 +56,6 @@ const props = defineProps({
 const emit = defineEmits([
   'selectSavedAddress',
   'selectCustomAddress',
-  'openLoginModal',
   'update:customerName',
   'update:customerPhone',
   'update:customerEmail',
@@ -80,7 +75,7 @@ const reloadWards = async (provName) => {
     return
   }
   const wards = await getWardsForProvince(provName)
-  currentWards.value = wards || []
+  currentWards.value = wards
 }
 
 onMounted(async () => {
@@ -88,9 +83,7 @@ onMounted(async () => {
   if (allData && allData.length > 0) {
     provincesList.value = allData
   }
-  if (props.selectedProvince) {
-    await reloadWards(props.selectedProvince)
-  }
+  await reloadWards(props.selectedProvince)
 })
 
 watch(() => props.selectedProvince, async (newProv) => {
@@ -100,30 +93,23 @@ watch(() => props.selectedProvince, async (newProv) => {
 const onProvinceChange = async (newProvince) => {
   emit('update:selectedProvince', newProvince)
   emit('update:selectedDistrict', '')
-  emit('update:selectedWard', '')
-  if (!newProvince) {
-    currentWards.value = []
-    return
-  }
   const wards = await getWardsForProvince(newProvince)
-  currentWards.value = wards || []
+  currentWards.value = wards
+  if (wards.length > 0) {
+    emit('update:selectedWard', wards[0].name)
+  } else {
+    emit('update:selectedWard', '')
+  }
 }
 </script>
 
 <template>
   <div class="shipping-section-box">
-    <!-- KHỐI 1: CHỌN ĐỊA CHỈ ĐÃ LƯU (Chỉ hiển thị khi KH đã đăng nhập và có sổ địa chỉ) -->
-    <div v-if="isLoggedIn && savedAddresses && savedAddresses.length > 0" class="checkout-card">
+    <!-- KHỐI 1: CHỌN ĐỊA CHỈ ĐÃ LƯU -->
+    <div class="checkout-card">
       <div class="card-header-line">
-        <div class="header-title-badge">
-          <h3>Chọn địa chỉ đã lưu</h3>
-          <span class="badge-count">({{ savedAddresses.length }})</span>
-        </div>
-        <button
-          type="button"
-          class="btn-refresh-text"
-          @click="emit('selectSavedAddress', savedAddresses.find(a => a.macDinh) || savedAddresses[0])"
-        >
+        <h3>Chọn địa chỉ đã lưu</h3>
+        <button class="btn-refresh-text" @click="emit('selectSavedAddress', savedAddresses[0])">
           🔄 Mặc định
         </button>
       </div>
@@ -133,27 +119,25 @@ const onProvinceChange = async (newProvince) => {
           v-for="addr in savedAddresses"
           :key="addr.id"
           class="saved-addr-box"
-          :class="{ selected: !isCustomAddress && selectedAddressId === addr.id }"
+          :class="{ selected: selectedAddressId === addr.id }"
           @click="emit('selectSavedAddress', addr)"
         >
           <input
             type="radio"
             name="savedAddr"
-            :checked="!isCustomAddress && selectedAddressId === addr.id"
+            :checked="selectedAddressId === addr.id"
             class="radio-dot"
           />
           <div class="addr-info-text">
             <div class="name-phone">
               <strong>{{ addr.name }}</strong> • <span>{{ addr.phone }}</span>
-              <span v-if="addr.macDinh" class="tag-default-pill">Mặc định</span>
             </div>
             <div class="addr-str">{{ addr.address }}</div>
           </div>
         </label>
 
-        <!-- Nút Giao đến địa chỉ khác -->
+        <!-- Link Giao đến địa chỉ khác -->
         <button
-          type="button"
           class="btn-other-address"
           :class="{ active: isCustomAddress }"
           @click="emit('selectCustomAddress')"
@@ -165,25 +149,7 @@ const onProvinceChange = async (newProvince) => {
 
     <!-- KHỐI 2: THÔNG TIN NGƯỜI NHẬN -->
     <div class="checkout-card">
-      <!-- Thông báo gợi ý cho khách mua hàng vãng lai (không đăng nhập) -->
-      <div v-if="!isLoggedIn" class="guest-checkout-alert">
-        <div class="guest-alert-icon">💡</div>
-        <div class="guest-alert-text">
-          <span>Quý khách đang mua hàng mà không đăng nhập. Vui lòng nhập thông tin bên dưới để nhận hàng.</span>
-          <span class="guest-alert-login">
-            Đã có tài khoản?
-            <button type="button" class="link-login-inline" @click="emit('openLoginModal')">
-              Đăng nhập ngay
-            </button>
-            để tự động lấy thông tin từ sổ địa chỉ.
-          </span>
-        </div>
-      </div>
-
-      <div class="card-title-row">
-        <h3 class="card-title">Thông tin người nhận</h3>
-        <span v-if="isLoggedIn && !isCustomAddress" class="auto-fill-tag">✓ Đã lấy từ sổ địa chỉ</span>
-      </div>
+      <h3 class="card-title">Thông tin người nhận</h3>
 
       <div class="form-two-col">
         <div class="input-field" :class="{ 'has-error': errors?.customerName }">
@@ -192,7 +158,7 @@ const onProvinceChange = async (newProvince) => {
             :value="customerName"
             @input="emit('update:customerName', $event.target.value); emit('clearError', 'customerName')"
             type="text"
-            placeholder="Nhập họ và tên người nhận..."
+            placeholder="Nhập họ và tên..."
             class="form-control"
             :class="{ 'input-error': errors?.customerName }"
           />
@@ -205,7 +171,7 @@ const onProvinceChange = async (newProvince) => {
             :value="customerPhone"
             @input="emit('update:customerPhone', $event.target.value); emit('clearError', 'customerPhone')"
             type="tel"
-            placeholder="Ví dụ: 0988776655..."
+            placeholder="Nhập số điện thoại người nhận..."
             class="form-control"
             :class="{ 'input-error': errors?.customerPhone }"
           />
@@ -219,14 +185,14 @@ const onProvinceChange = async (newProvince) => {
           :value="customerEmail"
           @input="emit('update:customerEmail', $event.target.value); emit('clearError', 'customerEmail')"
           type="email"
-          placeholder="Nhập email của bạn (ví dụ: customer@gmail.com)..."
+          placeholder="Nhập địa chỉ email của bạn..."
           class="form-control"
           :class="{ 'input-error': errors?.customerEmail }"
         />
         <span v-if="errors?.customerEmail" class="field-error-text">{{ errors.customerEmail }}</span>
       </div>
 
-      <!-- 2 Selects địa giới theo chuẩn 2 cấp hành chính (Tỉnh/Thành phố & Phường/Xã) -->
+      <!-- 2 Selects địa giới theo chuẩn 2 cấp hành chính mới (Tỉnh/Thành phố & Phường/Xã) -->
       <div class="form-two-col">
         <div class="input-field" :class="{ 'has-error': errors?.selectedProvince }">
           <label>Tỉnh/Thành phố <span class="star">*</span></label>
@@ -284,8 +250,8 @@ const onProvinceChange = async (newProvince) => {
         <span v-if="errors?.streetAddress" class="field-error-text">{{ errors.streetAddress }}</span>
       </div>
 
-      <div v-if="streetAddress || selectedWard || selectedProvince" class="delivery-helper-box">
-        <span>Giao đến: <strong>{{ fullDeliveryAddress }}</strong></span>
+      <div class="delivery-helper-box">
+        <span>Giao đến: {{ fullDeliveryAddress }}</span>
       </div>
     </div>
   </div>
@@ -310,13 +276,7 @@ const onProvinceChange = async (newProvince) => {
   margin-bottom: 18px;
 }
 
-.header-title-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.header-title-badge h3 {
+.card-header-line h3 {
   font-family: 'Be Vietnam Pro', sans-serif;
   font-size: 16px;
   font-weight: 800;
@@ -324,96 +284,14 @@ const onProvinceChange = async (newProvince) => {
   margin: 0;
 }
 
-.badge-count {
-  font-size: 12px;
-  font-weight: 700;
-  color: #8a6d3b;
-  background: #fdf6e7;
-  padding: 2px 8px;
-  border-radius: 12px;
-}
-
-.card-title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: -4px;
-  margin-bottom: 18px;
-}
-
 .card-title {
   font-family: 'Be Vietnam Pro', sans-serif;
   font-size: 16.5px;
   font-weight: 800;
   color: #496883;
-  margin: 0;
-}
-
-.auto-fill-tag {
-  font-size: 12px;
-  font-weight: 600;
-  color: #10b981;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  padding: 3px 10px;
-  border-radius: 20px;
-}
-
-.tag-default-pill {
-  font-size: 11px;
-  font-weight: 700;
-  color: #b45309;
-  background: #fef3c7;
-  border: 1px solid #fde68a;
-  padding: 1px 8px;
-  border-radius: 10px;
-  margin-left: 8px;
-}
-
-/* Banner nhắc nhở khách mua vãng lai */
-.guest-checkout-alert {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  background: linear-gradient(135deg, #fffbf0 0%, #fef8e7 100%);
-  border: 1.5px solid #f3d692;
-  border-radius: 10px;
-  padding: 12px 16px;
-  margin-bottom: 20px;
-}
-
-.guest-alert-icon {
-  font-size: 20px;
-  line-height: 1.2;
-}
-
-.guest-alert-text {
-  font-size: 13px;
-  color: #6c5324;
-  line-height: 1.5;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.guest-alert-login {
-  font-size: 12.5px;
-  color: #7b5f2a;
-}
-
-.link-login-inline {
-  background: none;
-  border: none;
-  color: #b45309;
-  font-weight: 700;
-  cursor: pointer;
-  text-decoration: underline;
-  padding: 0 4px;
-  font-size: 12.5px;
-}
-
-.link-login-inline:hover {
-  color: #78350f;
+  margin-top: -8px;
+  margin-bottom: 18px;
+  display: block;
 }
 
 .btn-refresh-text {
@@ -423,11 +301,6 @@ const onProvinceChange = async (newProvince) => {
   font-weight: 700;
   font-size: 13px;
   cursor: pointer;
-  transition: color 0.2s;
-}
-
-.btn-refresh-text:hover {
-  color: #b88b48;
 }
 
 .saved-address-list {
@@ -483,7 +356,6 @@ const onProvinceChange = async (newProvince) => {
   font-size: 13px;
   cursor: pointer;
   text-align: left;
-  transition: all 0.2s;
 }
 
 .btn-other-address:hover,
@@ -496,6 +368,13 @@ const onProvinceChange = async (newProvince) => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  margin-bottom: 14px;
+}
+
+.form-three-col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
   margin-bottom: 14px;
 }
 
@@ -527,7 +406,6 @@ const onProvinceChange = async (newProvince) => {
   outline: none;
   background: #f8fafc;
   box-sizing: border-box;
-  transition: border-color 0.2s, background 0.2s;
 }
 
 .form-control:focus {
@@ -535,7 +413,7 @@ const onProvinceChange = async (newProvince) => {
   background: #ffffff;
 }
 
-/* Error styles */
+/* Error styles (Báo đỏ bên dưới trường nhập) */
 .input-field.has-error label {
   color: #dc2626;
   font-weight: 700;
@@ -580,8 +458,10 @@ const onProvinceChange = async (newProvince) => {
 }
 
 @media (max-width: 768px) {
-  .form-two-col {
+  .form-two-col,
+  .form-three-col {
     grid-template-columns: 1fr;
   }
 }
 </style>
+

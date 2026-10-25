@@ -356,7 +356,20 @@ public class KhachHangService {
         return repo.findById(id).orElseThrow(() -> new EntityNotFoundException("Không tìm thấy khách hàng: " + id));
     }
 
-    private KhachHangResponse toResponse(KhachHang x) {
+    
+    @Transactional(readOnly = true)
+    public Optional<KhachHang> findByEmail(String email) {
+        if (email == null || email.isBlank()) return Optional.empty();
+        return repo.findByEmail(email.trim());
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<KhachHang> findByPhone(String phone) {
+        if (phone == null || phone.isBlank()) return Optional.empty();
+        return repo.findBySoDienThoai(phone.trim());
+    }
+
+    public KhachHangResponse toResponse(KhachHang x) {
         DiaChiKhachHang a = addressRepo.findFirstByIdKhachHangIdAndMacDinhTrueAndTrangThai(x.getId(), 1)
                 .or(() -> addressRepo.findByIdKhachHangIdAndTrangThaiOrderByMacDinhDescIdDesc(x.getId(), 1).stream().findFirst())
                 .or(() -> addressRepo.findByIdKhachHangIdOrderByMacDinhDescIdDesc(x.getId()).stream().findFirst())
