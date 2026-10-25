@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import api from '@/api'
 import { formatCurrency, formatDateTime } from '@/utils/dinhDang.js'
+import { showAppConfirm, showAppAlert } from '@/utils/thongBaoDialog.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -225,18 +226,19 @@ const getStatusLabel = (status) => {
 
 const handleCancelOrder = async () => {
   if (!selectedOrder.value) return
-  if (confirm(`Bạn có chắc chắn muốn hủy đơn hàng #${selectedOrder.value.maHoaDon}?`)) {
+  const ok = await showAppConfirm(`Bạn có chắc chắn muốn hủy đơn hàng #${selectedOrder.value.maHoaDon}?`, 'Hủy đơn hàng')
+  if (ok) {
     try {
       await api.put(`/api/hoa-don/${selectedOrder.value.id}/trang-thai`, {
         trangThai: 6,
         ghiChu: 'Khách hàng yêu cầu hủy đơn trên website'
       })
       selectedOrder.value.trangThai = 6
-      alert('Đã hủy đơn hàng thành công!')
+      await showAppAlert('Đã hủy đơn hàng thành công!', 'Hủy đơn hàng', 'success')
       loadOrders()
       viewOrderDetail(selectedOrder.value)
     } catch (e) {
-      alert('Không thể hủy đơn hàng vào lúc này. Vui lòng liên hệ hotline hỗ trợ!')
+      await showAppAlert('Không thể hủy đơn hàng vào lúc này. Vui lòng liên hệ hotline hỗ trợ!', 'Lỗi hủy đơn', 'error')
     }
   }
 }
@@ -264,7 +266,7 @@ const openPayModal = async () => {
       )
     }
   } catch (e) {
-    alert('Không thể kết nối tới cổng thanh toán VNPAY lúc này. Vui lòng thử lại sau!')
+    await showAppAlert('Không thể kết nối tới cổng thanh toán VNPAY lúc này. Vui lòng thử lại sau!', 'Cổng thanh toán VNPAY', 'error')
   } finally {
     payingVnpay.value = false
   }
@@ -283,7 +285,7 @@ const openReview = (item) => {
 }
 
 const submitReview = () => {
-  alert('Cảm ơn bạn đã gửi đánh giá 5 sao cho sản phẩm của FF T-Shirt!')
+  showAppAlert('Cảm ơn bạn đã gửi đánh giá 5 sao cho sản phẩm của FF T-Shirt!', 'Đánh giá sản phẩm', 'success')
   showReviewModal.value = false
 }
 
@@ -669,7 +671,7 @@ onUnmounted(() => {
                   <span>- {{ formatCurrency(selectedOrder.tongTienGiamGia) }}</span>
                 </div>
                 <div class="v-sum-row">
-                  <span>Phí vận chuyển</span>
+                  <span>Phí vận chuyển ({{ selectedOrder.donViVanChuyen || "GHN" }})</span>
                   <span class="ship-val">
                     <img v-if="(selectedOrder.phiShip || selectedOrder.phiVanChuyen) > 0" src="https://cdn.haitrieu.com/wp-content/uploads/2022/05/Logo-GHN-Orange.png" alt="GHN" class="ghn-mini-logo" />
                     + {{ (selectedOrder.phiShip || selectedOrder.phiVanChuyen) > 0 ? formatCurrency(selectedOrder.phiShip || selectedOrder.phiVanChuyen) : '0 ₫' }}

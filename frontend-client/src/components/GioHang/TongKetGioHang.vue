@@ -1,4 +1,5 @@
 <script setup>
+import { useRouter } from 'vue-router'
 import { formatCurrency } from '@/utils/dinhDang.js'
 
 const props = defineProps({
@@ -29,8 +30,17 @@ const props = defineProps({
   appliedVoucher: {
     type: Object,
     default: null
+  },
+  availableVouchers: {
+    type: Array,
+    default: () => []
   }
 })
+
+const router = useRouter()
+const goToShop = () => {
+  router.push('/cua-hang')
+}
 
 const emit = defineEmits([
   'update:voucherInput',
@@ -49,7 +59,7 @@ const emit = defineEmits([
       </div>
 
       <!-- Tiến trình Freeship -->
-      <div class="freeship-box" v-if="selectedCount > 0">
+      <div class="freeship-box clickable-freeship" v-if="selectedCount > 0" @click="goToShop" title="Bấm vào đây để xem thêm sản phẩm đạt Freeship">
         <div class="freeship-header-row">
           <span class="fs-icon">🚚</span>
           <span class="fs-text" v-if="selectedSubtotal >= 499000 || appliedVoucher?.code === 'FREESHIP'">
@@ -58,6 +68,7 @@ const emit = defineEmits([
           <span class="fs-text" v-else>
             Mua thêm <strong>{{ formatCurrency(499000 - selectedSubtotal) }}</strong> để được <strong>Freeship</strong>
           </span>
+          <span class="fs-link-tag">Mua thêm →</span>
         </div>
         <div class="fs-progress-track">
           <div
@@ -85,32 +96,18 @@ const emit = defineEmits([
           </button>
         </div>
 
-        <!-- Các mã giảm giá gợi ý bấm nhanh -->
-        <div class="quick-vouchers-list" v-if="!appliedVoucher">
-          <span class="quick-v-title">Gợi ý mã:</span>
+        <!-- Các mã giảm giá gợi ý bấm nhanh từ Admin -->
+        <div class="quick-vouchers-list" v-if="!appliedVoucher && availableVouchers && availableVouchers.length > 0">
+          <span class="quick-v-title">Mã ưu đãi:</span>
           <button
+            v-for="v in availableVouchers.slice(0, 4)"
+            :key="v.id"
             type="button"
             class="quick-v-chip"
-            @click="emit('applyQuickVoucher', 'FREESHIP')"
-            title="Miễn phí vận chuyển 30.000đ"
+            @click="emit('applyQuickVoucher', v.maPhieuGiamGia)"
+            :title="`${v.tenPhieuGiamGia || v.maPhieuGiamGia} - ${Number(v.loaiPhieuGiamGia) === 1 ? 'Giảm ' + v.giaTriGiamGia + '%' : 'Giảm ' + formatCurrency(v.giaTriGiamGia)}`"
           >
-            FREESHIP
-          </button>
-          <button
-            type="button"
-            class="quick-v-chip"
-            @click="emit('applyQuickVoucher', 'FFVIP10')"
-            title="Giảm 10% đơn hàng"
-          >
-            FFVIP10
-          </button>
-          <button
-            type="button"
-            class="quick-v-chip"
-            @click="emit('applyQuickVoucher', 'SALE10')"
-            title="Giảm 10% đợt sale"
-          >
-            SALE10
+            {{ v.maPhieuGiamGia }}
           </button>
         </div>
 
@@ -184,6 +181,23 @@ const emit = defineEmits([
   margin-bottom: 18px;
 }
 
+.clickable-freeship {
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+.clickable-freeship:hover {
+  border-color: #3e5c76 !important;
+  background-color: #f1f6fa !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(62, 92, 118, 0.12);
+}
+.fs-link-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #3e5c76;
+  margin-left: auto;
+  white-space: nowrap;
+}
 .freeship-box {
   background: #fdfbf7;
   border: 1px solid #ecd8af;

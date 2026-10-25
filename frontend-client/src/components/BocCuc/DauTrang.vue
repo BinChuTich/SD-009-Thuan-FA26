@@ -457,8 +457,14 @@ onUnmounted(() => {
             <!-- 2. Khi đã đăng nhập: Hiển thị tên tài khoản + dropdown -->
             <template v-else>
               <button class="user-profile-btn" @click="toggleUserMenu">
-                <span class="user-avatar-circle">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <span
+                  class="user-avatar-circle"
+                  :style="currentClientUser?.avatarBg ? { backgroundColor: currentClientUser.avatarBg, color: '#ffffff', fontWeight: '800' } : {}"
+                >
+                  <template v-if="currentClientUser?.avatarText">
+                    {{ currentClientUser.avatarText }}
+                  </template>
+                  <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                     <circle cx="12" cy="7" r="4"></circle>
                   </svg>
@@ -472,8 +478,11 @@ onUnmounted(() => {
               <!-- Popup tài khoản -->
               <div v-if="showUserMenu" class="dropdown-popup user-popup">
                 <div class="user-summary">
-                  <strong>{{ currentClientUser?.name }}</strong>
-                  <span>{{ currentClientUser?.phone || currentClientUser?.email }}</span>
+                  <div class="user-summary-row">
+                    <strong>{{ currentClientUser?.name }}</strong>
+                    <span v-if="currentClientUser?.provider === 'google'" class="google-badge-tag">Gmail</span>
+                  </div>
+                  <span>{{ currentClientUser?.email || currentClientUser?.phone }}</span>
                 </div>
                 <div class="popup-menu-divider"></div>
                                 <router-link to="/tra-cuu-don-hang" class="menu-link" @click="showUserMenu = false">
@@ -1368,9 +1377,26 @@ onUnmounted(() => {
   color: #333333;
 }
 
+.user-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
 .user-summary strong {
   font-size: 13px;
   color: #496883;
+}
+
+.google-badge-tag {
+  background: #e8f0fe;
+  color: #1a73e8;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
 }
 
 .user-summary span {

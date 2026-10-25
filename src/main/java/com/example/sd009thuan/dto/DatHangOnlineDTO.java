@@ -16,6 +16,8 @@ public class DatHangOnlineDTO {
     private String diaChiNhanHang;
     private String ghiChu;
     private String phuongThucThanhToan; // "COD", "VNPAY", "MANUAL"
+    private String donViVanChuyen;
+    private String maVanDon;
     private BigDecimal tongTien;
     private BigDecimal phiVanChuyen;
     private BigDecimal giamGia;
@@ -29,3 +31,4 @@ public class DatHangOnlineDTO {
         private BigDecimal donGia;
     }
 }
+

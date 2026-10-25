@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
+import { formatCurrency } from '@/utils/dinhDang.js'
 import {
   cartItems,
   updateCartQuantity,
@@ -13,6 +14,7 @@ import {
   setCheckoutVoucher
 } from '@/utils/luuTruGioHang.js'
 import { getMergedProducts } from '@/utils/danhMucSanPham.js'
+import { showAppConfirm, showAppAlert } from '@/utils/thongBaoDialog.js'
 import BangSanPhamGioHang from '@/components/GioHang/BangSanPhamGioHang.vue'
 import TongKetGioHang from '@/components/GioHang/TongKetGioHang.vue'
 import TheSanPham from '@/components/DungChung/TheSanPham.vue'
@@ -70,45 +72,95 @@ const handleSetQuantity = (variantId, newQty, maxStock) => {
   updateCartQuantity(variantId, q)
 }
 
-const handleRemove = (variantId, name = '') => {
-  if (confirm(`Bạn có chắc muốn xóa sản phẩm ${name ? '"' + name + '"' : ''} khỏi giỏ hàng?`)) {
+const handleRemove = async (variantId, name = '') => {
+  const ok = await showAppConfirm(`Bạn có chắc muốn xóa sản phẩm ${name ? '"' + name + '"' : ''} khỏi giỏ hàng?`, 'Xóa sản phẩm')
+  if (ok) {
     removeFromCart(variantId)
     selectedItemIds.value = selectedItemIds.value.filter(id => id !== variantId)
   }
 }
 
-const handleRemoveSelected = () => {
+const handleRemoveSelected = async () => {
   if (!selectedItemIds.value.length) return
-  if (confirm(`Xác nhận xóa ${selectedItemIds.value.length} sản phẩm đã chọn?`)) {
+  const ok = await showAppConfirm(`Xác nhận xóa ${selectedItemIds.value.length} sản phẩm đã chọn?`, 'Xóa mục đã chọn')
+  if (ok) {
     selectedItemIds.value.forEach(id => removeFromCart(id))
     selectedItemIds.value = []
   }
 }
 
-const handleClearCart = () => {
-  if (confirm('Bạn có chắc chắn muốn xóa tất cả sản phẩm khỏi giỏ hàng?')) {
+const handleClearCart = async () => {
+  const ok = await showAppConfirm('Bạn có chắc chắn muốn xóa tất cả sản phẩm khỏi giỏ hàng?', 'Dọn sạch giỏ hàng')
+  if (ok) {
     clearCart()
     selectedItemIds.value = []
   }
 }
 
-// Voucher khuyến mãi
+// Voucher khuyến mãi từ Admin
 const voucherInput = ref('')
 const appliedVoucher = ref(null)
+const availableVouchers = ref([])
 
-const handleApplyVoucher = () => {
+const fetchVouchers = async () => {
+  try {
+    const res = await api.get('/api/phieu-giam-gia')
+    const list = Array.isArray(res.data) ? res.data : (res.data?.content || [])
+    const now = new Date().toISOString()
+    availableVouchers.value = list.filter(v => {
+      if (Number(v.trangThai) !== 1) return false
+      if (v.soLuongSuDung != null && v.soLuongSuDung <= 0) return false
+      if (v.ngayBatDau && v.ngayBatDau > now) return false
+      if (v.ngayKetThuc && v.ngayKetThuc < now) return false
+      return true
+    })
+  } catch (e) {
+    console.warn('Lỗi tải phiếu giảm giá:', e)
+  }
+}
+
+const handleApplyVoucher = async () => {
   const code = voucherInput.value.trim().toUpperCase()
   if (!code) return
-  if (code === 'FFVIP10' || code === 'SALE10') {
-    const disc = Math.max(30000, Math.round(selectedSubtotal.value * 0.1))
-    appliedVoucher.value = { code, discount: disc }
-    voucherInput.value = ''
-  } else if (code === 'FREESHIP') {
-    appliedVoucher.value = { code, discount: 30000 }
-    voucherInput.value = ''
-  } else {
-    alert('Mã giảm giá không hợp lệ hoặc đã hết lượt sử dụng!')
+  if (selectedSubtotal.value <= 0) {
+    await showAppAlert('Vui lòng chọn ít nhất một sản phẩm trong giỏ hàng trước khi áp dụng mã giảm giá!', 'Chưa chọn sản phẩm', 'warning')
+    return
   }
+
+  const voucher = availableVouchers.value.find(v => (v.maPhieuGiamGia || '').toUpperCase() === code)
+  if (!voucher) {
+    await showAppAlert(`Mã giảm giá '${code}' không hợp lệ hoặc không có trong hệ thống!`, 'Mã giảm giá', 'error')
+    return
+  }
+
+  const minSpend = Number(voucher.hoaDonToiThieu || 0)
+  if (selectedSubtotal.value < minSpend) {
+    await showAppAlert(`Đơn hàng chưa đủ điều kiện! Mã ${voucher.maPhieuGiamGia} yêu cầu giá trị đơn tối thiểu từ ${formatCurrency(minSpend)}.`, 'Chưa đủ điều kiện', 'warning')
+    return
+  }
+
+  let disc = 0
+  if (Number(voucher.loaiPhieuGiamGia) === 1) {
+    // Giảm theo %
+    const percent = Number(voucher.giaTriGiamGia || 0)
+    disc = Math.round((selectedSubtotal.value * percent) / 100)
+    const maxDiscount = Number(voucher.giamToiDa || 0)
+    if (maxDiscount > 0) {
+      disc = Math.min(disc, maxDiscount)
+    }
+  } else {
+    // Giảm tiền mặt
+    disc = Number(voucher.giaTriGiamGia || 0)
+  }
+
+  appliedVoucher.value = {
+    id: voucher.id,
+    code: voucher.maPhieuGiamGia,
+    name: voucher.tenPhieuGiamGia,
+    discount: disc,
+    minSpend: minSpend
+  }
+  voucherInput.value = ''
 }
 
 const handleApplyQuickVoucher = (code) => {
@@ -145,15 +197,15 @@ const finalTotal = computed(() => {
   return Math.max(0, selectedSubtotal.value - voucherDiscount.value + shippingFee.value)
 })
 
-const goToCheckout = () => {
+const goToCheckout = async () => {
   if (!selectedItemIds.value.length) {
-    alert('Vui lòng tích chọn ít nhất 1 sản phẩm để tiến hành thanh toán!')
+    await showAppAlert('Vui lòng tích chọn ít nhất 1 sản phẩm để tiến hành thanh toán!', 'Chọn sản phẩm thanh toán', 'warning')
     return
   }
   const itemsToCheckout = cartItems.value.filter(item => selectedItemIds.value.includes(item.variantId))
   const outOfStockItems = itemsToCheckout.filter(item => (item.maxStock != null ? Number(item.maxStock) : 99) <= 0)
   if (outOfStockItems.length > 0) {
-    alert(`Sản phẩm "${outOfStockItems[0].productName}" hiện đã hết hàng trong kho. Vui lòng bỏ chọn để tiếp tục!`)
+    await showAppAlert(`Sản phẩm "${outOfStockItems[0].productName}" hiện đã hết hàng trong kho. Vui lòng bỏ chọn để tiếp tục!`, 'Sản phẩm hết hàng', 'warning')
     return
   }
   setCheckoutItems(itemsToCheckout)
@@ -179,11 +231,16 @@ const syncCartStock = async () => {
             updated = true
           }
           if (freshStock <= 0) {
-            item.quantity = 0
+            item.maxStock = 0
             selectedItemIds.value = selectedItemIds.value.filter(id => id !== item.variantId)
             updated = true
-          } else if (item.quantity > freshStock) {
-            item.quantity = freshStock
+          } else {
+            if (item.quantity > freshStock) {
+              item.quantity = freshStock
+            }
+            if (item.quantity <= 0) {
+              item.quantity = 1
+            }
             updated = true
           }
         }
@@ -200,6 +257,7 @@ const syncCartStock = async () => {
 onMounted(() => {
   syncCartStock()
   loadRecommendedProducts()
+  fetchVouchers()
 })
 </script>
 
@@ -255,6 +313,7 @@ onMounted(() => {
 
         <!-- 2. THẺ TÓM TẮT ĐƠN HÀNG & THANH TOÁN -->
         <TongKetGioHang
+          :available-vouchers="availableVouchers"
           :selected-count="selectedItemIds.length"
           :selected-subtotal="selectedSubtotal"
           :shipping-fee="shippingFee"

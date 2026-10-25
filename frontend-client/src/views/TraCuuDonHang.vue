@@ -388,6 +388,10 @@ onMounted(() => {
                 <span class="i-label">Địa chỉ:</span>
                 <span>{{ order.diaChiNhanHang || '—' }}</span>
               </div>
+              <div class="i-line" v-if="order.loaiDon !== 1">
+                <span class="i-label">Vận chuyển:</span>
+                <span style="font-weight: 600; color: #3e5c76;">🚚 {{ order.donViVanChuyen || 'Giao Hàng Nhanh (GHN)' }}</span>
+              </div>
             </div>
           </div>
 

@@ -109,10 +109,15 @@ export const fetchNotifications = async () => {
   try {
     const resOrders = await api.get('/api/hoa-don')
     const allOrders = Array.isArray(resOrders.data) ? resOrders.data : []
-    // Lấy tối đa 5 đơn gần nhất của khách
-    const userPhone = '0988776655'
+    // Lấy đơn hàng thực tế của khách hàng đang đăng nhập hoặc các đơn mới nhất
+    let userPhone = ''
+    try {
+      const stored = JSON.parse(localStorage.getItem('fftshirt_client_user') || '{}')
+      userPhone = stored.phone || ''
+    } catch (e) {}
+
     const myOrders = allOrders
-      .filter(o => !o.soDienThoaiKhachHang || o.soDienThoaiKhachHang === userPhone || o.tenKhachHang?.includes('Chiến'))
+      .filter(o => !userPhone || !o.soDienThoaiKhachHang || o.soDienThoaiKhachHang === userPhone)
       .sort((a, b) => new Date(b.ngayTao || 0) - new Date(a.ngayTao || 0))
       .slice(0, 5)
 

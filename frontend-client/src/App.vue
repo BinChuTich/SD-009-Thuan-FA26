@@ -2,6 +2,7 @@
 import DauTrang from '@/components/BocCuc/DauTrang.vue'
 import ChanTrang from '@/components/BocCuc/ChanTrang.vue'
 import HopChatTuVan from '@/components/BocCuc/HopChatTuVan.vue'
+import ModalThongBaoXacNhan from '@/components/DungChung/ModalThongBaoXacNhan.vue'
 </script>
 
 <template>
@@ -12,6 +13,7 @@ import HopChatTuVan from '@/components/BocCuc/HopChatTuVan.vue'
     </main>
     <ChanTrang />
     <HopChatTuVan />
+    <ModalThongBaoXacNhan />
   </div>
 </template>
 
