@@ -612,14 +612,7 @@ const handlePlaceOrder = async () => {
       }
     }
 
-    // Gửi email xác nhận đặt hàng kèm link theo dõi đơn hàng
-    try {
-      if (customerEmail.value && customerEmail.value.trim().includes('@')) {
-        api.post(`/api/hoa-don/code/${savedOrder.maHoaDon}/send-email`, {
-          email: customerEmail.value.trim()
-        }).catch(e => console.warn('Gửi email theo dõi đơn hàng:', e))
-      }
-    } catch (e) {}
+
 
     // Kích hoạt thông báo đặt hàng thành công riêng cho tài khoản
     try {
@@ -788,13 +781,7 @@ const formatDate = (dateStr) => {
             </div>
           </div>
 
-          <div class="email-sent-success-box" v-if="customerEmail">
-            <span class="ess-icon">✉️</span>
-            <div class="ess-text">
-              Hệ thống đã gửi email xác nhận đặt hàng thành công kèm đường link theo dõi đơn hàng đến:
-              <strong>{{ customerEmail }}</strong>. Bạn có thể kiểm tra hòm thư bất kỳ lúc nào!
-            </div>
-          </div>
+
         </div>
 
         <div class="success-actions-row">
@@ -930,38 +917,9 @@ const formatDate = (dateStr) => {
                 <span v-if="errors.selectedWard" class="field-error-text">{{ errors.selectedWard }}</span>
               </div>
             </div>
-
-            <!-- Giờ giao hàng của đơn vị vận chuyển -->
-            <div class="delivery-schedule-notice mt-2">
-              <span class="ds-icon">🕒</span>
-              <span>Đơn hàng được giao trong giờ hành chính (thứ 2 đến thứ 7). <a href="javascript:void(0)" class="link-detail-sub" @click="showAppAlert('Đơn vị vận chuyển GHN Express giao hàng từ 8h00 - 18h00 từ thứ 2 đến thứ 7 hàng tuần.', 'Thời gian giao hàng', 'info')">Xem chi tiết</a></span>
-            </div>
           </div>
 
-          <!-- 3. Đơn vị vận chuyển (GHN Express thiết kế siêu gọn nhẹ) -->
-          <div class="section-card-panel shipping-panel-slim mt-3">
-            <h3 class="panel-section-title shipping-title-slim">Hình thức vận chuyển</h3>
-            <div class="shipping-carrier-compact">
-              <div class="scc-left">
-                <input type="radio" checked readonly class="scc-radio" />
-                <img src="/img/ghn-brand-logo.png" alt="GHN Express" class="scc-logo" />
-                <span class="scc-title">Giao Hàng Nhanh (GHN)</span>
-              </div>
-              <div class="scc-right">
-                <span class="scc-price">
-                  <template v-if="!hasEnteredAddress">
-                    <span class="scc-price-pending">Chưa có địa chỉ</span>
-                  </template>
-                  <template v-else-if="shippingFee === 0">
-                    MIỄN PHÍ
-                  </template>
-                  <template v-else>
-                    {{ formatCurrency(shippingFee) }}
-                  </template>
-                </span>
-              </div>
-            </div>
-          </div>
+
 
           <!-- 4. Phương thức thanh toán (COD & VNPAY) - KHÔNG CÓ MOMO & SHOPEEPAY -->
           <div class="section-card-panel mt-4">
@@ -1223,7 +1181,7 @@ const formatDate = (dateStr) => {
                 </span>
                 <span class="ship-cost">
                   <template v-if="!hasEnteredAddress">
-                    <span class="text-muted" style="font-size: 13px; font-weight: 500; font-style: italic;">Chưa chọn địa chỉ</span>
+                    —
                   </template>
                   <template v-else-if="shippingFee === 0">
                     MIỄN PHÍ
@@ -1281,7 +1239,8 @@ const formatDate = (dateStr) => {
 }
 
 .container-client {
-  max-width: 1400px;
+  max-width: 1540px !important;
+  width: 95% !important;
   margin: 0 auto;
   padding: 0 1.5rem;
 }
@@ -1381,14 +1340,15 @@ const formatDate = (dateStr) => {
 /* 3. Bố cục 2 cột chính */
 .checkout-split-grid {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
-  gap: 28px;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 32px;
   align-items: start;
 }
 
 @media (max-width: 1024px) {
   .checkout-split-grid {
     grid-template-columns: 1fr;
+    gap: 24px;
   }
 }
 
@@ -1396,7 +1356,7 @@ const formatDate = (dateStr) => {
 .left-delivery-column {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
 .auth-helper-banner {
@@ -1436,40 +1396,41 @@ const formatDate = (dateStr) => {
 .section-card-panel {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  border-radius: 16px;
+  padding: 26px 28px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
 }
 
 .panel-section-title {
-  font-size: 17px;
+  font-size: 18.5px;
   font-weight: 800;
   color: #0f172a;
-  margin: 0 0 18px;
-  padding-bottom: 12px;
+  margin: 0 0 20px;
+  padding-bottom: 14px;
   border-bottom: 1px solid #f1f5f9;
 }
 
 .form-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 18px;
 }
 
 @media (max-width: 640px) {
   .form-grid-2 {
     grid-template-columns: 1fr;
+    gap: 14px;
   }
 }
 
 .form-group-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .form-group-field label {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
   color: #334155;
 }
@@ -1481,14 +1442,15 @@ const formatDate = (dateStr) => {
 .form-input-text,
 .form-input-select {
   width: 100%;
-  padding: 11px 14px;
-  font-size: 14px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14.5px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
   background-color: #ffffff;
   color: #0f172a;
   transition: all 0.2s;
   box-sizing: border-box;
+  min-height: 46px;
 }
 
 .form-input-text:focus,
@@ -1609,16 +1571,16 @@ const formatDate = (dateStr) => {
 .summary-section-box {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  border-radius: 16px;
+  padding: 24px 26px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
 }
 
 .box-mini-title {
-  font-size: 15.5px;
+  font-size: 17px;
   font-weight: 800;
   color: #0f172a;
-  margin: 0 0 14px;
+  margin: 0 0 16px;
 }
 
 /* Danh sách sản phẩm trong giỏ */
@@ -1737,8 +1699,8 @@ const formatDate = (dateStr) => {
 .cart-items-list-scroll {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-height: 380px;
+  gap: 16px;
+  max-height: 480px;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -1746,8 +1708,8 @@ const formatDate = (dateStr) => {
 .cart-item-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding-bottom: 12px;
+  gap: 14px;
+  padding-bottom: 14px;
   border-bottom: 1px dashed #e2e8f0;
 }
 
@@ -1757,17 +1719,17 @@ const formatDate = (dateStr) => {
 }
 
 .item-checkbox input {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   cursor: pointer;
   accent-color: #d2a764;
 }
 
 .item-thumb-box img {
-  width: 58px;
-  height: 64px;
+  width: 76px;
+  height: 84px;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid #e2e8f0;
 }
 
@@ -1775,11 +1737,11 @@ const formatDate = (dateStr) => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .item-product-name {
-  font-size: 13.5px;
+  font-size: 14.5px;
   font-weight: 700;
   color: #0f172a;
   margin: 0;
@@ -1787,11 +1749,11 @@ const formatDate = (dateStr) => {
 }
 
 .item-variant-pill {
-  font-size: 11.5px;
-  color: #64748b;
+  font-size: 12px;
+  color: #475569;
   background: #f1f5f9;
-  padding: 2px 7px;
-  border-radius: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
   display: inline-block;
   width: fit-content;
 }

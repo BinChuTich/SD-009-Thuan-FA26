@@ -317,14 +317,14 @@ public class KhachHangController {
         } else {
             String emailToSave = cleanInput.contains("@") ? cleanInput.toLowerCase() : (cleanInput + "@gmail.com");
             String displayName = (name != null && !name.trim().isEmpty()) ? name.trim() : emailToSave.split("@")[0];
-            String phoneToSave = cleanInput.matches("^[0-9]{9,11}$") ? cleanInput : null;
+            String phoneToSave = cleanInput.matches("^0[0-9]{9,10}$") ? cleanInput : null;
             KhachHangRequest req = new KhachHangRequest(
                     null,
                     emailToSave.split("@")[0],
                     displayName,
                     emailToSave,
-                    phoneToSave,
                     "123456",
+                    phoneToSave,
                     null,
                     true,
                     1,

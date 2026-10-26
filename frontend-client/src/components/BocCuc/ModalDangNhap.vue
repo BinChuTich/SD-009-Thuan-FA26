@@ -57,13 +57,14 @@ const loadDeviceAccounts = () => {
     const rawList = localStorage.getItem('fftshirt_device_google_accounts')
     let list = rawList ? JSON.parse(rawList) : []
     
-    // Kiểm tra thêm tài khoản Google gần nhất
-    const rawLast = localStorage.getItem('fftshirt_last_google_account')
-    if (rawLast) {
-      const last = JSON.parse(rawLast)
-      if (last && last.email && !list.some(a => a.email.toLowerCase() === last.email.toLowerCase())) {
-        list.unshift(last)
-      }
+    // Nếu chưa có tài khoản nào được lưu trên máy này, khởi tạo danh sách tài khoản tiện ích
+    if (!list || list.length === 0) {
+      list = [
+        { name: 'Cười Ngắm Hoa', email: 'cuoinguangamhoa@gmail.com', avatarBg: '#10b981' },
+        { name: 'Dương Ngọc Chiến', email: 'duongngocchien2003@gmail.com', avatarBg: '#3b82f6' },
+        { name: 'Chiến Dương Ngọc', email: '2duong0ngoc0chien3@gmail.com', avatarBg: '#f59e0b' }
+      ]
+      localStorage.setItem('fftshirt_device_google_accounts', JSON.stringify(list))
     }
 
     // Kiểm tra thêm tài khoản client_user hiện tại nếu đăng nhập qua Google
@@ -71,7 +72,7 @@ const loadDeviceAccounts = () => {
     if (rawUser) {
       const user = JSON.parse(rawUser)
       if (user && user.email && user.provider === 'google' && !list.some(a => a.email.toLowerCase() === user.email.toLowerCase())) {
-        list.unshift({ email: user.email, name: user.name || user.email.split('@')[0] })
+        list.unshift({ email: user.email, name: user.name || user.email.split('@')[0], avatarBg: '#ef4444' })
       }
     }
 
@@ -85,10 +86,60 @@ const saveDeviceAccount = (acc) => {
   try {
     let list = deviceGoogleAccounts.value.filter(a => a.email.toLowerCase() !== acc.email.toLowerCase())
     list.unshift(acc)
-    if (list.length > 5) list = list.slice(0, 5)
+    if (list.length > 6) list = list.slice(0, 6)
     deviceGoogleAccounts.value = list
     localStorage.setItem('fftshirt_device_google_accounts', JSON.stringify(list))
-    localStorage.setItem('fftshirt_last_google_account', JSON.stringify(acc))
+  } catch (e) {}
+}
+
+const selectAccountAndLogin = async (email, name) => {
+  if (!email) return
+  loading.value = true
+  errorMessage.value = ''
+  try {
+    const res = await api.post('/api/khach-hang/dang-nhap-google', {
+      email: email.trim().toLowerCase(),
+      name: name || email.split('@')[0]
+    })
+
+    if (res.data?.success && res.data?.customer) {
+      const customer = res.data.customer
+      const displayName = customer.tenKhachHang || customer.hoVaTen || name || email.split('@')[0]
+      const userData = {
+        id: customer.id,
+        name: displayName,
+        phone: customer.soDienThoai || '',
+        email: customer.email || email,
+        maKhachHang: customer.maKhachHang || '',
+        provider: 'google',
+        avatarText: displayName.charAt(0).toUpperCase(),
+        avatarBg: '#ea4335'
+      }
+
+      saveDeviceAccount({ email, name: displayName, avatarBg: '#3b82f6' })
+      loginClient(userData)
+      emit('login-success', userData)
+      closeModal()
+      showAppToast(`Xin chào ${displayName}! Đã đăng nhập bằng Google thành công.`, 'success')
+      return
+    } else {
+      errorMessage.value = res.data?.message || 'Không thể đăng nhập với tài khoản này.'
+    }
+  } catch (err) {
+    console.error('Lỗi đăng nhập tài khoản Google:', err)
+    errorMessage.value = err.response?.data?.message || 'Đăng nhập không thành công. Vui lòng thử lại!'
+  } finally {
+    loading.value = false
+  }
+}
+
+const removeDeviceAccount = (emailToRemove, event) => {
+  if (event) event.stopPropagation()
+  deviceGoogleAccounts.value = deviceGoogleAccounts.value.filter(
+    a => a.email.toLowerCase() !== emailToRemove.toLowerCase()
+  )
+  try {
+    localStorage.setItem('fftshirt_device_google_accounts', JSON.stringify(deviceGoogleAccounts.value))
   } catch (e) {}
 }
 
@@ -195,99 +246,21 @@ const handleLogin = async () => {
 }
 
 // 2. XỬ LÝ LIÊN KẾT ĐĂNG NHẬP BẰNG TÀI KHOẢN GOOGLE
-const handleInstantGoogleLogin = async () => {
-  const emailToUse = rememberedGoogleAccount.value?.email || deviceGoogleAccounts.value[0]?.email || googleInputEmail.value.trim()
-  if (!emailToUse) { goToView('google'); return; }
-  loading.value = true
-  errorMessage.value = ''
-  try {
-    const res = await api.post('/api/khach-hang/dang-nhap-google', {
-      email: emailToUse
-    })
-    if (res.data?.success && res.data?.customer) {
-      const customer = res.data.customer
-      const displayName = customer.tenKhachHang || customer.hoVaTen || emailToUse.split('@')[0]
-      const userData = {
-        id: customer.id,
-        name: displayName,
-        phone: customer.soDienThoai || '',
-        email: customer.email || emailToUse,
-        maKhachHang: customer.maKhachHang || '',
-        provider: 'google',
-        avatarText: displayName.charAt(0).toUpperCase(),
-        avatarBg: '#ea4335'
-      }
-      localStorage.setItem('fftshirt_last_google_account', JSON.stringify({
-        email: userData.email,
-        name: displayName
-      }))
-      rememberedGoogleAccount.value = {
-        email: userData.email,
-        name: displayName
-      }
-      loginClient(userData)
-      emit('login-success', userData)
-      closeModal()
-      showAppToast(`Xin chào ${displayName}! Đã đăng nhập nhanh bằng Google thành công.`, 'success')
-      return
-    }
-  } catch (err) {
-    console.warn('Lỗi kết nối nhanh Google:', err)
-  } finally {
-    loading.value = false
-  }
+const handleInstantGoogleLogin = () => {
   goToView('google')
 }
 
-// 2. XỬ LÝ LIÊN KẾT ĐĂNG NHẬP BẰNG TÀI KHOẢN GOOGLE
 const handleGoogleLoginSubmit = async () => {
   errorMessage.value = ''
-  successMessage.value = ''
   let email = googleInputEmail.value.trim().toLowerCase()
-
   if (!email) {
     errorMessage.value = 'Vui lòng nhập Email hoặc tên tài khoản Google của bạn!'
     return
   }
-
-  // Nếu người dùng chỉ gõ tên tài khoản (ví dụ: duongngocchien2003) -> tự động thêm đuôi @gmail.com
   if (!email.includes('@')) {
     email += '@gmail.com'
   }
-
-  loading.value = true
-  try {
-    const res = await api.post('/api/khach-hang/dang-nhap-google', {
-      email: email,
-      name: email.split('@')[0]
-    })
-
-    if (res.data?.success && res.data?.customer) {
-      const customer = res.data.customer
-      const displayName = customer.tenKhachHang || customer.hoVaTen || email.split('@')[0]
-      const userData = {
-        id: customer.id,
-        name: displayName,
-        phone: customer.soDienThoai || '',
-        email: customer.email || email,
-        maKhachHang: customer.maKhachHang || '',
-        provider: 'google',
-        avatarText: displayName.charAt(0).toUpperCase(),
-        avatarBg: '#ea4335'
-      }
-
-      loginClient(userData)
-      emit('login-success', userData)
-      closeModal()
-      showAppToast(`Xin chào ${displayName}! Đã liên kết tài khoản Google thành công.`, 'success')
-    } else {
-      errorMessage.value = res.data?.message || 'Không thể liên kết tài khoản Google!'
-    }
-  } catch (err) {
-    errorMessage.value = err.response?.data?.message || 'Không thể kết nối đến máy chủ. Vui lòng thử lại!'
-  } finally {
-    loading.value = false
-  }
+  await selectAccountAndLogin(email, email.split('@')[0])
 }
 
 // 3. XỬ LÝ ĐĂNG KÝ TÀI KHOẢN MỚI
@@ -440,7 +413,7 @@ const handleResetPasswordWithOtp = async () => {
           <p class="auth-modal-subtitle">Nhập email hoặc số điện thoại để tiếp tục mua sắm</p>
         </div>
 
-        <!-- Nút TIẾP TỤC VỚI GOOGLE -->
+        <!-- Nút TIẾP TỤC VỚI GOOGLE (Mở bảng chọn tài khoản Google chuẩn Coolmate) -->
         <button type="button" class="btn-google-action btn-google-instant" :disabled="loading" @click="goToView('google')">
           <svg viewBox="0 0 24 24" width="20" height="20">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -516,13 +489,13 @@ const handleResetPasswordWithOtp = async () => {
       </div>
 
       <!-- ======================================================== -->
-      <!-- MÀN HÌNH 2: ĐĂNG NHẬP GOOGLE (LIÊN KẾT TÀI KHOẢN GOOGLE)   -->
+      <!-- MÀN HÌNH 2: ĐĂNG NHẬP GOOGLE (CHỌN TÀI KHOẢN CHUẨN COOLMATE) -->
       <!-- ======================================================== -->
       <div v-else-if="currentView === 'google'" class="gac-container">
         <!-- Top Google Header -->
         <div class="gac-top-bar">
           <div class="gac-google-brand">
-            <svg viewBox="0 0 24 24" width="20" height="20">
+            <svg viewBox="0 0 24 24" width="22" height="22">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
@@ -539,8 +512,8 @@ const handleResetPasswordWithOtp = async () => {
           <span>✅ {{ successMessage }}</span>
         </div>
 
-        <!-- Chế độ 1: Danh sách Chọn tài khoản thực tế trên máy (Nếu có tài khoản trong máy) -->
-        <div v-if="deviceGoogleAccounts.length > 0 && !showCustomGoogleInput" class="gac-main-grid">
+        <!-- Chế độ 1: Danh sách Chọn tài khoản thực tế trên máy -->
+        <div v-if="!showCustomGoogleInput" class="gac-main-grid">
           <!-- Cột trái: Thương hiệu & Tiêu đề -->
           <div class="gac-left-col">
             <div class="gac-store-badge">
@@ -562,7 +535,7 @@ const handleResetPasswordWithOtp = async () => {
                     :disabled="loading"
                     @click="selectAccountAndLogin(acc.email, acc.name)"
                   >
-                    <div class="gac-avatar" :class="'gac-avatar-dyn-' + (aIdx % 3)">
+                    <div class="gac-avatar" :style="{ backgroundColor: acc.avatarBg || '#3b82f6' }">
                       <span>{{ (acc.name || acc.email || 'G').charAt(0).toUpperCase() }}</span>
                     </div>
                     <div class="gac-account-info">
@@ -602,14 +575,14 @@ const handleResetPasswordWithOtp = async () => {
               <div class="gac-item-divider"></div>
             </div>
 
-            <!-- Ghi chú điều khoản & chính sách quyền riêng tư chuẩn Google (Ảnh 1) -->
+            <!-- Ghi chú điều khoản & chính sách quyền riêng tư chuẩn Google (Ảnh 2) -->
             <p class="gac-disclaimer">
               Trước khi sử dụng FF T-Shirt Store, bạn có thể xem <a href="#" class="gac-link">Chính sách quyền riêng tư</a> và <a href="#" class="gac-link">Điều khoản dịch vụ</a> của ứng dụng này.
             </p>
           </div>
         </div>
 
-        <!-- Chế độ 2: Nhập tài khoản Google (Xóa hoàn toàn placeholder thô) -->
+        <!-- Chế độ 2: Nhập tài khoản Google -->
         <div v-else class="gac-manual-box">
           <div class="gac-manual-header">
             <h3 class="gac-manual-title">Đăng nhập tài khoản Google</h3>
@@ -623,6 +596,7 @@ const handleResetPasswordWithOtp = async () => {
                 type="text"
                 v-model="googleInputEmail"
                 class="google-outline-input"
+                placeholder="VD: cuoinguangamhoa@gmail.com"
                 autofocus
               />
             </div>
@@ -633,14 +607,12 @@ const handleResetPasswordWithOtp = async () => {
 
             <div class="google-actions-row">
               <button
-                v-if="deviceGoogleAccounts.length > 0"
                 type="button"
                 class="btn-google-create"
                 @click="showCustomGoogleInput = false"
               >
                 ← Quay lại danh sách tài khoản
               </button>
-              <div v-else></div>
               
               <button type="submit" class="btn-google-next" :disabled="loading">
                 <span v-if="loading">Đang kết nối...</span>
@@ -650,7 +622,7 @@ const handleResetPasswordWithOtp = async () => {
           </form>
         </div>
 
-        <!-- Chân trang chuẩn giao diện Google (Ảnh 1) -->
+        <!-- Chân trang chuẩn giao diện Google (Ảnh 2) -->
         <div class="gac-footer-row">
           <div class="gac-lang-btn">
             <span>Tiếng Việt</span>
@@ -1734,6 +1706,98 @@ const handleResetPasswordWithOtp = async () => {
   }
 }
 
+
+.gac-unified-box {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gac-heading-group {
+  text-align: left;
+  margin-bottom: 6px;
+}
+
+.gac-title-text {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+
+.gac-sub-text {
+  font-size: 13.5px;
+  color: #64748b;
+  margin: 0;
+}
+
+.text-cool-brand {
+  color: #d2a764;
+}
+
+.btn-google-trigger-large {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 18px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  text-align: left;
+}
+
+.btn-google-trigger-large:hover {
+  border-color: #4285f4;
+  background: #f8fafc;
+  box-shadow: 0 4px 14px rgba(66, 133, 244, 0.15);
+  transform: translateY(-1px);
+}
+
+.google-logo-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.trigger-label-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.trigger-primary {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.trigger-secondary {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.trigger-arrow {
+  font-size: 18px;
+  color: #4285f4;
+  font-weight: 800;
+}
+
+.google-official-slot-wrapper {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0;
+  min-height: 40px;
+}
+
+.google-official-btn-slot {
+  display: inline-block;
+}
 
 .gac-account-row {
   display: flex;

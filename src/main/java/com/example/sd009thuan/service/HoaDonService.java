@@ -43,9 +43,7 @@ public class HoaDonService {
     private final NhanVienRepository nhanVienRepository;
     private final HinhAnhRepository hinhAnhRepository;
 
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private EmailService emailService;
-
+    
     public HoaDonService(
             HoaDonRepository hoaDonRepository,
             ChiTietHoaDonRepository chiTietHoaDonRepository,
@@ -608,20 +606,7 @@ public class HoaDonService {
 
         HoaDon saved = hoaDonRepository.save(hoaDonCu);
 
-        // Nếu chuyển sang trạng thái 2 (Đã xác nhận), gửi email xác nhận đơn hàng cho khách nếu có email
-        if (Integer.valueOf(2).equals(hoaDonMoi.getTrangThai())) {
-            String recipient = (hoaDonMoi.getEmail() != null && !hoaDonMoi.getEmail().trim().isEmpty())
-                    ? hoaDonMoi.getEmail().trim()
-                    : (saved.getEmail() != null ? saved.getEmail().trim() : null);
-            if (recipient != null && recipient.contains("@") && emailService != null) {
-                try {
-                    List<ChiTietHoaDon> items = getChiTietByHoaDonId(saved.getId());
-                    emailService.sendOrderConfirmationEmail(saved, items, recipient);
-                } catch (Exception ex) {
-                    System.err.println("==> Lỗi kích hoạt gửi email xác nhận: " + ex.getMessage());
-                }
-            }
-        }
+        
 
         try {
             LichSuHoaDon log = new LichSuHoaDon();
@@ -819,16 +804,7 @@ public class HoaDonService {
                         } catch (Exception ignored) {}
                     }
                 }
-                if (emailService != null) {
-                    try {
-                        List<ChiTietHoaDon> items = getChiTietByHoaDonId(saved.getId());
-                        emailService.sendOrderConfirmationEmail(saved, items, recipientEmail);
-                    } catch (Exception ex) {
-                        System.err.println("==> Lỗi kích hoạt gửi email xác nhận: " + ex.getMessage());
-                    }
-                }
-                actionDesc += " (Gửi mail: " + recipientEmail + ")";
-            }
+                            }
         }
 
         try {
@@ -872,23 +848,6 @@ public class HoaDonService {
                         "Không tìm thấy hóa đơn có mã: " + maHoaDon
                 ));
         return updateTrangThai(hoaDon.getId(), trangThai, ghiChu, email);
-    }
-
-    // Gửi email xác nhận đơn hàng theo yêu cầu
-    public boolean sendConfirmationEmail(Long id, String emailOverride) {
-        Optional<HoaDon> opt = getById(id);
-        if (opt.isEmpty()) return false;
-        HoaDon hd = opt.get();
-        String recipient = (emailOverride != null && !emailOverride.trim().isEmpty())
-                ? emailOverride.trim()
-                : (hd.getEmail() != null ? hd.getEmail().trim() : null);
-        if (recipient == null || !recipient.contains("@")) return false;
-        if (emailService != null) {
-            List<ChiTietHoaDon> items = getChiTietByHoaDonId(hd.getId());
-            emailService.sendOrderConfirmationEmail(hd, items, recipient);
-            return true;
-        }
-        return false;
     }
 
     // Cập nhật trạng thái thanh toán
@@ -1381,17 +1340,6 @@ public class HoaDonService {
                 httt.setTrangThai(0);
                 hinhThucThanhToanRepository.save(httt);
             } catch (Exception ignored) {}
-        }
-
-        // Gửi email xác nhận nếu không phải VNPAY
-        String targetEmail = !custEmail.isEmpty() ? custEmail : (saved.getEmail() != null ? saved.getEmail() : "");
-        if (!pt.equalsIgnoreCase("VNPAY") && !targetEmail.isBlank() && targetEmail.contains("@")) {
-            try {
-                List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(saved.getId());
-                emailService.sendOrderConfirmationEmail(saved, items, targetEmail);
-            } catch (Exception ex) {
-                System.err.println("==> Lỗi gửi email đặt hàng COD: " + ex.getMessage());
-            }
         }
 
         return saved;
