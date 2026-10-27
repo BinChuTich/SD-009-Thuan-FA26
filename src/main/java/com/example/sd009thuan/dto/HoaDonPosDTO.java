@@ -24,6 +24,7 @@ public class HoaDonPosDTO {
     private String ghiChu;
     private String nguoiTao;
     private List<ItemChiTietDTO> chiTietList;
+    private Boolean chapNhanGiaMoi;
 
     public HoaDonPosDTO() {
     }
@@ -84,6 +85,9 @@ public class HoaDonPosDTO {
 
     public String getNguoiTao() { return nguoiTao; }
     public void setNguoiTao(String nguoiTao) { this.nguoiTao = nguoiTao; }
+
+    public Boolean getChapNhanGiaMoi() { return chapNhanGiaMoi; }
+    public void setChapNhanGiaMoi(Boolean chapNhanGiaMoi) { this.chapNhanGiaMoi = chapNhanGiaMoi; }
 
     public List<ItemChiTietDTO> getChiTietList() { return chiTietList; }
     public void setChiTietList(List<ItemChiTietDTO> chiTietList) { this.chiTietList = chiTietList; }

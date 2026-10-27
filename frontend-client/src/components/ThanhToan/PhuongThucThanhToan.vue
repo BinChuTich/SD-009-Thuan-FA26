@@ -47,8 +47,8 @@ const emit = defineEmits(['update:paymentMethod'])
           class="radio-dot"
         />
         <div class="pay-text">
-          <strong>Thanh toán qua VNPAY</strong>
-          <p>Hệ thống sẽ mở một cửa sổ nhỏ để bạn thanh toán an toàn.</p>
+          <strong>Thanh toán qua cổng VNPAY (Chuyển khoản / Quét QR)</strong>
+          <p>Thanh toán bảo mật và tiện lợi qua ứng dụng ngân hàng hoặc cổng VNPAY.</p>
         </div>
       </label>
     </div>
@@ -62,20 +62,20 @@ const emit = defineEmits(['update:paymentMethod'])
   border: 1px solid #e2e8f0;
   padding: 24px;
   box-shadow: 0 4px 16px rgba(73, 104, 131, 0.05);
-  margin-bottom: 24px;
 }
 
 .card-title {
   font-size: 16px;
   font-weight: 800;
-  color: #496883;
-  margin: 0 0 16px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid #ecd8af;
+  color: #1e293b;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .star {
-  color: #e11d48;
+  color: #ef4444;
 }
 
 .payment-methods-stack {
@@ -88,39 +88,45 @@ const emit = defineEmits(['update:paymentMethod'])
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  padding: 14px 18px;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 10px;
+  padding: 16px 18px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  background: #ffffff;
 }
 
 .pay-method-card:hover {
-  border-color: #d2a764;
+  border-color: #cbd5e1;
+  background: #f8fafc;
 }
 
 .pay-method-card.selected {
-  border-color: #496883;
-  background: #f8fafc;
-  box-shadow: 0 2px 8px rgba(73, 104, 131, 0.08);
+  border-color: #d2a764;
+  background: #fdfbf7;
+  box-shadow: 0 4px 12px rgba(210, 167, 100, 0.15);
 }
 
 .radio-dot {
-  margin-top: 4px;
-  accent-color: #496883;
+  margin-top: 3px;
+  cursor: pointer;
+  accent-color: #d2a764;
+  width: 17px;
+  height: 17px;
 }
 
 .pay-text strong {
   display: block;
-  font-size: 14px;
-  color: #1e293b;
-  margin-bottom: 2px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
 }
 
 .pay-text p {
-  font-size: 12px;
-  color: #64748b;
   margin: 0;
+  font-size: 12.5px;
+  color: #64748b;
+  line-height: 1.4;
 }
 </style>
-

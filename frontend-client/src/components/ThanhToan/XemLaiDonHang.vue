@@ -29,12 +29,22 @@ const props = defineProps({
   submitting: {
     type: Boolean,
     default: false
+  },
+  appliedVoucher: {
+    type: Object,
+    default: null
+  },
+  voucherSuggestion: {
+    type: Object,
+    default: null
   }
 })
 
 const emit = defineEmits([
   'update:orderNote',
-  'placeOrder'
+  'placeOrder',
+  'openVoucherModal',
+  'removeVoucher'
 ])
 </script>
 
@@ -79,6 +89,47 @@ const emit = defineEmits([
           placeholder="Ví dụ: Giao giờ hành chính, gọi trước khi giao..."
           class="note-textarea"
         ></textarea>
+      </div>
+
+      <!-- Khu vực chọn Voucher / Khuyến mãi -->
+      <div class="checkout-voucher-section">
+        <div class="voucher-section-header">
+          <span class="v-section-title">Phiếu giảm giá (Voucher)</span>
+          <button
+            type="button"
+            class="btn-pick-voucher"
+            @click="emit('openVoucherModal')"
+          >
+            {{ appliedVoucher ? 'Đổi voucher' : 'Chọn voucher' }}
+          </button>
+        </div>
+
+        <!-- Voucher đang áp dụng -->
+        <div v-if="appliedVoucher" class="applied-voucher-chip">
+          <div class="v-chip-left">
+            <span class="v-chip-icon">🎟️</span>
+            <div class="v-chip-info">
+              <strong class="v-chip-code">{{ appliedVoucher.code || appliedVoucher.maPhieuGiamGia }}</strong>
+              <span class="v-chip-desc">{{ appliedVoucher.name || appliedVoucher.tenPhieuGiamGia || 'Mã ưu đãi' }}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="btn-clear-voucher"
+            @click="emit('removeVoucher')"
+            title="Bỏ voucher này"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Gợi ý voucher tốt hơn -->
+        <div v-if="voucherSuggestion" class="voucher-suggestion-hint">
+          <span class="hint-icon">💡</span>
+          <span class="hint-text">
+            Mua thêm <strong>{{ formatCurrency(voucherSuggestion.neededAmount) }}</strong> để dùng mã <strong>{{ voucherSuggestion.code }}</strong> (giảm {{ voucherSuggestion.discountLabel || formatCurrency(voucherSuggestion.potentialDiscount) }}).
+          </span>
+        </div>
       </div>
 
       <!-- Bảng giá -->
@@ -345,6 +396,122 @@ const emit = defineEmits([
   font-size: 11px;
   color: #64748b;
   margin-top: 14px;
+}
+
+/* ==========================================================
+   CHECKOUT VOUCHER STYLES
+========================================================== */
+.checkout-voucher-section {
+  margin-bottom: 20px;
+  background: #fdfbf7;
+  border: 1px dashed #e2d9cc;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.voucher-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.v-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.btn-pick-voucher {
+  background: #1e293b;
+  color: #ecd8af;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-pick-voucher:hover {
+  background: #334155;
+}
+
+.applied-voucher-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.v-chip-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.v-chip-icon {
+  font-size: 18px;
+}
+
+.v-chip-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.v-chip-code {
+  font-size: 13px;
+  font-weight: 800;
+  color: #166534;
+}
+
+.v-chip-desc {
+  font-size: 11px;
+  color: #15803d;
+}
+
+.btn-clear-voucher {
+  background: transparent;
+  border: none;
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.btn-clear-voucher:hover {
+  background: #fee2e2;
+}
+
+.voucher-suggestion-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #92400e;
+  line-height: 1.4;
+}
+
+.hint-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.hint-text strong {
+  color: #b45309;
 }
 </style>
 

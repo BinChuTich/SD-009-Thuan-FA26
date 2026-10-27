@@ -305,7 +305,33 @@
             <!-- 1. Chọn ca làm việc -->
             <div class="form-item">
               <label class="field-label">Ca làm việc <span class="required-star">*</span></label>
-              <div class="select-wrapper-minimal">
+              <!-- Tự động xác định ca làm việc theo thời điểm hiện tại -->
+              <div v-if="detectedCurrentShift && !showManualShiftSelect" class="auto-detected-shift-card">
+                <div class="detected-shift-main">
+                  <div class="detected-shift-header">
+                    <span class="detected-shift-badge">Ca hiện tại (Tự động)</span>
+                    <span class="detected-shift-status-tag" :class="{ 'status-openable': getShiftStatus(detectedCurrentShift).canOpen }">
+                      {{ getShiftStatus(detectedCurrentShift).label }}
+                    </span>
+                  </div>
+                  <div class="detected-shift-name">{{ detectedCurrentShift.tenCa }}</div>
+                  <div class="detected-shift-time">
+                    {{ formatTime(detectedCurrentShift.gioBatDau) }} - {{ formatTime(detectedCurrentShift.gioKetThuc) }}
+                  </div>
+                </div>
+                <button
+                  v-if="isUserAdmin"
+                  type="button"
+                  class="btn-change-shift-link"
+                  @click="showManualShiftSelect = true"
+                  title="Quản trị viên có thể đổi sang ca khác nếu cần"
+                >
+                  Đổi ca
+                </button>
+              </div>
+
+              <!-- Combobox chọn thủ công khi Admin cần đổi ca hoặc chưa nhận diện được ca -->
+              <div v-else class="select-wrapper-minimal">
                 <select v-model="moCaForm.caLamViecId" class="form-control-minimal" required>
                   <option value="">-- Chọn ca làm việc hôm nay --</option>
                   <option
@@ -593,6 +619,19 @@ const recentShifts = ref([])
 
 // Form Mở ca
 const submittingMoCa = ref(false)
+const showManualShiftSelect = ref(false)
+
+const detectedCurrentShift = computed(() => {
+  if (!activeShifts.value || activeShifts.value.length === 0) return null
+  const openable = activeShifts.value.find(ca => getShiftStatus(ca).canOpen)
+  return openable || activeShifts.value[0]
+})
+
+watch(detectedCurrentShift, (newShift) => {
+  if (newShift && !moCaForm.caLamViecId) {
+    moCaForm.caLamViecId = newShift.id
+  }
+}, { immediate: true })
 const moCaForm = reactive({
   nhanVienId: '',
   caLamViecId: '',
@@ -2021,4 +2060,70 @@ onMounted(async () => {
     display: none !important;
   }
 }
+
+/* Auto Detected Shift Card */
+.auto-detected-shift-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 14px;
+  transition: all 0.2s ease;
+}
+.auto-detected-shift-card:hover {
+  border-color: #94a3b8;
+  background: #ffffff;
+}
+.detected-shift-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.detected-shift-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #1e40af;
+  background: #dbeafe;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.detected-shift-status-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #b45309;
+}
+.detected-shift-status-tag.status-openable {
+  color: #15803d;
+}
+.detected-shift-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+.detected-shift-time {
+  font-size: 0.82rem;
+  color: #64748b;
+  font-weight: 500;
+}
+.btn-change-shift-link {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-change-shift-link:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
 </style>

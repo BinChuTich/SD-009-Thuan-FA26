@@ -15,11 +15,79 @@ const toggleMenu = (menu) => {
   openMenus.value[menu] = !openMenus.value[menu]
 }
 
+import api from '@/api.js'
+
 const router = useRouter()
 const route = useRoute()
 const currentUser = ref(getCurrentUser())
 const showUserDropdown = ref(false)
 const userMenuRef = ref(null)
+
+// Quản lý thông báo đơn hàng mới
+const unreadNotifCount = ref(0)
+const notifList = ref([])
+const showNotifDropdown = ref(false)
+const notifMenuRef = ref(null)
+let notifPollTimer = null
+
+const fetchOrderNotifications = async () => {
+  try {
+    const res = await api.get('/api/hoa-don/thong-bao-moi')
+    if (res.data) {
+      unreadNotifCount.value = res.data.unreadCount || 0
+      notifList.value = res.data.notifications || []
+    }
+  } catch (e) {}
+}
+
+const toggleNotifDropdown = () => {
+  showNotifDropdown.value = !showNotifDropdown.value
+  if (showNotifDropdown.value) {
+    fetchOrderNotifications()
+  }
+}
+
+const markAllNotifsRead = async () => {
+  try {
+    await api.post('/api/hoa-don/danh-dau-da-doc', { all: true })
+    unreadNotifCount.value = 0
+    notifList.value.forEach(n => { n.daDoc = true })
+  } catch (e) {}
+}
+
+const handleNotifClick = async (notif) => {
+  try {
+    if (!notif.daDoc) {
+      await api.post('/api/hoa-don/danh-dau-da-doc', { maHoaDon: notif.maHoaDon })
+      notif.daDoc = true
+      if (unreadNotifCount.value > 0) unreadNotifCount.value--
+    }
+  } catch (e) {}
+  showNotifDropdown.value = false
+  if (notif.maHoaDon) {
+    router.push(`/hoa-don/${notif.maHoaDon}`)
+  }
+}
+
+function formatNotifCurrency(val) {
+  if (val == null) return '0 ₫'
+  return new Intl.NumberFormat('vi-VN').format(val) + ' ₫'
+}
+
+function formatNotifTime(timeStr) {
+  if (!timeStr) return ''
+  try {
+    const d = new Date(timeStr)
+    const now = new Date()
+    const diffSec = Math.floor((now - d) / 1000)
+    if (diffSec < 60) return 'Vừa xong'
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)} phút trước`
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} giờ trước`
+    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  } catch (e) {
+    return timeStr
+  }
+}
 
 const isUserAdmin = computed(() => {
   if (!currentUser.value) return false
@@ -41,6 +109,9 @@ function handleClickOutside(e) {
   if (userMenuRef.value && !userMenuRef.value.contains(e.target)) {
     showUserDropdown.value = false
   }
+  if (notifMenuRef.value && !notifMenuRef.value.contains(e.target)) {
+    showNotifDropdown.value = false
+  }
 }
 
 function onAuthChanged(e) {
@@ -51,11 +122,14 @@ onMounted(() => {
   currentUser.value = getCurrentUser()
   window.addEventListener('auth-changed', onAuthChanged)
   window.addEventListener('click', handleClickOutside)
+  fetchOrderNotifications()
+  notifPollTimer = setInterval(fetchOrderNotifications, 8000)
 })
 
 onUnmounted(() => {
   window.removeEventListener('auth-changed', onAuthChanged)
   window.removeEventListener('click', handleClickOutside)
+  if (notifPollTimer) clearInterval(notifPollTimer)
 })
 
 function handleLogout() {
@@ -303,6 +377,89 @@ function handleLoginAdmin() {
     <main class="main-content">
       <header class="top-header">
         <div class="header-right">
+          <!-- Chuông thông báo đơn hàng mới -->
+          <div ref="notifMenuRef" class="notif-bell-container">
+            <button 
+              type="button" 
+              class="btn-notif-bell" 
+              :class="{ 'has-unread': unreadNotifCount > 0 }"
+              @click="toggleNotifDropdown" 
+              title="Thông báo đơn hàng mới"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              <span v-if="unreadNotifCount > 0" class="notif-badge">
+                {{ unreadNotifCount > 99 ? '99+' : unreadNotifCount }}
+              </span>
+            </button>
+
+            <!-- Dropdown thông báo -->
+            <div v-if="showNotifDropdown" class="notif-dropdown-popover">
+              <div class="notif-dropdown-header">
+                <div class="notif-header-title">
+                  <span class="notif-title-text">Thông báo đơn hàng</span>
+                  <span v-if="unreadNotifCount > 0" class="notif-unread-tag">{{ unreadNotifCount }} mới</span>
+                </div>
+                <button 
+                  v-if="unreadNotifCount > 0" 
+                  type="button" 
+                  class="btn-mark-all-read" 
+                  @click="markAllNotifsRead"
+                >
+                  Đọc tất cả
+                </button>
+              </div>
+
+              <div class="notif-list-body">
+                <div v-if="!notifList || notifList.length === 0" class="notif-empty">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                  </svg>
+                  <span>Chưa có thông báo đơn hàng mới</span>
+                </div>
+
+                <div 
+                  v-for="item in notifList" 
+                  :key="item.id || item.maHoaDon"
+                  class="notif-item" 
+                  :class="{ 'is-unread': !item.daDoc }"
+                  @click="handleNotifClick(item)"
+                >
+                  <div class="notif-item-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="9" cy="21" r="1"></circle>
+                      <circle cx="20" cy="21" r="1"></circle>
+                      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                    </svg>
+                  </div>
+                  <div class="notif-item-content">
+                    <div class="notif-item-top">
+                      <span class="notif-order-code">{{ item.maHoaDon }}</span>
+                      <span class="notif-order-time">{{ formatNotifTime(item.ngayTao) }}</span>
+                    </div>
+                    <div class="notif-item-customer">
+                      {{ item.tenKhachHang || 'Khách hàng online' }}
+                    </div>
+                    <div class="notif-item-bottom">
+                      <span class="notif-order-total">{{ formatNotifCurrency(item.tongTien) }}</span>
+                      <span class="notif-status-badge">Online mới</span>
+                    </div>
+                  </div>
+                  <span v-if="!item.daDoc" class="notif-unread-dot"></span>
+                </div>
+              </div>
+
+              <div class="notif-dropdown-footer">
+                <router-link to="/hoa-don" class="btn-view-all-orders" @click="showNotifDropdown = false">
+                  Xem tất cả hóa đơn →
+                </router-link>
+              </div>
+            </div>
+          </div>
+
           <!-- Người dùng đang đăng nhập -->
           <div v-if="currentUser" ref="userMenuRef" class="user-profile-menu">
             <div class="admin-badge" @click="showUserDropdown = !showUserDropdown" title="Tài khoản đang đăng nhập">
@@ -1079,5 +1236,259 @@ button, input, select, textarea {
     width: 100% !important;
     max-width: 100% !important;
   }
+}
+
+/* ==========================================================
+   NOTIFICATION BELL STYLES
+========================================================== */
+.notif-bell-container {
+  position: relative;
+  margin-right: 14px;
+}
+
+.btn-notif-bell {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #ebd9c8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.btn-notif-bell:hover {
+  background: #fdfbf7;
+  color: #2c3e50;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.btn-notif-bell.has-unread {
+  color: #2563eb;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.notif-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 4px;
+  border-radius: 10px;
+  text-align: center;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.notif-dropdown-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 360px;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
+  border: 1px solid #ebd9c8;
+  z-index: 1050;
+  overflow: hidden;
+  animation: notifFadeIn 0.2s ease-out;
+}
+
+@keyframes notifFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.notif-dropdown-header {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fafaf9;
+}
+
+.notif-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notif-title-text {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.notif-unread-tag {
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.btn-mark-all-read {
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.btn-mark-all-read:hover {
+  text-decoration: underline;
+  background: #eff6ff;
+}
+
+.notif-list-body {
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.notif-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: #94a3b8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f8fafc;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  position: relative;
+}
+
+.notif-item:hover {
+  background: #f8fafc;
+}
+
+.notif-item.is-unread {
+  background: #f0f7ff;
+}
+
+.notif-item.is-unread:hover {
+  background: #e0effe;
+}
+
+.notif-item-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #e0f2fe;
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.notif-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.notif-order-code {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.86rem;
+}
+
+.notif-order-time {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.notif-item-customer {
+  font-size: 0.8rem;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.notif-item-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notif-order-total {
+  font-weight: 700;
+  color: #dc2626;
+  font-size: 0.82rem;
+}
+
+.notif-status-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: #fef3c7;
+  color: #b45309;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.notif-unread-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2563eb;
+  position: absolute;
+  top: 14px;
+  right: 12px;
+}
+
+.notif-dropdown-footer {
+  padding: 10px 16px;
+  border-top: 1px solid #f1f5f9;
+  background: #fafaf9;
+  text-align: center;
+}
+
+.btn-view-all-orders {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #475569;
+  text-decoration: none;
+  display: block;
+}
+
+.btn-view-all-orders:hover {
+  color: #0284c7;
 }
 </style>
