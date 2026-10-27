@@ -357,12 +357,20 @@ public class ChatServiceImpl implements ChatService {
         cht.setNgayCapNhat(LocalDateTime.now());
         CuocHoiThoai saved = cuocHoiThoaiRepository.save(cht);
 
-        TinNhan tn = new TinNhan();
-        tn.setCuocHoiThoai(saved);
-        tn.setNguoiGui("AI");
-        tn.setNoiDung("Hệ thống đang kết nối bạn với nhân viên. Vui lòng chờ trong giây lát...");
-        tn.setDaDoc(false);
-        tinNhanRepository.save(tn);
+        Optional<TinNhan> lastMsg = tinNhanRepository.findTopByCuocHoiThoai_IdOrderByNgayTaoDesc(saved.getId());
+        boolean alreadyNotified = lastMsg.isPresent() &&
+                "AI".equals(lastMsg.get().getNguoiGui()) &&
+                lastMsg.get().getNoiDung() != null &&
+                (lastMsg.get().getNoiDung().contains("chuyên viên") || lastMsg.get().getNoiDung().contains("nhân viên"));
+
+        if (!alreadyNotified) {
+            TinNhan tn = new TinNhan();
+            tn.setCuocHoiThoai(saved);
+            tn.setNguoiGui("AI");
+            tn.setNoiDung("Chuyên viên tư vấn của FF T-Shirt đã nhận được yêu cầu và sẽ hỗ trợ anh/chị ngay trong giây lát nhé! ❤️");
+            tn.setDaDoc(false);
+            tinNhanRepository.save(tn);
+        }
 
         return toCuocHoiThoaiDTO(saved);
     }

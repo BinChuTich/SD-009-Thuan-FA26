@@ -57,28 +57,52 @@ const loadDeviceAccounts = () => {
     const rawList = localStorage.getItem('fftshirt_device_google_accounts')
     let list = rawList ? JSON.parse(rawList) : []
     
-    // Nếu chưa có tài khoản nào được lưu trên máy này, khởi tạo danh sách tài khoản tiện ích
-    if (!list || list.length === 0) {
-      list = [
-        { name: 'Cười Ngắm Hoa', email: 'cuoinguangamhoa@gmail.com', avatarBg: '#10b981' },
-        { name: 'Dương Ngọc Chiến', email: 'duongngocchien2003@gmail.com', avatarBg: '#3b82f6' },
-        { name: 'Chiến Dương Ngọc', email: '2duong0ngoc0chien3@gmail.com', avatarBg: '#f59e0b' }
-      ]
-      localStorage.setItem('fftshirt_device_google_accounts', JSON.stringify(list))
-    }
+    // Tuyệt đối không gán cứng tài khoản giả lập. Chỉ lấy tài khoản đã đăng nhập thực tế trên máy
+    if (!Array.isArray(list)) list = []
 
     // Kiểm tra thêm tài khoản client_user hiện tại nếu đăng nhập qua Google
     const rawUser = localStorage.getItem('client_user')
     if (rawUser) {
       const user = JSON.parse(rawUser)
       if (user && user.email && user.provider === 'google' && !list.some(a => a.email.toLowerCase() === user.email.toLowerCase())) {
-        list.unshift({ email: user.email, name: user.name || user.email.split('@')[0], avatarBg: '#ef4444' })
+        list.unshift({ email: user.email, name: user.name || user.email.split('@')[0], avatarBg: '#496883' })
       }
     }
 
     deviceGoogleAccounts.value = list
+    // Nếu thiết bị chưa từng đăng nhập tài khoản nào, tự động hiển thị form nhập tài khoản
+    if (list.length === 0) {
+      showCustomGoogleInput.value = true
+    }
   } catch (e) {
     deviceGoogleAccounts.value = []
+    showCustomGoogleInput.value = true
+  }
+}
+
+const initGoogleIdentityServices = () => {
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+  if (googleClientId && window.google?.accounts?.id) {
+    try {
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: (response) => {
+          if (response?.credential) {
+            try {
+              const base64Url = response.credential.split('.')[1]
+              const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+              const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''))
+              const payload = JSON.parse(jsonPayload)
+              if (payload?.email) {
+                selectAccountAndLogin(payload.email, payload.name || payload.email.split('@')[0])
+              }
+            } catch (err) {
+              console.error('Lỗi giải mã token Google:', err)
+            }
+          }
+        }
+      })
+    } catch (e) {}
   }
 }
 
@@ -145,6 +169,7 @@ const removeDeviceAccount = (emailToRemove, event) => {
 
 onMounted(() => {
   loadDeviceAccounts()
+  initGoogleIdentityServices()
 })
 
 const handleLoginWithAccount = (acc) => {
@@ -247,6 +272,17 @@ const handleLogin = async () => {
 
 // 2. XỬ LÝ LIÊN KẾT ĐĂNG NHẬP BẰNG TÀI KHOẢN GOOGLE
 const handleInstantGoogleLogin = () => {
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+  if (googleClientId && window.google?.accounts?.id) {
+    try {
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          goToView('google')
+        }
+      })
+      return
+    } catch (e) {}
+  }
   goToView('google')
 }
 
@@ -414,7 +450,7 @@ const handleResetPasswordWithOtp = async () => {
         </div>
 
         <!-- Nút TIẾP TỤC VỚI GOOGLE (Mở bảng chọn tài khoản Google chuẩn Coolmate) -->
-        <button type="button" class="btn-google-action btn-google-instant" :disabled="loading" @click="goToView('google')">
+        <button type="button" class="btn-google-action btn-google-instant" :disabled="loading" @click="handleInstantGoogleLogin">
           <svg viewBox="0 0 24 24" width="20" height="20">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -513,7 +549,7 @@ const handleResetPasswordWithOtp = async () => {
         </div>
 
         <!-- Chế độ 1: Danh sách Chọn tài khoản thực tế trên máy -->
-        <div v-if="!showCustomGoogleInput" class="gac-main-grid">
+        <div v-if="!showCustomGoogleInput && deviceGoogleAccounts.length > 0" class="gac-main-grid">
           <!-- Cột trái: Thương hiệu & Tiêu đề -->
           <div class="gac-left-col">
             <div class="gac-store-badge">
@@ -596,7 +632,7 @@ const handleResetPasswordWithOtp = async () => {
                 type="text"
                 v-model="googleInputEmail"
                 class="google-outline-input"
-                placeholder="VD: cuoinguangamhoa@gmail.com"
+                placeholder="VD: emailcuaban@gmail.com"
                 autofocus
               />
             </div>
@@ -607,11 +643,20 @@ const handleResetPasswordWithOtp = async () => {
 
             <div class="google-actions-row">
               <button
+                v-if="deviceGoogleAccounts.length > 0"
                 type="button"
                 class="btn-google-create"
                 @click="showCustomGoogleInput = false"
               >
                 ← Quay lại danh sách tài khoản
+              </button>
+              <button
+                v-else
+                type="button"
+                class="btn-google-create"
+                @click="goToView('login')"
+              >
+                ← Quay lại Đăng nhập
               </button>
               
               <button type="submit" class="btn-google-next" :disabled="loading">
@@ -651,7 +696,7 @@ const handleResetPasswordWithOtp = async () => {
           <p class="auth-modal-subtitle">Tạo tài khoản để nhận ngay ưu đãi mua sắm</p>
         </div>
 
-        <button type="button" class="btn-google-action" @click="goToView('google')">
+        <button type="button" class="btn-google-action" @click="handleInstantGoogleLogin">
           <svg viewBox="0 0 24 24" width="20" height="20">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>

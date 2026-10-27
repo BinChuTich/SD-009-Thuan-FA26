@@ -183,25 +183,44 @@ const formatMsgTime = (dtStr) => {
 const handleActionClick = (action) => {
   if (action.type === 'size') {
     sendMessageText('Tôi muốn tư vấn chọn size áo phông')
-    showBotReply('Bạn hãy cho shop biết Chiều cao (cm) và Cân nặng (kg) nhé!\n\nVí dụ: 1m70 65kg', [
+    showBotReply('Dạ, bảng size chuẩn tại FF T-Shirt (Form Regular Fit ôm vừa vặn, tôn dáng):\n\n• Size S: 48 - 55kg (cao dưới 1m65)\n• Size M: 56 - 65kg (cao 1m65 - 1m70)\n• Size L: 66 - 74kg (cao 1m71 - 1m76)\n• Size XL: 75 - 84kg (cao 1m77 - 1m83)\n• Size XXL: Trên 85kg\n\n💡 Nếu bạn thích mặc form rộng thoải mái (Oversize) thì tăng thêm 1 size nhé!', [
       { text: '1m65, 55kg (Size M)', type: 'custom-size', val: 'M' },
       { text: '1m72, 68kg (Size L)', type: 'custom-size', val: 'L' },
-      { text: '1m78, 78kg (Size XL)', type: 'custom-size', val: 'XL' }
+      { text: '1m78, 78kg (Size XL)', type: 'custom-size', val: 'XL' },
+      { text: '🛍️ Đi đến Cửa hàng chọn áo', type: 'link-shop' }
+    ])
+  } else if (action.type === 'material') {
+    sendMessageText('Chất liệu áo của shop là gì?')
+    showBotReply('Dạ, toàn bộ sản phẩm áo thun & áo polo tại FF T-Shirt đều được may từ chất liệu cao cấp:\n\n✨ 100% Cotton tự nhiên & Cotton Pique dệt mắt chim thoáng khí.\n✨ Co giãn 4 chiều mềm mịn, thấm hút mồ hôi tối đa, không bí bách.\n✨ Đã qua xử lý chống co rút, không xù lông và hạn chế nhăn sau khi giặt máy.\n✨ Form áo Regular Fit tôn dáng, mặc rất thoải mái ạ! 👕', [
+      { text: '🛍️ Xem Cửa hàng ngay', type: 'link-shop' },
+      { text: '👨‍💼 Chat với nhân viên tư vấn', type: 'agent' }
+    ])
+  } else if (action.type === 'shipping') {
+    sendMessageText('Phí ship và thời gian giao hàng như thế nào?')
+    showBotReply('Dạ, FF T-Shirt hợp tác vận chuyển hỏa tốc cùng đối tác Giao Hàng Nhanh (GHN) trên toàn quốc:\n\n🚚 Tuyến nội thành & lân cận: 1 - 2 ngày làm việc.\n🚚 Các tỉnh thành khác: 2 - 4 ngày làm việc.\n🎁 Miễn phí vận chuyển toàn quốc cho đơn hàng từ 500.000đ!\n\nĐặc biệt, quý khách được quyền kiểm tra hàng trước khi thanh toán nên anh/chị hoàn toàn yên tâm nhé! 😊', [
+      { text: '🛍️ Mua sắm ngay hôm nay', type: 'link-shop' },
+      { text: '🔍 Tra cứu đơn hàng của tôi', type: 'track' }
+    ])
+  } else if (action.type === 'return_policy') {
+    sendMessageText('Chính sách đổi trả hàng như thế nào?')
+    showBotReply('Dạ, FF T-Shirt cam kết chính sách bảo hành & đổi trả thuận tiện nhất:\n\n🔄 Hỗ trợ đổi size / đổi mẫu tận nơi trong vòng 7 ngày kể từ khi nhận hàng.\n🔄 Yêu cầu sản phẩm còn nguyên tem mác, chưa qua giặt tẩy.\n🔄 Miễn phí 100% phí đổi trả nếu sản phẩm có lỗi từ nhà sản xuất hoặc giao sai mẫu ạ! ❤️', [
+      { text: '👨‍💼 Nhờ nhân viên hỗ trợ đổi hàng', type: 'agent' }
     ])
   } else if (action.type === 'track') {
     sendMessageText('Tôi muốn tra cứu tình trạng đơn hàng')
-    showBotReply('Bạn vui lòng nhập Mã đơn hàng (Ví dụ: HD00001) hoặc Số điện thoại để hệ thống kiểm tra ngay nhé!')
+    showBotReply('Dạ, bạn vui lòng nhập Mã đơn hàng (Ví dụ: HD00001) hoặc Số điện thoại để hệ thống kiểm tra ngay nhé! 🔍')
   } else if (action.type === 'promo') {
     sendMessageText('Hôm nay có chương trình khuyến mãi gì?')
-    showBotReply('🎉 Hiện tại FF T-Shirt đang có các ưu đãi cực sốc:\n- Giảm tới 30% bộ sưu tập Áo Polo & Basic\n- Miễn phí vận chuyển toàn quốc cho đơn từ 500.000đ\n- Áp dụng Voucher VC-GIAM50K giảm 50k!', [
+    showBotReply('🎉 Hiện tại FF T-Shirt đang có các ưu đãi cực sốc:\n\n🔥 Giảm tới 30% bộ sưu tập Áo Polo Mắt Chim & Áo Thun Cotton.\n🔥 Miễn phí vận chuyển toàn quốc cho đơn từ 500.000đ.\n🔥 Áp dụng Voucher VC-GIAM50K giảm trực tiếp 50k khi đặt hàng online!', [
       { text: '👉 Xem ngay tại Cửa hàng', type: 'link-shop' }
     ])
   } else if (action.type === 'agent') {
     sendMessageText('Tôi muốn gặp nhân viên tư vấn trực tiếp')
+    showBotReply('Dạ em đã nhận được yêu cầu ạ! Em đang kết nối anh/chị với chuyên viên tư vấn của FF T-Shirt ngay đây ạ. Anh/chị vui lòng chờ trong giây lát nhé! ❤️')
     requestStaffSupport()
   } else if (action.type === 'custom-size') {
     sendMessageText(`Gợi ý size: ${action.text}`)
-    showBotReply(`Form dáng áo phông FF T-Shirt được may chuẩn tỉ lệ người Việt. Với thông số trên, Size ${action.val} sẽ ôm vừa vặn thanh lịch; nếu bạn thích mặc form rộng thoải mái (Oversize) có thể tăng thêm 1 size nhé! ❤️`, [
+    showBotReply(`Dạ, với thông số trên, Size ${action.val} sẽ ôm vừa vặn thanh lịch; nếu bạn thích mặc form rộng thoải mái (Oversize) có thể tăng thêm 1 size nhé! ❤️`, [
       { text: '🛍️ Đi đến Cửa hàng chọn áo', type: 'link-shop' }
     ])
   } else if (action.type === 'link-shop') {
@@ -261,7 +280,7 @@ const showBotReply = (replyText, actions = null) => {
       actions: actions
     })
     scrollToBottom()
-  }, 400)
+  }, 350)
 }
 
 const handleSend = () => {
@@ -270,23 +289,109 @@ const handleSend = () => {
   sendMessageText(txt)
   inputMessage.value = ''
 
-  // Phân tích câu hỏi để bot gợi ý thông minh ngay lập tức
-  const lower = txt.toLowerCase()
-  if (lower.includes('size') || lower.includes('kg') || lower.includes('cm') || lower.includes('nặng') || lower.includes('cao')) {
-    showBotReply('Bảng size chuẩn FF T-Shirt:\n- Size S: 48 - 55kg (dưới 1m65)\n- Size M: 56 - 65kg (1m65 - 1m70)\n- Size L: 66 - 74kg (1m71 - 1m76)\n- Size XL: 75 - 84kg (1m77 - 1m83)\n- Size XXL: Trên 85kg\nBạn đang quan tâm mẫu nào ạ?', [
-      { text: '🛍️ Xem Cửa hàng ngay', type: 'link-shop' }
+  // Phân tích câu hỏi thông minh, tự nhiên, không đẩy việc máy móc
+  const lower = txt.toLowerCase().trim()
+
+  // 1. CHÀO HỎI TỰ NHIÊN (Greetings: xin chào, chào shop, hello, hi, alo, shop ơi...)
+  const isGreeting = /^(xin\s*chào|chào|chào\s*(bạn|shop|ad|admin|em|anh|chị)|hello|hi|hey|alo|ê|ad\s*ơi|shop\s*ơi|bạn\s*ơi|cho\s*mình\s*hỏi|mình\s*cần\s*hỏi|có\s*ai|hé\s*lô)/i.test(lower) ||
+    ['chào', 'xin chào', 'hi', 'hello', 'alo', 'shop ơi', 'ad ơi', 'có ai không', 'bạn ơi', 'hé lô', 'ad'].includes(lower)
+
+  if (isGreeting) {
+    showBotReply('Dạ em chào anh/chị ạ! Rất vui được đón tiếp anh/chị ghé thăm FF T-Shirt! 😊\n\nEm có thể hỗ trợ gì cho mình hôm nay ạ? Anh/chị có thể chọn nhanh các chủ đề bên dưới hoặc nhắn tin trực tiếp nhé:', [
+      { text: '👕 Tư vấn chọn size áo', type: 'size' },
+      { text: '🧵 Chất liệu & Form dáng', type: 'material' },
+      { text: '🚚 Phí ship & Giao hàng', type: 'shipping' },
+      { text: '🔄 Chính sách đổi trả', type: 'return_policy' },
+      { text: '🎉 Khuyến mãi & Ưu đãi', type: 'promo' },
+      { text: '👨‍💼 Gặp nhân viên tư vấn', type: 'agent' }
     ])
-  } else if (lower.startsWith('hd') || (lower.length >= 10 && /^\d+$/.test(lower))) {
-    showBotReply(`Đang kiểm tra thông tin đơn "${txt}"... Bạn có thể bấm nút bên dưới để mở trang tra cứu chi tiết nhé!`, [
-      { text: `🔍 Mở tra cứu đơn ${txt}`, type: 'track-direct', code: txt }
-    ])
-  } else if (lower.includes('người bán') || lower.includes('nhân viên') || lower.includes('tư vấn') || lower.includes('gặp')) {
-    requestStaffSupport()
-  } else {
-    showBotReply('Dạ, câu hỏi này nằm ngoài dữ liệu tự động của bot. Em đã chuyển yêu cầu của anh/chị đến nhân viên tư vấn của FF T-Shirt rồi ạ. Quý khách vui lòng chờ trong giây lát nhé! ❤️')
-    // Tự động đẩy phiên chat sang màn hình Admin (trạng thái Chờ nhận)
-    requestStaffSupport()
+    return
   }
+
+  // 2. TƯ VẤN SIZE & CHIỀU CAO, CÂN NẶNG
+  if (lower.includes('size') || lower.includes('kg') || lower.includes('cm') || lower.includes('nặng') || lower.includes('cao') || lower.includes('bảng size') || lower.includes('vừa không') || lower.includes('chật') || lower.includes('rộng')) {
+    showBotReply('Dạ, bảng gợi ý chọn size áo chuẩn tại FF T-Shirt (Form Regular Fit tôn dáng):\n\n• Size S: Dưới 55kg (chiều cao dưới 1m65)\n• Size M: 56 - 65kg (chiều cao 1m65 - 1m70)\n• Size L: 66 - 74kg (chiều cao 1m71 - 1m76)\n• Size XL: 75 - 84kg (chiều cao 1m77 - 1m83)\n• Size XXL: Trên 85kg\n\n💡 Nếu anh/chị thích mặc form rộng thoải mái (Oversize) thì có thể tăng thêm 1 size nhé! Anh/chị có thể cho em xin cụ thể chiều cao & cân nặng để em tư vấn chuẩn nhất ạ.', [
+      { text: '🛍️ Đi đến Cửa hàng chọn áo', type: 'link-shop' },
+      { text: '👨‍💼 Nhờ nhân viên tư vấn size', type: 'agent' }
+    ])
+    return
+  }
+
+  // 3. CHẤT LIỆU, VẢI, ĐỘ BỀN, GIẶT
+  if (lower.includes('chất liệu') || lower.includes('chất vải') || lower.includes('vải gì') || lower.includes('vải') || lower.includes('cotton') || lower.includes('mát') || lower.includes('co giãn') || lower.includes('dày') || lower.includes('xù') || lower.includes('nhăn') || lower.includes('form')) {
+    showBotReply('Dạ, toàn bộ sản phẩm áo thun & áo polo tại FF T-Shirt được hoàn thiện từ chất liệu cao cấp:\n\n✨ 100% Cotton Compact tự nhiên & Cotton Pique dệt mắt chim thoáng khí.\n✨ Co giãn 4 chiều mềm mịn, thấm hút mồ hôi tối đa, không bí bách.\n✨ Đã qua xử lý chống co rút, không xù lông và hạn chế nhăn sau khi giặt máy.\n✨ Form áo Regular Fit hiện đại, đứng dáng, dễ phối đồ đi làm hoặc đi chơi ạ!', [
+      { text: '👕 Xem Bộ sưu tập Polo & T-Shirt', type: 'link-shop' },
+      { text: '👨‍💼 Gặp nhân viên tư vấn thêm', type: 'agent' }
+    ])
+    return
+  }
+
+  // 4. PHÍ SHIP, VẬN CHUYỂN, THỜI GIAN GIAO HÀNG
+  if (lower.includes('ship') || lower.includes('phí vận chuyển') || lower.includes('giao hàng') || lower.includes('bao lâu') || lower.includes('mấy ngày') || lower.includes('nhận hàng') || lower.includes('ghn') || lower.includes('vận chuyển')) {
+    showBotReply('Dạ, FF T-Shirt hợp tác vận chuyển hỏa tốc cùng đối tác Giao Hàng Nhanh (GHN) trên toàn quốc:\n\n🚚 Tuyến nội thành & lân cận: 1 - 2 ngày làm việc.\n🚚 Các tỉnh thành khác: 2 - 4 ngày làm việc.\n🎁 Miễn phí vận chuyển toàn quốc cho đơn hàng từ 500.000đ!\n\nĐặc biệt, quý khách được quyền kiểm tra hàng (đồng kiểm) trước khi thanh toán nên anh/chị hoàn toàn yên tâm nhé! 😊', [
+      { text: '🛍️ Mua sắm ngay hôm nay', type: 'link-shop' },
+      { text: '🔍 Tra cứu đơn hàng của tôi', type: 'track' }
+    ])
+    return
+  }
+
+  // 5. CHÍNH SÁCH ĐỔI TRẢ, ĐỔI SIZE, BẢO HÀNH
+  if (lower.includes('đổi trả') || lower.includes('đổi size') || lower.includes('đổi hàng') || lower.includes('bảo hành') || lower.includes('trả hàng') || lower.includes('lỗi') || lower.includes('đổi')) {
+    showBotReply('Dạ, FF T-Shirt cam kết chính sách bảo hành & đổi trả thuận tiện nhất cho khách hàng:\n\n🔄 Hỗ trợ đổi size / đổi mẫu tận nơi trong vòng 7 ngày kể từ khi nhận hàng.\n🔄 Yêu cầu sản phẩm còn nguyên tem mác, chưa qua giặt tẩy.\n🔄 Miễn phí 100% phí đổi trả nếu sản phẩm có lỗi từ nhà sản xuất hoặc giao sai mẫu.\n\nAnh/chị cần hỗ trợ đổi đơn hàng nào có thể gửi mã đơn để em hỗ trợ nhé!', [
+      { text: '👨‍💼 Nhờ nhân viên hỗ trợ đổi hàng', type: 'agent' }
+    ])
+    return
+  }
+
+  // 6. KHUYẾN MÃI, GIẢM GIÁ, VOUCHER
+  if (lower.includes('khuyến mãi') || lower.includes('ưu đãi') || lower.includes('voucher') || lower.includes('giảm giá') || lower.includes('sale') || lower.includes('mã giảm') || lower.includes('quà')) {
+    showBotReply('🎉 Hiện tại FF T-Shirt đang áp dụng nhiều chương trình ưu đãi rất hấp dẫn:\n\n🔥 Giảm tới 30% cho bộ sưu tập Áo Polo Mắt Chim & Áo Thun Cotton.\n🔥 Miễn phí ship toàn quốc cho mọi đơn hàng từ 500k.\n🔥 Voucher VC-GIAM50K giảm trực tiếp 50.000đ khi đặt online!\n\nAnh/chị nhanh tay ghé Cửa Hàng để săn ưu đãi nhé ạ! 👇', [
+      { text: '👉 Xem ngay tại Cửa hàng', type: 'link-shop' }
+    ])
+    return
+  }
+
+  // 7. ĐỊA CHỈ, CỬA HÀNG TRỰC TIẾP
+  if (lower.includes('địa chỉ') || lower.includes('cửa hàng ở đâu') || lower.includes('shop ở đâu') || lower.includes('ở đâu') || lower.includes('chi nhánh') || lower.includes('showroom') || lower.includes('store')) {
+    showBotReply('Dạ, FF T-Shirt hiện đang phục vụ khách hàng trên toàn quốc với dịch vụ giao hàng tận nhà 24/7 đồng kiểm trước khi nhận.\n\nAnh/chị có thể đặt trực tiếp tại website để nhận trọn vẹn ưu đãi vận chuyển và mã giảm giá tốt nhất nhé ạ! 🛍️', [
+      { text: '🛍️ Khám phá Cửa hàng online', type: 'link-shop' },
+      { text: '👨‍💼 Chat với nhân viên', type: 'agent' }
+    ])
+    return
+  }
+
+  // 8. TRA CỨU ĐƠN HÀNG (MÃ ĐƠN HOẶC TỪ KHÓA)
+  if (lower.startsWith('hd') || (lower.length >= 7 && /^\d+$/.test(lower)) || lower.includes('tra cứu') || lower.includes('đơn hàng của tôi') || lower.includes('tình trạng đơn')) {
+    if (lower.startsWith('hd') || /^\d+$/.test(lower)) {
+      showBotReply(`Dạ, đang kiểm tra trạng thái đơn "${txt}"... Anh/chị có thể bấm nút bên dưới để mở ngay màn hình tra cứu chi tiết nhé! 🔍`, [
+        { text: `🔍 Mở tra cứu đơn ${txt}`, type: 'track-direct', code: txt }
+      ])
+    } else {
+      showBotReply('Dạ, để kiểm tra tình trạng đơn hàng, anh/chị vui lòng nhập Mã đơn hàng (Ví dụ: HD00001) hoặc Số điện thoại đặt hàng để hệ thống tra cứu ngay nhé!', [
+        { text: '🔍 Mở trang tra cứu đơn', type: 'track' }
+      ])
+    }
+    return
+  }
+
+  // 9. CẢM ƠN, PHẢN HỒI TÍCH CỰC, TẠM BIỆT
+  if (lower.includes('cảm ơn') || lower.includes('cám ơn') || lower.includes('thank') || lower.includes('tks') || lower.includes('ok') || lower.includes('oke') || lower.includes('tạm biệt') || lower.includes('bye') || lower.includes('tuyệt')) {
+    showBotReply('Dạ không có gì ạ! Rất vui được đồng hành cùng anh/chị. Nếu có bất kỳ câu hỏi nào trong quá trình chọn sắm đồ, anh/chị cứ nhắn em bất cứ lúc nào nhé. Chúc anh/chị một ngày thật vui vẻ và chọn được chiếc áo ưng ý nhất! ❤️', [
+      { text: '🛍️ Xem Cửa hàng', type: 'link-shop' }
+    ])
+    return
+  }
+
+  // 10. KHÁCH YÊU CẦU GẶP TRỰC TIẾP NHÂN VIÊN
+  if (lower.includes('người bán') || lower.includes('nhân viên') || lower.includes('tư vấn') || lower.includes('gặp') || lower.includes('chuyên viên') || lower.includes('người thật') || lower.includes('admin ơi')) {
+    showBotReply('Dạ em đã nhận được yêu cầu ạ! Em đang kết nối anh/chị với chuyên viên tư vấn của FF T-Shirt ngay đây ạ. Anh/chị vui lòng chờ trong giây lát nhé! ❤️')
+    requestStaffSupport()
+    return
+  }
+
+  // 11. CÂU HỎI RIÊNG BIỆT KHÁC -> ĐẨY SANG ADMIN VỚI LỜI NÓI TỰ NHIÊN, KHÔNG MÁY MÓC
+  showBotReply('Dạ, để hỗ trợ anh/chị chu đáo và chính xác nhất cho yêu cầu này, em đã chuyển tin nhắn của mình tới chuyên viên tư vấn của FF T-Shirt rồi ạ. Quý khách vui lòng đợi trong giây lát, chuyên viên sẽ phản hồi ngay nhé! ❤️')
+  requestStaffSupport()
 }
 
 const requestStaffSupport = async () => {
@@ -296,10 +401,9 @@ const requestStaffSupport = async () => {
     }
     if (conversationId.value) {
       await api.put(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/yeu-cau-ho-tro`)
-      await loadMessages()
     }
   } catch (e) {
-    showBotReply('Hệ thống đang kết nối bạn với nhân viên. Vui lòng chờ trong giây lát...')
+    console.warn('Lỗi gửi yêu cầu hỗ trợ nhân viên:', e)
   }
 }
 
