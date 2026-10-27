@@ -199,8 +199,14 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
                 ? req.getTienChiTrongCa() : BigDecimal.ZERO;
         ls.setTienChiTrongCa(tienChi);
 
-        if (req.getNhanVienNhanId() != null) {
+        // Tự động xác định nhân viên nhận bàn giao ca tiếp theo theo lịch làm việc hôm nay
+        NextShiftHandoverInfo handoverInfo = resolveNextShiftHandover(ls);
+        if (handoverInfo.nextNhanVien != null) {
+            ls.setNhanVienNhan(handoverInfo.nextNhanVien);
+        } else if (req.getNhanVienNhanId() != null) {
             nhanVienRepository.findById(req.getNhanVienNhanId()).ifPresent(ls::setNhanVienNhan);
+        } else {
+            ls.setNhanVienNhan(null);
         }
 
         ShiftCashSummaryDTO summary = computeSummary(ls);
@@ -371,7 +377,83 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
         }
         dto.setDanhSachHoaDon(shiftInvoices);
 
+        NextShiftHandoverInfo handoverInfo = resolveNextShiftHandover(ls);
+        if (handoverInfo.nextCa != null) {
+            dto.setTenCaTiepTheo(handoverInfo.nextCa.getTenCa() + " (" + formatTime(handoverInfo.nextCa.getGioBatDau()) + " - " + formatTime(handoverInfo.nextCa.getGioKetThuc()) + ")");
+        }
+        if (handoverInfo.nextNhanVien != null) {
+            dto.setNhanVienNhanDuKienId(handoverInfo.nextNhanVien.getId());
+            dto.setTenNhanVienNhanDuKien(handoverInfo.nextNhanVien.getTenNhanVien());
+            dto.setMaNhanVienNhanDuKien(handoverInfo.nextNhanVien.getMaNhanVien());
+        }
+        dto.setThongTinBaoGiao(handoverInfo.thongTinBaoGiao);
+
         return dto;
+    }
+
+    private static class NextShiftHandoverInfo {
+        CaLamViec nextCa;
+        NhanVien nextNhanVien;
+        String thongTinBaoGiao;
+    }
+
+    private NextShiftHandoverInfo resolveNextShiftHandover(LichSuCaLamViec currentShift) {
+        NextShiftHandoverInfo info = new NextShiftHandoverInfo();
+        if (currentShift == null) {
+            info.thongTinBaoGiao = "Quản lý / Cuối ngày";
+            return info;
+        }
+
+        CaLamViec currentCa = currentShift.getCaLamViec();
+        if (currentCa == null && currentShift.getLichLamViec() != null) {
+            currentCa = currentShift.getLichLamViec().getCaLamViec();
+        }
+
+        LocalDate workDate = currentShift.getThoiGianMoCa() != null
+                ? currentShift.getThoiGianMoCa().toLocalDate()
+                : LocalDate.now();
+
+        List<CaLamViec> allShifts = caLamViecRepository.findAll().stream()
+                .filter(c -> c.getTrangThai() != null && c.getTrangThai() == 1)
+                .sorted(java.util.Comparator.comparing(CaLamViec::getGioBatDau))
+                .toList();
+
+        if (allShifts.isEmpty() || currentCa == null) {
+            info.thongTinBaoGiao = "Quản lý / Cuối ngày";
+            return info;
+        }
+
+        CaLamViec nextCa = null;
+        for (int i = 0; i < allShifts.size(); i++) {
+            if (allShifts.get(i).getId().equals(currentCa.getId())) {
+                if (i + 1 < allShifts.size()) {
+                    nextCa = allShifts.get(i + 1);
+                }
+                break;
+            }
+        }
+
+        info.nextCa = nextCa;
+        if (nextCa == null) {
+            info.thongTinBaoGiao = "Quản lý / Cuối ngày (Ca cuối cùng trong ngày)";
+            return info;
+        }
+
+        final Long nextCaId = nextCa.getId();
+        List<LichLamViec> schedulesToday = lichLamViecRepository
+                .findByNgayLamViecBetweenAndTrangThaiOrderByNgayLamViecAsc(workDate, workDate, 1);
+
+        Optional<LichLamViec> nextSchedule = schedulesToday.stream()
+                .filter(s -> s.getCaLamViec() != null && nextCaId.equals(s.getCaLamViec().getId()) && s.getNhanVien() != null)
+                .findFirst();
+
+        if (nextSchedule.isPresent()) {
+            info.nextNhanVien = nextSchedule.get().getNhanVien();
+            info.thongTinBaoGiao = info.nextNhanVien.getTenNhanVien() + " (" + info.nextNhanVien.getMaNhanVien() + ") - " + nextCa.getTenCa();
+        } else {
+            info.thongTinBaoGiao = "Chưa có nhân viên xếp lịch " + nextCa.getTenCa() + " - Bàn giao Quản lý";
+        }
+        return info;
     }
 
     private boolean isTimeInShift(LocalTime now, LocalTime start, LocalTime end) {

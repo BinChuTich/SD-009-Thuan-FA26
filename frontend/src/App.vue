@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import GlobalDialog from '@/components/GlobalDialog.vue'
@@ -248,22 +248,41 @@ function getShiftStatus(ca) {
   }
 }
 
+const detectedCurrentShift = computed(() => {
+  const sourceList = (isUserAdmin.value && !moCaForm.value.nhanVienId)
+    ? activeShifts.value
+    : (assignedShiftsToday.value.length > 0 ? assignedShiftsToday.value : activeShifts.value)
+
+  if (!sourceList || sourceList.length === 0) return null
+
+  // 1. Tìm ca đang trong khung giờ trực (canOpen == true)
+  const currentActive = sourceList.find(c => getShiftStatus(c).canOpen)
+  if (currentActive) return currentActive
+
+  // 2. Tìm ca sắp diễn ra tiếp theo hôm nay
+  const futureShift = sourceList.find(c => getShiftStatus(c).status === 'future')
+  if (futureShift) return futureShift
+
+  return sourceList[0] || null
+})
+
 const selectedShiftStatus = computed(() => {
-  if (!moCaForm.value.caLamViecId) return null
-  const sourceList = isUserAdmin.value ? activeShifts.value : assignedShiftsToday.value
-  const ca = sourceList.find(c => c.id === Number(moCaForm.value.caLamViecId))
-  return ca ? getShiftStatus(ca) : null
+  if (detectedCurrentShift.value) {
+    return getShiftStatus(detectedCurrentShift.value)
+  }
+  return null
 })
 
 const canSubmitMoCa = computed(() => {
   if (submittingMoCa.value) return false
-  if (!currentUser.value?.id || !moCaForm.value.caLamViecId) return false
+  if (!currentUser.value?.id) return false
+  const targetCa = detectedCurrentShift.value
+  if (!targetCa) return false
   if (!isUserAdmin.value && !hasScheduleToday.value) return false
   if (moCaForm.value.tienMatDauCa === null || moCaForm.value.tienMatDauCa === undefined || moCaForm.value.tienMatDauCa < 0) return false
-  if (!isUserAdmin.value && selectedShiftStatus.value && !selectedShiftStatus.value.canOpen) return false
+  if (selectedShiftStatus.value && !selectedShiftStatus.value.canOpen) return false
   return true
 })
-
 async function initMoCaData() {
   if (!currentUser.value?.id) return
   try {
@@ -387,7 +406,7 @@ async function submitMoCaFromPopup() {
     submittingMoCa.value = true
     const payload = {
       nhanVienId: isUserAdmin.value && moCaForm.value.nhanVienId ? Number(moCaForm.value.nhanVienId) : currentUser.value.id,
-      caLamViecId: Number(moCaForm.value.caLamViecId),
+      caLamViecId: Number(detectedCurrentShift.value?.id || moCaForm.value.caLamViecId),
       tienMatDauCa: Number(moCaForm.value.tienMatDauCa) || 0,
       tienChuyenKhoan: Number(moCaForm.value.tienChuyenKhoan) || 0,
       ghiChu: 'Mở ca từ hệ thống'
@@ -613,7 +632,7 @@ async function submitDongCaFromModal() {
       id: currentOpenShift.value?.id,
       nhanVienId: currentOpenShift.value?.nhanVien?.id || currentUser.value?.id,
       caLamViecId: currentOpenShift.value?.caLamViec?.id,
-      nhanVienNhanId: dongCaForm.value.nhanVienNhanId ? Number(dongCaForm.value.nhanVienNhanId) : null,
+      nhanVienNhanId: shiftSummary.value?.nhanVienNhanDuKienId || (dongCaForm.value.nhanVienNhanId ? Number(dongCaForm.value.nhanVienNhanId) : null),
       tienChiTrongCa: Number(dongCaForm.value.tienChiTrongCa || 0),
       tienMatCuoiCa: Number(dongCaForm.value.tienMatCuoiCa),
       chenhLech: calculatedDiff.value,
@@ -1016,43 +1035,32 @@ function printReceipt() {
             </select>
           </div>
 
-          <!-- Khung hiển thị Ca làm việc -->
-          <div class="mo-ca-box-wrap">
-            <div class="mo-ca-box-labels">
-              <span class="lbl-left">Ca</span>
-              <span class="lbl-right">Ca làm việc</span>
+                              <!-- Ca làm việc (Tự động nhận diện) -->
+          <div class="mo-ca-form-group">
+            <label class="mo-ca-form-label">Ca làm việc</label>
+
+            <!-- Nếu KHÔNG tìm thấy lịch phân công hôm nay của nhân viên -->
+            <div v-if="!isUserAdmin && !hasScheduleToday" class="mo-ca-shift-compact-card shift-card-empty">
+              <span>⚠️ Không tìm thấy lịch phân công hôm nay của bạn.</span>
             </div>
 
-            <!-- Nếu KHÔNG tìm thấy lịch phân công hôm nay -->
-            <div v-if="!isUserAdmin && !hasScheduleToday" class="mo-ca-empty-schedule">
-              Không tìm thấy lịch phân công
+            <!-- Thẻ hiển thị ca làm việc gọn gàng, tinh tế -->
+            <div v-else-if="detectedCurrentShift" class="mo-ca-shift-compact-card" :class="{ 'shift-card-blocked': selectedShiftStatus && !selectedShiftStatus.canOpen }">
+              <div class="shift-compact-left">
+                <span class="shift-compact-name">{{ detectedCurrentShift.tenCa }}</span>
+                <span class="shift-compact-time">({{ formatTime(detectedCurrentShift.gioBatDau) }} - {{ formatTime(detectedCurrentShift.gioKetThuc) }})</span>
+              </div>
+
+              <div class="shift-compact-right">
+                <span class="shift-status-pill" :class="selectedShiftStatus?.canOpen ? 'pill-active' : 'pill-wait'">
+                  <span class="pulse-dot" v-if="selectedShiftStatus?.canOpen"></span>
+                  <span>{{ selectedShiftStatus?.canOpen ? 'Đang trong ca trực' : (selectedShiftStatus?.label || 'Chưa đến giờ') }}</span>
+                </span>
+              </div>
             </div>
 
-            <!-- Nếu CÓ lịch phân công hôm nay -->
-            <div v-else-if="!isUserAdmin && assignedShiftsToday.length > 0" class="mo-ca-shift-select-box">
-              <select v-model="moCaForm.caLamViecId" class="mo-ca-input-select" required>
-                <option
-                  v-for="ca in assignedShiftsToday"
-                  :key="ca.id"
-                  :value="ca.id"
-                >
-                  {{ ca.tenCa }} ({{ formatTime(ca.gioBatDau) }} - {{ formatTime(ca.gioKetThuc) }}) - [{{ getShiftStatus(ca).label }}]
-                </option>
-              </select>
-            </div>
-
-            <!-- Nếu là Quản trị viên -->
-            <div v-else-if="isUserAdmin" class="mo-ca-shift-select-box">
-              <select v-model="moCaForm.caLamViecId" class="mo-ca-input-select" required>
-                <option value="">-- Chọn ca làm việc --</option>
-                <option
-                  v-for="ca in activeShifts"
-                  :key="ca.id"
-                  :value="ca.id"
-                >
-                  {{ ca.tenCa }} ({{ formatTime(ca.gioBatDau) }} - {{ formatTime(ca.gioKetThuc) }}) - [{{ getShiftStatus(ca).label }}]
-                </option>
-              </select>
+            <div v-else class="mo-ca-shift-compact-card shift-card-empty">
+              <span>Không có ca làm việc nào đang kích hoạt trong hệ thống.</span>
             </div>
           </div>
 
@@ -1260,32 +1268,14 @@ function printReceipt() {
             ></textarea>
           </div>
 
-          <div class="dong-ca-form-grid">
-            <div class="form-col">
-              <label class="dong-ca-label">Nhân viên nhận bàn giao</label>
-              <div class="select-wrapper-minimal">
-                <select v-model="dongCaForm.nhanVienNhanId" class="dong-ca-input">
-                  <option value="">-- Quản trị viên / Cuối ngày --</option>
-                  <option
-                    v-for="nv in handoverEmployees"
-                    :key="nv.id"
-                    :value="nv.id"
-                  >
-                    {{ nv.maNhanVien }} - {{ nv.tenNhanVien }} ({{ nv.tenTaiKhoan }})
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-col">
-              <label class="dong-ca-label">Ghi chú bàn giao</label>
-              <input
-                type="text"
-                v-model="dongCaForm.ghiChu"
-                placeholder="Ghi chú bàn giao (nếu có)..."
-                class="dong-ca-input"
-              />
-            </div>
+                    <div class="dong-ca-note-group">
+            <label class="dong-ca-label">Ghi chú bàn giao</label>
+            <input
+              type="text"
+              v-model="dongCaForm.ghiChu"
+              placeholder="Ghi chú bàn giao ca (nếu có)..."
+              class="dong-ca-input"
+            />
           </div>
 
           <!-- Nút hành động kết ca -->
@@ -3201,5 +3191,204 @@ button, input, select, textarea {
   font-weight: 600;
   margin: 0;
   font-size: 12px;
+}
+
+/* Tự động nhận diện ca làm việc */
+.mo-ca-shift-display-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 14px;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.mo-ca-shift-display-card.shift-card-blocked {
+  background: #fffdf5;
+  border-color: #fde68a;
+}
+
+.shift-display-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.shift-display-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #eef4f8;
+  color: #496883;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.shift-display-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 2px 0;
+}
+
+.shift-display-time {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.shift-display-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.shift-display-badge.badge-open {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.shift-display-badge.badge-wait {
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+/* Hộp nhận bàn giao tự động */
+.auto-badge-pill {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 2px 7px;
+  border-radius: 12px;
+  margin-left: 6px;
+}
+
+.auto-handover-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-height: 44px;
+}
+
+.auto-handover-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #e2e8f0;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.auto-handover-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.auto-handover-name {
+  font-size: 0.88rem;
+  color: #1e293b;
+}
+
+.auto-handover-sub {
+  font-size: 0.76rem;
+  color: #64748b;
+}
+
+/* Giao diện Ca làm việc tinh gọn */
+.mo-ca-shift-compact-card {
+  min-height: 40px;
+  padding: 0 12px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+.mo-ca-shift-compact-card.shift-card-blocked {
+  background: #fffdf5;
+  border-color: #fde68a;
+}
+
+.mo-ca-shift-compact-card.shift-card-empty {
+  color: #94a3b8;
+  font-size: 0.84rem;
+}
+
+.shift-compact-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.shift-compact-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #1e293b;
+  white-space: nowrap;
+}
+
+.shift-compact-time {
+  font-size: 0.84rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.shift-compact-right {
+  flex-shrink: 0;
+}
+
+.shift-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.shift-status-pill.pill-active {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.shift-status-pill.pill-wait {
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.dong-ca-note-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
 }
 </style>

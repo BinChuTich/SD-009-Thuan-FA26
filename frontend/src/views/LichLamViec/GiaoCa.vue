@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="giao-ca-page">
     <!-- Thanh điều hướng và tiêu đề trên cùng -->
     <div class="page-top-header">
@@ -219,34 +219,14 @@
             ></textarea>
           </div>
 
-          <div class="form-cols-2">
-            <!-- 3. Chọn nhân viên nhận bàn giao ca -->
-            <div class="form-item">
-              <label class="field-label">Nhân viên nhận bàn giao</label>
-              <div class="select-wrapper-minimal">
-                <select v-model="dongCaForm.nhanVienNhanId" class="form-control-minimal">
-                  <option value="">-- Quản trị viên / Không bàn giao ca tiếp theo --</option>
-                  <option
-                    v-for="nv in handoverEmployees"
-                    :key="nv.id"
-                    :value="nv.id"
-                  >
-                    {{ nv.maNhanVien }} - {{ nv.tenNhanVien }} ({{ nv.tenTaiKhoan }})
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <!-- 4. Ghi chú chung khi bàn giao -->
-            <div class="form-item">
-              <label class="field-label">Ghi chú bàn giao</label>
-              <input
-                type="text"
-                v-model="dongCaForm.ghiChu"
-                placeholder="Ghi chú bàn giao (nếu có)..."
-                class="form-control-minimal"
-              />
-            </div>
+                    <div class="form-item" style="margin-top: 6px;">
+            <label class="field-label">Ghi chú bàn giao</label>
+            <input
+              type="text"
+              v-model="dongCaForm.ghiChu"
+              placeholder="Ghi chú bàn giao ca (nếu có)..."
+              class="form-control-minimal"
+            />
           </div>
 
           <div class="form-actions-bar">
@@ -947,7 +927,7 @@ async function submitDongCa() {
       id: currentOpenShift.value?.id,
       nhanVienId: currentOpenShift.value?.nhanVien?.id,
       caLamViecId: currentOpenShift.value?.caLamViec?.id,
-      nhanVienNhanId: dongCaForm.nhanVienNhanId ? Number(dongCaForm.nhanVienNhanId) : null,
+      nhanVienNhanId: shiftSummary.value?.nhanVienNhanDuKienId || (dongCaForm.nhanVienNhanId ? Number(dongCaForm.nhanVienNhanId) : null),
       tienChiTrongCa: Number(dongCaForm.tienChiTrongCa || 0),
       tienMatCuoiCa: Number(dongCaForm.tienMatCuoiCa),
       chenhLech: calculatedDiff.value,
@@ -2229,5 +2209,55 @@ onUnmounted(() => {
   .no-print {
     display: none !important;
   }
+}
+
+/* Hộp nhận bàn giao tự động */
+.auto-badge-pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-left: 6px;
+}
+
+.auto-handover-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 14px;
+  min-height: 44px;
+}
+
+.auto-handover-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #e2e8f0;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.auto-handover-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.auto-handover-name {
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+
+.auto-handover-sub {
+  font-size: 0.78rem;
+  color: #64748b;
 }
 </style>

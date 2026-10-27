@@ -18,6 +18,12 @@ public class ShiftCashSummaryDTO {
     private BigDecimal tienChiTrongCa = BigDecimal.ZERO;
     private BigDecimal tienMatDuKien = BigDecimal.ZERO;
     private long soHoaDon = 0;
+    // Thông tin ca tiếp theo và người nhận bàn giao tự động
+    private Long nhanVienNhanDuKienId;
+    private String tenNhanVienNhanDuKien;
+    private String maNhanVienNhanDuKien;
+    private String tenCaTiepTheo;
+    private String thongTinBaoGiao;
     private List<ShiftInvoiceDTO> danhSachHoaDon = new ArrayList<>();
 
     public ShiftCashSummaryDTO() {
@@ -142,6 +148,46 @@ public class ShiftCashSummaryDTO {
 
     public void setDanhSachHoaDon(List<ShiftInvoiceDTO> danhSachHoaDon) {
         this.danhSachHoaDon = danhSachHoaDon != null ? danhSachHoaDon : new ArrayList<>();
+    }
+
+    public Long getNhanVienNhanDuKienId() {
+        return nhanVienNhanDuKienId;
+    }
+
+    public void setNhanVienNhanDuKienId(Long nhanVienNhanDuKienId) {
+        this.nhanVienNhanDuKienId = nhanVienNhanDuKienId;
+    }
+
+    public String getTenNhanVienNhanDuKien() {
+        return tenNhanVienNhanDuKien;
+    }
+
+    public void setTenNhanVienNhanDuKien(String tenNhanVienNhanDuKien) {
+        this.tenNhanVienNhanDuKien = tenNhanVienNhanDuKien;
+    }
+
+    public String getMaNhanVienNhanDuKien() {
+        return maNhanVienNhanDuKien;
+    }
+
+    public void setMaNhanVienNhanDuKien(String maNhanVienNhanDuKien) {
+        this.maNhanVienNhanDuKien = maNhanVienNhanDuKien;
+    }
+
+    public String getTenCaTiepTheo() {
+        return tenCaTiepTheo;
+    }
+
+    public void setTenCaTiepTheo(String tenCaTiepTheo) {
+        this.tenCaTiepTheo = tenCaTiepTheo;
+    }
+
+    public String getThongTinBaoGiao() {
+        return thongTinBaoGiao;
+    }
+
+    public void setThongTinBaoGiao(String thongTinBaoGiao) {
+        this.thongTinBaoGiao = thongTinBaoGiao;
     }
 
     public static class ShiftInvoiceDTO {
