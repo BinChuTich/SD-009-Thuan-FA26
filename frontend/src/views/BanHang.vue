@@ -2045,19 +2045,23 @@ const autoCalculateShippingFee = async () => {
       currentInvoice.value.shippingDesc = res.regionDescription || ''
 
       currentInvoice.value.shippingSource = res.source || ''
-
     }
-
   } catch (e) {
-
     console.warn('Lỗi tính phí ship GHN:', e)
-
   } finally {
-
     isCalculatingShipping.value = false
-
   }
+}
 
+// Gọi API GHN tính lại cước vận chuyển và thông báo cho thu ngân
+const triggerRecalculateShippingFee = async () => {
+  if (!currentInvoice.value || !currentInvoice.value.isDelivery) return
+  if (!currentInvoice.value.deliveryProvinceCode) {
+    showToast('Vui lòng chọn Tỉnh/Thành phố nhận hàng để gọi API GHN tính cước!', 'warning')
+    return
+  }
+  await autoCalculateShippingFee()
+  showToast(`Đã đồng bộ cước từ API Giao Hàng Nhanh (GHN): ${formatMoney(currentInvoice.value.shippingFee || 0)}!`, 'success')
 }
 
 
@@ -6173,37 +6177,28 @@ onMounted(async () => {
 
 
 
-              <!-- Phí vận chuyển: Tích hợp tự động API GHN & Chính sách khu vực -->
-
+              <!-- Phí vận chuyển: Tích hợp tự động API GHN Express (Gọn gàng, tinh tế) -->
               <div class="pos-form-group">
-
-                <label class="group-label-gray">Phí vận chuyển (VNĐ)</label>
+                <div class="shipping-fee-header">
+                  <label class="group-label-gray">Phí vận chuyển (VNĐ)</label>
+                  <span class="ghn-api-badge" title="Tích hợp tính cước tự động qua API Giao Hàng Nhanh">
+                    API GHN Express
+                  </span>
+                </div>
 
                 <input
-
                     type="text"
-
                     min="0"
-
                     step="1000"
-
                     :value="displayShippingFee"
-
                     @input="onShippingFeeFormattedInput"
-
                     @focus="$event.target.select()"
-
-                    placeholder="Phí giao hàng..."
-
-                    class="pos-form-input"
-
+                    placeholder="Tự động tính qua API GHN..."
+                    class="pos-form-input input-money"
                 />
-
               </div>
 
             </div>
-
-
 
             <!-- Xem trước địa chỉ giao hàng đầy đủ -->
 
@@ -14909,4 +14904,55 @@ onMounted(async () => {
     width: 95vw;
   }
 }
+
+/* ==================== CHỨNG MINH NHÚNG API GHN EXPRESS ==================== */
+.shipping-fee-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.ghn-api-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fff7ed;
+  color: #ea580c;
+  border: 1px solid #fed7aa;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.ghn-dot-pulse {
+  color: #16a34a;
+  font-size: 0.75rem;
+  animation: ghnPulse 1.8s infinite;
+}
+
+@keyframes ghnPulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.35; }
+  100% { opacity: 1; }
+}
+
+.shipping-fee-input-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.shipping-input-bold {
+  flex: 1;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+
+
+
+
 </style>
