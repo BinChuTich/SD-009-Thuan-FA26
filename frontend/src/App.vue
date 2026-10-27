@@ -23,6 +23,93 @@ const currentUser = ref(getCurrentUser())
 const showUserDropdown = ref(false)
 const userMenuRef = ref(null)
 
+// Live Notifications State cho Chuông thông báo Admin (Đơn hàng mới + Live Chat)
+const adminNotificationCount = ref(0)
+const adminNotificationList = ref([])
+const adminChatUnreadCount = ref(0)
+const adminOrderNewCount = ref(0)
+const bellFilter = ref('ALL') // 'ALL', 'DON_HANG', 'CHAT'
+const showBellDropdown = ref(false)
+const bellRef = ref(null)
+let chatNotifyTimer = null
+
+function playAdminChatChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(523.25, ctx.currentTime)
+    osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1)
+    osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2)
+    gain.gain.setValueAtTime(0.08, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.45)
+  } catch (e) {}
+}
+
+async function fetchAdminChatNotifications() {
+  try {
+    const res = await api.get('/api/chat/thong-bao-admin')
+    if (res.data) {
+      const newTotal = res.data.tongSoThongBao ?? ((res.data.soTinChuaDoc || 0) + (res.data.soDonHangMoi || 0))
+      if (newTotal > adminNotificationCount.value && adminNotificationCount.value > 0) {
+        playAdminChatChime()
+      }
+      adminNotificationCount.value = newTotal
+      adminChatUnreadCount.value = res.data.soTinChuaDoc || 0
+      adminOrderNewCount.value = res.data.soDonHangMoi || 0
+      adminNotificationList.value = res.data.danhSachThongBao || []
+    }
+  } catch (e) {}
+}
+
+const filteredNotificationList = computed(() => {
+  if (bellFilter.value === 'DON_HANG') {
+    return adminNotificationList.value.filter(item => item.loai === 'DON_HANG')
+  }
+  if (bellFilter.value === 'CHAT') {
+    return adminNotificationList.value.filter(item => item.loai === 'CHAT')
+  }
+  return adminNotificationList.value
+})
+
+function toggleBellDropdown() {
+  showBellDropdown.value = !showBellDropdown.value
+  if (showBellDropdown.value) {
+    fetchAdminChatNotifications()
+  }
+}
+
+function handleNotificationClick(item) {
+  showBellDropdown.value = false
+  if (item.loai === 'DON_HANG') {
+    if (item.maDonHang) {
+      router.push({ path: '/hoa-don', query: { search: item.maDonHang } })
+    } else {
+      router.push('/hoa-don')
+    }
+  } else {
+    if (item.cuocHoiThoaiId) {
+      router.push({ path: '/tin-nhan', query: { id: item.cuocHoiThoaiId } })
+    } else {
+      router.push('/tin-nhan')
+    }
+  }
+}
+
+function goToOrdersOrChat() {
+  showBellDropdown.value = false
+  if (bellFilter.value === 'DON_HANG') {
+    router.push('/hoa-don')
+  } else {
+    router.push('/tin-nhan')
+  }
+}
+
 const isUserAdmin = computed(() => {
   if (!currentUser.value) return false
   return isAdmin()
@@ -42,6 +129,9 @@ function getAvatarInitials(name) {
 function handleClickOutside(e) {
   if (userMenuRef.value && !userMenuRef.value.contains(e.target)) {
     showUserDropdown.value = false
+  }
+  if (bellRef.value && !bellRef.value.contains(e.target)) {
+    showBellDropdown.value = false
   }
 }
 
@@ -71,6 +161,10 @@ onMounted(() => {
   window.addEventListener('shift-opened', handleShiftOpened)
   window.addEventListener('open-mo-ca-popup', handleOpenMoCaEvent)
   window.addEventListener('view-mode-blocked', handleViewModeBlocked)
+
+  fetchAdminChatNotifications()
+  chatNotifyTimer = setInterval(fetchAdminChatNotifications, 4000)
+  window.addEventListener('admin-chat-read', fetchAdminChatNotifications)
 })
 
 onUnmounted(() => {
@@ -81,6 +175,8 @@ onUnmounted(() => {
   window.removeEventListener('shift-opened', handleShiftOpened)
   window.removeEventListener('open-mo-ca-popup', handleOpenMoCaEvent)
   window.removeEventListener('view-mode-blocked', handleViewModeBlocked)
+  if (chatNotifyTimer) clearInterval(chatNotifyTimer)
+  window.removeEventListener('admin-chat-read', fetchAdminChatNotifications)
 })
 
 function handleLogout() {
@@ -865,6 +961,17 @@ function printReceipt() {
             </router-link>
           </div>
         </div>
+
+        <!-- 10. Quản Lý Chat (Cuối menu) -->
+        <router-link to="/tin-nhan" class="menu-item" active-class="active">
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+            </svg>
+          </span>
+          <span class="menu-text">Quản Lý Chat</span>
+          <span v-if="adminChatUnreadCount > 0" class="sidebar-chat-badge">{{ adminChatUnreadCount }}</span>
+        </router-link>
       </nav>
     </aside>
 
@@ -897,6 +1004,96 @@ function printReceipt() {
               >
                 Kết thúc ca
               </button>
+            </div>
+          </div>
+
+          <!-- Chuông thông báo tổng hợp (Đơn hàng mới & Tin nhắn Chat) -->
+          <div class="header-chat-bell-wrapper" ref="bellRef">
+            <button
+              type="button"
+              class="btn-header-bell"
+              :class="{ 'has-unread': adminNotificationCount > 0 }"
+              @click="toggleBellDropdown"
+              title="Thông Báo"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              <span v-if="adminNotificationCount > 0" class="bell-badge-pill">
+                {{ adminNotificationCount > 99 ? '99+' : adminNotificationCount }}
+              </span>
+            </button>
+
+            <!-- Dropdown danh sách thông báo -->
+            <div v-if="showBellDropdown" class="bell-dropdown-popover">
+              <div class="bell-popover-header">
+                <div class="bph-header-top">
+                  <div class="bph-title">
+                    <span>🔔 Thông Báo</span>
+                    <span v-if="adminNotificationCount > 0" class="bph-count-badge">{{ adminNotificationCount }} mới</span>
+                  </div>
+                </div>
+                <!-- Tabs lọc Đơn hàng / Tin nhắn -->
+                <div class="bph-tabs-row">
+                  <button
+                    type="button"
+                    class="bph-tab-btn"
+                    :class="{ active: bellFilter === 'ALL' }"
+                    @click="bellFilter = 'ALL'"
+                  >
+                    Tất cả ({{ adminNotificationList.length }})
+                  </button>
+                  <button
+                    type="button"
+                    class="bph-tab-btn"
+                    :class="{ active: bellFilter === 'DON_HANG' }"
+                    @click="bellFilter = 'DON_HANG'"
+                  >
+                    Đơn hàng <span v-if="adminOrderNewCount > 0">({{ adminOrderNewCount }})</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="bph-tab-btn"
+                    :class="{ active: bellFilter === 'CHAT' }"
+                    @click="bellFilter = 'CHAT'"
+                  >
+                    Tin nhắn <span v-if="adminChatUnreadCount > 0">({{ adminChatUnreadCount }})</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="bell-popover-list">
+                <div v-if="filteredNotificationList.length === 0" class="bell-empty-box">
+                  <p>Không có thông báo mới nào</p>
+                </div>
+                <div
+                  v-for="item in filteredNotificationList"
+                  :key="item.id + '-' + item.loai"
+                  class="bell-item-row"
+                  :class="{ unread: !item.daDoc, 'order-row': item.loai === 'DON_HANG' }"
+                  @click="handleNotificationClick(item)"
+                >
+                  <div class="bell-item-avatar" :class="item.loai === 'DON_HANG' ? 'order-avatar' : 'chat-avatar'">
+                    <span v-if="item.loai === 'DON_HANG'">📦</span>
+                    <span v-else>💬</span>
+                  </div>
+                  <div class="bell-item-content">
+                    <div class="bic-top">
+                      <strong class="bic-name">{{ item.tieuDe }}</strong>
+                      <span class="bic-time">{{ item.thoiGian }}</span>
+                    </div>
+                    <p class="bic-msg">{{ item.noiDung }}</p>
+                  </div>
+                  <span v-if="!item.daDoc" class="bell-dot-unread"></span>
+                </div>
+              </div>
+
+              <div class="bell-popover-footer">
+                <button type="button" class="btn-bell-view-full" @click="goToOrdersOrChat">
+                  {{ bellFilter === 'DON_HANG' ? 'Xem quản lý hóa đơn →' : 'Xem quản lý chat & tư vấn →' }}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -3202,4 +3399,301 @@ button, input, select, textarea {
   margin: 0;
   font-size: 12px;
 }
+
+/* Live Chat Bell Notification & Sidebar Badge */
+.header-chat-bell-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.btn-header-bell {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #ebd9c8;
+  color: #634b35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-header-bell:hover {
+  background: #fbf8f5;
+  border-color: #c5a25d;
+  color: #1e293b;
+  transform: translateY(-1px);
+}
+
+.btn-header-bell.has-unread {
+  color: #b45309;
+  border-color: #f59e0b;
+}
+
+.btn-header-bell.has-unread svg {
+  animation: bell-shake 2.5s infinite;
+}
+
+@keyframes bell-shake {
+  0%, 100% { transform: rotate(0); }
+  5% { transform: rotate(14deg); }
+  10% { transform: rotate(-14deg); }
+  15% { transform: rotate(10deg); }
+  20% { transform: rotate(-10deg); }
+  25% { transform: rotate(0); }
+}
+
+.bell-badge-pill {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 800;
+  min-width: 19px;
+  height: 19px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+}
+
+.sidebar-chat-badge {
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  margin-left: auto;
+}
+
+/* Bell Dropdown Popover */
+.bell-dropdown-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 360px;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #ebd9c8;
+  box-shadow: 0 14px 36px rgba(90, 70, 50, 0.16);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: dropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+
+.bph-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.bph-tabs-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.bph-tab-btn {
+  flex: 1;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.bph-tab-btn:hover {
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+.bph-tab-btn.active {
+  background: #496883;
+  color: #ffffff;
+  border-color: #496883;
+}
+
+.bell-item-avatar.order-avatar {
+  background: #d2a764;
+  font-size: 16px;
+}
+
+.bell-item-avatar.chat-avatar {
+  background: #496883;
+  font-size: 16px;
+}
+
+.bell-popover-header {
+  padding: 12px 16px;
+  background: #fbf8f5;
+  border-bottom: 1px solid #f2ece3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bph-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.bph-count-badge {
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.btn-quick-open-all {
+  background: none;
+  border: none;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.btn-quick-open-all:hover {
+  text-decoration: underline;
+}
+
+.bell-popover-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.bell-empty-box {
+  padding: 30px 16px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.bell-item-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f8fafc;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.bell-item-row:hover {
+  background: #f8fafc;
+}
+
+.bell-item-row.unread {
+  background: #fefce8;
+}
+
+.bell-item-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #0284c7;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bell-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.bic-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.bic-name {
+  font-size: 13px;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bic-time {
+  font-size: 10.5px;
+  color: #94a3b8;
+}
+
+.bic-msg {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bell-dot-unread {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
+}
+
+.bell-popover-footer {
+  padding: 10px 16px;
+  border-top: 1px solid #f2ece3;
+  background: #fbf8f5;
+  text-align: center;
+}
+
+.btn-bell-view-full {
+  background: none;
+  border: none;
+  color: #634b35;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-bell-view-full:hover {
+  color: #b45309;
+}
+
 </style>

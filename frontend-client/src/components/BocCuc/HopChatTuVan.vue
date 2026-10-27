@@ -1,18 +1,24 @@
 <script setup>
-import { ref, reactive, nextTick } from 'vue'
+import { ref, reactive, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
+import { currentClientUser } from '@/utils/taiKhoanKhachHang.js'
 
 const router = useRouter()
 const isOpen = ref(false)
 const inputMessage = ref('')
 const isTyping = ref(false)
 const chatBodyRef = ref(null)
+const conversationId = ref(null)
+const unreadForClient = ref(0)
+let pollTimer = null
 
-const messages = reactive([
+const CHAT_STORAGE_KEY = 'fftshirt_client_chat_conv_id'
+
+const messages = ref([
   {
-    id: 1,
+    id: 'welcome-0',
     sender: 'bot',
     text: 'Xin chào! FF T-Shirt có thể hỗ trợ gì cho bạn hôm nay?',
     time: 'Vừa xong',
@@ -25,9 +31,29 @@ const messages = reactive([
   }
 ])
 
+// Phát âm thanh nhẹ khi có tin nhắn mới
+const playNotificationSound = () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime) // D5
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1) // A5
+    gain.gain.setValueAtTime(0.08, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.35)
+  } catch (e) {}
+}
+
 const toggleChat = () => {
   isOpen.value = !isOpen.value
   if (isOpen.value) {
+    unreadForClient.value = 0
+    initOrLoadConversation()
     scrollToBottom()
   }
 }
@@ -38,6 +64,120 @@ const scrollToBottom = () => {
       chatBodyRef.value.scrollTop = chatBodyRef.value.scrollHeight
     }
   })
+}
+
+// Khởi tạo cuộc trò chuyện kết nối Spring Boot Backend
+const initOrLoadConversation = async () => {
+  try {
+    const savedId = localStorage.getItem(CHAT_STORAGE_KEY)
+    const payload = {
+      khachHangId: currentClientUser.value?.id || null,
+      tenKhachHang: currentClientUser.value?.name || null,
+      soDienThoai: currentClientUser.value?.phone || null
+    }
+
+    const res = await api.post('/api/chat/khoi-tao', payload)
+    if (res.data && res.data.id) {
+      conversationId.value = res.data.id
+      localStorage.setItem(CHAT_STORAGE_KEY, String(res.data.id))
+      await loadMessages()
+    }
+  } catch (e) {
+    console.warn('Lỗi kết nối chat server:', e)
+  }
+}
+
+// Nạp lịch sử tin nhắn từ cơ sở dữ liệu
+const loadMessages = async () => {
+  if (!conversationId.value) return
+  try {
+    const res = await api.get(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/tin-nhan`)
+    if (Array.isArray(res.data) && res.data.length > 0) {
+      const dbMsgs = res.data.map(m => ({
+        id: m.id,
+        sender: m.nguoiGui === 'KHACH_HANG' ? 'user' : 'bot',
+        text: m.noiDung,
+        staffName: m.tenNhanVien || (m.nguoiGui === 'NHAN_VIEN' ? 'Nhân viên FF' : null),
+        time: formatMsgTime(m.ngayTao)
+      }))
+
+      // Giữ tin nhắn chào mừng và các action buttons ở đầu
+      messages.value = [
+        {
+          id: 'welcome-0',
+          sender: 'bot',
+          text: 'Xin chào! FF T-Shirt có thể hỗ trợ gì cho bạn hôm nay?',
+          time: 'Vừa xong',
+          actions: [
+            { text: '📏 Tư vấn chọn size', type: 'size' },
+            { text: '🚚 Tra cứu đơn hàng', type: 'track' },
+            { text: '🔥 Xem ưu đãi hôm nay', type: 'promo' },
+            { text: '💬 Gặp nhân viên tư vấn', type: 'agent' }
+          ]
+        },
+        ...dbMsgs
+      ]
+      scrollToBottom()
+
+      // Đánh dấu đã đọc
+      api.put(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/da-doc?role=KHACH_HANG`).catch(() => {})
+    }
+  } catch (e) {
+    console.warn('Lỗi nạp tin nhắn chat:', e)
+  }
+}
+
+// Polling kiểm tra tin nhắn mới từ Admin
+const pollNewMessages = async () => {
+  if (!conversationId.value) return
+  try {
+    const numericIds = messages.value
+      .map(m => typeof m.id === 'number' ? m.id : 0)
+      .filter(n => n > 0)
+    const lastId = numericIds.length > 0 ? Math.max(...numericIds) : 0
+
+    const res = await api.get(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/tin-nhan?lastId=${lastId}`)
+    if (Array.isArray(res.data) && res.data.length > 0) {
+      let hasNewStaffMsg = false
+
+      res.data.forEach(m => {
+        // Tránh trùng tin nhắn
+        if (!messages.value.some(existing => existing.id === m.id)) {
+          const isStaff = m.nguoiGui === 'NHAN_VIEN'
+          if (isStaff) hasNewStaffMsg = true
+          messages.value.push({
+            id: m.id,
+            sender: m.nguoiGui === 'KHACH_HANG' ? 'user' : 'bot',
+            text: m.noiDung,
+            staffName: m.tenNhanVien || (isStaff ? 'Chuyên viên FF' : null),
+            time: formatMsgTime(m.ngayTao)
+          })
+        }
+      })
+
+      if (hasNewStaffMsg) {
+        playNotificationSound()
+        if (!isOpen.value) {
+          unreadForClient.value += 1
+        } else {
+          api.put(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/da-doc?role=KHACH_HANG`).catch(() => {})
+        }
+      }
+      scrollToBottom()
+    }
+  } catch (e) {}
+}
+
+const formatMsgTime = (dtStr) => {
+  if (!dtStr) return 'Vừa xong'
+  try {
+    const d = new Date(dtStr)
+    const hours = String(d.getHours()).padStart(2, '0')
+    const mins = String(d.getMinutes()).padStart(2, '0')
+    return `${hours}:${mins}`
+  } catch (e) {
+    return 'Vừa xong'
+  }
 }
 
 const handleActionClick = (action) => {
@@ -57,8 +197,8 @@ const handleActionClick = (action) => {
       { text: '👉 Xem ngay tại Cửa hàng', type: 'link-shop' }
     ])
   } else if (action.type === 'agent') {
-    sendMessageText('Tôi muốn gặp nhân viên tư vấn')
-    showBotReply('Dạ vâng! Nhân viên CSKH FF T-Shirt đã sẵn sàng kết nối. Bạn hãy để lại câu hỏi hoặc số điện thoại, chuyên viên sẽ phản hồi bạn trong 1 - 2 phút ạ!')
+    sendMessageText('Tôi muốn gặp nhân viên tư vấn trực tiếp')
+    requestStaffSupport()
   } else if (action.type === 'custom-size') {
     sendMessageText(`Gợi ý size: ${action.text}`)
     showBotReply(`Form dáng áo phông FF T-Shirt được may chuẩn tỉ lệ người Việt. Với thông số trên, Size ${action.val} sẽ ôm vừa vặn thanh lịch; nếu bạn thích mặc form rộng thoải mái (Oversize) có thể tăng thêm 1 size nhé! ❤️`, [
@@ -67,32 +207,61 @@ const handleActionClick = (action) => {
   } else if (action.type === 'link-shop') {
     isOpen.value = false
     router.push('/cua-hang')
+  } else if (action.type === 'track-direct' && action.code) {
+    isOpen.value = false
+    router.push(`/tra-cuu?ma=${encodeURIComponent(action.code)}`)
   }
 }
 
-const sendMessageText = (txt) => {
-  messages.push({
-    id: Date.now(),
+// Gửi tin nhắn đồng bộ lên Database
+const sendMessageText = async (txt) => {
+  const tempId = Date.now()
+  messages.value.push({
+    id: tempId,
     sender: 'user',
     text: txt,
     time: 'Vừa xong'
   })
   scrollToBottom()
+
+  try {
+    if (!conversationId.value) {
+      await initOrLoadConversation()
+    }
+
+    const payload = {
+      cuocHoiThoaiId: conversationId.value,
+      khachHangId: currentClientUser.value?.id || null,
+      tenKhachHang: currentClientUser.value?.name || null,
+      soDienThoai: currentClientUser.value?.phone || null,
+      nguoiGui: 'KHACH_HANG',
+      noiDung: txt
+    }
+
+    const res = await api.post('/api/chat/gui-tin-nhan', payload)
+    if (res.data && res.data.id) {
+      // Cập nhật lại ID từ DB cho tin nhắn tạm
+      const match = messages.value.find(m => m.id === tempId)
+      if (match) match.id = res.data.id
+    }
+  } catch (e) {
+    console.warn('Lỗi lưu tin nhắn:', e)
+  }
 }
 
 const showBotReply = (replyText, actions = null) => {
   isTyping.value = true
   setTimeout(() => {
     isTyping.value = false
-    messages.push({
-      id: Date.now(),
+    messages.value.push({
+      id: 'bot-' + Date.now(),
       sender: 'bot',
       text: replyText,
       time: 'Vừa xong',
       actions: actions
     })
     scrollToBottom()
-  }, 600)
+  }, 400)
 }
 
 const handleSend = () => {
@@ -101,23 +270,60 @@ const handleSend = () => {
   sendMessageText(txt)
   inputMessage.value = ''
 
-  // Phân tích câu hỏi
+  // Phân tích câu hỏi để bot gợi ý thông minh ngay lập tức
   const lower = txt.toLowerCase()
   if (lower.includes('size') || lower.includes('kg') || lower.includes('cm') || lower.includes('nặng') || lower.includes('cao')) {
     showBotReply('Bảng size chuẩn FF T-Shirt:\n- Size S: 48 - 55kg (dưới 1m65)\n- Size M: 56 - 65kg (1m65 - 1m70)\n- Size L: 66 - 74kg (1m71 - 1m76)\n- Size XL: 75 - 84kg (1m77 - 1m83)\n- Size XXL: Trên 85kg\nBạn đang quan tâm mẫu nào ạ?', [
-      { text: 'Xem Cửa hàng ngay', type: 'link-shop' }
+      { text: '🛍️ Xem Cửa hàng ngay', type: 'link-shop' }
     ])
-  } else if (lower.startsWith('hd') || lower.length >= 10 && /^\d+$/.test(lower)) {
+  } else if (lower.startsWith('hd') || (lower.length >= 10 && /^\d+$/.test(lower))) {
     showBotReply(`Đang kiểm tra thông tin đơn "${txt}"... Bạn có thể bấm nút bên dưới để mở trang tra cứu chi tiết nhé!`, [
       { text: `🔍 Mở tra cứu đơn ${txt}`, type: 'track-direct', code: txt }
     ])
+  } else if (lower.includes('người bán') || lower.includes('nhân viên') || lower.includes('tư vấn') || lower.includes('gặp')) {
+    requestStaffSupport()
   } else {
-    showBotReply('Cảm ơn bạn đã nhắn tin cho FF T-Shirt! Đội ngũ tư vấn sẽ hỗ trợ bạn ngay tức thì. Bạn cũng có thể liên hệ nhanh qua hotline 1900 6677.', [
-      { text: '📏 Tư vấn size', type: 'size' },
-      { text: '🔥 Xem ưu đãi', type: 'promo' }
-    ])
+    showBotReply('Dạ, câu hỏi này nằm ngoài dữ liệu tự động của bot. Em đã chuyển yêu cầu của anh/chị đến nhân viên tư vấn của FF T-Shirt rồi ạ. Quý khách vui lòng chờ trong giây lát nhé! ❤️')
+    // Tự động đẩy phiên chat sang màn hình Admin (trạng thái Chờ nhận)
+    requestStaffSupport()
   }
 }
+
+const requestStaffSupport = async () => {
+  try {
+    if (!conversationId.value) {
+      await initOrLoadConversation()
+    }
+    if (conversationId.value) {
+      await api.put(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/yeu-cau-ho-tro`)
+      await loadMessages()
+    }
+  } catch (e) {
+    showBotReply('Hệ thống đang kết nối bạn với nhân viên. Vui lòng chờ trong giây lát...')
+  }
+}
+
+onMounted(() => {
+  // Lấy ID cuộc trò chuyện đã lưu nếu có
+  const savedId = localStorage.getItem(CHAT_STORAGE_KEY)
+  if (savedId) {
+    conversationId.value = Number(savedId)
+  }
+
+  // Khởi động chu kỳ polling định kỳ mỗi 3s
+  pollTimer = setInterval(pollNewMessages, 3000)
+})
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
+})
+
+// Khi người dùng đăng nhập hoặc đổi tài khoản, kết nối lại cuộc trò chuyện
+watch(() => currentClientUser.value, () => {
+  if (isOpen.value) {
+    initOrLoadConversation()
+  }
+})
 </script>
 
 <template>
@@ -131,7 +337,8 @@ const handleSend = () => {
         <line x1="18" y1="6" x2="6" y2="18"></line>
         <line x1="6" y1="6" x2="18" y2="18"></line>
       </svg>
-      <span v-if="!isOpen" class="online-indicator"></span>
+      <span v-if="!isOpen && unreadForClient === 0" class="online-indicator"></span>
+      <span v-if="!isOpen && unreadForClient > 0" class="client-unread-badge">{{ unreadForClient }}</span>
     </button>
 
     <!-- CỬA SỔ HỘP THOẠI CHAT -->
@@ -152,7 +359,7 @@ const handleSend = () => {
             <span class="status-text">Đang trực tuyến • Sẵn sàng hỗ trợ</span>
           </div>
         </div>
-        <button class="btn-close-chat" @click="isOpen = false">×</button>
+        <button class="btn-close-chat" @click="isOpen = false">✕</button>
       </div>
 
       <!-- Chat Body -->
@@ -166,9 +373,13 @@ const handleSend = () => {
             <span class="f-w">F</span><span class="f-g">F</span>
           </div>
           <div class="bubble-wrap">
+            <div v-if="msg.staffName" class="staff-sender-name">
+              👨‍💼 {{ msg.staffName }}
+            </div>
             <div class="message-bubble" :class="msg.sender">
               <p style="white-space: pre-line; margin: 0;">{{ msg.text }}</p>
             </div>
+            <span class="msg-timestamp">{{ msg.time }}</span>
             
             <!-- Quick actions / Suggestions -->
             <div v-if="msg.actions && msg.actions.length > 0" class="actions-list">
@@ -219,78 +430,110 @@ const handleSend = () => {
 <style scoped>
 .chat-widget-root {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 9999;
+  bottom: 28px;
+  right: 28px;
+  z-index: 99999;
   font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
 }
 
-/* Nút tròn nổi mang màu chủ đạo #496883 */
+/* 1. Nút bong bóng chat nổi */
 .chat-floating-btn {
-  width: 58px;
-  height: 58px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
-  background-color: #496883;
-  color: #ffffff;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 6px 20px rgba(73, 104, 131, 0.4);
+  background: linear-gradient(135deg, #496883 0%, #2f4557 100%);
+  color: #d2a764;
+  border: 2px solid #d2a764;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }
 
 .chat-floating-btn:hover {
-  background-color: #364f66;
-  transform: scale(1.08);
+  transform: scale(1.08) translateY(-2px);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.45);
+  background: #0f172a;
 }
 
 .chat-floating-btn.open {
-  background-color: #364f66;
+  background: #334155;
+  border-color: #94a3b8;
+  color: #ffffff;
+  transform: rotate(90deg);
 }
 
 .online-indicator {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: 3px;
+  right: 3px;
   width: 13px;
   height: 13px;
   background-color: #22c55e;
-  border: 2.5px solid #ffffff;
+  border: 2px solid #ffffff;
   border-radius: 50%;
+  animation: pulse-ring 2s infinite;
 }
 
-/* Hộp thoại chat */
+.client-unread-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  animation: pulse-ring 1.5s infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+/* 2. Cửa sổ chat nổi */
 .chat-window-box {
   position: absolute;
-  bottom: 70px;
+  bottom: 74px;
   right: 0;
-  width: 360px;
-  height: 520px;
+  width: 380px;
+  height: 540px;
+  max-height: calc(100vh - 120px);
   background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 12px 35px rgba(73, 104, 131, 0.2);
-  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: popIn 0.25s ease-out;
+  border: 1px solid #e2e8f0;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes popIn {
-  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.96); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* Header */
 .chat-header {
-  background: linear-gradient(135deg, #364f66 0%, #496883 100%);
+  background: linear-gradient(135deg, #496883 0%, #2f4557 100%);
   color: #ffffff;
-  padding: 14px 16px;
+  padding: 14px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  border-bottom: 2px solid #d2a764;
 }
 
 .header-info {
@@ -300,94 +543,64 @@ const handleSend = () => {
 }
 
 .brand-avatar-box {
-  position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  width: 38px;
+  height: 38px;
   background: #ffffff;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Fredoka', sans-serif;
-  font-weight: 800;
-  font-size: 18px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  position: relative;
+  font-weight: 900;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
-.chat-ray {
+.f-blue-char { color: #496883; }
+.f-gold-char { color: #d2a764; }
+
+.status-dot {
   position: absolute;
-  background-color: #d1a868;
-  border-radius: 2px;
-}
-
-.chat-ray.ray-1 {
-  width: 2.5px;
-  height: 6px;
-  top: 3px;
-  left: 6px;
-  transform: rotate(-30deg);
-}
-
-.chat-ray.ray-2 {
-  width: 2.5px;
-  height: 6px;
-  top: 1px;
-  left: 12px;
-  transform: rotate(0deg);
-}
-
-.chat-ray.ray-3 {
-  width: 2.5px;
-  height: 6px;
-  top: 4px;
-  left: 18px;
-  transform: rotate(30deg);
-}
-
-.f-blue-char {
-  color: #496883;
-}
-
-.f-gold-char {
-  color: #d2a764;
-  margin-left: 1px;
-}
-
-.brand-avatar-box .status-dot {
-  position: absolute;
-  bottom: 0;
-  right: 0;
+  bottom: -2px;
+  right: -2px;
   width: 10px;
   height: 10px;
   background: #22c55e;
-  border: 2px solid #496883;
+  border: 2px solid #0f172a;
   border-radius: 50%;
 }
 
 .header-info h4 {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
+  color: #ffffff;
 }
 
 .status-text {
   font-size: 11px;
-  color: #e2e8f0;
+  color: #94a3b8;
+  display: block;
+  margin-top: 2px;
 }
 
 .btn-close-chat {
   background: transparent;
   border: none;
-  color: #ffffff;
-  font-size: 22px;
+  color: #94a3b8;
+  font-size: 18px;
   cursor: pointer;
-  line-height: 1;
-  opacity: 0.8;
-}
-.btn-close-chat:hover {
-  opacity: 1;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.2s;
 }
 
+.btn-close-chat:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Body */
 .chat-body {
   flex: 1;
   padding: 16px;
@@ -395,136 +608,159 @@ const handleSend = () => {
   background-color: #f8fafc;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .chat-notice-box {
-  background: #f0f7ff;
-  color: #364f66;
-  border: 1px solid #d9eafd;
-  padding: 10px 12px;
-  border-radius: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
   font-size: 12px;
-  line-height: 1.4;
+  padding: 10px 14px;
+  border-radius: 10px;
+  line-height: 1.5;
   text-align: center;
 }
 
 .message-row {
   display: flex;
-  gap: 8px;
-  align-items: flex-end;
+  gap: 10px;
+  max-width: 85%;
+}
+
+.message-row.bot {
+  align-self: flex-start;
 }
 
 .message-row.user {
-  justify-content: flex-end;
+  align-self: flex-end;
+  flex-direction: row-reverse;
 }
 
 .bot-avatar {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: #496883;
-  font-size: 12px;
-  font-family: 'Fredoka', sans-serif;
-  font-weight: 800;
+  background: #1e293b;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 11px;
+  font-weight: 900;
   flex-shrink: 0;
-  box-shadow: 0 2px 4px rgba(73, 104, 131, 0.2);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
-.bot-avatar .f-w {
-  color: #ffffff;
-}
-
-.bot-avatar .f-g {
-  color: #d2a764;
-  margin-left: 1px;
-}
+.bot-avatar .f-w { color: #ffffff; }
+.bot-avatar .f-g { color: #ecd8af; }
 
 .bubble-wrap {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-width: 82%;
+  gap: 4px;
+}
+
+.staff-sender-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #b45309;
+  margin-bottom: 2px;
 }
 
 .message-bubble {
   padding: 10px 14px;
-  border-radius: 14px;
-  font-size: 13px;
-  line-height: 1.45;
+  border-radius: 16px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  word-break: break-word;
 }
 
 .message-bubble.bot {
   background: #ffffff;
   color: #1e293b;
-  border-bottom-left-radius: 2px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
   border: 1px solid #e2e8f0;
+  border-top-left-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.03);
 }
 
 .message-bubble.user {
-  background: #496883;
+  background: #1e293b;
   color: #ffffff;
-  border-bottom-right-radius: 2px;
+  border-top-right-radius: 4px;
+  box-shadow: 0 2px 8px rgba(30, 41, 59, 0.15);
 }
 
+.msg-timestamp {
+  font-size: 10px;
+  color: #94a3b8;
+  align-self: flex-end;
+  margin-top: 2px;
+}
+
+.message-row.bot .msg-timestamp {
+  align-self: flex-start;
+}
+
+/* Actions list */
 .actions-list {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  margin-top: 6px;
 }
 
 .action-pill-btn {
   background: #ffffff;
-  color: #496883;
   border: 1px solid #cbd5e1;
-  border-radius: 16px;
-  padding: 5px 11px;
-  font-size: 11px;
+  color: #1e293b;
+  font-size: 12px;
   font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 20px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
 .action-pill-btn:hover {
-  background: #496883;
-  color: #ffffff;
-  border-color: #496883;
+  background: #1e293b;
+  color: #ecd8af;
+  border-color: #1e293b;
+  transform: translateY(-1px);
 }
 
+/* Typing bubble */
 .typing-bubble {
   background: #ffffff;
-  padding: 8px 14px;
-  border-radius: 14px;
-  display: inline-flex;
+  border: 1px solid #e2e8f0;
+  padding: 10px 16px;
+  border-radius: 16px;
+  display: flex;
   gap: 4px;
   align-items: center;
-  border: 1px solid #e2e8f0;
 }
 
 .typing-bubble span {
   width: 6px;
   height: 6px;
-  background: #496883;
+  background: #94a3b8;
   border-radius: 50%;
-  animation: blink 1.2s infinite both;
+  animation: bounce 1.4s infinite ease-in-out;
 }
 
 .typing-bubble span:nth-child(2) { animation-delay: 0.2s; }
 .typing-bubble span:nth-child(3) { animation-delay: 0.4s; }
 
-@keyframes blink {
-  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
-  40% { opacity: 1; transform: scale(1.1); }
+@keyframes bounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-6px); }
 }
 
+/* Footer */
 .chat-footer {
-  padding: 10px 14px;
+  padding: 12px 14px;
   background: #ffffff;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #e2e8f0;
 }
 
 .input-form {
@@ -535,48 +771,52 @@ const handleSend = () => {
 
 .chat-input {
   flex: 1;
-  padding: 9px 14px;
+  padding: 10px 14px;
   border: 1px solid #cbd5e1;
-  border-radius: 20px;
-  font-size: 13px;
+  border-radius: 24px;
+  font-size: 13.5px;
   outline: none;
-  transition: border-color 0.2s;
-}
-
-.chat-input:focus {
-  border-color: #496883;
-  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
-}
-
-.btn-send {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #496883;
-  color: #ffffff;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: #f8fafc;
   transition: all 0.2s;
 }
 
+.chat-input:focus {
+  background: #ffffff;
+  border-color: #1e293b;
+  box-shadow: 0 0 0 3px rgba(30, 41, 59, 0.1);
+}
+
+.btn-send {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #1e293b;
+  color: #ecd8af;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
 .btn-send:hover:not(:disabled) {
-  background: #364f66;
+  background: #0f172a;
+  transform: scale(1.05);
 }
 
 .btn-send:disabled {
-  opacity: 0.4;
+  background: #e2e8f0;
+  color: #94a3b8;
   cursor: not-allowed;
 }
 
 @media (max-width: 480px) {
   .chat-window-box {
     width: calc(100vw - 32px);
-    right: -8px;
-    height: 480px;
+    right: 0;
+    bottom: 74px;
   }
 }
 </style>
-

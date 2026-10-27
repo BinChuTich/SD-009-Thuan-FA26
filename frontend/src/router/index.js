@@ -308,6 +308,12 @@ const routes = [
         name: 'LichSuHoatDong',
         component: LichSuHoatDong,
         meta: { roles: ['ADMIN', 'NV'] }
+    },
+    {
+        path: '/tin-nhan',
+        name: 'QuanLyChat',
+        component: () => import('@/views/Chat/QuanLyChat.vue'),
+        meta: { roles: ['ADMIN', 'NV'] }
     }
 ]
 
