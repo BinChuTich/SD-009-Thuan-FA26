@@ -24,5 +24,9 @@ public interface ChatService {
     CuocHoiThoaiDTO tiepNhanCuocHoiThoai(Long id, Long nhanVienId);
 
     CuocHoiThoaiDTO yeuCauHoTro(Long id);
+
+    void xoaCuocHoiThoai(Long id);
+
+    void xoaTatCaCuocHoiThoai();
 }
 

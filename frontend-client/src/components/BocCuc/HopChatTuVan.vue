@@ -71,6 +71,7 @@ const initOrLoadConversation = async () => {
   try {
     const savedId = localStorage.getItem(CHAT_STORAGE_KEY)
     const payload = {
+      cuocHoiThoaiId: savedId ? Number(savedId) : null,
       khachHangId: currentClientUser.value?.id || null,
       tenKhachHang: currentClientUser.value?.name || null,
       soDienThoai: currentClientUser.value?.phone || null

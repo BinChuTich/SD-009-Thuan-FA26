@@ -1,169 +1,171 @@
 package com.example.sd009thuan.service.impl;
 
 import com.example.sd009thuan.dto.chat.*;
-import com.example.sd009thuan.entity.CuocHoiThoai;
-import com.example.sd009thuan.entity.KhachHang;
+import com.example.sd009thuan.entity.HoaDon;
 import com.example.sd009thuan.entity.NhanVien;
-import com.example.sd009thuan.entity.TinNhan;
-import com.example.sd009thuan.repository.CuocHoiThoaiRepository;
-import com.example.sd009thuan.repository.KhachHangRepository;
+import com.example.sd009thuan.repository.HoaDonRepository;
 import com.example.sd009thuan.repository.NhanVienRepository;
-import com.example.sd009thuan.repository.TinNhanRepository;
 import com.example.sd009thuan.service.ChatService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import com.example.sd009thuan.entity.HoaDon;
-import com.example.sd009thuan.repository.HoaDonRepository;
 import java.time.ZoneId;
-import java.util.ArrayList;
-
-import java.util.Optional;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
 
-    private final CuocHoiThoaiRepository cuocHoiThoaiRepository;
-    private final TinNhanRepository tinNhanRepository;
-    private final KhachHangRepository khachHangRepository;
-    private final NhanVienRepository nhanVienRepository;
     private final HoaDonRepository hoaDonRepository;
+    private final NhanVienRepository nhanVienRepository;
 
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+    // In-memory thread-safe storage (HOÀN TOÀN KHÔNG SỬA VÀO DATABASE GỐC)
+    private final Map<Long, CuocHoiThoaiDTO> conversations = new ConcurrentHashMap<>();
+    private final Map<Long, List<TinNhanDTO>> messagesByConv = new ConcurrentHashMap<>();
+    private final AtomicLong convIdSeq = new AtomicLong(1);
+    private final AtomicLong msgIdSeq = new AtomicLong(1);
 
     @Override
-    @Transactional
     public CuocHoiThoaiDTO khoiTaoHoacLayCuocHoiThoai(KhoiTaoChatRequest req) {
-        CuocHoiThoai cht = null;
-
-        // 1. Nếu client đã lưu ID cuộc hội thoại trước đó và chưa đóng, tái sử dụng
         if (req != null && req.getCuocHoiThoaiId() != null) {
-            Optional<CuocHoiThoai> byId = cuocHoiThoaiRepository.findById(req.getCuocHoiThoaiId());
-            if (byId.isPresent() && byId.get().getTrangThai() != null && byId.get().getTrangThai() != 0) {
-                cht = byId.get();
+            CuocHoiThoaiDTO existing = conversations.get(req.getCuocHoiThoaiId());
+            if (existing != null) {
                 if (req.getTenKhachHang() != null && !req.getTenKhachHang().trim().isEmpty()) {
-                    cht.setTenKhachHang(req.getTenKhachHang().trim());
-                    cht = cuocHoiThoaiRepository.save(cht);
+                    existing.setTenKhachHang(req.getTenKhachHang().trim());
                 }
-                return toCuocHoiThoaiDTO(cht);
+                if (req.getKhachHangId() != null) {
+                    existing.setKhachHangId(req.getKhachHangId());
+                }
+                if (req.getSoDienThoai() != null && !req.getSoDienThoai().trim().isEmpty()) {
+                    existing.setSoDienThoai(req.getSoDienThoai().trim());
+                }
+                return enrichDTO(existing);
             }
         }
 
-        // 2. Tìm theo khách hàng đã đăng nhập đang mở (trạng thái 1 hoặc 2)
-        if (req != null && req.getKhachHangId() != null) {
-            Optional<CuocHoiThoai> opt = cuocHoiThoaiRepository.findTopByKhachHang_IdAndTrangThaiInOrderByIdDesc(req.getKhachHangId(), List.of(1, 2));
-            if (opt.isPresent()) {
-                cht = opt.get();
-            } else {
-                KhachHang kh = khachHangRepository.findById(req.getKhachHangId()).orElse(null);
-                cht = new CuocHoiThoai();
-                cht.setKhachHang(kh);
-                cht.setTenKhachHang(kh != null ? kh.getTenKhachHang() : (req.getTenKhachHang() != null ? req.getTenKhachHang() : "Khách hàng"));
-                cht.setSoDienThoai(kh != null ? kh.getSoDienThoai() : req.getSoDienThoai());
-                cht.setTrangThai(1);
-                cht = cuocHoiThoaiRepository.save(cht);
-                guiTinNhanTuDongChaoMung(cht);
-            }
-        } else if (req != null && req.getSoDienThoai() != null && !req.getSoDienThoai().trim().isEmpty()) {
-            String sdt = req.getSoDienThoai().trim();
-            Optional<CuocHoiThoai> opt = cuocHoiThoaiRepository.findTopBySoDienThoaiAndTrangThaiInOrderByIdDesc(sdt, List.of(1, 2));
-            if (opt.isPresent()) {
-                cht = opt.get();
-                if (req.getTenKhachHang() != null && !req.getTenKhachHang().trim().isEmpty()) {
-                    cht.setTenKhachHang(req.getTenKhachHang().trim());
-                    cht = cuocHoiThoaiRepository.save(cht);
-                }
-            } else {
-                cht = new CuocHoiThoai();
-                cht.setTenKhachHang(req.getTenKhachHang() != null && !req.getTenKhachHang().trim().isEmpty() ? req.getTenKhachHang().trim() : "Khách " + sdt);
-                cht.setSoDienThoai(sdt);
-                cht.setTrangThai(1);
-                cht = cuocHoiThoaiRepository.save(cht);
-                guiTinNhanTuDongChaoMung(cht);
-            }
-        } else {
-            cht = new CuocHoiThoai();
-            String ten = (req != null && req.getTenKhachHang() != null && !req.getTenKhachHang().trim().isEmpty())
-                    ? req.getTenKhachHang().trim()
-                    : "Khách trực tuyến #" + (System.currentTimeMillis() % 10000);
-            cht.setTenKhachHang(ten);
-            cht.setTrangThai(1);
-            cht = cuocHoiThoaiRepository.save(cht);
-            guiTinNhanTuDongChaoMung(cht);
-        }
+        // Tạo cuộc hội thoại mới
+        long newId = convIdSeq.getAndIncrement();
+        String name = (req != null && req.getTenKhachHang() != null && !req.getTenKhachHang().trim().isEmpty())
+                ? req.getTenKhachHang().trim()
+                : "Khách trực tuyến #" + (1000 + (newId % 9000));
+        String phone = req != null ? req.getSoDienThoai() : null;
+        Long khId = req != null ? req.getKhachHangId() : null;
 
-        return toCuocHoiThoaiDTO(cht);
-    }
+        CuocHoiThoaiDTO conv = CuocHoiThoaiDTO.builder()
+                .id(newId)
+                .khachHangId(khId)
+                .nhanVienId(null)
+                .tenKhachHang(name)
+                .soDienThoai(phone)
+                .trangThai(1) // 1 = Đang hoạt động
+                .ngayTao(LocalDateTime.now())
+                .ngayCapNhat(LocalDateTime.now())
+                .soTinChuaDoc(0L)
+                .build();
 
-    private void guiTinNhanTuDongChaoMung(CuocHoiThoai cht) {
-        TinNhan tn = new TinNhan();
-        tn.setCuocHoiThoai(cht);
-        tn.setNguoiGui("AI");
-        tn.setNoiDung("Xin chào quý khách! Cảm ơn bạn đã ghé thăm FF T-Shirt. Chúng tôi có thể hỗ trợ gì cho bạn về sản phẩm, tư vấn chọn size hay theo dõi đơn hàng hôm nay ạ?");
-        tn.setDaDoc(true);
-        tinNhanRepository.save(tn);
+        conversations.put(newId, conv);
+        messagesByConv.put(newId, new CopyOnWriteArrayList<>());
+
+        // Tin nhắn chào mừng ban đầu từ hệ thống AI
+        TinNhanDTO welcomeMsg = TinNhanDTO.builder()
+                .id(msgIdSeq.getAndIncrement())
+                .cuocHoiThoaiId(newId)
+                .nguoiGui("AI")
+                .noiDung("Xin chào quý khách! Cảm ơn bạn đã ghé thăm FF T-Shirt. Chúng tôi có thể hỗ trợ gì cho bạn về sản phẩm, tư vấn chọn size hay theo dõi đơn hàng hôm nay ạ?")
+                .daDoc(true)
+                .ngayTao(LocalDateTime.now())
+                .build();
+
+        messagesByConv.get(newId).add(welcomeMsg);
+        conv.setTinNhanCuoi(welcomeMsg.getNoiDung());
+        conv.setThoiGianTinNhanCuoi(welcomeMsg.getNgayTao());
+
+        return enrichDTO(conv);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<CuocHoiThoaiDTO> layDanhSachCuocHoiThoai(String keyword, Integer trangThai) {
-        List<CuocHoiThoai> list = cuocHoiThoaiRepository.searchCuocHoiThoai(keyword, trangThai);
-        return list.stream().map(this::toCuocHoiThoaiDTO).collect(Collectors.toList());
+        return conversations.values().stream()
+                .filter(c -> {
+                    if (trangThai != null && !Objects.equals(c.getTrangThai(), trangThai)) {
+                        return false;
+                    }
+                    if (keyword != null && !keyword.trim().isEmpty()) {
+                        String k = keyword.trim().toLowerCase();
+                        boolean matchName = c.getTenKhachHang() != null && c.getTenKhachHang().toLowerCase().contains(k);
+                        boolean matchPhone = c.getSoDienThoai() != null && c.getSoDienThoai().contains(k);
+                        return matchName || matchPhone;
+                    }
+                    return true;
+                })
+                .sorted((a, b) -> {
+                    LocalDateTime t1 = a.getNgayCapNhat() != null ? a.getNgayCapNhat() : a.getNgayTao();
+                    LocalDateTime t2 = b.getNgayCapNhat() != null ? b.getNgayCapNhat() : b.getNgayTao();
+                    return t2.compareTo(t1);
+                })
+                .map(this::enrichDTO)
+                .collect(Collectors.toList());
     }
 
     @Override
-    @Transactional(readOnly = true)
     public CuocHoiThoaiDTO layChiTietCuocHoiThoai(Long id) {
-        CuocHoiThoai cht = cuocHoiThoaiRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cuộc hội thoại ID: " + id));
-        return toCuocHoiThoaiDTO(cht);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<TinNhanDTO> layDanhSachTinNhan(Long cuocHoiThoaiId, Long lastId) {
-        List<TinNhan> list;
-        if (lastId != null && lastId > 0) {
-            list = tinNhanRepository.findByCuocHoiThoai_IdAndIdGreaterThanOrderByNgayTaoAsc(cuocHoiThoaiId, lastId);
-        } else {
-            list = tinNhanRepository.findByCuocHoiThoai_IdOrderByNgayTaoAsc(cuocHoiThoaiId);
+        CuocHoiThoaiDTO conv = conversations.get(id);
+        if (conv == null) {
+            throw new IllegalArgumentException("Không tìm thấy cuộc hội thoại ID: " + id);
         }
-        return list.stream().map(this::toTinNhanDTO).collect(Collectors.toList());
+        return enrichDTO(conv);
     }
 
     @Override
-    @Transactional
+    public List<TinNhanDTO> layDanhSachTinNhan(Long cuocHoiThoaiId, Long lastId) {
+        List<TinNhanDTO> list = messagesByConv.getOrDefault(cuocHoiThoaiId, Collections.emptyList());
+        if (lastId == null || lastId <= 0) {
+            return new ArrayList<>(list);
+        }
+        return list.stream()
+                .filter(m -> m.getId() > lastId)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public TinNhanDTO guiTinNhan(GuiTinNhanRequest req) {
         if (req == null || req.getNoiDung() == null || req.getNoiDung().trim().isEmpty()) {
             throw new IllegalArgumentException("Nội dung tin nhắn không được để trống");
         }
 
-        CuocHoiThoai cht;
-        if (req.getCuocHoiThoaiId() != null) {
-            cht = cuocHoiThoaiRepository.findById(req.getCuocHoiThoaiId())
-                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cuộc hội thoại ID: " + req.getCuocHoiThoaiId()));
+        CuocHoiThoaiDTO conv;
+        if (req.getCuocHoiThoaiId() != null && conversations.containsKey(req.getCuocHoiThoaiId())) {
+            conv = conversations.get(req.getCuocHoiThoaiId());
+            if (req.getTenKhachHang() != null && !req.getTenKhachHang().trim().isEmpty() &&
+                    (conv.getTenKhachHang() == null || conv.getTenKhachHang().startsWith("Khách trực tuyến"))) {
+                conv.setTenKhachHang(req.getTenKhachHang().trim());
+            }
         } else {
             KhoiTaoChatRequest initReq = new KhoiTaoChatRequest();
             initReq.setKhachHangId(req.getKhachHangId());
             initReq.setTenKhachHang(req.getTenKhachHang());
             initReq.setSoDienThoai(req.getSoDienThoai());
-            CuocHoiThoaiDTO dto = khoiTaoHoacLayCuocHoiThoai(initReq);
-            cht = cuocHoiThoaiRepository.findById(dto.getId()).orElseThrow();
+            conv = khoiTaoHoacLayCuocHoiThoai(initReq);
         }
 
-        NhanVien nv = null;
+        String staffName = null;
         if (req.getNhanVienId() != null) {
-            nv = nhanVienRepository.findById(req.getNhanVienId()).orElse(null);
-            if (nv != null && cht.getNhanVien() == null) {
-                cht.setNhanVien(nv);
+            NhanVien nv = nhanVienRepository.findById(req.getNhanVienId()).orElse(null);
+            if (nv != null) {
+                conv.setNhanVienId(nv.getId());
+                staffName = nv.getTenNhanVien();
+                conv.setTenNhanVien(staffName);
             }
         }
 
@@ -172,53 +174,68 @@ public class ChatServiceImpl implements ChatService {
                 : "KHACH_HANG";
 
         if ("NHAN_VIEN".equals(nguoiGui) || "ADMIN".equals(nguoiGui)) {
-            // Khi nhân viên trả lời, nếu phiên đang chờ nhận hoặc đã đóng, tự động kích hoạt Đang hoạt động (1)
-            if (cht.getTrangThai() == null || cht.getTrangThai() != 1) {
-                cht.setTrangThai(1);
+            if (conv.getTrangThai() == null || conv.getTrangThai() != 1) {
+                conv.setTrangThai(1);
             }
         } else if ("KHACH_HANG".equals(nguoiGui)) {
-            // Nếu phiên đã đóng mà khách nhắn lại, chuyển sang Chờ nhận (2)
-            if (cht.getTrangThai() != null && cht.getTrangThai() == 0) {
-                cht.setTrangThai(2);
+            if (conv.getTrangThai() != null && conv.getTrangThai() == 0) {
+                conv.setTrangThai(2); // Mở lại phiên nếu khách nhắn
             }
         }
 
-        TinNhan tn = new TinNhan();
-        tn.setCuocHoiThoai(cht);
-        tn.setNhanVien(nv);
-        tn.setNguoiGui(nguoiGui);
-        tn.setNoiDung(req.getNoiDung().trim());
-        tn.setDaDoc(false);
+        TinNhanDTO tn = TinNhanDTO.builder()
+                .id(msgIdSeq.getAndIncrement())
+                .cuocHoiThoaiId(conv.getId())
+                .nhanVienId(req.getNhanVienId())
+                .tenNhanVien(staffName)
+                .nguoiGui(nguoiGui)
+                .noiDung(req.getNoiDung().trim())
+                .daDoc(false)
+                .ngayTao(LocalDateTime.now())
+                .build();
 
-        TinNhan saved = tinNhanRepository.save(tn);
+        messagesByConv.computeIfAbsent(conv.getId(), k -> new CopyOnWriteArrayList<>()).add(tn);
+        conv.setNgayCapNhat(LocalDateTime.now());
+        conv.setTinNhanCuoi(tn.getNoiDung());
+        conv.setThoiGianTinNhanCuoi(tn.getNgayTao());
 
-        cht.setNgayCapNhat(LocalDateTime.now());
-        cuocHoiThoaiRepository.save(cht);
-
-        return toTinNhanDTO(saved);
+        return tn;
     }
 
     @Override
-    @Transactional
     public void danhDauDaDoc(Long cuocHoiThoaiId, String role) {
         if (cuocHoiThoaiId == null) return;
-        if ("ADMIN".equalsIgnoreCase(role) || "NHAN_VIEN".equalsIgnoreCase(role)) {
-            tinNhanRepository.danhDauAdminDaDoc(cuocHoiThoaiId);
-        } else {
-            tinNhanRepository.danhDauKhachHangDaDoc(cuocHoiThoaiId);
+        List<TinNhanDTO> list = messagesByConv.get(cuocHoiThoaiId);
+        if (list == null) return;
+
+        boolean isAdminOrStaff = "ADMIN".equalsIgnoreCase(role) || "NHAN_VIEN".equalsIgnoreCase(role);
+        for (TinNhanDTO msg : list) {
+            if (isAdminOrStaff) {
+                if ("KHACH_HANG".equals(msg.getNguoiGui())) {
+                    msg.setDaDoc(true);
+                }
+            } else {
+                if (!"KHACH_HANG".equals(msg.getNguoiGui())) {
+                    msg.setDaDoc(true);
+                }
+            }
         }
     }
 
     @Override
-    @Transactional(readOnly = true)
     public ThongBaoAdminDTO layThongBaoAdmin() {
-        long countUnread = tinNhanRepository.countByDaDocFalseAndNguoiGui("KHACH_HANG");
+        // Đếm tin chưa đọc từ khách hàng
+        long countUnread = messagesByConv.values().stream()
+                .flatMap(Collection::stream)
+                .filter(m -> "KHACH_HANG".equals(m.getNguoiGui()) && !Boolean.TRUE.equals(m.getDaDoc()))
+                .count();
+
+        // Đơn hàng mới từ cơ sở dữ liệu gốc (Trạng thái 1 = Chờ xác nhận)
         long countNewOrders = 0;
         try {
             countNewOrders = hoaDonRepository.countByTrangThai(1);
         } catch (Exception e) {}
 
-        List<TinNhan> latest = tinNhanRepository.findLatestMessages(PageRequest.of(0, 6));
         List<HoaDon> recentOrders = new ArrayList<>();
         try {
             recentOrders = hoaDonRepository.findRecentOrders(PageRequest.of(0, 6));
@@ -226,7 +243,7 @@ public class ChatServiceImpl implements ChatService {
 
         List<ThongBaoAdminDTO.ThongBaoItemDTO> items = new ArrayList<>();
 
-        // 1. Thêm các đơn hàng mới (Trạng thái 1 = Chờ xác nhận)
+        // 1. Thêm các đơn hàng mới
         if (recentOrders != null) {
             for (HoaDon hd : recentOrders) {
                 if (hd.getTrangThai() != null && hd.getTrangThai() == 1) {
@@ -254,33 +271,37 @@ public class ChatServiceImpl implements ChatService {
             }
         }
 
-        // 2. Thêm các tin nhắn chat mới
-        if (latest != null) {
-            for (TinNhan t : latest) {
-                CuocHoiThoai c = t.getCuocHoiThoai();
-                String name = (c != null && c.getTenKhachHang() != null) ? c.getTenKhachHang() : "Khách hàng";
-                String timeStr = t.getNgayTao() != null ? t.getNgayTao().format(DateTimeFormatter.ofPattern("HH:mm dd/MM")) : "";
+        // 2. Thêm các tin nhắn chat mới từ khách hàng
+        List<TinNhanDTO> latestClientMsgs = messagesByConv.values().stream()
+                .flatMap(Collection::stream)
+                .filter(m -> "KHACH_HANG".equals(m.getNguoiGui()))
+                .sorted((a, b) -> b.getNgayTao().compareTo(a.getNgayTao()))
+                .limit(6)
+                .collect(Collectors.toList());
 
-                items.add(ThongBaoAdminDTO.ThongBaoItemDTO.builder()
-                        .id(t.getId())
-                        .loai("CHAT")
-                        .tieuDe("Tin nhắn từ " + name)
-                        .noiDung(t.getNoiDung())
-                        .thoiGian(timeStr)
-                        .daDoc(Boolean.TRUE.equals(t.getDaDoc()))
-                        .cuocHoiThoaiId(c != null ? c.getId() : null)
-                        .lienKet("/tin-nhan?id=" + (c != null ? c.getId() : ""))
-                        .build());
-            }
+        for (TinNhanDTO t : latestClientMsgs) {
+            CuocHoiThoaiDTO c = conversations.get(t.getCuocHoiThoaiId());
+            String name = (c != null && c.getTenKhachHang() != null) ? c.getTenKhachHang() : "Khách hàng";
+            String timeStr = t.getNgayTao() != null ? t.getNgayTao().format(TIME_FORMATTER) : "";
+            items.add(ThongBaoAdminDTO.ThongBaoItemDTO.builder()
+                    .id(t.getId())
+                    .loai("CHAT")
+                    .tieuDe("Tin nhắn mới từ " + name)
+                    .noiDung(t.getNoiDung())
+                    .thoiGian(timeStr)
+                    .daDoc(Boolean.TRUE.equals(t.getDaDoc()))
+                    .cuocHoiThoaiId(t.getCuocHoiThoaiId())
+                    .lienKet("/tin-nhan?id=" + t.getCuocHoiThoaiId())
+                    .build());
         }
 
-        List<ThongBaoAdminDTO.TinNhanThongBaoDTO> dtoList = latest.stream().map(t -> {
-            CuocHoiThoai c = t.getCuocHoiThoai();
+        List<ThongBaoAdminDTO.TinNhanThongBaoDTO> dtoList = latestClientMsgs.stream().map(t -> {
+            CuocHoiThoaiDTO c = conversations.get(t.getCuocHoiThoaiId());
             String name = (c != null && c.getTenKhachHang() != null) ? c.getTenKhachHang() : "Khách hàng";
             String timeStr = t.getNgayTao() != null ? t.getNgayTao().format(TIME_FORMATTER) : "";
             return ThongBaoAdminDTO.TinNhanThongBaoDTO.builder()
                     .tinNhanId(t.getId())
-                    .cuocHoiThoaiId(c != null ? c.getId() : null)
+                    .cuocHoiThoaiId(t.getCuocHoiThoaiId())
                     .tenKhachHang(name)
                     .noiDung(t.getNoiDung())
                     .thoiGian(timeStr)
@@ -300,115 +321,124 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @Transactional
     public void dongCuocHoiThoai(Long id) {
-        CuocHoiThoai cht = cuocHoiThoaiRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cuộc hội thoại ID: " + id));
-        cht.setTrangThai(0);
-        cht.setNgayCapNhat(LocalDateTime.now());
-        CuocHoiThoai saved = cuocHoiThoaiRepository.save(cht);
+        CuocHoiThoaiDTO conv = conversations.get(id);
+        if (conv == null) return;
 
-        TinNhan tn = new TinNhan();
-        tn.setCuocHoiThoai(saved);
-        tn.setNguoiGui("AI");
-        tn.setNoiDung("Phiên hỗ trợ đã kết thúc. Cảm ơn quý khách đã tin tưởng và đồng hành cùng FF T-Shirt!");
-        tn.setDaDoc(true);
-        tinNhanRepository.save(tn);
+        conv.setTrangThai(0); // 0 = Đã đóng
+        conv.setNgayCapNhat(LocalDateTime.now());
+
+        TinNhanDTO endMsg = TinNhanDTO.builder()
+                .id(msgIdSeq.getAndIncrement())
+                .cuocHoiThoaiId(id)
+                .nguoiGui("AI")
+                .noiDung("Phiên hỗ trợ đã kết thúc. Cảm ơn quý khách đã tin tưởng và đồng hành cùng FF T-Shirt!")
+                .daDoc(true)
+                .ngayTao(LocalDateTime.now())
+                .build();
+
+        messagesByConv.computeIfAbsent(id, k -> new CopyOnWriteArrayList<>()).add(endMsg);
+        conv.setTinNhanCuoi(endMsg.getNoiDung());
+        conv.setThoiGianTinNhanCuoi(endMsg.getNgayTao());
     }
 
     @Override
-    @Transactional
     public CuocHoiThoaiDTO tiepNhanCuocHoiThoai(Long id, Long nhanVienId) {
-        CuocHoiThoai cht = cuocHoiThoaiRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cuộc hội thoại ID: " + id));
+        CuocHoiThoaiDTO conv = conversations.get(id);
+        if (conv == null) {
+            throw new IllegalArgumentException("Không tìm thấy cuộc hội thoại ID: " + id);
+        }
 
-        NhanVien nv = null;
+        String staffName = "chuyên viên tư vấn";
         if (nhanVienId != null) {
-            nv = nhanVienRepository.findById(nhanVienId).orElse(null);
+            NhanVien nv = nhanVienRepository.findById(nhanVienId).orElse(null);
             if (nv != null) {
-                cht.setNhanVien(nv);
+                conv.setNhanVienId(nv.getId());
+                staffName = nv.getTenNhanVien() != null ? nv.getTenNhanVien() : staffName;
+                conv.setTenNhanVien(staffName);
             }
         }
 
-        cht.setTrangThai(1); // 1 = Đang hoạt động
-        cht.setNgayCapNhat(LocalDateTime.now());
-        CuocHoiThoai saved = cuocHoiThoaiRepository.save(cht);
+        conv.setTrangThai(1); // 1 = Đang hoạt động
+        conv.setNgayCapNhat(LocalDateTime.now());
 
-        // Tạo tin nhắn thông báo từ hệ thống AI
-        TinNhan tn = new TinNhan();
-        tn.setCuocHoiThoai(saved);
-        tn.setNhanVien(nv);
-        tn.setNguoiGui("AI");
-        String name = (nv != null && nv.getTenNhanVien() != null) ? nv.getTenNhanVien() : "tư vấn";
-        tn.setNoiDung("Nhân viên " + name + " đã tiếp nhận hỗ trợ bạn.");
-        tn.setDaDoc(true);
-        tinNhanRepository.save(tn);
+        TinNhanDTO acceptMsg = TinNhanDTO.builder()
+                .id(msgIdSeq.getAndIncrement())
+                .cuocHoiThoaiId(id)
+                .nhanVienId(nhanVienId)
+                .nguoiGui("AI")
+                .noiDung("Nhân viên " + staffName + " đã tiếp nhận hỗ trợ bạn.")
+                .daDoc(true)
+                .ngayTao(LocalDateTime.now())
+                .build();
 
-        return toCuocHoiThoaiDTO(saved);
+        messagesByConv.computeIfAbsent(id, k -> new CopyOnWriteArrayList<>()).add(acceptMsg);
+        conv.setTinNhanCuoi(acceptMsg.getNoiDung());
+        conv.setThoiGianTinNhanCuoi(acceptMsg.getNgayTao());
+
+        return enrichDTO(conv);
     }
 
     @Override
-    @Transactional
     public CuocHoiThoaiDTO yeuCauHoTro(Long id) {
-        CuocHoiThoai cht = cuocHoiThoaiRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cuộc hội thoại ID: " + id));
-
-        cht.setTrangThai(2); // 2 = Chờ nhận
-        cht.setNgayCapNhat(LocalDateTime.now());
-        CuocHoiThoai saved = cuocHoiThoaiRepository.save(cht);
-
-        Optional<TinNhan> lastMsg = tinNhanRepository.findTopByCuocHoiThoai_IdOrderByNgayTaoDesc(saved.getId());
-        boolean alreadyNotified = lastMsg.isPresent() &&
-                "AI".equals(lastMsg.get().getNguoiGui()) &&
-                lastMsg.get().getNoiDung() != null &&
-                (lastMsg.get().getNoiDung().contains("chuyên viên") || lastMsg.get().getNoiDung().contains("nhân viên"));
-
-        if (!alreadyNotified) {
-            TinNhan tn = new TinNhan();
-            tn.setCuocHoiThoai(saved);
-            tn.setNguoiGui("AI");
-            tn.setNoiDung("Chuyên viên tư vấn của FF T-Shirt đã nhận được yêu cầu và sẽ hỗ trợ anh/chị ngay trong giây lát nhé! ❤️");
-            tn.setDaDoc(false);
-            tinNhanRepository.save(tn);
+        CuocHoiThoaiDTO conv = conversations.get(id);
+        if (conv == null) {
+            throw new IllegalArgumentException("Không tìm thấy cuộc hội thoại ID: " + id);
         }
 
-        return toCuocHoiThoaiDTO(saved);
+        conv.setTrangThai(2); // 2 = Chờ nhận
+        conv.setNgayCapNhat(LocalDateTime.now());
+
+        // Kiểm tra xem tin nhắn gần nhất có phải thông báo kết nối chưa
+        List<TinNhanDTO> list = messagesByConv.getOrDefault(id, Collections.emptyList());
+        boolean alreadyNotified = !list.isEmpty() &&
+                "AI".equals(list.get(list.size() - 1).getNguoiGui()) &&
+                list.get(list.size() - 1).getNoiDung() != null &&
+                (list.get(list.size() - 1).getNoiDung().contains("chuyên viên") || list.get(list.size() - 1).getNoiDung().contains("nhân viên"));
+
+        if (!alreadyNotified) {
+            TinNhanDTO waitMsg = TinNhanDTO.builder()
+                    .id(msgIdSeq.getAndIncrement())
+                    .cuocHoiThoaiId(id)
+                    .nguoiGui("AI")
+                    .noiDung("Chuyên viên tư vấn của FF T-Shirt đã nhận được yêu cầu và sẽ hỗ trợ anh/chị ngay trong giây lát nhé! ❤️")
+                    .daDoc(false)
+                    .ngayTao(LocalDateTime.now())
+                    .build();
+
+            messagesByConv.computeIfAbsent(id, k -> new CopyOnWriteArrayList<>()).add(waitMsg);
+            conv.setTinNhanCuoi(waitMsg.getNoiDung());
+            conv.setThoiGianTinNhanCuoi(waitMsg.getNgayTao());
+        }
+
+        return enrichDTO(conv);
     }
 
-    private CuocHoiThoaiDTO toCuocHoiThoaiDTO(CuocHoiThoai c) {
+    @Override
+    public void xoaCuocHoiThoai(Long id) {
+        if (id == null) return;
+        conversations.remove(id);
+        messagesByConv.remove(id);
+    }
+
+    @Override
+    public void xoaTatCaCuocHoiThoai() {
+        conversations.clear();
+        messagesByConv.clear();
+    }
+
+    private CuocHoiThoaiDTO enrichDTO(CuocHoiThoaiDTO c) {
         if (c == null) return null;
-
-        Optional<TinNhan> lastMsg = tinNhanRepository.findTopByCuocHoiThoai_IdOrderByNgayTaoDesc(c.getId());
-        long unread = tinNhanRepository.countByCuocHoiThoai_IdAndDaDocFalseAndNguoiGui(c.getId(), "KHACH_HANG");
-
-        return CuocHoiThoaiDTO.builder()
-                .id(c.getId())
-                .khachHangId(c.getKhachHang() != null ? c.getKhachHang().getId() : null)
-                .tenKhachHang(c.getTenKhachHang() != null ? c.getTenKhachHang() : "Khách hàng")
-                .soDienThoai(c.getSoDienThoai())
-                .nhanVienId(c.getNhanVien() != null ? c.getNhanVien().getId() : null)
-                .tenNhanVien(c.getNhanVien() != null ? c.getNhanVien().getTenNhanVien() : null)
-                .trangThai(c.getTrangThai())
-                .ngayTao(c.getNgayTao())
-                .ngayCapNhat(c.getNgayCapNhat())
-                .tinNhanCuoi(lastMsg.map(TinNhan::getNoiDung).orElse(""))
-                .thoiGianTinNhanCuoi(lastMsg.map(TinNhan::getNgayTao).orElse(c.getNgayCapNhat()))
-                .soTinChuaDoc(unread)
-                .build();
-    }
-
-    private TinNhanDTO toTinNhanDTO(TinNhan t) {
-        if (t == null) return null;
-        return TinNhanDTO.builder()
-                .id(t.getId())
-                .cuocHoiThoaiId(t.getCuocHoiThoai() != null ? t.getCuocHoiThoai().getId() : null)
-                .nhanVienId(t.getNhanVien() != null ? t.getNhanVien().getId() : null)
-                .tenNhanVien(t.getNhanVien() != null ? t.getNhanVien().getTenNhanVien() : null)
-                .nguoiGui(t.getNguoiGui())
-                .noiDung(t.getNoiDung())
-                .daDoc(t.getDaDoc())
-                .ngayTao(t.getNgayTao())
-                .build();
+        List<TinNhanDTO> list = messagesByConv.getOrDefault(c.getId(), Collections.emptyList());
+        if (!list.isEmpty()) {
+            TinNhanDTO last = list.get(list.size() - 1);
+            c.setTinNhanCuoi(last.getNoiDung());
+            c.setThoiGianTinNhanCuoi(last.getNgayTao());
+        }
+        long unread = list.stream()
+                .filter(m -> "KHACH_HANG".equals(m.getNguoiGui()) && !Boolean.TRUE.equals(m.getDaDoc()))
+                .count();
+        c.setSoTinChuaDoc(unread);
+        return c;
     }
 }
-
