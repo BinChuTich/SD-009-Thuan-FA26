@@ -49,7 +49,7 @@
           <div class="form-field">
             <label class="filter-label">Tìm kiếm</label>
             <div class="input-inner-custom">
-              <span class="prefix-icon-svg">
+              <span class="prefix-icon-svg" v-if="false">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="11" cy="11" r="8"></circle>
                   <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -1048,7 +1048,7 @@ const formatVariantImageUrl = (url) => {
 
 // Ảnh sản phẩm mặc định chuẩn áo phông
 const defaultProductImages = [
-  'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80',
+  '/images/products/default_tshirt.jpg',
   'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=300&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=300&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=300&auto=format&fit=crop&q=80',
@@ -1099,7 +1099,7 @@ const productSourceList = ref([
     id: 1,
     ma: 'SP001',
     ten: 'Áo Phông Nam Basic Cotton Cổ Tròn',
-    hinhAnh: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80',
+    hinhAnh: '/images/products/sp01_front.jpg',
     thuongHieu: 'FF Shirt',
     chatLieu: 'Cotton 100%',
     gia: 199000,
@@ -2984,7 +2984,7 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 .filter-text-input {
-  padding-left: 2.3rem;
+  padding-left: 0.85rem;
 }
 .filter-text-input:focus,
 .filter-date-input:focus {
@@ -3019,12 +3019,12 @@ onUnmounted(() => {
 }
 
 .btn-reset {
-  border: 1px solid #dfd5c2;
-  background-color: #fff8eb;
-  color: #957b48;
+  border: 1px solid #e2dacd;
+  background-color: #f4efe6;
+  color: #6d6352;
 }
 .btn-reset:hover {
-  background-color: #faeed7;
+  background-color: #ebe3d6;
 }
 
 .btn-export {
@@ -3037,7 +3037,7 @@ onUnmounted(() => {
 }
 
 .btn-primary {
-  background-color: #3b596a;
+  background-color: var(--blue, #496883);
   color: #ffffff;
 }
 .btn-primary:hover {
@@ -3070,13 +3070,15 @@ onUnmounted(() => {
   table-layout: fixed;
 }
 .custom-table-styled th {
-  background-color: #faf9f6;
-  color: #556268;
+  background-color: #f7f5ef;
+  color: var(--blue, #496883);
+  text-transform: uppercase;
   font-weight: 700;
   padding: 0.72rem 0.45rem;
   text-align: left;
-  border-bottom: 1px solid #ede9de;
-  font-size: 0.86rem;
+  border-bottom: 2px solid #e9e5db;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
 }
 .custom-table-styled td {
   padding: 0.75rem 0.45rem;
@@ -3240,11 +3242,11 @@ onUnmounted(() => {
 
 .btn-icon-power {
   color: #b45309;
-  background-color: #fff8eb;
+  background-color: #f4efe6;
   border-color: #dfd5c2;
 }
 .btn-icon-power:hover {
-  background-color: #faeed7;
+  background-color: #ebe3d6;
   border-color: #c8b99c;
   color: #92400e;
   transform: scale(1.05);
@@ -3270,7 +3272,7 @@ onUnmounted(() => {
   padding-top: 0.85rem;
 }
 .select-page-size-custom {
-  border: 1px solid #dfd5c2;
+  border: 1px solid #e2dacd;
   border-radius: 6px;
   padding: 0.35rem 0.65rem;
   font-size: 0.82rem;
@@ -3315,7 +3317,8 @@ onUnmounted(() => {
   border-radius: 6px;
   border: 1px solid #e5e7eb;
   background-color: #ffffff;
-  color: #556268;
+  color: var(--blue, #496883);
+  text-transform: uppercase;
   font-size: 0.85rem;
   display: inline-flex;
   align-items: center;
@@ -3329,7 +3332,7 @@ onUnmounted(() => {
   background-color: #f0f7ff;
 }
 .pg-btn-box.pg-active {
-  background-color: #3b596a;
+  background-color: var(--blue, #496883);
   border-color: #3b596a;
   color: #ffffff;
   font-weight: 700;
@@ -3719,7 +3722,7 @@ onUnmounted(() => {
   justify-content: flex-end;
   align-items: center;
   gap: 0.75rem;
-  background-color: #faf9f6;
+  background-color: #f7f5ef;
 }
 
 .btn-secondary {
@@ -4004,7 +4007,8 @@ onUnmounted(() => {
   min-width: 0;
 }
 .video-form-label {
-  font-size: 0.86rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
   font-weight: 600;
   color: #374151;
 }
@@ -4123,7 +4127,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 0 1.15rem;
-  background-color: #faf9f6;
+  background-color: #f7f5ef;
   border: 1px solid #e5e7eb;
   border-left: 1px solid #ede9de;
   border-top-right-radius: 8px;
@@ -4217,8 +4221,8 @@ onUnmounted(() => {
   width: 100%;
   padding: 0.65rem;
   background: #fff8eb;
-  color: #957b48;
-  border: 1px solid #dfd5c2;
+  color: #6d6352;
+  border: 1px solid #e2dacd;
   border-radius: 8px;
   font-size: 0.9rem;
   font-weight: 600;

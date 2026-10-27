@@ -43,8 +43,12 @@ const routes = [
   { path: '/thanh-toan', redirect: '/gio-hang' },
   {
     path: '/don-hang',
-    name: 'DonHang',
-    component: DonHang
+    redirect: to => {
+      if (to.query && (to.query.code || to.query.ma)) {
+        return { path: '/tra-cuu', query: to.query }
+      }
+      return '/tra-cuu'
+    }
   },
   {
     path: '/tra-cuu',

@@ -85,7 +85,7 @@ const closeWindow = () => {
   if (isPopup.value) {
     window.close()
   } else {
-    router.push(`/don-hang?code=${paymentResult.value?.orderCode}`)
+    router.push(`/tra-cuu?code=${paymentResult.value?.orderCode}`)
   }
 }
 </script>
@@ -165,7 +165,7 @@ const closeWindow = () => {
             ✓ Đóng Cửa Sổ Này
           </button>
           <template v-else>
-            <router-link :to="`/don-hang?code=${paymentResult?.orderCode}`" class="btn-primary">
+            <router-link :to="`/tra-cuu?code=${paymentResult?.orderCode}`" class="btn-primary">
               🔍 Xem Chi Tiết Đơn Hàng
             </router-link>
             <router-link to="/cua-hang" class="btn-secondary">
@@ -202,7 +202,7 @@ const closeWindow = () => {
             Đóng Cửa Sổ
           </button>
           <template v-else>
-            <router-link :to="`/don-hang?code=${paymentResult?.orderCode}`" class="btn-primary">
+            <router-link :to="`/tra-cuu?code=${paymentResult?.orderCode}`" class="btn-primary">
               Về Trang Đơn Hàng
             </router-link>
             <router-link to="/cua-hang" class="btn-secondary">

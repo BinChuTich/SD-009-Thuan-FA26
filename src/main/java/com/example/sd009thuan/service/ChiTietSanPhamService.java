@@ -392,30 +392,14 @@ public class ChiTietSanPhamService {
         if (ct.getIdSanPham() != null) {
             List<HinhAnh> imgs = hinhAnhRepository.findByIdSanPham_Id(ct.getIdSanPham().getId());
             if (imgs != null && !imgs.isEmpty()) {
-                // 1. Ưu tiên ảnh riêng theo biến thể CTSP
+                // CHỈ lấy ảnh riêng biệt của đúng biến thể này (theo id CTSP hoặc mã CTSP)
                 String ctspTarget = "CTSP_" + ct.getId();
+                String ctspCode = ct.getMaChiTietSanPham();
                 for (HinhAnh img : imgs) {
-                    if (ctspTarget.equals(img.getTenAnh())) {
-                        anhDaiDien = img.getDuongDan();
-                        break;
-                    }
-                }
-                // 2. Nếu chưa có ảnh riêng biến thể, lấy ảnh theo ĐÚNG màu sắc của biến thể này
-                if (anhDaiDien == null && ct.getIdMauSac() != null) {
-                    String colorTarget = "COLOR_" + ct.getIdMauSac().getId();
-                    for (HinhAnh img : imgs) {
-                        if (colorTarget.equals(img.getTenAnh())) {
-                            anhDaiDien = img.getDuongDan();
-                            break;
-                        }
-                    }
-                }
-                // 3. Nếu vẫn chưa có ảnh riêng và chưa có ảnh theo màu, chỉ lấy ảnh CHUNG của sản phẩm
-                // (chỉ áp dụng nếu ảnh chung không thuộc bất kỳ màu nào: tên ảnh không bắt đầu bằng COLOR_ hoặc CTSP_)
-                if (anhDaiDien == null) {
-                    for (HinhAnh img : imgs) {
-                        String tenAnh = img.getTenAnh();
-                        if (tenAnh != null && !tenAnh.startsWith("COLOR_") && !tenAnh.startsWith("CTSP_")) {
+                    String tenAnh = img.getTenAnh();
+                    if (tenAnh != null) {
+                        if (ctspTarget.equals(tenAnh) 
+                                || (ctspCode != null && !ctspCode.trim().isEmpty() && (tenAnh.equals("CTSP_" + ctspCode) || tenAnh.equalsIgnoreCase(ctspCode)))) {
                             anhDaiDien = img.getDuongDan();
                             break;
                         }
@@ -423,8 +407,9 @@ public class ChiTietSanPhamService {
                 }
             }
         }
+        // Biến thể nào chưa có ảnh riêng thì giữ nguyên là null (không tự động fill ảnh biến thể khác, ảnh chung hay ảnh mẫu)
 
-        // Kiểm tra giảm giá liên kết (chỉ theo chính biến thể này)
+        // Kiểm tra giảm giá liên kết (ưu tiên theo biến thể, fallback theo sản phẩm cha)
         Instant now = Instant.now();
         List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsByVariantId(ct.getId(), now);
         Boolean coGiamGia = false;
@@ -446,14 +431,33 @@ public class ChiTietSanPhamService {
                 .orElse(activeDiscounts.get(0));
 
             if (bestDgg.getIdDotGiamGia() != null) {
-                tenDotGiamGia = bestDgg.getIdDotGiamGia().getTenDotGiamGia();
-                phanTramGiam = bestDgg.getPhanTramGiamBienThe() != null 
+                DotGiamGia dgg = bestDgg.getIdDotGiamGia();
+                tenDotGiamGia = dgg.getTenDotGiamGia();
+                boolean isCash = Integer.valueOf(2).equals(dgg.getLoaiGiamGia());
+                if (isCash) {
+                    BigDecimal cashDiscount = dgg.getGiaTriGiam() != null ? dgg.getGiaTriGiam() : BigDecimal.ZERO;
+                    if (ct.getGiaBan() != null) {
+                        giaSauGiam = ct.getGiaBan().subtract(cashDiscount).max(BigDecimal.ZERO);
+                        if (ct.getGiaBan().compareTo(BigDecimal.ZERO) > 0) {
+                            phanTramGiam = cashDiscount.multiply(BigDecimal.valueOf(100)).divide(ct.getGiaBan(), 0, java.math.RoundingMode.HALF_UP);
+                        }
+                    } else {
+                        giaSauGiam = BigDecimal.ZERO;
+                    }
+                } else {
+                    phanTramGiam = bestDgg.getPhanTramGiamBienThe() != null 
                         ? bestDgg.getPhanTramGiamBienThe() 
-                        : bestDgg.getIdDotGiamGia().getPhanTramGiam();
-            }
-            if (ct.getGiaBan() != null && phanTramGiam != null && phanTramGiam.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal factor = BigDecimal.valueOf(100).subtract(phanTramGiam).max(BigDecimal.ZERO);
-                giaSauGiam = ct.getGiaBan().multiply(factor).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+                        : (dgg.getPhanTramGiam() != null ? dgg.getPhanTramGiam() : BigDecimal.ZERO);
+                    if (ct.getGiaBan() != null && phanTramGiam != null && phanTramGiam.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal discountAmt = ct.getGiaBan().multiply(phanTramGiam).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+                        if (dgg.getGiamToiDa() != null && dgg.getGiamToiDa().compareTo(BigDecimal.ZERO) > 0 && discountAmt.compareTo(dgg.getGiamToiDa()) > 0) {
+                            discountAmt = dgg.getGiamToiDa();
+                        }
+                        giaSauGiam = ct.getGiaBan().subtract(discountAmt).max(BigDecimal.ZERO);
+                    } else {
+                        giaSauGiam = ct.getGiaBan();
+                    }
+                }
             } else {
                 giaSauGiam = ct.getGiaBan();
             }

@@ -7,6 +7,7 @@ public class HoaDonPosDTO {
     private String maHoaDon;
     private Long idKhachHang;
     private Long idNhanVien;
+    private Long idGiaoCa;
     private Long idPhieuGiamGia;
     private Integer loaiDon; // 1: Tại quầy, 2: Giao hàng
     private String tenKhachHang;
@@ -21,6 +22,7 @@ public class HoaDonPosDTO {
     private BigDecimal tienMat;
     private BigDecimal tienChuyenKhoan;
     private String ghiChu;
+    private String nguoiTao;
     private List<ItemChiTietDTO> chiTietList;
 
     public HoaDonPosDTO() {
@@ -31,6 +33,9 @@ public class HoaDonPosDTO {
 
     public Long getIdKhachHang() { return idKhachHang; }
     public void setIdKhachHang(Long idKhachHang) { this.idKhachHang = idKhachHang; }
+
+    public Long getIdGiaoCa() { return idGiaoCa; }
+    public void setIdGiaoCa(Long idGiaoCa) { this.idGiaoCa = idGiaoCa; }
 
     public Long getIdNhanVien() { return idNhanVien; }
     public void setIdNhanVien(Long idNhanVien) { this.idNhanVien = idNhanVien; }
@@ -76,6 +81,9 @@ public class HoaDonPosDTO {
 
     public String getGhiChu() { return ghiChu; }
     public void setGhiChu(String ghiChu) { this.ghiChu = ghiChu; }
+
+    public String getNguoiTao() { return nguoiTao; }
+    public void setNguoiTao(String nguoiTao) { this.nguoiTao = nguoiTao; }
 
     public List<ItemChiTietDTO> getChiTietList() { return chiTietList; }
     public void setChiTietList(List<ItemChiTietDTO> chiTietList) { this.chiTietList = chiTietList; }

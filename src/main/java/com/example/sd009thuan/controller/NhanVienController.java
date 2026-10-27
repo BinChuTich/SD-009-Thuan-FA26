@@ -3,8 +3,11 @@ package com.example.sd009thuan.controller;
 import com.example.sd009thuan.dto.BulkEmailRequest;
 import com.example.sd009thuan.dto.BulkEmailResponse;
 import com.example.sd009thuan.dto.ExcelImportResult;
+import com.example.sd009thuan.dto.ForgotPasswordRequest;
+import com.example.sd009thuan.dto.LoginRequest;
 import com.example.sd009thuan.dto.NhanVienRequest;
 import com.example.sd009thuan.dto.NhanVienResponse;
+import jakarta.validation.Valid;
 import com.example.sd009thuan.entity.VaiTro;
 import com.example.sd009thuan.service.ExcelExportService;
 import com.example.sd009thuan.service.ExcelImportService;
@@ -35,6 +38,11 @@ public class NhanVienController {
         this.service = service;
         this.excelExportService = excelExportService;
         this.excelImportService = excelImportService;
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<NhanVienResponse> login(@RequestBody LoginRequest req) {
+        return ResponseEntity.ok(service.login(req));
     }
 
     @GetMapping
@@ -131,24 +139,37 @@ public class NhanVienController {
     public NhanVienResponse updateMultipart(
             @PathVariable Long id,
             @RequestPart("data") NhanVienRequest req,
-            @RequestPart(value = "file", required = false) MultipartFile file) {
-        return service.update(id, req, file);
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            @RequestHeader(value = "X-Current-User-Id", required = false) Long currentUserId) {
+        return service.update(id, req, file, currentUserId);
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public NhanVienResponse updateJson(@PathVariable Long id, @RequestBody NhanVienRequest req) {
-        return service.update(id, req, null);
+    public NhanVienResponse updateJson(
+            @PathVariable Long id,
+            @RequestBody NhanVienRequest req,
+            @RequestHeader(value = "X-Current-User-Id", required = false) Long currentUserId) {
+        return service.update(id, req, null, currentUserId);
     }
 
     @PatchMapping("/{id}/toggle-status")
-    public ResponseEntity<Void> toggle(@PathVariable Long id) {
-        service.toggleStatus(id);
+    public ResponseEntity<Void> toggle(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-Current-User-Id", required = false) Long currentUserId) {
+        service.toggleStatus(id, currentUserId);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        service.deactivate(id);
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-Current-User-Id", required = false) Long currentUserId) {
+        service.deactivate(id, currentUserId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, Object>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest req) {
+        return ResponseEntity.ok(service.forgotPassword(req.email()));
     }
 }

@@ -924,7 +924,7 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background-color: #3b596a;
+  background-color: var(--blue, #496883);
   color: #ffffff;
 }
 .btn-primary:hover {

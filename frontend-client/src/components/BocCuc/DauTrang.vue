@@ -91,7 +91,7 @@ const toggleNoti = () => {
   showNoti.value = !showNoti.value
   showUserMenu.value = false
   if (showNoti.value) {
-    fetchNotifications()
+  fetchNotifications()
   }
 }
 
@@ -218,6 +218,7 @@ onMounted(() => {
   window.addEventListener('scroll', handleScroll, { passive: true })
   window.addEventListener('click', handleDocumentClick)
   window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('open-client-login', openLoginModal)
   fetchNotifications()
 })
 
@@ -225,6 +226,7 @@ onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
   window.removeEventListener('click', handleDocumentClick)
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('open-client-login', openLoginModal)
 })
 </script>
 
@@ -289,8 +291,7 @@ onUnmounted(() => {
           >
             ƯU ĐÃI
           </a>
-          <router-link to="/don-hang" class="nav-item" active-class="active">ĐƠN HÀNG</router-link>
-          <router-link to="/tra-cuu" class="nav-item" active-class="active">TRA CỨU</router-link>
+                    <router-link to="/tra-cuu" class="nav-item" active-class="active">TRA CỨU</router-link>
           <router-link to="/lien-he" class="nav-item" active-class="active">LIÊN HỆ</router-link>
         </nav>
 
@@ -450,10 +451,7 @@ onUnmounted(() => {
                   <span>{{ currentClientUser?.email || currentClientUser?.phone }}</span>
                 </div>
                 <div class="popup-menu-divider"></div>
-                <router-link to="/don-hang" class="menu-link" @click="showUserMenu = false">
-                  📄 Đơn mua của tôi
-                </router-link>
-                <router-link to="/tra-cuu-don-hang" class="menu-link" @click="showUserMenu = false">
+                                <router-link to="/tra-cuu-don-hang" class="menu-link" @click="showUserMenu = false">
                   🚚 Tra cứu đơn hàng
                 </router-link>
                 <router-link to="/gio-hang" class="menu-link" @click="showUserMenu = false">
@@ -525,10 +523,7 @@ onUnmounted(() => {
           >
             🔥 ƯU ĐÃI
           </a>
-          <router-link to="/don-hang" class="mobile-nav-link" @click="closeMobileMenu">
-            📄 ĐƠN HÀNG
-          </router-link>
-          <router-link to="/tra-cuu" class="mobile-nav-link" @click="closeMobileMenu">
+                    <router-link to="/tra-cuu" class="mobile-nav-link" @click="closeMobileMenu">
             🔍 TRA CỨU
           </router-link>
           <router-link to="/lien-he" class="mobile-nav-link" @click="closeMobileMenu">

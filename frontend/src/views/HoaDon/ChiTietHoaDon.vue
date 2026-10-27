@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
 import { generateQrDataUrl, generateQrSvg } from '@/utils/qrcode.js'
+import { getCurrentUser } from '@/utils/auth.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,34 +24,26 @@ const invoiceId = ref(null)
 
 const loading = ref(false)
 const updatingStatus = ref(false)
-const creatingGhnOrder = ref(false)
-const handleCreateGhnOrder = async () => {
-  if (!invoiceData.value.code) return
-  creatingGhnOrder.value = true
-  try {
-    const payload = {
-      orderCode: invoiceData.value.code,
-      toName: invoiceData.value.customer?.name || 'Khách hàng',
-      toPhone: invoiceData.value.customer?.phone || '0988888888',
-      toAddress: invoiceData.value.delivery?.address || 'Hà Nội',
-      codAmount: invoiceData.value.summary?.totalPayable || 0,
-      weight: 250
-    }
-    const res = await api.post('/api/ghn/create-order', payload)
-    if (res.data?.orderCode) {
-      invoiceData.value.delivery.trackingCode = res.data.orderCode
-      invoiceData.value.delivery.carrier = 'Giao Hàng Nhanh (GHN)'
-      alert('Tạo vận đơn GHN thành công! Mã vận đơn: ' + res.data.orderCode)
-    }
-  } catch (err) {
-    alert('Không thể tạo vận đơn GHN: ' + (err.response?.data?.message || err.message))
-  } finally {
-    creatingGhnOrder.value = false
-  }
-}
 const showHistoryModal = ref(false)
 const hasAutoPrinted = ref(false)
 const orderLogs = ref([])
+
+// Lấy thông tin người thực hiện thao tác đúng theo tài khoản đăng nhập hiện tại
+const getLogActor = (log) => {
+  const currentAuth = getCurrentUser()
+  const currentAuthName = currentAuth?.tenNhanVien || currentAuth?.tenTaiKhoan || ''
+
+  const raw = log?.nguoiThucHien || log?.tenNhanVien || ''
+  const isGeneric = !raw || raw.trim() === '' || raw === 'Nhân viên bán hàng' || raw === 'Nhân viên'
+  if (isGeneric) {
+    if (currentAuthName) return currentAuthName
+    if (invoiceData.value?.employee?.name && invoiceData.value.employee.name !== 'Nhân viên bán hàng' && invoiceData.value.employee.name !== 'Đơn Online') {
+      return invoiceData.value.employee.name
+    }
+    return currentAuthName || 'Nhân viên bán hàng'
+  }
+  return raw
+}
 
 // Cập nhật trạng thái thanh toán
 const showPaymentModal = ref(false)
@@ -255,21 +248,54 @@ const createDefaultInvoice = (code) => ({
 
 const invoiceData = ref(createDefaultInvoice(invoiceCode.value))
 
-// Xác định loại đơn hàng trực tuyến (Online / Giao hàng)
-const isOnlineDelivery = computed(() => {
-  return invoiceData.value.delivery?.type !== 'Tại quầy' && Number(invoiceData.value.delivery?.loaiDon) !== 1
+// Xác định loại đơn hàng có vận chuyển / giao hàng (kể cả đặt Online hay tạo giao hàng tại quầy "online tại quầy")
+const isDeliveryOrder = computed(() => {
+  const delivery = invoiceData.value.delivery || {}
+  const receiveType = String(delivery.receiveType || '').toLowerCase()
+  const address = String(delivery.address || '').trim()
+  const carrier = String(delivery.carrier || '').trim()
+  const shippingFee = Number(invoiceData.value.summary?.shippingFee || invoiceData.value.phiVanChuyen || 0)
+  const isOnline = delivery.type === 'Online' || Number(delivery.loaiDon) === 2 || Number(invoiceData.value.loaiDon) === 2
+
+  return isOnline
+    || receiveType.includes('giao hàng')
+    || receiveType.includes('tận nơi')
+    || (address !== '' && address !== '—' && address !== 'Bán tại quầy' && !address.toLowerCase().includes('tại quầy'))
+    || (carrier !== '' && carrier !== '—' && carrier.toLowerCase() !== 'tại quầy')
+    || shippingFee > 0
+})
+
+// Đơn bán tại quầy thuần túy lấy ngay (không giao hàng)
+const isPureStoreOrder = computed(() => !isDeliveryOrder.value)
+
+// Giữ lại alias tương thích
+const isOnlineDelivery = computed(() => isDeliveryOrder.value)
+const isAtStore = computed(() => isPureStoreOrder.value)
+
+// Loại đơn hiển thị: Nếu là đơn giao hàng mà được tạo / xác nhận tại quầy (bởi nhân viên bán hàng/POS/NV...) hoặc loaiDon === 1 thì loại đơn là "Tại quầy", ngược lại là "Online"
+const displayLoaiDon = computed(() => {
+  const empCode = String(invoiceData.value.employee?.code || '').toUpperCase()
+  const empName = String(invoiceData.value.employee?.name || '')
+  const note = String(invoiceData.value.delivery?.note || '').toLowerCase()
+  const loaiDon = Number(invoiceData.value.delivery?.loaiDon || invoiceData.value.loaiDon || 0)
+
+  const isStaff = empCode.startsWith('NV') || (empName && empName !== 'Đơn Online' && empName !== '---' && !empName.toLowerCase().includes('khách') && !empName.toLowerCase().includes('website')) || note.includes('pos') || note.includes('tại quầy')
+  if (isStaff || loaiDon === 1) {
+    return 'Tại quầy'
+  }
+  return 'Online'
 })
 
 // Đơn hàng online đang ở trạng thái Chờ xác nhận (status = 1): CHƯA IN HÓA ĐƠN
 const isOnlineWaitingConfirm = computed(() => {
-  return isOnlineDelivery.value && Number(invoiceData.value.status) === 1
+  return isDeliveryOrder.value && Number(invoiceData.value.status) === 1
 })
 
-// Điều kiện in hóa đơn: Đơn online chờ xác nhận là CHƯA in hóa đơn, đơn đã hủy không in hóa đơn
+// Điều kiện in hóa đơn: Chỉ trạng thái "Đã xác nhận" (status = 2) mới in hóa đơn, hoặc đơn tại quầy thuần túy hoàn thành (status 5)
 const canPrintInvoice = computed(() => {
-  if (isOnlineWaitingConfirm.value) return false
-  if (Number(invoiceData.value.status) === 6) return false
-  return true
+  const st = Number(invoiceData.value.status)
+  if (isPureStoreOrder.value && st === 5) return true
+  return st === 2
 })
 
 // =========================================================================
@@ -363,29 +389,30 @@ const voucherDisplayName = computed(() => {
 // Danh sách chi tiết các khoản thanh toán (dành cho thanh toán kết hợp trên màn hình & mẫu in)
 const printSubTransactions = computed(() => {
   const trans = invoiceData.value?.paymentHistory?.transactions
-  if (Array.isArray(trans) && trans.length > 1) {
+  const curMethod = String(invoiceData.value?.paymentHistory?.method || '')
+  if (curMethod.toLowerCase().includes('kết hợp') && Array.isArray(trans) && trans.length > 1) {
     // Sắp xếp chuyển khoản lên trước, tiền mặt phía sau giống ảnh mẫu
     return [...trans]
-      .sort((a, b) => {
-        const isAck = a.method?.toLowerCase().includes('chuyển khoản') || a.method?.toLowerCase().includes('ngân hàng')
-        const isBck = b.method?.toLowerCase().includes('chuyển khoản') || b.method?.toLowerCase().includes('ngân hàng')
-        if (isAck && !isBck) return -1
-        if (!isAck && isBck) return 1
-        return 0
-      })
-      .map(t => {
-        let label = t.method || 'Thanh toán'
-        if (label.toLowerCase().includes('chuyển khoản') || label.toLowerCase().includes('ngân hàng')) {
-          label = 'Chuyển khoản'
-        } else if (label.toLowerCase().includes('tiền mặt')) {
-          label = 'Tiền mặt'
-        }
-        return {
-          id: t.id,
-          label,
-          amount: t.amount
-        }
-      })
+        .sort((a, b) => {
+          const isAck = a.method?.toLowerCase().includes('chuyển khoản') || a.method?.toLowerCase().includes('ngân hàng')
+          const isBck = b.method?.toLowerCase().includes('chuyển khoản') || b.method?.toLowerCase().includes('ngân hàng')
+          if (isAck && !isBck) return -1
+          if (!isAck && isBck) return 1
+          return 0
+        })
+        .map(t => {
+          let label = t.method || 'Thanh toán'
+          if (label.toLowerCase().includes('chuyển khoản') || label.toLowerCase().includes('ngân hàng')) {
+            label = 'Chuyển khoản'
+          } else if (label.toLowerCase().includes('tiền mặt')) {
+            label = 'Tiền mặt'
+          }
+          return {
+            id: t.id,
+            label,
+            amount: t.amount
+          }
+        })
   }
 
   // Fallback: nếu phương thức là Kết hợp mà danh sách chưa kịp load, trích xuất từ ghi chú
@@ -430,9 +457,11 @@ const getNumber = (...values) => {
 
 const buildLogsByStatus = (status, baseDate, isAtStore = false, options = {}) => {
   const statusNum = Number(status) || 1
-  const employeeName = (options.employeeName && options.employeeName !== '---' && options.employeeName !== '')
+  const currentAuth = getCurrentUser()
+  const authStaffName = currentAuth?.tenNhanVien || currentAuth?.tenTaiKhoan || ''
+  const employeeName = (authStaffName && authStaffName !== 'Nhân viên bán hàng') ? authStaffName : (options.employeeName && options.employeeName !== '---' && options.employeeName !== 'Đơn Online')
       ? options.employeeName
-      : (invoiceData.value.employee?.name && invoiceData.value.employee?.name !== '---' && invoiceData.value.employee?.name !== '' ? invoiceData.value.employee.name : 'Nhân viên')
+      : (invoiceData.value.employee?.name && invoiceData.value.employee?.name !== '---' && invoiceData.value.employee?.name !== 'Đơn Online' ? invoiceData.value.employee.name : 'Nhân viên')
   const baseTimeMs = baseDate ? new Date(baseDate).getTime() : Date.now()
   const baseTimeVal = new Date(baseTimeMs)
 
@@ -740,6 +769,7 @@ const loadDetail = async (identifier) => {
   invoiceCode.value = queryParam
   invoiceData.value = createDefaultInvoice(queryParam)
   loading.value = true
+  hasAutoPrinted.value = false
 
   try {
     let res = null
@@ -788,8 +818,15 @@ const loadDetail = async (identifier) => {
     // Nhân viên
     const nhanVienObj = data['idNhanVien'] || data['nhanVien'] || {}
     const employeeCatalog = DB_EMPLOYEE_CATALOG[data['idNhanVien']] || DB_EMPLOYEE_CATALOG[data['nguoiTao']] || {}
-    let employeeName = nhanVienObj['tenNhanVien'] || employeeCatalog['name'] || (Number(data['loaiDon']) === 1 ? 'Nhân viên bán hàng' : '')
-    let employeeCode = nhanVienObj['maNhanVien'] || employeeCatalog['code'] || '---'
+    const currentAuth = getCurrentUser()
+    const authStaffName = currentAuth?.tenNhanVien || currentAuth?.tenTaiKhoan || ''
+
+    let employeeName = nhanVienObj['tenNhanVien']
+        || (data['nguoiTao'] && !data['nguoiTao'].includes('Nhân viên bán hàng') ? data['nguoiTao'] : null)
+        || employeeCatalog['name']
+        || authStaffName
+        || (Number(data['loaiDon']) === 1 ? (authStaffName || 'Nhân viên bán hàng') : 'Đơn Online')
+    let employeeCode = nhanVienObj['maNhanVien'] || employeeCatalog['code'] || (String(data['nguoiTao'] || '').toUpperCase().startsWith('NV') ? data['nguoiTao'] : '---')
 
     invoiceData.value.employee = {
       name: employeeName,
@@ -843,13 +880,18 @@ const loadDetail = async (identifier) => {
     invoiceData.value.createTime = formatDateTime(data['ngayTao'] || data['createdAt'])
     invoiceData.value.lastUpdated = formatDateTime(data['ngayCapNhat'] || data['updatedAt'] || data['thoiGianThanhToan'] || data['ngayTao'] || data['createdAt'])
 
+    const hasDelivery = Boolean(data['diaChiNhanHang'] && data['diaChiNhanHang'] !== 'Bán tại quầy' && data['diaChiNhanHang'] !== '—') || Number(data['phiVanChuyen'] || data['phiShip'] || 0) > 0 || Boolean(data['donViVanChuyen'] && data['donViVanChuyen'] !== '—')
+    const hasStaffCreator = Boolean(data['idNhanVien'] || data['nhanVien'] || (data['nguoiTao'] && !String(data['nguoiTao']).toLowerCase().includes('khách') && !String(data['nguoiTao']).toLowerCase().includes('client') && !String(data['nguoiTao']).toLowerCase().includes('website')))
+    const isOnlineChannel = Number(data['loaiDon']) === 2 && !hasStaffCreator && !String(data['ghiChu'] || '').toLowerCase().includes('pos') && !String(data['ghiChu'] || '').toLowerCase().includes('quầy')
+
+    invoiceData.value.loaiDon = isOnlineChannel ? 2 : (Number(data['loaiDon']) || 1)
     invoiceData.value.delivery = {
       address: getString(data['diaChiNhanHang'], data['diaChi'], data['address'], '—'),
-      type: Number(data['loaiDon']) === 1 ? 'Tại quầy' : 'Online',
-      carrier: getString(data['donViVanChuyen'], data['tenDonViVanChuyen'], data['carrier'], Number(data['loaiDon']) === 2 ? 'Giao Hàng Nhanh (GHN)' : '—'),
-      trackingCode: getString(data['maVanDon'], data['trackingCode'], ''),
-      receiveType: Number(data['loaiDon']) === 1 ? 'Nhận tại quầy' : 'Giao hàng tận nơi',
-      note: getString(data['ghiChu'], data['note'], '—')
+      type: isOnlineChannel ? 'Online' : 'Tại quầy',
+      carrier: getString(data['donViVanChuyen'], data['tenDonViVanChuyen'], data['carrier'], '—'),
+      receiveType: hasDelivery ? 'Giao hàng tận nơi' : 'Nhận tại quầy',
+      note: getString(data['ghiChu'], data['note'], '—'),
+      loaiDon: isOnlineChannel ? 2 : 1
     }
 
     // Danh sách sản phẩm
@@ -948,8 +990,42 @@ const loadDetail = async (identifier) => {
           time: formatDateTime(p.thoiGian),
           code: p.maGiaoDich || ''
         }))
-        if (paymentTransactions.length > 1) {
+        const validTrans = paymentTransactions.filter(p => Number(p.amount) > 0)
+        const targetList = validTrans.length > 0 ? validTrans : paymentTransactions
+
+        const hasCash = targetList.some(p => {
+          const m = (p.method || '').toLowerCase()
+          return m.includes('tiền mặt') || m.includes('tien mat')
+        })
+        const hasTransfer = targetList.some(p => {
+          const m = (p.method || '').toLowerCase()
+          return m.includes('chuyển khoản') || m.includes('ngân hàng') || m.includes('chuyen khoan') || m.includes('vnpay')
+        })
+
+        const transferFull = targetList.some(p => {
+          const m = (p.method || '').toLowerCase()
+          const isCk = m.includes('chuyển khoản') || m.includes('ngân hàng') || m.includes('chuyen khoan') || m.includes('vnpay')
+          return isCk && (Number(p.amount) >= totalPayment * 0.95 || (targetList.length >= 2 && Number(p.amount) === Number(targetList[0].amount)))
+        })
+        const noteStr = String(data['ghiChu'] || data['note'] || '').toLowerCase()
+        const isExplicitCombinedNote = noteStr.includes('thanh toán kết hợp')
+        const rawPt = String(data['phuongThucThanhToan'] || data['hinhThucThanhToan'] || '').toLowerCase()
+
+        if (transferFull && !isExplicitCombinedNote && !rawPt.includes('kết hợp')) {
+          paymentMethodResolved = 'Chuyển khoản'
+        } else if (hasCash && hasTransfer && (isExplicitCombinedNote || rawPt.includes('kết hợp'))) {
           paymentMethodResolved = 'Kết hợp'
+        }
+
+        else if (hasTransfer) {
+          paymentMethodResolved = 'Chuyển khoản'
+        } else if (hasCash) {
+          paymentMethodResolved = 'Tiền mặt'
+        } else if (targetList.length > 0) {
+          { paymentMethodResolved = targetList[0].method || 'Chuyển khoản'
+          }
+
+
         }
       }
     } catch (e) {
@@ -975,8 +1051,8 @@ const loadDetail = async (identifier) => {
         currentStatus = 7
       }
     }
-    const isAtStore = Number(data['loaiDon']) === 1 || data['loaiDon'] === 'Tại quầy' || invoiceData.value.delivery?.type === 'Tại quầy'
-    applyOrderStatus(currentStatus, isAtStore)
+    const isPureStore = !hasDelivery && Number(data['loaiDon']) === 1
+    applyOrderStatus(currentStatus, isPureStore)
 
     // Lịch sử thao tác
     let rawLogs = data['lichSuHoaDon'] || data['lichSuHoaDons'] || data['lichSu']
@@ -997,18 +1073,26 @@ const loadDetail = async (identifier) => {
     }
 
     if (Array.isArray(rawLogs) && rawLogs.length > 0) {
-      let mappedLogs = rawLogs.map((l, i) => ({
+      const filtered = rawLogs.filter(l => {
+        const text = `${l.hanhDong || ''} ${l.ghiChu || ''} ${l.thaoTac || ''} ${l.action || ''}`.toLowerCase()
+        const actor = `${l.nguoiThucHien || ''}`.toLowerCase()
+        if (text.includes('vietqr') || (text.includes('cổng') && text.includes('chuyển khoản')) || actor.includes('hệ thống thanh toán')) {
+          return false
+        }
+        return true
+      })
+      let mappedLogs = filtered.map((l, i) => ({
         id: l.id || i,
         action: l.hanhDong || l.ghiChu || l.thaoTac || l.action || 'Thao tác hóa đơn',
         hanhDong: l.hanhDong || l.ghiChu || l.thaoTac || l.action || 'Thao tác hóa đơn',
         thoiGian: l.thoiGian || l.ngayTao || l.thoiGianTao,
-        nguoiThucHien: l.nguoiThucHien || l.tenNhanVien || employeeName,
+        nguoiThucHien: getLogActor(l),
         ghiChu: l.ghiChu || '',
         isDone: true
       }))
       orderLogs.value = mappedLogs
     } else {
-      orderLogs.value = buildLogsByStatus(currentStatus, data['ngayTao'] || data['createdAt'], isAtStore, {
+      orderLogs.value = buildLogsByStatus(currentStatus, data['ngayTao'] || data['createdAt'], isPureStore, {
         finishDate: data['thoiGianThanhToan'] || data['ngayCapNhat'] || data['updatedAt'],
         employeeName,
         note: data['ghiChu']
@@ -1019,6 +1103,21 @@ const loadDetail = async (identifier) => {
     if (invoiceData.value.steps[0] && !invoiceData.value.steps[0].time) {
       invoiceData.value.steps[0].time = createTimeStr
     }
+    if (Array.isArray(rawLogs) && rawLogs.length > 0) {
+      rawLogs.forEach(l => {
+        const stepStatus = Number(l.trangThai)
+        if (stepStatus >= 1 && stepStatus <= 5 && invoiceData.value.steps[stepStatus - 1]) {
+          const logTime = l.thoiGian || l.ngayTao || l.thoiGianTao
+          if (logTime) {
+            invoiceData.value.steps[stepStatus - 1].time = formatDateTime(logTime)
+          }
+        }
+      })
+    }
+    const curStatusNum = Number(currentStatus)
+    if (curStatusNum >= 2 && curStatusNum <= 5 && invoiceData.value.steps[curStatusNum - 1] && !invoiceData.value.steps[curStatusNum - 1].time) {
+      invoiceData.value.steps[curStatusNum - 1].time = formatDateTime(data['ngayCapNhat'] || data['updatedAt'] || data['thoiGianThanhToan'] || data['ngayTao'])
+    }
   } catch (err) {
     if (currentRequest !== requestId) return
     console.error('Lỗi khi tải chi tiết hóa đơn:', err)
@@ -1027,7 +1126,7 @@ const loadDetail = async (identifier) => {
       loading.value = false
       // Tự động in hóa đơn nếu chuyển hướng từ thanh toán (query param autoPrint=true)
       if ((route.query?.autoPrint === 'true' || route.query?.autoPrint === '1') && !hasAutoPrinted.value) {
-        if (!isOnlineWaitingConfirm.value && Number(invoiceData.value.status) !== 6) {
+        if (canPrintInvoice.value) {
           hasAutoPrinted.value = true
           setTimeout(() => {
             handlePrint()
@@ -1053,7 +1152,7 @@ watch(
 // STEPPER: HIỂN THỊ CÁC BƯỚC ĐÃ TỚI + DUY NHẤT 1 BƯỚC TIẾP THEO LIỀN KỀ (PENDING)
 // =========================================================================
 const visibleSteps = computed(() => {
-  const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
+  const isPureStore = isPureStoreOrder.value
   const curStatus = Number(invoiceData.value.status) || 1
   const createTime = invoiceData.value.createTime || invoiceData.value.steps[0]?.time || ''
   const finishTime = invoiceData.value.lastUpdated || invoiceData.value.paymentHistory?.time || createTime
@@ -1061,7 +1160,7 @@ const visibleSteps = computed(() => {
   // Đơn đã hủy (status = 6)
   if (curStatus === 6) {
     return [
-      { id: 1, name: isAtStore ? 'Hóa đơn chờ' : 'Chờ xác nhận', time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
+      { id: 1, name: isPureStore ? 'Hóa đơn chờ' : 'Chờ xác nhận', time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
       { id: 6, name: 'Đã hủy đơn', time: finishTime, done: false, active: true, pending: false, isCancelled: true, icon: 'cancelled' }
     ]
   }
@@ -1069,7 +1168,7 @@ const visibleSteps = computed(() => {
   // Đơn giao hàng thất bại (status = 7)
   if (curStatus === 7) {
     return [
-      { id: 1, name: 'Chờ xác nhận', time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
+      { id: 1, name: (displayLoaiDon.value === 'Tại quầy' ? 'Hóa đơn chờ' : 'Chờ xác nhận'), time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
       { id: 2, name: 'Đã xác nhận', done: true, active: false, pending: false, icon: 'check' },
       { id: 3, name: 'Chờ vận chuyển', done: true, active: false, pending: false, icon: 'box' },
       { id: 4, name: 'Đang vận chuyển', done: true, active: false, pending: false, icon: 'truck' },
@@ -1077,8 +1176,8 @@ const visibleSteps = computed(() => {
     ]
   }
 
-  // Đơn tại quầy
-  if (isAtStore) {
+  // Đơn tại quầy thuần túy (không giao hàng)
+  if (isPureStore) {
     return [
       { id: 1, name: 'Hóa đơn chờ', time: createTime, done: curStatus >= 2, active: curStatus === 1, pending: false, icon: 'hourglass' },
       { id: 2, name: 'Đã xác nhận', time: curStatus >= 2 ? finishTime : '', done: curStatus >= 5, active: curStatus === 2, pending: curStatus < 2, icon: 'check' },
@@ -1086,7 +1185,8 @@ const visibleSteps = computed(() => {
     ]
   }
 
-  // Đơn Online: Lấy các bước <= curStatus VÀ CỘNG THÊM 1 BƯỚC TIẾP THEO (curStatus + 1)
+  // Đơn có giao hàng (cả Đơn Online và Đơn giao hàng tạo tại quầy "online tại quầy"):
+  // Lấy các bước <= curStatus VÀ CỘNG THÊM 1 BƯỚC TIẾP THEO (curStatus + 1)
   const maxStepToShow = Math.min(curStatus + 1, 5)
 
   return invoiceData.value.steps
@@ -1095,9 +1195,14 @@ const visibleSteps = computed(() => {
         const isDone = s.id < curStatus
         const isActive = s.id === curStatus
         const isPending = s.id > curStatus
+        let stepName = s.name
+        if (s.id === 1) {
+          stepName = displayLoaiDon.value === 'Tại quầy' ? 'Hóa đơn chờ' : 'Chờ xác nhận'
+        }
 
         return {
           ...s,
+          name: stepName,
           done: isDone,
           active: isActive,
           pending: isPending,
@@ -1108,9 +1213,9 @@ const visibleSteps = computed(() => {
 
 // Thông tin trạng thái kế tiếp
 const nextStatusInfo = computed(() => {
-  const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
+  const isPureStore = isPureStoreOrder.value
   const cur = Number(invoiceData.value.status)
-  if (isAtStore) {
+  if (isPureStore) {
     if (cur === 1) return { nextStatus: 2, label: 'Xác Nhận Đơn Hàng' }
     if (cur === 2) return { nextStatus: 5, label: 'Hoàn Thành Đơn Hàng' }
     return null
@@ -1143,12 +1248,16 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null, cus
   }
 
   updatingStatus.value = true
+  const currentAuth = getCurrentUser()
+  const authStaffName = currentAuth?.tenNhanVien || currentAuth?.tenTaiKhoan || 'Nhân viên bán hàng'
   try {
     let success = false
     let lastError = null
 
     const payload = {
       trangThai: newStatus,
+      nguoiThucHien: authStaffName,
+      nguoiCapNhat: authStaffName,
       ghiChu: note || undefined,
       email: customerEmail ? customerEmail.trim() : undefined
     }
@@ -1188,8 +1297,8 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null, cus
     }
 
     if (success) {
-      const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
-      applyOrderStatus(newStatus, isAtStore)
+      const isPureStore = isPureStoreOrder.value
+      applyOrderStatus(newStatus, isPureStore)
       invoiceData.value.status = newStatus
       const option = statusOptions.find(o => o.value === newStatus)
       const labelText = option ? option.label : (newStatus === 7 ? 'Giao hàng thất bại' : newStatus)
@@ -1204,9 +1313,8 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null, cus
         await loadDetail(id)
       }
       // Tự động in hóa đơn ngay khi đơn hàng chuyển sang trạng thái "Đã xác nhận" (status 2)
-      // hoặc trạng thái "Hoàn thành" (status 5) đối với đơn tại quầy
-      const isStoreOrder = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
-      if (newStatus === 2 || (newStatus === 5 && isStoreOrder)) {
+      // hoặc trạng thái "Hoàn thành" (status 5) đối với đơn tại quầy thuần túy
+      if (newStatus === 2 || (newStatus === 5 && isPureStore)) {
         setTimeout(() => {
           handlePrint()
         }, 500)
@@ -1353,13 +1461,13 @@ const handleNextStatus = () => {
   openConfirmModal({
     title: isConfirming ? 'Xác Nhận Đơn Hàng' : 'Xác Nhận Chuyển Trạng Thái',
     message: isConfirming
-      ? `Bạn có chắc chắn muốn xác nhận đơn hàng "${invoiceData.value.code}" không?`
-      : `Bạn có chắc chắn muốn chuyển trạng thái đơn hàng sang "${info.label}" không?`,
+        ? `Bạn có chắc chắn muốn xác nhận đơn hàng "${invoiceData.value.code}" không?`
+        : `Bạn có chắc chắn muốn chuyển trạng thái đơn hàng sang "${info.label}" không?`,
     subText: isConfirming
-      ? (isOnlineWaiting
-          ? 'Hệ thống sẽ cập nhật trạng thái đơn hàng sang "Đã xác nhận" và gửi email thông báo chi tiết cho khách hàng.'
-          : 'Hệ thống sẽ cập nhật trạng thái đơn hàng, gửi email xác nhận và hỗ trợ xuất in hóa đơn (PDF).')
-      : 'Hệ thống sẽ cập nhật trạng thái đơn hàng và mở bước tiếp theo trên tiến trình.',
+        ? (isOnlineWaiting
+            ? 'Hệ thống sẽ cập nhật trạng thái đơn hàng sang "Đã xác nhận" và gửi email thông báo chi tiết cho khách hàng.'
+            : 'Hệ thống sẽ cập nhật trạng thái đơn hàng, gửi email xác nhận và hỗ trợ xuất in hóa đơn (PDF).')
+        : 'Hệ thống sẽ cập nhật trạng thái đơn hàng và mở bước tiếp theo trên tiến trình.',
     confirmText: isConfirming ? 'Xác nhận đơn' : 'Đồng ý chuyển',
     cancelText: 'Hủy bỏ',
     type: 'primary',
@@ -1421,13 +1529,13 @@ const handleFailedDelivery = () => {
   openConfirmModal({
     title: isLastAttempt ? 'Đã Giao Lại 3 Lần Thất Bại - Hủy Đơn' : 'Xác Nhận Giao Hàng Thất Bại',
     message: isLastAttempt
-      ? `Đơn hàng "${invoiceData.value.code}" đã được giao lại tối đa 3 lần nhưng không thành công. Hệ thống sẽ tự động HỦY ĐƠN HÀNG.`
-      : `Đánh dấu đơn hàng "${invoiceData.value.code}" giao hàng không thành công (Đã giao lại: ${retries}/3 lần)?`,
+        ? `Đơn hàng "${invoiceData.value.code}" đã được giao lại tối đa 3 lần nhưng không thành công. Hệ thống sẽ tự động HỦY ĐƠN HÀNG.`
+        : `Đánh dấu đơn hàng "${invoiceData.value.code}" giao hàng không thành công (Đã giao lại: ${retries}/3 lần)?`,
     subText: isLastAttempt
-      ? 'Theo quy định, đơn hàng giao lại tối đa 3 lần thất bại sẽ được chuyển sang trạng thái "Đã hủy".'
-      : (retries === maxDeliveryRetries - 1
-          ? 'LƯU Ý: Đơn hàng đã ở lần giao lại thứ 3 (tối đa). Nếu thất bại lần này, đơn hàng sẽ phải hủy.'
-          : 'Vui lòng nhập lý do giao hàng thất bại (khách từ chối nhận, không liên lạc được, sai địa chỉ...).'),
+        ? 'Theo quy định, đơn hàng giao lại tối đa 3 lần thất bại sẽ được chuyển sang trạng thái "Đã hủy".'
+        : (retries === maxDeliveryRetries - 1
+            ? 'LƯU Ý: Đơn hàng đã ở lần giao lại thứ 3 (tối đa). Nếu thất bại lần này, đơn hàng sẽ phải hủy.'
+            : 'Vui lòng nhập lý do giao hàng thất bại (khách từ chối nhận, không liên lạc được, sai địa chỉ...).'),
     confirmText: isLastAttempt ? 'Xác nhận hủy đơn' : 'Xác nhận thất bại',
     cancelText: 'Quay lại',
     type: 'danger',
@@ -1473,8 +1581,8 @@ const handleConfirmPaymentAndPrint = () => {
     title: isOnlineWaiting ? 'Xác Nhận Thanh Toán' : 'Xác Nhận Thanh Toán Hóa Đơn',
     message: `Xác nhận hóa đơn "${invoiceData.value.code}" đã hoàn tất thanh toán?`,
     subText: isOnlineWaiting
-      ? 'Hệ thống sẽ cập nhật trạng thái "Đã thanh toán" cho đơn hàng (chưa in hóa đơn do đơn online đang chờ xác nhận).'
-      : 'Hệ thống sẽ cập nhật trạng thái "Đã thanh toán" và tự động mở hộp thoại in hóa đơn.',
+        ? 'Hệ thống sẽ cập nhật trạng thái "Đã thanh toán" cho đơn hàng (chưa in hóa đơn do đơn online đang chờ xác nhận).'
+        : 'Hệ thống sẽ cập nhật trạng thái "Đã thanh toán" và tự động mở hộp thoại in hóa đơn.',
     confirmText: isOnlineWaiting ? 'Xác nhận thanh toán' : 'Xác nhận & In hóa đơn',
     cancelText: 'Hủy bỏ',
     type: 'primary',
@@ -1483,6 +1591,8 @@ const handleConfirmPaymentAndPrint = () => {
       const code = invoiceCode.value || invoiceData.value.code
       if (!id && !code) return
       updatingStatus.value = true
+      const currentAuth = getCurrentUser()
+      const authStaffName = currentAuth?.tenNhanVien || currentAuth?.tenTaiKhoan || 'Nhân viên bán hàng'
       try {
         let success = false
         if (id) {
@@ -1508,7 +1618,7 @@ const handleConfirmPaymentAndPrint = () => {
         if (success) {
           showToast('Xác nhận thanh toán thành công!')
           if (code) await loadDetail(code)
-          if (!isOnlineWaitingConfirm.value) {
+          if (canPrintInvoice.value) {
             setTimeout(() => {
               handlePrint()
             }, 500)
@@ -1624,12 +1734,12 @@ const filteredProductItems = computed(() => {
 })
 
 const handlePrint = () => {
-  if (isOnlineWaitingConfirm.value) {
-    showToast('Đơn hàng online đang chờ xác nhận là chưa in hóa đơn!', 'warning')
-    return
-  }
-  if (Number(invoiceData.value.status) === 6) {
-    showToast('Đơn hàng đã hủy, không thể in hóa đơn!', 'warning')
+  if (!canPrintInvoice.value) {
+    if (isOnlineWaitingConfirm.value) {
+      showToast('Đơn hàng online đang chờ xác nhận là chưa in hóa đơn!', 'warning')
+    } else {
+      showToast('Chỉ trạng thái "Đã xác nhận" mới in hóa đơn, các trạng thái sau không cần in hóa đơn!', 'warning')
+    }
     return
   }
   const originalTitle = document.title
@@ -1699,7 +1809,7 @@ onBeforeUnmount(() => {
           <div class="meta-row">
             <span class="meta-label">Loại đơn:</span>
             <span class="meta-value">
-              <span class="badge-loai-don">{{ invoiceData.delivery.type || 'Tại quầy' }}</span>
+              <span class="badge-loai-don">{{ displayLoaiDon }}</span>
               <span v-if="isOnlineWaitingConfirm" class="badge-unprinted-pill" title="Đơn hàng online chờ xác nhận là chưa in hóa đơn">Chưa in HĐ</span>
             </span>
           </div>
@@ -1717,11 +1827,11 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- Cột Mã QR Hóa Đơn -->
-        <div class="meta-info-col col-qr">
+        <div class="meta-info-col col-qr" v-if="false">
           <div
-            class="meta-qr-container"
-            :title="'Nhấp để tải mã QR hóa đơn ' + (invoiceData.code || '') + ' về máy'"
-            @click="downloadInvoiceQr"
+              class="meta-qr-container"
+              :title="'Nhấp để tải mã QR hóa đơn ' + (invoiceData.code || '') + ' về máy'"
+              @click="downloadInvoiceQr"
           >
             <img :src="invoiceQrDataUrl" alt="Mã QR Hóa Đơn" class="meta-qr-img" />
           </div>
@@ -1853,12 +1963,12 @@ onBeforeUnmount(() => {
             <div class="right-action-buttons">
               <!-- Nút chuyển tiếp trạng thái kế tiếp (VD: Xác nhận đơn & In hóa đơn) -->
               <button
-                v-if="nextStatusInfo"
-                class="btn-next-action"
-                :class="{ 'btn-confirm-highlight': nextStatusInfo.nextStatus === 2 }"
-                type="button"
-                :disabled="updatingStatus"
-                @click="handleNextStatus"
+                  v-if="nextStatusInfo"
+                  class="btn-next-action"
+                  :class="{ 'btn-confirm-highlight': nextStatusInfo.nextStatus === 2 }"
+                  type="button"
+                  :disabled="updatingStatus"
+                  @click="handleNextStatus"
               >
                 {{ nextStatusInfo.nextStatus === 2 ? (isOnlineDelivery ? '✓ Xác nhận đơn hàng' : '✓ Xác nhận đơn & In hóa đơn') : ('✓ ' + nextStatusInfo.label) }}
               </button>
@@ -1870,19 +1980,19 @@ onBeforeUnmount(() => {
 
               <!-- Nút Giao lại đơn hàng khi đơn đã bị đánh dấu thất bại và chưa vượt quá 3 lần -->
               <button
-                v-if="Number(invoiceData.status) === 7 && canRetryDelivery"
-                class="btn-retry-action"
-                type="button"
-                :disabled="updatingStatus"
-                @click="handleRetryDelivery"
+                  v-if="Number(invoiceData.status) === 7 && canRetryDelivery"
+                  class="btn-retry-action"
+                  type="button"
+                  :disabled="updatingStatus"
+                  @click="handleRetryDelivery"
               >
                 ↻ Giao lại đơn hàng (Lần {{ deliveryRetryCount + 1 }}/3)
               </button>
 
               <!-- Huy hiệu cảnh báo khi đã giao lại tối đa 3 lần -->
               <span
-                v-if="Number(invoiceData.status) === 7 && isMaxRetriesReached"
-                class="badge-retry-limit-exceeded"
+                  v-if="Number(invoiceData.status) === 7 && isMaxRetriesReached"
+                  class="badge-retry-limit-exceeded"
               >
                 ⚠️ Đã giao lại tối đa 3/3 lần - Bắt buộc hủy đơn
               </span>
@@ -1934,12 +2044,12 @@ onBeforeUnmount(() => {
                     {{ invoiceData.customer.email || '—' }}
                   </span>
                   <button
-                    v-if="invoiceData.customer.email && invoiceData.customer.email.includes('@')"
-                    type="button"
-                    class="btn-send-email-pill"
-                    :disabled="sendingEmail"
-                    @click="handleSendConfirmationEmail()"
-                    title="Gửi lại email xác nhận đơn hàng"
+                      v-if="invoiceData.customer.email && invoiceData.customer.email.includes('@')"
+                      type="button"
+                      class="btn-send-email-pill"
+                      :disabled="sendingEmail"
+                      @click="handleSendConfirmationEmail()"
+                      title="Gửi lại email xác nhận đơn hàng"
                   >
                     {{ sendingEmail ? 'Đang gửi...' : '✉ Gửi lại mail' }}
                   </button>
@@ -1965,19 +2075,7 @@ onBeforeUnmount(() => {
               </div>
               <div class="info-list-row">
                 <span class="info-row-label">Đơn vị vận chuyển</span>
-                <span class="info-row-val">{{ invoiceData.delivery.carrier || 'Giao Hàng Nhanh (GHN)' }}</span>
-              </div>
-              <div class="info-list-row" v-if="invoiceData.delivery.trackingCode">
-                <span class="info-row-label">Mã vận đơn GHN</span>
-                <span class="info-row-val font-mono" style="color: #ea580c; font-weight: 700;">
-                  {{ invoiceData.delivery.trackingCode }}
-                </span>
-              </div>
-              <div class="info-list-row" v-else-if="Number(invoiceData.type) === 2 || invoiceData.delivery.type === 'Online'">
-                <span class="info-row-label">Vận đơn GHN</span>
-                <button type="button" class="btn-create-ghn" :disabled="creatingGhnOrder" @click="handleCreateGhnOrder">
-                  {{ creatingGhnOrder ? 'Đang tạo...' : '🚚 Tạo vận đơn GHN' }}
-                </button>
+                <span class="info-row-val">{{ invoiceData.delivery.carrier || '—' }}</span>
               </div>
               <div class="info-list-row">
                 <span class="info-row-label">Ghi chú</span>
@@ -2085,11 +2183,11 @@ onBeforeUnmount(() => {
           <div class="payment-actions-col">
             <!-- Nút Xác nhận thanh toán & In hóa đơn khi đơn chưa thanh toán (chỉ hiện khi chưa hoàn thành và chưa hủy) -->
             <button
-              v-if="Number(invoiceData.status) !== 5 && Number(invoiceData.status) !== 6 && invoiceData.paymentHistory.status !== 'Đã thanh toán'"
-              class="btn-pay-confirm-action"
-              type="button"
-              :disabled="updatingStatus"
-              @click="handleConfirmPaymentAndPrint"
+                v-if="Number(invoiceData.status) !== 5 && Number(invoiceData.status) !== 6 && invoiceData.paymentHistory.status !== 'Đã thanh toán'"
+                class="btn-pay-confirm-action"
+                type="button"
+                :disabled="updatingStatus"
+                @click="handleConfirmPaymentAndPrint"
             >
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"></polyline>
@@ -2100,10 +2198,10 @@ onBeforeUnmount(() => {
 
             <!-- Nút In hóa đơn - khả dụng khi đã xác nhận hoặc đơn tại quầy (đơn online chờ xác nhận là CHƯA in hóa đơn) -->
             <button
-              v-if="canPrintInvoice"
-              class="btn-blue-action"
-              type="button"
-              @click="handlePrint"
+                v-if="canPrintInvoice"
+                class="btn-blue-action"
+                type="button"
+                @click="handlePrint"
             >
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 9 6 2 18 2 18 9"></polyline>
@@ -2115,8 +2213,8 @@ onBeforeUnmount(() => {
 
             <!-- Khối thông báo Chưa in hóa đơn khi đơn hàng online ở trạng thái Chờ xác nhận -->
             <div
-              v-else-if="isOnlineWaitingConfirm"
-              class="unprinted-invoice-notice"
+                v-else-if="isOnlineWaitingConfirm"
+                class="unprinted-invoice-notice"
             >
               <span class="unprinted-icon">ℹ</span> Chưa in hóa đơn (Chờ xác nhận)
             </div>
@@ -2266,8 +2364,8 @@ onBeforeUnmount(() => {
                   <span class="log-time-text">{{ formatDateTime(log.thoiGian) }}</span>
                 </div>
                 <div class="log-sub-info">
-                  <span>Người thực hiện: <strong>{{ log.nguoiThucHien }}</strong></span>
-                  <span v-if="log.ghiChu"> — {{ log.ghiChu }}</span>
+                  <span>Người thực hiện: <strong>{{ getLogActor(log) }}</strong></span>
+                  <span v-if="log.ghiChu && log.ghiChu.trim() !== String(log.hanhDong || log.action || '').trim()"> — {{ log.ghiChu }}</span>
                 </div>
               </div>
             </div>
@@ -2312,11 +2410,11 @@ onBeforeUnmount(() => {
               <div v-if="confirmModal.sendEmail" class="email-input-subgroup">
                 <label class="modal-label">Địa chỉ email nhận thông báo <span class="text-danger">*</span></label>
                 <input
-                  type="email"
-                  v-model="confirmModal.customerEmail"
-                  placeholder="Nhập email khách hàng (VD: khachhang@gmail.com)..."
-                  class="modal-input-field"
-                  maxlength="100"
+                    type="email"
+                    v-model="confirmModal.customerEmail"
+                    placeholder="Nhập email khách hàng (VD: khachhang@gmail.com)..."
+                    class="modal-input-field"
+                    maxlength="100"
                 />
                 <p class="email-guide-text">Hệ thống sẽ tự động gửi email xác nhận chi tiết đơn hàng cho khách hàng qua địa chỉ email này.</p>
               </div>
@@ -2343,9 +2441,9 @@ onBeforeUnmount(() => {
             <button class="btn-confirm-accept" :class="confirmModal.type" type="button" :disabled="updatingStatus" @click="handleConfirmAccept">
               {{ updatingStatus ? 'Đang xử lý...' : (
                 confirmModal.showEmailInput && confirmModal.sendEmail && confirmModal.customerEmail
-                  ? (confirmModal.showPrintPdfOption && confirmModal.printPdf ? '✓ Xác nhận, Gửi mail & In PDF' : '✓ Xác nhận & Gửi mail')
-                  : (confirmModal.showPrintPdfOption && confirmModal.printPdf ? '✓ Xác nhận & In PDF' : confirmModal.confirmText)
-              ) }}
+                    ? (confirmModal.showPrintPdfOption && confirmModal.printPdf ? '✓ Xác nhận, Gửi mail & In PDF' : '✓ Xác nhận & Gửi mail')
+                    : (confirmModal.showPrintPdfOption && confirmModal.printPdf ? '✓ Xác nhận & In PDF' : confirmModal.confirmText)
+            ) }}
             </button>
           </div>
         </div>
@@ -2397,7 +2495,7 @@ onBeforeUnmount(() => {
           <div class="print-box-title">THÔNG TIN ĐƠN HÀNG</div>
           <div class="print-data-line">
             <span class="p-label">Hình thức:</span>
-            <span class="p-val font-bold">{{ invoiceData.delivery.type || 'Tại quầy' }}</span>
+            <span class="p-val font-bold">{{ displayLoaiDon }}</span>
           </div>
           <div class="print-data-line">
             <span class="p-label">Thu ngân:</span>
@@ -2462,11 +2560,12 @@ onBeforeUnmount(() => {
                 </div>
               </template>
             </div>
-            <div class="print-payment-qr">
+            <!-- Bỏ mã QR ở phần in hóa đơn -->
+            <div class="print-payment-qr" v-if="false">
               <img
-                :src="invoiceQrDataUrl"
-                alt="Mã QR Hóa Đơn"
-                class="print-qr-img"
+                  :src="invoiceQrDataUrl"
+                  alt="Mã QR Hóa Đơn"
+                  class="print-qr-img"
               />
             </div>
           </div>
@@ -2618,7 +2717,7 @@ onBeforeUnmount(() => {
   position: fixed;
   top: 24px;
   right: 28px;
-  background-color: #3e5c76;
+  background-color: var(--blue, #496883);
   color: #ffffff;
   padding: 10px 18px;
   border-radius: 8px;
@@ -2626,7 +2725,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   font-weight: 600;
   z-index: 9999;
 }
@@ -2671,7 +2770,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
 }
 
 .crumb-parent {
@@ -2682,7 +2781,7 @@ onBeforeUnmount(() => {
 }
 
 .crumb-parent:hover {
-  color: #3e5c76;
+  color: var(--blue, #496883);
   text-decoration: underline;
 }
 
@@ -2691,7 +2790,7 @@ onBeforeUnmount(() => {
 }
 
 .crumb-current {
-  color: #3e5c76;
+  color: var(--blue, #496883);
   font-weight: 700;
 }
 
@@ -2708,7 +2807,7 @@ onBeforeUnmount(() => {
   padding: 7px 14px;
   font-size: 0.82rem;
   font-weight: 600;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -2725,7 +2824,7 @@ onBeforeUnmount(() => {
 }
 
 .nav-arrow {
-  font-size: 0.88rem;
+  font-size: 0.95rem;
 }
 
 /* Meta Info Card */
@@ -2740,7 +2839,7 @@ onBeforeUnmount(() => {
 
 .meta-info-grid {
   display: grid;
-  grid-template-columns: 1.15fr 1fr 1fr auto;
+  grid-template-columns: 1.15fr 1fr 1fr;
   align-items: center;
   gap: 0;
 }
@@ -2833,7 +2932,7 @@ onBeforeUnmount(() => {
 .meta-row {
   display: flex;
   align-items: center;
-  font-size: 0.84rem;
+  font-size: 0.95rem;
   line-height: 1.4;
 }
 
@@ -2865,7 +2964,7 @@ onBeforeUnmount(() => {
 }
 
 .meta-code-blue {
-  color: #3e5c76;
+  color: var(--blue, #496883);
   font-weight: 700;
   font-size: 0.92rem;
   letter-spacing: 0.3px;
@@ -2878,7 +2977,7 @@ onBeforeUnmount(() => {
   font-size: 0.76rem;
   font-weight: 600;
   background: #f4efe9;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   border: 1px solid #e2d8cd;
 }
 
@@ -2937,11 +3036,11 @@ onBeforeUnmount(() => {
   gap: 8px;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #3e5c76;
+  color: var(--blue, #496883);
 }
 
 .title-icon {
-  color: #3e5c76;
+  color: var(--blue, #496883);
   flex-shrink: 0;
 }
 
@@ -3414,7 +3513,7 @@ onBeforeUnmount(() => {
 .total-price-blue {
   font-size: 1.25rem;
   font-weight: 800;
-  color: #3e5c76;
+  color: var(--blue, #496883);
 }
 
 .payment-card {
@@ -3469,7 +3568,7 @@ onBeforeUnmount(() => {
 .pay-method-title {
   font-size: 0.92rem;
   font-weight: 700;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   margin-bottom: 4px;
 }
 
@@ -3489,7 +3588,7 @@ onBeforeUnmount(() => {
 .pay-amount-bold {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #3e5c76;
+  color: var(--blue, #496883);
 }
 
 .pay-note-sub {
@@ -3633,7 +3732,7 @@ onBeforeUnmount(() => {
   border: 1.5px solid #d5c8b8;
   border-radius: 8px;
   padding: 0 10px;
-  font-size: 0.84rem;
+  font-size: 0.95rem;
   color: #2b353b;
   background: #ffffff;
   outline: none;
@@ -3659,13 +3758,15 @@ onBeforeUnmount(() => {
 .products-table-styled {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.84rem;
+  font-size: 0.95rem;
 }
 
 .products-table-styled thead th {
-  background: #f5efeb;
-  border-bottom: 2px solid #ebd9c8;
-  color: #3e5c76;
+  background-color: #f7f5ef;
+  border-bottom: 2px solid #e9e5db;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--blue, #496883);
   font-weight: 700;
   padding: 11px 12px;
   font-size: 0.82rem;
@@ -3684,7 +3785,7 @@ onBeforeUnmount(() => {
 }
 
 .text-code {
-  color: #3e5c76;
+  color: var(--blue, #496883);
   font-weight: 700;
 }
 
@@ -3723,7 +3824,7 @@ onBeforeUnmount(() => {
   border-radius: 4px;
   padding: 2px 6px;
   font-size: 0.74rem;
-  color: #3e5c76;
+  color: var(--blue, #496883);
 }
 
 .color-dot-indicator {
@@ -3735,7 +3836,7 @@ onBeforeUnmount(() => {
 }
 
 .text-price-total {
-  color: #3e5c76;
+  color: var(--blue, #496883);
   font-weight: 700;
 }
 
@@ -3793,7 +3894,7 @@ onBeforeUnmount(() => {
 }
 
 .btn-close-modal:hover {
-  color: #3e5c76;
+  color: var(--blue, #496883);
 }
 
 .modal-body {
@@ -3807,7 +3908,7 @@ onBeforeUnmount(() => {
 .card-title {
   font-size: 1rem;
   font-weight: 700;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   margin: 0;
 }
 
@@ -3828,7 +3929,7 @@ onBeforeUnmount(() => {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background-color: #3e5c76;
+  background-color: var(--blue, #496883);
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -3864,7 +3965,7 @@ onBeforeUnmount(() => {
   border: 1px solid #d5c8b8;
   border-radius: 8px;
   padding: 0 12px;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   box-sizing: border-box;
   outline: none;
 }
@@ -3874,7 +3975,7 @@ onBeforeUnmount(() => {
   border: 1px solid #d5c8b8;
   border-radius: 8px;
   padding: 10px 12px;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   box-sizing: border-box;
   resize: vertical;
   outline: none;
@@ -4042,7 +4143,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   color: #2b353b;
   cursor: pointer;
 }
@@ -4326,7 +4427,7 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   color: #475569;
   margin-bottom: 2px;
 }
@@ -4351,7 +4452,7 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.84rem;
+  font-size: 0.95rem;
   color: #475569;
   margin-bottom: 3px;
 }
@@ -4365,7 +4466,7 @@ onBeforeUnmount(() => {
   color: #0f172a;
 }
 
-.print-payment-qr {
+.print-payment-qr { display: none !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4390,7 +4491,7 @@ onBeforeUnmount(() => {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 10mm 15mm;
+    margin: 8mm 12mm 10mm 12mm;
   }
 
   /* Reset trang chi tiết để hóa đơn chiếm toàn bộ khổ giấy in */
@@ -4415,8 +4516,18 @@ onBeforeUnmount(() => {
   .modal-backdrop,
   .sidebar,
   .top-header,
-  header {
+  header,
+  .chi-tiet-page > *:not(.printable-invoice) {
     display: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .unused-dummy-hide {
+    display: flex;
     visibility: hidden !important;
   }
 
@@ -4435,10 +4546,11 @@ onBeforeUnmount(() => {
   }
 
   .print-header-top {
+    margin-bottom: 8px !important;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 14px;
+    /* compact header */
   }
 
   .print-brand-badge-row {
@@ -4500,6 +4612,7 @@ onBeforeUnmount(() => {
   }
 
   .print-divider {
+    margin: 8px 0 10px 0 !important;
     height: 2px;
     background-color: #111827 !important;
     margin: 12px 0 16px 0;
@@ -4508,6 +4621,7 @@ onBeforeUnmount(() => {
   }
 
   .print-info-grid {
+    margin-bottom: 10px !important;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
@@ -4560,6 +4674,7 @@ onBeforeUnmount(() => {
   }
 
   .print-table {
+    margin-bottom: 10px !important;
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 18px;
@@ -4571,7 +4686,7 @@ onBeforeUnmount(() => {
     font-weight: 700;
     border: 1px solid #d1d5db;
     padding: 8px 10px;
-    font-size: 0.84rem;
+    font-size: 0.95rem;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -4579,7 +4694,7 @@ onBeforeUnmount(() => {
   .print-table td {
     border: 1px solid #e5e7eb;
     padding: 8px 10px;
-    font-size: 0.84rem;
+    font-size: 0.95rem;
     color: #1f2937;
   }
 
@@ -4588,6 +4703,7 @@ onBeforeUnmount(() => {
   }
 
   .print-bottom-summary {
+    margin-bottom: 12px !important;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -4697,7 +4813,7 @@ onBeforeUnmount(() => {
     print-color-adjust: exact !important;
   }
 
-  .print-payment-qr {
+  .print-payment-qr { display: none !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -4763,6 +4879,7 @@ onBeforeUnmount(() => {
 
   /* Khối chữ ký */
   .print-signatures-row {
+    margin-top: 10px !important;
     display: flex;
     justify-content: space-around;
     text-align: center;
@@ -4791,7 +4908,7 @@ onBeforeUnmount(() => {
   }
 
   .sig-space {
-    height: 60px;
+    height: 40px;
   }
 
   .sig-name {
@@ -4802,7 +4919,7 @@ onBeforeUnmount(() => {
 
   /* Lời cảm ơn và chính sách */
   .print-footer-notes {
-    margin-top: 28px;
+    margin-top: 14px;
     text-align: center;
     border-top: 1px dashed #d1d5db;
     padding-top: 14px;
@@ -4829,142 +4946,4 @@ onBeforeUnmount(() => {
     font-weight: normal !important;
   }
 }
-
-.badge-carrier-styled {
-  background: #eef4f8;
-  color: #2b5c76;
-  font-weight: 700;
-  font-size: 12px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  border: 1px solid #d0e0ec;
-}
-.btn-small-carrier-edit {
-  background: #ffffff;
-  border: 1px solid #d5c8b8;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #3e5c76;
-  padding: 2px 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-small-carrier-edit:hover {
-  background: #3e5c76;
-  color: #ffffff;
-}
-.modal-carrier-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  backdrop-filter: blur(2px);
-}
-.modal-carrier-card {
-  background: #ffffff;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 440px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-  overflow: hidden;
-}
-.modal-carrier-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #eee;
-}
-.btn-carrier-close {
-  background: none;
-  border: none;
-  font-size: 18px;
-  color: #94a3b8;
-  cursor: pointer;
-}
-.modal-carrier-body {
-  padding: 18px 20px;
-}
-.carrier-opt-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.carrier-opt-card {
-  display: flex;
-  align-items: center;
-  padding: 10px 14px;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.carrier-opt-card.active {
-  border-color: #3e5c76;
-  background: #f0f7fb;
-}
-.carrier-opt-text {
-  margin-left: 10px;
-  display: flex;
-  flex-direction: column;
-}
-.carrier-opt-title {
-  font-weight: 700;
-  font-size: 13.5px;
-  color: #1e293b;
-}
-.carrier-opt-desc {
-  font-size: 11.5px;
-  color: #64748b;
-}
-.modal-carrier-foot {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 14px 20px;
-  border-top: 1px solid #eee;
-  background: #fafafa;
-}
-.btn-carrier-cancel {
-  padding: 8px 16px;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn-carrier-save {
-  padding: 8px 18px;
-  border: none;
-  background: #3e5c76;
-  color: #ffffff;
-  border-radius: 6px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-
-.btn-create-ghn {
-  background: #ea580c;
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.btn-create-ghn:hover {
-  background: #c2410c;
-}
-.btn-create-ghn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 </style>

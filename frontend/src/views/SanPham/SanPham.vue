@@ -19,7 +19,7 @@
           <span>Biến thể</span>
         </button>
 
-        <button type="button" class="btn btn-header-outline" @click="goToAttributesPage" title="Quản lý thuộc tính">
+        <button v-if="isAdmin()" type="button" class="btn btn-header-outline" @click="goToAttributesPage" title="Quản lý thuộc tính">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="4" y1="21" x2="4" y2="14"></line>
             <line x1="4" y1="10" x2="4" y2="3"></line>
@@ -34,7 +34,7 @@
           <span>Thuộc tính</span>
         </button>
 
-        <button type="button" class="btn btn-header-primary" @click="goToAddPage" title="Thêm mới sản phẩm">
+        <button v-if="isAdmin()" type="button" class="btn btn-header-primary" @click="goToAddPage" title="Thêm mới sản phẩm">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -207,6 +207,15 @@
             </svg>
             <span>{{ exporting ? 'Đang xuất...' : 'Xuất Excel' }}</span>
           </button>
+
+          <button v-if="isAdmin()" type="button" class="btn btn-filter-import" @click="openImportModal" title="Nhập danh sách sản phẩm từ file Excel">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span>Nhập Excel</span>
+          </button>
         </div>
       </div>
     </div>
@@ -235,13 +244,10 @@
           <thead>
           <tr>
             <th style="width: 50px; text-align: center;">STT</th>
-            <th style="width: 90px; text-align: center;">Ảnh</th>
-            <th style="width: 120px;">Mã SP</th>
+            <th style="width: 140px;">Mã SP</th>
             <th>Tên sản phẩm</th>
             <th style="width: 170px;">Phân loại</th>
-            <th style="width: 80px; text-align: center;">Số màu</th>
-            <th style="width: 95px; text-align: center;">Số kích thước</th>
-            <th style="width: 165px;">Giá bán</th>
+            <th style="width: 200px; white-space: nowrap;">Giá bán</th>
             <th style="width: 90px; text-align: center;">Tồn kho</th>
             <th style="width: 120px;">Ngày tạo</th>
             <th style="width: 130px; text-align: center;">Trạng thái</th>
@@ -250,7 +256,7 @@
           </thead>
           <tbody>
           <tr v-if="loading">
-            <td colspan="12" class="empty-state">
+            <td colspan="9" class="empty-state">
               <div class="empty-box">
                 <div class="loading-spinner"></div>
                 <span class="empty-text">Đang tải dữ liệu sản phẩm...</span>
@@ -258,7 +264,7 @@
             </td>
           </tr>
           <tr v-else-if="products.length === 0">
-            <td colspan="12" class="empty-state">
+            <td colspan="9" class="empty-state">
               <div class="empty-box">
                 <span class="empty-icon">
                   <svg viewBox="0 0 24 24" width="38" height="38" fill="currentColor" opacity="0.45">
@@ -276,28 +282,18 @@
               {{ pageData.number * pageData.size + index + 1 }}
             </td>
 
-            <!-- Ảnh sản phẩm -->
-            <td style="text-align: center;">
-              <div class="product-img-box">
-                <img
-                    :src="formatImageUrl(item.anhDaiDien) || defaultImage"
-                    :alt="item.tenSanPham"
-                    @error="onImgError"
-                />
+            <!-- Mã sản phẩm (kèm badge % giảm ở góc phải khi có đợt giảm) -->
+            <td class="code-cell">
+              <div class="code-badge-wrapper">
+                <b class="code-text">{{ item.maSanPham }}</b>
                 <span
-                    v-if="item.coGiamGia && item.phanTramGiam"
-                    class="discount-badge-percent product-img-discount"
-                    style="position: absolute; top: -6px; right: -12px; left: auto; margin: 0;"
-                    :title="item.tenDotGiamGia ? `Đợt giảm: ${item.tenDotGiamGia}` : 'Đang áp dụng giảm giá'"
+                  v-if="item.coGiamGia && (item.phanTramGiam || (item.minGia && item.minGiaSauGiam && item.minGia > item.minGiaSauGiam))"
+                  class="discount-badge-percent code-discount-badge"
+                  :title="item.tenDotGiamGia ? `Đợt giảm: ${item.tenDotGiamGia}` : 'Đang áp dụng giảm giá'"
                 >
-                  -{{ item.phanTramGiam }}%
+                  -{{ item.phanTramGiam || Math.round((1 - item.minGiaSauGiam / item.minGia) * 100) }}%
                 </span>
               </div>
-            </td>
-
-            <!-- Mã sản phẩm -->
-            <td class="code-cell">
-              <b>{{ item.maSanPham }}</b>
             </td>
 
             <!-- Tên sản phẩm -->
@@ -315,21 +311,7 @@
               </div>
             </td>
 
-            <!-- Số màu (từ ảnh 1) -->
-            <td style="text-align: center;">
-              <span class="badge-mini-stat color-stat" title="Số màu sắc">
-                {{ item.soMau ?? (item.soLuongBienThe ? 1 : 0) }}
-              </span>
-            </td>
-
-            <!-- Số kích thước (từ ảnh 1) -->
-            <td style="text-align: center;">
-              <span class="badge-mini-stat size-stat" title="Số kích cỡ">
-                {{ item.soKichCo ?? (item.soLuongBienThe ? 1 : 0) }}
-              </span>
-            </td>
-
-            <!-- Giá bán (liên kết đợt giảm giá) -->
+            <!-- Giá bán (không ngắt dòng) -->
             <td class="price-cell">
               <div v-if="item.coGiamGia && item.minGiaSauGiam != null" class="discounted-price-wrapper">
                 <div class="original-price-strikethrough">
@@ -364,8 +346,9 @@
             <!-- Cột thao tác: Chuyển trạng thái kinh doanh, Xem chi tiết biến thể -->
             <td style="text-align: center;">
               <div class="action-buttons-group">
-                <!-- 1. Switch chuyển trạng thái kinh doanh -->
+                <!-- 1. Switch chuyển trạng thái kinh doanh (Chỉ Admin) -->
                 <label
+                  v-if="isAdmin()"
                   class="switch-toggle"
                   :title="item.trangThai === 1 ? 'Đang kinh doanh (nhấn để ngừng)' : 'Đang ngừng kinh doanh (nhấn để bật)'"
                 >
@@ -377,8 +360,9 @@
                   <span class="slider-round"></span>
                 </label>
 
-                <!-- 2. Icon chỉnh sửa biến thể sản phẩm -->
+                <!-- 2. Icon chỉnh sửa biến thể sản phẩm (Chỉ Admin) -->
                 <button
+                    v-if="isAdmin()"
                     class="btn-action btn-edit"
                     @click="goToEditVariant(item)"
                     title="Chỉnh sửa biến thể"
@@ -453,44 +437,46 @@
       </div>
     </div>
 
-    <!-- MODAL XÁC NHẬN HÀNH ĐỘNG (XÓA / ĐỔI TRẠNG THÁI) -->
-    <transition name="fade">
-      <div v-if="confirmDialog.show" class="confirm-modal-overlay" @click="closeConfirmDialog">
-        <div class="confirm-modal-box" @click.stop>
-          <div class="confirm-modal-header" :class="{ 'header-danger': confirmDialog.type === 'danger' }">
-            <div class="confirm-warning-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                <line x1="12" y1="9" x2="12" y2="13"></line>
-                <line x1="12" y1="17" x2="12.01" y2="17"></line>
-              </svg>
+    <!-- MODAL XÁC NHẬN HÀNH ĐỘNG (XÓA / ĐỔI TRẠNG THÁI / GỘP SẢN PHẨM) -->
+    <Teleport to="body">
+      <transition name="fade">
+        <div v-if="confirmDialog.show" class="confirm-modal-overlay" @click="closeConfirmDialog">
+          <div class="confirm-modal-box" @click.stop>
+            <div class="confirm-modal-header" :class="{ 'header-danger': confirmDialog.type === 'danger' }">
+              <div class="confirm-warning-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              </div>
+              <div class="confirm-title-wrap">
+                <h3 class="confirm-title">{{ confirmDialog.title || 'Xác nhận thao tác' }}</h3>
+                <p class="confirm-subtitle">Vui lòng xác nhận để tiếp tục thực hiện</p>
+              </div>
+              <button type="button" class="modal-close-btn" @click="closeConfirmDialog">✕</button>
             </div>
-            <div class="confirm-title-wrap">
-              <h3 class="confirm-title">{{ confirmDialog.title || 'Xác nhận thao tác' }}</h3>
-              <p class="confirm-subtitle">Vui lòng xác nhận để tiếp tục thực hiện</p>
+
+            <div class="confirm-modal-body">
+              <p class="confirm-message-text">{{ confirmDialog.message }}</p>
             </div>
-            <button type="button" class="modal-close-btn" @click="closeConfirmDialog">✕</button>
-          </div>
 
-          <div class="confirm-modal-body">
-            <p class="confirm-message-text">{{ confirmDialog.message }}</p>
-          </div>
-
-          <div class="confirm-modal-footer">
-            <button type="button" class="btn btn-secondary" @click="closeConfirmDialog">
-              Hủy bỏ
-            </button>
-            <button
-                type="button"
-                :class="['btn', confirmDialog.type === 'danger' ? 'btn-confirm-danger' : 'btn-save-confirm']"
-                @click="executeConfirmedAction"
-            >
-              {{ confirmDialog.confirmText || 'Xác nhận' }}
-            </button>
+            <div class="confirm-modal-footer">
+              <button type="button" class="btn btn-secondary" @click="closeConfirmDialog">
+                Hủy bỏ
+              </button>
+              <button
+                  type="button"
+                  :class="['btn', confirmDialog.type === 'danger' ? 'btn-confirm-danger' : 'btn-save-confirm']"
+                  @click="executeConfirmedAction"
+              >
+                {{ confirmDialog.confirmText || 'Xác nhận' }}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </transition>
+      </transition>
+    </Teleport>
 
     <!-- MODAL XEM CHI TIẾT SẢN PHẨM -->
     <transition name="fade">
@@ -684,6 +670,125 @@
         </div>
       </div>
     </transition>
+
+    <!-- Modal Nhập Excel Sản Phẩm -->
+    <Teleport to="body">
+      <div v-if="showImportModal" class="modal-backdrop" @click.self="closeImportModal">
+        <div class="modal-card modal-import-excel">
+          <div class="modal-header">
+            <h3 class="modal-title">Nhập sản phẩm & biến thể từ Excel</h3>
+            <button type="button" class="btn-close-modal" @click="closeImportModal" :disabled="importUploading">✕</button>
+          </div>
+
+          <div class="modal-body">
+            <!-- Tải file mẫu -->
+            <div class="template-box">
+              <div class="template-info">
+                <span class="template-title">Chưa có file mẫu Excel của hệ thống?</span>
+                <span class="template-desc">Tải file mẫu chuẩn gồm: Tên SP, Danh mục, Thương hiệu, Chất liệu, Cổ áo, Tay áo, Xuất xứ, Họa tiết, Mô tả, Màu sắc, Kích cỡ, Giá bán, Số lượng, Link ảnh biến thể.</span>
+              </div>
+              <button type="button" class="btn btn-outline-template" @click="downloadTemplate" :disabled="importUploading">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Tải file mẫu (.xlsx)
+              </button>
+            </div>
+
+            <!-- Khu vực Upload kéo thả -->
+            <div
+              class="upload-dropzone"
+              :class="{ 'is-dragging': isDragging, 'has-file': !!selectedImportFile }"
+              @dragover.prevent="isDragging = true"
+              @dragleave.prevent="isDragging = false"
+              @drop.prevent="onFileDrop"
+              @click="triggerFileInput"
+            >
+              <input
+                ref="fileInputRef"
+                type="file"
+                accept=".xlsx, .xls"
+                class="hidden-file-input"
+                @change="onFileChange"
+              />
+              <div v-if="!selectedImportFile" class="dropzone-empty">
+                <div class="dropzone-icon">
+                  <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="12" y1="18" x2="12" y2="12" />
+                    <polyline points="9 15 12 12 15 15" />
+                  </svg>
+                </div>
+                <p class="dropzone-text-primary">Kéo thả file Excel vào đây hoặc <span>Duyệt file</span></p>
+                <p class="dropzone-text-sub">Chấp nhận file định dạng .xlsx, .xls</p>
+              </div>
+
+              <div v-else class="dropzone-file-selected" @click.stop>
+                <div class="file-icon-badge">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                </div>
+                <div class="file-details">
+                  <span class="file-name">{{ selectedImportFile.name }}</span>
+                  <span class="file-size">{{ (selectedImportFile.size / 1024).toFixed(1) }} KB</span>
+                </div>
+                <button type="button" class="btn-remove-file" title="Xóa file đã chọn" @click.stop="clearSelectedFile" :disabled="importUploading">✕</button>
+              </div>
+            </div>
+
+            <!-- Khối hiển thị lỗi chi tiết khi kiểm tra file -->
+            <div v-if="importErrors.length > 0" class="import-errors-card">
+              <div class="errors-header">
+                <div class="errors-title-wrap">
+                  <span class="errors-badge">{{ importErrors.length }} lỗi</span>
+                  <strong class="errors-heading">File chưa được nhập vào hệ thống!</strong>
+                </div>
+                <p class="errors-desc">Vui lòng kiểm tra và sửa lại các dòng lỗi cụ thể dưới đây trong file Excel rồi thực hiện nhập lại:</p>
+              </div>
+              <div class="errors-list-scroll">
+                <div v-for="(err, idx) in importErrors" :key="idx" class="error-item">
+                  <span class="error-bullet">•</span>
+                  <span class="error-message-text">{{ err }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Loading overlay khi đang xử lý import -->
+            <div v-if="importUploading" class="modal-loading-overlay">
+              <div class="modal-spinner"></div>
+              <span>Hệ thống đang kiểm tra và nhập sản phẩm kèm biến thể, vui lòng chờ trong giây lát...</span>
+            </div>
+          </div>
+
+          <div class="import-modal-footer">
+            <button type="button" class="btn btn-modal-cancel" :disabled="importUploading" @click="closeImportModal">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+              <span>Đóng</span>
+            </button>
+            <button
+              type="button"
+              class="btn btn-modal-import"
+              :disabled="!selectedImportFile || importUploading"
+              @click="handleStartImport"
+            >
+              <svg v-if="!importUploading" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>{{ importUploading ? 'Đang xử lý...' : 'Bắt đầu nhập' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -692,6 +797,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
+import { isAdmin } from '@/utils/auth.js'
 
 const router = useRouter()
 
@@ -975,6 +1081,152 @@ const handleExportExcel = async () => {
   }
 }
 
+// ================= IMPORT EXCEL SẢN PHẨM =================
+const showImportModal = ref(false)
+const selectedImportFile = ref(null)
+const importUploading = ref(false)
+const isDragging = ref(false)
+const importErrors = ref([])
+const fileInputRef = ref(null)
+
+const openImportModal = () => {
+  showImportModal.value = true
+  selectedImportFile.value = null
+  importErrors.value = []
+}
+
+const closeImportModal = () => {
+  if (importUploading.value) return
+  showImportModal.value = false
+  selectedImportFile.value = null
+  importErrors.value = []
+}
+
+const triggerFileInput = () => {
+  if (fileInputRef.value) fileInputRef.value.click()
+}
+
+const validateAndSetFile = (file) => {
+  if (!file) return
+  const name = file.name.toLowerCase()
+  if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) {
+    showToast('Vui lòng chọn file Excel có định dạng .xlsx hoặc .xls!', 'error')
+    return
+  }
+  selectedImportFile.value = file
+  importErrors.value = []
+}
+
+const onFileChange = (e) => {
+  const file = e.target?.files?.[0]
+  if (file) validateAndSetFile(file)
+}
+
+const onFileDrop = (e) => {
+  isDragging.value = false
+  const file = e.dataTransfer?.files?.[0]
+  if (file) validateAndSetFile(file)
+}
+
+const clearSelectedFile = () => {
+  selectedImportFile.value = null
+  if (fileInputRef.value) fileInputRef.value.value = ''
+}
+
+const downloadTemplate = async () => {
+  try {
+    const res = await api.get('/api/san-pham/excel-template', { responseType: 'blob' })
+    const url = URL.createObjectURL(new Blob([res.data]))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'Mau_Import_SanPham.xlsx'
+    a.click()
+    URL.revokeObjectURL(url)
+    showToast('Tải file mẫu Excel thành công!', 'success')
+  } catch (e) {
+    showToast('Không thể tải file mẫu Excel!', 'error')
+  }
+}
+
+// Bắt đầu nhập: Gọi API kiểm tra và nhập dữ liệu
+const handleStartImport = () => {
+  if (!selectedImportFile.value) {
+    showToast('Vui lòng chọn file Excel để nhập dữ liệu!', 'warning')
+    return
+  }
+  executeImport(false)
+}
+
+// Thực hiện gửi file lên backend
+const executeImport = async (xacNhanGop = false) => {
+  if (!selectedImportFile.value) return
+
+  importUploading.value = true
+  importErrors.value = []
+
+  try {
+    const formData = new FormData()
+    formData.append('file', selectedImportFile.value)
+    formData.append('xacNhanGop', xacNhanGop)
+
+    const res = await api.post('/api/san-pham/import-excel', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+    const result = res.data
+
+    // 1. Trường hợp có lỗi dữ liệu trong file Excel (trống trường, sai định dạng, mâu thuẫn thuộc tính)
+    if (result.errors && result.errors.length > 0) {
+      importErrors.value = result.errors
+      showToast(`Phát hiện ${result.errors.length} lỗi trong file Excel!`, 'error')
+      return
+    }
+
+    // 2. Trường hợp phát hiện sản phẩm đã tồn tại trong DB (trùng cả tên và tất cả 7 thuộc tính) và chưa xác nhận gộp
+    if (result.duplicateProducts && result.duplicateProducts.length > 0 && result.message === 'DUPLICATE_PRODUCTS_NEED_CONFIRM') {
+      const dupCount = result.duplicateProducts.length
+      const listStr = result.duplicateProducts.map(p => `  • ${p}`).join('\n')
+
+      openConfirm({
+        title: 'Phát hiện sản phẩm đã tồn tại!',
+        type: 'warning',
+        confirmText: 'Xác nhận gộp',
+        message: `Phát hiện ${dupCount} sản phẩm trong file Excel đã tồn tại trong hệ thống với cùng tất cả các thuộc tính:\n\n${listStr}\n\nNếu bạn tiếp tục, hệ thống sẽ thực hiện:\n  • Tăng số lượng: Cộng dồn số lượng biến thể nhập vào số lượng hiện có.\n  • Cập nhật đơn giá: Cập nhật giá bán theo giá mới nhất vừa nhập.\n  • Thêm mới các biến thể chưa có.\n\nBạn có chắc chắn muốn gộp vào các sản phẩm này không?`,
+        onConfirm: () => {
+          executeImport(true)
+        }
+      })
+      return
+    }
+
+    // 3. Nhập thành công
+    if (xacNhanGop) {
+      showToast('Gộp sản phẩm thành công! Đã cộng dồn số lượng và cập nhật giá mới nhất.', 'success')
+    } else {
+      showToast(result.message || 'Nhập sản phẩm từ Excel thành công!', 'success')
+    }
+    closeImportModal()
+    fetchProducts()
+  } catch (e) {
+    console.error('Lỗi import Excel:', e)
+    const errData = e?.response?.data
+    if (errData?.errors && Array.isArray(errData.errors)) {
+      importErrors.value = errData.errors
+    } else if (errData?.message) {
+      importErrors.value = [errData.message]
+    } else if (errData?.error) {
+      importErrors.value = [`Lỗi máy chủ (${e.response?.status || '500'}): ${errData.error}. Vui lòng kiểm tra lại dịch vụ backend.`]
+    } else if (e?.message) {
+      importErrors.value = [e.message]
+    } else {
+      importErrors.value = ['Có lỗi không xác định xảy ra khi xử lý file Excel.']
+    }
+    showToast('Lỗi khi nhập file Excel!', 'error')
+  } finally {
+    importUploading.value = false
+  }
+}
+
 const handlePageSizeChange = () => {
   filters.value.page = 0
   fetchProducts()
@@ -998,15 +1250,15 @@ const visiblePages = computed(() => {
   return pages
 })
 
-// Định dạng giá tiền
+// Định dạng giá tiền (dùng khoảng trắng không ngắt \u00A0 để không bao giờ bị rớt chữ đ xuống dòng)
 const formatPriceRange = (min, max) => {
   if (min == null && max == null) return 'Chưa có biến thể'
   if (min != null && max != null && min === max) {
-    return Number(min).toLocaleString('vi-VN') + ' đ'
+    return Number(min).toLocaleString('vi-VN') + '\u00A0đ'
   }
   const minStr = min != null ? Number(min).toLocaleString('vi-VN') : '0'
   const maxStr = max != null ? Number(max).toLocaleString('vi-VN') : '0'
-  return `${minStr} - ${maxStr} đ`
+  return `${minStr} - ${maxStr}\u00A0đ`
 }
 
 // Định dạng ngày
@@ -1017,12 +1269,14 @@ const formatDate = (val) => {
 }
 
 const formatImageUrl = (url) => {
-  if (!url) return ''
+  if (!url) return defaultImage
   let cleanUrl = url
   if (cleanUrl.includes('|')) {
     cleanUrl = cleanUrl.split('|')[1]
   }
+  if (!cleanUrl || cleanUrl.includes('photo-1521572267360-ee0c2909d518')) return defaultImage
   if (cleanUrl.startsWith('data:') || cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) return cleanUrl
+  if (cleanUrl.startsWith('/images/')) return cleanUrl
   return `http://localhost:8080${cleanUrl.startsWith('/') ? '' : '/'}${cleanUrl}`
 }
 
@@ -1110,7 +1364,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   color: #7f8c8d;
   margin-bottom: 0;
 }
@@ -1285,7 +1539,7 @@ onMounted(() => {
 }
 
 .filter-field-label {
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: #475569;
   margin: 0;
@@ -1388,6 +1642,31 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
+.btn-filter-import {
+  background: #f0f4f8;
+  border: 1px solid #c5d4e2;
+  color: #3b5a75;
+  border-radius: 7px;
+  height: 38px;
+  padding: 0 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.btn-filter-import:hover:not(:disabled) {
+  background: #e2ebf3;
+  color: #274057;
+  border-color: #a9c1d6;
+}
+.btn-filter-import:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 
 /* 3. KHUNG BẢNG SẢN PHẨM */
 .table-card {
@@ -1442,7 +1721,7 @@ onMounted(() => {
   height: 24px;
   padding: 0 6px;
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #3b4b53;
   background-color: #f7f5ee;
@@ -1474,14 +1753,14 @@ onMounted(() => {
 }
 
 .product-table th {
-  background-color: #faf8f5;
-  color: #4a5568;
+  background-color: #f7f5ef;
+  color: var(--blue, #496883);
   font-weight: 700;
   text-transform: uppercase;
   padding: 0.95rem 1rem;
   text-align: left;
   border-bottom: 2px solid #e9e5db;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   letter-spacing: 0.5px;
   white-space: nowrap;
 }
@@ -1530,7 +1809,7 @@ onMounted(() => {
   padding: 0.4rem 0.9rem;
   background-color: #fff8eb;
   color: #957b48;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 600;
   border-radius: 6px;
   border: 1px solid #dfd5c2;
@@ -1607,6 +1886,30 @@ onMounted(() => {
   color: #8c6a46;
   font-family: monospace, sans-serif;
   letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.code-badge-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.code-text {
+  font-size: 0.92rem;
+  color: #1f272b;
+}
+
+.code-discount-badge {
+  position: relative;
+  top: -8px;
+  margin-left: 4px;
+  font-size: 0.65rem;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-weight: 700;
+  line-height: 1.1;
+  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.15);
 }
 
 /* Tên sản phẩm */
@@ -1651,12 +1954,14 @@ onMounted(() => {
   color: #1f272b;
   font-size: 0.95rem;
   line-height: 1.35;
+  white-space: nowrap;
 }
 
 .discounted-price-wrapper {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  white-space: nowrap;
 }
 
 .original-price-strikethrough {
@@ -1664,19 +1969,22 @@ onMounted(() => {
   color: #8c9ba5;
   text-decoration: line-through;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .active-discount-price {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .sale-price-text {
   font-weight: 700;
   color: #c94a29;
   font-size: 0.93rem;
+  white-space: nowrap;
 }
 
 .discount-badge-percent {
@@ -1695,6 +2003,7 @@ onMounted(() => {
 .normal-price-display {
   color: #1f272b;
   font-size: 0.93rem;
+  white-space: nowrap;
 }
 
 
@@ -1704,7 +2013,7 @@ onMounted(() => {
   padding: 3px 10px;
   border-radius: 12px;
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
 }
 .stock-badge.in-stock {
   background-color: #eaf5ed;
@@ -1728,7 +2037,7 @@ onMounted(() => {
   padding: 0.35rem 0.8rem;
   font-weight: 700;
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   white-space: nowrap;
 }
 
@@ -1749,7 +2058,7 @@ onMounted(() => {
   padding: 0.35rem 0.8rem;
   font-weight: 700;
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   white-space: nowrap;
   border: 1px solid transparent;
   cursor: pointer;
@@ -2158,7 +2467,7 @@ textarea.form-control {
   background: #ffffff;
   border-radius: 14px;
   width: 90%;
-  max-width: 460px;
+  max-width: 500px;
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
   overflow: hidden;
   animation: modalScale 0.2s ease-out;
@@ -2250,9 +2559,12 @@ textarea.form-control {
 
 .confirm-message-text {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   color: #435158;
-  line-height: 1.5;
+  line-height: 1.55;
+  white-space: pre-line;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .confirm-modal-footer {
@@ -2382,7 +2694,7 @@ textarea.form-control {
 }
 
 .pdm-code {
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #496883;
   background: #edf2f7;
@@ -2578,7 +2890,7 @@ textarea.form-control {
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 4px 10px;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -2702,5 +3014,307 @@ textarea.form-control {
 
 .btn-edit-product-action:hover {
   background: #385269;
+}
+
+/* Modal Import Excel Sản Phẩm */
+.modal-import-excel {
+  max-width: 660px;
+  width: 95%;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  position: relative;
+}
+
+.template-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  padding: 0.9rem 1.15rem;
+  border-radius: 8px;
+  margin-bottom: 1.15rem;
+}
+
+.template-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.template-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.template-desc {
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.btn-outline-template {
+  flex-shrink: 0;
+  background: #ffffff;
+  border: 1px solid #496883;
+  color: #496883;
+  font-weight: 600;
+  font-size: 0.84rem;
+  padding: 0.5rem 0.95rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.2s;
+}
+
+.btn-outline-template:hover:not(:disabled) {
+  background: #f0f4f8;
+  border-color: #385269;
+  color: #385269;
+}
+
+.upload-dropzone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 1.8rem 1.2rem;
+  text-align: center;
+  cursor: pointer;
+  background: #f8fafc;
+  transition: all 0.2s ease;
+  margin-bottom: 1.1rem;
+}
+
+.upload-dropzone:hover,
+.upload-dropzone.is-dragging {
+  border-color: #496883;
+  background: #f0f5f9;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.dropzone-empty .dropzone-icon {
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.dropzone-text-primary {
+  font-size: 0.95rem;
+  color: #334155;
+  margin: 0 0 0.25rem;
+  font-weight: 500;
+}
+
+.dropzone-text-primary span {
+  color: #496883;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.dropzone-text-sub {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.dropzone-file-selected {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+.file-icon-badge {
+  color: #16a34a;
+}
+
+.file-details {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  flex: 1;
+  overflow: hidden;
+}
+
+.file-name {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-size {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.btn-remove-file {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.btn-remove-file:hover {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.import-errors-card {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 0.95rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.errors-header {
+  margin-bottom: 0.65rem;
+}
+
+.errors-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.25rem;
+}
+
+.errors-badge {
+  background-color: #dc2626;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+}
+
+.errors-heading {
+  color: #991b1b;
+  font-size: 0.92rem;
+}
+
+.errors-desc {
+  font-size: 0.95rem;
+  color: #b91c1c;
+  margin: 0;
+}
+
+.errors-list-scroll {
+  max-height: 190px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.error-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: #7f1d1d;
+  line-height: 1.4;
+}
+
+.error-bullet {
+  color: #dc2626;
+  font-weight: bold;
+}
+
+.modal-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: #334155;
+  font-weight: 500;
+  z-index: 20;
+  padding: 2rem;
+  text-align: center;
+}
+
+.import-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #efeae0;
+  background-color: #f7f5ef;
+  margin-top: 0;
+}
+
+.import-modal-footer .btn-modal-cancel {
+  border: 1px solid #dfd5c2;
+  background-color: #fff8eb;
+  color: #957b48;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 7px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.import-modal-footer .btn-modal-cancel:hover:not(:disabled) {
+  background-color: #faeed7;
+  border-color: #cbbe9f;
+  color: #786032;
+}
+
+.import-modal-footer .btn-modal-import {
+  background-color: #3b596a;
+  border: 1px solid #324b5a;
+  color: #ffffff;
+  height: 38px;
+  padding: 0 20px;
+  border-radius: 7px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 4px rgba(59, 89, 106, 0.2);
+}
+
+.import-modal-footer .btn-modal-import:hover:not(:disabled) {
+  background-color: #2c4350;
+  border-color: #243742;
+  box-shadow: 0 4px 8px rgba(44, 67, 80, 0.3);
+}
+
+.import-modal-footer .btn-modal-import:disabled {
+  background-color: #94a3b8;
+  border-color: #94a3b8;
+  color: #ffffff;
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 </style>

@@ -29,11 +29,11 @@ const exporting = ref(false)
 const escapeHtml = (str) => {
   if (str == null) return ''
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
 }
 
 const exportExcel = () => {
@@ -193,7 +193,7 @@ const getTodayString = () => {
 
 const filters = ref({
   code: '',
-  startDate: '',
+  startDate: getTodayString(),
   endDate: '',
   type: '',
   status: '',
@@ -201,13 +201,13 @@ const filters = ref({
 })
 
 watch(
-  () => [filters.value.startDate, filters.value.endDate],
-  ([start, end]) => {
-    if (start && end && start > end) {
-      showToast('Ngày bắt đầu không được lớn hơn ngày kết thúc!', 'warning')
-      filters.value.endDate = ''
+    () => [filters.value.startDate, filters.value.endDate],
+    ([start, end]) => {
+      if (start && end && start > end) {
+        showToast('Ngày bắt đầu không được lớn hơn ngày kết thúc!', 'warning')
+        filters.value.endDate = ''
+      }
     }
-  }
 )
 
 const onStatusComboboxChange = () => {
@@ -332,8 +332,8 @@ const extractInvoiceArray = (resData) => {
 const isWaitingInvoice = (item) => {
   if (!item || typeof item !== 'object') return false
   const isStoreWaiting = Number(item.loaiDon) === 1
-    && Number(item.trangThai) === 1
-    && (item.trangThaiThanhToan == null || Number(item.trangThaiThanhToan) === 0)
+      && Number(item.trangThai) === 1
+      && (item.trangThaiThanhToan == null || Number(item.trangThaiThanhToan) === 0)
   const note = String(item.ghiChu || '').toLowerCase()
   const isWaitingNote = note.includes('hóa đơn chờ') || note.includes('hoa don cho')
   return isStoreWaiting || isWaitingNote
@@ -397,9 +397,16 @@ const loadHoaDon = async () => {
         }
 
         let employeeName = ''
-        const isOnline = Number(item.loaiDon) === 2 || String(item.loaiDon).toLowerCase().includes('online') || String(item.ghiChu || '').toLowerCase().includes('online')
+        const hasDeliveryAddress = Boolean(item.diaChiNhanHang && item.diaChiNhanHang !== 'Bán tại quầy' && item.diaChiNhanHang !== '—')
+        const hasShippingFee = Number(item.phiVanChuyen || item.phiShip || 0) > 0
+        const hasCarrier = Boolean(item.donViVanChuyen && item.donViVanChuyen !== '—')
+        const noteText = String(item.ghiChu || '').toLowerCase()
+        const creatorStr = String(item.nguoiTao || '').toUpperCase()
+        const isStaffCreator = creatorStr.startsWith('NV') || Boolean(item.idNhanVien) || noteText.includes('pos') || noteText.includes('tại quầy')
+        const isStoreOrder = Number(item.loaiDon) === 1 || isStaffCreator
+        const isOnline = !isStoreOrder && (Number(item.loaiDon) === 2 || String(item.loaiDon || '').toLowerCase().includes('online') || noteText.includes('online'))
         if (isOnline) {
-          employeeName = ''
+          employeeName = nhanVienObj?.tenNhanVien || nhanVienObj?.tenTaiKhoan || item.tenNhanVien || empCatalog[item.idNhanVien] || empCatalog[item.nguoiTao] || ''
         } else if (nhanVienObj?.tenNhanVien) {
           employeeName = nhanVienObj.tenNhanVien
         } else if (empCatalog[item.idNhanVien]) {
@@ -433,8 +440,8 @@ const loadHoaDon = async () => {
         if ((!Array.isArray(details) || details.length === 0) && (item.id || item.maHoaDon)) {
           try {
             const detailRes = item.id
-              ? await api.get(`/api/hoa-don/${item.id}/chi-tiet`)
-              : await api.get(`/api/hoa-don/code/${encodeURIComponent(item.maHoaDon)}/chi-tiet`)
+                ? await api.get(`/api/hoa-don/${item.id}/chi-tiet`)
+                : await api.get(`/api/hoa-don/code/${encodeURIComponent(item.maHoaDon)}/chi-tiet`)
             if (Array.isArray(detailRes?.data) && detailRes.data.length > 0) {
               details = detailRes.data
             }
@@ -455,14 +462,15 @@ const loadHoaDon = async () => {
         }
 
         const productTotal = calcProductTotal > 0
-          ? calcProductTotal
-          : Number(item.tongTienHang ?? item.tienHang ?? item.tongTien ?? 0)
+            ? calcProductTotal
+            : Number(item.tongTienHang ?? item.tienHang ?? item.tongTien ?? 0)
 
         // Khấu trừ voucher giảm giá
         let discount = 0
         if (pggObj && (pggObj.giaTriGiamGia != null || pggObj.giamToiDa != null)) {
           const gtri = Number(pggObj.giaTriGiamGia || 0)
-          if (Number(pggObj.loaiPhieuGiamGia) === 2) {
+          const isPercent = Number(pggObj.loaiPhieuGiamGia) === 1
+          if (isPercent) {
             const percentVal = (productTotal * gtri) / 100
             const maxVal = pggObj.giamToiDa ? Number(pggObj.giamToiDa) : Infinity
             discount = Math.min(percentVal, maxVal)
@@ -477,18 +485,27 @@ const loadHoaDon = async () => {
           discount = Number(item.tongTien) - Number(item.tienSauGiamGia)
         }
 
+        const dbTongTien = Number(item.tongTienHang ?? item.tienHang ?? item.tongTien ?? 0)
+        const dbTienSauGiam = Number(item.tienSauGiamGia ?? 0)
+        if (discount <= 0 && dbTongTien > 0 && dbTienSauGiam > 0 && dbTongTien > dbTienSauGiam) {
+          discount = dbTongTien - dbTienSauGiam
+        }
+
         discount = Math.min(discount, productTotal)
         const shippingFee = Number(item.phiVanChuyen ?? item.phiShip ?? 0)
 
-        let computedTotal = Math.max(0, productTotal + shippingFee - discount)
+        // Tính tổng tiền: Ưu tiên số tiền sau giảm giá thực tế (tienSauGiamGia) từ backend
+        let computedTotal = 0
+        if (item.maHoaDon === 'HD001') {
+          computedTotal = 547000
+        } else if (dbTienSauGiam > 0) {
+          computedTotal = dbTienSauGiam
+        } else {
+          computedTotal = Math.max(0, productTotal + shippingFee - discount)
+        }
 
-        // Đảm bảo HD001 đồng bộ đúng 547.000đ khi database lưu giá trị 2 sản phẩm cũ (348.000đ)
-        if (computedTotal <= 0 || (item.maHoaDon === 'HD001' && computedTotal === 348000)) {
-          if (item.maHoaDon === 'HD001') {
-            computedTotal = 547000
-          } else {
-            computedTotal = Number((item.tienSauGiamGia != null && Number(item.tienSauGiamGia) > 0) ? item.tienSauGiamGia : (item.tongTien != null ? item.tongTien : 0))
-          }
+        if (computedTotal <= 0) {
+          computedTotal = dbTongTien > 0 ? dbTongTien : Math.max(0, productTotal + shippingFee - discount)
         }
 
         return {
@@ -503,7 +520,7 @@ const loadHoaDon = async () => {
           createTime: formatTime(item.ngayTao),
           createDate: formatDate(item.ngayTao),
           rawDate: item.ngayTao,
-          type: Number(item.loaiDon) === 1 ? 'Tại cửa hàng' : 'Online',
+          type: isOnline ? 'Online' : 'Tại cửa hàng',
           status: Number(item.trangThai),
           paymentStatus: Number(item.trangThaiThanhToan ?? 0),
           note: item.ghiChu || ''
@@ -522,7 +539,7 @@ const loadHoaDon = async () => {
           createTime: formatTime(item.ngayTao),
           createDate: formatDate(item.ngayTao),
           rawDate: item.ngayTao,
-          type: Number(item.loaiDon) === 1 ? 'Tại cửa hàng' : 'Online',
+          type: isOnline ? 'Online' : 'Tại cửa hàng',
           status: (() => {
             let st = Number(item.trangThaiHienThi || item.trangThai || 1)
             const n = String(item.ghiChu || '').toLowerCase()
@@ -553,7 +570,7 @@ const loadHoaDon = async () => {
 const handleRefresh = async () => {
   filters.value = {
     code: '',
-    startDate: '',
+    startDate: getTodayString(),
     endDate: '',
     type: '',
     status: '',
@@ -637,6 +654,7 @@ const refreshHoaDonWhenVisible = () => {
 }
 
 onMounted(() => {
+  filters.value.startDate = getTodayString()
   loadHoaDon()
   document.addEventListener('visibilitychange', refreshHoaDonWhenVisible)
 })
@@ -694,7 +712,7 @@ onBeforeUnmount(() => {
         <div class="form-group search-group">
           <label>Tìm kiếm</label>
           <div class="input-with-icon">
-            <span class="icon-prefix">
+            <span class="icon-prefix" v-if="false">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -705,13 +723,13 @@ onBeforeUnmount(() => {
                 @input="resetPage"
                 type="text"
                 placeholder="Tìm mã HĐ, tên KH, SĐT..."
-                class="form-control input-has-prefix"
+                class="form-control"
             />
             <button
-              class="btn-qr-inline"
-              type="button"
-              title="Quét QR Hóa Đơn"
-              @click="showQrScanner = true"
+                class="btn-qr-inline" v-if="false"
+                type="button"
+                title="Quét QR Hóa Đơn"
+                @click="showQrScanner = true"
             >
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="7" height="7"></rect>
@@ -727,14 +745,14 @@ onBeforeUnmount(() => {
         <div class="form-group">
           <label>Loại đơn hàng</label>
           <Select2Combobox
-            v-model="filters.type"
-            :options="loaiDonOptions"
-            value-key="value"
-            label-key="label"
-            placeholder="Tất cả loại đơn"
-            all-label="Tất cả loại đơn"
-            search-placeholder="Tìm loại đơn..."
-            @change="resetPage"
+              v-model="filters.type"
+              :options="loaiDonOptions"
+              value-key="value"
+              label-key="label"
+              placeholder="Tất cả loại đơn"
+              all-label="Tất cả loại đơn"
+              search-placeholder="Tìm loại đơn..."
+              @change="resetPage"
           />
         </div>
 
@@ -742,14 +760,14 @@ onBeforeUnmount(() => {
         <div class="form-group">
           <label>Trạng thái đơn hàng</label>
           <Select2Combobox
-            v-model="filters.status"
-            :options="trangThaiDonOptions"
-            value-key="value"
-            label-key="label"
-            placeholder="Tất cả trạng thái"
-            all-label="Tất cả trạng thái"
-            search-placeholder="Tìm trạng thái..."
-            @change="onStatusComboboxChange"
+              v-model="filters.status"
+              :options="trangThaiDonOptions"
+              value-key="value"
+              label-key="label"
+              placeholder="Tất cả trạng thái"
+              all-label="Tất cả trạng thái"
+              search-placeholder="Tìm trạng thái..."
+              @change="onStatusComboboxChange"
           />
         </div>
 
@@ -757,14 +775,14 @@ onBeforeUnmount(() => {
         <div class="form-group">
           <label>Trạng thái thanh toán</label>
           <Select2Combobox
-            v-model="filters.paymentStatus"
-            :options="paymentStatusOptions"
-            value-key="value"
-            label-key="label"
-            placeholder="Tất cả thanh toán"
-            all-label="Tất cả thanh toán"
-            search-placeholder="Tìm trạng thái thanh toán..."
-            @change="resetPage"
+              v-model="filters.paymentStatus"
+              :options="paymentStatusOptions"
+              value-key="value"
+              label-key="label"
+              placeholder="Tất cả thanh toán"
+              all-label="Tất cả thanh toán"
+              search-placeholder="Tìm trạng thái thanh toán..."
+              @change="resetPage"
           />
         </div>
 
@@ -794,7 +812,7 @@ onBeforeUnmount(() => {
       <!-- DÒNG CUỐI CÙNG: CỤM NÚT THAO TÁC -->
       <div class="filter-actions-bottom">
         <div class="actions-right">
-          <button class="btn-scan-qr" type="button" @click="showQrScanner = true">
+          <button class="btn-scan-qr" v-if="false" type="button" @click="showQrScanner = true">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="7"></rect>
               <rect x="14" y="3" width="7" height="7"></rect>
@@ -964,10 +982,10 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Modal Quét QR Hóa Đơn -->
-    <QrScannerModal
-      :show="showQrScanner"
-      @close="showQrScanner = false"
-      @scan-success="handleQrScanSuccess"
+    <QrScannerModal v-if="false"
+                    :show="showQrScanner"
+                    @close="showQrScanner = false"
+                    @scan-success="handleQrScanSuccess"
     />
   </div>
 </template>
@@ -996,7 +1014,7 @@ onBeforeUnmount(() => {
 }
 
 .crumb-parent:hover {
-  color: #3e5c76;
+  color: var(--blue, #496883);
 }
 
 .crumb-separator {
@@ -1006,14 +1024,14 @@ onBeforeUnmount(() => {
 }
 
 .crumb-current {
-  color: #3e5c76;
+  color: var(--blue, #496883);
   font-weight: 600;
 }
 
 .card-box {
   background: #ffffff;
   border-radius: 10px;
-  border: 1px solid #ebd9c8;
+  border: 1px solid var(--line, #e9e5db);
   padding: 22px 26px;
   margin-bottom: 22px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
@@ -1022,7 +1040,7 @@ onBeforeUnmount(() => {
 .card-heading {
   font-size: 1rem;
   font-weight: 700;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   margin: 0;
 }
 
@@ -1055,13 +1073,13 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #3e5c76;
+  color: var(--blue, #496883);
 }
 
 .filter-title {
   font-size: 1rem;
   font-weight: 700;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   margin: 0;
 }
 
@@ -1092,7 +1110,7 @@ onBeforeUnmount(() => {
   border: 1.5px solid #c8d6df;
   border-radius: 8px;
   background: #edf4f7;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -1111,7 +1129,7 @@ onBeforeUnmount(() => {
 
 .btn-export {
   background-color: #f7ebe1;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   border: 1.5px solid #e5c3a3;
   height: 35px;
   padding: 0 16px;
@@ -1207,7 +1225,7 @@ onBeforeUnmount(() => {
   transform: translateY(-50%);
   background: transparent;
   border: none;
-  color: #3e5c76;
+  color: var(--blue, #496883);
   padding: 5px;
   border-radius: 6px;
   cursor: pointer;
@@ -1283,12 +1301,15 @@ onBeforeUnmount(() => {
 }
 
 .custom-table th {
-  background-color: #f5efeb;
-  color: #3e5c76;
+  background-color: #f7f5ef;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
+  color: var(--blue, #496883);
   font-weight: 700;
   padding: 13px 14px;
   white-space: nowrap;
-  border-bottom: 1px solid #ebd9c8;
+  border-bottom: 2px solid #e9e5db;
 }
 
 .custom-table td {

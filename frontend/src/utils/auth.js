@@ -1,5 +1,55 @@
+import { ref } from 'vue'
+
 // Quản lý thông tin phiên làm việc và người dùng đang đăng nhập
 const CURRENT_USER_KEY = 'ff_current_user'
+const ACTIVE_SHIFT_KEY = 'ff_active_shift'
+
+const activeShiftRef = ref(getActiveShift())
+
+/**
+ * Lấy thông tin ca làm việc đang mở trong phiên hiện tại
+ */
+export function getActiveShift() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_SHIFT_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch (e) {}
+  return null
+}
+
+/**
+ * Cập nhật ca làm việc đang mở
+ */
+export function setActiveShift(shift) {
+  if (shift) {
+    localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(shift))
+  } else {
+    localStorage.removeItem(ACTIVE_SHIFT_KEY)
+  }
+  activeShiftRef.value = shift || null
+  window.dispatchEvent(new CustomEvent('active-shift-changed', { detail: shift }))
+}
+
+/**
+ * Xóa trạng thái ca đang mở
+ */
+export function clearActiveShift() {
+  localStorage.removeItem(ACTIVE_SHIFT_KEY)
+  activeShiftRef.value = null
+  window.dispatchEvent(new CustomEvent('active-shift-changed', { detail: null }))
+}
+
+/**
+ * Kiểm tra xem người dùng hiện tại có đang ở Chế độ xem (chưa vào ca làm việc) hay không
+ * - Quản trị viên: luôn trả về false (không bị giới hạn)
+ * - Nhân viên: trả về true nếu chưa có ca làm việc nào đang mở
+ */
+export function isInViewMode() {
+  const user = getCurrentUser()
+  if (!user) return true
+  if (isAdmin()) return false
+  return !activeShiftRef.value
+}
 
 /**
  * Lấy thông tin tài khoản người dùng đang đăng nhập hiện tại
@@ -16,20 +66,7 @@ export function getCurrentUser() {
   } catch (e) {
     console.error('Lỗi khi đọc thông tin người dùng từ localStorage:', e)
   }
-
-  // Khởi tạo tài khoản Quản trị viên mặc định (NV001 - admin) nếu chưa có phiên đăng nhập
-  const defaultAdmin = {
-    id: 1,
-    maNhanVien: 'NV001',
-    tenNhanVien: 'Nguyễn Văn Admin',
-    tenTaiKhoan: 'admin',
-    email: 'admin@ffshirt.com',
-    soDienThoai: '0900000001',
-    role: 'Quản trị viên',
-    trangThai: 1
-  }
-  setCurrentUser(defaultAdmin)
-  return defaultAdmin
+  return null
 }
 
 /**
@@ -39,9 +76,25 @@ export function setCurrentUser(user) {
   if (!user) {
     localStorage.removeItem(CURRENT_USER_KEY)
   } else {
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user))
+    // Chuẩn hóa role và mã vai trò
+    const rawRoleCode = (user.maVaiTro || (user.idVaiTro === 1 ? 'ADMIN' : (user.role === 'Quản trị viên' ? 'ADMIN' : ''))).toUpperCase()
+    const rawRoleText = (user.tenVaiTro || user.role || '').toLowerCase()
+    const isAdm = rawRoleCode === 'ADMIN' || rawRoleCode === 'QL' || rawRoleText.includes('quản trị') || rawRoleText.includes('admin') || rawRoleText.includes('quản lý')
+    const normalizedRoleCode = isAdm ? 'ADMIN' : 'NV'
+    const normalizedRoleName = isAdm ? 'Quản trị viên' : 'Nhân viên'
+
+    const normalized = {
+      ...user,
+      role: normalizedRoleName,
+      tenVaiTro: normalizedRoleName,
+      maVaiTro: normalizedRoleCode
+    }
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(normalized))
+    window.dispatchEvent(new CustomEvent('auth-changed', { detail: normalized }))
+    return normalized
   }
-  window.dispatchEvent(new CustomEvent('auth-changed', { detail: user }))
+  window.dispatchEvent(new CustomEvent('auth-changed', { detail: null }))
+  return null
 }
 
 /**
@@ -49,7 +102,55 @@ export function setCurrentUser(user) {
  */
 export function logout() {
   localStorage.removeItem(CURRENT_USER_KEY)
+  clearActiveShift()
   window.dispatchEvent(new CustomEvent('auth-changed', { detail: null }))
+}
+
+/**
+ * Lấy mã vai trò hiện tại (ADMIN hoặc NV)
+ */
+export function getRoleCode() {
+  const user = getCurrentUser()
+  if (!user) return null
+  const code = (user.maVaiTro || '').toUpperCase()
+  if (code === 'ADMIN' || code === 'QL') return 'ADMIN'
+  if (code === 'NV') return 'NV'
+  if (user.role) {
+    const r = user.role.toLowerCase()
+    if (r.includes('quản trị') || r.includes('admin') || r.includes('quản lý')) return 'ADMIN'
+    return 'NV'
+  }
+  if (user.tenVaiTro) {
+    const r = user.tenVaiTro.toLowerCase()
+    if (r.includes('quản trị') || r.includes('admin') || r.includes('quản lý')) return 'ADMIN'
+    return 'NV'
+  }
+  return 'NV'
+}
+
+/**
+ * Kiểm tra xem người dùng hiện tại có phải là Admin / Quản trị viên hay không
+ */
+export function isAdmin() {
+  return getRoleCode() === 'ADMIN'
+}
+
+/**
+ * Kiểm tra xem người dùng hiện tại có phải là Nhân viên bán hàng hay không
+ */
+export function isStaff() {
+  return getRoleCode() === 'NV'
+}
+
+/**
+ * Kiểm tra xem người dùng có quyền trong danh sách roles cho phép hay không
+ * @param {Array<string>} allowedRoles ví dụ ['ADMIN', 'NV'] hoặc ['ADMIN']
+ */
+export function hasRole(allowedRoles = []) {
+  if (!allowedRoles || allowedRoles.length === 0) return true
+  const currentRole = getRoleCode()
+  if (!currentRole) return false
+  return allowedRoles.some(r => r.toUpperCase() === currentRole)
 }
 
 /**
@@ -84,4 +185,3 @@ export function isCurrentLoggedInUser(employee) {
 
   return false
 }
-
