@@ -568,9 +568,9 @@ public class EmailService {
             if (discount.compareTo(BigDecimal.ZERO) > 0) {
                 String voucherName = hoaDon.getIdPhieuGiamGia() != null ? hoaDon.getIdPhieuGiamGia().getTenPhieuGiamGia() : "Phiếu giảm giá";
                 voucherRowHtml = "<div style=\"display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13.5px; color: #16a34a;\">" +
-                                 "<span>Giảm giá (" + voucherName + "):</span>" +
-                                 "<span style=\"font-weight: 600;\">-" + formatMoney(discount) + "</span>" +
-                                 "</div>";
+                        "<span>Giảm giá (" + voucherName + "):</span>" +
+                        "<span style=\"font-weight: 600;\">-" + formatMoney(discount) + "</span>" +
+                        "</div>";
             }
 
             String customerName = hoaDon.getTenKhachHangHienThi() != null ? hoaDon.getTenKhachHangHienThi() : "Quý khách";
@@ -681,9 +681,12 @@ public class EmailService {
 
                         <!-- Button CTA -->
                         <div style="text-align: center; margin-bottom: 10px;">
-                            <a href="http://localhost:5173/hoa-don/{{maDon}}" style="display: inline-block; background-color: #7b5943; color: #ffffff; text-decoration: none; font-size: 14.5px; font-weight: 600; padding: 12px 36px; border-radius: 24px; box-shadow: 0 2px 8px rgba(123,89,67,0.3);">
-                                Xem chi tiết đơn hàng
+                            <a href="http://localhost:5174/don-hang?code={{maDon}}" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-size: 14.5px; font-weight: 700; padding: 12px 36px; border-radius: 24px; box-shadow: 0 4px 14px rgba(15,23,42,0.25); letter-spacing: 0.3px;">
+                                📦 Theo Dõi Chi Tiết Đơn Hàng #{{maDon}}
                             </a>
+                            <div style="margin-top: 10px; font-size: 13px; color: #64748b;">
+                                Hoặc tra cứu trực tiếp tại: <a href="http://localhost:5174/don-hang?code={{maDon}}" style="color: #2563eb; font-weight: 600; text-decoration: underline;">http://localhost:5174/don-hang?code={{maDon}}</a>
+                            </div>
                         </div>
                     </div>
 
@@ -766,11 +769,11 @@ public class EmailService {
                     </div>
                 </div>
             """
-                    .replace("{{timeNow}}", timeNow)
-                    .replace("{{name}}", name != null ? name : "Chưa cung cấp")
-                    .replace("{{phone}}", phone != null ? phone : "Chưa cung cấp")
-                    .replace("{{email}}", (email != null && !email.isBlank()) ? email : "Chưa cung cấp")
-                    .replace("{{messageContent}}", messageContent != null ? messageContent : "");
+            .replace("{{timeNow}}", timeNow)
+            .replace("{{name}}", name != null ? name : "Chưa cung cấp")
+            .replace("{{phone}}", phone != null ? phone : "Chưa cung cấp")
+            .replace("{{email}}", (email != null && !email.isBlank()) ? email : "Chưa cung cấp")
+            .replace("{{messageContent}}", messageContent != null ? messageContent : "");
 
             helper.setText(content, true);
             log.info("==> [EmailService] Đang kết nối SMTP gửi email liên hệ của {} tới {}", name, recipientEmail);
@@ -782,10 +785,67 @@ public class EmailService {
     }
 
     /**
-     * Gửi email cấp lại mật khẩu mới cho nhân viên / người dùng khi quên mật khẩu.
-     * Mật khẩu mới được hiển thị rõ ràng trực tiếp trong email để người dùng đăng nhập ngay.
+     * Gửi email mã OTP xác nhận đăng ký tài khoản cho khách hàng
      */
-    @Async
+    public boolean sendOtpVerificationEmail(String toEmail, String fullName, String otpCode) {
+        if (toEmail == null || toEmail.trim().isEmpty() || !toEmail.contains("@")) {
+            log.warn("Bỏ qua gửi OTP vì email không hợp lệ: {}", toEmail);
+            return false;
+        }
+        String displayName = (fullName != null && !fullName.trim().isEmpty()) ? fullName.trim() : "Quý khách";
+
+        if (mailSender == null) {
+            log.info("==> [MOCK EMAIL] Gửi mã xác nhận OTP {} tới email {}", otpCode, toEmail);
+            return true;
+        }
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(senderEmail, "FF T-Shirt");
+            helper.setTo(toEmail.trim());
+            helper.setSubject("[FF T-Shirt] Mã xác thực đăng ký tài khoản: " + otpCode);
+
+            String html = """
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 14px; padding: 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.05); color: #2c3e50;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <span style="display: inline-block; background-color: #3e5c76; color: #ffffff; font-weight: 800; font-size: 20px; padding: 6px 18px; border-radius: 8px; letter-spacing: 1px;">FF T-SHIRT</span>
+                    </div>
+                    <h2 style="margin: 0 0 12px; font-size: 20px; font-weight: 700; color: #1d2d44; text-align: center;">
+                        Xác Thực Đăng Ký Tài Khoản
+                    </h2>
+                    <p style="margin: 0 0 20px; font-size: 14px; color: #555555; text-align: center; line-height: 1.6;">
+                        Xin chào <strong>%s</strong>,<br/>
+                        Bạn vừa yêu cầu đăng ký tài khoản tại <b>FF T-Shirt</b>. Vui lòng sử dụng mã xác nhận bên dưới để hoàn tất đăng ký:
+                    </p>
+                    <div style="background: linear-gradient(135deg, #f0f4f8 0%%, #e2eafc 100%%); border: 2px dashed #748cab; border-radius: 12px; padding: 22px; margin: 0 auto 24px; text-align: center;">
+                        <span style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #0d1b2a; font-family: monospace;">%s</span>
+                    </div>
+                    <div style="background-color: #fdfbf7; border-left: 4px solid #f0ad4e; padding: 12px 16px; border-radius: 4px; margin-bottom: 24px;">
+                        <p style="margin: 0; font-size: 13px; color: #7f6a55; line-height: 1.5;">
+                            ⚠️ Mã xác thực có hiệu lực trong vòng <b>10 phút</b>. Vui lòng không cung cấp mã này cho bất kỳ ai để đảm bảo an toàn.
+                        </p>
+                    </div>
+                    <div style="text-align: center; font-size: 12px; color: #8c969e; border-top: 1px solid #eeeeee; padding-top: 18px;">
+                        Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.<br/>
+                        Hotline hỗ trợ: 1900 6868 | Email: hotro@fftshirt.vn
+                    </div>
+                </div>
+            """.formatted(displayName, otpCode);
+
+            helper.setText(html, true);
+            log.info("==> [EmailService] Đang gửi mã OTP {} tới email {}", otpCode, toEmail);
+            mailSender.send(message);
+            log.info("==> [EmailService] Đã gửi mã OTP thành công tới {}", toEmail);
+            return true;
+        } catch (Exception e) {
+            log.error("==> [EmailService] Lỗi gửi email OTP tới {}: {}", toEmail, e.getMessage());
+            return false;
+        }
+    }
+
+    
     public void sendForgotPasswordEmail(String toEmail, String fullName, String employeeCode, String account, String newPassword) {
         if (toEmail == null || toEmail.isBlank() || !toEmail.contains("@")) {
             log.warn("Bỏ qua email cấp lại mật khẩu vì địa chỉ email không hợp lệ: {}", toEmail);
@@ -907,13 +967,12 @@ public class EmailService {
                         <p style="color: #777; margin-top: 0;">Yêu cầu đặt lại mật khẩu</p>
                     </div>
                     <p>Xin chào <strong>%s</strong>,</p>
-                    <p>Hệ thống nhận được yêu cầu đặt lại mật khẩu cho tài khoản <strong>%s</strong>.</p>
-                    <p>Nhấn nút bên dưới để tạo mật khẩu mới. Vì lý do bảo mật, vui lòng không chia sẻ liên kết này với người khác.</p>
+                    <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản <strong>%s</strong>.</p>
+                    <p>Nhấp vào nút bên dưới để tiến hành đặt mật khẩu mới:</p>
                     <div style="text-align: center; margin: 28px 0;">
-                        <a href="%s" style="display: inline-block; background: #7b5943; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 24px; font-weight: bold;">Đặt lại mật khẩu</a>
+                        <a href="%s" style="background-color: #4a3427; color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Đặt lại mật khẩu</a>
                     </div>
-                    <p style="font-size: 13px; color: #666;">Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.</p>
-                    <p style="font-size: 12px; color: #999;">Email tự động từ hệ thống FF T-Shirt. Vui lòng không trả lời email này.</p>
+                    <p style="font-size: 13px; color: #777;">Nếu bạn không yêu cầu hành động này, vui lòng bỏ qua email này.</p>
                 </div>
                 """.formatted(safeName, safeAccount, safeResetUrl);
 
@@ -925,7 +984,6 @@ public class EmailService {
         }
     }
 
-    /** Mã hóa ký tự đặc biệt trước khi chèn dữ liệu vào HTML. */
     private String escapeHtml(String value) {
         if (value == null) return "";
         return value.replace("&", "&amp;")
@@ -933,6 +991,41 @@ public class EmailService {
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
                 .replace("'", "&#39;");
+    }
+
+    
+
+    /**
+     * Gửi email báo cáo tổng kết doanh thu và so sánh định kỳ cho Ban quản trị (Admin)
+     */
+    public boolean sendRevenueReportEmail(String toEmail, String subject, String htmlContent) {
+        if (toEmail == null || toEmail.trim().isEmpty() || !toEmail.contains("@")) {
+            log.warn("==> [EmailService] Bỏ qua gửi email báo cáo doanh thu: Địa chỉ email người nhận không hợp lệ ('{}')", toEmail);
+            return false;
+        }
+
+        try {
+            if (mailSender == null) {
+                log.info("==> [EmailService Mock] Đã gửi email báo cáo doanh thu tới {}", toEmail);
+                return true;
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(senderEmail, "FF T-Shirt Analytics");
+            helper.setTo(toEmail.trim());
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
+
+            log.info("==> [EmailService] Đang gửi email báo cáo doanh thu tới {}", toEmail);
+            mailSender.send(message);
+            log.info("==> [EmailService] Đã gửi email báo cáo doanh thu THÀNH CÔNG tới {}", toEmail);
+            return true;
+        } catch (Exception e) {
+            log.error("==> [EmailService Lỗi] Không thể gửi email báo cáo doanh thu tới {}: {}", toEmail, e.getMessage(), e);
+            throw new RuntimeException("Lỗi gửi email: " + e.getMessage(), e);
+        }
     }
 
 }

@@ -32,7 +32,7 @@
         <div class="filter-col">
           <label class="field-label-tiny">Tìm kiếm ca làm việc</label>
           <div class="input-with-prefix-icon">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
+            <svg v-if="false" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -40,7 +40,7 @@
               type="text"
               v-model="filters.keyword"
               placeholder="Tìm theo tên ca..."
-              class="form-control-minimal with-icon"
+              class="form-control-minimal"
               @input="onFilterChange"
             />
           </div>
@@ -651,10 +651,10 @@ onMounted(() => {
 
 .content-card {
   background-color: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #ece6dc;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
-  padding: 1.25rem 1.4rem;
+  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+  padding: 1.4rem 1.6rem;
   box-sizing: border-box;
 }
 
@@ -684,7 +684,7 @@ onMounted(() => {
 
 .page-main-title {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #2c3e50;
 }
@@ -1009,7 +1009,7 @@ onMounted(() => {
 
 .modal-dialog-clean {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 12px;
   width: 100%;
   max-width: 520px;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15);

@@ -40,11 +40,7 @@ const routes = [
     name: 'GioHang',
     component: GioHang
   },
-  {
-    path: '/thanh-toan',
-    name: 'ThanhToan',
-    component: ThanhToan
-  },
+  { path: '/thanh-toan', redirect: '/gio-hang' },
   {
     path: '/don-hang',
     redirect: to => {

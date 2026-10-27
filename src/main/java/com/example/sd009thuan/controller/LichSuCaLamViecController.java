@@ -54,7 +54,7 @@ public class LichSuCaLamViecController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/current/{id}")
+    @GetMapping({"/current/{id}", "/ca-hien-tai/{id}"})
     public ResponseEntity<?> getCurrentOpenShift(@PathVariable("id") Long id) {
         return ResponseEntity.ok(service.getCurrentOpenShift(id).orElse(null));
     }

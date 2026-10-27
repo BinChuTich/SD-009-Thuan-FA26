@@ -4,7 +4,8 @@ import { useRouter, useRoute } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
 import { getProvinces, getWardsByProvince } from '@/services/provincesApi.js'
-import { getCurrentUser, isInViewMode } from '@/utils/auth.js'
+import { calculateGhnShippingFee } from '@/services/ghnService.js'
+import { getCurrentUser } from '@/utils/auth.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -57,15 +58,18 @@ const createEmptyInvoice = (id, code) => ({
   customerPhone: '',
   isDelivery: false,
   deliveryProvinceCode: '',
-  deliveryWardCode: '',
   deliveryProvince: '',
+  deliveryDistrictCode: '',
   deliveryDistrict: '',
+  deliveryWardCode: '',
   deliveryWard: '',
   deliveryDetail: '',
   deliveryAddress: '',
   shippingFee: null,
+  shippingDesc: '',
+  shippingSource: '',
   voucher: null,
-  paymentMethod: 'TIEN_MAT', // TIEN_MAT | CHUYEN_KHOAN | KET_HOP
+  paymentMethod: 'TIEN_MAT', 
   customerPay: null,
   note: ''
 })
@@ -151,8 +155,9 @@ const loadWaitingInvoices = async () => {
             chiTietHoaDonId: ct.id,
             code: sp.maSanPham || ctsp.maChiTietSanPham || '',
             variantCode: ctsp.maChiTietSanPham || '',
-            name: sp.tenSanPham || 'Áo phông',
+            name: sp.tenSanPham || ctsp.tenSanPham || ct.tenSanPham || 'Áo Phông Cao Cấp',
             color: ms.tenMau || ms.tenMauSac || ct.tenMauSac || 'Mặc định',
+            colorHex: ms.maHex || '',
             size: kc.tenKichCo || ct.tenKichCo || 'Freesize',
             stock: ctsp.soLuong != null ? Number(ctsp.soLuong) : 50,
             originalPrice: origPrice,
@@ -160,7 +165,8 @@ const loadWaitingInvoices = async () => {
             hasDiscount: hasDiscount,
             discountText: hasDiscount ? ('-' + formatShortMoney(origPrice - curPrice)) : '',
             quantity: ct.soLuong || 1,
-            image: ct.anhDaiDien || ctsp.anhDaiDien || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
+            syncedQuantity: ct.soLuong || 1,
+            image: ct.anhDaiDien || ctsp.anhDaiDien || '/images/products/default_tshirt.jpg'
           }
         })
       } catch (e) {
@@ -177,7 +183,7 @@ const loadWaitingInvoices = async () => {
         customerId: inv.idKhachHang?.id || null,
         customerName: isKhachLe ? '' : rawCust,
         customerPhone: inv.soDienThoaiKhachHang || '',
-        isDelivery: Number(inv.loaiDon) === 2,
+        isDelivery: Boolean(inv.diaChiNhanHang && inv.diaChiNhanHang !== 'Bán tại quầy' && inv.diaChiNhanHang !== '—') || Number(inv.phiVanChuyen || 0) > 0,
         deliveryAddress: (inv.diaChiNhanHang && inv.diaChiNhanHang !== 'Bán tại quầy') ? inv.diaChiNhanHang : '',
         shippingFee: Number(inv.phiVanChuyen || 0),
         voucher: inv.idPhieuGiamGia || null,
@@ -205,10 +211,6 @@ const loadWaitingInvoices = async () => {
 
 // Thêm hóa đơn chờ mới (lưu thẳng vào CSDL, tối đa 5 hóa đơn)
 const addWaitingInvoice = async () => {
-  if (isInViewMode()) {
-    showToast('Bạn đang ở Chế độ xem (Chưa vào ca làm việc)! Vui lòng vào ca làm việc để tạo đơn.', 'warning')
-    return
-  }
   if (waitingInvoices.value.length >= 5) {
     showToast('Chỉ được tạo tối đa 5 hóa đơn chờ cùng lúc!', 'warning')
     return
@@ -275,10 +277,6 @@ const selectInvoice = (id) => {
 
 // Hủy hóa đơn chờ cụ thể
 const confirmRemoveInvoice = (inv) => {
-  if (isInViewMode()) {
-    showToast('Bạn đang ở Chế độ xem! Không thể hủy hóa đơn.', 'warning')
-    return
-  }
   if (!inv) return
   openConfirm(
       'Xác nhận hủy hóa đơn',
@@ -347,12 +345,76 @@ const formatShortMoney = (val) => {
   return num.toLocaleString('vi-VN') + 'đ'
 }
 
+const getCartItemName = (item) => {
+  if (item?.name && typeof item.name === 'string' && item.name.trim() !== '' && item.name !== 'Áo phông') {
+    return item.name
+  }
+  const found = productList.value.find(p => p.id === item?.id || (item?.variantCode && p.variantCode === item.variantCode))
+  if (found && found.name) return found.name
+  return item?.name || 'Áo Phông Cao Cấp'
+}
+
 // Tự động tải lại biến thể sản phẩm & chiến dịch giảm giá khi mở modal chọn sản phẩm
 watch(showProductModal, (isOpen) => {
   if (isOpen) {
     fetchProductVariants()
   }
 })
+
+// Tính toán số lượng của biến thể đang trong giỏ nhưng chưa đồng bộ vào CSDL (unsynced delta)
+const getUnsyncedQuantityForVariant = (variantId, variantCode) => {
+  let delta = 0
+  if (currentInvoice.value && Array.isArray(currentInvoice.value.cart)) {
+    for (const c of currentInvoice.value.cart) {
+      const match = (variantId != null && Number(c.id) === Number(variantId)) ||
+                    (variantCode && c.variantCode && String(c.variantCode).trim().toLowerCase() === String(variantCode).trim().toLowerCase())
+      if (match) {
+        const qty = Number(c.quantity || 0)
+        const synced = c.syncedQuantity != null ? Number(c.syncedQuantity) : qty
+        delta += (qty - synced)
+      }
+    }
+  }
+  return delta
+}
+
+// Đồng bộ tồn kho khả dụng (stock) theo dbStock trừ chênh lệch giỏ hàng chưa đồng bộ
+const refreshAvailableStock = () => {
+  if (!Array.isArray(productList.value)) return
+  for (const p of productList.value) {
+    if (p.dbStock == null) {
+      p.dbStock = p.stock != null ? Number(p.stock) : 0
+    }
+    const unsynced = getUnsyncedQuantityForVariant(p.id, p.variantCode)
+    p.stock = Math.max(0, p.dbStock - unsynced)
+  }
+}
+
+// Bổ sung đầy đủ thông tin (tên, màu, size, ảnh) cho các sản phẩm trong giỏ từ productList
+const enrichCartItemsWithProductList = () => {
+  if (!Array.isArray(productList.value) || productList.value.length === 0) return
+  if (!Array.isArray(waitingInvoices.value)) return
+  for (const inv of waitingInvoices.value) {
+    if (!Array.isArray(inv.cart)) continue
+    for (const item of inv.cart) {
+      const p = findProduct(item)
+      if (p) {
+        if (!item.name || item.name === 'Áo phông' || item.name === 'Áo Phông Cao Cấp') {
+          item.name = p.name
+        }
+        if (!item.color || item.color === 'Mặc định') item.color = p.color
+        if (!item.colorHex && p.colorHex) item.colorHex = p.colorHex
+        if (!item.size || item.size === 'Freesize') item.size = p.size
+        if (!item.image || item.image.includes('default_tshirt')) item.image = p.image
+        if (p.hasDiscount) {
+          item.hasDiscount = true
+          item.discountText = p.discountText
+          item.discountCampaignName = p.discountCampaignName
+        }
+      }
+    }
+  }
+}
 
 // Gọi API lấy toàn bộ biến thể sản phẩm đang bán kèm đợt giảm giá (HOÀN TOÀN TỪ CSDL)
 const fetchProductVariants = async () => {
@@ -427,16 +489,19 @@ const fetchProductVariants = async () => {
         variantCode: item.maChiTietSanPham || `CTSP0${idx + 1}`,
         name: item.idSanPham?.tenSanPham || item.tenSanPham || 'Áo Phông Cao Cấp',
         color: item.idMauSac?.tenMau || item.idMauSac?.tenMauSac || item.tenMauSac || 'Mặc định',
+        colorHex: item.idMauSac?.maHex || item.maHex || '',
         size: item.idKichCo?.tenKichCo || item.tenKichCo || 'Freesize',
-        stock: item.soLuong != null ? Number(item.soLuong) : 0,
+        dbStock: item.soLuong != null ? Number(item.soLuong) : 0,
+        stock: Math.max(0, (item.soLuong != null ? Number(item.soLuong) : 0) - getUnsyncedQuantityForVariant(item.id, item.maChiTietSanPham)),
         originalPrice: origPrice,
         price: hasDiscount ? salePrice : origPrice,
         hasDiscount: hasDiscount,
         discountText: discountText,
         discountCampaignName: discountCampaignName,
-        image: item.anhDaiDien || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&auto=format&fit=crop&q=80'
+        image: item.anhDaiDien || '/images/products/default_tshirt.jpg'
       }
     })
+    enrichCartItemsWithProductList()
   } catch (e) {
     console.error('Không tải được danh sách CTSP từ CSDL:', e)
     productList.value = []
@@ -460,79 +525,263 @@ const syncCurrentCartToDb = () => {
         giaDuocTinh: item.price
       }))
       await api.post(`/api/hoa-don/${currentInvoice.value.id}/sync-cart`, itemsPayload)
+      if (currentInvoice.value && Array.isArray(currentInvoice.value.cart)) {
+        for (const it of currentInvoice.value.cart) {
+          const p = findProduct(it)
+          if (p) {
+            p.dbStock = p.stock
+          }
+          it.syncedQuantity = it.quantity
+        }
+      }
     } catch (err) {
       console.warn('Đồng bộ giỏ hàng với CSDL:', err)
     }
   }, 400)
 }
 
+// Các bộ lọc bổ sung cho Modal Chọn sản phẩm
+const filterColor = ref('')
+const filterSize = ref('')
+const filterDiscount = ref('')
+const filterSort = ref('')
+const productModalPage = ref(1)
+const productModalPageSize = ref(8)
+
+const availableColors = computed(() => {
+  const set = new Set()
+  productList.value.forEach(p => {
+    if (p.color) set.add(p.color)
+  })
+  return Array.from(set).sort()
+})
+
+const availableSizes = computed(() => {
+  const set = new Set()
+  productList.value.forEach(p => {
+    if (p.size) set.add(p.size)
+  })
+  return Array.from(set).sort()
+})
+
+const colorFilterOptions = computed(() => [
+  { id: '', name: 'Tất cả màu sắc' },
+  ...availableColors.value.map(c => ({ id: c, name: c }))
+])
+
+const sizeFilterOptions = computed(() => [
+  { id: '', name: 'Tất cả kích cỡ' },
+  ...availableSizes.value.map(s => ({ id: s, name: s }))
+])
+
+const discountFilterOptions = [
+  { id: '', name: 'Tất cả ưu đãi' },
+  { id: 'discount', name: 'Đang giảm giá' },
+  { id: 'normal', name: 'Giá gốc (không giảm)' }
+]
+
+const sortFilterOptions = [
+  { id: '', name: 'Mặc định (Mã CTSP)' },
+  { id: 'price_asc', name: 'Giá: Thấp đến cao' },
+  { id: 'price_desc', name: 'Giá: Cao đến thấp' },
+  { id: 'stock_desc', name: 'Tồn kho: Nhiều nhất' },
+  { id: 'stock_asc', name: 'Tồn kho: Ít nhất' },
+  { id: 'name_asc', name: 'Tên: A đến Z' }
+]
+
+const resetProductModalFilters = () => {
+  searchProductText.value = ''
+  filterColor.value = ''
+  filterSize.value = ''
+  filterDiscount.value = ''
+  filterSort.value = ''
+  productModalPage.value = 1
+}
+
+watch([searchProductText, filterColor, filterSize, filterDiscount, filterSort, productModalPageSize], () => {
+  productModalPage.value = 1
+})
+
 const filteredProducts = computed(() => {
-  if (!searchProductText.value) return productList.value
-  const kw = searchProductText.value.toLowerCase().trim()
-  return productList.value.filter(p =>
+  // Chỉ hiển thị sản phẩm còn hàng trong kho (sản phẩm hết hàng sẽ không hiện ở bảng)
+  let list = productList.value.filter(p => p.stock > 0)
+
+  const kw = (searchProductText.value || '').toLowerCase().trim()
+  if (kw) {
+    list = list.filter(p =>
       (p.name && p.name.toLowerCase().includes(kw)) ||
       (p.code && p.code.toLowerCase().includes(kw)) ||
       (p.variantCode && p.variantCode.toLowerCase().includes(kw)) ||
       (p.color && p.color.toLowerCase().includes(kw)) ||
       (p.size && p.size.toLowerCase().includes(kw))
-  )
+    )
+  }
+
+  if (filterColor.value) {
+    list = list.filter(p => p.color === filterColor.value)
+  }
+
+  if (filterSize.value) {
+    list = list.filter(p => p.size === filterSize.value)
+  }
+
+  if (filterDiscount.value === 'discount') {
+    list = list.filter(p => p.hasDiscount)
+  } else if (filterDiscount.value === 'normal') {
+    list = list.filter(p => !p.hasDiscount)
+  }
+
+  // Sắp xếp danh sách biến thể
+  if (filterSort.value === 'price_asc') {
+    list.sort((a, b) => a.price - b.price)
+  } else if (filterSort.value === 'price_desc') {
+    list.sort((a, b) => b.price - a.price)
+  } else if (filterSort.value === 'stock_desc') {
+    list.sort((a, b) => b.stock - a.stock)
+  } else if (filterSort.value === 'stock_asc') {
+    list.sort((a, b) => a.stock - b.stock)
+  } else if (filterSort.value === 'name_asc') {
+    list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'))
+  }
+
+  return list
 })
 
+const productModalTotalPages = computed(() => {
+  return Math.ceil(filteredProducts.value.length / productModalPageSize.value) || 1
+})
+
+const paginatedProductsModal = computed(() => {
+  const start = (productModalPage.value - 1) * productModalPageSize.value
+  return filteredProducts.value.slice(start, start + productModalPageSize.value)
+})
+
+const changeProductModalPage = (p) => {
+  if (p < 1 || p > productModalTotalPages.value) return
+  productModalPage.value = p
+}
+
+const visibleProductModalPages = computed(() => {
+  const total = productModalTotalPages.value
+  const curr = productModalPage.value
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+  const pages = []
+  if (curr <= 4) {
+    for (let i = 1; i <= 5; i++) pages.push(i)
+    pages.push('...')
+    pages.push(total)
+  } else if (curr >= total - 3) {
+    pages.push(1)
+    pages.push('...')
+    for (let i = total - 4; i <= total; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    pages.push('...')
+    for (let i = curr - 1; i <= curr + 1; i++) pages.push(i)
+    pages.push('...')
+    pages.push(total)
+  }
+  return pages
+})
+
+const formatProductImage = (url, prod) => {
+  if (!url || typeof url !== 'string' || url.trim() === '' || url.includes('photo-1521572267360-ee0c2909d518')) {
+    const sid = prod?.sanPhamId || prod?.id
+    const scode = (prod?.code || prod?.variantCode || '').toUpperCase()
+    if (sid === 1 || scode.includes('SP001') || scode.includes('SP01')) return '/images/products/sp01_front.jpg'
+    if (sid === 2 || scode.includes('SP002') || scode.includes('SP02')) return '/images/products/sp02_front.jpg'
+    if (sid === 3 || scode.includes('SP003') || scode.includes('SP03')) return '/images/products/sp03_front.jpg'
+    if (sid === 4 || scode.includes('SP004') || scode.includes('SP04')) return '/images/products/sp04_front.jpg'
+    return '/images/products/default_tshirt.jpg'
+  }
+  let cleanUrl = url.trim()
+  if (cleanUrl.includes('|')) {
+    cleanUrl = cleanUrl.split('|')[1].trim()
+  }
+  if (cleanUrl.startsWith('data:') || cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+    return cleanUrl
+  }
+  if (cleanUrl.startsWith('/images/')) {
+    return cleanUrl
+  }
+  if (cleanUrl.startsWith('/uploads/') || cleanUrl.startsWith('uploads/')) {
+    const p = cleanUrl.startsWith('/') ? cleanUrl : '/' + cleanUrl
+    return `http://localhost:8080${p}`
+  }
+  return cleanUrl.startsWith('/') ? cleanUrl : `/${cleanUrl}`
+}
+
+
+
+const findProduct = (item) => {
+  if (!item) return null
+  // 1. Ưu tiên tìm chính xác theo ID biến thể chi tiết (ChiTietSanPham.id)
+  if (item.id != null) {
+    const foundById = productList.value.find(x => Number(x.id) === Number(item.id))
+    if (foundById) return foundById
+  }
+  // 2. Tìm theo Mã biến thể CTSP duy nhất (variantCode / maChiTietSanPham ví dụ CTSP04)
+  const vCode = item.variantCode || (typeof item.code === 'string' && item.code.toUpperCase().startsWith('CTSP') ? item.code : null)
+  if (vCode) {
+    const targetCode = String(vCode).trim().toLowerCase()
+    const foundByVCode = productList.value.find(x => x.variantCode && String(x.variantCode).trim().toLowerCase() === targetCode)
+    if (foundByVCode) return foundByVCode
+  }
+  // 3. Fallback: Nếu item truyền vào đã là biến thể trong productList có sẵn thông tin
+  if (item.stock != null && item.variantCode) {
+    return item
+  }
+  return null
+}
+
 const getMaxStockForItem = (item) => {
-  const p = productList.value.find(x => x.id === item.id)
-  return item.quantity + (p ? Math.max(0, p.stock) : 0)
+  const p = findProduct(item)
+  const currentSynced = Number(item?.syncedQuantity || 0)
+  const dbStock = p ? Number(p.dbStock ?? p.stock ?? 0) : 0
+  return Math.max(1, dbStock + currentSynced)
+}
+
+const getRemainingStock = (item) => {
+  const p = findProduct(item)
+  return p ? Math.max(0, p.stock) : 0
 }
 
 const selectProduct = (prod) => {
-  if (isInViewMode()) {
-    showToast('Bạn đang ở Chế độ xem (Chưa vào ca làm việc)! Vui lòng vào ca làm việc để bán hàng.', 'warning')
-    return
-  }
-  const p = productList.value.find(item => item.id === prod.id) || prod
-  if (p.stock <= 0) {
+  const p = findProduct(prod) || prod
+  const available = Number(p.stock ?? prod.stock ?? 0)
+  if (available <= 0) {
     showToast('Sản phẩm đã hết hàng trong kho!', 'warning')
     return
   }
 
-  const exist = currentInvoice.value.cart.find(i => i.id === prod.id)
+  const targetId = p.id ?? prod.id
+  const targetVCode = p.variantCode || prod.variantCode
+
+  const exist = currentInvoice.value.cart.find(i => 
+    (targetId != null && Number(i.id) === Number(targetId)) ||
+    (targetVCode && i.variantCode && i.variantCode.toLowerCase() === targetVCode.toLowerCase())
+  )
   if (exist) {
-    exist.quantity++
-  } else {
-    currentInvoice.value.cart.push({
-      ...prod,
-      quantity: 1
-    })
-  }
-
-  // Trừ trực tiếp số lượng tồn kho khả dụng ngay khi thêm vào giỏ hàng
-  p.stock--
-
-  syncCurrentCartToDb()
-  showToast(`Đã thêm "${prod.name} (${prod.color} - ${prod.size})" vào giỏ hàng!`)
-}
-
-const _oldSelectProduct = (prod) => { if (true) return;
-  if (prod.stock <= 0) {
-    showToast('Sản phẩm đã hết hàng trong kho!', 'warning')
-    return
-  }
-
-  const exist = currentInvoice.value.cart.find(i => i.id === prod.id)
-  if (exist) {
-    if (exist.quantity >= prod.stock) {
-      showToast(`Trong kho chỉ còn tối đa ${prod.stock} sản phẩm!`, 'warning')
+    if (available < 1) {
+      showToast('Trong kho không còn đủ sản phẩm để thêm tiếp!', 'warning')
       return
     }
     exist.quantity++
   } else {
     currentInvoice.value.cart.push({
-      ...prod,
-      quantity: 1
+      ...p,
+      id: targetId,
+      variantCode: targetVCode,
+      quantity: 1,
+      syncedQuantity: 0
     })
   }
 
+  refreshAvailableStock()
   syncCurrentCartToDb()
-  showToast(`Đã thêm "${prod.name} (${prod.color} - ${prod.size})" vào giỏ hàng!`)
+  showToast(`Đã thêm "${p.name || prod.name} (${p.color || prod.color} - ${p.size || prod.size})" vào giỏ hàng!`)
 }
 
 // Quét barcode / nhập mã nhanh
@@ -540,9 +789,9 @@ const handleBarcodeScan = () => {
   const code = barcodeInput.value?.trim().toLowerCase()
   if (!code) return
   const found = productList.value.find(p =>
-      (p.code && p.code.toLowerCase() === code) ||
       (p.variantCode && p.variantCode.toLowerCase() === code) ||
-      String(p.id) === code
+      String(p.id) === code ||
+      (p.code && p.code.toLowerCase() === code)
   )
   if (found) {
     selectProduct(found)
@@ -553,14 +802,14 @@ const handleBarcodeScan = () => {
 }
 
 const updateQuantity = (item, delta) => {
-  const p = productList.value.find(x => x.id === item.id)
+  const p = findProduct(item)
   if (delta > 0) {
     if (p && p.stock < delta) {
       showToast(`Trong kho chỉ còn thêm tối đa ${p.stock} sản phẩm!`, 'warning')
       return
     }
     item.quantity += delta
-    if (p) p.stock -= delta
+    refreshAvailableStock()
     syncCurrentCartToDb()
   } else if (delta < 0) {
     const absDelta = Math.abs(delta)
@@ -569,65 +818,50 @@ const updateQuantity = (item, delta) => {
       return
     }
     item.quantity -= absDelta
-    if (p) p.stock += absDelta
+    refreshAvailableStock()
     syncCurrentCartToDb()
   }
-}
-
-const _oldUpdateQuantity = (item, delta) => { if (true) return;
-  const newQty = item.quantity + delta
-  if (newQty <= 0) {
-    removeFromCart(item)
-    return
-  }
-  if (newQty > item.stock) {
-    showToast(`Số lượng trong kho chỉ còn tối đa ${item.stock}!`, 'warning')
-    return
-  }
-  item.quantity = newQty
-  syncCurrentCartToDb()
 }
 
 const handleQuantityInput = (item, event) => {
-  let val = parseInt(event.target.value, 10)
-  const p = productList.value.find(x => x.id === item.id)
-  const maxAvailable = item.quantity + (p ? Math.max(0, p.stock) : 0)
+  const p = findProduct(item)
+  const currentSynced = Number(item?.syncedQuantity || 0)
+  const dbStock = p ? Number(p.dbStock ?? p.stock ?? 0) : 0
+  const maxAvailable = Math.max(1, dbStock + currentSynced)
+
+  let raw = event.target.value
+  if (raw === '') {
+    if (event.type === 'change' || event.type === 'blur') {
+      event.target.value = item.quantity
+    }
+    return
+  }
+
+  let val = parseInt(raw, 10)
   if (isNaN(val) || val <= 0) {
     val = 1
+    event.target.value = 1
   }
-  if (val > maxAvailable) {
-    showToast(`Số lượng khả dụng chỉ còn tối đa ${maxAvailable}!`, 'warning')
-    val = maxAvailable
-  }
-  const delta = val - item.quantity
-  if (delta !== 0) {
-    item.quantity = val
-    if (p) p.stock -= delta
-    syncCurrentCartToDb()
-  } else {
-    event.target.value = item.quantity
-  }
-}
 
-const _oldHandleQuantityInput = (item, event) => { if (true) return;
-  let val = parseInt(event.target.value, 10)
-  if (isNaN(val) || val <= 0) {
-    item.quantity = 1
-  } else if (val > item.stock) {
-    showToast(`Số lượng trong kho chỉ còn tối đa ${item.stock}!`, 'warning')
-    item.quantity = item.stock
-  } else {
-    item.quantity = val
+  if (val > maxAvailable) {
+    showToast(`Trong kho chỉ còn tối đa ${maxAvailable} sản phẩm!`, 'warning')
+    val = maxAvailable
+    event.target.value = maxAvailable
   }
-  syncCurrentCartToDb()
+
+  if (val !== item.quantity) {
+    item.quantity = val
+    refreshAvailableStock()
+    syncCurrentCartToDb()
+  }
+  event.target.value = item.quantity
 }
 
 const removeFromCart = (item) => {
-  const p = productList.value.find(x => x.id === item.id)
-  if (p) {
-    p.stock += item.quantity
-  }
-  currentInvoice.value.cart = currentInvoice.value.cart.filter(i => i.id !== item.id)
+  currentInvoice.value.cart = currentInvoice.value.cart.filter(i => 
+    !((item?.id != null && Number(i.id) === Number(item.id)) || (item?.variantCode && i.variantCode && item.variantCode === i.variantCode))
+  )
+  refreshAvailableStock()
   syncCurrentCartToDb()
   showToast('Đã xóa sản phẩm khỏi giỏ hàng!')
 }
@@ -645,7 +879,7 @@ const customerSearchResults = ref([])
 const showCustomerDropdown = ref(false)
 const showQuickAddCustomerModal = ref(false)
 
-// Danh mục hành chính (Tỉnh/Thành & Phường/Xã) cho Bán Hàng
+// Danh mục hành chính chuẩn 2 cấp (Tỉnh/Thành & Phường/Xã)
 const provincesList = ref([])
 const quickCustomerWardsList = ref([])
 const quickCustomerProvinceCode = ref('')
@@ -658,7 +892,7 @@ const loadProvincesData = async () => {
 }
 
 const onQuickCustomerProvinceChange = async () => {
-  const p = provincesList.value.find(item => item.code === quickCustomerProvinceCode.value)
+  const p = provincesList.value.find(item => String(item.code) === String(quickCustomerProvinceCode.value))
   newCustomerForm.value.thanhPho = p ? p.name : ''
   quickCustomerWardCode.value = ''
   newCustomerForm.value.huyen = ''
@@ -670,7 +904,7 @@ const onQuickCustomerProvinceChange = async () => {
 }
 
 const onQuickCustomerWardChange = () => {
-  const w = quickCustomerWardsList.value.find(item => item.code === quickCustomerWardCode.value)
+  const w = quickCustomerWardsList.value.find(item => String(item.code) === String(quickCustomerWardCode.value))
   newCustomerForm.value.phuong = w ? w.name : ''
   if (w && w.districtName) {
     newCustomerForm.value.huyen = w.districtName
@@ -718,7 +952,7 @@ const loadCustomerAddressesForCurrent = async (customerId) => {
   try {
     const res = await api.get(`/api/khach-hang/${customerId}/dia-chi`)
     customerAddressesList.value = res.data || []
-    if (!currentInvoice.value.deliveryAddress && customerAddressesList.value.length > 0) {
+    if (customerAddressesList.value.length > 0) {
       const def = customerAddressesList.value.find(a => a.macDinh) || customerAddressesList.value[0]
       await syncInvoiceDeliveryFromAddress(currentInvoice.value, def)
     }
@@ -727,8 +961,9 @@ const loadCustomerAddressesForCurrent = async (customerId) => {
   }
 }
 
-// Quản lý địa chỉ giao hàng trực tiếp trên hóa đơn
+// Quản lý địa chỉ giao hàng trực tiếp trên hóa đơn (2 cấp: Tỉnh/Thành & Phường/Xã)
 const deliveryWardsList = ref([])
+const isCalculatingShipping = ref(false)
 
 const updateCombinedDeliveryAddress = () => {
   if (!currentInvoice.value) return
@@ -742,75 +977,163 @@ const updateCombinedDeliveryAddress = () => {
 
 const onDeliveryProvinceChange = async () => {
   if (!currentInvoice.value) return
-  const p = provincesList.value.find(item => item.code === currentInvoice.value.deliveryProvinceCode)
+  const p = provincesList.value.find(item => String(item.code) === String(currentInvoice.value.deliveryProvinceCode))
   currentInvoice.value.deliveryProvince = p ? p.name : ''
   currentInvoice.value.deliveryWardCode = ''
   currentInvoice.value.deliveryDistrict = ''
   currentInvoice.value.deliveryWard = ''
   deliveryWardsList.value = []
+
   if (currentInvoice.value.deliveryProvinceCode) {
     deliveryWardsList.value = await getWardsByProvince(currentInvoice.value.deliveryProvinceCode)
   }
   updateCombinedDeliveryAddress()
+  await autoCalculateShippingFee()
 }
 
-const onDeliveryWardChange = () => {
+const onDeliveryWardChange = async () => {
   if (!currentInvoice.value) return
-  const w = deliveryWardsList.value.find(item => item.code === currentInvoice.value.deliveryWardCode)
+  const w = deliveryWardsList.value.find(item => String(item.code) === String(currentInvoice.value.deliveryWardCode))
   currentInvoice.value.deliveryWard = w ? w.name : ''
   if (w && w.districtName) {
     currentInvoice.value.deliveryDistrict = w.districtName
   }
   updateCombinedDeliveryAddress()
+  await autoCalculateShippingFee()
 }
 
 const onDeliveryDetailInput = () => {
   updateCombinedDeliveryAddress()
 }
 
+// Tự động tính phí ship theo API GHN / Chính sách khu vực địa lý
+const autoCalculateShippingFee = async () => {
+  if (!currentInvoice.value || !currentInvoice.value.isDelivery) return
+  isCalculatingShipping.value = true
+  try {
+    const res = await calculateGhnShippingFee({
+      provinceName: currentInvoice.value.deliveryProvince,
+      districtName: currentInvoice.value.deliveryDistrict,
+      wardName: currentInvoice.value.deliveryWard,
+      fullAddress: currentInvoice.value.deliveryAddress,
+      insuranceValue: totalAmount.value
+    })
+    if (res && res.fee != null) {
+      currentInvoice.value.shippingFee = res.fee
+      currentInvoice.value.shippingDesc = res.regionDescription || ''
+      currentInvoice.value.shippingSource = res.source || ''
+    }
+  } catch (e) {
+    console.warn('Lỗi tính phí ship GHN:', e)
+  } finally {
+    isCalculatingShipping.value = false
+  }
+}
+
 const syncInvoiceDeliveryFromAddress = async (inv, addrObj) => {
   if (!inv || !addrObj) return
   await loadProvincesData()
 
+  let rawThanhPho = ''
+  let rawHuyen = ''
+  let rawPhuong = ''
+  let rawDiaChiCuThe = ''
+  let rawNguoiNhan = ''
+  let rawSdtNhan = ''
+
   if (typeof addrObj === 'object') {
-    inv.deliveryDetail = addrObj.diaChiCuThe || ''
-    inv.deliveryProvince = addrObj.thanhPho || ''
-    inv.deliveryDistrict = addrObj.huyen || ''
-    inv.deliveryWard = addrObj.phuong || ''
-    inv.deliveryAddress = formatAddrObj(addrObj)
+    rawThanhPho = addrObj.thanhPho || addrObj.province || addrObj.city || ''
+    rawHuyen = addrObj.huyen || addrObj.district || ''
+    rawPhuong = addrObj.phuong || addrObj.ward || ''
+    rawDiaChiCuThe = addrObj.diaChiCuThe || addrObj.diaChi || addrObj.addressDetail || ''
+    rawNguoiNhan = addrObj.tenNguoiNhan || addrObj.nguoiNhan || ''
+    rawSdtNhan = addrObj.soDienThoaiNhan || addrObj.sdtNhan || ''
+  } else if (typeof addrObj === 'string') {
+    const rawStr = addrObj.trim()
+    const parts = rawStr.split(',').map(s => s.trim()).filter(Boolean)
+    if (parts.length >= 3) {
+      rawThanhPho = parts[parts.length - 1]
+      rawHuyen = parts.length >= 4 ? parts[parts.length - 2] : ''
+      rawPhuong = parts.length >= 4 ? parts[parts.length - 3] : parts[parts.length - 2]
+      rawDiaChiCuThe = parts.slice(0, parts.length >= 4 ? parts.length - 3 : parts.length - 2).join(', ')
+    } else {
+      rawDiaChiCuThe = rawStr
+    }
+  }
 
-    const cleanStr = (s) => (s || '').toLowerCase()
-        .replace(/^(tỉnh|thành phố|tp\.|tp|quận|huyện|thị xã|tx\.|tx|phường|xã|thị trấn|tt\.|tt)\s+/gi, '')
-        .trim()
+  inv.deliveryDetail = rawDiaChiCuThe
+  inv.deliveryProvince = rawThanhPho
+  inv.deliveryDistrict = rawHuyen
+  inv.deliveryWard = rawPhuong
+  inv.deliveryAddress = formatAddrObj({
+    diaChiCuThe: rawDiaChiCuThe,
+    phuong: rawPhuong,
+    huyen: rawHuyen,
+    thanhPho: rawThanhPho
+  }) || rawDiaChiCuThe
 
-    const matchP = provincesList.value.find(p =>
-        p.name.toLowerCase() === (addrObj.thanhPho || '').toLowerCase() ||
-        cleanStr(p.name) === cleanStr(addrObj.thanhPho) ||
-        p.name.toLowerCase().includes(cleanStr(addrObj.thanhPho)) ||
-        (addrObj.thanhPho || '').toLowerCase().includes(cleanStr(p.name))
+  if (rawNguoiNhan && (!inv.customerName || inv.customerName === 'Khách lẻ')) {
+    inv.customerName = rawNguoiNhan
+  }
+  if (rawSdtNhan && !inv.customerPhone) {
+    inv.customerPhone = rawSdtNhan
+  }
+
+  const cleanStr = (s) => (s || '').toLowerCase()
+      .replace(/^(tỉnh|thành phố|tp\.|tp|quận|huyện|thị xã|tx\.|tx|phường|xã|thị trấn|tt\.|tt)\s+/gi, '')
+      .trim()
+
+  if (rawThanhPho) {
+    let matchP = provincesList.value.find(p =>
+        p.name.toLowerCase() === rawThanhPho.toLowerCase() ||
+        cleanStr(p.name) === cleanStr(rawThanhPho) ||
+        p.name.toLowerCase().includes(cleanStr(rawThanhPho)) ||
+        rawThanhPho.toLowerCase().includes(cleanStr(p.name))
     )
 
     if (matchP) {
       inv.deliveryProvinceCode = matchP.code
+      inv.deliveryProvince = matchP.name
       const wards = await getWardsByProvince(matchP.code)
       if (inv.id === currentInvoice.value?.id) {
         deliveryWardsList.value = wards
       }
 
-      const matchW = wards.find(w =>
-          w.name.toLowerCase() === (addrObj.phuong || '').toLowerCase() ||
-          cleanStr(w.name) === cleanStr(addrObj.phuong) ||
-          w.name.toLowerCase().includes(cleanStr(addrObj.phuong)) ||
-          (addrObj.phuong || '').toLowerCase().includes(cleanStr(w.name))
+      let matchW = wards.find(w =>
+          w.name.toLowerCase() === rawPhuong.toLowerCase() ||
+          cleanStr(w.name) === cleanStr(rawPhuong) ||
+          w.name.toLowerCase().includes(cleanStr(rawPhuong)) ||
+          rawPhuong.toLowerCase().includes(cleanStr(w.name))
       )
+
       if (matchW) {
         inv.deliveryWardCode = matchW.code
+        inv.deliveryWard = matchW.name
+        if (matchW.districtName && !inv.deliveryDistrict) {
+          inv.deliveryDistrict = matchW.districtName
+        }
+      } else if (rawPhuong) {
+        const customW = { code: 'CUSTOM_W_' + matchP.code, name: rawPhuong }
+        wards.unshift(customW)
+        inv.deliveryWardCode = customW.code
+        inv.deliveryWard = customW.name
+      }
+    } else {
+      const customP = { code: 'CUSTOM_P_' + rawThanhPho, name: rawThanhPho }
+      provincesList.value.unshift(customP)
+      inv.deliveryProvinceCode = customP.code
+      if (rawPhuong) {
+        const customW = { code: 'CUSTOM_W_' + rawPhuong, name: rawPhuong }
+        if (inv.id === currentInvoice.value?.id) {
+          deliveryWardsList.value = [customW]
+        }
+        inv.deliveryWardCode = customW.code
       }
     }
-  } else if (typeof addrObj === 'string') {
-    inv.deliveryAddress = addrObj
-    inv.deliveryDetail = addrObj
   }
+
+  updateCombinedDeliveryAddress()
+  await autoCalculateShippingFee()
 }
 
 watch(activeInvoiceId, async () => {
@@ -818,6 +1141,25 @@ watch(activeInvoiceId, async () => {
     deliveryWardsList.value = await getWardsByProvince(currentInvoice.value.deliveryProvinceCode)
   } else {
     deliveryWardsList.value = []
+  }
+  if (currentInvoice.value?.customerId) {
+    loadCustomerAddressesForCurrent(currentInvoice.value.customerId)
+  } else {
+    customerAddressesList.value = []
+  }
+})
+
+watch(() => currentInvoice.value?.isDelivery, async (newVal) => {
+  if (newVal) {
+    if (currentInvoice.value?.customerId) {
+      if (!currentInvoice.value.deliveryProvinceCode || !currentInvoice.value.deliveryAddress) {
+        const def = customerAddressesList.value.find(a => a.macDinh) || customerAddressesList.value[0]
+        if (def) {
+          await syncInvoiceDeliveryFromAddress(currentInvoice.value, def)
+        }
+      }
+    }
+    await autoCalculateShippingFee()
   }
 })
 
@@ -841,7 +1183,7 @@ const openCustomerAddAddressModal = async () => {
 }
 
 const onAddrModalProvinceChange = async () => {
-  const p = provincesList.value.find(item => item.code === addrModalProvinceCode.value)
+  const p = provincesList.value.find(item => String(item.code) === String(addrModalProvinceCode.value))
   newAddressForm.value.thanhPho = p ? p.name : ''
   addrModalWardCode.value = ''
   newAddressForm.value.huyen = ''
@@ -853,7 +1195,7 @@ const onAddrModalProvinceChange = async () => {
 }
 
 const onAddrModalWardChange = () => {
-  const w = addrModalWardsList.value.find(item => item.code === addrModalWardCode.value)
+  const w = addrModalWardsList.value.find(item => String(item.code) === String(addrModalWardCode.value))
   newAddressForm.value.phuong = w ? w.name : ''
   if (w && w.districtName) {
     newAddressForm.value.huyen = w.districtName
@@ -948,10 +1290,11 @@ const selectCustomer = async (cust) => {
   currentInvoice.value.customerPhone = cust.soDienThoai
   showCustomerDropdown.value = false
 
-  // Tải danh sách địa chỉ đã lưu của khách hàng
+  // Tải danh sách địa chỉ đã lưu của khách hàng và tự động fill địa chỉ
   await loadCustomerAddressesForCurrent(cust.id)
 
-  if (!currentInvoice.value.deliveryAddress && (cust.thanhPho || cust.diaChiCuThe)) {
+  // Nếu khách hàng chưa có trong bảng dia-chi nhưng có địa chỉ trong thông tin khách hàng cust
+  if (customerAddressesList.value.length === 0 && (cust.thanhPho || cust.diaChiCuThe || cust.diaChi || cust.phuong)) {
     await syncInvoiceDeliveryFromAddress(currentInvoice.value, cust)
   }
 
@@ -1117,6 +1460,72 @@ function calculateDiscountAmount(v, subtotal) {
 }
 
 // Helper: Tìm phiếu giảm giá cá nhân hợp lệ mang lại mức giảm cao nhất cho khách hàng
+// Helper: Tìm phiếu giảm giá TỐT NHẤT (mức giảm cao nhất) trong tất cả phiếu hợp lệ (Công khai & Cá nhân)
+function findBestVoucher(customerId, customerName, subtotal) {
+  if (subtotal <= 0) return null
+  const now = new Date()
+
+  const eligible = availableVouchers.value.filter(v => {
+    if (v.trangThai != null && Number(v.trangThai) !== 1) return false
+    if (v.soLuongSuDung != null && Number(v.soLuongSuDung) <= 0) return false
+    if (v.ngayBatDau && new Date(v.ngayBatDau) > now) return false
+    if (v.ngayKetThuc && new Date(v.ngayKetThuc) < now) return false
+    if (isVoucherPersonal(v)) {
+      if (!customerId || !isVoucherForCustomer(v, customerId, customerName)) return false
+    }
+    if (v.hoaDonToiThieu && Number(subtotal) < Number(v.hoaDonToiThieu)) return false
+
+    const discount = calculateDiscountAmount(v, subtotal)
+    if (discount <= 0) return false
+
+    return true
+  })
+
+  if (eligible.length === 0) return null
+
+  eligible.sort((a, b) => {
+    const discountA = calculateDiscountAmount(a, subtotal)
+    const discountB = calculateDiscountAmount(b, subtotal)
+    if (discountB !== discountA) {
+      return discountB - discountA
+    }
+    const personalA = isVoucherPersonal(a) ? 1 : 0
+    const personalB = isVoucherPersonal(b) ? 1 : 0
+    if (personalB !== personalA) {
+      return personalB - personalA
+    }
+    const minA = Number(a.hoaDonToiThieu || 0)
+    const minB = Number(b.hoaDonToiThieu || 0)
+    if (minA !== minB) {
+      return minA - minB
+    }
+    return (Number(b.id) || 0) - (Number(a.id) || 0)
+  })
+
+  return eligible[0]
+}
+
+function autoApplyBestVoucher() {
+  if (!currentInvoice.value) return
+  const subtotal = totalAmount.value
+  const custId = currentInvoice.value.customerId
+  const custName = currentInvoice.value.customerName
+
+  if (subtotal <= 0) {
+    currentInvoice.value.voucher = null
+    return
+  }
+
+  const best = findBestVoucher(custId, custName, subtotal)
+  if (best) {
+    if (!currentInvoice.value.voucher || currentInvoice.value.voucher.id !== best.id) {
+      currentInvoice.value.voucher = best
+    }
+  } else {
+    currentInvoice.value.voucher = null
+  }
+}
+
 function findBestPersonalVoucherForCustomer(customerId, customerName, subtotal) {
   if (!customerId) return null
   const now = new Date()
@@ -1213,6 +1622,29 @@ function formatVoucherDiscountLabel(v) {
     return `-${v.giaTriGiamGia}%`
   }
   return `-${formatMoney(v.giaTriGiamGia)}`
+}
+
+function formatVoucherDisplayName(v) {
+  if (!v) return ''
+  const name = (v.tenPhieuGiamGia || '').trim()
+  if (!name) return ''
+  // Loại bỏ các chữ vô nghĩa/dummy như "uuu", "uu", test
+  if (/^u+$/i.test(name) || name.toLowerCase() === 'uuu' || name.toLowerCase().includes('uuu')) {
+    return ''
+  }
+  return name
+}
+
+function formatVoucherCondition(v) {
+  if (!v) return ''
+  const parts = []
+  if (v.hoaDonToiThieu && Number(v.hoaDonToiThieu) > 0) {
+    parts.push(`Đơn từ ${formatMoney(v.hoaDonToiThieu)}`)
+  }
+  if (isPercentVoucher(v) && v.giamToiDa && Number(v.giamToiDa) > 0) {
+    parts.push(`Tối đa ${formatMoney(v.giamToiDa)}`)
+  }
+  return parts.length > 0 ? parts.join(' • ') : 'Áp dụng cho mọi đơn hàng'
 }
 
 // Thống kê số lượng phiếu công khai & cá nhân
@@ -1955,20 +2387,20 @@ watch(
 
 // Khi thêm hoặc bớt sản phẩm làm thay đổi tổng tiền:
 // Nếu đơn hàng có khách hàng và chưa có voucher, tự động áp dụng phiếu cá nhân thỏa mãn điều kiện tối thiểu
-watch(totalAmount, (newSubtotal) => {
-  if (!currentInvoice.value) return
-  const custId = currentInvoice.value.customerId
-  if (custId && newSubtotal > 0) {
-    if (!currentInvoice.value.voucher) {
-      const best = findBestPersonalVoucherForCustomer(custId, currentInvoice.value.customerName, newSubtotal)
-      if (best) {
-        currentInvoice.value.voucher = best
-        const discount = calculateDiscountAmount(best, newSubtotal)
-        showToast(`Đơn hàng đủ điều kiện tối thiểu, tự động áp dụng phiếu cá nhân "${best.maPhieuGiamGia}" (-${formatMoney(discount)})!`)
-      }
-    }
-  }
-})
+// Tự động kiểm tra và áp dụng phiếu giảm giá tốt nhất khi giỏ hàng, khách hàng hoặc tab hóa đơn thay đổi
+watch(
+  [
+    totalAmount,
+    () => currentInvoice.value?.customerId,
+    () => currentInvoice.value?.customerName,
+    () => currentInvoice.value?.id,
+    availableVouchers
+  ],
+  () => {
+    autoApplyBestVoucher()
+  },
+  { immediate: true }
+)
 
 function formatMoney(val) {
   return Number(val || 0).toLocaleString('vi-VN') + ' đ'
@@ -1980,10 +2412,6 @@ function formatMoney(val) {
 const isProcessing = ref(false)
 
 const handleCheckout = async () => {
-  if (isInViewMode()) {
-    showToast('Bạn đang ở Chế độ xem (Chưa vào ca làm việc)! Vui lòng vào ca làm việc để thanh toán.', 'warning')
-    return
-  }
   if (currentInvoice.value.cart.length === 0) {
     showToast('Giỏ hàng trống! Vui lòng chọn sản phẩm trước khi thanh toán.', 'warning')
     return
@@ -2077,7 +2505,7 @@ const handleCheckout = async () => {
       idNhanVien: staffId,
       nguoiTao: staffName,
       maHoaDon: currentInvoice.value.code,
-      loaiDon: currentInvoice.value.isDelivery ? 2 : 1,
+      loaiDon: 1, // Bất kể đơn giao hàng nhưng phát sinh tại quầy thì loại đơn vẫn là Tại quầy (1)
       idKhachHang: currentInvoice.value.customerId || null,
       idPhieuGiamGia: currentInvoice.value.voucher?.id || null,
       tenKhachHang: currentInvoice.value.customerName?.trim() || 'Khách lẻ',
@@ -2086,7 +2514,7 @@ const handleCheckout = async () => {
       tongTien: totalAmount.value,
       tongTienGiamGia: voucherDiscount.value,
       phiShip: shippingFee.value,
-      trangThai: currentInvoice.value.isDelivery ? 1 : 5,
+      trangThai: currentInvoice.value.isDelivery ? 2 : 5,
       trangThaiThanhToan: 1,
       phuongThucThanhToan: resolvedPaymentMethod,
       tienMat: resolvedPaymentMethod.includes('Chuyển khoản') ? 0 : cashVal,
@@ -2111,7 +2539,11 @@ const handleCheckout = async () => {
 
     const savedCode = res?.data?.maHoaDon || currentInvoice.value.code
     stopPaymentPolling()
-    showToast(`Thanh toán đơn hàng ${savedCode} thành công!`)
+    if (currentInvoice.value.isDelivery) {
+      showToast(`Đã xác nhận đơn giao hàng ${savedCode} thành công và đang in hóa đơn...`)
+    } else {
+      showToast(`Thanh toán đơn hàng ${savedCode} thành công!`)
+    }
 
     // Chuyển tab hóa đơn hoặc tạo mới nếu là hóa đơn duy nhất
     const completedId = currentInvoice.value.id
@@ -2203,8 +2635,6 @@ const onTabVisibilityChange = () => {
   }
 }
 
-const isViewMode = computed(() => isInViewMode())
-
 onMounted(async () => {
   dayCheckTimer = setInterval(checkNewDayTransition, 30000)
   document.addEventListener('visibilitychange', onTabVisibilityChange)
@@ -2253,15 +2683,15 @@ onMounted(async () => {
       <!-- ==================== CỘT TRÁI (HÓA ĐƠN CHỜ + GIỎ HÀNG) ==================== -->
       <div class="pos-col-left">
         <!-- Card 1: Hóa đơn chờ -->
-        <div class="pos-panel-card">
-          <div class="waiting-bar-top">
-            <button class="btn-create-invoice" @click="addWaitingInvoice" :disabled="isLoadingInvoices || isInViewMode()">
+        <div class="pos-panel-card waiting-invoices-card">
+          <div class="waiting-top-row">
+            <button class="btn-create-invoice" @click="addWaitingInvoice" :disabled="isLoadingInvoices">
               + Thêm hóa đơn chờ
             </button>
             <span class="counter-text">{{ waitingInvoices.length }}/5 hóa đơn</span>
           </div>
 
-          <!-- Danh sách tab hóa đơn chờ -->
+          <!-- Danh sách tab hóa đơn chờ xếp ở dòng dưới -->
           <div class="tabs-scroll-wrapper">
             <div v-if="isLoadingInvoices" class="tab-loading-indicator">
               <span>Đang tải hóa đơn chờ từ CSDL...</span>
@@ -2325,60 +2755,85 @@ onMounted(async () => {
             <table class="pos-custom-table">
               <thead>
               <tr>
-                <th style="width: 50px;">STT</th>
-                <th style="width: 120px;">Mã SP</th>
-                <th>Tên sản phẩm</th>
-                <th style="width: 100px;">Màu sắc</th>
-                <th style="width: 80px;">Kích cỡ</th>
-                <th style="width: 130px; text-align: center;">Số lượng</th>
-                <th style="width: 120px; text-align: right;">Đơn giá</th>
-                <th style="width: 70px; text-align: center;">Thao tác</th>
+                <th class="text-center" style="width: 5%;">STT</th>
+                <th class="text-center" style="width: 15%;">Mã SP</th>
+                <th class="text-left" style="width: 25%;">Tên sản phẩm</th>
+                <th class="text-center" style="width: 15%;">Phân loại</th>
+                <th class="text-center" style="width: 17%;">Số lượng</th>
+                <th class="text-center" style="width: 15%;">Đơn giá</th>
+                <th class="text-center" style="width: 8%;">Thao tác</th>
               </tr>
               </thead>
               <tbody>
               <tr v-if="currentInvoice.cart.length === 0">
-                <td colspan="8" class="empty-cart-message">
+                <td colspan="7" class="empty-cart-message">
                   Giỏ hàng trống. Vui lòng bấm <b>"+ Chọn sản phẩm"</b> hoặc nhập mã để thêm hàng.
                 </td>
               </tr>
 
               <tr v-else v-for="(item, idx) in currentInvoice.cart" :key="item.id">
-                <td class="text-muted">{{ idx + 1 }}</td>
-                <td class="code-highlight">{{ item.variantCode || item.code }}</td>
-                <td class="font-600">
+                <td class="text-center font-bold text-muted">{{ idx + 1 }}</td>
+                <td class="text-center">
+                  <span class="cart-code-badge">{{ item.variantCode || item.code }}</span>
+                </td>
+                <td class="text-left font-600">
                   <div class="cart-product-name-wrap">
-                    <span>{{ item.name }}</span>
+                    <span class="cart-product-title" :title="item.name || getCartItemName(item)">{{ item.name || getCartItemName(item) }}</span>
                     <span v-if="item.hasDiscount && (item.discountText || item.discountCampaignName)" class="cart-discount-badge" :title="item.discountCampaignName">
                       {{ item.discountText || item.discountCampaignName }}
                     </span>
                   </div>
                 </td>
-                <td>{{ item.color }}</td>
-                <td>{{ item.size }}</td>
+                <td class="text-center">
+                  <span class="cart-variant-pill">
+                    <span v-if="item.colorHex" class="cart-color-dot" :style="{ backgroundColor: item.colorHex }"></span>
+                    <span class="variant-color-text">{{ item.color }}</span>
+                    <span class="variant-slash">/</span>
+                    <span class="variant-size-text">{{ item.size }}</span>
+                  </span>
+                </td>
                 <td class="text-center">
                   <div class="pos-qty-box">
-                    <button class="qty-btn" @click="updateQuantity(item, -1)">-</button>
+                    <button
+                        type="button"
+                        class="qty-btn"
+                        @click="updateQuantity(item, -1)"
+                        title="Giảm số lượng"
+                    >-</button>
                     <input
                         type="number"
                         :value="item.quantity"
+                        @input="handleQuantityInput(item, $event)"
                         @change="handleQuantityInput(item, $event)"
+                        @blur="handleQuantityInput(item, $event)"
                         class="qty-input"
                         min="1"
                         :max="getMaxStockForItem(item)"
                     />
-                    <button class="qty-btn" @click="updateQuantity(item, 1)">+</button>
+                    <button
+                        type="button"
+                        class="qty-btn"
+                        :disabled="getRemainingStock(item) <= 0"
+                        :title="getRemainingStock(item) <= 0 ? 'Đã đạt số lượng tồn kho tối đa' : 'Tăng số lượng'"
+                        @click="updateQuantity(item, 1)"
+                    >+</button>
                   </div>
                 </td>
-                <td class="text-right font-price">
+                <td class="text-center font-price">
                   <div v-if="item.hasDiscount && item.originalPrice > item.price" class="cart-price-col">
                     <span class="cart-price-sale">{{ formatMoney(item.price) }}</span>
                     <span class="cart-price-old">{{ formatMoney(item.originalPrice) }}</span>
                   </div>
-                  <span v-else>{{ formatMoney(item.price) }}</span>
+                  <span v-else class="cart-price-normal">{{ formatMoney(item.price) }}</span>
                 </td>
                 <td class="text-center">
-                  <button class="btn-trash-row" @click="removeFromCart(item)" title="Xóa khỏi giỏ">
-                    🗑️
+                  <button class="btn-trash-row" @click="removeFromCart(item)" title="Xóa khỏi giỏ hàng">
+                    <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="trash-icon-svg">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      <line x1="10" y1="11" x2="10" y2="17"></line>
+                      <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
                   </button>
                 </td>
               </tr>
@@ -2409,19 +2864,6 @@ onMounted(async () => {
             <div v-if="currentInvoice.deliveryAddress" class="cust-address-preview">
               <span class="addr-pin-icon">📍</span>
               <span class="addr-preview-text">{{ currentInvoice.deliveryAddress }}</span>
-            </div>
-            <div v-if="currentInvoice.customerId" class="cust-addr-quick-actions">
-              <button type="button" class="btn-sub-addr-action" @click="openCustomerAddAddressModal">
-                + Thêm địa chỉ mới
-              </button>
-              <button
-                  v-if="customerAddressesList.length > 0"
-                  type="button"
-                  class="btn-sub-addr-action"
-                  @click="openSelectAddressModal"
-              >
-                Sổ địa chỉ ({{ customerAddressesList.length }})
-              </button>
             </div>
           </div>
 
@@ -2492,18 +2934,8 @@ onMounted(async () => {
                   class="pos-form-input"
               />
             </div>
-            <!-- Địa chỉ nhận hàng với API hành chính -->
-            <div class="pos-form-group" style="margin-bottom: 6px;">
-              <div class="label-with-action-row">
-                <label class="group-label-gray" style="margin: 0;">Địa chỉ nhận hàng <span class="text-danger">*</span></label>
-                <div class="addr-link-btns" v-if="currentInvoice.customerId">
-                  <button type="button" class="link-btn-addr" @click="openCustomerAddAddressModal">+ Thêm địa chỉ mới</button>
-                  <span v-if="customerAddressesList.length > 0" class="addr-link-divider">•</span>
-                  <button v-if="customerAddressesList.length > 0" type="button" class="link-btn-addr" @click="openSelectAddressModal">Sổ địa chỉ ({{ customerAddressesList.length }})</button>
-                </div>
-              </div>
-            </div>
 
+            <!-- Cấu trúc địa chỉ 2 cấp: Tỉnh/Thành phố & Phường/Xã -->
             <div class="pos-form-grid-2">
               <div class="pos-form-group">
                 <label class="group-label-gray" style="font-size: 0.78rem;">Tỉnh / Thành phố <span class="text-danger">*</span></label>
@@ -2533,7 +2965,7 @@ onMounted(async () => {
               </div>
             </div>
 
-            <div class="pos-form-group">
+            <div class="pos-form-group" style="margin-top: 6px;">
               <label class="group-label-gray" style="font-size: 0.78rem;">Số nhà, tên đường (Địa chỉ cụ thể) <span class="text-danger">*</span></label>
               <input
                   type="text"
@@ -2544,14 +2976,17 @@ onMounted(async () => {
               />
             </div>
 
-            <div class="pos-form-group" v-if="currentInvoice.deliveryAddress">
+            <!-- Xem trước địa chỉ giao hàng đầy đủ -->
+            <div class="pos-form-group" v-if="currentInvoice.deliveryAddress" style="margin-top: 6px;">
               <div class="cust-address-preview" style="margin-top: 0; background: #ffffff; border-style: solid;">
                 <span class="addr-pin-icon">📍</span>
                 <span class="addr-preview-text"><strong>Địa chỉ giao:</strong> {{ currentInvoice.deliveryAddress }}</span>
               </div>
             </div>
-            <div class="pos-form-group">
-              <label class="group-label-gray">Phí vận chuyển (đ)</label>
+
+            <!-- Phí vận chuyển: Tích hợp tự động API GHN & Chính sách khu vực -->
+            <div class="pos-form-group" style="margin-top: 6px;">
+              <label class="group-label-gray">Phí vận chuyển (VNĐ)</label>
               <input
                   type="text"
                   min="0"
@@ -2559,73 +2994,50 @@ onMounted(async () => {
                   :value="displayShippingFee"
                   @input="onShippingFeeFormattedInput"
                   @focus="$event.target.select()"
-                  placeholder="Nhập phí vận chuyển..."
+                  placeholder="Phí giao hàng..."
                   class="pos-form-input"
               />
             </div>
           </div>
 
-          <!-- Chọn phiếu giảm giá (Voucher) -->
-          <div class="pos-form-group voucher-group-wrapper">
+          <!-- Phiếu giảm giá: Tự động áp dụng mã tốt nhất -->
+          <div class="pos-form-group voucher-auto-wrapper">
             <div class="voucher-label-row">
               <label class="group-label-gray">Phiếu giảm giá (Voucher)</label>
-              <div class="voucher-stat-badges">
-                <span class="badge-v-stat public-stat" title="Phiếu giảm giá công khai áp dụng cho mọi khách hàng">
-                  {{ publicVouchersCount }} công khai
-                </span>
-                <span
-                    v-if="currentInvoice.customerId"
-                    class="badge-v-stat personal-stat"
-                    :class="{ 'has-personal': customerPersonalCount > 0 }"
-                    :title="`Có ${customerPersonalCount} phiếu cá nhân của khách hàng này`"
-                >
-                  {{ `${customerPersonalCount} của KH` }}
-                </span>
-              </div>
+              
             </div>
 
-            <Select2Combobox
-                v-model="selectedVoucherId"
-                :options="formattedVouchers"
-                value-key="id"
-                label-key="label"
-                placeholder="-- Không áp dụng voucher --"
-                all-label="-- Không áp dụng voucher --"
-                search-placeholder="Tìm kiếm mã hoặc tên voucher (Công khai / Cá nhân)..."
-            />
-
-            <!-- Huy hiệu hiển thị chi tiết khi áp dụng voucher -->
-            <div v-if="currentInvoice.voucher" class="selected-voucher-badge-box">
-              <div v-if="isVoucherPersonal(currentInvoice.voucher)" class="v-pill-personal">
-                <div class="v-pill-content">
-                  <div class="v-pill-title">
-                    <span class="pill-tag pill-tag-personal">CÁ NHÂN</span>
-                    <strong>{{ currentInvoice.voucher.tenPhieuGiamGia }}</strong> ({{ currentInvoice.voucher.maPhieuGiamGia }})
+            <!-- Khi có phiếu giảm giá được tự động áp dụng -->
+            <div v-if="currentInvoice.voucher" class="auto-voucher-card">
+              <div class="auto-v-left">
+                <span class="auto-v-icon">🏷️</span>
+                <div class="auto-v-details">
+                  <div class="auto-v-title-row">
+                    <span class="auto-v-badge" :class="isVoucherPersonal(currentInvoice.voucher) ? 'badge-personal' : 'badge-public'">
+                      {{ isVoucherPersonal(currentInvoice.voucher) ? 'Cá nhân' : 'Công khai' }}
+                    </span>
+                    <strong class="auto-v-code">{{ currentInvoice.voucher.maPhieuGiamGia }}</strong>
+                    <span v-if="formatVoucherDisplayName(currentInvoice.voucher)" class="auto-v-name" :title="formatVoucherDisplayName(currentInvoice.voucher)">
+                      - {{ formatVoucherDisplayName(currentInvoice.voucher) }}
+                    </span>
                   </div>
-                  <div class="v-pill-sub">
-                    Dành riêng cho: <strong>{{ currentInvoice.customerName || 'Khách hàng thành viên' }}</strong> • Mức giảm: <strong class="text-accent-red">{{ formatVoucherDiscountLabel(currentInvoice.voucher) }}</strong>
+                  <div class="auto-v-condition">
+                    {{ formatVoucherCondition(currentInvoice.voucher) }}
                   </div>
                 </div>
               </div>
-              <div v-else class="v-pill-public">
-                <div class="v-pill-content">
-                  <div class="v-pill-title">
-                    <span class="pill-tag pill-tag-public">CÔNG KHAI</span>
-                    <strong>{{ currentInvoice.voucher.tenPhieuGiamGia }}</strong> ({{ currentInvoice.voucher.maPhieuGiamGia }})
-                  </div>
-                  <div class="v-pill-sub">
-                    Áp dụng cho mọi khách hàng • Mức giảm: <strong class="text-accent-red">{{ formatVoucherDiscountLabel(currentInvoice.voucher) }}</strong>
-                  </div>
-                </div>
+              <div class="auto-v-right">
+                <div class="auto-v-discount-text">-{{ formatMoney(voucherDiscount) }}</div>
+                <div class="auto-v-rate-sub">{{ formatVoucherDiscountLabel(currentInvoice.voucher) }}</div>
               </div>
             </div>
 
-            <small
-                v-if="currentInvoice.voucher && currentInvoice.voucher.hoaDonToiThieu && totalAmount < Number(currentInvoice.voucher.hoaDonToiThieu)"
-                class="voucher-min-alert"
-            >
-              Đơn hàng tối thiểu {{ formatMoney(currentInvoice.voucher.hoaDonToiThieu) }} để áp dụng voucher này (Hiện tại: {{ formatMoney(totalAmount) }})
-            </small>
+            <!-- Khi không có phiếu nào phù hợp -->
+            <div v-else class="auto-voucher-none-card">
+              <span class="auto-v-none-icon">🏷️</span>
+              <span v-if="totalAmount === 0" class="auto-v-none-text">Chưa có sản phẩm trong giỏ hàng</span>
+              <span v-else class="auto-v-none-text">Không có phiếu giảm giá nào phù hợp với đơn hàng</span>
+            </div>
           </div>
 
           <!-- Dòng tóm tắt tiền tệ -->
@@ -2938,87 +3350,292 @@ onMounted(async () => {
             </button>
             <button
                 class="btn-submit-checkout"
-                :disabled="isProcessing || currentInvoice.cart.length === 0 || isViewMode"
+                :disabled="isProcessing || currentInvoice.cart.length === 0"
                 @click="handleCheckout"
             >
-              {{ isViewMode ? 'Chế độ xem (Đã khóa)' : (isProcessing ? 'Đang xử lý...' : 'Thanh toán') }}
+              {{ isProcessing ? 'Đang xử lý...' : 'Thanh toán' }}
             </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ==================== POPUP CHỌN SẢN PHẨM ==================== -->
+    <!-- ==================== POPUP CHỌN SẢN PHẨM (BẢNG & BỘ LỌC ĐẦY ĐỦ) ==================== -->
     <div v-if="showProductModal" class="pos-modal-backdrop" @click.self="showProductModal = false">
-      <div class="pos-modal-card">
+      <div class="pos-modal-card product-table-modal">
+        <!-- 1. Header Popup -->
         <div class="modal-top">
-          <h3>Chọn sản phẩm biến thể áo phông</h3>
-          <button class="btn-modal-close" @click="showProductModal = false">✕</button>
+          <div class="modal-title-group">
+            <h3 class="modal-title-text">Chọn sản phẩm biến thể áo phông</h3>
+            <span class="modal-badge-count">Tìm thấy {{ filteredProducts.length }} biến thể</span>
+          </div>
+          <button class="btn-modal-close" @click="showProductModal = false" title="Đóng cửa sổ">✕</button>
         </div>
 
-        <div class="modal-search-box">
-          <input
-              type="text"
-              v-model="searchProductText"
-              placeholder="Tìm theo tên áo phông, mã CTSP, màu sắc, size..."
-              class="pos-form-input"
-          />
+        <!-- 2. Khung bộ lọc đầy đủ (Filter Bar) -->
+        <div class="product-modal-filter-bar">
+          <!-- Hàng 1: Tìm kiếm & Sắp xếp & Nút Đặt lại -->
+          <div class="filter-bar-row filter-bar-main">
+            <div class="filter-input-search-wrap">
+              <input
+                type="text"
+                v-model="searchProductText"
+                placeholder="Tìm theo tên áo phông, mã CTSP, mã SP, màu sắc, size..."
+                class="filter-search-input"
+              />
+              <button
+                v-if="searchProductText"
+                type="button"
+                class="btn-clear-input"
+                @click="searchProductText = ''"
+                title="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div class="filter-group-inline sort-inline">
+              <label class="filter-inline-label">Sắp xếp:</label>
+              <div class="sort-select2-wrap">
+                <Select2Combobox
+                  v-model="filterSort"
+                  :options="sortFilterOptions"
+                  value-key="id"
+                  label-key="name"
+                  placeholder="Mặc định (Mã CTSP)"
+                  search-placeholder="Tìm kiếm..."
+                  :searchable="false"
+                  allow-clear
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              class="btn-reset-filters"
+              @click="resetProductModalFilters"
+              title="Đặt lại toàn bộ bộ lọc"
+            >
+              Đặt lại bộ lọc
+            </button>
+          </div>
+
+          <!-- Hàng 2: Bộ lọc phân loại 3 cột (Màu sắc, Kích cỡ, Ưu đãi giảm giá) -->
+          <div class="filter-bar-row filter-bar-facets">
+            <div class="filter-facet-item">
+              <label class="facet-label">Màu sắc</label>
+              <Select2Combobox
+                v-model="filterColor"
+                :options="colorFilterOptions"
+                value-key="id"
+                label-key="name"
+                placeholder="Tất cả màu sắc"
+                search-placeholder="Tìm kiếm màu sắc..."
+                allow-clear
+              />
+            </div>
+
+            <div class="filter-facet-item">
+              <label class="facet-label">Kích cỡ</label>
+              <Select2Combobox
+                v-model="filterSize"
+                :options="sizeFilterOptions"
+                value-key="id"
+                label-key="name"
+                placeholder="Tất cả kích cỡ"
+                search-placeholder="Tìm kiếm kích cỡ..."
+                allow-clear
+              />
+            </div>
+
+            <div class="filter-facet-item">
+              <label class="facet-label">Chương trình ưu đãi</label>
+              <Select2Combobox
+                v-model="filterDiscount"
+                :options="discountFilterOptions"
+                value-key="id"
+                label-key="name"
+                placeholder="Tất cả ưu đãi"
+                search-placeholder="Tìm kiếm ưu đãi..."
+                :searchable="false"
+                allow-clear
+              />
+            </div>
+          </div>
         </div>
 
-        <div class="modal-product-list">
+        <!-- 3. Khu vực Bảng Sản phẩm (Table) -->
+        <div class="product-modal-table-container">
           <div v-if="isLoadingProducts" class="modal-loading-box">
             <div class="spinner-dot"></div>
-            <span>Đang tải danh sách sản phẩm từ kho CSDL...</span>
+            <span>Đang tải danh sách biến thể sản phẩm...</span>
           </div>
-          <div v-else-if="filteredProducts.length === 0" class="empty-product-box">
-            <div style="font-size: 2.2rem; margin-bottom: 8px;">📦</div>
-            <p style="font-weight: 600; color: #496883; margin: 0 0 6px;">{{ searchProductText ? 'Không tìm thấy sản phẩm phù hợp với từ khóa!' : 'Chưa có biến thể sản phẩm nào trong cơ sở dữ liệu.' }}</p>
-            <p style="font-size: 0.85rem; color: #8a9292; margin: 0 0 12px;">Dữ liệu sản phẩm được đồng bộ trực tiếp từ CSDL hệ thống.</p>
-            <router-link to="/san-pham/them" class="btn-create-product-link" v-if="!searchProductText">
-              + Thêm mới sản phẩm vào kho
-            </router-link>
+
+          <div v-else-if="filteredProducts.length === 0" class="empty-product-table-box">
+            <div class="empty-title">Không tìm thấy sản phẩm biến thể phù hợp</div>
+            <p class="empty-desc">Vui lòng điều chỉnh lại từ khóa hoặc xóa các bộ lọc để xem toàn bộ sản phẩm.</p>
+            <button type="button" class="btn-clear-empty-filter" @click="resetProductModalFilters">
+              Xóa bộ lọc
+            </button>
           </div>
-          <div
-              v-else
-              v-for="p in filteredProducts"
-              :key="p.id"
-              class="modal-product-card"
-              :class="{ 'card-out-of-stock': p.stock <= 0, 'has-discount-border': p.hasDiscount }"
-              @click="p.stock > 0 && selectProduct(p)"
-          >
-            <div class="modal-p-img-wrapper">
-              <img :src="p.image" :alt="p.name" class="modal-p-img" />
-              <span v-if="p.hasDiscount" class="modal-badge-discount">{{ p.discountText }}</span>
+
+          <div v-else class="table-scroll-wrap">
+            <table class="variant-data-table">
+              <thead>
+                <tr>
+                  <th style="width: 44px; text-align: center;">STT</th>
+                  <th style="width: 58px; text-align: center;">ẢNH</th>
+                  <th style="width: 115px;">MÃ BIẾN THỂ</th>
+                  <th style="min-width: 220px;">TÊN SẢN PHẨM</th>
+                  <th style="width: 110px; text-align: center;">MÀU SẮC</th>
+                  <th style="width: 80px; text-align: center;">KÍCH CỠ</th>
+                  <th style="width: 100px; text-align: center;">SỐ LƯỢNG TỒN</th>
+                  <th style="width: 135px; text-align: right;">ĐƠN GIÁ</th>
+                  <th style="width: 105px; text-align: center;">THAO TÁC</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(p, idx) in paginatedProductsModal"
+                  :key="p.id"
+                  class="variant-tr"
+                  :class="{ 'tr-has-discount': p.hasDiscount }"
+                  @click="selectProduct(p)"
+                >
+                  <!-- STT -->
+                  <td style="text-align: center;" class="td-stt">
+                    {{ (productModalPage - 1) * productModalPageSize + idx + 1 }}
+                  </td>
+
+                  <!-- Ảnh -->
+                  <td style="text-align: center;" class="td-img">
+                    <div class="table-thumb-wrap">
+                      <img
+                        :src="formatProductImage(p.image, p)"
+                        :alt="p.name"
+                        class="table-thumb-img"
+                        loading="lazy"
+                        @error="(e) => e.target.src = '/images/products/default_tshirt.jpg'"
+                      />
+                      <span v-if="p.hasDiscount" class="thumb-badge-sale">{{ p.discountText }}</span>
+                    </div>
+                  </td>
+
+                  <!-- Mã CTSP -->
+                  <td class="td-code">
+                    <strong class="code-primary">{{ p.variantCode || p.code }}</strong>
+                    <span v-if="p.code && p.code !== p.variantCode" class="code-sub">{{ p.code }}</span>
+                  </td>
+
+                  <!-- Tên sản phẩm -->
+                  <td class="td-name">
+                    <div class="name-main">{{ p.name }}</div>
+                    <div v-if="p.hasDiscount && p.discountCampaignName" class="campaign-pill" :title="p.discountCampaignName">
+                      {{ p.discountCampaignName }}
+                    </div>
+                  </td>
+
+                  <!-- Màu sắc -->
+                  <td style="text-align: center;" class="td-color">
+                    <div class="color-wrap">
+                      <span
+                        v-if="p.colorHex"
+                        class="color-dot"
+                        :style="{ backgroundColor: p.colorHex }"
+                      ></span>
+                      <span class="color-text">{{ p.color }}</span>
+                    </div>
+                  </td>
+
+                  <!-- Kích cỡ -->
+                  <td style="text-align: center;" class="td-size">
+                    <span class="size-badge">{{ p.size }}</span>
+                  </td>
+
+                  <!-- Số lượng tồn kho -->
+                  <td style="text-align: center;" class="td-stock">
+                    <span
+                      :class="['stock-badge', (p.stock || 0) > 0 ? 'in-stock' : 'out-of-stock']"
+                      :title="'Số lượng còn trong kho: ' + (p.stock ?? 0)"
+                    >
+                      {{ p.stock ?? 0 }}
+                    </span>
+                  </td>
+
+                  <!-- Đơn giá -->
+                  <td style="text-align: right;" class="td-price">
+                    <template v-if="p.hasDiscount && p.originalPrice > p.price">
+                      <div class="price-discounted">{{ formatMoney(p.price) }}</div>
+                      <div class="price-strikethrough">{{ formatMoney(p.originalPrice) }}</div>
+                    </template>
+                    <template v-else>
+                      <div class="price-regular">{{ formatMoney(p.price) }}</div>
+                    </template>
+                  </td>
+
+                  <!-- Thao tác -->
+                  <td style="text-align: center;" class="td-action" @click.stop>
+                    <button
+                      type="button"
+                      class="btn-action-add"
+                      @click="selectProduct(p)"
+                      :title="'Thêm vào giỏ hàng (Còn ' + p.stock + ' sp)'"
+                    >
+                      + Thêm
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 4. Footer phân trang đồng bộ chuẩn như các màn DanhSachHoaDon / ThongKe -->
+        <div class="product-modal-footer">
+          <div v-if="filteredProducts.length > 0" class="pagination-section">
+            <div class="pagination-info">
+              Hiển thị {{ filteredProducts.length ? ((productModalPage - 1) * productModalPageSize + 1) : 0 }} - {{ Math.min(productModalPage * productModalPageSize, filteredProducts.length) }} / {{ filteredProducts.length }} sản phẩm
             </div>
-            <div class="modal-p-details">
-              <div class="modal-p-name-row">
-                <span class="modal-p-name">{{ p.name }}</span>
-                <span v-if="p.hasDiscount && p.discountCampaignName" class="modal-campaign-tag" :title="p.discountCampaignName">
-                  🔥 {{ p.discountCampaignName }}
-                </span>
-              </div>
-              <div class="modal-p-meta">
-                <span>Mã: <b>{{ p.variantCode || p.code }}</b></span> |
-                <span>Màu: {{ p.color }}</span> |
-                <span>Size: {{ p.size }}</span>
-              </div>
-              <div class="modal-p-price-row">
-                <div v-if="p.hasDiscount && p.originalPrice > p.price" class="modal-p-price-wrap">
-                  <span class="modal-p-price sale">{{ formatMoney(p.price) }}</span>
-                  <span class="modal-p-old-price">{{ formatMoney(p.originalPrice) }}</span>
-                  <span class="modal-p-discount-pct">{{ p.discountText }}</span>
-                </div>
-                <span v-else class="modal-p-price">{{ formatMoney(p.price) }}</span>
-                <span class="modal-p-stock" :class="{ 'stock-zero': p.stock <= 0 }">
-                  {{ p.stock > 0 ? `Còn lại: ${p.stock}` : 'Hết hàng' }}
-                </span>
-              </div>
+
+            <div class="pagination-buttons">
+              <button
+                type="button"
+                class="btn-pager"
+                :disabled="productModalPage <= 1"
+                @click="changeProductModalPage(productModalPage - 1)"
+                title="Trang trước"
+              >
+                ‹
+              </button>
+
+              <template v-for="(pg, idx) in visibleProductModalPages" :key="idx">
+                <span v-if="pg === '...'" class="pg-dots">...</span>
+                <button
+                  v-else
+                  type="button"
+                  class="btn-pager"
+                  :class="{ active: productModalPage === pg }"
+                  @click="changeProductModalPage(pg)"
+                >
+                  {{ pg }}
+                </button>
+              </template>
+
+              <button
+                type="button"
+                class="btn-pager"
+                :disabled="productModalPage >= productModalTotalPages"
+                @click="changeProductModalPage(productModalPage + 1)"
+                title="Trang sau"
+              >
+                ›
+              </button>
             </div>
-            <button
-                class="btn-mini-add"
-                :disabled="p.stock <= 0"
-            >
-              {{ p.stock > 0 ? '+ Thêm' : 'Hết' }}
+          </div>
+
+          <div class="modal-footer-right-actions">
+            <button type="button" class="btn-pager-close" @click="showProductModal = false">
+              Đóng
             </button>
           </div>
         </div>
@@ -3255,10 +3872,10 @@ onMounted(async () => {
 
 }
 
-/* Grid Layout 2 Cột */
+/* Grid Layout 2 Cột: 2/3 Màn hình bên trái & 1/3 Màn hình bên phải */
 .pos-grid-container {
   display: grid;
-  grid-template-columns: 1fr 390px;
+  grid-template-columns: 2fr 1fr;
   gap: 18px;
   align-items: start;
 }
@@ -3267,6 +3884,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
 
 /* Thẻ Card */
@@ -3279,12 +3897,19 @@ onMounted(async () => {
 }
 
 /* ==================== CỘT TRÁI ==================== */
-/* Hóa đơn chờ */
-.waiting-bar-top {
+/* Hóa đơn chờ: Dòng trên là nút Thêm & số lượng, dòng dưới là các tab hóa đơn */
+.waiting-invoices-card {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.waiting-top-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  width: 100%;
 }
 
 .btn-create-invoice {
@@ -3294,12 +3919,11 @@ onMounted(async () => {
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 600;
-
-
-
   color: #496883;
   cursor: pointer;
   transition: all 0.2s;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .btn-create-invoice:hover {
@@ -3307,16 +3931,20 @@ onMounted(async () => {
   border-color: #496883;
 }
 
+.tabs-scroll-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  width: 100%;
+  padding: 2px 0;
+}
+
 .counter-text {
   font-size: 0.8rem;
   color: #8a9292;
-}
-
-.tabs-scroll-wrapper {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .inv-tab-pill {
@@ -3447,115 +4075,339 @@ onMounted(async () => {
   opacity: 0.9;
 }
 
-/* Bảng Giỏ hàng */
+/* Bảng Giỏ hàng - Loại bỏ cuộn ngang, vừa vặn 1366x768 & 1920x1080 */
 .cart-table-container {
-  overflow-x: auto;
+  overflow-x: hidden;
+  border-radius: 8px;
+  background: #ffffff;
+  width: 100%;
 }
 
 .pos-custom-table {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 0.88rem;
+  min-width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.84rem;
 }
 
 .pos-custom-table thead th {
-  background-color: #f7f5ef;
-  color: #496883;
-  font-weight: 600;
+  background-color: #f7f5ef !important;
+  color: #496883 !important;
+  font-weight: 700 !important;
+  font-size: 0.78rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+  padding: 9px 4px !important;
+  border-bottom: 2px solid #e9e5db !important;
+  vertical-align: middle !important;
+  white-space: nowrap;
+}
 
+.pos-custom-table thead th.text-center,
+.pos-custom-table tbody td.text-center {
+  text-align: center !important;
+}
 
+.pos-custom-table thead th.text-right,
+.pos-custom-table tbody td.text-right {
+  text-align: right !important;
+}
 
-  padding: 10px 12px;
-  border-bottom: 1px solid #e9e5db;
-  text-align: left;
+.pos-custom-table thead th.text-left,
+.pos-custom-table tbody td.text-left {
+  text-align: left !important;
 }
 
 .pos-custom-table tbody td {
-  padding: 10px 12px;
-  border-bottom: 1px solid #e9e5db;
-  color: #555;
-  vertical-align: middle;
+  padding: 7px 4px !important;
+  border-bottom: 1px solid #f0ede6 !important;
+  color: #334155;
+  vertical-align: middle !important;
+}
+
+.pos-custom-table tbody tr:hover td {
+  background-color: #f8fafc !important;
 }
 
 .empty-cart-message {
   text-align: center;
-  padding: 40px !important;
+  padding: 30px !important;
   color: #8a9292;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 
-.code-highlight {
+.cart-code-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: #334155;
+  letter-spacing: 0.3px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cart-product-name-wrap {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  line-height: 1.3;
+}
+
+.cart-product-title {
+  color: #1e293b;
   font-weight: 600;
+  font-size: 0.85rem;
+  word-break: break-word;
+}
 
+.cart-discount-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.70rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  white-space: nowrap;
+}
 
+.cart-variant-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 2px 7px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 0.80rem;
+  color: #334155;
+  font-weight: 500;
+  white-space: nowrap;
+}
 
-  color: #496883;
+.variant-color-text {
+  color: #334155;
+}
+
+.variant-slash {
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.variant-size-text {
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.cart-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
 }
 
 .font-600 {
   font-weight: 600;
-
-
-
 }
 
-.font-price {
+.pos-custom-table tbody td.font-price, .font-price {
+  text-align: center !important;
   font-weight: 600;
-
-
-
-  color: #c94a29;
 }
+
+.cart-price-col {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  gap: 1px !important;
+}
+
+.cart-price-sale {
+  color: #dc2626;
+  font-weight: 700;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  text-align: center !important;
+}
+
+
+.cart-price-old {
+  color: #94a3b8;
+  text-decoration: line-through;
+  font-size: 0.74rem;
+  white-space: nowrap;
+  text-align: center !important;
+}
+
+
+.cart-price-normal {
+  color: #1e293b;
+  font-weight: 700;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  text-align: center !important;
+}
+
 
 .pos-qty-box {
   display: inline-flex;
   align-items: center;
-  border: 1px solid #d6d0c3;
+  border: 1px solid #d1d5db;
   border-radius: 4px;
+  background: #ffffff;
   overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.pos-qty-box:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
 .qty-btn {
-  width: 26px;
+  width: 24px;
   height: 26px;
   border: none;
-  background: #f7f5ef;
+  background: #f8fafc;
   cursor: pointer;
-  font-weight: 600;
-
-
-
-  color: #496883;
+  font-size: 0.90rem;
+  font-weight: 700;
+  color: #334155;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  user-select: none;
 }
 
-.qty-btn:hover {
-  background: #e9e5db;
+.qty-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.qty-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: #f1f5f9;
 }
 
 .qty-input {
-  width: 36px;
+  width: 34px;
   height: 26px;
   border: none;
   text-align: center;
-  font-weight: 600;
-
-
-
+  font-weight: 700;
   font-size: 0.85rem;
+  color: #1e293b;
+  background: #ffffff;
   outline: none;
+  padding: 0 1px;
+  margin: 0;
+  box-sizing: border-box;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .btn-trash-row {
-  background: none;
-  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: transparent;
   cursor: pointer;
-  font-size: 1rem;
-  opacity: 0.8;
-  transition: opacity 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: #94a3b8;
+  padding: 0;
 }
 
 .btn-trash-row:hover {
-  opacity: 1;
+  background: #fef2f2;
+  border-color: #fee2e2;
+  color: #ef4444;
+}
+
+.btn-trash-row:hover .trash-icon-svg {
+  stroke: #ef4444;
+}
+
+/* ==================== GHN UI STYLES ==================== */
+.ghn-badge-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-top: 5px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ghn-logo-tag {
+  background: #ea580c;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
+.btn-calc-ghn {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-calc-ghn:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.btn-calc-ghn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* ==================== CỘT PHẢI ==================== */
@@ -3833,9 +4685,9 @@ onMounted(async () => {
 
 }
 
-/* ==================== PHIẾU GIẢM GIÁ (CÔNG KHAI & CÁ NHÂN) ==================== */
-.voucher-group-wrapper {
-  margin-bottom: 14px;
+/* ==================== PHIẾU GIẢM GIÁ (TỰ ĐỘNG ÁP DỤNG TỐT NHẤT) ==================== */
+.voucher-auto-wrapper {
+  margin-bottom: 8px;
 }
 
 .voucher-label-row {
@@ -3845,133 +4697,138 @@ onMounted(async () => {
   margin-bottom: 4px;
 }
 
-.voucher-stat-badges {
-  display: flex;
-  gap: 6px;
+.badge-auto-apply {
+  display: inline-flex;
   align-items: center;
-}
-
-.badge-v-stat {
-  font-size: 0.72rem;
-  padding: 2px 7px;
-  border-radius: 12px;
+  gap: 3px;
+  font-size: 0.68rem;
   font-weight: 600;
-
-
-
-  white-space: nowrap;
-  user-select: none;
+  color: #059669;
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 1px 7px;
+  border-radius: 10px;
 }
 
-.badge-v-stat.public-stat {
-  background-color: #e8f4fd;
-  color: #1976d2;
-  border: 1px solid #bbdefb;
-}
-
-.badge-v-stat.personal-stat {
-  background-color: #f5f3ff;
-  color: #7c3aed;
-  border: 1px solid #ddd6fe;
-}
-
-.badge-v-stat.personal-stat.has-personal {
-  background-color: #fef3c7;
-  color: #b45309;
-  border: 1px solid #fde68a;
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(180, 83, 9, 0.15);
-}
-
-.selected-voucher-badge-box {
-  margin-top: 6px;
-}
-
-.v-pill-personal,
-.v-pill-public {
+.auto-voucher-card {
   display: flex;
-  align-items: flex-start;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 9px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
   gap: 8px;
-  padding: 8px 10px;
-  border-radius: 7px;
-  font-size: 0.8rem;
-  line-height: 1.35;
   transition: all 0.2s ease;
 }
 
-.v-pill-personal {
-  background-color: #fffbeb;
-  border: 1px solid #fde68a;
-  color: #92400e;
-}
-
-.v-pill-public {
-  background-color: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #166534;
-}
-
-.v-pill-content {
-  flex: 1;
-}
-
-.v-pill-title {
+.auto-v-left {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
 
-  margin-bottom: 2px;
+.auto-v-icon {
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+
+.auto-v-details {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.auto-v-title-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.auto-v-badge {
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+.auto-v-badge.badge-public {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.auto-v-badge.badge-personal {
+  background-color: #f3e8ff;
+  color: #7e22ce;
+  border: 1px solid #e9d5ff;
+}
+
+.auto-v-code {
+  font-size: 0.80rem;
   color: #1e293b;
+  font-weight: 700;
 }
 
-.pill-tag {
-  font-size: 0.65rem;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-}
-
-.pill-tag-personal {
-  background-color: #ea580c;
-  color: #ffffff;
-}
-
-.pill-tag-public {
-  background-color: #0284c7;
-  color: #ffffff;
-}
-
-.v-pill-sub {
+.auto-v-name {
   font-size: 0.74rem;
-  color: #64748b;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
 }
 
-.text-accent-red {
-  color: #c94a29;
+.auto-v-condition {
+  font-size: 0.70rem;
+  color: #047857;
   font-weight: 600;
+  line-height: 1.2;
 }
 
-.voucher-min-alert {
-  color: #c94a29;
-  font-size: 0.78rem;
-  margin-top: 6px;
-  display: block;
-  font-weight: 500;
-  background: #fff5f5;
-  padding: 5px 8px;
-  border-radius: 4px;
-  border-left: 3px solid #c94a29;
+.auto-v-right {
+  text-align: right;
+  flex-shrink: 0;
 }
 
-.voucher-guest-hint {
-  margin-top: 6px;
-  font-size: 0.76rem;
+.auto-v-discount-text {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #16a34a;
+}
+
+.auto-v-rate-sub {
+  font-size: 0.68rem;
   color: #64748b;
-  background: #f8fafc;
+  font-weight: 500;
+}
+
+.auto-voucher-none-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 5px 9px;
-  border-radius: 5px;
+  background: #f8fafc;
   border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.auto-v-none-icon {
+  font-size: 0.88rem;
+  opacity: 0.7;
+}
+
+.auto-v-none-text {
+  font-size: 0.75rem;
+  color: #64748b;
 }
 
 .payment-radio-group {
@@ -4434,56 +5291,74 @@ onMounted(async () => {
   color: #e53935;
 }
 
-/* 2 Nút hành động cuối */
+/* Ghim 2 Nút hành động cuối ở đáy cột phải, luôn hiển thị trên màn hình */
+.pos-col-right {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  position: sticky;
+  top: 10px;
+}
+
 .checkout-actions-bottom {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
   display: flex;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 14px;
+  padding: 10px 0 2px 0;
+  background: #ffffff;
+  border-top: 1px solid #e9e5db;
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.05);
 }
 
 .btn-cancel-bill {
   flex: 1;
   height: 40px;
-  background-color: #e9e5db;
+  background-color: #f1f5f9;
   color: #647074;
-  border: none;
+  border: 1px solid #d6d0c3;
   border-radius: 6px;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   font-weight: 600;
-
-
-
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-cancel-bill:hover {
-  background-color: #ddd7ca;
+  background-color: #e2e8f0;
+  color: #334155;
 }
 
 .btn-submit-checkout {
-  flex: 1;
+  flex: 1.8;
   height: 40px;
   background-color: #496883;
   color: #ffffff;
   border: none;
   border-radius: 6px;
-  font-size: 0.88rem;
-  font-weight: 600;
-
-
-
+  font-size: 0.92rem;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.25);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .btn-submit-checkout:hover:not(:disabled) {
-  opacity: 0.9;
+  background-color: #385166;
+  box-shadow: 0 4px 10px rgba(73, 104, 131, 0.35);
 }
 
 .btn-submit-checkout:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* ==================== POPUP MODAL ==================== */
@@ -4694,21 +5569,28 @@ onMounted(async () => {
 }
 
 .cart-price-col {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  gap: 1px !important;
 }
 
 .cart-price-sale {
   color: #dc2626;
   font-weight: 700;
+  text-align: center !important;
 }
+
 
 .cart-price-old {
   font-size: 0.75rem;
   color: #94a3b8;
   text-decoration: line-through;
+  text-align: center !important;
 }
+
 
 .modal-p-stock {
   font-size: 0.78rem;
@@ -5159,4 +6041,649 @@ onMounted(async () => {
 
   cursor: pointer;
 }
+
+/* ==================== BẢNG BIẾN THỂ SẢN PHẨM & BỘ LỌC ĐẦY ĐỦ ==================== */
+.pos-modal-card.product-table-modal {
+  width: 95vw;
+  max-width: 1100px;
+  max-height: 88vh;
+  padding: 16px 20px 14px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+  background: #ffffff;
+}
+
+.modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-title-text {
+  margin: 0;
+  font-size: 1.12rem;
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.modal-badge-count {
+  background: #eaf2f6;
+  color: #496883;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid #d0e0ec;
+}
+
+.product-modal-filter-bar {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  z-index: 50;
+}
+
+.product-modal-filter-bar :deep(.select2-wrapper) {
+  width: 100%;
+}
+
+.product-modal-filter-bar :deep(.select2-trigger) {
+  height: 36px;
+  min-height: 36px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background-color: #ffffff;
+  padding: 0 10px;
+  font-size: 0.82rem;
+  color: #1e293b;
+  box-sizing: border-box;
+}
+
+.product-modal-filter-bar :deep(.select2-trigger:hover:not(.disabled)) {
+  border-color: #496883;
+  background-color: #ffffff;
+}
+
+.product-modal-filter-bar :deep(.select2-trigger.trigger-focus) {
+  border-color: #496883;
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.12);
+  background-color: #ffffff;
+}
+
+.product-modal-filter-bar :deep(.select2-display-text) {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.product-modal-filter-bar :deep(.select2-dropdown) {
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+  z-index: 99999;
+}
+
+.product-modal-filter-bar :deep(.select2-option-item) {
+  font-size: 0.82rem;
+  padding: 7px 10px;
+}
+
+.product-modal-filter-bar :deep(.select2-search-input) {
+  height: 32px;
+  font-size: 0.82rem;
+  border-radius: 5px;
+}
+
+.sort-select2-wrap {
+  width: 205px;
+}
+
+.filter-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-bar-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  z-index: 10;
+}
+
+.filter-input-search-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.filter-search-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 30px 0 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.86rem;
+  background: #ffffff;
+  color: #1e293b;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.filter-search-input:focus {
+  border-color: #496883;
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.12);
+}
+
+.btn-clear-input {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.filter-group-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-inline-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.filter-inline-select {
+  height: 36px;
+  padding: 0 24px 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  background: #ffffff;
+  color: #1e293b;
+  outline: none;
+  cursor: pointer;
+}
+
+.btn-reset-filters {
+  height: 36px;
+  padding: 0 14px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.btn-reset-filters:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.filter-bar-facets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  position: relative;
+  z-index: 5;
+}
+
+.filter-facet-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.facet-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.facet-select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  background: #ffffff;
+  color: #1e293b;
+  outline: none;
+  cursor: pointer;
+}
+
+.facet-select:focus {
+  border-color: #496883;
+}
+
+.product-modal-table-container {
+  flex: 1;
+  min-height: 260px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.table-scroll-wrap {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 48vh;
+}
+
+.variant-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.variant-data-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 9px 10px;
+  border-bottom: 2px solid #e2e8f0;
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.variant-tr {
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.variant-tr:hover:not(.tr-out-of-stock) {
+  background-color: #f8fafc;
+}
+
+.variant-tr.tr-out-of-stock {
+  opacity: 0.55;
+  background-color: #fafafa;
+  cursor: not-allowed;
+}
+
+.variant-tr td {
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+.table-thumb-wrap {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  margin: 0 auto;
+}
+
+.table-thumb-img {
+  width: 42px;
+  height: 42px;
+  border-radius: 5px;
+  object-fit: cover;
+  border: 1px solid #e2e8f0;
+}
+
+.thumb-badge-sale {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 3px;
+  border-radius: 3px;
+  line-height: 1.2;
+}
+
+.td-code {
+  white-space: nowrap;
+}
+
+.code-primary {
+  display: block;
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.84rem;
+}
+
+.code-sub {
+  display: block;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.td-name {
+  max-width: 250px;
+}
+
+.name-main {
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.campaign-pill {
+  display: inline-block;
+  margin-top: 2px;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.color-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.color-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1px solid #cbd5e1;
+  display: inline-block;
+}
+
+.color-text {
+  font-size: 0.82rem;
+  color: #334155;
+}
+
+.size-badge {
+  display: inline-block;
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 700;
+  font-size: 0.78rem;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+}
+
+.price-discounted {
+  font-weight: 700;
+  color: #dc2626;
+  font-size: 0.9rem;
+}
+
+.price-strikethrough {
+  font-size: 0.74rem;
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+.price-regular {
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.88rem;
+}
+
+
+.stock-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  min-width: 38px;
+  text-align: center;
+}
+
+.stock-badge.in-stock {
+  background-color: #eaf5ed;
+  color: #247541;
+  border: 1px solid #bce1c7;
+}
+
+.stock-badge.out-of-stock {
+  background-color: #f7edeb;
+  color: #b34a3b;
+  border: 1px solid #ecc9c3;
+}
+.stock-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.stock-pill.in-stock {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.stock-pill.out-of-stock {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.btn-action-add {
+  background-color: #eaf2f6;
+  color: #496883;
+  border: 1px solid #496883;
+  padding: 5px 12px;
+  border-radius: 5px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-action-add:hover:not(.btn-disabled) {
+  background-color: #496883;
+  color: #ffffff;
+}
+
+.btn-action-add.btn-disabled {
+  opacity: 0.45;
+  border-color: #cbd5e1;
+  color: #94a3b8;
+  background-color: #f1f5f9;
+  cursor: not-allowed;
+}
+
+/* Đồng bộ giao diện phân trang chuẩn hệ thống (DanhSachHoaDon, ThongKe) */
+.product-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  margin-top: 8px;
+  border-top: 1px solid #eef2f5;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.product-modal-footer .pagination-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  padding-top: 0;
+  margin-top: 0;
+  gap: 16px;
+}
+
+.product-modal-footer .pagination-info {
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #555e65;
+  line-height: 1.5;
+}
+
+.product-modal-footer .pagination-buttons {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.product-modal-footer .btn-pager {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #ded5c7;
+  background: #ffffff;
+  color: #555e65;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.product-modal-footer .btn-pager.active {
+  background: #36536b;
+  border-color: #36536b;
+  color: #ffffff;
+}
+
+.product-modal-footer .btn-pager:hover:not(:disabled):not(.active) {
+  background: #f4ede4;
+}
+
+.product-modal-footer .btn-pager:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.product-modal-footer .pg-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  color: #8c979d;
+  font-size: 0.85rem;
+}
+
+.modal-footer-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.page-size-selector-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.page-size-selector-wrap .page-size-label {
+  font-size: 0.82rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.page-size-selector-wrap .page-size-select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #ded5c7;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  outline: none;
+}
+
+.page-size-selector-wrap .page-size-select:focus {
+  border-color: #36536b;
+}
+
+.btn-pager-close {
+  height: 32px;
+  padding: 0 16px;
+  background: #ffffff;
+  border: 1px solid #ded5c7;
+  border-radius: 6px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #555e65;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-pager-close:hover {
+  background: #f4ede4;
+  border-color: #c9bea8;
+  color: #1e293b;
+}
+
+.empty-product-table-box {
+  padding: 36px 20px;
+  text-align: center;
+}
+
+.empty-title {
+  font-weight: 700;
+  color: #496883;
+  font-size: 0.98rem;
+  margin-bottom: 4px;
+}
+
+.empty-desc {
+  color: #64748b;
+  font-size: 0.84rem;
+  margin: 0 0 12px;
+}
+
+.btn-clear-empty-filter {
+  padding: 5px 14px;
+  background: #496883;
+  color: #ffffff;
+  border: none;
+  border-radius: 5px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .filter-bar-facets {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 </style>

@@ -248,21 +248,54 @@ const createDefaultInvoice = (code) => ({
 
 const invoiceData = ref(createDefaultInvoice(invoiceCode.value))
 
-// Xác định loại đơn hàng trực tuyến (Online / Giao hàng)
-const isOnlineDelivery = computed(() => {
-  return invoiceData.value.delivery?.type !== 'Tại quầy' && Number(invoiceData.value.delivery?.loaiDon) !== 1
+// Xác định loại đơn hàng có vận chuyển / giao hàng (kể cả đặt Online hay tạo giao hàng tại quầy "online tại quầy")
+const isDeliveryOrder = computed(() => {
+  const delivery = invoiceData.value.delivery || {}
+  const receiveType = String(delivery.receiveType || '').toLowerCase()
+  const address = String(delivery.address || '').trim()
+  const carrier = String(delivery.carrier || '').trim()
+  const shippingFee = Number(invoiceData.value.summary?.shippingFee || invoiceData.value.phiVanChuyen || 0)
+  const isOnline = delivery.type === 'Online' || Number(delivery.loaiDon) === 2 || Number(invoiceData.value.loaiDon) === 2
+
+  return isOnline
+    || receiveType.includes('giao hàng')
+    || receiveType.includes('tận nơi')
+    || (address !== '' && address !== '—' && address !== 'Bán tại quầy' && !address.toLowerCase().includes('tại quầy'))
+    || (carrier !== '' && carrier !== '—' && carrier.toLowerCase() !== 'tại quầy')
+    || shippingFee > 0
+})
+
+// Đơn bán tại quầy thuần túy lấy ngay (không giao hàng)
+const isPureStoreOrder = computed(() => !isDeliveryOrder.value)
+
+// Giữ lại alias tương thích
+const isOnlineDelivery = computed(() => isDeliveryOrder.value)
+const isAtStore = computed(() => isPureStoreOrder.value)
+
+// Loại đơn hiển thị: Nếu là đơn giao hàng mà được tạo / xác nhận tại quầy (bởi nhân viên bán hàng/POS/NV...) hoặc loaiDon === 1 thì loại đơn là "Tại quầy", ngược lại là "Online"
+const displayLoaiDon = computed(() => {
+  const empCode = String(invoiceData.value.employee?.code || '').toUpperCase()
+  const empName = String(invoiceData.value.employee?.name || '')
+  const note = String(invoiceData.value.delivery?.note || '').toLowerCase()
+  const loaiDon = Number(invoiceData.value.delivery?.loaiDon || invoiceData.value.loaiDon || 0)
+
+  const isStaff = empCode.startsWith('NV') || (empName && empName !== 'Đơn Online' && empName !== '---' && !empName.toLowerCase().includes('khách') && !empName.toLowerCase().includes('website')) || note.includes('pos') || note.includes('tại quầy')
+  if (isStaff || loaiDon === 1) {
+    return 'Tại quầy'
+  }
+  return 'Online'
 })
 
 // Đơn hàng online đang ở trạng thái Chờ xác nhận (status = 1): CHƯA IN HÓA ĐƠN
 const isOnlineWaitingConfirm = computed(() => {
-  return isOnlineDelivery.value && Number(invoiceData.value.status) === 1
+  return isDeliveryOrder.value && Number(invoiceData.value.status) === 1
 })
 
-// Điều kiện in hóa đơn: Đơn online chờ xác nhận là CHƯA in hóa đơn, đơn đã hủy không in hóa đơn
+// Điều kiện in hóa đơn: Chỉ trạng thái "Đã xác nhận" (status = 2) mới in hóa đơn, hoặc đơn tại quầy thuần túy hoàn thành (status 5)
 const canPrintInvoice = computed(() => {
-  if (isOnlineWaitingConfirm.value) return false
-  if (Number(invoiceData.value.status) === 6) return false
-  return true
+  const st = Number(invoiceData.value.status)
+  if (isPureStoreOrder.value && st === 5) return true
+  return st === 2
 })
 
 // =========================================================================
@@ -736,6 +769,7 @@ const loadDetail = async (identifier) => {
   invoiceCode.value = queryParam
   invoiceData.value = createDefaultInvoice(queryParam)
   loading.value = true
+  hasAutoPrinted.value = false
 
   try {
     let res = null
@@ -788,11 +822,11 @@ const loadDetail = async (identifier) => {
     const authStaffName = currentAuth?.tenNhanVien || currentAuth?.tenTaiKhoan || ''
 
     let employeeName = nhanVienObj['tenNhanVien']
-      || (data['nguoiTao'] && !data['nguoiTao'].includes('Nhân viên bán hàng') ? data['nguoiTao'] : null)
-      || employeeCatalog['name']
-      || authStaffName
-      || (Number(data['loaiDon']) === 1 ? (authStaffName || 'Nhân viên bán hàng') : 'Đơn Online')
-    let employeeCode = nhanVienObj['maNhanVien'] || employeeCatalog['code'] || '---'
+        || (data['nguoiTao'] && !data['nguoiTao'].includes('Nhân viên bán hàng') ? data['nguoiTao'] : null)
+        || employeeCatalog['name']
+        || authStaffName
+        || (Number(data['loaiDon']) === 1 ? (authStaffName || 'Nhân viên bán hàng') : 'Đơn Online')
+    let employeeCode = nhanVienObj['maNhanVien'] || employeeCatalog['code'] || (String(data['nguoiTao'] || '').toUpperCase().startsWith('NV') ? data['nguoiTao'] : '---')
 
     invoiceData.value.employee = {
       name: employeeName,
@@ -846,12 +880,18 @@ const loadDetail = async (identifier) => {
     invoiceData.value.createTime = formatDateTime(data['ngayTao'] || data['createdAt'])
     invoiceData.value.lastUpdated = formatDateTime(data['ngayCapNhat'] || data['updatedAt'] || data['thoiGianThanhToan'] || data['ngayTao'] || data['createdAt'])
 
+    const hasDelivery = Boolean(data['diaChiNhanHang'] && data['diaChiNhanHang'] !== 'Bán tại quầy' && data['diaChiNhanHang'] !== '—') || Number(data['phiVanChuyen'] || data['phiShip'] || 0) > 0 || Boolean(data['donViVanChuyen'] && data['donViVanChuyen'] !== '—')
+    const hasStaffCreator = Boolean(data['idNhanVien'] || data['nhanVien'] || (data['nguoiTao'] && !String(data['nguoiTao']).toLowerCase().includes('khách') && !String(data['nguoiTao']).toLowerCase().includes('client') && !String(data['nguoiTao']).toLowerCase().includes('website')))
+    const isOnlineChannel = Number(data['loaiDon']) === 2 && !hasStaffCreator && !String(data['ghiChu'] || '').toLowerCase().includes('pos') && !String(data['ghiChu'] || '').toLowerCase().includes('quầy')
+
+    invoiceData.value.loaiDon = isOnlineChannel ? 2 : (Number(data['loaiDon']) || 1)
     invoiceData.value.delivery = {
       address: getString(data['diaChiNhanHang'], data['diaChi'], data['address'], '—'),
-      type: Number(data['loaiDon']) === 1 ? 'Tại quầy' : 'Online',
+      type: isOnlineChannel ? 'Online' : 'Tại quầy',
       carrier: getString(data['donViVanChuyen'], data['tenDonViVanChuyen'], data['carrier'], '—'),
-      receiveType: Number(data['loaiDon']) === 1 ? 'Nhận tại quầy' : 'Giao hàng tận nơi',
-      note: getString(data['ghiChu'], data['note'], '—')
+      receiveType: hasDelivery ? 'Giao hàng tận nơi' : 'Nhận tại quầy',
+      note: getString(data['ghiChu'], data['note'], '—'),
+      loaiDon: isOnlineChannel ? 2 : 1
     }
 
     // Danh sách sản phẩm
@@ -1011,8 +1051,8 @@ const loadDetail = async (identifier) => {
         currentStatus = 7
       }
     }
-    const isAtStore = Number(data['loaiDon']) === 1 || data['loaiDon'] === 'Tại quầy' || invoiceData.value.delivery?.type === 'Tại quầy'
-    applyOrderStatus(currentStatus, isAtStore)
+    const isPureStore = !hasDelivery && Number(data['loaiDon']) === 1
+    applyOrderStatus(currentStatus, isPureStore)
 
     // Lịch sử thao tác
     let rawLogs = data['lichSuHoaDon'] || data['lichSuHoaDons'] || data['lichSu']
@@ -1033,7 +1073,15 @@ const loadDetail = async (identifier) => {
     }
 
     if (Array.isArray(rawLogs) && rawLogs.length > 0) {
-      let mappedLogs = rawLogs.map((l, i) => ({
+      const filtered = rawLogs.filter(l => {
+        const text = `${l.hanhDong || ''} ${l.ghiChu || ''} ${l.thaoTac || ''} ${l.action || ''}`.toLowerCase()
+        const actor = `${l.nguoiThucHien || ''}`.toLowerCase()
+        if (text.includes('vietqr') || (text.includes('cổng') && text.includes('chuyển khoản')) || actor.includes('hệ thống thanh toán')) {
+          return false
+        }
+        return true
+      })
+      let mappedLogs = filtered.map((l, i) => ({
         id: l.id || i,
         action: l.hanhDong || l.ghiChu || l.thaoTac || l.action || 'Thao tác hóa đơn',
         hanhDong: l.hanhDong || l.ghiChu || l.thaoTac || l.action || 'Thao tác hóa đơn',
@@ -1044,7 +1092,7 @@ const loadDetail = async (identifier) => {
       }))
       orderLogs.value = mappedLogs
     } else {
-      orderLogs.value = buildLogsByStatus(currentStatus, data['ngayTao'] || data['createdAt'], isAtStore, {
+      orderLogs.value = buildLogsByStatus(currentStatus, data['ngayTao'] || data['createdAt'], isPureStore, {
         finishDate: data['thoiGianThanhToan'] || data['ngayCapNhat'] || data['updatedAt'],
         employeeName,
         note: data['ghiChu']
@@ -1055,6 +1103,21 @@ const loadDetail = async (identifier) => {
     if (invoiceData.value.steps[0] && !invoiceData.value.steps[0].time) {
       invoiceData.value.steps[0].time = createTimeStr
     }
+    if (Array.isArray(rawLogs) && rawLogs.length > 0) {
+      rawLogs.forEach(l => {
+        const stepStatus = Number(l.trangThai)
+        if (stepStatus >= 1 && stepStatus <= 5 && invoiceData.value.steps[stepStatus - 1]) {
+          const logTime = l.thoiGian || l.ngayTao || l.thoiGianTao
+          if (logTime) {
+            invoiceData.value.steps[stepStatus - 1].time = formatDateTime(logTime)
+          }
+        }
+      })
+    }
+    const curStatusNum = Number(currentStatus)
+    if (curStatusNum >= 2 && curStatusNum <= 5 && invoiceData.value.steps[curStatusNum - 1] && !invoiceData.value.steps[curStatusNum - 1].time) {
+      invoiceData.value.steps[curStatusNum - 1].time = formatDateTime(data['ngayCapNhat'] || data['updatedAt'] || data['thoiGianThanhToan'] || data['ngayTao'])
+    }
   } catch (err) {
     if (currentRequest !== requestId) return
     console.error('Lỗi khi tải chi tiết hóa đơn:', err)
@@ -1063,7 +1126,7 @@ const loadDetail = async (identifier) => {
       loading.value = false
       // Tự động in hóa đơn nếu chuyển hướng từ thanh toán (query param autoPrint=true)
       if ((route.query?.autoPrint === 'true' || route.query?.autoPrint === '1') && !hasAutoPrinted.value) {
-        if (!isOnlineWaitingConfirm.value && Number(invoiceData.value.status) !== 6) {
+        if (canPrintInvoice.value) {
           hasAutoPrinted.value = true
           setTimeout(() => {
             handlePrint()
@@ -1089,7 +1152,7 @@ watch(
 // STEPPER: HIỂN THỊ CÁC BƯỚC ĐÃ TỚI + DUY NHẤT 1 BƯỚC TIẾP THEO LIỀN KỀ (PENDING)
 // =========================================================================
 const visibleSteps = computed(() => {
-  const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
+  const isPureStore = isPureStoreOrder.value
   const curStatus = Number(invoiceData.value.status) || 1
   const createTime = invoiceData.value.createTime || invoiceData.value.steps[0]?.time || ''
   const finishTime = invoiceData.value.lastUpdated || invoiceData.value.paymentHistory?.time || createTime
@@ -1097,7 +1160,7 @@ const visibleSteps = computed(() => {
   // Đơn đã hủy (status = 6)
   if (curStatus === 6) {
     return [
-      { id: 1, name: isAtStore ? 'Hóa đơn chờ' : 'Chờ xác nhận', time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
+      { id: 1, name: isPureStore ? 'Hóa đơn chờ' : 'Chờ xác nhận', time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
       { id: 6, name: 'Đã hủy đơn', time: finishTime, done: false, active: true, pending: false, isCancelled: true, icon: 'cancelled' }
     ]
   }
@@ -1105,7 +1168,7 @@ const visibleSteps = computed(() => {
   // Đơn giao hàng thất bại (status = 7)
   if (curStatus === 7) {
     return [
-      { id: 1, name: 'Chờ xác nhận', time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
+      { id: 1, name: (displayLoaiDon.value === 'Tại quầy' ? 'Hóa đơn chờ' : 'Chờ xác nhận'), time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
       { id: 2, name: 'Đã xác nhận', done: true, active: false, pending: false, icon: 'check' },
       { id: 3, name: 'Chờ vận chuyển', done: true, active: false, pending: false, icon: 'box' },
       { id: 4, name: 'Đang vận chuyển', done: true, active: false, pending: false, icon: 'truck' },
@@ -1113,8 +1176,8 @@ const visibleSteps = computed(() => {
     ]
   }
 
-  // Đơn tại quầy
-  if (isAtStore) {
+  // Đơn tại quầy thuần túy (không giao hàng)
+  if (isPureStore) {
     return [
       { id: 1, name: 'Hóa đơn chờ', time: createTime, done: curStatus >= 2, active: curStatus === 1, pending: false, icon: 'hourglass' },
       { id: 2, name: 'Đã xác nhận', time: curStatus >= 2 ? finishTime : '', done: curStatus >= 5, active: curStatus === 2, pending: curStatus < 2, icon: 'check' },
@@ -1122,7 +1185,8 @@ const visibleSteps = computed(() => {
     ]
   }
 
-  // Đơn Online: Lấy các bước <= curStatus VÀ CỘNG THÊM 1 BƯỚC TIẾP THEO (curStatus + 1)
+  // Đơn có giao hàng (cả Đơn Online và Đơn giao hàng tạo tại quầy "online tại quầy"):
+  // Lấy các bước <= curStatus VÀ CỘNG THÊM 1 BƯỚC TIẾP THEO (curStatus + 1)
   const maxStepToShow = Math.min(curStatus + 1, 5)
 
   return invoiceData.value.steps
@@ -1131,9 +1195,14 @@ const visibleSteps = computed(() => {
         const isDone = s.id < curStatus
         const isActive = s.id === curStatus
         const isPending = s.id > curStatus
+        let stepName = s.name
+        if (s.id === 1) {
+          stepName = displayLoaiDon.value === 'Tại quầy' ? 'Hóa đơn chờ' : 'Chờ xác nhận'
+        }
 
         return {
           ...s,
+          name: stepName,
           done: isDone,
           active: isActive,
           pending: isPending,
@@ -1144,9 +1213,9 @@ const visibleSteps = computed(() => {
 
 // Thông tin trạng thái kế tiếp
 const nextStatusInfo = computed(() => {
-  const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
+  const isPureStore = isPureStoreOrder.value
   const cur = Number(invoiceData.value.status)
-  if (isAtStore) {
+  if (isPureStore) {
     if (cur === 1) return { nextStatus: 2, label: 'Xác Nhận Đơn Hàng' }
     if (cur === 2) return { nextStatus: 5, label: 'Hoàn Thành Đơn Hàng' }
     return null
@@ -1228,8 +1297,8 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null, cus
     }
 
     if (success) {
-      const isAtStore = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
-      applyOrderStatus(newStatus, isAtStore)
+      const isPureStore = isPureStoreOrder.value
+      applyOrderStatus(newStatus, isPureStore)
       invoiceData.value.status = newStatus
       const option = statusOptions.find(o => o.value === newStatus)
       const labelText = option ? option.label : (newStatus === 7 ? 'Giao hàng thất bại' : newStatus)
@@ -1244,9 +1313,8 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null, cus
         await loadDetail(id)
       }
       // Tự động in hóa đơn ngay khi đơn hàng chuyển sang trạng thái "Đã xác nhận" (status 2)
-      // hoặc trạng thái "Hoàn thành" (status 5) đối với đơn tại quầy
-      const isStoreOrder = invoiceData.value.delivery?.type === 'Tại quầy' || Number(invoiceData.value.delivery?.loaiDon) === 1
-      if (newStatus === 2 || (newStatus === 5 && isStoreOrder)) {
+      // hoặc trạng thái "Hoàn thành" (status 5) đối với đơn tại quầy thuần túy
+      if (newStatus === 2 || (newStatus === 5 && isPureStore)) {
         setTimeout(() => {
           handlePrint()
         }, 500)
@@ -1523,8 +1591,8 @@ const handleConfirmPaymentAndPrint = () => {
       const code = invoiceCode.value || invoiceData.value.code
       if (!id && !code) return
       updatingStatus.value = true
-  const currentAuth = getCurrentUser()
-  const authStaffName = currentAuth?.tenNhanVien || currentAuth?.tenTaiKhoan || 'Nhân viên bán hàng'
+      const currentAuth = getCurrentUser()
+      const authStaffName = currentAuth?.tenNhanVien || currentAuth?.tenTaiKhoan || 'Nhân viên bán hàng'
       try {
         let success = false
         if (id) {
@@ -1550,7 +1618,7 @@ const handleConfirmPaymentAndPrint = () => {
         if (success) {
           showToast('Xác nhận thanh toán thành công!')
           if (code) await loadDetail(code)
-          if (!isOnlineWaitingConfirm.value) {
+          if (canPrintInvoice.value) {
             setTimeout(() => {
               handlePrint()
             }, 500)
@@ -1666,12 +1734,12 @@ const filteredProductItems = computed(() => {
 })
 
 const handlePrint = () => {
-  if (isOnlineWaitingConfirm.value) {
-    showToast('Đơn hàng online đang chờ xác nhận là chưa in hóa đơn!', 'warning')
-    return
-  }
-  if (Number(invoiceData.value.status) === 6) {
-    showToast('Đơn hàng đã hủy, không thể in hóa đơn!', 'warning')
+  if (!canPrintInvoice.value) {
+    if (isOnlineWaitingConfirm.value) {
+      showToast('Đơn hàng online đang chờ xác nhận là chưa in hóa đơn!', 'warning')
+    } else {
+      showToast('Chỉ trạng thái "Đã xác nhận" mới in hóa đơn, các trạng thái sau không cần in hóa đơn!', 'warning')
+    }
     return
   }
   const originalTitle = document.title
@@ -1741,7 +1809,7 @@ onBeforeUnmount(() => {
           <div class="meta-row">
             <span class="meta-label">Loại đơn:</span>
             <span class="meta-value">
-              <span class="badge-loai-don">{{ invoiceData.delivery.type || 'Tại quầy' }}</span>
+              <span class="badge-loai-don">{{ displayLoaiDon }}</span>
               <span v-if="isOnlineWaitingConfirm" class="badge-unprinted-pill" title="Đơn hàng online chờ xác nhận là chưa in hóa đơn">Chưa in HĐ</span>
             </span>
           </div>
@@ -2297,7 +2365,7 @@ onBeforeUnmount(() => {
                 </div>
                 <div class="log-sub-info">
                   <span>Người thực hiện: <strong>{{ getLogActor(log) }}</strong></span>
-                  <span v-if="log.ghiChu"> — {{ log.ghiChu }}</span>
+                  <span v-if="log.ghiChu && log.ghiChu.trim() !== String(log.hanhDong || log.action || '').trim()"> — {{ log.ghiChu }}</span>
                 </div>
               </div>
             </div>
@@ -2427,7 +2495,7 @@ onBeforeUnmount(() => {
           <div class="print-box-title">THÔNG TIN ĐƠN HÀNG</div>
           <div class="print-data-line">
             <span class="p-label">Hình thức:</span>
-            <span class="p-val font-bold">{{ invoiceData.delivery.type || 'Tại quầy' }}</span>
+            <span class="p-val font-bold">{{ displayLoaiDon }}</span>
           </div>
           <div class="print-data-line">
             <span class="p-label">Thu ngân:</span>

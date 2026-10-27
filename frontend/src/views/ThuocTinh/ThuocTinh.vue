@@ -440,7 +440,7 @@ watch(() => route.query.tab, (newTab) => {
       <!-- 2. Thanh tìm kiếm và bộ lọc của Tab hiện tại -->
       <div class="table-toolbar">
         <div class="search-box">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
+          <svg v-if="false" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
@@ -918,7 +918,7 @@ watch(() => route.query.tab, (newTab) => {
 .search-input {
   width: 100%;
   height: 38px;
-  padding: 0 32px 0 34px;
+  padding: 0 32px 0 12px;
   border: 1px solid var(--line, #e9e5db);
   border-radius: 8px;
   font-size: 0.88rem;

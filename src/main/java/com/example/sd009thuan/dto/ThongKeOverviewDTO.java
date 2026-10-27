@@ -145,6 +145,9 @@ public class ThongKeOverviewDTO {
         private BigDecimal cashRevenue;
         private BigDecimal transferRevenue;
         private long totalOrders;
+        private long completedOrders;
+        private long cancelledOrders;
+        private long processingOrders;
         private BigDecimal aov;
         private long totalItemsSold;
 
@@ -154,6 +157,9 @@ public class ThongKeOverviewDTO {
             this.cashRevenue = BigDecimal.ZERO;
             this.transferRevenue = BigDecimal.ZERO;
             this.totalOrders = 0;
+            this.completedOrders = 0;
+            this.cancelledOrders = 0;
+            this.processingOrders = 0;
             this.aov = BigDecimal.ZERO;
             this.totalItemsSold = 0;
         }
@@ -165,8 +171,35 @@ public class ThongKeOverviewDTO {
             this.cashRevenue = cashRevenue != null ? cashRevenue : BigDecimal.ZERO;
             this.transferRevenue = transferRevenue != null ? transferRevenue : BigDecimal.ZERO;
             this.totalOrders = totalOrders;
+            this.completedOrders = totalOrders;
+            this.cancelledOrders = 0;
+            this.processingOrders = 0;
             this.aov = aov != null ? aov : BigDecimal.ZERO;
             this.totalItemsSold = totalItemsSold;
+        }
+
+        public long getCompletedOrders() {
+            return completedOrders;
+        }
+
+        public void setCompletedOrders(long completedOrders) {
+            this.completedOrders = completedOrders;
+        }
+
+        public long getCancelledOrders() {
+            return cancelledOrders;
+        }
+
+        public void setCancelledOrders(long cancelledOrders) {
+            this.cancelledOrders = cancelledOrders;
+        }
+
+        public long getProcessingOrders() {
+            return processingOrders;
+        }
+
+        public void setProcessingOrders(long processingOrders) {
+            this.processingOrders = processingOrders;
         }
 
         public BigDecimal getTotalRevenue() {

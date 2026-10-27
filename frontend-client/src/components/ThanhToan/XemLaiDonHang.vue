@@ -29,6 +29,14 @@ const props = defineProps({
   submitting: {
     type: Boolean,
     default: false
+  },
+  ghnLeadTime: {
+    type: String,
+    default: ''
+  },
+  ghnLoading: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -79,6 +87,16 @@ const emit = defineEmits([
           placeholder="Ví dụ: Giao giờ hành chính, gọi trước khi giao..."
           class="note-textarea"
         ></textarea>
+      </div>
+
+      <!-- Đơn vị vận chuyển GHN -->
+      <div class="ghn-shipping-card">
+        <div class="ghn-badge-row">
+          <span class="ghn-partner-tag">🚚 GIAO HÀNG NHANH (GHN)</span>
+          <span class="ghn-status-text" v-if="ghnLoading">Đang tính phí...</span>
+          <span class="ghn-leadtime-text" v-else-if="ghnLeadTime">Dự kiến: <strong>{{ ghnLeadTime }}</strong></span>
+        </div>
+        <p class="ghn-sub-desc">Đối tác giao nhận chính thức - Vận chuyển toàn quốc</p>
       </div>
 
       <!-- Bảng giá -->
@@ -137,6 +155,45 @@ const emit = defineEmits([
   border: 1px solid #e2e8f0;
   padding: 24px;
   box-shadow: 0 4px 16px rgba(73, 104, 131, 0.05);
+}
+
+.ghn-shipping-card {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-left: 4px solid #ea580c;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+
+.ghn-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ghn-partner-tag {
+  font-size: 12px;
+  font-weight: 800;
+  color: #ea580c;
+}
+
+.ghn-leadtime-text {
+  font-size: 11px;
+  color: #047857;
+}
+
+.ghn-status-text {
+  font-size: 11px;
+  color: #64748b;
+  font-style: italic;
+}
+
+.ghn-sub-desc {
+  font-size: 11px;
+  color: #9a3412;
+  margin: 4px 0 0;
 }
 
 .summary-header {

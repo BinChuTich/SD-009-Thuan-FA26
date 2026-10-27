@@ -413,7 +413,7 @@ onMounted(() => {
         <div class="search-input-col">
           <label class="search-label">Tìm kiếm</label>
           <div class="input-inner-wrap">
-            <span class="prefix-search-icon">
+            <span class="prefix-search-icon" v-if="false">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -874,7 +874,7 @@ onMounted(() => {
   background-color: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 0 1rem 0 2.5rem;
+  padding: 0 1rem;
   font-size: 0.92rem;
   color: #1e293b;
   outline: none;

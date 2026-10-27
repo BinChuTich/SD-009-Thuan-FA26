@@ -286,16 +286,7 @@ public class PaymentService {
                 hinhThucThanhToanRepository.save(httt);
             }
 
-            // Ghi nhận lịch sử đơn hàng
-            try {
-                LichSuHoaDon log = new LichSuHoaDon();
-                log.setIdHoaDon(hd);
-                log.setThoiGian(now);
-                log.setHanhDong("Thanh toán chuyển khoản thành công qua cổng VietQR (" + transCode + ")");
-                log.setNguoiThucHien("Hệ thống thanh toán");
-                log.setVaiTroNguoiThucHien("Hệ thống");
-                lichSuHoaDonRepository.save(log);
-            } catch (Exception ignored) {}
+
         }
 
         return status;

@@ -179,6 +179,15 @@ public class HoaDon {
         if (this.email != null && !this.email.trim().isEmpty()) {
             return this.email.trim();
         }
+        if (this.ghiChu != null && this.ghiChu.contains("[EMAIL:")) {
+            try {
+                int start = this.ghiChu.indexOf("[EMAIL:") + 7;
+                int end = this.ghiChu.indexOf("]", start);
+                if (end > start) {
+                    return this.ghiChu.substring(start, end).trim();
+                }
+            } catch (Exception ignored) {}
+        }
         if (idKhachHang != null && idKhachHang.getEmail() != null && !idKhachHang.getEmail().trim().isEmpty()) {
             return idKhachHang.getEmail().trim();
         }
@@ -192,6 +201,60 @@ public class HoaDon {
     public void setEmail(String email) {
         this.email = email;
     }
+
+    // Đơn vị vận chuyển (Transient - hỗ trợ lưu kèm ghiChu dạng [ĐVVC: ...])
+    @Transient
+    private String donViVanChuyen;
+
+    @JsonProperty("donViVanChuyen")
+    public String getDonViVanChuyen() {
+        if (this.donViVanChuyen != null && !this.donViVanChuyen.trim().isEmpty()) {
+            return this.donViVanChuyen.trim();
+        }
+        if (this.ghiChu != null && this.ghiChu.contains("[ĐVVC:")) {
+            try {
+                int start = this.ghiChu.indexOf("[ĐVVC:") + 6;
+                int end = this.ghiChu.indexOf("]", start);
+                if (end > start) {
+                    return this.ghiChu.substring(start, end).trim();
+                }
+            } catch (Exception ignored) {}
+        }
+        if (Integer.valueOf(2).equals(this.loaiDon)) {
+            return "Giao Hàng Nhanh (GHN)";
+        }
+        return null;
+    }
+
+    public void setDonViVanChuyen(String donViVanChuyen) {
+        this.donViVanChuyen = donViVanChuyen;
+    }
+
+    // Mã vận đơn GHN / Đơn vị vận chuyển (Transient - hỗ trợ lưu kèm ghiChu dạng [MVD: ...])
+    @Transient
+    private String maVanDon;
+
+    @JsonProperty("maVanDon")
+    public String getMaVanDon() {
+        if (this.maVanDon != null && !this.maVanDon.trim().isEmpty()) {
+            return this.maVanDon.trim();
+        }
+        if (this.ghiChu != null && this.ghiChu.contains("[MVD:")) {
+            try {
+                int start = this.ghiChu.indexOf("[MVD:") + 5;
+                int end = this.ghiChu.indexOf("]", start);
+                if (end > start) {
+                    return this.ghiChu.substring(start, end).trim();
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    public void setMaVanDon(String maVanDon) {
+        this.maVanDon = maVanDon;
+    }
+
     // Chi tiết hóa đơn
     @JsonIgnore
     @OneToMany(mappedBy = "idHoaDon", cascade = CascadeType.ALL, orphanRemoval = true)
