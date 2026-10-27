@@ -22,7 +22,7 @@
         </div>
 
         <div class="top-bar-actions">
-          <!-- Nút Gửi mail tổng kết nổi bật ở header -->
+          <!-- 1. Nút Gửi mail tổng kết -->
           <button
             type="button"
             class="pill-btn btn-send-mail-highlight"
@@ -33,31 +33,44 @@
               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
               <polyline points="22,6 12,13 2,6" />
             </svg>
-            <span>📧 Gửi mail tổng kết</span>
+            <span>Gửi mail tổng kết</span>
           </button>
 
-          <!-- Nút Chuyển sang màn hình So sánh -->
+          <!-- 2. Nút So sánh -->
           <button
             type="button"
             class="pill-btn btn-compare-highlight"
             @click="switchViewMode('comparison')"
             title="Mở màn hình So sánh & Đối chiếu tăng trưởng doanh thu"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M16 3h5v5" />
-              <path d="M4 20L21 3" />
-              <path d="M21 16v5h-5" />
-              <path d="M15 15l6 6" />
-              <path d="M4 4l5 5" />
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" />
             </svg>
-            <span>So sánh doanh thu</span>
+            <span>So sánh</span>
+          </button>
+
+          <!-- 3. Nút Xuất Excel -->
+          <button
+            type="button"
+            class="pill-btn btn-export-excel"
+            @click="handleExportExcel"
+            title="Xuất dữ liệu thống kê ra file Excel"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>Xuất Excel</span>
           </button>
         </div>
       </div>
 
       <!-- 2. Card Bộ lọc thống kê -->
       <div class="content-card filter-card-box">
-        <!-- Hàng trên: Tiêu đề bộ lọc & Cụm nút lọc nhanh + Gửi mail + So sánh + Xuất Excel -->
+        <!-- Hàng trên: Tiêu đề bộ lọc & Cụm nút lọc nhanh mốc thời gian -->
         <div class="filter-top-row">
           <div class="filter-heading">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="filter-icon">
@@ -114,50 +127,6 @@
               @click="setQuickFilter('thisYear')"
             >
               Năm nay
-            </button>
-
-            <!-- Nút Gửi mail tổng kết cạnh So sánh & Xuất Excel -->
-            <button
-              type="button"
-              class="pill-btn btn-send-mail-action"
-              @click="openEmailModal"
-              title="Gửi email tổng kết doanh thu cho Admin"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                <polyline points="22,6 12,13 2,6" />
-              </svg>
-              <span>📧 Gửi mail tổng kết</span>
-            </button>
-
-            <!-- Nút So sánh -->
-            <button
-              type="button"
-              class="pill-btn btn-compare-pill"
-              @click="switchViewMode('comparison')"
-              title="So sánh đối chiếu doanh thu theo Tháng / Quý / Năm"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="20" x2="18" y2="10" />
-                <line x1="12" y1="20" x2="12" y2="4" />
-                <line x1="6" y1="20" x2="6" y2="14" />
-              </svg>
-              <span>So sánh</span>
-            </button>
-
-            <!-- Nút Xuất Excel -->
-            <button
-              type="button"
-              class="pill-btn btn-export-excel"
-              @click="handleExportExcel"
-              title="Xuất dữ liệu thống kê ra file Excel"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              <span>Xuất Excel</span>
             </button>
           </div>
         </div>
@@ -830,22 +799,32 @@
 
         <div class="top-bar-actions">
           <!-- Gửi mail tổng kết -->
-          <button type="button" class="pill-btn btn-send-mail-highlight" @click="openEmailModal">
+          <button
+            type="button"
+            class="pill-btn btn-send-mail-highlight"
+            @click="openEmailModal"
+            title="Mở bảng cấu hình và gửi email tổng kết doanh thu cho Admin"
+          >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
               <polyline points="22,6 12,13 2,6" />
             </svg>
-            <span>📧 Gửi mail tổng kết</span>
+            <span>Gửi mail tổng kết</span>
           </button>
 
           <!-- Xuất Excel so sánh -->
-          <button type="button" class="pill-btn btn-export-excel" @click="handleExportComparisonExcel">
+          <button
+            type="button"
+            class="pill-btn btn-export-excel"
+            @click="handleExportComparisonExcel"
+            title="Xuất dữ liệu so sánh ra file Excel"
+          >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            <span>Xuất Excel So sánh</span>
+            <span>Xuất Excel</span>
           </button>
         </div>
       </div>
@@ -868,7 +847,7 @@
               :class="{ active: compareFilter.mode === 'month' }"
               @click="setCompareMode('month')"
             >
-              Theo Tháng (12 tháng)
+              Theo Tháng
             </button>
             <button
               type="button"
@@ -876,7 +855,7 @@
               :class="{ active: compareFilter.mode === 'quarter' }"
               @click="setCompareMode('quarter')"
             >
-              Theo Quý (4 quý)
+              Theo Quý
             </button>
             <button
               type="button"
@@ -884,7 +863,7 @@
               :class="{ active: compareFilter.mode === 'year' }"
               @click="setCompareMode('year')"
             >
-              Theo Năm (Đối chiếu nhiều năm)
+              Theo Năm
             </button>
             <button
               type="button"
@@ -892,63 +871,13 @@
               :class="{ active: compareFilter.mode === 'custom' }"
               @click="setCompareMode('custom')"
             >
-              Tùy chọn 2 kỳ
+              Tùy chọn khoảng ngày
             </button>
           </div>
         </div>
 
-        <!-- Hàng 2: Các trường lọc phụ thuộc theo chế độ -->
+        <!-- Hàng 2: Bộ lọc phụ (Thương hiệu & Sản phẩm & Đặt lại) -->
         <div class="filter-fields-row comparison-fields-row">
-          <!-- Nếu xem theo Tháng hoặc Quý: Chọn Năm -->
-          <div v-if="compareFilter.mode === 'month' || compareFilter.mode === 'quarter'" class="filter-field-item">
-            <label class="field-label-tiny">Năm so sánh</label>
-            <div class="select-wrapper-minimal">
-              <select v-model.number="compareFilter.year" class="form-control-minimal" @change="fetchComparisonData">
-                <option v-for="y in availableYears" :key="y" :value="y">Năm {{ y }}</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Nếu xem theo Năm: Chọn Từ năm - Đến năm -->
-          <template v-if="compareFilter.mode === 'year'">
-            <div class="filter-field-item">
-              <label class="field-label-tiny">Từ năm</label>
-              <div class="select-wrapper-minimal">
-                <select v-model.number="compareFilter.startYear" class="form-control-minimal" @change="fetchComparisonData">
-                  <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
-                </select>
-              </div>
-            </div>
-            <div class="filter-field-item">
-              <label class="field-label-tiny">Đến năm</label>
-              <div class="select-wrapper-minimal">
-                <select v-model.number="compareFilter.endYear" class="form-control-minimal" @change="fetchComparisonData">
-                  <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
-                </select>
-              </div>
-            </div>
-          </template>
-
-          <!-- Nếu Tùy chọn 2 kỳ: Kỳ A và Kỳ B -->
-          <template v-if="compareFilter.mode === 'custom'">
-            <div class="filter-field-item">
-              <label class="field-label-tiny">Kỳ A (Từ - Đến)</label>
-              <div class="dual-date-inline">
-                <input type="date" v-model="compareFilter.fromDateA" class="form-control-minimal small" @change="fetchComparisonData" />
-                <span class="date-sep">-</span>
-                <input type="date" v-model="compareFilter.toDateA" class="form-control-minimal small" @change="fetchComparisonData" />
-              </div>
-            </div>
-            <div class="filter-field-item">
-              <label class="field-label-tiny">Kỳ B (Từ - Đến)</label>
-              <div class="dual-date-inline">
-                <input type="date" v-model="compareFilter.fromDateB" class="form-control-minimal small" @change="fetchComparisonData" />
-                <span class="date-sep">-</span>
-                <input type="date" v-model="compareFilter.toDateB" class="form-control-minimal small" @change="fetchComparisonData" />
-              </div>
-            </div>
-          </template>
-
           <!-- Lọc theo Thương hiệu -->
           <div class="filter-field-item">
             <label class="field-label-tiny">Thương hiệu</label>
@@ -994,6 +923,125 @@
               </svg>
               <span>Đặt lại</span>
             </button>
+          </div>
+        </div>
+
+        <!-- Hàng 3: Danh sách các kỳ so sánh đa kỳ động (Dynamic Multi-period) -->
+        <div class="dynamic-periods-section">
+          <div class="dynamic-periods-header">
+            <div class="periods-heading-left">
+              <span class="periods-badge-count">{{ comparePeriods.length }} kỳ đối chiếu</span>
+              <span class="periods-hint-txt">So sánh đồng thời nhiều mốc thời gian để theo dõi tốc độ tăng trưởng kinh doanh</span>
+            </div>
+            <!-- Nút Thêm kỳ so sánh -->
+            <button
+              type="button"
+              class="btn-add-period-highlight"
+              @click="addComparePeriod"
+              title="Thêm một kỳ mới vào danh sách so sánh"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>Thêm kỳ so sánh</span>
+            </button>
+          </div>
+
+          <!-- Danh sách các dòng chọn kỳ -->
+          <div class="period-cards-grid">
+            <div
+              v-for="(p, pIdx) in comparePeriods"
+              :key="p.id || pIdx"
+              class="period-selector-row"
+            >
+              <div class="period-row-tag">
+                <span class="tag-letter">Kỳ {{ pIdx + 1 }}</span>
+              </div>
+
+              <!-- Nội dung chọn theo chế độ -->
+              <div class="period-row-inputs">
+                <!-- Chế độ Theo Tháng -->
+                <template v-if="compareFilter.mode === 'month'">
+                  <div class="mini-field">
+                    <span class="mini-label">Tháng:</span>
+                    <select v-model.number="p.month" class="form-control-minimal small select-period" @change="fetchComparisonData">
+                      <option v-for="m in 12" :key="m" :value="m">Tháng {{ m }}</option>
+                    </select>
+                  </div>
+                  <div class="mini-field">
+                    <span class="mini-label">Năm:</span>
+                    <select v-model.number="p.year" class="form-control-minimal small select-period" @change="fetchComparisonData">
+                      <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
+                    </select>
+                  </div>
+                </template>
+
+                <!-- Chế độ Theo Quý -->
+                <template v-else-if="compareFilter.mode === 'quarter'">
+                  <div class="mini-field">
+                    <span class="mini-label">Quý:</span>
+                    <select v-model.number="p.quarter" class="form-control-minimal small select-period" @change="fetchComparisonData">
+                      <option :value="1">Quý 1 (T1 - T3)</option>
+                      <option :value="2">Quý 2 (T4 - T6)</option>
+                      <option :value="3">Quý 3 (T7 - T9)</option>
+                      <option :value="4">Quý 4 (T10 - T12)</option>
+                    </select>
+                  </div>
+                  <div class="mini-field">
+                    <span class="mini-label">Năm:</span>
+                    <select v-model.number="p.year" class="form-control-minimal small select-period" @change="fetchComparisonData">
+                      <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
+                    </select>
+                  </div>
+                </template>
+
+                <!-- Chế độ Theo Năm -->
+                <template v-else-if="compareFilter.mode === 'year'">
+                  <div class="mini-field">
+                    <span class="mini-label">Năm:</span>
+                    <select v-model.number="p.year" class="form-control-minimal small select-period" @change="fetchComparisonData">
+                      <option v-for="y in availableYears" :key="y" :value="y">Năm {{ y }}</option>
+                    </select>
+                  </div>
+                </template>
+
+                <!-- Chế độ Tùy chọn khoảng ngày -->
+                <template v-else-if="compareFilter.mode === 'custom'">
+                  <div class="mini-field flex-grow-name">
+                    <input
+                      type="text"
+                      v-model="p.name"
+                      placeholder="Tên kỳ..."
+                      class="form-control-minimal small input-custom-name"
+                      @change="fetchComparisonData"
+                    />
+                  </div>
+                  <div class="mini-field">
+                    <span class="mini-label">Từ:</span>
+                    <input type="date" v-model="p.fromDate" class="form-control-minimal small input-period-date" @change="fetchComparisonData" />
+                  </div>
+                  <div class="mini-field">
+                    <span class="mini-label">Đến:</span>
+                    <input type="date" v-model="p.toDate" class="form-control-minimal small input-period-date" @change="fetchComparisonData" />
+                  </div>
+                </template>
+              </div>
+
+              <!-- Nút Xóa dòng kỳ -->
+              <button
+                type="button"
+                class="btn-delete-period-row"
+                :disabled="comparePeriods.length <= 2"
+                :title="comparePeriods.length <= 2 ? 'Cần tối thiểu 2 kỳ để so sánh' : 'Xóa kỳ này khỏi danh sách'"
+                @click="removeComparePeriod(pIdx)"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                <span>Xóa</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1071,8 +1119,8 @@
       </div>
 
       <!-- Biểu đồ Combo Chart trực quan: Cột Doanh thu ghép + Đường Line Tăng trưởng % -->
-      <!-- Tách biệt hoàn toàn nhãn Tăng trưởng (Badge bo tròn trên) và Doanh thu (dưới) - Không đè chữ -->
-      <div class="content-card combo-chart-card">
+      <!-- Có trục tung bên trái (VNĐ) và trục tung bên phải (%) rõ ràng, chống đè chữ -->
+      <div class="content-card combo-chart-card" @mouseleave="onComboBarMouseLeave">
         <div class="card-title-row">
           <div class="card-title-group">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="title-sub-icon">
@@ -1083,136 +1131,267 @@
           </div>
           <!-- Legend chú thích -->
           <div class="chart-combo-legend">
-            <div class="legend-item"><span class="legend-box color-cash"></span> Tiền mặt</div>
-            <div class="legend-item"><span class="legend-box color-transfer"></span> Chuyển khoản</div>
-            <div class="legend-item"><span class="legend-line-dot"></span> Tốc độ tăng trưởng (%)</div>
+            <div class="legend-item"><span class="legend-box color-cash"></span> Tiền mặt (Trục trái)</div>
+            <div class="legend-item"><span class="legend-box color-transfer"></span> Chuyển khoản (Trục trái)</div>
+            <div class="legend-item"><span class="legend-line-dot"></span> Tốc độ tăng trưởng % (Trục phải)</div>
           </div>
         </div>
 
-        <!-- Khung vẽ SVG Combo Chart với tỷ lệ 1:1, không dùng preserveAspectRatio="none" -->
-        <div class="combo-chart-svg-wrap">
-          <svg class="combo-chart-svg" viewBox="0 0 1000 340">
-            <!-- Grid Lines (Padding-top >= 50px) -->
-            <line x1="50" y1="50" x2="950" y2="50" stroke="#f1ede7" stroke-dasharray="3 3" />
-            <line x1="50" y1="105" x2="950" y2="105" stroke="#f1ede7" stroke-dasharray="3 3" />
-            <line x1="50" y1="160" x2="950" y2="160" stroke="#f1ede7" stroke-dasharray="3 3" />
-            <line x1="50" y1="215" x2="950" y2="215" stroke="#f1ede7" stroke-dasharray="3 3" />
-            <line x1="50" y1="270" x2="950" y2="270" stroke="#cbd5e1" stroke-width="1.5" />
+        <!-- Khung vẽ SVG Combo Chart với tỷ lệ 1:1, cuộn ngang khi > 8 kỳ -->
+        <div class="combo-chart-scroll-wrap">
+          <div class="combo-chart-svg-wrap" :style="{ width: comboSvgWidthStyle, minWidth: '100%' }">
+            <svg class="combo-chart-svg" :viewBox="`0 0 ${comboSvgWidth} 360`" preserveAspectRatio="xMidYMid meet">
+              <!-- Nhãn đơn vị trục tung trái & phải -->
+              <text :x="comboChartData.xLeftAxis - 6" y="38" text-anchor="end" class="y-axis-unit-label">(VNĐ)</text>
+              <text :x="comboChartData.xRightAxis + 6" y="38" text-anchor="start" class="y-axis-unit-label right">(%)</text>
 
-            <!-- Cột Doanh thu (Stacked Bar: Tiền mặt ở dưới, Chuyển khoản ở trên) -->
-            <g v-for="(item, idx) in comboChartData.bars" :key="'bar-' + idx">
-              <!-- Cột Tiền mặt -->
-              <rect
-                :x="item.x"
-                :y="item.yCash"
-                :width="item.width"
-                :height="item.heightCash"
-                fill="#3B82F6"
-                opacity="0.85"
-                rx="3"
-                class="combo-bar-segment"
-              >
-                <title>{{ item.name }} - Tiền mặt: {{ formatCurrency(item.cash) }}</title>
-              </rect>
-
-              <!-- Cột Chuyển khoản (Xếp trên tiền mặt) -->
-              <rect
-                :x="item.x"
-                :y="item.yTransfer"
-                :width="item.width"
-                :height="item.heightTransfer"
-                fill="#10B981"
-                opacity="0.9"
-                rx="4"
-                class="combo-bar-segment"
-              >
-                <title>{{ item.name }} - Chuyển khoản: {{ formatCurrency(item.transfer) }}</title>
-              </rect>
-
-              <!-- Con số Tổng doanh thu: Hiển thị ngay trên đỉnh cột, cách đỉnh 8px -->
-              <text
-                v-if="item.totalRevenue > 0"
-                :x="item.x + item.width / 2"
-                :y="item.yTransfer - 8"
-                text-anchor="middle"
-                class="combo-bar-total-label"
-              >
-                {{ formatShortCurrency(item.totalRevenue) }}
-              </text>
-              <text
-                v-else
-                :x="item.x + item.width / 2"
-                :y="item.yTransfer - 6"
-                text-anchor="middle"
-                class="combo-bar-total-label zero"
-              >
-                0 đ
-              </text>
-
-              <!-- Nhãn kỳ tiếng Việt có dấu ở đáy trục X -->
-              <text
-                :x="item.x + item.width / 2"
-                y="296"
-                text-anchor="middle"
-                class="combo-bottom-label"
-              >
-                {{ item.displayName }}
-              </text>
-            </g>
-
-            <!-- Đường Line biểu diễn % Tăng trưởng ở vùng riêng biệt (Phía trên) -->
-            <polyline
-              v-if="comboChartData.linePoints"
-              :points="comboChartData.linePoints"
-              fill="none"
-              stroke="#E11D48"
-              stroke-width="2.6"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-
-            <!-- Các điểm mốc tròn và Badge % Tăng trưởng bo tròn cách điểm tròn ít nhất 28px -->
-            <g v-for="(pt, idx) in comboChartData.points" :key="'pt-' + idx" class="growth-point-group">
-              <!-- Khung Badge Bo Tròn riêng biệt phía trên điểm tròn 28px -->
-              <g :transform="`translate(${pt.x}, ${pt.y - 28})`">
-                <rect
-                  :x="-28"
-                  :y="-11"
-                  width="56"
-                  height="22"
-                  rx="11"
-                  :fill="pt.growthRate > 0 ? '#dcfce7' : (pt.growthRate < 0 ? '#fee2e2' : '#f1f5f9')"
-                  :stroke="pt.growthRate > 0 ? '#16a34a' : (pt.growthRate < 0 ? '#dc2626' : '#cbd5e1')"
-                  stroke-width="1.2"
+              <!-- Các đường lưới ngang & Nhãn trục tung trái (VNĐ) -->
+              <g v-for="(tick, tIdx) in comboChartData.yTicksLeft" :key="'yt-left-' + tIdx">
+                <!-- Đường lưới mờ -->
+                <line
+                  :x1="comboChartData.xLeftAxis"
+                  :y1="tick.y"
+                  :x2="comboChartData.xRightAxis"
+                  :y2="tick.y"
+                  :stroke="tick.y === comboChartData.yBase ? '#94a3b8' : '#f1ede7'"
+                  :stroke-width="tick.y === comboChartData.yBase ? 1.5 : 1"
+                  :stroke-dasharray="tick.y === comboChartData.yBase ? 'none' : '3 3'"
                 />
+                <!-- Nhãn trục trái (VNĐ) -->
                 <text
-                  x="0"
-                  y="4.5"
-                  text-anchor="middle"
-                  font-size="11"
-                  font-weight="700"
-                  :fill="pt.growthRate > 0 ? '#15803d' : (pt.growthRate < 0 ? '#b91c1c' : '#475569')"
-                  class="font-inter-badge"
+                  :x="comboChartData.xLeftAxis - 8"
+                  :y="tick.y + 4"
+                  text-anchor="end"
+                  class="y-axis-tick-label left"
                 >
-                  {{ pt.growthRate > 0 ? '↑ +' : (pt.growthRate < 0 ? '↓ ' : '') }}{{ pt.growthRate }}%
+                  {{ tick.label }}
                 </text>
               </g>
 
-              <!-- Điểm tròn đỏ -->
-              <circle
-                :cx="pt.x"
-                :cy="pt.y"
-                r="5"
-                fill="#ffffff"
-                stroke="#E11D48"
-                stroke-width="2.5"
+              <!-- Nhãn trục phải (%) -->
+              <g v-for="(rtick, rtIdx) in comboChartData.yTicksRight" :key="'yt-right-' + rtIdx">
+                <text
+                  :x="comboChartData.xRightAxis + 8"
+                  :y="rtick.y + 4"
+                  text-anchor="start"
+                  class="y-axis-tick-label right"
+                >
+                  {{ rtick.label }}
+                </text>
+              </g>
+
+              <!-- Trục dọc bên trái -->
+              <line
+                :x1="comboChartData.xLeftAxis"
+                :y1="comboChartData.yTop"
+                :x2="comboChartData.xLeftAxis"
+                :y2="comboChartData.yBase"
+                stroke="#cbd5e1"
+                stroke-width="1.2"
               />
-            </g>
-          </svg>
+              <!-- Trục dọc bên phải -->
+              <line
+                :x1="comboChartData.xRightAxis"
+                :y1="comboChartData.yTop"
+                :x2="comboChartData.xRightAxis"
+                :y2="comboChartData.yBase"
+                stroke="#cbd5e1"
+                stroke-width="1.2"
+              />
+
+              <!-- Cột Doanh thu (Stacked Bar: Tiền mặt ở dưới, Chuyển khoản ở trên) -->
+              <g
+                v-for="(item, idx) in comboChartData.bars"
+                :key="'bar-' + idx"
+                class="combo-bar-group"
+                @mouseenter="onComboBarHover(item, $event)"
+                @mousemove="onComboBarHover(item, $event)"
+              >
+                <!-- Hit area trong suốt bao phủ toàn bộ cột -->
+                <rect
+                  :x="item.x - 8"
+                  :y="comboChartData.yTop"
+                  :width="item.width + 16"
+                  :height="comboChartData.chartHeight"
+                  fill="transparent"
+                  class="combo-hit-area"
+                />
+
+                <!-- Vệt highlight khi hover -->
+                <rect
+                  v-if="hoveredComboBar && hoveredComboBar.name === item.name"
+                  :x="item.x - 4"
+                  :y="comboChartData.yTop"
+                  :width="item.width + 8"
+                  :height="comboChartData.chartHeight"
+                  fill="#f1ede7"
+                  opacity="0.5"
+                  rx="6"
+                />
+
+                <!-- Cột Tiền mặt -->
+                <rect
+                  :x="item.x"
+                  :y="item.yCash"
+                  :width="item.width"
+                  :height="item.heightCash"
+                  fill="#3B82F6"
+                  opacity="0.88"
+                  rx="3"
+                  class="combo-bar-segment"
+                />
+
+                <!-- Cột Chuyển khoản (Xếp trên tiền mặt) -->
+                <rect
+                  :x="item.x"
+                  :y="item.yTransfer"
+                  :width="item.width"
+                  :height="item.heightTransfer"
+                  fill="#10B981"
+                  opacity="0.92"
+                  rx="4"
+                  class="combo-bar-segment"
+                />
+
+                <!-- Con số Tổng doanh thu: Hiển thị ngay trên đỉnh cột, cách đỉnh 8px -->
+                <text
+                  v-if="item.totalRevenue > 0"
+                  :x="item.centerX"
+                  :y="item.yTransfer - 8"
+                  text-anchor="middle"
+                  class="combo-bar-total-label"
+                >
+                  {{ formatShortCurrency(item.totalRevenue) }}
+                </text>
+                <text
+                  v-else
+                  :x="item.centerX"
+                  :y="item.yTransfer - 6"
+                  text-anchor="middle"
+                  class="combo-bar-total-label zero"
+                >
+                  0 đ
+                </text>
+
+                <!-- Nhãn trục hoành X (xoay nghiêng -35deg nếu nhiều kỳ để không bao giờ đè chữ) -->
+                <g v-if="item.isRotated" :transform="`translate(${item.centerX}, 285) rotate(-35)`">
+                  <text
+                    x="0"
+                    y="0"
+                    text-anchor="end"
+                    class="combo-bottom-label rotated"
+                    :class="{ 'label-highlight': hoveredComboBar && hoveredComboBar.name === item.name }"
+                  >
+                    {{ item.displayName }}
+                  </text>
+                </g>
+                <text
+                  v-else
+                  :x="item.centerX"
+                  y="295"
+                  text-anchor="middle"
+                  class="combo-bottom-label"
+                  :class="{ 'label-highlight': hoveredComboBar && hoveredComboBar.name === item.name }"
+                >
+                  {{ item.displayName }}
+                </text>
+              </g>
+
+              <!-- Đường Line biểu diễn % Tăng trưởng ở thang đo trục phải -->
+              <polyline
+                v-if="comboChartData.linePoints"
+                :points="comboChartData.linePoints"
+                fill="none"
+                stroke="#E11D48"
+                stroke-width="2.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+
+              <!-- Các điểm mốc tròn và Badge % Tăng trưởng bo tròn cách điểm tròn 26px -->
+              <g v-for="(pt, idx) in comboChartData.points" :key="'pt-' + idx" class="growth-point-group">
+                <!-- Khung Badge Bo Tròn riêng biệt phía trên điểm tròn 26px -->
+                <g :transform="`translate(${pt.x}, ${Math.max(25, pt.y - 26)})`">
+                  <rect
+                    :x="-26"
+                    :y="-10"
+                    width="52"
+                    height="20"
+                    rx="10"
+                    :fill="pt.growthRate > 0 ? '#dcfce7' : (pt.growthRate < 0 ? '#fee2e2' : '#f1f5f9')"
+                    :stroke="pt.growthRate > 0 ? '#16a34a' : (pt.growthRate < 0 ? '#dc2626' : '#cbd5e1')"
+                    stroke-width="1.2"
+                  />
+                  <text
+                    x="0"
+                    y="4"
+                    text-anchor="middle"
+                    font-size="10.5"
+                    font-weight="700"
+                    :fill="pt.growthRate > 0 ? '#15803d' : (pt.growthRate < 0 ? '#b91c1c' : '#475569')"
+                    class="font-inter-badge"
+                  >
+                    {{ pt.growthRate > 0 ? '↑ +' : (pt.growthRate < 0 ? '↓ ' : '') }}{{ pt.growthRate }}%
+                  </text>
+                </g>
+
+                <!-- Điểm tròn đỏ -->
+                <circle
+                  :cx="pt.x"
+                  :cy="pt.y"
+                  r="5"
+                  fill="#ffffff"
+                  stroke="#E11D48"
+                  stroke-width="2.5"
+                />
+              </g>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Tooltip nổi tương tác cho Combo Chart -->
+        <div
+          v-if="hoveredComboBar"
+          class="bar-chart-floating-tooltip"
+          :style="{ left: comboTooltipPos.x + 'px', top: comboTooltipPos.y + 'px' }"
+        >
+          <div class="tooltip-header-clean">
+            <span class="tooltip-cal-badge">📊</span>
+            <strong class="tooltip-date-txt">{{ hoveredComboBar.displayName }}</strong>
+          </div>
+          <div v-if="hoveredComboBar.dateRangeText" class="tooltip-sub-range">
+            {{ hoveredComboBar.dateRangeText }}
+          </div>
+          <div class="tooltip-divider-line"></div>
+          <div class="tooltip-data-row">
+            <span class="tooltip-row-lbl">💰 Tổng doanh thu:</span>
+            <strong class="tooltip-row-val font-bold text-dark">{{ formatCurrency(hoveredComboBar.totalRevenue) }}</strong>
+          </div>
+          <div class="tooltip-data-row">
+            <span class="tooltip-row-lbl">💵 Tiền mặt:</span>
+            <span class="tooltip-row-val text-blue-amount font-semibold">{{ formatCurrency(hoveredComboBar.cash) }}</span>
+          </div>
+          <div class="tooltip-data-row">
+            <span class="tooltip-row-lbl">💳 Chuyển khoản:</span>
+            <span class="tooltip-row-val text-emerald font-semibold">{{ formatCurrency(hoveredComboBar.transfer) }}</span>
+          </div>
+          <div class="tooltip-data-row">
+            <span class="tooltip-row-lbl">📈 Tăng trưởng:</span>
+            <span
+              class="tooltip-row-val font-bold"
+              :class="hoveredComboBar.growthRate >= 0 ? 'text-emerald' : 'text-red-return'"
+            >
+              {{ hoveredComboBar.growthRate > 0 ? '+' : '' }}{{ hoveredComboBar.growthRate }}%
+            </span>
+          </div>
+          <div class="tooltip-data-row">
+            <span class="tooltip-row-lbl">🧾 Đơn hoàn thành:</span>
+            <span class="tooltip-row-val font-bold">{{ hoveredComboBar.orderCount }} đơn</span>
+          </div>
         </div>
       </div>
 
-      <!-- Bảng đối chiếu doanh thu chi tiết các kỳ -->
+      <!-- Bảng đối chiếu doanh thu chi tiết các kỳ (Có Search & Filter & Sort) -->
       <div class="content-card">
         <div class="card-title-row">
           <div class="card-title-group">
@@ -1222,8 +1401,56 @@
               <line x1="8" y1="2" x2="8" y2="6" />
             </svg>
             <h3 class="card-heading">Bảng đối chiếu doanh thu chi tiết các kỳ</h3>
+            <span class="badge-tag-peak" style="background:#e0f2fe; color:#0369a1;">
+              {{ filteredComparisonPeriods.length }} kỳ hiển thị
+            </span>
           </div>
           <span class="badge-unit">Đơn vị: VNĐ</span>
+        </div>
+
+        <!-- Toolbar tìm kiếm và lọc cho Bảng 1 -->
+        <div class="table-sub-toolbar">
+          <div class="input-with-prefix-icon search-sub-box">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              v-model="periodSearchQuery"
+              placeholder="Tìm tên kỳ, khoảng ngày..."
+              class="form-control-minimal with-icon small"
+            />
+          </div>
+
+          <div class="select-wrapper-minimal">
+            <select v-model="periodGrowthFilter" class="form-control-minimal small">
+              <option value="all">Tất cả hiệu suất</option>
+              <option value="positive">Tăng trưởng dương (↑)</option>
+              <option value="negative">Tăng trưởng âm (↓)</option>
+              <option value="extreme">Kỳ cao nhất / Thấp nhất</option>
+            </select>
+          </div>
+
+          <div class="select-wrapper-minimal">
+            <select v-model="periodSortBy" class="form-control-minimal small">
+              <option value="default">Thứ tự các kỳ</option>
+              <option value="revenue_desc">Doanh thu cao nhất</option>
+              <option value="revenue_asc">Doanh thu thấp nhất</option>
+              <option value="growth_desc">Tăng trưởng cao nhất</option>
+              <option value="growth_asc">Tăng trưởng thấp nhất</option>
+              <option value="orders_desc">Số đơn nhiều nhất</option>
+            </select>
+          </div>
+
+          <button type="button" class="btn-reset-round small" @click="resetPeriodTableFilters" title="Đặt lại bộ lọc bảng">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6" />
+              <path d="M1 20v-6h6" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            <span>Đặt lại</span>
+          </button>
         </div>
 
         <div class="table-responsive-clean">
@@ -1243,12 +1470,12 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-if="!comparisonData.periods || comparisonData.periods.length === 0">
+              <tr v-if="!filteredComparisonPeriods || filteredComparisonPeriods.length === 0">
                 <td colspan="10" style="text-align: center; padding: 2.5rem; color: #8c979d;">
-                  Đang tải hoặc chưa có dữ liệu đối chiếu trong kỳ này.
+                  Không có kỳ nào phù hợp với bộ lọc tìm kiếm.
                 </td>
               </tr>
-              <tr v-for="p in comparisonData.periods" :key="p.periodKey" class="table-data-row">
+              <tr v-for="p in filteredComparisonPeriods" :key="p.periodKey" class="table-data-row">
                 <td class="font-bold text-dark">
                   <span>{{ p.periodName }}</span>
                   <span v-if="p.highest" class="badge-tag-peak highest">Cao nhất</span>
@@ -1287,9 +1514,9 @@
               </tr>
             </tbody>
             <!-- Chân bảng: Tổng cộng -->
-            <tfoot v-if="comparisonData.periods && comparisonData.periods.length > 0">
+            <tfoot v-if="filteredComparisonPeriods && filteredComparisonPeriods.length > 0">
               <tr class="table-total-row">
-                <td colspan="2" class="font-bold text-dark">TỔNG CỘNG</td>
+                <td colspan="2" class="font-bold text-dark">TỔNG CỘNG (KỲ ĐANG LỌC)</td>
                 <td style="text-align: right" class="font-bold text-black-bold">
                   {{ formatCurrency(comparisonData.summary?.totalRevenue) }}
                 </td>
@@ -1317,7 +1544,7 @@
         </div>
       </div>
 
-      <!-- Bảng Top sản phẩm bán chạy đối chiếu sức mua qua các kỳ -->
+      <!-- Bảng Top sản phẩm bán chạy đối chiếu sức mua qua các kỳ (Có Search & Filter & Sort) -->
       <div class="content-card">
         <div class="card-title-row">
           <div class="card-title-group">
@@ -1327,8 +1554,63 @@
               <path d="M16 10a4 4 0 0 1-8 0" />
             </svg>
             <h3 class="card-heading">Top sản phẩm bán chạy & Đối chiếu sức mua qua các kỳ</h3>
+            <span class="badge-tag-peak" style="background:#e0f2fe; color:#0369a1;">
+              {{ filteredComparisonProducts.length }} sản phẩm
+            </span>
           </div>
-          <span class="badge-unit">Top 10 mặt hàng</span>
+          <span class="badge-unit">Top mặt hàng nổi bật</span>
+        </div>
+
+        <!-- Toolbar tìm kiếm và lọc cho Bảng 2 -->
+        <div class="table-sub-toolbar">
+          <div class="input-with-prefix-icon search-sub-box">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              v-model="compareProductSearch"
+              placeholder="Tìm mã SP, tên sản phẩm, thương hiệu..."
+              class="form-control-minimal with-icon small"
+            />
+          </div>
+
+          <div class="select-wrapper-minimal">
+            <select v-model="compareProductBrand" class="form-control-minimal small">
+              <option value="">Tất cả thương hiệu</option>
+              <option v-for="b in brandOptions" :key="b.id" :value="b.ten || b.tenThuongHieu">
+                {{ b.ten || b.tenThuongHieu }}
+              </option>
+            </select>
+          </div>
+
+          <div class="select-wrapper-minimal">
+            <select v-model="compareProductTrend" class="form-control-minimal small">
+              <option value="all">Tất cả xu hướng</option>
+              <option value="up">Xu hướng tăng (↑)</option>
+              <option value="down">Xu hướng giảm (↓)</option>
+              <option value="flat">Ổn định</option>
+            </select>
+          </div>
+
+          <div class="select-wrapper-minimal">
+            <select v-model="compareProductSort" class="form-control-minimal small">
+              <option value="sold_desc">Bán chạy nhất (Tổng bán cao -> thấp)</option>
+              <option value="sold_asc">Bán chậm nhất</option>
+              <option value="revenue_desc">Doanh thu cao nhất</option>
+              <option value="trend_desc">Tăng trưởng mạnh nhất</option>
+            </select>
+          </div>
+
+          <button type="button" class="btn-reset-round small" @click="resetCompareProductTableFilters" title="Đặt lại bộ lọc bảng sản phẩm">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6" />
+              <path d="M1 20v-6h6" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            <span>Đặt lại</span>
+          </button>
         </div>
 
         <div class="table-responsive-clean">
@@ -1353,12 +1635,12 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-if="!comparisonData.topProducts || comparisonData.topProducts.length === 0">
+              <tr v-if="!filteredComparisonProducts || filteredComparisonProducts.length === 0">
                 <td :colspan="7 + (comparisonData.periods?.length || 0)" style="text-align: center; padding: 2.5rem; color: #8c979d;">
-                  Chưa có dữ liệu sản phẩm đối chiếu trong giai đoạn này.
+                  Không tìm thấy sản phẩm phù hợp với bộ lọc tìm kiếm.
                 </td>
               </tr>
-              <tr v-for="(sp, idx) in comparisonData.topProducts" :key="sp.productId" class="table-data-row">
+              <tr v-for="(sp, idx) in filteredComparisonProducts" :key="sp.productId" class="table-data-row">
                 <td style="text-align: center" class="text-muted-stt">{{ idx + 1 }}</td>
                 <td class="font-bold text-dark code-cell">{{ sp.productCode }}</td>
                 <td>
@@ -1432,6 +1714,14 @@
               <button
                 type="button"
                 class="radio-pill-btn"
+                :class="{ active: emailForm.reportType === 'day' }"
+                @click="emailForm.reportType = 'day'"
+              >
+                Báo cáo Hôm nay (Ngày)
+              </button>
+              <button
+                type="button"
+                class="radio-pill-btn"
                 :class="{ active: emailForm.reportType === 'month' }"
                 @click="emailForm.reportType = 'month'"
               >
@@ -1449,7 +1739,7 @@
           </div>
 
           <!-- Chọn Thời gian (Tháng / Năm) -->
-          <div class="form-row-2col">
+          <div v-if="emailForm.reportType !== 'day'" class="form-row-2col">
             <div v-if="emailForm.reportType === 'month'" class="form-group-custom">
               <label class="form-label-custom">Chọn Tháng</label>
               <div class="select-wrapper-minimal">
@@ -1481,20 +1771,6 @@
             <span class="field-hint-text">
               Mặc định tự động điền email Admin hệ thống. Bạn có thể thay đổi để kiểm thử gửi vào email bất kỳ.
             </span>
-          </div>
-
-          <!-- 3. Trạng thái tự động -->
-          <div class="email-schedule-status-box">
-            <div class="schedule-status-header">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="schedule-icon">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-              <strong>Trạng thái tự động của hệ thống (@Scheduled):</strong>
-            </div>
-            <p class="schedule-status-text">
-              Hệ thống tự động gửi báo cáo vào <strong>23:59 ngày cuối mỗi tháng</strong> và <strong>31/12 cuối năm</strong> về hộp thư Quản trị viên.
-            </p>
           </div>
         </div>
 
@@ -1531,7 +1807,10 @@ const viewMode = ref('overview')
 
 function switchViewMode(mode) {
   viewMode.value = mode
-  if (mode === 'comparison' && (!comparisonData.value.periods || comparisonData.value.periods.length === 0)) {
+  if (mode === 'comparison') {
+    if (comparePeriods.value.length === 0) {
+      initPeriodsForMode(compareFilter.mode)
+    }
     fetchComparisonData()
   }
 }
@@ -2104,7 +2383,7 @@ function exportClientExcelFallback() {
 // PHẦN 10: LOGIC CHO MÀN HÌNH SO SÁNH & TĂNG TRƯỞNG DOANH THU (COMPARISON)
 // =========================================================================
 const currentYear = new Date().getFullYear()
-const availableYears = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1]
+const availableYears = [currentYear - 3, currentYear - 2, currentYear - 1, currentYear, currentYear + 1]
 
 const compareFilter = reactive({
   mode: 'month', // 'month', 'quarter', 'year', 'custom'
@@ -2112,12 +2391,135 @@ const compareFilter = reactive({
   startYear: currentYear - 3,
   endYear: currentYear,
   brandId: '',
-  productKeyword: '',
-  fromDateA: `${currentYear}-01-01`,
-  toDateA: `${currentYear}-06-30`,
-  fromDateB: `${currentYear}-07-01`,
-  toDateB: `${currentYear}-12-31`
+  productKeyword: ''
 })
+
+// Danh sách các kỳ so sánh đa kỳ động
+const comparePeriods = ref([])
+
+function initPeriodsForMode(mode) {
+  const now = new Date()
+  const y = currentYear
+  const m = now.getMonth() + 1
+
+  if (mode === 'month') {
+    const prevM = m === 1 ? 12 : m - 1
+    const prevY = m === 1 ? y - 1 : y
+    comparePeriods.value = [
+      { id: 1, month: prevM, year: prevY },
+      { id: 2, month: m, year: y }
+    ]
+  } else if (mode === 'quarter') {
+    const currentQ = Math.ceil(m / 3)
+    const prevQ = currentQ === 1 ? 4 : currentQ - 1
+    const prevQYear = currentQ === 1 ? y - 1 : y
+    comparePeriods.value = [
+      { id: 1, quarter: prevQ, year: prevQYear },
+      { id: 2, quarter: currentQ, year: y }
+    ]
+  } else if (mode === 'year') {
+    comparePeriods.value = [
+      { id: 1, year: y - 1 },
+      { id: 2, year: y }
+    ]
+  } else if (mode === 'custom') {
+    comparePeriods.value = [
+      { id: 1, name: 'Kỳ A (Kỳ trước)', fromDate: `${y}-01-01`, toDate: `${y}-06-30` },
+      { id: 2, name: 'Kỳ B (Kỳ này)', fromDate: `${y}-07-01`, toDate: `${y}-12-31` }
+    ]
+  }
+}
+
+function addComparePeriod() {
+  const mode = compareFilter.mode
+  const nextId = Date.now()
+  const len = comparePeriods.value.length
+
+  if (mode === 'month') {
+    const last = comparePeriods.value[len - 1] || { month: 1, year: currentYear }
+    let nextM = last.month + 1
+    let nextY = last.year
+    if (nextM > 12) {
+      nextM = 1
+      nextY += 1
+    }
+    comparePeriods.value.push({ id: nextId, month: nextM, year: nextY })
+  } else if (mode === 'quarter') {
+    const last = comparePeriods.value[len - 1] || { quarter: 1, year: currentYear }
+    let nextQ = last.quarter + 1
+    let nextY = last.year
+    if (nextQ > 4) {
+      nextQ = 1
+      nextY += 1
+    }
+    comparePeriods.value.push({ id: nextId, quarter: nextQ, year: nextY })
+  } else if (mode === 'year') {
+    const last = comparePeriods.value[len - 1] || { year: currentYear }
+    comparePeriods.value.push({ id: nextId, year: last.year + 1 })
+  } else if (mode === 'custom') {
+    const todayStr = getTodayDateString()
+    comparePeriods.value.push({
+      id: nextId,
+      name: `Kỳ ${String.fromCharCode(65 + len)}`,
+      fromDate: todayStr,
+      toDate: todayStr
+    })
+  }
+  fetchComparisonData()
+}
+
+function removeComparePeriod(index) {
+  if (comparePeriods.value.length <= 2) {
+    showToast('Cần tối thiểu 2 kỳ để thực hiện so sánh đối chiếu!', 'warning')
+    return
+  }
+  comparePeriods.value.splice(index, 1)
+  fetchComparisonData()
+}
+
+function buildPeriodsPayload() {
+  const mode = compareFilter.mode
+  return comparePeriods.value.map((p, idx) => {
+    if (mode === 'month') {
+      const monthStr = String(p.month).padStart(2, '0')
+      const start = `${p.year}-${monthStr}-01`
+      const lastDay = new Date(p.year, p.month, 0).getDate()
+      const end = `${p.year}-${monthStr}-${String(lastDay).padStart(2, '0')}`
+      return {
+        key: `T${p.month}_${p.year}`,
+        name: `Tháng ${p.month}/${p.year}`,
+        startDate: start,
+        endDate: end
+      }
+    } else if (mode === 'quarter') {
+      const startMonth = (p.quarter - 1) * 3 + 1
+      const endMonth = p.quarter * 3
+      const start = `${p.year}-${String(startMonth).padStart(2, '0')}-01`
+      const lastDay = new Date(p.year, endMonth, 0).getDate()
+      const end = `${p.year}-${String(endMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+      return {
+        key: `Q${p.quarter}_${p.year}`,
+        name: `Quý ${p.quarter}/${p.year}`,
+        startDate: start,
+        endDate: end
+      }
+    } else if (mode === 'year') {
+      return {
+        key: `${p.year}`,
+        name: `Năm ${p.year}`,
+        startDate: `${p.year}-01-01`,
+        endDate: `${p.year}-12-31`
+      }
+    } else {
+      return {
+        key: `Custom_${idx + 1}`,
+        name: p.name && p.name.trim() ? p.name.trim() : `Kỳ ${idx + 1}`,
+        startDate: p.fromDate || getTodayDateString(),
+        endDate: p.toDate || getTodayDateString()
+      }
+    }
+  })
+}
 
 const loadingComparison = ref(false)
 const comparisonData = ref({
@@ -2136,6 +2538,7 @@ const comparisonData = ref({
 
 function setCompareMode(mode) {
   compareFilter.mode = mode
+  initPeriodsForMode(mode)
   fetchComparisonData()
 }
 
@@ -2154,6 +2557,7 @@ function resetCompareFilters() {
   compareFilter.endYear = currentYear
   compareFilter.brandId = ''
   compareFilter.productKeyword = ''
+  initPeriodsForMode('month')
   fetchComparisonData()
   showToast('Đã đặt lại bộ lọc so sánh!', 'info')
 }
@@ -2161,8 +2565,10 @@ function resetCompareFilters() {
 async function fetchComparisonData() {
   loadingComparison.value = true
   try {
+    const periodsPayload = buildPeriodsPayload()
     const params = {
       compareMode: compareFilter.mode,
+      periodsJson: JSON.stringify(periodsPayload),
       year: compareFilter.year,
       startYear: compareFilter.startYear,
       endYear: compareFilter.endYear
@@ -2170,12 +2576,6 @@ async function fetchComparisonData() {
     if (compareFilter.brandId) params.brandId = compareFilter.brandId
     if (compareFilter.productKeyword && compareFilter.productKeyword.trim()) {
       params.productKeyword = compareFilter.productKeyword.trim()
-    }
-    if (compareFilter.mode === 'custom') {
-      params.fromDateA = compareFilter.fromDateA
-      params.toDateA = compareFilter.toDateA
-      params.fromDateB = compareFilter.fromDateB
-      params.toDateB = compareFilter.toDateB
     }
 
     const res = await api.get('/api/thong-ke/so-sanh', { params })
@@ -2190,25 +2590,95 @@ async function fetchComparisonData() {
   }
 }
 
-// Tính toán dữ liệu cho Combo Chart SVG:
-// - Viewbox 1000x340 chuẩn, KHÔNG dùng preserveAspectRatio="none"
-// - Cột Doanh thu ở vùng dưới (Y: 150..270), nhãn Doanh thu tại đỉnh cột
-// - Đường Line & Badge Tăng trưởng % ở vùng trên (Y: 45..95), badge cách điểm tròn 28px
-// - Nhãn trục hoành hiển thị tiếng Việt có dấu rõ ràng
+// =========================================================================
+// BIỂU ĐỒ COMBO CHART: CỘT DOANH THU & ĐƯỜNG TĂNG TRƯỞNG % (2 TRỤC TUNG)
+// =========================================================================
+const hoveredComboBar = ref(null)
+const comboTooltipPos = reactive({ x: 0, y: 0 })
+
+function onComboBarHover(bar, event) {
+  hoveredComboBar.value = bar
+  const container = document.querySelector('.combo-chart-card')
+  if (!container) return
+  const rect = container.getBoundingClientRect()
+  const clientX = event.clientX - rect.left
+  const clientY = event.clientY - rect.top
+  comboTooltipPos.x = Math.max(120, Math.min(rect.width - 160, clientX))
+  comboTooltipPos.y = Math.max(60, clientY - 80)
+}
+
+function onComboBarMouseLeave() {
+  hoveredComboBar.value = null
+}
+
+const comboSvgWidth = computed(() => {
+  const count = comparisonData.value.periods?.length || 0
+  if (count <= 8) return 1000
+  return Math.max(1000, 160 + count * 85)
+})
+
+const comboSvgWidthStyle = computed(() => {
+  const count = comparisonData.value.periods?.length || 0
+  if (count <= 8) return '100%'
+  return `${comboSvgWidth.value}px`
+})
+
 const comboChartData = computed(() => {
   const periods = comparisonData.value.periods || []
-  if (periods.length === 0) {
-    return { bars: [], points: [], linePoints: '' }
+  const count = periods.length
+  const xLeftAxis = 80
+  const xRightAxis = comboSvgWidth.value - 75
+  const yTop = 55
+  const yBase = 265
+  const chartHeight = yBase - yTop
+
+  if (count === 0) {
+    return {
+      bars: [],
+      points: [],
+      linePoints: '',
+      xLeftAxis,
+      xRightAxis,
+      yTop,
+      yBase,
+      chartHeight,
+      yTicksLeft: [],
+      yTicksRight: []
+    }
   }
 
-  const maxRev = Math.max(...periods.map(p => Number(p.totalRevenue || 0)), 1000000)
-  const chartHeight = 110 // Giới hạn chiều cao cột để không bao giờ chạm vùng Line phía trên
-  const baseY = 270
-  const totalWidth = 840
-  const startX = 75
-  const count = periods.length
-  const barWidth = Math.min(50, Math.max(18, Math.floor((totalWidth / count) * 0.52)))
-  const step = count > 1 ? (totalWidth - barWidth) / (count - 1) : 0
+  // 1. Trục tung bên trái (VNĐ): Doanh thu
+  const rawMaxRev = Math.max(...periods.map(p => Number(p.totalRevenue || 0)), 1000000)
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rawMaxRev)))
+  const maxRev = Math.ceil(rawMaxRev / (magnitude / 2)) * (magnitude / 2)
+
+  const yTicksLeft = [0, 0.25, 0.5, 0.75, 1.0].map(frac => ({
+    y: yBase - frac * chartHeight,
+    label: formatShortCurrency(frac * maxRev)
+  }))
+
+  // 2. Trục tung bên phải (%): Tốc độ tăng trưởng
+  const gRates = periods.map(p => Number(p.growthRate || 0))
+  let minRate = Math.min(0, ...gRates)
+  let maxRate = Math.max(50, ...gRates)
+  minRate = Math.floor(minRate / 25) * 25
+  maxRate = Math.ceil(maxRate / 25) * 25
+  if (maxRate <= minRate) maxRate = minRate + 50
+  const rateRange = maxRate - minRate
+
+  const yTicksRight = [0, 0.25, 0.5, 0.75, 1.0].map(frac => {
+    const v = Math.round(minRate + frac * rateRange)
+    return {
+      y: yBase - frac * chartHeight,
+      label: `${v > 0 ? '+' : ''}${v}%`
+    }
+  })
+
+  // 3. Tính toán vị trí các Cột & Điểm Line
+  const availableW = xRightAxis - xLeftAxis - 40
+  const barWidth = Math.min(48, Math.max(20, Math.floor((availableW / count) * 0.52)))
+  const step = count > 1 ? (availableW - barWidth) / (count - 1) : 0
+  const isRotated = count > 6
 
   const bars = []
   const points = []
@@ -2222,63 +2692,163 @@ const comboChartData = computed(() => {
     const cashH = total > 0 ? (cash / total) * totalH : 0
     const transferH = total > 0 ? totalH - cashH : 0
 
-    const x = count === 1 ? (startX + totalWidth / 2 - barWidth / 2) : (startX + idx * step)
-    const yTransfer = baseY - totalH
-    const yCash = baseY - cashH
-
-    // Định dạng tên tiếng Việt có dấu cho trục X
-    let displayName = p.periodName || p.periodKey
-    if (compareFilter.mode === 'month') {
-      const mNum = parseInt(p.periodKey.replace(/\D/g, ''), 10)
-      if (!isNaN(mNum)) displayName = `Tháng ${mNum}`
-    } else if (compareFilter.mode === 'quarter') {
-      const qNum = parseInt(p.periodKey.replace(/\D/g, ''), 10)
-      if (!isNaN(qNum)) displayName = `Quý ${qNum}`
-    } else if (compareFilter.mode === 'year') {
-      displayName = `Năm ${p.periodKey}`
-    } else if (compareFilter.mode === 'custom') {
-      if (p.periodKey === 'KyA' || idx === 0) displayName = 'Kỳ A (Kỳ trước)'
-      else if (p.periodKey === 'KyB' || idx === 1) displayName = 'Kỳ B (Kỳ này)'
-    }
+    const x = count === 1 ? (xLeftAxis + availableW / 2 - barWidth / 2 + 20) : (xLeftAxis + 20 + idx * step)
+    const centerX = x + barWidth / 2
+    const yTransfer = yBase - totalH
+    const yCash = yBase - cashH
 
     bars.push({
       name: p.periodKey,
-      displayName,
+      displayName: p.periodName || p.periodKey,
+      dateRangeText: p.dateRangeText || '',
       totalRevenue: total,
       cash,
       transfer,
+      orderCount: Number(p.orderCount || 0),
+      growthRate: Number(p.growthRate || 0),
       x,
+      centerX,
       width: barWidth,
       yTransfer,
       heightTransfer: transferH,
       yCash,
-      heightCash: cashH
+      heightCash: cashH,
+      isRotated
     })
 
-    // Điểm nút biểu diễn tốc độ tăng trưởng %:
-    // Đặt trong vùng Y: 45px đến 95px (cách hoàn toàn cột doanh thu)
-    const gRate = Number(p.growthRate || 0)
-    const clampedG = Math.max(-50, Math.min(100, gRate))
-    // Map -50%..+100% sang Y: 95px..45px
-    const yLine = 75 - (clampedG / 100) * 30
+    // Điểm biểu diễn tốc độ tăng trưởng % (thang đo trục phải)
+    const g = Number(p.growthRate || 0)
+    const clampedG = Math.max(minRate, Math.min(maxRate, g))
+    const yPoint = yBase - ((clampedG - minRate) / rateRange) * chartHeight
 
     points.push({
-      x: x + barWidth / 2,
-      y: yLine,
-      growthRate: gRate
+      x: centerX,
+      y: yPoint,
+      growthRate: g
     })
   })
 
   const linePoints = points.map(pt => `${pt.x},${pt.y}`).join(' ')
 
-  return { bars, points, linePoints }
+  return {
+    bars,
+    points,
+    linePoints,
+    xLeftAxis,
+    xRightAxis,
+    yTop,
+    yBase,
+    chartHeight,
+    yTicksLeft,
+    yTicksRight
+  }
+})
+
+// =========================================================================
+// BẢNG 1: ĐỐI CHIẾU DOANH THU CHI TIẾT CÁC KỲ (SEARCH & FILTER & SORT)
+// =========================================================================
+const periodSearchQuery = ref('')
+const periodGrowthFilter = ref('all') // 'all', 'positive', 'negative', 'extreme'
+const periodSortBy = ref('default') // 'default', 'revenue_desc', 'revenue_asc', 'growth_desc', 'growth_asc', 'orders_desc'
+
+function resetPeriodTableFilters() {
+  periodSearchQuery.value = ''
+  periodGrowthFilter.value = 'all'
+  periodSortBy.value = 'default'
+  showToast('Đã đặt lại bộ lọc bảng kỳ so sánh!', 'info')
+}
+
+const filteredComparisonPeriods = computed(() => {
+  let list = [...(comparisonData.value.periods || [])]
+  const q = periodSearchQuery.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter(p =>
+      (p.periodName && p.periodName.toLowerCase().includes(q)) ||
+      (p.periodKey && p.periodKey.toLowerCase().includes(q)) ||
+      (p.dateRangeText && p.dateRangeText.toLowerCase().includes(q))
+    )
+  }
+  if (periodGrowthFilter.value === 'positive') {
+    list = list.filter(p => Number(p.growthRate || 0) > 0)
+  } else if (periodGrowthFilter.value === 'negative') {
+    list = list.filter(p => Number(p.growthRate || 0) < 0)
+  } else if (periodGrowthFilter.value === 'extreme') {
+    if (list.length > 2) {
+      const sortedByRev = [...list].sort((a, b) => Number(b.totalRevenue || 0) - Number(a.totalRevenue || 0))
+      const maxP = sortedByRev[0]
+      const minP = sortedByRev[sortedByRev.length - 1]
+      list = list.filter(p => p.periodKey === maxP.periodKey || p.periodKey === minP.periodKey)
+    }
+  }
+
+  if (periodSortBy.value === 'revenue_desc') {
+    list.sort((a, b) => Number(b.totalRevenue || 0) - Number(a.totalRevenue || 0))
+  } else if (periodSortBy.value === 'revenue_asc') {
+    list.sort((a, b) => Number(a.totalRevenue || 0) - Number(b.totalRevenue || 0))
+  } else if (periodSortBy.value === 'growth_desc') {
+    list.sort((a, b) => Number(b.growthRate || 0) - Number(a.growthRate || 0))
+  } else if (periodSortBy.value === 'growth_asc') {
+    list.sort((a, b) => Number(a.growthRate || 0) - Number(b.growthRate || 0))
+  } else if (periodSortBy.value === 'orders_desc') {
+    list.sort((a, b) => Number(b.orderCount || 0) - Number(a.orderCount || 0))
+  }
+
+  return list
+})
+
+// =========================================================================
+// BẢNG 2: TOP SẢN PHẨM & ĐỐI CHIẾU SỨC MUA (SEARCH & FILTER & SORT)
+// =========================================================================
+const compareProductSearch = ref('')
+const compareProductBrand = ref('')
+const compareProductTrend = ref('all') // 'all', 'up', 'down', 'flat'
+const compareProductSort = ref('sold_desc') // 'sold_desc', 'sold_asc', 'revenue_desc', 'trend_desc'
+
+function resetCompareProductTableFilters() {
+  compareProductSearch.value = ''
+  compareProductBrand.value = ''
+  compareProductTrend.value = 'all'
+  compareProductSort.value = 'sold_desc'
+  showToast('Đã đặt lại bộ lọc bảng sản phẩm so sánh!', 'info')
+}
+
+const filteredComparisonProducts = computed(() => {
+  let list = [...(comparisonData.value.topProducts || [])]
+  const q = compareProductSearch.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter(p =>
+      (p.productCode && p.productCode.toLowerCase().includes(q)) ||
+      (p.productName && p.productName.toLowerCase().includes(q)) ||
+      (p.brandName && p.brandName.toLowerCase().includes(q))
+    )
+  }
+  if (compareProductBrand.value) {
+    list = list.filter(p => p.brandName === compareProductBrand.value)
+  }
+  if (compareProductTrend.value !== 'all') {
+    list = list.filter(p => p.trend === compareProductTrend.value)
+  }
+
+  if (compareProductSort.value === 'sold_desc') {
+    list.sort((a, b) => Number(b.totalSold || 0) - Number(a.totalSold || 0))
+  } else if (compareProductSort.value === 'sold_asc') {
+    list.sort((a, b) => Number(a.totalSold || 0) - Number(b.totalSold || 0))
+  } else if (compareProductSort.value === 'revenue_desc') {
+    list.sort((a, b) => Number(b.totalRevenue || 0) - Number(a.totalRevenue || 0))
+  } else if (compareProductSort.value === 'trend_desc') {
+    list.sort((a, b) => Number(b.growthTrend || 0) - Number(a.growthTrend || 0))
+  }
+
+  return list
 })
 
 // Xuất file Excel So sánh
 async function handleExportComparisonExcel() {
   try {
+    const periodsPayload = buildPeriodsPayload()
     const params = {
       compareMode: compareFilter.mode,
+      periodsJson: JSON.stringify(periodsPayload),
       year: compareFilter.year,
       startYear: compareFilter.startYear,
       endYear: compareFilter.endYear
@@ -2286,12 +2856,6 @@ async function handleExportComparisonExcel() {
     if (compareFilter.brandId) params.brandId = compareFilter.brandId
     if (compareFilter.productKeyword && compareFilter.productKeyword.trim()) {
       params.productKeyword = compareFilter.productKeyword.trim()
-    }
-    if (compareFilter.mode === 'custom') {
-      params.fromDateA = compareFilter.fromDateA
-      params.toDateA = compareFilter.toDateA
-      params.fromDateB = compareFilter.fromDateB
-      params.toDateB = compareFilter.toDateB
     }
 
     const response = await api.get('/api/thong-ke/export-so-sanh', {
@@ -2326,14 +2890,14 @@ const showEmailModal = ref(false)
 const sendingEmail = ref(false)
 
 const emailForm = reactive({
-  reportType: 'month',
+  reportType: 'day', // 'day', 'month', 'year'
   year: currentYear,
   month: new Date().getMonth() + 1,
   recipientEmail: 'thuanminh2908200334.1@gmail.com'
 })
 
 function openEmailModal() {
-  emailForm.reportType = 'month'
+  emailForm.reportType = 'day'
   emailForm.year = currentYear
   emailForm.month = new Date().getMonth() + 1
   if (!emailForm.recipientEmail) {
@@ -2380,6 +2944,7 @@ async function loadBrandOptions() {
 }
 
 onMounted(async () => {
+  initPeriodsForMode('month')
   await loadBrandOptions()
   await fetchOverviewData()
 })
@@ -2520,19 +3085,6 @@ onMounted(async () => {
   color: #166534;
 }
 
-/* Nút Gửi mail trong cụm pill bộ lọc */
-.btn-send-mail-action {
-  background-color: #f0fdf4;
-  border-color: #bbf7d0;
-  color: #15803d;
-  font-weight: 700;
-}
-
-.btn-send-mail-action:hover {
-  background-color: #dcfce7;
-  border-color: #86efac;
-}
-
 /* Nút So sánh nổi bật */
 .btn-compare-highlight {
   background-color: #8c7355;
@@ -2545,19 +3097,6 @@ onMounted(async () => {
   background-color: #786044;
   border-color: #786044;
   color: #ffffff;
-}
-
-/* Nút So sánh trong cụm pill */
-.btn-compare-pill {
-  background-color: #f5eee6;
-  border-color: #cfbeab;
-  color: #715539;
-  font-weight: 700;
-}
-
-.btn-compare-pill:hover {
-  background-color: #ebdccb;
-  color: #4a3427;
 }
 
 /* Nút Xuất Excel */
@@ -3461,6 +4000,195 @@ onMounted(async () => {
 /* =========================================================================
    STYLE CHO MÀN HÌNH SO SÁNH (COMPARISON)
    ========================================================================= */
+/* Dynamic Multi-period section */
+.dynamic-periods-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: #faf8f5;
+  border-radius: 12px;
+  padding: 12px 16px;
+  border: 1px dashed #d5cbc0;
+}
+
+.dynamic-periods-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.periods-heading-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.periods-badge-count {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 9999px;
+}
+
+.periods-hint-txt {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.btn-add-period-highlight {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid #16a34a;
+  background-color: #ecfdf5;
+  color: #15803d;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.btn-add-period-highlight:hover {
+  background-color: #16a34a;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.25);
+}
+
+.period-cards-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.period-selector-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #ffffff;
+  border: 1px solid #e2dbcf;
+  border-radius: 10px;
+  padding: 6px 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.period-row-tag {
+  display: flex;
+  align-items: center;
+}
+
+.tag-letter {
+  background-color: #8c7355;
+  color: #ffffff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.period-row-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mini-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mini-label {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.form-control-minimal.small {
+  padding: 4px 8px;
+  font-size: 0.82rem;
+  height: 32px;
+  border-radius: 6px;
+}
+
+.select-period {
+  min-width: 90px;
+}
+
+.input-period-date {
+  width: 130px;
+}
+
+.input-custom-name {
+  width: 120px;
+}
+
+.flex-grow-name {
+  flex: 1;
+}
+
+.btn-delete-period-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #fecaca;
+  background-color: #fef2f2;
+  color: #dc2626;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.btn-delete-period-row:hover:not(:disabled) {
+  background-color: #dc2626;
+  color: #ffffff;
+}
+
+.btn-delete-period-row:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: #e2e8f0;
+  background-color: #f1f5f9;
+  color: #94a3b8;
+}
+
+/* Toolbars lọc & tìm kiếm trong bảng chi tiết */
+.table-sub-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.search-sub-box {
+  width: 240px;
+}
+
+.btn-reset-round.small {
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  height: 32px;
+}
+
+/* Biểu đồ Combo Chart */
+.combo-chart-card {
+  position: relative;
+}
+
 .chart-combo-legend {
   display: flex;
   align-items: center;
@@ -3504,9 +4232,31 @@ onMounted(async () => {
   border: 2px solid #e11d48;
 }
 
+.combo-chart-scroll-wrap {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  position: relative;
+  border-radius: 8px;
+}
+
+.combo-chart-scroll-wrap::-webkit-scrollbar {
+  height: 6px;
+}
+
+.combo-chart-scroll-wrap::-webkit-scrollbar-track {
+  background: #f1ede7;
+  border-radius: 4px;
+}
+
+.combo-chart-scroll-wrap::-webkit-scrollbar-thumb {
+  background: #d5cbc0;
+  border-radius: 4px;
+}
+
 .combo-chart-svg-wrap {
   width: 100%;
-  height: 340px;
+  height: 360px;
   margin-top: 0.5rem;
 }
 
@@ -3514,6 +4264,10 @@ onMounted(async () => {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.combo-hit-area {
+  cursor: pointer;
 }
 
 .combo-bar-segment {
@@ -3546,8 +4300,49 @@ onMounted(async () => {
   font-family: 'Inter', Roboto, sans-serif;
 }
 
+.combo-bottom-label.rotated {
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.combo-bottom-label.label-highlight {
+  fill: #1e293b;
+  font-weight: 700;
+}
+
+.y-axis-unit-label {
+  font-size: 11px;
+  font-weight: 600;
+  fill: #64748b;
+  font-family: 'Inter', Roboto, sans-serif;
+}
+
+.y-axis-unit-label.right {
+  fill: #e11d48;
+}
+
+.y-axis-tick-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  font-family: 'Inter', Roboto, sans-serif;
+}
+
+.y-axis-tick-label.left {
+  fill: #64748b;
+}
+
+.y-axis-tick-label.right {
+  fill: #e11d48;
+}
+
 .font-inter-badge {
   font-family: 'Inter', Roboto, sans-serif !important;
+}
+
+.tooltip-sub-range {
+  font-size: 0.74rem;
+  color: #94a3b8;
+  margin: 2px 0 6px 0;
 }
 
 .badge-trend-indicator {
@@ -3718,34 +4513,6 @@ onMounted(async () => {
   font-size: 0.76rem;
   color: #94a3b8;
   line-height: 1.4;
-}
-
-.email-schedule-status-box {
-  background-color: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 10px;
-  padding: 12px 14px;
-}
-
-.schedule-status-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.82rem;
-  color: #166534;
-  margin-bottom: 4px;
-}
-
-.schedule-icon {
-  color: #16a34a;
-  flex-shrink: 0;
-}
-
-.schedule-status-text {
-  margin: 0;
-  font-size: 0.78rem;
-  color: #15803d;
-  line-height: 1.45;
 }
 
 .modal-footer-custom {

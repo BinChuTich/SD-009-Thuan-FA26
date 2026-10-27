@@ -1,5 +1,6 @@
 package com.example.sd009thuan.controller;
 
+import com.example.sd009thuan.dto.SoSanhRequestDTO;
 import com.example.sd009thuan.dto.ThongKeOverviewDTO;
 import com.example.sd009thuan.dto.ThongKeSoSanhDTO;
 import com.example.sd009thuan.service.ThongKeService;
@@ -91,11 +92,32 @@ public class ThongKeController {
             @RequestParam(required = false) String fromDateA,
             @RequestParam(required = false) String toDateA,
             @RequestParam(required = false) String fromDateB,
-            @RequestParam(required = false) String toDateB
+            @RequestParam(required = false) String toDateB,
+            @RequestParam(required = false) String periodsJson
     ) {
         try {
             ThongKeSoSanhDTO result = thongKeService.getComparison(
-                    compareMode, year, startYear, endYear, brandId, productKeyword, fromDateA, toDateA, fromDateB, toDateB
+                    compareMode, year, startYear, endYear, brandId, productKeyword, fromDateA, toDateA, fromDateB, toDateB, periodsJson
+            );
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("message", "Lỗi lấy dữ liệu so sánh doanh thu: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/so-sanh")
+    public ResponseEntity<?> getComparisonPost(@RequestBody(required = false) SoSanhRequestDTO body) {
+        try {
+            if (body == null) body = new SoSanhRequestDTO();
+            String periodsJson = null;
+            if (body.getPeriods() != null && !body.getPeriods().isEmpty()) {
+                periodsJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(body.getPeriods());
+            }
+            ThongKeSoSanhDTO result = thongKeService.getComparison(
+                    body.getCompareMode(), body.getYear(), body.getStartYear(), body.getEndYear(),
+                    body.getBrandId(), body.getProductKeyword(),
+                    body.getFromDateA(), body.getToDateA(), body.getFromDateB(), body.getToDateB(),
+                    periodsJson
             );
             return ResponseEntity.ok(result);
         } catch (Exception e) {
@@ -114,11 +136,12 @@ public class ThongKeController {
             @RequestParam(required = false) String fromDateA,
             @RequestParam(required = false) String toDateA,
             @RequestParam(required = false) String fromDateB,
-            @RequestParam(required = false) String toDateB
+            @RequestParam(required = false) String toDateB,
+            @RequestParam(required = false) String periodsJson
     ) {
         try {
             byte[] bytes = thongKeService.exportComparisonExcel(
-                    compareMode, year, startYear, endYear, brandId, productKeyword, fromDateA, toDateA, fromDateB, toDateB
+                    compareMode, year, startYear, endYear, brandId, productKeyword, fromDateA, toDateA, fromDateB, toDateB, periodsJson
             );
             String fileName = "BaoCao_SoSanh_DoanhThu_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".xlsx";
             String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replaceAll("\\+", "%20");
