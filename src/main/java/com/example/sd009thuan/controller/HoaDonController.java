@@ -17,9 +17,11 @@ import java.util.Optional;
 public class HoaDonController {
 
     private final HoaDonService hoaDonService;
+    private final com.example.sd009thuan.repository.HoaDonRepository hoaDonRepository;
 
-    public HoaDonController(HoaDonService hoaDonService) {
+    public HoaDonController(HoaDonService hoaDonService, com.example.sd009thuan.repository.HoaDonRepository hoaDonRepository) {
         this.hoaDonService = hoaDonService;
+        this.hoaDonRepository = hoaDonRepository;
     }
 
     // Lấy danh sách tất cả hóa đơn
@@ -144,6 +146,24 @@ public class HoaDonController {
             @RequestBody List<HoaDonPosDTO.ItemChiTietDTO> items
     ) {
         return ResponseEntity.ok(hoaDonService.syncCartToInvoice(id, items));
+    }
+
+    // Tiền kiểm tra tính hợp lệ toàn diện của đơn hàng POS (Đổi giá, Sửa voucher, Chuyển quyền NV, Đợt giảm giá)
+    @PostMapping("/pos/kiem-tra-hop-le")
+    public ResponseEntity<Map<String, Object>> kiemTraHopLeDonHangPos(@RequestBody HoaDonPosDTO dto) {
+        return ResponseEntity.ok(hoaDonService.kiemTraHopLeDonHangPos(dto));
+    }
+
+    // Bàn giao hóa đơn chờ cho nhân viên khác tiếp quản (Case 3)
+    @PostMapping("/pos/ban-giao")
+    public ResponseEntity<Map<String, Object>> banGiaoHoaDonPos(@RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(hoaDonService.banGiaoHoaDonPos(body));
+    }
+
+    // Lấy danh sách nhân viên đang hoạt động để phục vụ bàn giao hóa đơn
+    @GetMapping("/pos/danh-sach-nhan-vien-ban-giao")
+    public ResponseEntity<List<Map<String, Object>>> getDanhSachNhanVienBanGiao() {
+        return ResponseEntity.ok(hoaDonService.getDanhSachNhanVienKhaDung());
     }
 
     // Tạo đơn hàng bán tại quầy (POS) kèm danh sách sản phẩm chi tiết, trừ tồn kho và thanh toán
@@ -461,6 +481,63 @@ public class HoaDonController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage() != null ? e.getMessage() : "Đặt hàng online thất bại!"));
         }
+    }
+
+
+    // Quản lý thông báo đơn hàng mới cho Admin
+    private static final java.util.Set<String> readNotificationCodes = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    @GetMapping("/thong-bao-moi")
+    public ResponseEntity<java.util.Map<String, Object>> getNewOrderNotifications() {
+        List<HoaDon> allRecent = hoaDonRepository.findAll(
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "ngayTao")
+        );
+        List<java.util.Map<String, Object>> notifList = new java.util.ArrayList<>();
+        int unreadCount = 0;
+
+        for (HoaDon hd : allRecent) {
+            if (notifList.size() >= 25) break;
+            boolean isOnline = Integer.valueOf(2).equals(hd.getLoaiDon())
+                    || (hd.getGhiChu() != null && hd.getGhiChu().toLowerCase().contains("website"));
+            if (isOnline) {
+                boolean daDoc = readNotificationCodes.contains(hd.getMaHoaDon()) || (hd.getTrangThai() != null && hd.getTrangThai() > 1);
+                if (!daDoc) {
+                    unreadCount++;
+                }
+                java.util.Map<String, Object> item = new java.util.HashMap<>();
+                item.put("id", hd.getId());
+                item.put("maHoaDon", hd.getMaHoaDon());
+                item.put("tenKhachHang", hd.getTenKhachHang() != null ? hd.getTenKhachHang() : "Khách hàng online");
+                item.put("soDienThoai", hd.getSoDienThoaiKhachHang() != null ? hd.getSoDienThoaiKhachHang() : "");
+                item.put("tongTien", hd.getTienSauGiamGia() != null ? hd.getTienSauGiamGia() : (hd.getTongTien() != null ? hd.getTongTien() : java.math.BigDecimal.ZERO));
+                item.put("ngayTao", hd.getNgayTao() != null ? hd.getNgayTao().toString() : "");
+                item.put("trangThai", hd.getTrangThai() != null ? hd.getTrangThai() : 1);
+                item.put("daDoc", daDoc);
+                notifList.add(item);
+            }
+        }
+
+        java.util.Map<String, Object> res = new java.util.HashMap<>();
+        res.put("unreadCount", unreadCount);
+        res.put("notifications", notifList);
+        return ResponseEntity.ok(res);
+    }
+
+    @PostMapping("/danh-dau-da-doc")
+    public ResponseEntity<java.util.Map<String, Object>> markNotificationAsRead(
+            @RequestBody(required = false) java.util.Map<String, String> body
+    ) {
+        if (body != null && body.containsKey("maHoaDon")) {
+            readNotificationCodes.add(body.get("maHoaDon"));
+        } else if (body != null && Boolean.parseBoolean(String.valueOf(body.get("all")))) {
+            List<HoaDon> all = hoaDonRepository.findAll();
+            for (HoaDon hd : all) {
+                if (hd.getMaHoaDon() != null) {
+                    readNotificationCodes.add(hd.getMaHoaDon());
+                }
+            }
+        }
+        return ResponseEntity.ok(java.util.Map.of("success", true, "message", "Đã đánh dấu thông báo là đã đọc"));
     }
 
 }

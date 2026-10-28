@@ -422,10 +422,15 @@ public class ChiTietSanPhamService {
             // Thuật toán: Khi có nhiều đợt giảm giá chạy song song (chồng chéo thời gian),
             // tự động chọn đợt giảm giá có % lớn nhất (Max) để tối ưu quyền lợi cho khách hàng
             ChiTietDotGiamGia bestDgg = activeDiscounts.stream()
-                .max(java.util.Comparator.comparing(c -> {
-                    BigDecimal pt = c.getPhanTramGiamBienThe() != null 
-                            ? c.getPhanTramGiamBienThe() 
-                            : (c.getIdDotGiamGia() != null ? c.getIdDotGiamGia().getPhanTramGiam() : BigDecimal.ZERO);
+                .max(java.util.Comparator.comparing(cItem -> {
+                    if (cItem.getIdDotGiamGia() == null) return BigDecimal.ZERO;
+                    DotGiamGia d = cItem.getIdDotGiamGia();
+                    if (Integer.valueOf(2).equals(d.getLoaiGiamGia())) {
+                        return d.getGiaTriGiam() != null ? d.getGiaTriGiam() : BigDecimal.ZERO;
+                    }
+                    BigDecimal pt = cItem.getPhanTramGiamBienThe() != null 
+                            ? cItem.getPhanTramGiamBienThe() 
+                            : (d.getPhanTramGiam() != null ? d.getPhanTramGiam() : BigDecimal.ZERO);
                     return pt != null ? pt : BigDecimal.ZERO;
                 }))
                 .orElse(activeDiscounts.get(0));

@@ -286,7 +286,17 @@ export async function calculateGhnShippingFee({
   const cleanD = cleanVietnameseText(districtName)
   const cleanW = cleanVietnameseText(wardName)
   const cleanFull = cleanVietnameseText(fullAddress)
-  const combined = `${cleanP} ${cleanD} ${cleanW} ${cleanFull}`
+  const combined = `${cleanP} ${cleanD} ${cleanW} ${cleanFull}`.trim()
+
+  // Không có địa chỉ cụ thể -> không tính phí mặc định (tránh gán cứng phí 35.000 / 45.000)
+  if (!cleanP && !cleanFull && !toDistrictId) {
+    return {
+      fee: 0,
+      source: 'NONE',
+      regionDescription: 'Chưa chọn địa chỉ giao hàng',
+      message: 'Vui lòng chọn địa chỉ để tính phí giao hàng'
+    }
+  }
 
   // 1. NỘI THÀNH HÀ NỘI: Áp dụng giá ship ưu đãi rẻ hơn các khu vực khác (20.000 VNĐ)
   if (cleanP.includes('ha noi') || cleanP.includes('hanoi') || combined.includes('ha noi') || combined.includes('hanoi')) {
@@ -370,7 +380,15 @@ export function calculateLocalRegionalFee(provinceName = '', districtName = '', 
   const d = cleanVietnameseText(districtName)
   const w = cleanVietnameseText(wardName)
   const f = cleanVietnameseText(fullAddress)
-  const combined = `${p} ${d} ${w} ${f}`
+  const combined = `${p} ${d} ${w} ${f}`.trim()
+
+  if (!combined) {
+    return {
+      fee: 0,
+      source: 'NONE',
+      regionDescription: 'Chưa chọn địa chỉ giao hàng'
+    }
+  }
 
   // 1. Hà Nội (Nội thành rẻ hơn các khu khác)
   if (p.includes('ha noi') || p.includes('hanoi') || combined.includes('ha noi') || combined.includes('hanoi')) {

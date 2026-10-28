@@ -17,6 +17,8 @@ public interface LichSuCaLamViecRepository extends JpaRepository<LichSuCaLamViec
 
     Optional<LichSuCaLamViec> findTopByTrangThaiOrderByThoiGianDongCaDesc(Integer trangThai);
 
+    Optional<LichSuCaLamViec> findTopByThoiGianDongCaIsNullOrderByThoiGianMoCaDesc();
+
     @Query("SELECT l FROM LichSuCaLamViec l WHERE " +
            "(:keyword IS NULL OR LOWER(l.nhanVien.tenTaiKhoan) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "                  OR LOWER(l.nhanVien.tenNhanVien) LIKE LOWER(CONCAT('%', :keyword, '%')) " +

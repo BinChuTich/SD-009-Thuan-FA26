@@ -265,13 +265,6 @@ const isDeliveryOrder = computed(() => {
     || shippingFee > 0
 })
 
-// Đơn bán tại quầy thuần túy lấy ngay (không giao hàng)
-const isPureStoreOrder = computed(() => !isDeliveryOrder.value)
-
-// Giữ lại alias tương thích
-const isOnlineDelivery = computed(() => isDeliveryOrder.value)
-const isAtStore = computed(() => isPureStoreOrder.value)
-
 // Loại đơn hiển thị: Nếu là đơn giao hàng mà được tạo / xác nhận tại quầy (bởi nhân viên bán hàng/POS/NV...) hoặc loaiDon === 1 thì loại đơn là "Tại quầy", ngược lại là "Online"
 const displayLoaiDon = computed(() => {
   const empCode = String(invoiceData.value.employee?.code || '').toUpperCase()
@@ -286,12 +279,21 @@ const displayLoaiDon = computed(() => {
   return 'Online'
 })
 
-// Đơn hàng online đang ở trạng thái Chờ xác nhận (status = 1): CHƯA IN HÓA ĐƠN
-const isOnlineWaitingConfirm = computed(() => {
-  return isDeliveryOrder.value && Number(invoiceData.value.status) === 1
+// Đơn bán tại quầy (kể cả nhận ngay hay giao hàng tạo/xác nhận tại quầy)
+const isAtStore = computed(() => displayLoaiDon.value === 'Tại quầy')
+const isOnlineDelivery = computed(() => !isAtStore.value)
+// Đơn hàng online nhưng xác nhận tại quầy hoặc có giao hàng thì vẫn có ĐẦY ĐỦ các trạng thái như đơn online.
+// Chỉ đơn tại quầy nhận hàng ngay (không online và không giao hàng) mới là đơn tại quầy thuần túy (3 bước).
+const isPureStoreOrder = computed(() => {
+  return isAtStore.value && !isDeliveryOrder.value && Number(invoiceData.value.loaiDon) !== 2
 })
 
-// Điều kiện in hóa đơn: Chỉ trạng thái "Đã xác nhận" (status = 2) mới in hóa đơn, hoặc đơn tại quầy thuần túy hoàn thành (status 5)
+// Đơn hàng online đang ở trạng thái Chờ xác nhận (status = 1): CHƯA IN HÓA ĐƠN
+const isOnlineWaitingConfirm = computed(() => {
+  return !isPureStoreOrder.value && Number(invoiceData.value.status) === 1
+})
+
+// Điều kiện in hóa đơn: Chỉ trạng thái "Đã xác nhận" (status = 2) mới in hóa đơn, hoặc đơn tại quầy hoàn thành (status 5)
 const canPrintInvoice = computed(() => {
   const st = Number(invoiceData.value.status)
   if (isPureStoreOrder.value && st === 5) return true
@@ -1051,8 +1053,8 @@ const loadDetail = async (identifier) => {
         currentStatus = 7
       }
     }
-    const isPureStore = !hasDelivery && Number(data['loaiDon']) === 1
-    applyOrderStatus(currentStatus, isPureStore)
+    const isStoreOrder = isAtStore.value || (!hasDelivery && Number(data['loaiDon']) === 1) || hasStaffCreator
+    applyOrderStatus(currentStatus, isStoreOrder)
 
     // Lịch sử thao tác
     let rawLogs = data['lichSuHoaDon'] || data['lichSuHoaDons'] || data['lichSu']
@@ -1152,7 +1154,7 @@ watch(
 // STEPPER: HIỂN THỊ CÁC BƯỚC ĐÃ TỚI + DUY NHẤT 1 BƯỚC TIẾP THEO LIỀN KỀ (PENDING)
 // =========================================================================
 const visibleSteps = computed(() => {
-  const isPureStore = isPureStoreOrder.value
+  const pureStore = isPureStoreOrder.value
   const curStatus = Number(invoiceData.value.status) || 1
   const createTime = invoiceData.value.createTime || invoiceData.value.steps[0]?.time || ''
   const finishTime = invoiceData.value.lastUpdated || invoiceData.value.paymentHistory?.time || createTime
@@ -1160,7 +1162,7 @@ const visibleSteps = computed(() => {
   // Đơn đã hủy (status = 6)
   if (curStatus === 6) {
     return [
-      { id: 1, name: isPureStore ? 'Hóa đơn chờ' : 'Chờ xác nhận', time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
+      { id: 1, name: pureStore ? 'Hóa đơn chờ' : 'Chờ xác nhận', time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
       { id: 6, name: 'Đã hủy đơn', time: finishTime, done: false, active: true, pending: false, isCancelled: true, icon: 'cancelled' }
     ]
   }
@@ -1168,7 +1170,7 @@ const visibleSteps = computed(() => {
   // Đơn giao hàng thất bại (status = 7)
   if (curStatus === 7) {
     return [
-      { id: 1, name: (displayLoaiDon.value === 'Tại quầy' ? 'Hóa đơn chờ' : 'Chờ xác nhận'), time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
+      { id: 1, name: pureStore ? 'Hóa đơn chờ' : 'Chờ xác nhận', time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
       { id: 2, name: 'Đã xác nhận', done: true, active: false, pending: false, icon: 'check' },
       { id: 3, name: 'Chờ vận chuyển', done: true, active: false, pending: false, icon: 'box' },
       { id: 4, name: 'Đang vận chuyển', done: true, active: false, pending: false, icon: 'truck' },
@@ -1176,8 +1178,8 @@ const visibleSteps = computed(() => {
     ]
   }
 
-  // Đơn tại quầy thuần túy (không giao hàng)
-  if (isPureStore) {
+  // Đơn tại quầy nhận hàng ngay (không online, không giao hàng): 3 bước gọn nhẹ
+  if (pureStore) {
     return [
       { id: 1, name: 'Hóa đơn chờ', time: createTime, done: curStatus >= 2, active: curStatus === 1, pending: false, icon: 'hourglass' },
       { id: 2, name: 'Đã xác nhận', time: curStatus >= 2 ? finishTime : '', done: curStatus >= 5, active: curStatus === 2, pending: curStatus < 2, icon: 'check' },
@@ -1185,8 +1187,7 @@ const visibleSteps = computed(() => {
     ]
   }
 
-  // Đơn có giao hàng (cả Đơn Online và Đơn giao hàng tạo tại quầy "online tại quầy"):
-  // Lấy các bước <= curStatus VÀ CỘNG THÊM 1 BƯỚC TIẾP THEO (curStatus + 1)
+  // Đơn hàng Online hoặc có giao hàng (kể cả xác nhận tại quầy): ĐẦY ĐỦ CÁC BƯỚC NHƯ ĐƠN ONLINE
   const maxStepToShow = Math.min(curStatus + 1, 5)
 
   return invoiceData.value.steps
@@ -1195,14 +1196,10 @@ const visibleSteps = computed(() => {
         const isDone = s.id < curStatus
         const isActive = s.id === curStatus
         const isPending = s.id > curStatus
-        let stepName = s.name
-        if (s.id === 1) {
-          stepName = displayLoaiDon.value === 'Tại quầy' ? 'Hóa đơn chờ' : 'Chờ xác nhận'
-        }
 
         return {
           ...s,
-          name: stepName,
+          name: s.id === 1 ? 'Chờ xác nhận' : s.name,
           done: isDone,
           active: isActive,
           pending: isPending,
@@ -1213,9 +1210,9 @@ const visibleSteps = computed(() => {
 
 // Thông tin trạng thái kế tiếp
 const nextStatusInfo = computed(() => {
-  const isPureStore = isPureStoreOrder.value
+  const pureStore = isPureStoreOrder.value
   const cur = Number(invoiceData.value.status)
-  if (isPureStore) {
+  if (pureStore) {
     if (cur === 1) return { nextStatus: 2, label: 'Xác Nhận Đơn Hàng' }
     if (cur === 2) return { nextStatus: 5, label: 'Hoàn Thành Đơn Hàng' }
     return null
@@ -1228,7 +1225,7 @@ const nextStatusInfo = computed(() => {
     case 3:
       return { nextStatus: 4, label: 'Giao Vận Chuyển' }
     case 4:
-      return { nextStatus: 5, label: 'Hoàn Thành Đơn' }
+      return { nextStatus: 5, label: 'Hoàn Thành Đơn Hàng' }
     case 7:
       return null
     default:
@@ -1297,8 +1294,7 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null, cus
     }
 
     if (success) {
-      const isPureStore = isPureStoreOrder.value
-      applyOrderStatus(newStatus, isPureStore)
+      applyOrderStatus(newStatus, isAtStore.value)
       invoiceData.value.status = newStatus
       const option = statusOptions.find(o => o.value === newStatus)
       const labelText = option ? option.label : (newStatus === 7 ? 'Giao hàng thất bại' : newStatus)
@@ -1313,8 +1309,8 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null, cus
         await loadDetail(id)
       }
       // Tự động in hóa đơn ngay khi đơn hàng chuyển sang trạng thái "Đã xác nhận" (status 2)
-      // hoặc trạng thái "Hoàn thành" (status 5) đối với đơn tại quầy thuần túy
-      if (newStatus === 2 || (newStatus === 5 && isPureStore)) {
+      // hoặc trạng thái "Hoàn thành" (status 5) đối với đơn tại quầy
+      if (newStatus === 2 || (newStatus === 5 && isAtStore.value)) {
         setTimeout(() => {
           handlePrint()
         }, 500)
