@@ -40,7 +40,7 @@ const routes = [
     name: 'GioHang',
     component: GioHang
   },
-  { path: '/thanh-toan', redirect: '/gio-hang' },
+  { path: '/thanh-toan', redirect: { path: '/gio-hang', query: { step: 'checkout' } } },
   {
     path: '/don-hang',
     name: 'DonHang',

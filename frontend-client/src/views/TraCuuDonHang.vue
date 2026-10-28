@@ -210,16 +210,22 @@ const onImgError = (e) => {
 // 5 Bước Stepper
 const isPosOrder = computed(() => {
   if (!order.value) return false
-  if (order.value.loaiDon === 1) return true
-  const addr = (order.value.diaChiNhanHang || '').toLowerCase()
-  return addr.includes('tại quầy') || addr.includes('tai quay') || addr.includes('tại cửa hàng') || addr.includes('tai cua hang')
+  const addr = (order.value.diaChiNhanHang || '').trim().toLowerCase()
+  const hasDeliveryAddress = addr && !addr.includes('tại quầy') && !addr.includes('tai quay') && !addr.includes('tại cửa hàng') && !addr.includes('tai cua hang') && addr !== 'bán tại quầy'
+  const hasShipFee = Number(order.value.phiVanChuyen || order.value.phiShip || 0) > 0
+  const hasCarrier = Boolean(order.value.donViVanChuyen && order.value.donViVanChuyen !== '—' && !order.value.donViVanChuyen.toLowerCase().includes('tại quầy'))
+  if (hasDeliveryAddress || hasShipFee || hasCarrier) {
+    return false
+  }
+  return order.value.loaiDon === 1 || addr.includes('tại quầy') || addr.includes('tai quay') || addr.includes('tại cửa hàng') || !addr
+
 })
 
 const defaultSteps = [
-  { num: 1, label: 'Đặt hàng' },
-  { num: 2, label: 'Xác nhận' },
-  { num: 3, label: 'Đóng gói' },
-  { num: 4, label: 'Đang giao' },
+  { num: 1, label: 'Chờ xác nhận' },
+  { num: 2, label: 'Đã xác nhận' },
+  { num: 3, label: 'Chờ vận chuyển' },
+  { num: 4, label: 'Đang vận chuyển' },
   { num: 5, label: 'Giao thành công' }
 ]
 

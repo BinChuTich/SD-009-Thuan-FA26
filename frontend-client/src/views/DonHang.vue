@@ -29,9 +29,15 @@ watch(() => currentClientUser.value, () => {
 })
 const isPosOrder = (o) => {
   if (!o) return false
-  if (o.loaiDon === 1) return true
-  const addr = (o.diaChiNhanHang || '').toLowerCase()
-  return addr.includes('tại quầy') || addr.includes('tai quay') || addr.includes('tại cửa hàng') || addr.includes('tai cua hang')
+  const addr = (o.diaChiNhanHang || '').trim().toLowerCase()
+  const hasDeliveryAddress = addr && !addr.includes('tại quầy') && !addr.includes('tai quay') && !addr.includes('tại cửa hàng') && !addr.includes('tai cua hang') && addr !== 'bán tại quầy'
+  const hasShipFee = Number(o.phiVanChuyen || o.phiShip || 0) > 0
+  const hasCarrier = Boolean(o.donViVanChuyen && o.donViVanChuyen !== '—' && !o.donViVanChuyen.toLowerCase().includes('tại quầy'))
+  if (hasDeliveryAddress || hasShipFee || hasCarrier) {
+    return false
+  }
+  return o.loaiDon === 1 || addr.includes('tại quầy') || addr.includes('tai quay') || addr.includes('tại cửa hàng') || !addr
+
 }
 
 const getOrderSubtotal = (o) => {
@@ -110,11 +116,54 @@ const formatTimer = (sec) => {
 }
 
 const formatLogTime = (val) => {
-  if (!val) return '—'
+  if (!val) return ''
   const d = new Date(val)
   if (isNaN(d.getTime())) return String(val)
   const pad = (n) => String(n).padStart(2, '0')
-  return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+}
+
+const getDeliveryStepTime = (stepNum) => {
+  if (!selectedOrder.value) return ''
+  const currentStatus = Number(selectedOrder.value.trangThai || 1)
+  if (currentStatus < stepNum) {
+    return ''
+  }
+
+  if (stepNum === 1) {
+    if (orderLogs.value && orderLogs.value.length > 0) {
+      const createLogs = orderLogs.value.filter(l => {
+        const text = ((l.hanhDong || '') + ' ' + (l.ghiChu || '')).toLowerCase()
+        return Number(l.trangThai) === 1 || text.includes('tạo') || text.includes('đặt hàng')
+      })
+      if (createLogs.length > 0) {
+        const earliest = createLogs[createLogs.length - 1]
+        if (earliest && earliest.thoiGian) return formatLogTime(earliest.thoiGian)
+      }
+    }
+    return formatLogTime(selectedOrder.value.ngayTao)
+  }
+
+  if (orderLogs.value && orderLogs.value.length > 0) {
+    const matched = orderLogs.value.find(l => {
+      if (Number(l.trangThai) === stepNum) return true
+      const text = ((l.hanhDong || '') + ' ' + (l.ghiChu || '')).toLowerCase()
+      if (stepNum === 2 && (text.includes('xác nhận') || text.includes('duyệt'))) return true
+      if (stepNum === 3 && (text.includes('chờ vận chuyển') || text.includes('đóng gói') || text.includes('chuẩn bị'))) return true
+      if (stepNum === 4 && (text.includes('đang vận chuyển') || text.includes('đang giao'))) return true
+      if (stepNum === 5 && (text.includes('hoàn thành') || text.includes('giao thành công') || text.includes('đã nhận'))) return true
+      return false
+    })
+    if (matched && matched.thoiGian) {
+      return formatLogTime(matched.thoiGian)
+    }
+  }
+
+  if (currentStatus === stepNum && selectedOrder.value.ngayCapNhat) {
+    return formatLogTime(selectedOrder.value.ngayCapNhat)
+  }
+
+  return ''
 }
 
 const getActorName = (log) => {
@@ -285,8 +334,8 @@ const getStatusLabel = (status) => {
   switch (status) {
     case 1: return { text: 'CHỜ XÁC NHẬN', class: 'status-pending' }
     case 2: return { text: 'ĐÃ XÁC NHẬN', class: 'status-confirmed' }
-    case 3: return { text: 'ĐANG CHUẨN BỊ', class: 'status-shipping' }
-    case 4: return { text: 'ĐANG GIAO HÀNG', class: 'status-shipping' }
+    case 3: return { text: 'CHỜ VẬN CHUYỂN', class: 'status-shipping' }
+    case 4: return { text: 'ĐANG VẬN CHUYỂN', class: 'status-shipping' }
     case 5: return { text: 'HOÀN THÀNH', class: 'status-done' }
     case 6: return { text: 'ĐÃ HỦY', class: 'status-cancelled' }
     default: return { text: 'CHỜ XỬ LÝ', class: 'status-pending' }
@@ -667,7 +716,7 @@ onUnmounted(() => {
                     </svg>
                   </div>
                   <span class="step-name">Tạo đơn tại quầy</span>
-                  <span class="step-sub">{{ formatLogTime(selectedOrder.ngayTao) }}</span>
+                  <span class="step-sub">{{ getDeliveryStepTime(1) }}</span>
                 </div>
                 <div class="step-line" :class="{ active: selectedOrder.trangThaiThanhToan === 1 || selectedOrder.trangThai === 5 }"></div>
 
@@ -680,7 +729,7 @@ onUnmounted(() => {
                     </svg>
                   </div>
                   <span class="step-name">Thanh toán</span>
-                  <span class="step-sub">{{ selectedOrder.trangThaiThanhToan === 1 ? 'Đã thanh toán (' + (selectedOrder.phuongThucThanhToan || 'Tiền mặt') + ')' : 'Chờ thanh toán' }}</span>
+                  <span class="step-sub">{{ selectedOrder.trangThaiThanhToan === 1 ? formatLogTime(selectedOrder.ngayCapNhat || selectedOrder.ngayTao) : '' }}</span>
                 </div>
                 <div class="step-line" :class="{ active: selectedOrder.trangThai === 5 }"></div>
 
@@ -693,7 +742,7 @@ onUnmounted(() => {
                     </svg>
                   </div>
                   <span class="step-name">Hoàn tất đơn hàng</span>
-                  <span class="step-sub">{{ selectedOrder.trangThai === 5 ? 'Đã nhận hàng tại quầy' : 'Đang xử lý tại quầy' }}</span>
+                  <span class="step-sub">{{ selectedOrder.trangThai === 5 ? formatLogTime(selectedOrder.ngayCapNhat || selectedOrder.ngayTao) : '' }}</span>
                 </div>
               </div>
             </div>
@@ -710,8 +759,8 @@ onUnmounted(() => {
                       <path d="M16 10a4 4 0 0 1-8 0"></path>
                     </svg>
                   </div>
-                  <span class="step-name">Đặt hàng thành công</span>
-                  <span class="step-sub">{{ formatLogTime(selectedOrder.ngayTao) }}</span>
+                  <span class="step-name">Chờ xác nhận</span>
+                  <span class="step-sub">{{ getDeliveryStepTime(1) }}</span>
                 </div>
                 <div class="step-line" :class="{ active: selectedOrder.trangThai >= 2 }"></div>
 
@@ -725,12 +774,26 @@ onUnmounted(() => {
                     </svg>
                   </div>
                   <span class="step-name">Đã xác nhận</span>
-                  <span class="step-sub">{{ selectedOrder.trangThai >= 2 ? 'Đã duyệt đơn' : 'Chờ xác nhận' }}</span>
+                  <span class="step-sub">{{ getDeliveryStepTime(2) }}</span>
                 </div>
                 <div class="step-line" :class="{ active: selectedOrder.trangThai >= 3 }"></div>
 
+                <!-- Step 3: Chờ vận chuyển -->
+                <div class="step-point" :class="{ completed: selectedOrder.trangThai >= 3, current: selectedOrder.trangThai === 3 }">
+                  <div class="step-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                      <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                      <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                  </div>
+                  <span class="step-name">Chờ vận chuyển</span>
+                  <span class="step-sub">{{ getDeliveryStepTime(3) }}</span>
+                </div>
+                <div class="step-line" :class="{ active: selectedOrder.trangThai >= 4 }"></div>
+
                 <!-- Step 3: Đang giao hàng -->
-                <div class="step-point" :class="{ completed: selectedOrder.trangThai >= 4, current: selectedOrder.trangThai === 3 || selectedOrder.trangThai === 4 }">
+                <div class="step-point" :class="{ completed: selectedOrder.trangThai >= 4, current: selectedOrder.trangThai === 4 }">
                   <div class="step-icon">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <rect x="1" y="3" width="15" height="13"></rect>
@@ -740,7 +803,7 @@ onUnmounted(() => {
                     </svg>
                   </div>
                   <span class="step-name">Đang vận chuyển</span>
-                  <span class="step-sub">{{ selectedOrder.trangThai >= 4 ? 'Đang giao tận nơi' : 'Đang đóng gói' }}</span>
+                  <span class="step-sub">{{ getDeliveryStepTime(4) }}</span>
                 </div>
                 <div class="step-line" :class="{ active: selectedOrder.trangThai >= 5 }"></div>
 
@@ -753,7 +816,7 @@ onUnmounted(() => {
                     </svg>
                   </div>
                   <span class="step-name">Giao thành công</span>
-                  <span class="step-sub">{{ selectedOrder.trangThai === 5 ? 'Đã nhận hàng' : 'Dự kiến 2-3 ngày' }}</span>
+                  <span class="step-sub">{{ getDeliveryStepTime(5) }}</span>
                 </div>
               </div>
             </div>
@@ -809,7 +872,7 @@ onUnmounted(() => {
             </div>
 
             <!-- KHỐI THÔNG TIN THANH TOÁN & TỔNG KẾT TÀI CHÍNH 2 CỘT (MATCH VIDEO) -->
-            <div class="video-summary-grid">
+            <div v-if="false" class="video-summary-grid">
               <!-- Cột trái: Phương thức & Tình trạng thanh toán -->
               <div class="video-summary-col-left">
                 <div class="v-line">
@@ -874,9 +937,83 @@ onUnmounted(() => {
               </button>
             </div>
 
-            <!-- KHỐI THÔNG TIN NHẬN HÀNG -->
+            <!-- HAI BẢNG SONG SONG TRÊN CÙNG 1 DÒNG: THÔNG TIN GIAO NHẬN & CHI TIẾT THANH TOÁN -->
+            <div class="order-double-panels-grid">
+              <!-- BẢNG 1: THÔNG TIN NHẬN HÀNG & PHƯƠNG THỨC THANH TOÁN -->
+              <div class="panel-box-item">
+                <div class="panel-box-header">
+                  <h4 class="panel-box-title">📍 Thông tin nhận hàng</h4>
+                  <button class="btn-cancel-link" v-if="selectedOrder.trangThai === 1" @click="handleCancelOrder">
+                    🚫 Hủy đơn hàng
+                  </button>
+                </div>
+                <div class="panel-box-content">
+                  <div class="panel-field-row">
+                    <span class="field-label">Khách hàng:</span>
+                    <strong class="field-value">{{ selectedOrder.tenKhachHang || selectedOrder.tenKhachHangHienThi || 'Khách hàng' }}</strong>
+                  </div>
+                  <div class="panel-field-row">
+                    <span class="field-label">Số điện thoại:</span>
+                    <span class="field-value">{{ selectedOrder.soDienThoaiKhachHang || selectedOrder.soDienThoaiHienThi || '—' }}</span>
+                  </div>
+                  <div class="panel-field-row">
+                    <span class="field-label">Địa chỉ nhận:</span>
+                    <span class="field-value">{{ selectedOrder.diaChiNhanHang || '—' }}</span>
+                  </div>
+                  <div class="panel-divider"></div>
+                  <div class="panel-field-row">
+                    <span class="field-label">Phương thức:</span>
+                    <strong class="field-value text-dark">{{ selectedOrder.phuongThucThanhToan || (isVnPayOrder ? 'Cổng thanh toán VNPAY' : 'Thanh toán khi nhận hàng (COD)') }}</strong>
+                  </div>
+                  <div class="panel-field-row">
+                    <span class="field-label">Trạng thái:</span>
+                    <span
+                      class="field-badge-status"
+                      :class="selectedOrder.trangThai === 6 ? 'badge-green' : (selectedOrder.trangThaiThanhToan === 1 ? 'badge-green' : 'badge-orange')"
+                    >
+                      {{ selectedOrder.trangThai === 6 ? 'Đã nhận hoàn tiền' : (selectedOrder.trangThaiThanhToan === 1 ? 'Đã thanh toán' : 'Chưa thanh toán') }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- BẢNG 2: CHI TIẾT TÍNH TIỀN & THÀNH TIỀN -->
+              <div class="panel-box-item">
+                <div class="panel-box-header">
+                  <h4 class="panel-box-title">💳 Chi tiết thanh toán</h4>
+                </div>
+                <div class="panel-box-content">
+                  <div class="calc-field-row">
+                    <span class="calc-label">Tổng tiền hàng</span>
+                    <span class="calc-val">{{ formatCurrency(getOrderSubtotal(selectedOrder)) }}</span>
+                  </div>
+                  <div v-if="getOrderDiscount(selectedOrder) > 0" class="calc-field-row text-green">
+                    <span class="calc-label">Giảm giá [{{ selectedOrder.maPhieuGiamGia || selectedOrder.idPhieuGiamGia?.maPhieuGiamGia || 'VOUCHER' }}]</span>
+                    <span class="calc-val">- {{ formatCurrency(getOrderDiscount(selectedOrder)) }}</span>
+                  </div>
+                  <div class="calc-field-row">
+                    <template v-if="!isPosOrder(selectedOrder)">
+                      <span class="calc-label">Phí vận chuyển ({{ selectedOrder.donViVanChuyen || "GHN" }})</span>
+                      <span class="calc-val ship-val">
+                        <img v-if="(selectedOrder.phiShip || selectedOrder.phiVanChuyen) > 0" src="https://cdn.haitrieu.com/wp-content/uploads/2022/05/Logo-GHN-Orange.png" alt="GHN" class="ghn-mini-logo" />
+                        + {{ getOrderShippingFee(selectedOrder) > 0 ? formatCurrency(getOrderShippingFee(selectedOrder)) : '0 ₫' }}
+                      </span>
+                    </template>
+                    <template v-else>
+                      <span class="calc-label">Hình thức nhận</span>
+                      <span class="tag-pos-mini">Mua &amp; nhận tại quầy (0 ₫)</span>
+                    </template>
+                  </div>
+                  <div class="panel-divider"></div>
+                  <div class="calc-field-row total-calc-row">
+                    <span class="total-label-text">Thành tiền</span>
+                    <strong class="total-number-big">{{ formatCurrency(getOrderFinalTotal(selectedOrder)) }}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="info-section-box">
-              <div class="sec-title-row">
+              <div class="sec-title-row old-delivery-info-hide">
                 <h4 class="sec-title">📍 Thông tin nhận hàng</h4>
                 <button class="btn-cancel-link" v-if="selectedOrder.trangThai === 1" @click="handleCancelOrder">
                   🚫 Hủy đơn hàng
@@ -1731,6 +1868,151 @@ onUnmounted(() => {
   margin: 0;
   font-size: 12.5px;
   color: #b91c1c;
+}
+
+/* ======================================================== */
+/* HAI BẢNG SONG SONG TRÊN CÙNG 1 DÒNG                     */
+/* ======================================================== */
+.info-section-box:has(.old-delivery-info-hide) {
+  display: none !important;
+}
+
+.order-double-panels-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: stretch;
+  margin-bottom: 22px;
+}
+
+.panel-box-item {
+  background: #ffffff;
+  border: 1px solid #eef2f6;
+  border-radius: 12px;
+  padding: 22px 24px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.panel-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.panel-box-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #496883;
+  letter-spacing: 0.2px;
+  font-family: 'Be Vietnam Pro', sans-serif;
+}
+
+.panel-box-content {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  flex: 1;
+}
+
+.panel-field-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.field-label {
+  color: #64748b;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.field-value {
+  color: #1e293b;
+  text-align: right;
+  max-width: 65%;
+  word-break: break-word;
+}
+
+.field-value.text-dark {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.panel-divider {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 3px 0;
+}
+
+.field-badge-status {
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+}
+
+.field-badge-status.badge-green {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.field-badge-status.badge-orange {
+  background: #fff7ed;
+  color: #ea580c;
+  border: 1px solid #fed7aa;
+}
+
+.calc-field-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
+  color: #64748b;
+}
+
+.calc-label {
+  font-size: 13px;
+}
+
+.calc-val {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.total-calc-row {
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.total-label-text {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.total-number-big {
+  font-size: 20px;
+  font-weight: 800;
+  color: #496883;
+}
+
+@media (max-width: 868px) {
+  .order-double-panels-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 }
 
 /* 2-column Video Summary Box matching step_10456_media_0.png */
