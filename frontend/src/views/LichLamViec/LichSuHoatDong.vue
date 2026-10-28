@@ -19,7 +19,7 @@
       </div>
     </div>
 
-    <!-- Card Bộ lọc Lịch sử hoạt động -->
+
     <div class="content-card filter-card-box">
       <div class="filter-grid-layout">
         <!-- Ô Tìm kiếm: 'Tìm theo tài khoản / mã ca / mã hóa đơn...' -->

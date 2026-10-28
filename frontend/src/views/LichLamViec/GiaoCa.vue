@@ -1,6 +1,6 @@
 ﻿<template>
   <div class="giao-ca-page">
-    <!-- Thanh điều hướng và tiêu đề trên cùng -->
+
     <div class="page-top-header">
       <div class="page-breadcrumb">
         <router-link to="/giao-ca" class="crumb-parent">Lịch làm việc</router-link>
@@ -910,7 +910,7 @@ async function submitMoCa() {
   }
 }
 
-// Xử lý Đóng ca & Bàn giao
+
 async function submitDongCa() {
   if (dongCaForm.tienMatCuoiCa === null || dongCaForm.tienMatCuoiCa === undefined || dongCaForm.tienMatCuoiCa < 0) {
     showToast('Vui lòng nhập số tiền mặt thực tế kiểm đếm', 'warning')
