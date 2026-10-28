@@ -20,6 +20,30 @@ const props = defineProps({
 const selectedCampaignId = ref('ALL')
 
 // Đồng hồ đếm ngược thời gian
+const nowTime = ref(Date.now())
+let nowInterval = null
+
+const getProductCountdown = (p) => {
+  const endStr = p.ngayKetThucDotGiamGia || p.ngayKetThuc
+  if (!endStr) return null
+  const end = new Date(endStr).getTime()
+  const diff = end - nowTime.value
+  if (diff <= 0) return { expired: true, text: 'Đã hết hạn' }
+
+  const d = Math.floor(diff / (1000 * 60 * 60 * 24))
+  const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+  const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  const s = Math.floor((diff % (1000 * 60)) / 1000)
+
+  return {
+    expired: false,
+    days: d,
+    hours: String(h).padStart(2, '0'),
+    mins: String(m).padStart(2, '0'),
+    secs: String(s).padStart(2, '0')
+  }
+}
+
 const dealCountdown = ref({
   days: 0,
   hours: '00',
@@ -174,10 +198,12 @@ const goToProduct = (id) => {
 
 onMounted(() => {
   startDealCountdown()
+  nowInterval = setInterval(() => { nowTime.value = Date.now() }, 1000)
 })
 
 onUnmounted(() => {
   stopDealCountdown()
+  if (nowInterval) clearInterval(nowInterval)
 })
 </script>
 
@@ -190,43 +216,6 @@ onUnmounted(() => {
           <h2 class="script-title">
             <span class="deal-fire-emoji">🔥</span> Sản Phẩm Ưu Đãi
           </h2>
-        </div>
-
-        <!-- Khối Đếm Ngược Thời Gian (Thiết kế phẳng, tinh tế) -->
-        <div class="deal-countdown-box" v-if="dealProducts.length > 0">
-          <div class="countdown-info-col">
-            <span class="countdown-label">
-              <span class="countdown-clock-icon">⏰</span>
-              <span>{{ activeCountdownTarget.label }}</span>
-            </span>
-            <span class="countdown-sub-deadline" v-if="activeCountdownTarget.dateStr">
-              Hạn chót: <strong>{{ formatDateTime(activeCountdownTarget.dateStr) }}</strong>
-            </span>
-          </div>
-
-          <div class="countdown-timer">
-            <template v-if="dealCountdown.days > 0">
-              <span class="timer-unit">
-                <strong>{{ dealCountdown.days }}</strong>
-                <small>Ngày</small>
-              </span>
-              <span class="timer-colon">:</span>
-            </template>
-            <span class="timer-unit">
-              <strong>{{ dealCountdown.hours }}</strong>
-              <small>Giờ</small>
-            </span>
-            <span class="timer-colon">:</span>
-            <span class="timer-unit">
-              <strong>{{ dealCountdown.minutes }}</strong>
-              <small>Phút</small>
-            </span>
-            <span class="timer-colon">:</span>
-            <span class="timer-unit">
-              <strong>{{ dealCountdown.seconds }}</strong>
-              <small>Giây</small>
-            </span>
-          </div>
         </div>
       </div>
 
@@ -288,7 +277,18 @@ onUnmounted(() => {
           <div class="deal-content">
             <div class="deal-meta-row">
               <span class="deal-category">{{ p.tenDanhMuc || 'Áo phông' }}</span>
-              <span class="deal-rating">⭐ 5.0</span>
+            </div>
+
+            <!-- Đếm ngược thời gian kết thúc của riêng từng sản phẩm -->
+            <div class="product-deal-timer-pill" v-if="getProductCountdown(p) && !getProductCountdown(p).expired">
+              <span class="pdt-icon">⏰</span>
+              <span class="pdt-label">Kết thúc sau:</span>
+              <span class="pdt-time">
+                <template v-if="getProductCountdown(p).days > 0">
+                  <strong class="pdt-num">{{ getProductCountdown(p).days }}</strong><small>N </small>
+                </template>
+                <strong class="pdt-num">{{ getProductCountdown(p).hours }}</strong>:<strong class="pdt-num">{{ getProductCountdown(p).mins }}</strong>:<strong class="pdt-num">{{ getProductCountdown(p).secs }}</strong>
+              </span>
             </div>
 
             <h3 class="deal-title">{{ p.tenSanPham }}</h3>
@@ -777,4 +777,51 @@ onUnmounted(() => {
     gap: 8px;
   }
 }
+
+/* ĐẾM NGƯỢC THỜI GIAN RIÊNG CỦA TỪNG SẢN PHẨM ƯU ĐÃI */
+.product-deal-timer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11.5px;
+  color: #334155;
+  margin: 6px 0 8px;
+  width: fit-content;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+
+.pdt-icon {
+  font-size: 12px;
+}
+
+.pdt-label {
+  font-weight: 600;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.pdt-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #ea580c;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.pdt-num {
+  font-weight: 800;
+  color: #c2410c;
+}
+
+.pdt-time small {
+  font-size: 9.5px;
+  margin-right: 2px;
+  color: #64748b;
+}
+
 </style>

@@ -910,7 +910,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
           <div class="search-input-wrapper">
             <label class="search-title-label">Tìm kiếm theo tên hoặc mã phân loại</label>
             <div class="search-field-inner">
-              <span class="search-icon-prefix">
+              <span class="search-icon-prefix" v-if="false">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="11" cy="11" r="8"></circle>
                   <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -1961,7 +1961,7 @@ watch(() => route.query.sanPhamId, async (newId) => {
   background-color: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 0 1rem 0 2.5rem;
+  padding: 0 1rem;
   font-size: 0.92rem;
   color: #1e293b;
   outline: none;

@@ -94,13 +94,19 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
         LocalTime end = ca.getGioKetThuc();
         if (start != null && end != null) {
             if (!isTimeInShift(now, start, end)) {
+                int nowMin = now.getHour() * 60 + now.getMinute();
+                int startMin = start.getHour() * 60 + start.getMinute();
+                int endMin = end.getHour() * 60 + end.getMinute();
+                int allowedStart = startMin - 30;
+                int allowedEnd = endMin + 30;
                 LocalTime earliest = start.minusMinutes(30);
-                if (start.isBefore(end) && now.isBefore(earliest)) {
+
+                if (startMin < endMin && nowMin < allowedStart && (allowedStart >= 0 || nowMin < allowedStart + 1440)) {
                     throw new IllegalArgumentException(String.format(
                             "Hiện tại (%s) chưa đến giờ làm việc của ca '%s' (%s - %s). Bạn chỉ có thể mở ca sớm tối đa 30 phút (từ %s)!",
                             formatTime(now), ca.getTenCa(), formatTime(start), formatTime(end), formatTime(earliest)
                     ));
-                } else if (start.isBefore(end) && now.isAfter(end.plusMinutes(30))) {
+                } else if (startMin < endMin && (nowMin > allowedEnd || (allowedEnd >= 1440 && nowMin > (allowedEnd - 1440) && nowMin < allowedStart))) {
                     throw new IllegalArgumentException(String.format(
                             "Ca làm việc '%s' (%s - %s) đã kết thúc (%s). Vui lòng chọn ca làm việc tương ứng với thời điểm hiện tại!",
                             ca.getTenCa(), formatTime(start), formatTime(end), formatTime(end)
@@ -370,14 +376,23 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
 
     private boolean isTimeInShift(LocalTime now, LocalTime start, LocalTime end) {
         if (start == null || end == null) return true;
-        LocalTime allowedStart = start.minusMinutes(30);
-        LocalTime allowedEnd = end.plusMinutes(30);
+        int nowMin = now.getHour() * 60 + now.getMinute();
+        int startMin = start.getHour() * 60 + start.getMinute();
+        int endMin = end.getHour() * 60 + end.getMinute();
 
-        if (start.isBefore(end)) {
-            return !now.isBefore(allowedStart) && !now.isAfter(allowedEnd);
+        int allowedStart = startMin - 30;
+        int allowedEnd = endMin + 30;
+
+        if (startMin < endMin) {
+            if (allowedStart < 0) {
+                return (nowMin >= allowedStart + 1440) || (nowMin <= allowedEnd);
+            } else if (allowedEnd >= 1440) {
+                return (nowMin >= allowedStart) || (nowMin <= allowedEnd - 1440);
+            } else {
+                return nowMin >= allowedStart && nowMin <= allowedEnd;
+            }
         } else {
-            // Ca qua đêm (ví dụ: 22:00 - 06:00)
-            return !now.isBefore(allowedStart) || !now.isAfter(allowedEnd);
+            return nowMin >= allowedStart || nowMin <= allowedEnd;
         }
     }
 

@@ -3,6 +3,9 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import api from '@/api'
 import { formatCurrency, formatDateTime } from '@/utils/dinhDang.js'
+import { showAppConfirm, showAppAlert } from '@/utils/thongBaoDialog.js'
+import { currentClientUser, isClientLoggedIn } from '@/utils/taiKhoanKhachHang.js'
+import ModalDangNhap from '@/components/BocCuc/ModalDangNhap.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -14,6 +17,16 @@ const selectedOrderItems = ref([])
 const orderLogs = ref([])
 const activeTab = ref('all') // all, pending, shipping, completed, cancelled
 const searchQuery = ref('')
+const showAuthModal = ref(false)
+
+const handleLoginSuccess = () => {
+  showAuthModal.value = false
+  loadOrders()
+}
+
+watch(() => currentClientUser.value, () => {
+  loadOrders()
+})
 const orderItemsMap = ref({}) // Cache: { [maHoaDon]: itemsArray }
 
 const resolveProductImg = (it) => {
@@ -42,11 +55,7 @@ const loadItemsForList = async (orderList) => {
   }))
 }
 
-// Modal đánh giá sản phẩm
-const showReviewModal = ref(false)
-const reviewingItem = ref(null)
-const reviewRating = ref(5)
-const reviewComment = ref('')
+// Đã lược bỏ đánh giá
 
 // Countdown 5 phút tự động hủy cho đơn chưa thanh toán VNPAY
 const countdownSeconds = ref(299)
@@ -86,30 +95,19 @@ const getActorClass = (log) => {
 }
 
 const currentUserName = computed(() => {
-  try {
-    const raw = localStorage.getItem('user')
-    if (raw) {
-      const u = JSON.parse(raw)
-      return u.tenTaiKhoan || u.tenKhachHang || u.hoVaTen || 'thaont'
-    }
-    const un = localStorage.getItem('username')
-    if (un) return un
-  } catch (e) {}
+  if (currentClientUser.value?.name) return currentClientUser.value.name
   if (selectedOrder.value?.tenKhachHang) {
-    return selectedOrder.value.tenKhachHang.toLowerCase().replace(/\s+/g, '')
+    return selectedOrder.value.tenKhachHang
   }
-  return 'thaont'
+  return 'Khách hàng'
 })
 
 const currentUserFullName = computed(() => {
-  try {
-    const raw = localStorage.getItem('user')
-    if (raw) {
-      const u = JSON.parse(raw)
-      return u.tenKhachHang || u.hoVaTen || 'Nguyễn Thu Thảo'
-    }
-  } catch (e) {}
-  return selectedOrder.value?.tenKhachHang || 'Nguyễn Thu Thảo'
+  if (currentClientUser.value?.name) return currentClientUser.value.name
+  if (selectedOrder.value?.tenKhachHang) {
+    return selectedOrder.value.tenKhachHang
+  }
+  return 'Khách hàng'
 })
 
 const isVnPayOrderObj = (o) => {
@@ -128,7 +126,12 @@ const completedCount = computed(() => orders.value.filter(o => o.trangThai === 5
 const cancelledCount = computed(() => orders.value.filter(o => o.trangThai === 6).length)
 
 const filteredOrders = computed(() => {
+  if (!currentClientUser.value && !route.query.code && !route.query.ma) {
+    return []
+  }
+
   let list = orders.value
+
   if (activeTab.value === 'pending') list = list.filter(o => o.trangThai === 1)
   else if (activeTab.value === 'shipping') list = list.filter(o => o.trangThai === 2 || o.trangThai === 3 || o.trangThai === 4)
   else if (activeTab.value === 'completed') list = list.filter(o => o.trangThai === 5)
@@ -165,22 +168,52 @@ const handleBackToList = () => {
 }
 
 const loadOrders = async () => {
+  const targetCode = route.query.code || route.query.ma
+
+  // 1. Nếu có mã đơn trên URL: Tra cứu trực tiếp đơn đó
+  if (targetCode) {
+    loading.value = true
+    try {
+      const res = await api.get(`/api/hoa-don/code/${targetCode}`)
+      if (res.data && res.data.maHoaDon) {
+        orders.value = [res.data]
+        viewOrderDetail(res.data)
+      }
+    } catch (e) {
+      console.warn('Không tìm thấy đơn theo mã:', e)
+    } finally {
+      loading.value = false
+    }
+    return
+  }
+
+  // 2. Nếu CHƯA ĐĂNG NHẬP: Tuyệt đối không tải đơn hàng của người khác
+  if (!currentClientUser.value) {
+    orders.value = []
+    loading.value = false
+    return
+  }
+
+  // 3. Nếu ĐÃ ĐĂNG NHẬP: Tải và lọc riêng đơn của khách hàng này
   loading.value = true
   try {
     const res = await api.get('/api/hoa-don')
     const list = Array.isArray(res.data) ? res.data : []
     list.sort((a, b) => new Date(b.ngayTao || 0) - new Date(a.ngayTao || 0))
-    orders.value = list
-    loadItemsForList(list)
 
-    // Chỉ tự động mở chi tiết nếu có query code trong URL (?code=HDxxx hoặc ?ma=HDxxx)
-    const targetCode = route.query.code || route.query.ma
-    if (targetCode && list.length > 0) {
-      const found = list.find(o => o.maHoaDon === targetCode)
-      if (found) {
-        viewOrderDetail(found)
-      }
-    }
+    const uid = currentClientUser.value.id
+    const uPhone = currentClientUser.value.phone?.trim()
+    const uEmail = currentClientUser.value.email?.trim()?.toLowerCase()
+
+    const myOrders = list.filter(o => {
+      if (uid && o.idKhachHang && (o.idKhachHang.id === uid || o.idKhachHang === uid)) return true
+      if (uPhone && o.soDienThoaiKhachHang && o.soDienThoaiKhachHang.trim() === uPhone) return true
+      if (uEmail && o.emailKhachHang && o.emailKhachHang.trim().toLowerCase() === uEmail) return true
+      return false
+    })
+
+    orders.value = myOrders
+    loadItemsForList(myOrders)
   } catch (err) {
     console.error('Lỗi tải danh sách đơn hàng:', err)
   } finally {
@@ -225,18 +258,19 @@ const getStatusLabel = (status) => {
 
 const handleCancelOrder = async () => {
   if (!selectedOrder.value) return
-  if (confirm(`Bạn có chắc chắn muốn hủy đơn hàng #${selectedOrder.value.maHoaDon}?`)) {
+  const ok = await showAppConfirm(`Bạn có chắc chắn muốn hủy đơn hàng #${selectedOrder.value.maHoaDon}?`, 'Hủy đơn hàng')
+  if (ok) {
     try {
       await api.put(`/api/hoa-don/${selectedOrder.value.id}/trang-thai`, {
         trangThai: 6,
         ghiChu: 'Khách hàng yêu cầu hủy đơn trên website'
       })
       selectedOrder.value.trangThai = 6
-      alert('Đã hủy đơn hàng thành công!')
+      await showAppAlert('Đã hủy đơn hàng thành công!', 'Hủy đơn hàng', 'success')
       loadOrders()
       viewOrderDetail(selectedOrder.value)
     } catch (e) {
-      alert('Không thể hủy đơn hàng vào lúc này. Vui lòng liên hệ hotline hỗ trợ!')
+      await showAppAlert('Không thể hủy đơn hàng vào lúc này. Vui lòng liên hệ hotline hỗ trợ!', 'Lỗi hủy đơn', 'error')
     }
   }
 }
@@ -264,7 +298,7 @@ const openPayModal = async () => {
       )
     }
   } catch (e) {
-    alert('Không thể kết nối tới cổng thanh toán VNPAY lúc này. Vui lòng thử lại sau!')
+    await showAppAlert('Không thể kết nối tới cổng thanh toán VNPAY lúc này. Vui lòng thử lại sau!', 'Cổng thanh toán VNPAY', 'error')
   } finally {
     payingVnpay.value = false
   }
@@ -275,17 +309,7 @@ const quickPayOrder = (o) => {
   openPayModal()
 }
 
-const openReview = (item) => {
-  reviewingItem.value = item
-  reviewRating.value = 5
-  reviewComment.value = ''
-  showReviewModal.value = true
-}
 
-const submitReview = () => {
-  alert('Cảm ơn bạn đã gửi đánh giá 5 sao cho sản phẩm của FF T-Shirt!')
-  showReviewModal.value = false
-}
 
 const onMessageReceived = (event) => {
   if (event.data && (event.data.type === 'VNPAY_PAID_SUCCESS' || event.data.type === 'VNPAY_PAYMENT_RESULT')) {
@@ -376,9 +400,26 @@ onUnmounted(() => {
       <div class="orders-layout">
         <!-- NỘI DUNG CHÍNH -->
         <main class="order-content-main">
+          <!-- VIEW KHI CHƯA ĐĂNG NHẬP: CHỈ HIỂN THỊ 2 NÚT HÀNH ĐỘNG (Ảnh 2) -->
+          <div v-if="!isClientLoggedIn" class="auth-gate-wrapper">
+            <div class="auth-gate-card">
+              <div class="auth-gate-actions">
+                <button type="button" class="btn-auth-gate-login" @click="showAuthModal = true">
+                  Đăng Nhập Tài Khoản
+                </button>
+                <router-link to="/tra-cuu" class="btn-auth-gate-track">
+                  Tra cứu nhanh bằng mã đơn &amp; SĐT &rarr;
+                </router-link>
+              </div>
+            </div>
+          </div>
+
+          <!-- KHI ĐÃ ĐĂNG NHẬP -->
+          <template v-else>
           <!-- ============================================== -->
           <!-- VIEW 1: DANH SÁCH ĐƠN HÀNG (KHI CHƯA CHỌN ĐƠN) -->
           <!-- ============================================== -->
+          <!-- VIEW 1: DANH SÁCH ĐƠN HÀNG -->
           <div v-if="!selectedOrder" class="orders-list-view">
             <!-- Header Trang Danh Sách & Tìm Kiếm -->
             <div class="list-hero-header">
@@ -639,6 +680,47 @@ onUnmounted(() => {
               </div>
             </div>
 
+                        <!-- THÔNG TIN VẬN CHUYỂN & GIAO HÀNG ONLINE (GHN) -->
+            <div class="online-shipping-detail-box" v-if="selectedOrder.loaiDon !== 1">
+              <div class="shipping-box-header">
+                <div class="carrier-brand">
+                  <span class="carrier-icon">🚚</span>
+                  <div>
+                    <strong class="carrier-title">Đơn vị vận chuyển: {{ selectedOrder.donViVanChuyen || 'Giao Hàng Nhanh (GHN)' }}</strong>
+                    <span class="carrier-badge">GHN Express</span>
+                  </div>
+                </div>
+                <div class="tracking-code-wrap" v-if="selectedOrder.maVanDon">
+                  <span class="trk-label">Mã vận đơn:</span>
+                  <span class="trk-code">#{{ selectedOrder.maVanDon }}</span>
+                </div>
+              </div>
+
+              <div class="shipping-info-grid">
+                <div class="shipping-info-item">
+                  <span class="item-label">Người nhận hàng:</span>
+                  <strong class="item-value">{{ selectedOrder.tenKhachHang || selectedOrder.tenKhachHangHienThi || 'Khách hàng' }}</strong>
+                  <span class="item-sub" v-if="selectedOrder.soDienThoaiKhachHang || selectedOrder.soDienThoaiHienThi">
+                    📞 {{ selectedOrder.soDienThoaiKhachHang || selectedOrder.soDienThoaiHienThi }}
+                  </span>
+                </div>
+                <div class="shipping-info-item">
+                  <span class="item-label">Địa chỉ giao hàng:</span>
+                  <span class="item-value">{{ selectedOrder.diaChiNhanHang || 'Nhận tại địa chỉ' }}</span>
+                </div>
+                <div class="shipping-info-item">
+                  <span class="item-label">Trạng thái vận chuyển:</span>
+                  <strong class="item-value text-shipping">
+                    {{ selectedOrder.trangThai === 1 ? 'Chờ Shop xác nhận & đóng gói' :
+                       selectedOrder.trangThai === 2 ? 'Shop đã duyệt đơn - Đang chuẩn bị hàng' :
+                       selectedOrder.trangThai === 3 ? 'Đang bàn giao shipper GHN' :
+                       selectedOrder.trangThai === 4 ? 'Shipper GHN đang trên đường giao tới bạn' :
+                       selectedOrder.trangThai === 5 ? 'Đã giao hàng thành công' : 'Đơn đã hủy' }}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
             <!-- KHỐI THÔNG TIN THANH TOÁN & TỔNG KẾT TÀI CHÍNH 2 CỘT (MATCH VIDEO) -->
             <div class="video-summary-grid">
               <!-- Cột trái: Phương thức & Tình trạng thanh toán -->
@@ -669,7 +751,7 @@ onUnmounted(() => {
                   <span>- {{ formatCurrency(selectedOrder.tongTienGiamGia) }}</span>
                 </div>
                 <div class="v-sum-row">
-                  <span>Phí vận chuyển</span>
+                  <span>Phí vận chuyển ({{ selectedOrder.donViVanChuyen || "GHN" }})</span>
                   <span class="ship-val">
                     <img v-if="(selectedOrder.phiShip || selectedOrder.phiVanChuyen) > 0" src="https://cdn.haitrieu.com/wp-content/uploads/2022/05/Logo-GHN-Orange.png" alt="GHN" class="ghn-mini-logo" />
                     + {{ (selectedOrder.phiShip || selectedOrder.phiVanChuyen) > 0 ? formatCurrency(selectedOrder.phiShip || selectedOrder.phiVanChuyen) : '0 ₫' }}
@@ -745,13 +827,7 @@ onUnmounted(() => {
                   </div>
                   <div class="product-price-col">
                     <span class="price-val">{{ formatCurrency(it.giaDuocTinh || it.donGia || 0) }}</span>
-                    <button
-                      v-if="selectedOrder.trangThai === 5"
-                      class="btn-review-item"
-                      @click="openReview(it)"
-                    >
-                      ⭐ Đánh giá
-                    </button>
+                    
                   </div>
                 </div>
               </div>
@@ -767,59 +843,18 @@ onUnmounted(() => {
               </router-link>
             </div>
           </div>
+        
+          </template>
         </main>
       </div>
     </div>
-
-    <!-- MODAL ĐÁNH GIÁ SẢN PHẨM -->
-    <div v-if="showReviewModal" class="modal-overlay" @click.self="showReviewModal = false">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3>Đánh giá sản phẩm</h3>
-          <button class="btn-close" @click="showReviewModal = false">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="review-product-head">
-            <strong>{{ reviewingItem?.tenSanPham || 'Áo thun FF' }}</strong>
-            <p>Phân loại: {{ reviewingItem?.tenMauSac }} / {{ reviewingItem?.tenKichCo }}</p>
-          </div>
-
-          <div class="star-rating-box">
-            <label>Chất lượng phục vụ & sản phẩm:</label>
-            <div class="stars-row">
-              <span
-                v-for="s in 5"
-                :key="s"
-                class="star-icon"
-                :class="{ filled: s <= reviewRating }"
-                @click="reviewRating = s"
-              >
-                ★
-              </span>
-              <span class="rating-text">
-                {{ reviewRating === 5 ? 'Tuyệt vời' : reviewRating === 4 ? 'Hài lòng' : 'Bình thường' }}
-              </span>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Chia sẻ cảm nhận của bạn:</label>
-            <textarea
-              v-model="reviewComment"
-              rows="3"
-              placeholder="Chất vải rất mịn, thoáng mát, đường may tỉ mỉ, đóng gói đẹp..."
-              class="form-control"
-            ></textarea>
-          </div>
-
-          <button class="btn-submit-review" @click="submitReview">
-            Gửi đánh giá
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
-</template>
+    <!-- Modal Đăng nhập / Đăng ký tài khoản -->
+    <ModalDangNhap
+      v-model="showAuthModal"
+      @login-success="handleLoginSuccess"
+    />
+  </template>
 
 <style scoped>
 .orders-page-shell {
@@ -2216,4 +2251,154 @@ onUnmounted(() => {
     justify-content: flex-end;
   }
 }
+
+/* ONLINE SHIPPING DETAIL BOX (GHN) */
+.online-shipping-detail-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 22px;
+}
+.shipping-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed #cbd5e1;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.carrier-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.carrier-icon {
+  font-size: 24px;
+}
+.carrier-title {
+  font-size: 15px;
+  color: #1e293b;
+  font-weight: 700;
+  display: block;
+}
+.carrier-badge {
+  display: inline-block;
+  background: #ff6600;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  margin-top: 3px;
+}
+.tracking-code-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  padding: 5px 12px;
+  border-radius: 6px;
+}
+.trk-label {
+  font-size: 13px;
+  color: #64748b;
+}
+.trk-code {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0284c7;
+}
+.shipping-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.shipping-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.item-label {
+  font-size: 12px;
+  color: #64748b;
+}
+.item-value {
+  font-size: 14px;
+  color: #1e293b;
+}
+.item-sub {
+  font-size: 13px;
+  color: #475569;
+}
+.text-shipping {
+  color: #059669;
+}
+
+
+/* ======================================================== */
+/* MÀN HÌNH YÊU CẦU ĐĂNG NHẬP ĐƠN HÀNG                      */
+/* ======================================================== */
+.auth-gate-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 16px 80px;
+}
+
+.auth-gate-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 32px 28px;
+  max-width: 440px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+
+.auth-gate-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.btn-auth-gate-login {
+  width: 100%;
+  padding: 14px 20px;
+  background: #000000;
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.btn-auth-gate-login:hover {
+  background: #1e293b;
+  transform: translateY(-2px);
+}
+
+.btn-auth-gate-track {
+  display: inline-block;
+  padding: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #496883;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.btn-auth-gate-track:hover {
+  color: #1e293b;
+  text-decoration: underline;
+}
+
 </style>

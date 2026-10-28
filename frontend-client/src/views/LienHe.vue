@@ -173,21 +173,6 @@ const openFallbackMailClient = () => {
         <p class="lead">Đừng ngần ngại liên hệ với chúng tôi bất cứ khi nào bạn cần tư vấn về sản phẩm, chọn size áo hoặc theo dõi đơn hàng.</p>
 
         <div class="info-list">
-          <div class="info-item">
-            <span class="icon">📍</span>
-            <div>
-              <strong>Địa chỉ cửa hàng:</strong>
-              <p>Tòa nhà FPT Polytechnic, Phố Trịnh Văn Bô, Nam Từ Liêm, Hà Nội</p>
-            </div>
-          </div>
-
-          <div class="info-item">
-            <span class="icon">📞</span>
-            <div>
-              <strong>Hotline chăm sóc khách hàng:</strong>
-              <p>1900 6677 (8:00 - 22:00 hàng ngày)</p>
-            </div>
-          </div>
 
           <div class="info-item">
             <span class="icon">✉️</span>

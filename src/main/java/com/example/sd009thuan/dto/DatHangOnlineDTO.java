@@ -10,12 +10,15 @@ import java.util.List;
 @Setter
 public class DatHangOnlineDTO {
     private Long idKhachHang;
+    private Long idPhieuGiamGia;
     private String tenKhachHang;
     private String soDienThoai;
     private String email;
     private String diaChiNhanHang;
     private String ghiChu;
     private String phuongThucThanhToan; // "COD", "VNPAY", "MANUAL"
+    private String donViVanChuyen;
+    private String maVanDon;
     private BigDecimal tongTien;
     private BigDecimal phiVanChuyen;
     private BigDecimal giamGia;

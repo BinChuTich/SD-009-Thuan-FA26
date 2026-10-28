@@ -17,21 +17,6 @@
         </div>
         <h1 class="page-main-title">Lịch sử hoạt động & Kiểm toán ca làm việc</h1>
       </div>
-
-      <div class="top-actions-cluster">
-        <!-- Nút chuyển tới màn hình Vào ca & Giao ca quầy -->
-        <button
-          type="button"
-          class="btn-open-shift"
-          @click="$router.push('/giao-ca')"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-          </svg>
-          <span>Vào ca & Giao ca quầy →</span>
-        </button>
-      </div>
     </div>
 
     <!-- Card Bộ lọc Lịch sử hoạt động -->
@@ -41,7 +26,7 @@
         <div class="filter-col search-col">
           <label class="field-label-tiny">Tìm kiếm</label>
           <div class="input-with-prefix-icon">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
+            <svg v-if="false" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -49,7 +34,7 @@
               type="text"
               v-model="filters.keyword"
               placeholder="Tìm theo tài khoản / mã ca / mã hóa đơn..."
-              class="form-control-minimal with-icon"
+              class="form-control-minimal"
               @input="onSearchInput"
             />
           </div>
@@ -397,13 +382,12 @@
             />
           </div>
         </div>
-
         <div class="modal-footer-clean">
           <button type="button" class="btn-cancel-modal" @click="showMoCaModal = false">Hủy</button>
           <button
             type="button"
             class="btn-save-modal"
-            :disabled="submittingMoCa || !!moCaErrors.tienMatDauCa || !moCaForm.nhanVienId || !moCaForm.caLamViecId"
+            :disabled="submittingMoCa || !moCaErrors.tienMatDauCa || !moCaForm.nhanVienId || !moCaForm.caLamViecId"
             @click="submitMoCa"
           >
             {{ submittingMoCa ? 'Đang mở...' : 'Xác nhận mở ca' }}
@@ -1222,10 +1206,10 @@ onMounted(async () => {
 
 .content-card {
   background-color: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #ece6dc;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
-  padding: 1.25rem 1.4rem;
+  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+  padding: 1.4rem 1.6rem;
   box-sizing: border-box;
 }
 
@@ -1252,12 +1236,12 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(140, 115, 85, 0.12);
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.12);
 }
 
 .page-main-title {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #2c3e50;
 }
@@ -1282,7 +1266,7 @@ onMounted(async () => {
   gap: 6px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 6px rgba(140, 115, 85, 0.15);
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.15);
 }
 
 .btn-open-shift:hover {
@@ -1643,7 +1627,7 @@ onMounted(async () => {
 
 .modal-dialog-clean {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 12px;
   width: 100%;
   max-width: 480px;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15);
@@ -2189,4 +2173,3 @@ onMounted(async () => {
 }
 
 </style>
-

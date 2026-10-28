@@ -395,10 +395,16 @@ const loadHoaDon = async () => {
         }
 
         let employeeName = ''
-        const hasStaff = Boolean(item.idNhanVien || item.nhanVien || (item.nguoiTao && !String(item.nguoiTao || '').toLowerCase().includes('khách') && !String(item.nguoiTao || '').toLowerCase().includes('client') && !String(item.nguoiTao || '').toLowerCase().includes('website')))
-        const isOnline = Number(item.loaiDon) === 2 && !hasStaff && !String(item.ghiChu || '').toLowerCase().includes('pos') && !String(item.ghiChu || '').toLowerCase().includes('quầy')
+        const hasDeliveryAddress = Boolean(item.diaChiNhanHang && item.diaChiNhanHang !== 'Bán tại quầy' && item.diaChiNhanHang !== '—')
+        const hasShippingFee = Number(item.phiVanChuyen || item.phiShip || 0) > 0
+        const hasCarrier = Boolean(item.donViVanChuyen && item.donViVanChuyen !== '—')
+        const noteText = String(item.ghiChu || '').toLowerCase()
+        const creatorStr = String(item.nguoiTao || '').toUpperCase()
+        const isStaffCreator = creatorStr.startsWith('NV') || Boolean(item.idNhanVien) || noteText.includes('pos') || noteText.includes('tại quầy')
+        const isStoreOrder = Number(item.loaiDon) === 1 || isStaffCreator
+        const isOnline = !isStoreOrder && (Number(item.loaiDon) === 2 || String(item.loaiDon || '').toLowerCase().includes('online') || noteText.includes('online'))
         if (isOnline) {
-          employeeName = ''
+          employeeName = nhanVienObj?.tenNhanVien || nhanVienObj?.tenTaiKhoan || item.tenNhanVien || empCatalog[item.idNhanVien] || empCatalog[item.nguoiTao] || ''
         } else if (nhanVienObj?.tenNhanVien) {
           employeeName = nhanVienObj.tenNhanVien
         } else if (empCatalog[item.idNhanVien]) {
@@ -704,7 +710,7 @@ onBeforeUnmount(() => {
         <div class="form-group search-group">
           <label>Tìm kiếm</label>
           <div class="input-with-icon">
-            <span class="icon-prefix">
+            <span class="icon-prefix" v-if="false">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -715,7 +721,7 @@ onBeforeUnmount(() => {
                 @input="resetPage"
                 type="text"
                 placeholder="Tìm mã HĐ, tên KH, SĐT..."
-                class="form-control input-has-prefix"
+                class="form-control"
             />
             <button
                 class="btn-qr-inline" v-if="false"

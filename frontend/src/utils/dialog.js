@@ -102,3 +102,8 @@ export function removeToast(id) {
     dialogState.toasts.splice(index, 1)
   }
 }
+
+if (typeof window !== 'undefined') {
+  window.showToast = showToast
+  window.showAlert = showAlert
+}
