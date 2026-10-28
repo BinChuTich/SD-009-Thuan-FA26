@@ -1197,7 +1197,9 @@ const formatDate = (dateStr) => {
                 </div>
                 <div class="choice-info-wrap">
                   <strong class="choice-title">Thanh toán khi nhận hàng (COD)</strong>
-                  <span class="choice-desc">Quý khách thanh toán tiền mặt trực tiếp cho nhân viên giao nhận khi nhận hàng.</span></div></label><div style="display:none"><div>
+                  <span class="choice-desc">Quý khách thanh toán tiền mặt trực tiếp cho nhân viên giao nhận khi nhận hàng.</span>
+                </div>
+              </label><div style="display:none"><div>
                 </div>
               </div>
 
@@ -1211,7 +1213,9 @@ const formatDate = (dateStr) => {
                 </div>
                 <div class="choice-info-wrap">
                   <strong class="choice-title">Cổng thanh toán trực tuyến VNPAY</strong>
-                  <span class="choice-desc">Quét mã VNPAY-QR qua ứng dụng Ngân hàng hoặc thẻ ATM / Internet Banking / Visa.</span></div></label><div style="display:none"><div>
+                  <span class="choice-desc">Quét mã VNPAY-QR qua ứng dụng Ngân hàng hoặc thẻ ATM / Internet Banking / Visa.</span>
+                </div>
+              </label><div style="display:none"><div>
                 </div>
               </div>
             </div>

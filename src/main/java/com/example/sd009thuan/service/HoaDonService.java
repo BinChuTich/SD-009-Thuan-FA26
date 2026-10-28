@@ -743,6 +743,44 @@ public class HoaDonService {
         } catch (Exception ignored) {}
         return saved;
     }
+    // Cập nhật đơn vị vận chuyển
+    @Transactional
+    public HoaDon updateDonViVanChuyen(Long id, String carrier) {
+        HoaDon hoaDon = hoaDonRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn có ID: " + id));
+        hoaDon.setDonViVanChuyen(carrier);
+        String currentNote = hoaDon.getGhiChu() != null ? hoaDon.getGhiChu() : "";
+        if (carrier != null && !carrier.trim().isEmpty()) {
+            String tag = "[ĐVVC: " + carrier.trim() + "]";
+            if (currentNote.contains("[ĐVVC:")) {
+                currentNote = currentNote.replaceAll("\\[ĐVVC:[^\\]]*\\]", tag);
+            } else {
+                currentNote = currentNote.isEmpty() ? tag : (currentNote + " " + tag);
+            }
+        }
+        hoaDon.setGhiChu(currentNote);
+        hoaDon.setNgayCapNhat(Instant.now());
+        HoaDon saved = hoaDonRepository.saveAndFlush(hoaDon);
+        try {
+            LichSuHoaDon log = new LichSuHoaDon();
+            log.setIdHoaDon(saved);
+            log.setTrangThai(saved.getTrangThai());
+            log.setThoiGian(Instant.now());
+            log.setHanhDong("Cập nhật đơn vị vận chuyển: " + (carrier != null ? carrier : ""));
+            log.setNguoiThucHien("Nhân viên");
+            log.setVaiTroNguoiThucHien("Nhân viên");
+            lichSuHoaDonRepository.save(log);
+        } catch (Exception ignored) {}
+        return saved;
+    }
+
+    @Transactional
+    public HoaDon updateDonViVanChuyenByMa(String maHoaDon, String carrier) {
+        HoaDon hoaDon = hoaDonRepository.findByMaHoaDon(maHoaDon)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn có mã: " + maHoaDon));
+        return updateDonViVanChuyen(hoaDon.getId(), carrier);
+    }
+
     // Cập nhật nhanh trạng thái hóa đơn theo ID
     @Transactional
     public HoaDon updateTrangThai(Long id, Integer trangThai) {
