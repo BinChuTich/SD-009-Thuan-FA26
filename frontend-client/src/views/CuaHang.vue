@@ -82,7 +82,141 @@ const loadProducts = async () => {
     } catch (e) {
       console.warn('API error, using catalog fallback:', e)
     }
-    products.value = getMergedProducts(content)
+    const mergedList = getMergedProducts(content)
+
+    // Đồng bộ đợt giảm giá (nếu có)
+    try {
+      const resActiveMap = await api.get('/api/dot-giam-gia/active-products-map')
+      if (resActiveMap.data && typeof resActiveMap.data === 'object') {
+        const dggMap = resActiveMap.data
+        mergedList.forEach(p => {
+          const dot = dggMap[p.id]
+          if (dot) {
+            p.coGiamGia = true
+            p.idDotGiamGia = dot.id
+            p.tenDotGiamGia = dot.tenDotGiamGia || p.tenDotGiamGia
+            p.phanTramGiam = dot.phanTramGiam || p.phanTramGiam
+            p.ngayBatDauDotGiamGia = dot.ngayBatDau || p.ngayBatDauDotGiamGia
+            p.ngayKetThucDotGiamGia = dot.ngayKetThuc || p.ngayKetThucDotGiamGia
+            if (p.minGia && (!p.minGiaSauGiam || p.minGiaSauGiam >= p.minGia) && p.phanTramGiam) {
+              p.minGiaSauGiam = Math.round(p.minGia * (100 - p.phanTramGiam) / 100)
+            }
+          }
+        })
+      }
+    } catch (e) {
+      console.warn('Không lấy được active-products-map:', e)
+    }
+
+    // Tải thông tin biến thể để hỗ trợ lọc chính xác theo Kích cỡ & Màu sắc
+    let allVariants = []
+    try {
+      const resVar = await api.get('/api/chi-tiet-san-pham', {
+        params: { page: 0, size: 2000 }
+      })
+      allVariants = resVar.data?.content || (Array.isArray(resVar.data) ? resVar.data : [])
+    } catch (e) {
+      console.warn('Không thể tải all variants trực tiếp:', e)
+    }
+
+    if (!allVariants || allVariants.length === 0) {
+      // Fallback: Tải biến thể theo từng sản phẩm
+      const variantPromises = mergedList.map(async (prod) => {
+        try {
+          const res = await api.get(`/api/chi-tiet-san-pham/by-san-pham/${prod.id}`)
+          return { prodId: prod.id, variants: Array.isArray(res.data) ? res.data : [] }
+        } catch {
+          return { prodId: prod.id, variants: prod.variants || [] }
+        }
+      })
+      const results = await Promise.allSettled(variantPromises)
+      const productVariantMap = {}
+      results.forEach(r => {
+        if (r.status === 'fulfilled' && r.value) {
+          productVariantMap[r.value.prodId] = r.value.variants
+        }
+      })
+      mergedList.forEach(prod => {
+        prod.variants = productVariantMap[prod.id] || prod.variants || []
+      })
+    } else {
+      const mapByProd = {}
+      allVariants.forEach(v => {
+        const pid = v.idSanPham || v.sanPhamId || v.sanPham?.id
+        if (pid) {
+          if (!mapByProd[pid]) mapByProd[pid] = []
+          mapByProd[pid].push(v)
+        }
+      })
+      mergedList.forEach(prod => {
+        prod.variants = mapByProd[prod.id] || prod.variants || []
+      })
+    }
+
+    // Bóc tách colorIds, colorNames, sizeIds, sizeNames cho từng sản phẩm
+    mergedList.forEach(prod => {
+      const vars = prod.variants || []
+      prod.colorIds = vars.map(v => v.idMauSac || v.mauSac?.id || v.mauSacId).filter(Boolean)
+      prod.colorNames = vars.map(v => (v.tenMauSac || v.mauSac?.tenMauSac || v.tenMau || '').trim().toLowerCase()).filter(Boolean)
+      prod.sizeIds = vars.map(v => v.idKichCo || v.kichCo?.id || v.kichCoId).filter(Boolean)
+      prod.sizeNames = vars.map(v => (v.tenKichCo || v.kichCo?.tenKichCo || v.tenSize || '').trim().toLowerCase()).filter(Boolean)
+    })
+
+    // Tự động thu thập mọi màu sắc từ biến thể sản phẩm để bổ sung vào combobox (colors.value)
+    const existingColorIds = new Set(colors.value.map(c => String(c.id)))
+    const existingColorNames = new Set(colors.value.map(c => (c.tenMauSac || '').trim().toLowerCase()))
+
+    mergedList.forEach(prod => {
+      const vars = prod.variants || []
+      vars.forEach(v => {
+        const cId = v.idMauSac || v.mauSac?.id || v.mauSacId
+        const cName = (v.tenMauSac || v.mauSac?.tenMauSac || v.tenMau || '').trim()
+        if (cId && !existingColorIds.has(String(cId))) {
+          existingColorIds.add(String(cId))
+          if (cName) existingColorNames.add(cName.toLowerCase())
+          colors.value.push({
+            id: cId,
+            tenMauSac: cName || `Màu #${cId}`,
+            maMau: v.maMau || v.mauSac?.maMau || '#496883'
+          })
+        } else if (cName && !existingColorNames.has(cName.toLowerCase())) {
+          existingColorNames.add(cName.toLowerCase())
+          colors.value.push({
+            id: cId || cName,
+            tenMauSac: cName,
+            maMau: v.maMau || v.mauSac?.maMau || '#496883'
+          })
+        }
+      })
+    })
+
+    // Tự động thu thập kích cỡ từ biến thể nếu chưa có trong danh sách
+    const existingSizeIds = new Set(sizes.value.map(s => String(s.id)))
+    const existingSizeNames = new Set(sizes.value.map(s => (s.tenKichCo || '').trim().toLowerCase()))
+
+    mergedList.forEach(prod => {
+      const vars = prod.variants || []
+      vars.forEach(v => {
+        const sId = v.idKichCo || v.kichCo?.id || v.kichCoId
+        const sName = (v.tenKichCo || v.kichCo?.tenKichCo || v.tenSize || '').trim()
+        if (sId && !existingSizeIds.has(String(sId))) {
+          existingSizeIds.add(String(sId))
+          if (sName) existingSizeNames.add(sName.toLowerCase())
+          sizes.value.push({
+            id: sId,
+            tenKichCo: sName || `Size #${sId}`
+          })
+        } else if (sName && !existingSizeNames.has(sName.toLowerCase())) {
+          existingSizeNames.add(sName.toLowerCase())
+          sizes.value.push({
+            id: sId || sName,
+            tenKichCo: sName
+          })
+        }
+      })
+    })
+
+    products.value = mergedList
   } catch (err) {
     console.error('Lỗi tải sản phẩm:', err)
   } finally {
@@ -117,12 +251,42 @@ const filteredProducts = computed(() => {
     list = list.filter(p => p.idThuongHieu == selectedBrand.value || p.tenThuongHieu === selectedBrand.value)
   }
 
+  // Lọc theo Màu sắc (khớp theo biến thể)
   if (selectedColor.value) {
-    list = list.filter(p => p.idMauSac == selectedColor.value || p.tenMauSac === selectedColor.value)
+    const targetColor = String(selectedColor.value).trim().toLowerCase()
+    list = list.filter(p => {
+      if (p.idMauSac && String(p.idMauSac) === targetColor) return true
+      if (p.tenMauSac && p.tenMauSac.trim().toLowerCase() === targetColor) return true
+      if (p.colorIds && p.colorIds.some(cid => String(cid) === targetColor)) return true
+      if (p.colorNames && p.colorNames.some(cname => cname === targetColor || cname.includes(targetColor) || targetColor.includes(cname))) return true
+      if (Array.isArray(p.variants)) {
+        return p.variants.some(v => {
+          const cid = v.idMauSac || v.mauSac?.id || v.mauSacId
+          const cname = (v.tenMauSac || v.mauSac?.tenMauSac || v.tenMau || '').trim().toLowerCase()
+          return (cid && String(cid) === targetColor) || (cname && (cname === targetColor || cname.includes(targetColor) || targetColor.includes(cname)))
+        })
+      }
+      return false
+    })
   }
 
+  // Lọc theo Kích cỡ (khớp theo biến thể)
   if (selectedSize.value) {
-    list = list.filter(p => p.idKichCo == selectedSize.value || p.tenKichCo === selectedSize.value)
+    const targetSize = String(selectedSize.value).trim().toLowerCase()
+    list = list.filter(p => {
+      if (p.idKichCo && String(p.idKichCo) === targetSize) return true
+      if (p.tenKichCo && p.tenKichCo.trim().toLowerCase() === targetSize) return true
+      if (p.sizeIds && p.sizeIds.some(sid => String(sid) === targetSize)) return true
+      if (p.sizeNames && p.sizeNames.some(sname => sname === targetSize)) return true
+      if (Array.isArray(p.variants)) {
+        return p.variants.some(v => {
+          const sid = v.idKichCo || v.kichCo?.id || v.kichCoId
+          const sname = (v.tenKichCo || v.kichCo?.tenKichCo || v.tenSize || '').trim().toLowerCase()
+          return (sid && String(sid) === targetSize) || (sname && sname === targetSize)
+        })
+      }
+      return false
+    })
   }
 
   if (priceFrom.value !== '') {
@@ -191,9 +355,9 @@ watch(() => route.query, (q) => {
   currentPage.value = 1
 }, { immediate: true })
 
-onMounted(() => {
-  loadAttributes()
-  loadProducts()
+onMounted(async () => {
+  await loadAttributes()
+  await loadProducts()
 })
 </script>
 
