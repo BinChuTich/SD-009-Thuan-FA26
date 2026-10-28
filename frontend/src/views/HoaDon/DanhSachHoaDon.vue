@@ -331,9 +331,7 @@ const extractInvoiceArray = (resData) => {
 // Kiểm tra hóa đơn chờ tại quầy (không hiển thị trong danh sách hóa đơn)
 const isWaitingInvoice = (item) => {
   if (!item || typeof item !== 'object') return false
-  const isStoreWaiting = Number(item.loaiDon) === 1
-      && Number(item.trangThai) === 1
-      && (item.trangThaiThanhToan == null || Number(item.trangThaiThanhToan) === 0)
+  const isStoreWaiting = Number(item.loaiDon) === 1 && Number(item.trangThai) === 1
   const note = String(item.ghiChu || '').toLowerCase()
   const isWaitingNote = note.includes('hóa đơn chờ') || note.includes('hoa don cho')
   return isStoreWaiting || isWaitingNote

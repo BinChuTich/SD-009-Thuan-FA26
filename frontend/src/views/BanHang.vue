@@ -204,7 +204,7 @@ const loadWaitingInvoices = async () => {
 
       res = {
 
-        data: all.filter(h => Number(h.loaiDon) === 1 && Number(h.trangThai) === 1 && (h.trangThaiThanhToan == null || Number(h.trangThaiThanhToan) === 0))
+        data: all.filter(h => Number(h.loaiDon) === 1 && Number(h.trangThai) === 1)
 
       }
 
