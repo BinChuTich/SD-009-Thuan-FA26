@@ -208,7 +208,14 @@ const onImgError = (e) => {
 }
 
 // 5 Bước Stepper
-const steps = [
+const isPosOrder = computed(() => {
+  if (!order.value) return false
+  if (order.value.loaiDon === 1) return true
+  const addr = (order.value.diaChiNhanHang || '').toLowerCase()
+  return addr.includes('tại quầy') || addr.includes('tai quay') || addr.includes('tại cửa hàng') || addr.includes('tai cua hang')
+})
+
+const defaultSteps = [
   { num: 1, label: 'Đặt hàng' },
   { num: 2, label: 'Xác nhận' },
   { num: 3, label: 'Đóng gói' },
@@ -216,6 +223,22 @@ const steps = [
   { num: 5, label: 'Giao thành công' }
 ]
 
+const steps = computed(() => {
+  if (isPosOrder.value) {
+    return [
+      { num: 1, label: 'Tạo đơn tại quầy' },
+      { num: 2, label: 'Thanh toán' },
+      { num: 5, label: 'Nhận hàng tại quầy' }
+    ]
+  }
+  return defaultSteps
+})
+/*
+})
+
+]
+
+*/
 const currentStep = computed(() => {
   if (!order.value) return 1
   if (order.value.trangThai === 6) return -1
@@ -225,6 +248,7 @@ const currentStep = computed(() => {
 // Tính toán tài chính
 const shippingFee = computed(() => {
   if (!order.value) return 0
+  if (isPosOrder.value) return 0
   return Number(order.value.phiVanChuyen || order.value.phiShip || 0)
 })
 

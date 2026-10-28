@@ -27,6 +27,43 @@ const handleLoginSuccess = () => {
 watch(() => currentClientUser.value, () => {
   loadOrders()
 })
+const isPosOrder = (o) => {
+  if (!o) return false
+  if (o.loaiDon === 1) return true
+  const addr = (o.diaChiNhanHang || '').toLowerCase()
+  return addr.includes('tại quầy') || addr.includes('tai quay') || addr.includes('tại cửa hàng') || addr.includes('tai cua hang')
+}
+
+const getOrderSubtotal = (o) => {
+  if (!o) return 0
+  return Number(o.tongTien || 0)
+}
+
+const getOrderShippingFee = (o) => {
+  if (!o || isPosOrder(o)) return 0
+  return Number(o.phiShip || o.phiVanChuyen || 0)
+}
+
+const getOrderFinalTotal = (o) => {
+  if (!o) return 0
+  if (o.tienSauGiamGia != null && Number(o.tienSauGiamGia) >= 0) {
+    return Number(o.tienSauGiamGia)
+  }
+  return getOrderSubtotal(o) + getOrderShippingFee(o)
+}
+
+const getOrderDiscount = (o) => {
+  if (!o) return 0
+  if (o.tongTienGiamGia != null && Number(o.tongTienGiamGia) > 0) {
+    return Number(o.tongTienGiamGia)
+  }
+  const subtotal = getOrderSubtotal(o)
+  const ship = getOrderShippingFee(o)
+  const finalTotal = getOrderFinalTotal(o)
+  const diff = subtotal + ship - finalTotal
+  return diff > 0 ? diff : 0
+}
+
 const orderItemsMap = ref({}) // Cache: { [maHoaDon]: itemsArray }
 
 const resolveProductImg = (it) => {
@@ -403,6 +440,11 @@ onUnmounted(() => {
           <!-- VIEW KHI CHƯA ĐĂNG NHẬP: CHỈ HIỂN THỊ 2 NÚT HÀNH ĐỘNG (Ảnh 2) -->
           <div v-if="!isClientLoggedIn" class="auth-gate-wrapper">
             <div class="auth-gate-card">
+              <div class="auth-gate-icon">📦</div>
+              <h2 class="auth-gate-title">Đăng nhập để xem đơn hàng</h2>
+              <p class="auth-gate-desc">
+                Vui lòng đăng nhập tài khoản khách hàng để theo dõi lịch sử và trạng thái các đơn hàng của bạn.
+              </p>
               <div class="auth-gate-actions">
                 <button type="button" class="btn-auth-gate-login" @click="showAuthModal = true">
                   Đăng Nhập Tài Khoản
@@ -567,7 +609,7 @@ onUnmounted(() => {
                   <div class="foot-actions-and-total">
                     <div class="foot-total-price">
                       <span class="lbl-total">Thành tiền:</span>
-                      <strong class="val-total">{{ formatCurrency(o.tienSauGiamGia || o.tongTien) }}</strong>
+                      <strong class="val-total">{{ formatCurrency(getOrderFinalTotal(o)) }}</strong>
                     </div>
 
                     <div class="foot-btn-group">
@@ -612,7 +654,52 @@ onUnmounted(() => {
             </div>
 
             <!-- TRÌNH THEO DÕI TIẾN ĐỘ ĐƠN HÀNG (STEPPER CỰC KỲ DỄ HIỂU) -->
-            <div class="order-stepper-box" v-if="selectedOrder.trangThai !== 6">
+            <!-- TRƯỜNG HỢP 1: ĐƠN MUA TRỰC TIẾP TẠI QUẦY -->
+            <div class="order-stepper-box pos-stepper" v-if="selectedOrder.trangThai !== 6 && isPosOrder(selectedOrder)">
+              <div class="stepper-track">
+                <!-- Step 1: Tạo đơn tại quầy -->
+                <div class="step-point completed">
+                  <div class="step-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                      <line x1="3" y1="6" x2="21" y2="6"></line>
+                      <path d="M16 10a4 4 0 0 1-8 0"></path>
+                    </svg>
+                  </div>
+                  <span class="step-name">Tạo đơn tại quầy</span>
+                  <span class="step-sub">{{ formatLogTime(selectedOrder.ngayTao) }}</span>
+                </div>
+                <div class="step-line" :class="{ active: selectedOrder.trangThaiThanhToan === 1 || selectedOrder.trangThai === 5 }"></div>
+
+                <!-- Step 2: Thanh toán -->
+                <div class="step-point" :class="{ completed: selectedOrder.trangThaiThanhToan === 1 || selectedOrder.trangThai === 5 }">
+                  <div class="step-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                      <line x1="2" y1="10" x2="22" y2="10"></line>
+                    </svg>
+                  </div>
+                  <span class="step-name">Thanh toán</span>
+                  <span class="step-sub">{{ selectedOrder.trangThaiThanhToan === 1 ? 'Đã thanh toán (' + (selectedOrder.phuongThucThanhToan || 'Tiền mặt') + ')' : 'Chờ thanh toán' }}</span>
+                </div>
+                <div class="step-line" :class="{ active: selectedOrder.trangThai === 5 }"></div>
+
+                <!-- Step 3: Hoàn tất đơn hàng tại quầy -->
+                <div class="step-point" :class="{ completed: selectedOrder.trangThai === 5, current: selectedOrder.trangThai === 5 }">
+                  <div class="step-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                      <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                  </div>
+                  <span class="step-name">Hoàn tất đơn hàng</span>
+                  <span class="step-sub">{{ selectedOrder.trangThai === 5 ? 'Đã nhận hàng tại quầy' : 'Đang xử lý tại quầy' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- TRƯỜNG HỢP 2: ĐƠN GIAO HÀNG ONLINE -->
+            <div class="order-stepper-box" v-else-if="selectedOrder.trangThai !== 6">
               <div class="stepper-track">
                 <!-- Step 1: Đặt hàng -->
                 <div class="step-point" :class="{ completed: selectedOrder.trangThai >= 1 }">
@@ -744,22 +831,28 @@ onUnmounted(() => {
               <div class="video-summary-col-right">
                 <div class="v-sum-row">
                   <span>Tổng tiền hàng</span>
-                  <span>{{ formatCurrency(selectedOrder.tongTien - (selectedOrder.phiShip || selectedOrder.phiVanChuyen || 0) + (selectedOrder.tongTienGiamGia || 0)) }}</span>
+                  <span>{{ formatCurrency(getOrderSubtotal(selectedOrder)) }}</span>
                 </div>
-                <div v-if="selectedOrder.tongTienGiamGia > 0" class="v-sum-row text-green">
+                <div v-if="getOrderDiscount(selectedOrder) > 0" class="v-sum-row text-green">
                   <span>Giảm giá [{{ selectedOrder.maPhieuGiamGia || selectedOrder.idPhieuGiamGia?.maPhieuGiamGia || 'VOUCHER' }}]</span>
-                  <span>- {{ formatCurrency(selectedOrder.tongTienGiamGia) }}</span>
+                  <span>- {{ formatCurrency(getOrderDiscount(selectedOrder)) }}</span>
                 </div>
                 <div class="v-sum-row">
-                  <span>Phí vận chuyển ({{ selectedOrder.donViVanChuyen || "GHN" }})</span>
-                  <span class="ship-val">
+                  <template v-if="!isPosOrder(selectedOrder)">
+                    <span>Phí vận chuyển ({{ selectedOrder.donViVanChuyen || "GHN" }})</span>
+                  </template>
+                  <template v-else>
+                    <span>Hình thức nhận</span>
+                    <span class="tag-pos-mini">Mua &amp; nhận tại quầy (0 ₫)</span>
+                  </template>
+                  <span v-if="!isPosOrder(selectedOrder)" class="ship-val">
                     <img v-if="(selectedOrder.phiShip || selectedOrder.phiVanChuyen) > 0" src="https://cdn.haitrieu.com/wp-content/uploads/2022/05/Logo-GHN-Orange.png" alt="GHN" class="ghn-mini-logo" />
-                    + {{ (selectedOrder.phiShip || selectedOrder.phiVanChuyen) > 0 ? formatCurrency(selectedOrder.phiShip || selectedOrder.phiVanChuyen) : '0 ₫' }}
+                    + {{ getOrderShippingFee(selectedOrder) > 0 ? formatCurrency(getOrderShippingFee(selectedOrder)) : '0 ₫' }}
                   </span>
                 </div>
                 <div class="v-sum-row v-total-row">
                   <span>Thành tiền</span>
-                  <strong class="total-big-val">{{ formatCurrency(selectedOrder.tongTien) }}</strong>
+                  <strong class="total-big-val">{{ formatCurrency(getOrderFinalTotal(selectedOrder)) }}</strong>
                 </div>
               </div>
             </div>
@@ -2252,6 +2345,18 @@ onUnmounted(() => {
   }
 }
 
+.tag-pos-mini {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f766e;
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  padding: 3px 10px;
+  border-radius: 6px;
+}
+
 /* ONLINE SHIPPING DETAIL BOX (GHN) */
 .online-shipping-detail-box {
   background: #f8fafc;
@@ -2359,6 +2464,25 @@ onUnmounted(() => {
   width: 100%;
   text-align: center;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+
+.auth-gate-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.auth-gate-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.auth-gate-desc {
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.5;
+  margin-bottom: 22px;
 }
 
 .auth-gate-actions {
