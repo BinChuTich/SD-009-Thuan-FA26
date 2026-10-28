@@ -10,7 +10,9 @@ import {
   removeFromCart,
   removeMultipleFromCart,
   clearCart,
-  saveCart
+  saveCart,
+  resolveProductImageUrl,
+  NEUTRAL_PRODUCT_PLACEHOLDER
 } from '@/utils/luuTruGioHang.js'
 import { getMergedProducts } from '@/utils/danhMucSanPham.js'
 import { showAppConfirm, showAppAlert, showAppToast } from '@/utils/thongBaoDialog.js'
@@ -152,6 +154,10 @@ const backToCartStep = () => {
 }
 
 const resolveProductImg = (item) => {
+  const raw = item?.image || item?.anh || item?.hinhAnh || item?.anhDaiDien
+  return resolveProductImageUrl(raw)
+}
+const disabledOldResolve = () => {
   const raw = item?.image || item?.anh || item?.hinhAnh
   if (!raw) return 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=200&q=80'
   if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) return raw
@@ -159,7 +165,7 @@ const resolveProductImg = (item) => {
 }
 
 const onImgError = (e) => {
-  e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=200&q=80'
+  e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER
 }
 
 const selectedItemIds = ref(cartItems.value.map(i => i.variantId))
@@ -241,6 +247,7 @@ const handleClearCart = async () => {
 const voucherInput = ref('')
 const appliedVoucher = ref(null)
 const availableVouchers = ref([])
+const allVouchers = ref([])
 
 const isVoucherPersonal = (v) => {
   if (!v) return false
@@ -256,23 +263,26 @@ const fetchPublicVouchers = async () => {
   try {
     const res = await api.get('/api/phieu-giam-gia')
     const list = Array.isArray(res.data) ? res.data : (res.data?.content || [])
-    const now = new Date().toISOString()
+    allVouchers.value = list
+    const nowTime = Date.now()
+    const isValidDate = (d) => d && !isNaN(new Date(d).getTime())
     availableVouchers.value = list.filter(v => {
       // Chỉ fill các mã CÔNG KHAI
       if (isVoucherPersonal(v)) return false
       if (v.trangThai != null && Number(v.trangThai) !== 1) return false
       if (v.soLuongSuDung != null && v.soLuongSuDung <= 0) return false
-      if (v.ngayBatDau && v.ngayBatDau > now) return false
-      if (v.ngayKetThuc && v.ngayKetThuc < now) return false
+      if (isValidDate(v.ngayBatDau) && new Date(v.ngayBatDau).getTime() > nowTime) return false
+      if (isValidDate(v.ngayKetThuc) && new Date(v.ngayKetThuc).getTime() < nowTime) return false
       return true
     })
-    autoApplyBestVoucher()
+    // Khách hàng bấm áp dụng thì mới áp dụng mã
   } catch (e) {
     console.warn('Lỗi tải phiếu giảm giá công khai:', e)
   }
 }
 
 const autoApplyBestVoucher = () => {
+  return // Đã tắt tự động áp dụng mã, chỉ áp dụng khi khách bấm
   if (selectedSubtotal.value <= 0 || !availableVouchers.value || availableVouchers.value.length === 0) {
     return
   }
@@ -329,6 +339,34 @@ const calculateDiscountForVoucher = (voucher, subtotal) => {
   return Math.min(disc, subtotal)
 }
 
+// Đưa phiếu giảm giá tốt nhất lên đầu danh sách
+const sortedAvailableVouchers = computed(() => {
+  if (!availableVouchers.value || availableVouchers.value.length === 0) return []
+  const sub = Number(selectedSubtotal.value || 0)
+
+  return [...availableVouchers.value].sort((a, b) => {
+    // 1. Nếu giỏ hàng có tiền, ưu tiên phiếu đủ điều kiện và mức giảm thực tế cao nhất
+    if (sub > 0) {
+      const discA = calculateDiscountForVoucher(a, sub)
+      const discB = calculateDiscountForVoucher(b, sub)
+      if (discB !== discA) return discB - discA
+    }
+
+    // 2. So sánh tiềm năng giảm giá
+    const valA = Number(a.giaTriGiamGia || 0)
+    const valB = Number(b.giaTriGiamGia || 0)
+    if (valB !== valA) return valB - valA
+
+    // 3. Ưu tiên điều kiện đơn tối thiểu nhỏ hơn
+    return Number(a.hoaDonToiThieu || 0) - Number(b.hoaDonToiThieu || 0)
+  })
+})
+
+const bestVoucherId = computed(() => {
+  if (!sortedAvailableVouchers.value || sortedAvailableVouchers.value.length === 0) return null
+  return sortedAvailableVouchers.value[0]?.id || null
+})
+
 const handleApplyVoucher = async (codeToApply) => {
   const code = (codeToApply || voucherInput.value || '').trim().toUpperCase()
   if (!code) return
@@ -337,7 +375,18 @@ const handleApplyVoucher = async (codeToApply) => {
     return
   }
 
-  const voucher = availableVouchers.value.find(v => (v.maPhieuGiamGia || '').toUpperCase() === code)
+  let voucher = availableVouchers.value.find(v => (v.maPhieuGiamGia || '').toUpperCase() === code)
+  if (!voucher) {
+    voucher = allVouchers.value.find(v => (v.maPhieuGiamGia || '').toUpperCase() === code)
+    if (voucher && isVoucherPersonal(voucher)) {
+      const currentUserId = currentClientUser.value?.id
+      const hasAccess = Array.isArray(voucher.idKhachHangList) && currentUserId && voucher.idKhachHangList.includes(Number(currentUserId))
+      if (!hasAccess) {
+        await showAppAlert('Mã giảm giá này là mã riêng tư và không áp dụng cho tài khoản của bạn!', 'Mã không hợp lệ', 'error')
+        return
+      }
+    }
+  }
   if (!voucher) {
     await showAppAlert(`Mã giảm giá '${code}' không hợp lệ hoặc không có trong hệ thống!`, 'Mã giảm giá', 'error')
     return
@@ -377,8 +426,8 @@ const handleRemoveVoucher = () => {
 const suggestedCodes = computed(() => {
   const codes = []
   // Chỉ lấy các mã voucher CÔNG KHAI thực tế từ database của Admin
-  if (availableVouchers.value && availableVouchers.value.length > 0) {
-    availableVouchers.value.forEach(v => {
+  if (sortedAvailableVouchers.value && sortedAvailableVouchers.value.length > 0) {
+    sortedAvailableVouchers.value.forEach(v => {
       if (v.maPhieuGiamGia && !codes.includes(v.maPhieuGiamGia)) {
         codes.push(v.maPhieuGiamGia)
       }
@@ -403,7 +452,15 @@ watch(selectedSubtotal, (newSub) => {
     return
   }
   // Tự động tìm và áp dụng phiếu giảm giá có mức giảm tốt nhất
-  autoApplyBestVoucher()
+  // Chỉ cập nhật lại số tiền giảm nếu khách ĐÃ ÁP DỤNG mã trước đó
+  if (appliedVoucher.value && appliedVoucher.value.raw) {
+    const minSpend = Number(appliedVoucher.value.minSpend || 0)
+    if (newSub < minSpend) {
+      appliedVoucher.value = null
+    } else {
+      appliedVoucher.value.discount = calculateDiscountForVoucher(appliedVoucher.value.raw, newSub)
+    }
+  }
 })
 
 // ==========================================
@@ -731,6 +788,12 @@ const syncCartStock = async () => {
         } else if (item.quantity > freshStock) {
           item.quantity = freshStock
         }
+        // Tự động đồng bộ đúng ảnh thật của biến thể từ CSDL
+        const realVariantImg = res.data.anhDaiDien || res.data.hinhAnh || ''
+        if (realVariantImg && (item.image !== realVariantImg || !item.image || item.image.includes('unsplash') || item.image.includes('default_tshirt'))) {
+          item.image = realVariantImg
+          updated = true
+        }
         validItems.push(item)
       }
     } catch (err) {
@@ -745,6 +808,7 @@ const syncCartStock = async () => {
   if (updated || validItems.length !== cartItems.value.length) {
     cartItems.value = validItems
     saveCart()
+
   }
 
   // Giỏ hàng trống giữ nguyên, không tự động thêm sản phẩm mẫu
@@ -1379,7 +1443,7 @@ const formatDate = (dateStr) => {
                 <div>
                   <div class="av-code-badge-row" style="display: flex; align-items: center; gap: 6px;">
                     <strong>Mã: {{ appliedVoucher.code }}</strong>
-                    <span class="av-best-badge" v-if="appliedVoucher.isAuto">Tốt nhất</span>
+                    <span class="av-best-badge" v-if="appliedVoucher.id === bestVoucherId">Tốt nhất</span>
                   </div>
                   <span class="av-disc">Đã giảm -{{ formatCurrency(appliedVoucher.discount) }}</span>
                 </div>
@@ -1390,16 +1454,19 @@ const formatDate = (dateStr) => {
             </div>
 
             <!-- Danh sách thẻ voucher CÔNG KHAI từ Admin (Match style Coolmate) -->
-            <div v-if="availableVouchers.length > 0" class="public-coupons-carousel">
+            <div v-if="sortedAvailableVouchers.length > 0" class="public-coupons-carousel">
               <div
-                v-for="v in availableVouchers"
+                v-for="v in sortedAvailableVouchers"
                 :key="v.id"
                 class="coupon-card-ticket"
                 :class="{ active: appliedVoucher?.id === v.id }"
                 @click="applyCouponDirectly(v)"
               >
                 <div class="ticket-left">
-                  <div class="ticket-badge">{{ v.maPhieuGiamGia }}</div>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <div class="ticket-badge">{{ v.maPhieuGiamGia }}</div>
+                    <span v-if="v.id === bestVoucherId" class="av-best-badge" style="margin-left: 0;">Tốt nhất</span>
+                  </div>
                   <div class="ticket-name">
                     {{ Number(v.loaiPhieuGiamGia) === 1 ? `Giảm ${v.giaTriGiamGia}%` : `Giảm ${formatCurrency(v.giaTriGiamGia)}` }}
                     <span v-if="v.hoaDonToiThieu && Number(v.hoaDonToiThieu) > 0">

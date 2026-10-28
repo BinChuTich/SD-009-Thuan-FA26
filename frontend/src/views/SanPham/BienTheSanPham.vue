@@ -815,6 +815,7 @@ const formatImageUrl = (url) => {
   }
   if (!cleanUrl) return defaultImage
   if (cleanUrl.startsWith('data:') || cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) return cleanUrl
+  if (cleanUrl.startsWith('/images/')) return cleanUrl
   return `http://localhost:8080${cleanUrl.startsWith('/') ? '' : '/'}${cleanUrl}`
 }
 

@@ -1,6 +1,7 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import { formatCurrency } from '@/utils/dinhDang.js'
+import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
 
 const props = defineProps({
   product: {
@@ -12,7 +13,7 @@ const props = defineProps({
 const router = useRouter()
 
 const handleImgError = (e) => {
-  e.target.src = '/images/products/default_tshirt.jpg'
+  e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER
 }
 
 const goToDetail = () => {
@@ -26,7 +27,7 @@ const goToDetail = () => {
   <div class="the-san-pham-card" @click="goToDetail">
     <div class="card-img-holder">
       <img
-        :src="product.anhDaiDien || (product.hinhAnhs && product.hinhAnhs[0]) || '/images/products/default_tshirt.jpg'"
+        :src="resolveProductImageUrl(product.anhDaiDien || (product.hinhAnhs && product.hinhAnhs[0]))"
         :alt="product.tenSanPham"
         @error="handleImgError"
         loading="lazy"

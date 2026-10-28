@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
+import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
 
 const router = useRouter()
 const activeDiscounts = ref([])
@@ -85,7 +86,7 @@ onMounted(() => {
             @click="router.push(`/san-pham/${p.id}`)"
           >
             <div class="img-box">
-              <img :src="p.anhDaiDien || '/images/products/default_tshirt.jpg'" :alt="p.tenSanPham" />
+              <img :src="resolveProductImageUrl(p.anhDaiDien)" :alt="p.tenSanPham" @error="(e) => e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER" />
               <span v-if="p.coGiamGia" class="badge-sale">-{{ Math.round(p.phanTramGiam || 20) }}%</span>
             </div>
             <div class="info-box">

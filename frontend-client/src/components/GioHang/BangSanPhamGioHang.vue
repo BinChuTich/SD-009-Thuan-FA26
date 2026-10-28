@@ -1,5 +1,6 @@
 <script setup>
 import { formatCurrency } from '@/utils/dinhDang.js'
+import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
 
 const props = defineProps({
   cartItems: {
@@ -93,7 +94,8 @@ const getStock = (item) => {
             />
             <div class="item-thumb-box">
               <img
-                :src="item.image || '/images/products/default_tshirt.jpg'"
+                :src="resolveProductImageUrl(item.image)"
+                @error="(e) => e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER"
                 :alt="item.productName"
                 class="item-img"
               />

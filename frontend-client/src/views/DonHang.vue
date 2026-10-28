@@ -6,6 +6,7 @@ import { formatCurrency, formatDateTime } from '@/utils/dinhDang.js'
 import { showAppConfirm, showAppAlert } from '@/utils/thongBaoDialog.js'
 import { currentClientUser, isClientLoggedIn } from '@/utils/taiKhoanKhachHang.js'
 import ModalDangNhap from '@/components/BocCuc/ModalDangNhap.vue'
+import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -74,13 +75,13 @@ const orderItemsMap = ref({}) // Cache: { [maHoaDon]: itemsArray }
 
 const resolveProductImg = (it) => {
   const raw = it.anhDaiDien || it.anh || it.hinhAnh || it.idChiTietSanPham?.idSanPham?.anh || it.idChiTietSanPham?.anh
-  if (!raw) return 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=120&q=80'
+  return resolveProductImageUrl(raw)
   if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) return raw
   return `http://localhost:8080${raw.startsWith('/') ? '' : '/'}${raw}`
 }
 
 const onImgError = (e) => {
-  e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=120&q=80'
+  e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER
 }
 
 const loadItemsForList = async (orderList) => {
@@ -1046,7 +1047,8 @@ onUnmounted(() => {
               <div v-else class="items-table-list">
                 <div v-for="it in selectedOrderItems" :key="it.id" class="order-product-row">
                   <img
-                    :src="it.anh || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=200&q=80'"
+                    :src="resolveProductImg(it)"
+                    @error="onImgError"
                     alt="Sản phẩm"
                     class="product-thumb"
                   />

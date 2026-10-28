@@ -407,7 +407,32 @@ public class ChiTietSanPhamService {
                 }
             }
         }
-        // Biến thể nào chưa có ảnh riêng thì giữ nguyên là null (không tự động fill ảnh biến thể khác, ảnh chung hay ảnh mẫu)
+        // 2. Nếu biến thể chưa có ảnh riêng: lấy ảnh theo màu sắc tương ứng hoặc ảnh chung của sản phẩm
+        if (anhDaiDien == null && ct.getIdSanPham() != null) {
+            List<HinhAnh> imgs = hinhAnhRepository.findByIdSanPham_Id(ct.getIdSanPham().getId());
+            if (imgs != null && !imgs.isEmpty()) {
+                if (ct.getIdMauSac() != null && ct.getIdMauSac().getId() != null) {
+                    String colorTarget = "COLOR_" + ct.getIdMauSac().getId();
+                    for (HinhAnh img : imgs) {
+                        String tenAnh = img.getTenAnh();
+                        if (tenAnh != null && colorTarget.equalsIgnoreCase(tenAnh)) {
+                            anhDaiDien = img.getDuongDan();
+                            break;
+                        }
+                    }
+                }
+                // Không tự fill ảnh khác nếu biến thể chưa có ảnh riêng hoặc ảnh màu
+                if (false) {
+                    for (HinhAnh img : imgs) {
+                        String tenAnh = img.getTenAnh();
+                        if (tenAnh == null || (!tenAnh.startsWith("CTSP_") && !tenAnh.startsWith("COLOR_"))) {
+                            anhDaiDien = img.getDuongDan();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
 
         // Kiểm tra giảm giá liên kết (ưu tiên theo biến thể, fallback theo sản phẩm cha)
         Instant now = Instant.now();

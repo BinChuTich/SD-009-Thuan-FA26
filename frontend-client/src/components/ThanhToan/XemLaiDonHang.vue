@@ -1,5 +1,6 @@
 <script setup>
 import { formatCurrency } from '@/utils/dinhDang.js'
+import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
 
 const props = defineProps({
   cartItems: {
@@ -64,7 +65,7 @@ const emit = defineEmits([
           class="preview-item-row"
         >
           <div class="preview-img-box">
-            <img :src="item.image || '/images/products/default_tshirt.jpg'" :alt="item.productName" />
+            <img :src="resolveProductImageUrl(item.image)" :alt="item.productName" @error="(e) => e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER" />
             <span class="preview-badge">{{ item.quantity }}</span>
           </div>
 

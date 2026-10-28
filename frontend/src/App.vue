@@ -105,6 +105,15 @@ function handleNotificationClick(item) {
 
 function goToOrdersOrChat() {
   showBellDropdown.value = false
+  if (bellFilter.value === 'DON_HANG' || (bellFilter.value === 'ALL' && adminOrderNewCount.value > 0)) {
+    router.push('/hoa-don')
+  } else {
+    router.push('/tin-nhan')
+  }
+  return
+}
+function _unused_goTo() {
+  showBellDropdown.value = false
   if (bellFilter.value === 'DON_HANG') {
     router.push('/hoa-don')
   } else {
@@ -1093,7 +1102,7 @@ function printReceipt() {
 
               <div class="bell-popover-footer">
                 <button type="button" class="btn-bell-view-full" @click="goToOrdersOrChat">
-                  {{ bellFilter === 'DON_HANG' ? 'Xem quản lý hóa đơn →' : 'Xem quản lý chat & tư vấn →' }}
+                  {{ bellFilter === 'DON_HANG' || (bellFilter === 'ALL' && adminOrderNewCount > 0) ? 'Xem quản lý hóa đơn →' : 'Xem quản lý chat & tư vấn →' }}
                 </button>
               </div>
             </div>

@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
+import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
 
 const route = useRoute()
 
@@ -198,13 +199,13 @@ const getActorClass = (log) => {
 // Helper hình ảnh sản phẩm
 const resolveProductImg = (it) => {
   const raw = it.anhDaiDien || it.anh || it.hinhAnh || it.idChiTietSanPham?.idSanPham?.anh || it.idChiTietSanPham?.anh
-  if (!raw) return 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=120&q=80'
+  return resolveProductImageUrl(raw)
   if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) return raw
   return `http://localhost:8080${raw.startsWith('/') ? '' : '/'}${raw}`
 }
 
 const onImgError = (e) => {
-  e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=120&q=80'
+  e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER
 }
 
 // 5 Bước Stepper

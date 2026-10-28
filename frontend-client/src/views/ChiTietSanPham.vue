@@ -1,9 +1,9 @@
-﻿<script setup>
+<script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
-import { addToCart, setCheckoutItems, cartItems, cartCount } from '@/utils/luuTruGioHang.js'
+import { addToCart, setCheckoutItems, cartItems, cartCount, NEUTRAL_PRODUCT_PLACEHOLDER, resolveProductImageUrl } from '@/utils/luuTruGioHang.js'
 import { getProductById, MOCK_PRODUCTS_CATALOG } from '@/utils/danhMucSanPham.js'
 import ThuVienHinhAnh from '@/components/ChiTietSanPham/ThuVienHinhAnh.vue'
 import ThongTinMoTa from '@/components/ChiTietSanPham/ThongTinMoTa.vue'
@@ -92,7 +92,7 @@ const loadProductData = async (id) => {
       })
     }
     if (imgs.length === 0) {
-      imgs.push('/images/products/default_tshirt.jpg')
+      imgs.push(NEUTRAL_PRODUCT_PLACEHOLDER)
     }
     allImages.value = imgs
     activeImgIndex.value = 0
@@ -102,6 +102,10 @@ const loadProductData = async (id) => {
       const firstAvailable = varData.find(v => (v.soLuongTon || v.soLuong || 0) > 0) || varData[0]
       selectedColorId.value = firstAvailable.idMauSac
       selectedSizeId.value = firstAvailable.idKichCo
+      if (firstAvailable.anhDaiDien) {
+        const foundIdx = allImages.value.indexOf(firstAvailable.anhDaiDien)
+        if (foundIdx !== -1) activeImgIndex.value = foundIdx
+      }
     }
 
     // Tải sản phẩm liên quan
@@ -328,6 +332,19 @@ const handleBuyNow = () => {
   }
   router.push('/thanh-toan')
 }
+
+const activeImage = computed(() => allImages.value[activeImgIndex.value] || '')
+
+watch(currentVariant, (newVar) => {
+  if (newVar && newVar.anhDaiDien) {
+    let idx = allImages.value.indexOf(newVar.anhDaiDien)
+    if (idx === -1) {
+      allImages.value.push(newVar.anhDaiDien)
+      idx = allImages.value.length - 1
+    }
+    activeImgIndex.value = idx
+  }
+})
 
 watch(selectedColorId, (newColorId) => {
   const match = variants.value.find(v => v.idMauSac === newColorId && v.anhDaiDien)

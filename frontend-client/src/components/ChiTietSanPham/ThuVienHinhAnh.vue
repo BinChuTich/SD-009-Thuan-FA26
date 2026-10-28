@@ -1,4 +1,6 @@
 <script setup>
+import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
+
 const props = defineProps({
   images: {
     type: Array,
@@ -32,7 +34,8 @@ const nextImage = () => {
     <!-- Khung ảnh chính với nút chuyển slide -->
     <div class="main-slider-frame">
       <img
-        :src="images[activeIndex] || '/images/products/default_tshirt.jpg'"
+        :src="resolveProductImageUrl(images[activeIndex])"
+        @error="(e) => e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER"
         :alt="productName"
         class="current-slide-img"
       />
@@ -64,7 +67,7 @@ const nextImage = () => {
         :class="{ active: activeIndex === idx }"
         @click="emit('update:activeIndex', idx)"
       >
-        <img :src="img" :alt="'Thumbnail ' + idx" />
+        <img :src="resolveProductImageUrl(img)" :alt="'Thumbnail ' + idx" @error="(e) => e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER" />
       </div>
     </div>
   </div>

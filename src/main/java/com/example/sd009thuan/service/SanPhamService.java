@@ -521,7 +521,12 @@ public class SanPhamService {
 
         if (req.getHinhAnhs() != null) {
             List<HinhAnh> oldImages = hinhAnhRepository.findByIdSanPham_Id(id);
-            hinhAnhRepository.deleteAll(oldImages);
+            if (oldImages != null && !oldImages.isEmpty()) {
+                List<HinhAnh> toDelete = oldImages.stream()
+                        .filter(img -> img.getTenAnh() == null || !img.getTenAnh().startsWith("CTSP_"))
+                        .toList();
+                hinhAnhRepository.deleteAll(toDelete);
+            }
             for (String rawItem : req.getHinhAnhs()) {
                 if (rawItem == null || rawItem.trim().isEmpty()) continue;
                 String item = rawItem.trim();

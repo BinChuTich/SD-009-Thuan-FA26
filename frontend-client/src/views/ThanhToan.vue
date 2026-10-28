@@ -8,7 +8,9 @@ import {
   clearCart,
   getCheckoutItems,
   getCheckoutVoucher,
-  removeMultipleFromCart
+  removeMultipleFromCart,
+  resolveProductImageUrl,
+  NEUTRAL_PRODUCT_PLACEHOLDER
 } from '@/utils/luuTruGioHang.js'
 import { formatCurrency } from '@/utils/dinhDang.js'
 import { currentClientUser, isClientLoggedIn } from '@/utils/taiKhoanKhachHang.js'
@@ -505,6 +507,7 @@ const handleConfirmPlaceOrder = async () => {
 
     // Dọn dẹp giỏ hàng
     removeMultipleFromCart(purchasedIds)
+
     sessionStorage.removeItem('fftshirt_checkout_items')
     sessionStorage.removeItem('fftshirt_checkout_voucher')
 
@@ -789,7 +792,7 @@ const handleConfirmPlaceOrder = async () => {
               <h4 class="csection-title">🛍️ Sản phẩm đặt mua ({{ activeCheckoutItems.length }})</h4>
               <div class="citems-list">
                 <div v-for="item in activeCheckoutItems" :key="item.variantId" class="citem-row">
-                  <img :src="item.image || '/images/products/default_tshirt.jpg'" class="citem-thumb" />
+                  <img :src="resolveProductImageUrl(item.image)" class="citem-thumb" @error="(e) => e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER" />
                   <div class="citem-info">
                     <div class="citem-name">{{ item.productName }}</div>
                     <div class="citem-meta">{{ item.color }} / Size {{ item.size }} × {{ item.quantity }}</div>

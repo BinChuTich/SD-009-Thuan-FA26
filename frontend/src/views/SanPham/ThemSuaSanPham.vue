@@ -659,8 +659,8 @@
                     :title="vItem.anhDaiDien ? 'Nhấn để đổi ảnh riêng của biến thể' : 'Nhấn để chọn ảnh riêng cho biến thể này'"
                   >
                     <img
-                      v-if="vItem.anhDaiDien"
-                      :src="formatImageUrl(vItem.anhDaiDien)"
+                      v-if="vItem.anhDaiDien || colorImages[vItem.idMauSac]"
+                      :src="formatImageUrl(vItem.anhDaiDien || colorImages[vItem.idMauSac])"
                       class="variant-table-img"
                       alt="Ảnh biến thể"
                     />
@@ -673,7 +673,7 @@
                       <span>+ Ảnh</span>
                     </div>
                     <button
-                      v-if="vItem.anhDaiDien"
+                      v-if="vItem.anhDaiDien || colorImages[vItem.idMauSac]"
                       type="button"
                       class="btn-remove-var-img"
                       @click.stop="removeVariantImage(vItem)"
@@ -1673,7 +1673,7 @@ const generateVariants = () => {
       const key = `${color.id}_${size.id}`
       if (existingMap.has(key)) {
         const item = existingMap.get(key)
-        if (false) {
+        if (!item.anhDaiDien && colorImages.value[color.id]) {
           item.anhDaiDien = colorImages.value[color.id]
         }
         newVariants.push(item)
@@ -1693,7 +1693,7 @@ const generateVariants = () => {
             ? Math.floor(Number(bulkPrice.value))
             : 0,
           trangThai: 1,
-          anhDaiDien: '',
+          anhDaiDien: colorImages.value[color.id] || '',
           selected: true
         })
       }
@@ -2201,7 +2201,7 @@ const onFileChange = (e, colorId) => {
     colorImages.value[colorId] = dataUrl
     // Tự động đồng bộ sang các biến thể cùng màu nếu biến thể đó chưa có ảnh riêng
     variantsList.value.forEach(v => {
-      if (false) {
+      if (v.idMauSac === colorId) {
         v.anhDaiDien = dataUrl
       }
     })
@@ -2425,7 +2425,7 @@ const submitForm = async (xacNhanGop = false) => {
                 soLuong: Number(v.soLuong || 0),
                 giaBan: Number(v.giaBan || 0),
                 trangThai: Number(v.trangThai ?? 1),
-                anhDaiDien: v.anhDaiDien !== undefined ? v.anhDaiDien : undefined,
+                anhDaiDien: v.anhDaiDien || colorImages.value[v.idMauSac] || undefined,
                 nguoiThaoTac: 'Admin'
               })
             } catch (vErr) {
@@ -2482,7 +2482,7 @@ const submitForm = async (xacNhanGop = false) => {
         soLuong: v.soLuong || 0,
         giaBan: v.giaBan || 0,
         trangThai: 1, // Auto kinh doanh
-        anhDaiDien: v.anhDaiDien || undefined
+        anhDaiDien: v.anhDaiDien || colorImages.value[v.idMauSac] || undefined
       }))
 
       try {

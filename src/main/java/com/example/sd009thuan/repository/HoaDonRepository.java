@@ -68,6 +68,18 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Long> {
 
     long countByTrangThai(Integer trangThai);
 
+    long countByTrangThaiAndLoaiDon(Integer trangThai, Integer loaiDon);
+
+    @Query("SELECT h FROM HoaDon h " +
+           "LEFT JOIN FETCH h.idKhachHang " +
+           "WHERE h.loaiDon = :loaiDon AND h.trangThai = :trangThai " +
+           "ORDER BY h.id DESC")
+    List<HoaDon> findRecentOrdersByLoaiDonAndTrangThai(
+            @Param("loaiDon") Integer loaiDon,
+            @Param("trangThai") Integer trangThai,
+            org.springframework.data.domain.Pageable pageable
+    );
+
     @Query("SELECT h FROM HoaDon h " +
            "LEFT JOIN FETCH h.idKhachHang " +
            "ORDER BY h.id DESC")

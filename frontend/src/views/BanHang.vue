@@ -314,7 +314,7 @@ const loadWaitingInvoices = async () => {
               discountText: hasDiscount ? ('-' + formatShortMoney(origPrice - curPrice)) : '',
               quantity: qty,
               syncedQuantity: qty,
-              image: ct.anhDaiDien || ctsp.anhDaiDien || '/images/products/default_tshirt.jpg'
+              image: ct.anhDaiDien || ctsp.anhDaiDien || ''
             })
           }
         }
@@ -973,7 +973,7 @@ const fetchProductVariants = async () => {
 
         discountCampaignName: discountCampaignName,
 
-        image: item.anhDaiDien || '/images/products/default_tshirt.jpg'
+        image: item.anhDaiDien || ''
 
       }
 
@@ -1354,6 +1354,8 @@ const visibleProductModalPages = computed(() => {
 
 
 
+const defaultProductPlaceholder = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'%3E%3C/circle%3E%3Cpolyline points='21 15 16 10 5 21'%3E%3C/polyline%3E%3C/svg%3E"
+
 const formatProductImage = (url, prod) => {
 
   if (!url || typeof url !== 'string' || url.trim() === '' || url.includes('photo-1521572267360-ee0c2909d518')) {
@@ -1362,15 +1364,15 @@ const formatProductImage = (url, prod) => {
 
     const scode = (prod?.code || prod?.variantCode || '').toUpperCase()
 
-    if (sid === 1 || scode.includes('SP001') || scode.includes('SP01')) return '/images/products/sp01_front.jpg'
+    // không tự fill ảnh mẫu sp01
 
-    if (sid === 2 || scode.includes('SP002') || scode.includes('SP02')) return '/images/products/sp02_front.jpg'
+    // không tự fill ảnh mẫu sp02
 
-    if (sid === 3 || scode.includes('SP003') || scode.includes('SP03')) return '/images/products/sp03_front.jpg'
+    // không tự fill ảnh mẫu sp03
 
-    if (sid === 4 || scode.includes('SP004') || scode.includes('SP04')) return '/images/products/sp04_front.jpg'
+    // không tự fill ảnh mẫu sp04
 
-    return '/images/products/default_tshirt.jpg'
+    return defaultProductPlaceholder
 
   }
 
@@ -7062,7 +7064,7 @@ onMounted(async () => {
 
                         loading="lazy"
 
-                        @error="(e) => e.target.src = '/images/products/default_tshirt.jpg'"
+                        @error="(e) => e.target.src = defaultProductPlaceholder"
 
                       />
 
@@ -7422,7 +7424,7 @@ onMounted(async () => {
 
                     <div class="confirm-prod-cell">
 
-                      <img :src="item.image || '/images/products/default_tshirt.jpg'" class="confirm-prod-thumb" />
+                      <img :src="formatProductImage(item.image)" class="confirm-prod-thumb" />
 
                       <div>
 

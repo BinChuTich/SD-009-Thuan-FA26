@@ -3,6 +3,19 @@
  */
 import { ref, computed, watch } from 'vue'
 
+export const NEUTRAL_PRODUCT_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100' fill='none'%3E%3Crect width='100' height='100' fill='%23f1f5f9'/%3E%3Cpath d='M35 38L42 30H58L65 38L58 42V70H42V42L35 38Z' stroke='%23cbd5e1' stroke-width='2' stroke-linejoin='round' fill='%23f8fafc'/%3E%3C/svg%3E"
+
+export const resolveProductImageUrl = (raw) => {
+  if (!raw || String(raw).includes('unsplash.com') || String(raw).includes('default_tshirt')) {
+    return NEUTRAL_PRODUCT_PLACEHOLDER
+  }
+  const str = String(raw).trim()
+  if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('data:')) {
+    return str
+  }
+  return `http://localhost:8080${str.startsWith('/') ? '' : '/'}${str}`
+}
+
 const CART_KEY = 'fftshirt_client_cart'
 
 const loadCart = () => {
@@ -14,6 +27,7 @@ const loadCart = () => {
     // Khôi phục và đảm bảo mỗi sản phẩm luôn có số lượng hợp lệ >= 1
     return parsed.map(item => ({
       ...item,
+      image: (item.image && !item.image.includes('unsplash.com') && !item.image.includes('default_tshirt')) ? item.image : '',
       quantity: Math.max(1, Number(item.quantity) || 1),
       maxStock: item.maxStock != null ? Number(item.maxStock) : 99
     }))
@@ -49,10 +63,14 @@ export const addToCart = (product, variant, quantity = 1) => {
   if (maxStock <= 0) return false
 
   const existing = cartItems.value.find(item => item.variantId === variant.id)
+  const variantImg = variant.anhDaiDien || variant.hinhAnh || variant.duongDan || variant.image || product.anhDaiDien || (Array.isArray(product.hinhAnhs) ? product.hinhAnhs[0] : '') || ''
 
   if (existing) {
     existing.quantity += quantity
     existing.maxStock = maxStock
+    if (variantImg) {
+      existing.image = variantImg
+    }
     if (existing.quantity > maxStock) {
       existing.quantity = maxStock
     }
@@ -65,7 +83,7 @@ export const addToCart = (product, variant, quantity = 1) => {
       variantCode: variant.maChiTietSanPham || variant.maBienThe || 'CTSP',
       color: variant.tenMauSac || variant.mauSac || 'Tiêu chuẩn',
       size: variant.tenKichCo || variant.kichCo || 'M',
-      image: variant.hinhAnh || product.hinhAnh || product.spHinhAnh || '',
+      image: variantImg,
       price: Number(variant.giaBan || variant.gia || product.gia || 0),
       discountPrice: Number(variant.giaSauGiam || variant.giaBan || variant.gia || product.gia || 0),
       quantity: Math.min(quantity, maxStock),

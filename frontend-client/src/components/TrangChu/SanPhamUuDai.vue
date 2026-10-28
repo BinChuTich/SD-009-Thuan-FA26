@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatCurrency } from '@/utils/dinhDang.js'
+import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
 
 const router = useRouter()
 
@@ -189,7 +190,7 @@ watch(selectedCampaignId, () => {
 })
 
 const handleImgError = (e) => {
-  e.target.src = '/images/products/default_tshirt.jpg'
+  e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER
 }
 
 const goToProduct = (id) => {
@@ -254,7 +255,7 @@ onUnmounted(() => {
         >
           <div class="deal-media">
             <img
-              :src="p.anhDaiDien || (p.hinhAnhs && p.hinhAnhs[0]) || '/images/products/default_tshirt.jpg'"
+              :src="resolveProductImageUrl(p.anhDaiDien || (p.hinhAnhs && p.hinhAnhs[0]))"
               :alt="p.tenSanPham"
               @error="handleImgError"
               loading="lazy"

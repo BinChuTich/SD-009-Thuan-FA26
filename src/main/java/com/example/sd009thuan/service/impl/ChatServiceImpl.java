@@ -271,17 +271,18 @@ public class ChatServiceImpl implements ChatService {
                 .filter(m -> "KHACH_HANG".equals(m.getNguoiGui()) && !Boolean.TRUE.equals(m.getDaDoc()))
                 .count();
 
-        long totalChatNotifications = countUnread + waitingConvs.size();
+        // Chỉ tính các cuộc hội thoại khách yêu cầu gặp nhân viên tư vấn
+        long totalChatNotifications = waitingConvs.size();
 
         // Đơn hàng mới từ cơ sở dữ liệu gốc (Trạng thái 1 = Chờ xác nhận)
         long countNewOrders = 0;
         try {
-            countNewOrders = hoaDonRepository.countByTrangThai(1);
+            countNewOrders = hoaDonRepository.countByTrangThaiAndLoaiDon(1, 2);
         } catch (Exception e) {}
 
         List<HoaDon> recentOrders = new ArrayList<>();
         try {
-            recentOrders = hoaDonRepository.findRecentOrders(PageRequest.of(0, 6));
+            recentOrders = hoaDonRepository.findRecentOrdersByLoaiDonAndTrangThai(2, 1, PageRequest.of(0, 10));
         } catch (Exception e) {}
 
         List<ThongBaoAdminDTO.ThongBaoItemDTO> items = new ArrayList<>();
@@ -331,7 +332,9 @@ public class ChatServiceImpl implements ChatService {
         }
 
         // 3. Thêm các tin nhắn chat mới từ khách hàng
-        List<TinNhanDTO> latestClientMsgs = messagesByConv.values().stream()
+        // Chỉ hiển thị yêu cầu gặp nhân viên tư vấn, không hiển thị mọi tin nhắn thường
+        List<TinNhanDTO> latestClientMsgs = Collections.emptyList();
+        if (false) messagesByConv.values().stream()
                 .flatMap(Collection::stream)
                 .filter(m -> "KHACH_HANG".equals(m.getNguoiGui()))
                 .sorted((a, b) -> b.getNgayTao().compareTo(a.getNgayTao()))
@@ -357,7 +360,8 @@ public class ChatServiceImpl implements ChatService {
                     .build());
         }
 
-        List<ThongBaoAdminDTO.TinNhanThongBaoDTO> dtoList = latestClientMsgs.stream().map(t -> {
+        List<ThongBaoAdminDTO.TinNhanThongBaoDTO> dtoList = Collections.emptyList();
+        if (false) latestClientMsgs.stream().map(t -> {
             CuocHoiThoaiDTO c = conversations.get(t.getCuocHoiThoaiId());
             String name = (c != null && c.getTenKhachHang() != null) ? c.getTenKhachHang() : "Khách hàng";
             String timeStr = t.getNgayTao() != null ? t.getNgayTao().format(TIME_FORMATTER) : "";
