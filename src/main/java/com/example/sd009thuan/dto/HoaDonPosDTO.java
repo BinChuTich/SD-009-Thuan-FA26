@@ -23,6 +23,7 @@ public class HoaDonPosDTO {
     private BigDecimal tienChuyenKhoan;
     private String ghiChu;
     private String nguoiTao;
+    @com.fasterxml.jackson.annotation.JsonAlias({"items", "danhSachSanPham", "chiTietHoaDon"})
     private List<ItemChiTietDTO> chiTietList;
     private Boolean chapNhanGiaMoi;
 
@@ -92,11 +93,22 @@ public class HoaDonPosDTO {
     public List<ItemChiTietDTO> getChiTietList() { return chiTietList; }
     public void setChiTietList(List<ItemChiTietDTO> chiTietList) { this.chiTietList = chiTietList; }
 
+    public void setItems(List<ItemChiTietDTO> items) {
+        if (this.chiTietList == null || this.chiTietList.isEmpty()) {
+            this.chiTietList = items;
+        }
+    }
+
     public static class ItemChiTietDTO {
-        private Long sanPhamId; // id của SanPhamChiTiet
+        @com.fasterxml.jackson.annotation.JsonAlias({"id", "sanPhamId", "idChiTietSanPham", "variantId"})
+        private Long sanPhamId;
+        @com.fasterxml.jackson.annotation.JsonAlias({"id", "sanPhamId", "idChiTietSanPham", "variantId"})
         private Long idChiTietSanPham;
+        @com.fasterxml.jackson.annotation.JsonAlias({"soLuong", "quantity"})
         private Integer soLuong;
+        @com.fasterxml.jackson.annotation.JsonAlias({"giaDuocTinh", "donGia", "price"})
         private BigDecimal giaDuocTinh;
+        @com.fasterxml.jackson.annotation.JsonAlias({"giaDuocTinh", "donGia", "price"})
         private BigDecimal donGia;
 
         public ItemChiTietDTO() {

@@ -368,11 +368,10 @@ const loadWaitingInvoices = async () => {
 
         customerPhone: inv.soDienThoaiKhachHang || '',
 
-        isDelivery: Boolean(inv.diaChiNhanHang && inv.diaChiNhanHang !== 'Bán tại quầy' && inv.diaChiNhanHang !== '—') || Number(inv.phiVanChuyen || 0) > 0,
-
+        isDelivery: Boolean(inv.diaChiNhanHang && inv.diaChiNhanHang !== 'Bán tại quầy' && inv.diaChiNhanHang !== '—' && inv.diaChiNhanHang.trim() !== ''),
         deliveryAddress: (inv.diaChiNhanHang && inv.diaChiNhanHang !== 'Bán tại quầy') ? inv.diaChiNhanHang : '',
-
-        shippingFee: Number(inv.phiVanChuyen || 0),
+        shippingFee: (Boolean(inv.diaChiNhanHang && inv.diaChiNhanHang !== 'Bán tại quầy' && inv.diaChiNhanHang !== '—')) ? Number(inv.phiVanChuyen || 0) : 0,
+        isManualShippingFee: Number(inv.phiVanChuyen || 0) > 0,
 
         voucher: inv.idPhieuGiamGia || null,
 
@@ -814,15 +813,11 @@ const enrichCartItemsWithProductList = () => {
 
         if (!item.image || item.image.includes('default_tshirt')) item.image = p.image
 
-        if (p.hasDiscount) {
-
-          item.hasDiscount = true
-
-          item.discountText = p.discountText
-
-          item.discountCampaignName = p.discountCampaignName
-
-        }
+        item.originalPrice = p.originalPrice || p.price
+        item.price = p.price
+        item.hasDiscount = Boolean(p.hasDiscount)
+        item.discountText = p.discountText || ''
+        item.discountCampaignName = p.discountCampaignName || ''
 
       }
 
@@ -1499,63 +1494,50 @@ const getRemainingStock = (item) => {
 
 
 const selectProduct = (prod) => {
-
   const p = findProduct(prod) || prod
-
   const available = Number(p.stock ?? prod.stock ?? 0)
-
   if (available <= 0) {
-
     showToast('Sản phẩm đã hết hàng trong kho!', 'warning')
-
     return
-
   }
 
-
-
   const targetId = p.id ?? prod.id
-
   const targetVCode = p.variantCode || prod.variantCode
-
-
+  const origPrice = Number(p.originalPrice || p.giaBan || prod.originalPrice || prod.giaBan || p.price || prod.price || 0)
+  const salePrice = Number(p.price ?? prod.price ?? origPrice)
+  const hasDiscount = Boolean(p.hasDiscount || (origPrice > salePrice && salePrice > 0))
+  const discountText = p.discountText || prod.discountText || (hasDiscount ? ('-' + formatShortMoney(origPrice - salePrice)) : '')
+  const discountCampaignName = p.discountCampaignName || prod.discountCampaignName || ''
 
   const exist = currentInvoice.value.cart.find(i => 
-
     (targetId != null && Number(i.id) === Number(targetId)) ||
-
     (targetVCode && i.variantCode && i.variantCode.toLowerCase() === targetVCode.toLowerCase())
-
   )
 
   if (exist) {
-
     if (available < 1) {
-
       showToast('Trong kho không còn đủ sản phẩm để thêm tiếp!', 'warning')
-
       return
-
     }
-
     exist.quantity++
-
+    exist.price = salePrice
+    exist.originalPrice = origPrice
+    exist.hasDiscount = hasDiscount
+    exist.discountText = discountText
+    exist.discountCampaignName = discountCampaignName
   } else {
-
     currentInvoice.value.cart.push({
-
       ...p,
-
       id: targetId,
-
       variantCode: targetVCode,
-
       quantity: 1,
-
-      syncedQuantity: 0
-
+      syncedQuantity: 0,
+      price: salePrice,
+      originalPrice: origPrice,
+      hasDiscount: hasDiscount,
+      discountText: discountText,
+      discountCampaignName: discountCampaignName
     })
-
   }
 
 
@@ -2017,8 +1999,25 @@ const onDeliveryDetailInput = () => {
 // Tự động tính phí ship theo API GHN / Chính sách khu vực địa lý
 
 const autoCalculateShippingFee = async () => {
+  if (!currentInvoice.value || !currentInvoice.value.isDelivery) {
+    if (currentInvoice.value) {
+      currentInvoice.value.shippingFee = 0
+    }
+    return
+  }
 
-  if (!currentInvoice.value || !currentInvoice.value.isDelivery) return
+  // Nếu chưa có Tỉnh/Thành phố hoặc địa chỉ cụ thể, không tự ý gán cứng mức phí
+  if (!currentInvoice.value.deliveryProvince && !currentInvoice.value.deliveryAddress && !currentInvoice.value.deliveryProvinceCode) {
+    if (!currentInvoice.value.isManualShippingFee) {
+      currentInvoice.value.shippingFee = 0
+    }
+    return
+  }
+
+  // Nếu thu ngân đã chủ động sửa phí vận chuyển, tôn trọng phí đã nhập và không tự động ghi đè
+  if (currentInvoice.value.isManualShippingFee) {
+    return
+  }
 
   isCalculatingShipping.value = true
 
@@ -2306,30 +2305,26 @@ watch(activeInvoiceId, async () => {
 
 
 watch(() => currentInvoice.value?.isDelivery, async (newVal) => {
-
   if (newVal) {
-
     if (currentInvoice.value?.customerId) {
-
       if (!currentInvoice.value.deliveryProvinceCode || !currentInvoice.value.deliveryAddress) {
-
         const def = customerAddressesList.value.find(a => a.macDinh) || customerAddressesList.value[0]
-
         if (def) {
-
           await syncInvoiceDeliveryFromAddress(currentInvoice.value, def)
-
         }
-
       }
-
     }
-
-    await autoCalculateShippingFee()
-
+    if (currentInvoice.value?.deliveryProvince && !currentInvoice.value?.isManualShippingFee) {
+      await autoCalculateShippingFee()
+    }
+  } else {
+    if (currentInvoice.value) {
+      currentInvoice.value.shippingFee = 0
+      currentInvoice.value.isManualShippingFee = false
+    }
   }
-
 })
+
 
 
 
@@ -3748,31 +3743,20 @@ const confirmHandoverInvoice = async () => {
 
 
 const acceptNewPriceAndContinue = () => {
-
   if (priceChangeData.value?.items) {
-
     priceChangeData.value.items.forEach(cItem => {
-
-      const cartItem = currentInvoice.value.cart.find(ci => ci.id === cItem.idChiTietSanPham)
-
-      if (cartItem) {
-
-        cartItem.price = cItem.giaMoi
-
+      const targetId = cItem.idChiTietSanPham
+      const cartItem = currentInvoice.value.cart.find(ci => ci.id === targetId || Number(ci.id) === Number(targetId))
+      const newPrice = Number(cItem.giaMoi != null ? cItem.giaMoi : (cItem.giaHienTai != null ? cItem.giaHienTai : cartItem?.price))
+      if (cartItem && !isNaN(newPrice)) {
+        cartItem.price = newPrice
       }
-
     })
-
   }
-
   currentInvoice.value.chapNhanGiaMoi = true
-
   showPriceChangeModal.value = false
-
   showToast('Đã cập nhật đơn giá mới vào giỏ hàng!', 'success')
-
   showOrderConfirmModal.value = true
-
 }
 
 
@@ -3853,6 +3837,20 @@ const openOrderConfirmModal = async () => {
 
       tongTienGiamGia: voucherDiscount.value,
 
+      chiTietList: currentInvoice.value.cart.map(item => ({
+
+        sanPhamId: item.id,
+
+        idChiTietSanPham: item.id,
+
+        soLuong: item.quantity,
+
+        donGia: item.price,
+
+        giaDuocTinh: item.price
+
+      })),
+
       items: currentInvoice.value.cart.map(item => ({
 
         sanPhamId: item.id,
@@ -3892,15 +3890,9 @@ const openOrderConfirmModal = async () => {
     if (currentInvoice.value.voucher) {
 
       if (checkData.voucherHopLe === false) {
-
-        showToast(checkData.voucherLyDo || 'Voucher không còn hợp lệ và đã bị gỡ khỏi đơn hàng!', 'warning')
-
+        showToast(checkData.voucherLyDo || checkData.lyDoVoucher || 'Voucher không còn hợp lệ và đã bị gỡ khỏi đơn hàng!', 'warning')
         currentInvoice.value.voucher = null
-
         currentInvoice.value.voucherDiscount = 0
-
-        return
-
       } else if (checkData.thayDoiVoucher === true) {
 
         showToast(`Mức giảm voucher đã được cập nhật lại thành: ${formatMoney(checkData.soTienGiamMoi)}đ!`, 'info')
@@ -4236,6 +4228,7 @@ const onShippingFeeFormattedInput = (e) => {
   if (currentInvoice.value) {
 
     currentInvoice.value.shippingFee = val
+    currentInvoice.value.isManualShippingFee = true
 
   }
 
@@ -4371,6 +4364,31 @@ const isConfirmingPayment = ref(false)
 
 const showVietQrModal = ref(false)
 
+const selectPaymentMethod = (method) => {
+  if (!currentInvoice.value) return
+  currentInvoice.value.paymentMethod = method
+  if (method === 'CHUYEN_KHOAN') {
+    currentInvoice.value.customerPay = finalTotal.value
+    fetchTransferInfoFromApi(finalTotal.value)
+    if (!currentInvoice.value.isTransferPaid) startPaymentPolling()
+    openVietQrModal()
+  } else if (method === 'TIEN_MAT') {
+    stopPaymentPolling()
+    const curPay = currentInvoice.value.customerPay
+    if (curPay === null || curPay === undefined || curPay === '' || curPay === 0) {
+      currentInvoice.value.customerPay = finalTotal.value > 0 ? finalTotal.value : null
+    }
+  } else if (method === 'KET_HOP') {
+    initKetHopAmounts()
+    if (Number(currentInvoice.value.transferAmount) > 0) {
+      fetchTransferInfoFromApi(currentInvoice.value.transferAmount)
+      if (!currentInvoice.value.isTransferPaid) startPaymentPolling()
+    } else {
+      stopPaymentPolling()
+    }
+  }
+}
+
 const handleSelectChuyenKhoan = () => {
   if (!currentInvoice.value) return
   currentInvoice.value.paymentMethod = 'CHUYEN_KHOAN'
@@ -4398,6 +4416,7 @@ const closeVietQrModal = () => {
 
 const handleConfirmVietQrInModal = async () => {
   try {
+    currentInvoice.value.isTransferVerifiedByStaff = true
     await confirmTransferPaymentDirect()
     showVietQrModal.value = false
     showToast('Đang hoàn tất đơn hàng và chuyển sang in hóa đơn...', 'info')
@@ -5391,7 +5410,7 @@ const handleCheckout = async () => {
 
     } else {
 
-      showToast(`Thanh toán đơn hàng ${savedCode} thành công!`)
+      showToast(`Thanh toán hóa đơn ${savedCode} thành công!`)
 
     }
 
@@ -6181,7 +6200,7 @@ onMounted(async () => {
               <div class="pos-form-group">
                 <div class="shipping-fee-header">
                   <label class="group-label-gray">Phí vận chuyển (VNĐ)</label>
-                  <span class="ghn-api-badge" title="Tích hợp tính cước tự động qua API Giao Hàng Nhanh">
+                  <span class="ghn-api-badge cursor-pointer" title="Bấm để tính lại cước qua API Giao Hàng Nhanh" @click="triggerRecalculateShippingFee">
                     API GHN Express
                   </span>
                 </div>
@@ -6193,7 +6212,7 @@ onMounted(async () => {
                     :value="displayShippingFee"
                     @input="onShippingFeeFormattedInput"
                     @focus="$event.target.select()"
-                    placeholder="Tự động tính qua API GHN..."
+                    placeholder="Phí giao hàng (GHN)..."
                     class="pos-form-input input-money"
                 />
               </div>
@@ -6521,15 +6540,15 @@ onMounted(async () => {
             <label class="group-label-gray">Hình thức thanh toán</label>
 
             <div class="payment-radio-group">
-              <label class="radio-item">
+              <label class="radio-item" @click="selectPaymentMethod('TIEN_MAT')">
                 <input type="radio" value="TIEN_MAT" v-model="currentInvoice.paymentMethod" />
                 <span class="radio-text">Tiền mặt</span>
               </label>
-              <label class="radio-item">
+              <label class="radio-item" @click="selectPaymentMethod('CHUYEN_KHOAN')">
                 <input type="radio" value="CHUYEN_KHOAN" v-model="currentInvoice.paymentMethod" />
                 <span class="radio-text">Chuyển khoản</span>
               </label>
-              <label class="radio-item">
+              <label class="radio-item" @click="selectPaymentMethod('KET_HOP')">
                 <input type="radio" value="KET_HOP" v-model="currentInvoice.paymentMethod" />
                 <span class="radio-text">Kết hợp</span>
               </label>
@@ -6589,31 +6608,14 @@ onMounted(async () => {
             </div>
           </template>
 
-          <!-- 2. Thanh toán CHUYỂN KHOẢN TOÀN BỘ: Đã bỏ hộp cồng kềnh, chỉ giữ thanh trạng thái và mở popup -->
+          <!-- 2. Thanh toán CHUYỂN KHOẢN TOÀN BỘ: Đã bỏ hộp cồng kềnh, ấn chuyển khoản là hiện popup trực tiếp -->
           <div v-else-if="['VNPAY', 'CHUYEN_KHOAN'].includes(currentInvoice.paymentMethod)" class="pos-form-group">
-            <div class="pay-input-header">
-              <label class="group-label-gray">Số tiền chuyển khoản</label>
-              <span class="font-bold-dark text-red">{{ formatMoney(finalTotal) }}</span>
+            <div class="pay-input-header cursor-pointer" @click="openVietQrModal" title="Bấm để mở lại mã VietQR">
+              <label class="group-label-gray cursor-pointer">Số tiền chuyển khoản</label>
+              <span class="font-bold-dark text-red font-mono-amount">{{ formatMoney(finalTotal) }}</span>
             </div>
-
-            <!-- Thanh trạng thái chuyển khoản gọn gàng -->
-            <div class="chuyen-khoan-status-bar">
-              <div class="ck-status-info">
-                <span v-if="currentInvoice.isTransferPaid" class="ck-paid-badge">
-                  Đã nhận đủ tiền ({{ formatMoney(finalTotal) }})
-                </span>
-                <span v-else class="ck-waiting-badge">
-                  Đang chờ khách chuyển khoản: <strong class="text-red">{{ formatMoney(finalTotal) }}</strong>
-                </span>
-              </div>
-              <button
-                  type="button"
-                  class="btn-open-vietqr-again"
-                  @click="openVietQrModal"
-                  title="Mở mã QR phóng to"
-              >
-                Mở mã VietQR
-              </button>
+            <div v-if="currentInvoice.isTransferPaid" class="ck-paid-simple-note">
+              ✓ Đã xác nhận nhận đủ tiền chuyển khoản: <strong>{{ formatMoney(finalTotal) }}</strong>
             </div>
           </div>
 
@@ -6695,7 +6697,7 @@ onMounted(async () => {
 
           <div class="pos-form-group">
 
-            <label class="group-label-gray">Ghi chú đơn hàng</label>
+            <label class="group-label-gray">{{ currentInvoice.isDelivery ? 'Ghi chú đơn giao hàng' : 'Ghi chú hóa đơn' }}</label>
 
             <textarea
 
@@ -6733,7 +6735,7 @@ onMounted(async () => {
 
             >
 
-              {{ isProcessing ? 'Đang xử lý...' : 'Xác nhận đơn hàng' }}
+              {{ isProcessing ? 'Đang xử lý...' : (currentInvoice.isDelivery ? 'Xác nhận đặt hàng' : 'Thanh toán') }}
 
             </button>
 
@@ -7325,7 +7327,7 @@ onMounted(async () => {
 
           <div class="modal-title-group">
 
-            <h3 class="modal-title-text">Xác nhận thông tin đơn hàng POS</h3>
+            <h3 class="modal-title-text">{{ currentInvoice.isDelivery ? 'Xác nhận thông tin đơn giao hàng' : 'Xác nhận thanh toán hóa đơn POS' }}</h3>
 
             <span class="modal-badge-count">Mã: {{ currentInvoice.code }}</span>
 
@@ -7509,7 +7511,7 @@ onMounted(async () => {
 
           >
 
-            {{ isProcessing ? 'Đang hoàn tất đơn...' : 'Xác nhận & Hoàn tất đơn' }}
+            {{ isProcessing ? 'Đang hoàn tất...' : (currentInvoice.isDelivery ? 'Xác nhận & Tạo đơn giao' : 'Thanh toán & In hóa đơn') }}
 
           </button>
 
@@ -7585,13 +7587,13 @@ onMounted(async () => {
 
                   <td class="text-center font-bold">{{ c.soLuong }}</td>
 
-                  <td class="text-right" style="color: #64748b; text-decoration: line-through;">{{ formatMoney(c.giaCu) }}</td>
+                  <td class="text-right" style="color: #64748b; text-decoration: line-through;">{{ formatMoney(c.giaCu != null ? c.giaCu : c.giaTrongGio) }}</td>
 
-                  <td class="text-right font-bold" style="color: #b45309;">{{ formatMoney(c.giaMoi) }}</td>
+                  <td class="text-right font-bold" style="color: #b45309;">{{ formatMoney(c.giaMoi != null ? c.giaMoi : c.giaHienTai) }}</td>
 
                   <td class="text-right font-bold" :style="{ color: c.chenhLech > 0 ? '#b91c1c' : '#15803d' }">
 
-                    {{ c.chenhLech > 0 ? '+' : '' }}{{ formatMoney(c.chenhLech) }}
+                    {{ (c.chenhLech != null ? c.chenhLech : c.chenhLechDonGia) > 0 ? '+' : '' }}{{ formatMoney(c.chenhLech != null ? c.chenhLech : c.chenhLechDonGia) }}
 
                   </td>
 
@@ -7864,7 +7866,7 @@ onMounted(async () => {
               <button
                   type="button"
                   class="btn-modal-confirm-pay"
-                  :disabled="!currentInvoice.isTransferVerifiedByStaff || isConfirmingPayment"
+                  :disabled="isConfirmingPayment"
                   @click="handleConfirmVietQrInModal"
               >
                 {{ isConfirmingPayment ? 'Đang xử lý...' : (currentInvoice.isTransferPaid ? 'Đã nhận đủ tiền' : 'Xác nhận đã nhận tiền') }}
@@ -14558,9 +14560,9 @@ onMounted(async () => {
 
 /* ==================== MODAL MÃ VIETQR (KHUNG NGOÀI TO RỘNG 880PX - 2 CỘT CHUYÊN NGHIỆP, KHÔNG BỊ BÓ HẸP) ==================== */
 .pos-vietqr-standalone-dialog {
-  width: 880px;
-  max-width: 95vw;
-  max-height: 92vh;
+  width: 980px;
+  max-width: 96vw;
+  max-height: 94vh;
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 25px 70px rgba(0, 0, 0, 0.35);
@@ -14611,11 +14613,11 @@ onMounted(async () => {
 
 .vietqr-modal-body-grid {
   display: grid;
-  grid-template-columns: 380px 1fr;
-  gap: 26px;
-  padding: 22px 26px;
+  grid-template-columns: 420px 1fr;
+  gap: 28px;
+  padding: 24px 28px;
   overflow-y: auto;
-  max-height: calc(92vh - 75px);
+  max-height: calc(94vh - 75px);
   align-items: start;
 }
 
@@ -14955,4 +14957,23 @@ onMounted(async () => {
 
 
 
+.ck-paid-simple-note {
+  margin-top: 6px;
+  padding: 6px 12px;
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cursor-pointer {
+  cursor: pointer;
+}
+.font-mono-amount {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
 </style>

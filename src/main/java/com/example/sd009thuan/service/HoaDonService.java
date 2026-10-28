@@ -1241,7 +1241,7 @@ public class HoaDonService {
             else if (ptObj instanceof Number) pt = BigDecimal.valueOf(((Number) ptObj).doubleValue());
 
             if (pt.compareTo(BigDecimal.ZERO) > 0) {
-                discountVal = basePrice.multiply(pt).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+                discountVal = basePrice.multiply(pt).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
                 Object maxObj = discountInfo.get("giamToiDa");
                 BigDecimal maxDiscount = null;
                 if (maxObj instanceof BigDecimal) maxDiscount = (BigDecimal) maxObj;
@@ -1447,8 +1447,11 @@ public class HoaDonService {
                     diffItem.put("phanLoai", (color + " " + size).trim());
                     diffItem.put("soLuong", qty);
                     diffItem.put("giaTrongGio", cartUnitPrice);
+                    diffItem.put("giaCu", cartUnitPrice);
                     diffItem.put("giaHienTai", realUnitPrice);
+                    diffItem.put("giaMoi", realUnitPrice);
                     diffItem.put("chenhLechDonGia", realUnitPrice.subtract(cartUnitPrice));
+                    diffItem.put("chenhLech", realUnitPrice.subtract(cartUnitPrice));
                     diffItem.put("chenhLechThanhTien", realUnitPrice.subtract(cartUnitPrice).multiply(BigDecimal.valueOf(qty)));
 
                     // Xác định nguyên nhân thay đổi
@@ -1479,6 +1482,10 @@ public class HoaDonService {
         res.put("tongTienMoi", tongTienHangThucTe);
         res.put("chenhLechTongTien", tongTienHangThucTe.subtract(tongTienTrongGio));
 
+        if (tongTienHangThucTe.compareTo(BigDecimal.ZERO) == 0 && dto.getTongTien() != null && dto.getTongTien().compareTo(BigDecimal.ZERO) > 0) {
+            tongTienHangThucTe = dto.getTongTien();
+        }
+
         // 4. Kiểm tra Voucher (Case 2)
         boolean thayDoiVoucher = false;
         boolean voucherHopLe = true;
@@ -1506,6 +1513,8 @@ public class HoaDonService {
         res.put("voucherHopLe", voucherHopLe);
         res.put("thayDoiVoucher", thayDoiVoucher);
         res.put("lyDoVoucher", lyDoVoucher);
+        res.put("voucherLyDo", lyDoVoucher);
+        res.put("soTienGiamMoi", voucherGiamGiaMoi);
         res.put("voucherGiamGiaCu", voucherGiamGiaCu);
         res.put("voucherGiamGiaMoi", voucherGiamGiaMoi);
 
