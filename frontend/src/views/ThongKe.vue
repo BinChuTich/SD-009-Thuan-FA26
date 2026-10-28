@@ -140,6 +140,7 @@
               <input
                 type="date"
                 v-model="filters.fromDate"
+                :max="maxFromDate"
                 class="form-control-minimal"
                 :class="{ 'input-error-border': dateFilterError }"
                 @change="onCustomDateChange"
@@ -154,6 +155,8 @@
               <input
                 type="date"
                 v-model="filters.toDate"
+                :max="todayStr"
+                :min="filters.fromDate || undefined"
                 class="form-control-minimal"
                 :class="{ 'input-error-border': dateFilterError }"
                 @change="onCustomDateChange"
@@ -965,13 +968,20 @@
                 <template v-if="compareFilter.mode === 'month'">
                   <div class="mini-field">
                     <span class="mini-label">Tháng:</span>
-                    <select v-model.number="p.month" class="form-control-minimal small select-period" @change="fetchComparisonData">
-                      <option v-for="m in 12" :key="m" :value="m">Tháng {{ m }}</option>
+                    <select v-model.number="p.month" class="form-control-minimal small select-period" @change="onPeriodMonthChange(p)">
+                      <option
+                        v-for="m in 12"
+                        :key="m"
+                        :value="m"
+                        :disabled="p.year === currentYear && m > currentMonth"
+                      >
+                        Tháng {{ m }}
+                      </option>
                     </select>
                   </div>
                   <div class="mini-field">
                     <span class="mini-label">Năm:</span>
-                    <select v-model.number="p.year" class="form-control-minimal small select-period" @change="fetchComparisonData">
+                    <select v-model.number="p.year" class="form-control-minimal small select-period" @change="onPeriodYearChange(p)">
                       <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
                     </select>
                   </div>
@@ -981,16 +991,16 @@
                 <template v-else-if="compareFilter.mode === 'quarter'">
                   <div class="mini-field">
                     <span class="mini-label">Quý:</span>
-                    <select v-model.number="p.quarter" class="form-control-minimal small select-period" @change="fetchComparisonData">
-                      <option :value="1">Quý 1 (T1 - T3)</option>
-                      <option :value="2">Quý 2 (T4 - T6)</option>
-                      <option :value="3">Quý 3 (T7 - T9)</option>
-                      <option :value="4">Quý 4 (T10 - T12)</option>
+                    <select v-model.number="p.quarter" class="form-control-minimal small select-period" @change="onPeriodQuarterChange(p)">
+                      <option :value="1" :disabled="p.year === currentYear && 1 > currentQuarter">Quý 1 (T1 - T3)</option>
+                      <option :value="2" :disabled="p.year === currentYear && 2 > currentQuarter">Quý 2 (T4 - T6)</option>
+                      <option :value="3" :disabled="p.year === currentYear && 3 > currentQuarter">Quý 3 (T7 - T9)</option>
+                      <option :value="4" :disabled="p.year === currentYear && 4 > currentQuarter">Quý 4 (T10 - T12)</option>
                     </select>
                   </div>
                   <div class="mini-field">
                     <span class="mini-label">Năm:</span>
-                    <select v-model.number="p.year" class="form-control-minimal small select-period" @change="fetchComparisonData">
+                    <select v-model.number="p.year" class="form-control-minimal small select-period" @change="onPeriodYearChange(p)">
                       <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
                     </select>
                   </div>
@@ -1000,7 +1010,7 @@
                 <template v-else-if="compareFilter.mode === 'year'">
                   <div class="mini-field">
                     <span class="mini-label">Năm:</span>
-                    <select v-model.number="p.year" class="form-control-minimal small select-period" @change="fetchComparisonData">
+                    <select v-model.number="p.year" class="form-control-minimal small select-period" @change="onPeriodYearChange(p)">
                       <option v-for="y in availableYears" :key="y" :value="y">Năm {{ y }}</option>
                     </select>
                   </div>
@@ -1019,11 +1029,24 @@
                   </div>
                   <div class="mini-field">
                     <span class="mini-label">Từ:</span>
-                    <input type="date" v-model="p.fromDate" class="form-control-minimal small input-period-date" @change="fetchComparisonData" />
+                    <input
+                      type="date"
+                      v-model="p.fromDate"
+                      :max="p.toDate ? (p.toDate < todayStr ? p.toDate : todayStr) : todayStr"
+                      class="form-control-minimal small input-period-date"
+                      @change="onCustomPeriodDateChange(p)"
+                    />
                   </div>
                   <div class="mini-field">
                     <span class="mini-label">Đến:</span>
-                    <input type="date" v-model="p.toDate" class="form-control-minimal small input-period-date" @change="fetchComparisonData" />
+                    <input
+                      type="date"
+                      v-model="p.toDate"
+                      :max="todayStr"
+                      :min="p.fromDate || undefined"
+                      class="form-control-minimal small input-period-date"
+                      @change="onCustomPeriodDateChange(p)"
+                    />
                   </div>
                 </template>
               </div>
@@ -1753,8 +1776,15 @@
             <div v-if="emailForm.reportType === 'month'" class="form-group-custom">
               <label class="form-label-custom">Chọn Tháng</label>
               <div class="select-wrapper-minimal">
-                <select v-model.number="emailForm.month" class="form-control-minimal">
-                  <option v-for="m in 12" :key="m" :value="m">Tháng {{ m }}</option>
+                <select v-model.number="emailForm.month" class="form-control-minimal" @change="onEmailMonthChange">
+                  <option
+                    v-for="m in 12"
+                    :key="m"
+                    :value="m"
+                    :disabled="emailForm.year === currentYear && m > currentMonth"
+                  >
+                    Tháng {{ m }}
+                  </option>
                 </select>
               </div>
             </div>
@@ -1762,7 +1792,7 @@
             <div class="form-group-custom">
               <label class="form-label-custom">Chọn Năm</label>
               <div class="select-wrapper-minimal">
-                <select v-model.number="emailForm.year" class="form-control-minimal">
+                <select v-model.number="emailForm.year" class="form-control-minimal" @change="onEmailYearChange">
                   <option v-for="y in availableYears" :key="y" :value="y">Năm {{ y }}</option>
                 </select>
               </div>
@@ -1854,6 +1884,14 @@ function getTodayDateString() {
   return `${year}-${month}-${day}`
 }
 
+const todayStr = computed(() => getTodayDateString())
+const maxFromDate = computed(() => {
+  if (filters.toDate && filters.toDate < todayStr.value) {
+    return filters.toDate
+  }
+  return todayStr.value
+})
+
 function formatDateDisplay(dStr) {
   if (!dStr) return '--/--/----'
   const parts = dStr.split('-')
@@ -1867,14 +1905,14 @@ function setQuickFilter(type) {
   quickFilter.value = type
   dateFilterError.value = ''
   const now = new Date()
-  const todayStr = getTodayDateString()
+  const today = todayStr.value
 
   if (type === 'all') {
     filters.fromDate = '2024-01-01'
-    filters.toDate = todayStr
+    filters.toDate = today
   } else if (type === 'today') {
-    filters.fromDate = todayStr
-    filters.toDate = todayStr
+    filters.fromDate = today
+    filters.toDate = today
   } else if (type === '7days') {
     const past7 = new Date()
     past7.setDate(now.getDate() - 6)
@@ -1882,14 +1920,14 @@ function setQuickFilter(type) {
     const m = String(past7.getMonth() + 1).padStart(2, '0')
     const d = String(past7.getDate()).padStart(2, '0')
     filters.fromDate = `${y}-${m}-${d}`
-    filters.toDate = todayStr
+    filters.toDate = today
   } else if (type === 'thisMonth') {
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
     const y = firstDay.getFullYear()
     const m = String(firstDay.getMonth() + 1).padStart(2, '0')
     const d = String(firstDay.getDate()).padStart(2, '0')
     filters.fromDate = `${y}-${m}-${d}`
-    filters.toDate = todayStr
+    filters.toDate = today
   } else if (type === 'lastMonth') {
     const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
@@ -1904,16 +1942,22 @@ function setQuickFilter(type) {
   } else if (type === 'thisYear') {
     const y = now.getFullYear()
     filters.fromDate = `${y}-01-01`
-    filters.toDate = todayStr
+    filters.toDate = today
   }
 
   fetchOverviewData()
 }
 
 function onCustomDateChange() {
+  const today = todayStr.value
+  if (filters.fromDate && filters.fromDate > today) {
+    filters.fromDate = today
+  }
+  if (filters.toDate && filters.toDate > today) {
+    filters.toDate = today
+  }
   if (filters.fromDate && filters.toDate && filters.fromDate > filters.toDate) {
-    dateFilterError.value = 'Từ ngày không được lớn hơn Đến ngày!'
-    return
+    filters.fromDate = filters.toDate
   }
   dateFilterError.value = ''
   quickFilter.value = 'custom'
@@ -2392,8 +2436,11 @@ function exportClientExcelFallback() {
 // =========================================================================
 // PHẦN 10: LOGIC CHO MÀN HÌNH SO SÁNH & TĂNG TRƯỞNG DOANH THU (COMPARISON)
 // =========================================================================
-const currentYear = new Date().getFullYear()
-const availableYears = [currentYear - 3, currentYear - 2, currentYear - 1, currentYear, currentYear + 1]
+const now = new Date()
+const currentYear = now.getFullYear()
+const currentMonth = now.getMonth() + 1
+const currentQuarter = Math.ceil(currentMonth / 3)
+const availableYears = [currentYear - 4, currentYear - 3, currentYear - 2, currentYear - 1, currentYear]
 
 const compareFilter = reactive({
   mode: 'month', // 'month', 'quarter', 'year', 'custom'
@@ -2407,10 +2454,50 @@ const compareFilter = reactive({
 // Danh sách các kỳ so sánh đa kỳ động
 const comparePeriods = ref([])
 
+function onPeriodYearChange(p) {
+  if (p.year >= currentYear) {
+    p.year = currentYear
+    if (p.month && p.month > currentMonth) {
+      p.month = currentMonth
+    }
+    if (p.quarter && p.quarter > currentQuarter) {
+      p.quarter = currentQuarter
+    }
+  }
+  fetchComparisonData()
+}
+
+function onPeriodMonthChange(p) {
+  if (p.year === currentYear && p.month > currentMonth) {
+    p.month = currentMonth
+  }
+  fetchComparisonData()
+}
+
+function onPeriodQuarterChange(p) {
+  if (p.year === currentYear && p.quarter > currentQuarter) {
+    p.quarter = currentQuarter
+  }
+  fetchComparisonData()
+}
+
+function onCustomPeriodDateChange(p) {
+  const today = todayStr.value
+  if (p.fromDate && p.fromDate > today) {
+    p.fromDate = today
+  }
+  if (p.toDate && p.toDate > today) {
+    p.toDate = today
+  }
+  if (p.fromDate && p.toDate && p.fromDate > p.toDate) {
+    p.fromDate = p.toDate
+  }
+  fetchComparisonData()
+}
+
 function initPeriodsForMode(mode) {
-  const now = new Date()
   const y = currentYear
-  const m = now.getMonth() + 1
+  const m = currentMonth
 
   if (mode === 'month') {
     const prevM = m === 1 ? 12 : m - 1
@@ -2420,12 +2507,11 @@ function initPeriodsForMode(mode) {
       { id: 2, month: m, year: y }
     ]
   } else if (mode === 'quarter') {
-    const currentQ = Math.ceil(m / 3)
-    const prevQ = currentQ === 1 ? 4 : currentQ - 1
-    const prevQYear = currentQ === 1 ? y - 1 : y
+    const prevQ = currentQuarter === 1 ? 4 : currentQuarter - 1
+    const prevQYear = currentQuarter === 1 ? y - 1 : y
     comparePeriods.value = [
       { id: 1, quarter: prevQ, year: prevQYear },
-      { id: 2, quarter: currentQ, year: y }
+      { id: 2, quarter: currentQuarter, year: y }
     ]
   } else if (mode === 'year') {
     comparePeriods.value = [
@@ -2433,9 +2519,14 @@ function initPeriodsForMode(mode) {
       { id: 2, year: y }
     ]
   } else if (mode === 'custom') {
+    const past30 = new Date()
+    past30.setDate(now.getDate() - 30)
+    const past60 = new Date()
+    past60.setDate(now.getDate() - 60)
+    const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     comparePeriods.value = [
-      { id: 1, name: 'Kỳ A (Kỳ trước)', fromDate: `${y}-01-01`, toDate: `${y}-06-30` },
-      { id: 2, name: 'Kỳ B (Kỳ này)', fromDate: `${y}-07-01`, toDate: `${y}-12-31` }
+      { id: 1, name: 'Kỳ A (Kỳ trước)', fromDate: fmt(past60), toDate: fmt(past30) },
+      { id: 2, name: 'Kỳ B (Kỳ này)', fromDate: fmt(past30), toDate: todayStr.value }
     ]
   }
 }
@@ -2443,36 +2534,62 @@ function initPeriodsForMode(mode) {
 function addComparePeriod() {
   const mode = compareFilter.mode
   const nextId = Date.now()
-  const len = comparePeriods.value.length
 
   if (mode === 'month') {
-    const last = comparePeriods.value[len - 1] || { month: 1, year: currentYear }
-    let nextM = last.month + 1
-    let nextY = last.year
-    if (nextM > 12) {
-      nextM = 1
-      nextY += 1
+    // Tìm kỳ sớm nhất hiện có để lùi tiếp về quá khứ (không bao giờ vượt tới tương lai)
+    let earliest = comparePeriods.value[0] || { month: currentMonth, year: currentYear }
+    for (const p of comparePeriods.value) {
+      if (p.year < earliest.year || (p.year === earliest.year && p.month < earliest.month)) {
+        earliest = p
+      }
     }
-    comparePeriods.value.push({ id: nextId, month: nextM, year: nextY })
+    let newM = earliest.month - 1
+    let newY = earliest.year
+    if (newM < 1) {
+      newM = 12
+      newY -= 1
+    }
+    comparePeriods.value.unshift({ id: nextId, month: newM, year: newY })
   } else if (mode === 'quarter') {
-    const last = comparePeriods.value[len - 1] || { quarter: 1, year: currentYear }
-    let nextQ = last.quarter + 1
-    let nextY = last.year
-    if (nextQ > 4) {
-      nextQ = 1
-      nextY += 1
+    let earliest = comparePeriods.value[0] || { quarter: currentQuarter, year: currentYear }
+    for (const p of comparePeriods.value) {
+      if (p.year < earliest.year || (p.year === earliest.year && p.quarter < earliest.quarter)) {
+        earliest = p
+      }
     }
-    comparePeriods.value.push({ id: nextId, quarter: nextQ, year: nextY })
+    let newQ = earliest.quarter - 1
+    let newY = earliest.year
+    if (newQ < 1) {
+      newQ = 4
+      newY -= 1
+    }
+    comparePeriods.value.unshift({ id: nextId, quarter: newQ, year: newY })
   } else if (mode === 'year') {
-    const last = comparePeriods.value[len - 1] || { year: currentYear }
-    comparePeriods.value.push({ id: nextId, year: last.year + 1 })
+    let earliest = comparePeriods.value[0] || { year: currentYear }
+    for (const p of comparePeriods.value) {
+      if (p.year < earliest.year) {
+        earliest = p
+      }
+    }
+    const newY = earliest.year - 1
+    comparePeriods.value.unshift({ id: nextId, year: newY })
   } else if (mode === 'custom') {
-    const todayStr = getTodayDateString()
-    comparePeriods.value.push({
+    let earliestFrom = comparePeriods.value[0]?.fromDate || todayStr.value
+    for (const p of comparePeriods.value) {
+      if (p.fromDate && p.fromDate < earliestFrom) {
+        earliestFrom = p.fromDate
+      }
+    }
+    const dEnd = new Date(earliestFrom)
+    dEnd.setDate(dEnd.getDate() - 1)
+    const dStart = new Date(dEnd)
+    dStart.setDate(dStart.getDate() - 30)
+    const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    comparePeriods.value.unshift({
       id: nextId,
-      name: `Kỳ ${String.fromCharCode(65 + len)}`,
-      fromDate: todayStr,
-      toDate: todayStr
+      name: `Kỳ ${comparePeriods.value.length + 1}`,
+      fromDate: fmt(dStart),
+      toDate: fmt(dEnd)
     })
   }
   fetchComparisonData()
@@ -2952,14 +3069,29 @@ const sendingEmail = ref(false)
 const emailForm = reactive({
   reportType: 'day', // 'day', 'month', 'year'
   year: currentYear,
-  month: new Date().getMonth() + 1,
+  month: currentMonth,
   recipientEmail: 'thuanminh2908200334.1@gmail.com'
 })
+
+function onEmailYearChange() {
+  if (emailForm.year >= currentYear) {
+    emailForm.year = currentYear
+    if (emailForm.month > currentMonth) {
+      emailForm.month = currentMonth
+    }
+  }
+}
+
+function onEmailMonthChange() {
+  if (emailForm.year === currentYear && emailForm.month > currentMonth) {
+    emailForm.month = currentMonth
+  }
+}
 
 function openEmailModal() {
   emailForm.reportType = 'day'
   emailForm.year = currentYear
-  emailForm.month = new Date().getMonth() + 1
+  emailForm.month = currentMonth
   if (!emailForm.recipientEmail) {
     emailForm.recipientEmail = 'thuanminh2908200334.1@gmail.com'
   }
