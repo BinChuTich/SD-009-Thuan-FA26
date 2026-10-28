@@ -266,7 +266,8 @@ public class DotGiamGiaService {
         // Ưu tiên lưu danh sách biến thể cụ thể đã được người dùng chọn
         if (chiTietSanPhamIds != null && !chiTietSanPhamIds.isEmpty()) {
             finalCtspIds.addAll(chiTietSanPhamIds);
-        } else if (sanPhamIds != null && !sanPhamIds.isEmpty()) {
+        }
+        if (sanPhamIds != null && !sanPhamIds.isEmpty()) {
             // Nếu người dùng chọn cả sản phẩm mà không chỉ định biến thể riêng lẻ
             for (Long spId : sanPhamIds) {
                 List<ChiTietSanPham> variants = chiTietSanPhamRepository.findByIdSanPham_Id(spId);

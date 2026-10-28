@@ -188,14 +188,26 @@ public class HoaDon {
                 }
             } catch (Exception ignored) {}
         }
+        if (this.ghiChu != null) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})").matcher(this.ghiChu);
+            if (m.find()) {
+                return m.group(1).trim();
+            }
+        }
         if (idKhachHang != null && idKhachHang.getEmail() != null && !idKhachHang.getEmail().trim().isEmpty()) {
             return idKhachHang.getEmail().trim();
         }
         return null;
     }
 
+    @JsonProperty("email")
     public String getEmail() {
         return this.email != null ? this.email : getEmailKhachHang();
+    }
+
+    @JsonProperty("maKhachHang")
+    public String getMaKhachHang() {
+        return idKhachHang != null ? idKhachHang.getMaKhachHang() : null;
     }
 
     public void setEmail(String email) {

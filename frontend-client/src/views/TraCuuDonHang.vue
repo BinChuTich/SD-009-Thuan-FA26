@@ -126,22 +126,6 @@ const handleSearch = async () => {
 }
 
 // Helpers định dạng thời gian
-const formatOnlyTime = (val) => {
-  if (!val) return ''
-  const d = new Date(val)
-  if (isNaN(d.getTime())) return ''
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
-
-const formatOnlyDate = (val) => {
-  if (!val) return ''
-  const d = new Date(val)
-  if (isNaN(d.getTime())) return ''
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
-}
-
 const formatLogTime = (val) => {
   if (!val) return '—'
   const d = new Date(val)
@@ -150,36 +134,53 @@ const formatLogTime = (val) => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
 }
 
-// Mô tả trạng thái đơn hàng (Match video tc_1925.png)
-const getOrderStatusBanner = (o) => {
-  if (!o) return ''
-  if (o.trangThai === 6) return 'Đơn hàng đã được Hủy & Hoàn tiền thành công'
-  if (o.trangThai === 5) return 'Đơn hàng đã được giao thành công'
-  if (o.trangThai === 4) return 'Đơn hàng đang được giao'
-  if (o.trangThai === 3) return 'Đơn hàng đã đóng gói, chờ giao ĐVVC'
-  if (o.trangThai === 2) return 'Đơn hàng đã được xác nhận'
-  return 'Đơn hàng đang được xử lý & giao nhận'
+const getDeliveryStepTime = (stepNum) => {
+  if (!order.value) return ''
+  const currentStatus = Number(order.value.trangThai || 1)
+  if (currentStatus < stepNum) {
+    return ''
+  }
+
+  if (stepNum === 1) {
+    if (orderLogs.value && orderLogs.value.length > 0) {
+      const createLogs = orderLogs.value.filter(l => {
+        const text = ((l.hanhDong || '') + ' ' + (l.ghiChu || '')).toLowerCase()
+        return Number(l.trangThai) === 1 || text.includes('tạo') || text.includes('đặt hàng')
+      })
+      if (createLogs.length > 0) {
+        const earliest = createLogs[createLogs.length - 1]
+        if (earliest && earliest.thoiGian) return formatLogTime(earliest.thoiGian)
+      }
+    }
+    return formatLogTime(order.value.ngayTao)
+  }
+
+  if (orderLogs.value && orderLogs.value.length > 0) {
+    const matched = orderLogs.value.find(l => {
+      if (Number(l.trangThai) === stepNum) return true
+      const text = ((l.hanhDong || '') + ' ' + (l.ghiChu || '')).toLowerCase()
+      if (stepNum === 2 && (text.includes('xác nhận') || text.includes('duyệt'))) return true
+      if (stepNum === 3 && (text.includes('chờ vận chuyển') || text.includes('đóng gói') || text.includes('chuẩn bị'))) return true
+      if (stepNum === 4 && (text.includes('đang vận chuyển') || text.includes('đang giao'))) return true
+      if (stepNum === 5 && (text.includes('hoàn thành') || text.includes('giao thành công') || text.includes('đã nhận'))) return true
+      return false
+    })
+    if (matched && matched.thoiGian) {
+      return formatLogTime(matched.thoiGian)
+    }
+  }
+
+  if (currentStatus === stepNum && order.value.ngayCapNhat) {
+    return formatLogTime(order.value.ngayCapNhat)
+  }
+
+  return ''
 }
 
 const isVnPay = (o) => {
   if (!o) return false
   const pt = (o.phuongThucThanhToan || o.ghiChu || '').toUpperCase()
   return pt.includes('VNPAY') || Boolean(o.isVnPay)
-}
-
-const getPaymentStatusText = (o) => {
-  if (!o) return ''
-  if (o.trangThai === 6) {
-    if (isVnPay(o)) return 'Đã nhận hoàn tiền'
-    return 'Đã hủy đơn'
-  }
-  if (o.trangThaiThanhToan === 1) return 'Đã thanh toán'
-  return 'Chưa thanh toán'
-}
-
-const isPaidOrRefunded = (o) => {
-  if (!o) return false
-  return o.trangThai === 6 || o.trangThaiThanhToan === 1
 }
 
 const getActorName = (log) => {
@@ -196,19 +197,15 @@ const getActorClass = (log) => {
   return 'actor-customer'
 }
 
-// Helper hình ảnh sản phẩm
 const resolveProductImg = (it) => {
   const raw = it.anhDaiDien || it.anh || it.hinhAnh || it.idChiTietSanPham?.idSanPham?.anh || it.idChiTietSanPham?.anh
   return resolveProductImageUrl(raw)
-  if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) return raw
-  return `http://localhost:8080${raw.startsWith('/') ? '' : '/'}${raw}`
 }
 
 const onImgError = (e) => {
   e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER
 }
 
-// 5 Bước Stepper
 const isPosOrder = computed(() => {
   if (!order.value) return false
   const addr = (order.value.diaChiNhanHang || '').trim().toLowerCase()
@@ -219,37 +216,6 @@ const isPosOrder = computed(() => {
     return false
   }
   return order.value.loaiDon === 1 || addr.includes('tại quầy') || addr.includes('tai quay') || addr.includes('tại cửa hàng') || !addr
-
-})
-
-const defaultSteps = [
-  { num: 1, label: 'Chờ xác nhận' },
-  { num: 2, label: 'Đã xác nhận' },
-  { num: 3, label: 'Chờ vận chuyển' },
-  { num: 4, label: 'Đang vận chuyển' },
-  { num: 5, label: 'Giao thành công' }
-]
-
-const steps = computed(() => {
-  if (isPosOrder.value) {
-    return [
-      { num: 1, label: 'Tạo đơn tại quầy' },
-      { num: 2, label: 'Thanh toán' },
-      { num: 5, label: 'Nhận hàng tại quầy' }
-    ]
-  }
-  return defaultSteps
-})
-/*
-})
-
-]
-
-*/
-const currentStep = computed(() => {
-  if (!order.value) return 1
-  if (order.value.trangThai === 6) return -1
-  return order.value.trangThai || 1
 })
 
 // Tính toán tài chính
@@ -304,26 +270,27 @@ onMounted(() => {
 
 <template>
   <div class="tracking-page-wrap">
-    <!-- TOAST THÔNG BÁO TÌM THẤY ĐƠN (MATCH VIDEO GÓC PHẢI TRÊN tc_1925.png) -->
+    <!-- TOAST THÔNG BÁO TÌM THẤY ĐƠN -->
     <transition name="toast-slide">
       <div v-if="showSuccessToast" class="success-top-toast">
         <span class="toast-check-icon">✓</span>
         <div class="toast-text-box">
           <strong>Thành công</strong>
-          <p>Đã tìm thấy đơn hàng</p>
+          <p>Đã tìm thấy đơn hàng #{{ order?.maHoaDon }}</p>
         </div>
       </div>
     </transition>
 
-    <!-- TIÊU ĐỀ TRANG TRANG NHÃ (MATCH VIDEO tc_input_1920.png) -->
+    <!-- TIÊU ĐỀ TRANG -->
     <div class="tracking-hero-header">
       <div class="container-client text-center">
         <h1 class="tracking-title">Tra Cứu Đơn Hàng</h1>
+        <p class="tracking-subtitle">Theo dõi hành trình vận chuyển và thông tin đơn hàng nhanh chóng, chính xác</p>
       </div>
     </div>
 
     <div class="container-client tracking-main-container">
-      <!-- THANH TÌM KIẾM 2 TRƯỜNG MATCH CHUẨN VIDEO tc_input_1920.png -->
+      <!-- THANH TÌM KIẾM 2 TRƯỜNG -->
       <div class="search-input-card">
         <form @submit.prevent="handleSearch" class="search-two-fields-form">
           <div class="form-field-col">
@@ -333,7 +300,7 @@ onMounted(() => {
             <input
               v-model="searchCode"
               type="text"
-              placeholder="Nhập Mã Hóa Đơn"
+              placeholder="Nhập Mã Hóa Đơn (VD: HD019)"
               class="track-input"
             />
           </div>
@@ -345,7 +312,7 @@ onMounted(() => {
             <input
               v-model="searchPhone"
               type="text"
-              placeholder="Nhập SĐT"
+              placeholder="Nhập số điện thoại đặt hàng"
               class="track-input"
             />
           </div>
@@ -362,160 +329,277 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- KẾT QUẢ TRA CỨU CHI TIẾT (MATCH CHÍNH XÁC VIDEO tc_1925.png) -->
+      <!-- KẾT QUẢ TRA CỨU CHI TIẾT (GIỐNG 100% GIAO DIỆN XEM CHI TIẾT ĐƠN HÀNG) -->
       <div v-if="order" class="tracking-result-box">
-        <!-- 1. DẢI BANNER TRẠNG THÁI TRÊN CÙNG (XANH LÁ HOẶC ĐỎ KHI HỦY) -->
-        <div
-          class="status-banner"
-          :class="order.trangThai === 6 ? 'status-banner-red' : 'status-banner-green'"
-        >
-          <div class="banner-icon-title">
-            <span class="icon-circle">{{ order.trangThai === 6 ? '✕' : '✓' }}</span>
-            <span class="banner-text">{{ getOrderStatusBanner(order) }}</span>
-          </div>
-          <div class="banner-time">
-            <div class="time-part">{{ formatOnlyTime(order.ngayCapNhat || order.ngayTao) }}</div>
-            <div class="date-part">{{ formatOnlyDate(order.ngayCapNhat || order.ngayTao) }}</div>
-          </div>
-        </div>
-
-        <!-- 2. THANH TIẾN TRÌNH STEPPER TINH TẾ (CHỈ HIỂN THỊ KHI CHƯA BỊ HỦY) -->
-        <div v-if="order.trangThai !== 6" class="stepper-minimal-card">
-          <div class="stepper-line-track">
-            <div
-              v-for="(st, idx) in steps"
-              :key="st.num"
-              class="stepper-node-item"
-              :class="{
-                done: currentStep >= st.num,
-                active: currentStep === st.num
-              }"
-            >
-              <div v-if="idx > 0" class="step-line-segment" :class="{ filled: currentStep >= st.num }"></div>
-              <div class="step-bullet-circle">
-                <span v-if="currentStep > st.num" class="step-check">✓</span>
-                <span v-else>{{ st.num }}</span>
+        
+        <!-- TRƯỜNG HỢP 1: ĐƠN TẠI QUẦY -->
+        <div class="order-stepper-box" v-if="isPosOrder && order.trangThai !== 6">
+          <div class="stepper-track">
+            <div class="step-point" :class="{ completed: order.trangThai >= 1 }">
+              <div class="step-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <path d="M16 10a4 4 0 0 1-8 0"></path>
+                </svg>
               </div>
-              <span class="step-label-text">{{ st.label }}</span>
+              <span class="step-name">Tạo đơn tại quầy</span>
+              <span class="step-sub">{{ getDeliveryStepTime(1) }}</span>
+            </div>
+            <div class="step-line" :class="{ active: order.trangThai >= 2 }"></div>
+
+            <div class="step-point" :class="{ completed: order.trangThaiThanhToan === 1 || order.trangThai >= 2, current: order.trangThaiThanhToan !== 1 && order.trangThai < 5 }">
+              <div class="step-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                  <line x1="1" y1="10" x2="23" y2="10"></line>
+                </svg>
+              </div>
+              <span class="step-name">Thanh toán</span>
+              <span class="step-sub">{{ getDeliveryStepTime(2) }}</span>
+            </div>
+            <div class="step-line" :class="{ active: order.trangThai >= 5 }"></div>
+
+            <div class="step-point" :class="{ completed: order.trangThai === 5, current: order.trangThai === 5 }">
+              <div class="step-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+              </div>
+              <span class="step-name">Hoàn tất tại quầy</span>
+              <span class="step-sub">{{ getDeliveryStepTime(5) }}</span>
             </div>
           </div>
         </div>
 
-        <!-- 3. HAI KHỐI THÔNG TIN BÊN DƯỚI (MATCH CHUẨN tc_1925.png) -->
-        <div class="two-info-boxes-grid">
-          <!-- Khối Thông nhận hàng -->
-          <div class="info-block-card">
-            <h4>📍 Thông nhận hàng</h4>
-            <div class="info-lines">
-              <div class="i-line">
-                <span class="i-label">Khách hàng:</span>
-                <strong>{{ order.tenKhachHang || order.tenKhachHangHienThi || 'Khách hàng' }}</strong>
+        <!-- TRƯỜNG HỢP 2: ĐƠN GIAO HÀNG / ONLINE (5 BƯỚC CHUẨN) -->
+        <div class="order-stepper-box" v-else-if="order.trangThai !== 6">
+          <div class="stepper-track">
+            <!-- Step 1: Chờ xác nhận -->
+            <div class="step-point" :class="{ completed: order.trangThai >= 1 }">
+              <div class="step-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <path d="M16 10a4 4 0 0 1-8 0"></path>
+                </svg>
               </div>
-              <div class="i-line">
-                <span class="i-label">SĐT:</span>
-                <span>{{ order.soDienThoaiKhachHang || order.soDienThoaiHienThi || '—' }}</span>
+              <span class="step-name">Chờ xác nhận</span>
+              <span class="step-sub">{{ getDeliveryStepTime(1) }}</span>
+            </div>
+            <div class="step-line" :class="{ active: order.trangThai >= 2 }"></div>
+
+            <!-- Step 2: Đã xác nhận -->
+            <div class="step-point" :class="{ completed: order.trangThai >= 2, current: order.trangThai === 2 }">
+              <div class="step-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <polyline points="9 15 11 17 15 13"></polyline>
+                </svg>
               </div>
-              <div class="i-line">
-                <span class="i-label">Địa chỉ:</span>
-                <span>{{ order.diaChiNhanHang || '—' }}</span>
+              <span class="step-name">Đã xác nhận</span>
+              <span class="step-sub">{{ getDeliveryStepTime(2) }}</span>
+            </div>
+            <div class="step-line" :class="{ active: order.trangThai >= 3 }"></div>
+
+            <!-- Step 3: Chờ vận chuyển -->
+            <div class="step-point" :class="{ completed: order.trangThai >= 3, current: order.trangThai === 3 }">
+              <div class="step-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                  <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
               </div>
-              <div class="i-line" v-if="order.loaiDon !== 1">
-                <span class="i-label">Vận chuyển:</span>
-                <span style="font-weight: 600; color: #3e5c76;">🚚 {{ order.donViVanChuyen || 'Giao Hàng Nhanh (GHN)' }}</span>
+              <span class="step-name">Chờ vận chuyển</span>
+              <span class="step-sub">{{ getDeliveryStepTime(3) }}</span>
+            </div>
+            <div class="step-line" :class="{ active: order.trangThai >= 4 }"></div>
+
+            <!-- Step 4: Đang vận chuyển -->
+            <div class="step-point" :class="{ completed: order.trangThai >= 4, current: order.trangThai === 4 }">
+              <div class="step-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="1" y="3" width="15" height="13"></rect>
+                  <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+                  <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                  <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                </svg>
+              </div>
+              <span class="step-name">Đang vận chuyển</span>
+              <span class="step-sub">{{ getDeliveryStepTime(4) }}</span>
+            </div>
+            <div class="step-line" :class="{ active: order.trangThai >= 5 }"></div>
+
+            <!-- Step 5: Giao thành công -->
+            <div class="step-point" :class="{ completed: order.trangThai === 5, current: order.trangThai === 5 }">
+              <div class="step-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+              </div>
+              <span class="step-name">Giao thành công</span>
+              <span class="step-sub">{{ getDeliveryStepTime(5) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Banner đơn đã hủy -->
+        <div v-else class="cancelled-banner-box">
+          <span class="c-icon">🚫</span>
+          <div>
+            <strong>Đơn hàng đã được Hủy trên hệ thống</strong>
+            <p>{{ isVnPay(order) ? 'Số tiền thanh toán qua VNPAY đã được xác nhận hoàn lại trả quý khách.' : 'Đơn hàng chưa giao và bạn không phải chi trả bất kỳ khoản phí nào.' }}</p>
+          </div>
+        </div>
+
+        <!-- THÔNG TIN VẬN CHUYỂN & GIAO HÀNG ONLINE (GHN) -->
+        <div class="online-shipping-detail-box" v-if="!isPosOrder">
+          <div class="shipping-box-header">
+            <div class="carrier-brand">
+              <span class="carrier-icon">🚚</span>
+              <div>
+                <strong class="carrier-title">Đơn vị vận chuyển: {{ order.donViVanChuyen || 'Giao Hàng Nhanh (GHN)' }}</strong>
+                <span class="carrier-badge">GHN Express</span>
+              </div>
+            </div>
+            <div class="tracking-code-wrap" v-if="order.maVanDon">
+              <span class="trk-label">Mã vận đơn:</span>
+              <span class="trk-code">#{{ order.maVanDon }}</span>
+            </div>
+          </div>
+
+          <div class="shipping-info-grid">
+            <div class="shipping-info-item">
+              <span class="item-label">Người nhận hàng:</span>
+              <strong class="item-value">{{ order.tenKhachHang || order.tenKhachHangHienThi || 'Khách hàng' }}</strong>
+              <span class="item-sub" v-if="order.soDienThoaiKhachHang || order.soDienThoaiHienThi">
+                📞 {{ order.soDienThoaiKhachHang || order.soDienThoaiHienThi }}
+              </span>
+            </div>
+            <div class="shipping-info-item">
+              <span class="item-label">Địa chỉ giao hàng:</span>
+              <span class="item-value">{{ order.diaChiNhanHang || 'Nhận tại địa chỉ' }}</span>
+            </div>
+            <div class="shipping-info-item">
+              <span class="item-label">Trạng thái vận chuyển:</span>
+              <strong class="item-value text-shipping">
+                {{ order.trangThai === 1 ? 'Chờ Shop xác nhận & đóng gói' :
+                   order.trangThai === 2 ? 'Shop đã duyệt đơn - Đang chuẩn bị hàng' :
+                   order.trangThai === 3 ? 'Đang bàn giao shipper GHN' :
+                   order.trangThai === 4 ? 'Shipper GHN đang trên đường giao tới bạn' :
+                   order.trangThai === 5 ? 'Đã giao hàng thành công' : 'Đơn đã hủy' }}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- HAI BẢNG SONG SONG TRÊN CÙNG 1 DÒNG: THÔNG TIN GIAO NHẬN & CHI TIẾT THANH TOÁN -->
+        <div class="order-double-panels-grid">
+          <!-- BẢNG 1: THÔNG TIN NHẬN HÀNG -->
+          <div class="panel-box-item">
+            <div class="panel-box-header">
+              <h4 class="panel-box-title">📍 Thông tin nhận hàng</h4>
+            </div>
+            <div class="panel-box-content">
+              <div class="panel-field-row">
+                <span class="field-label">Khách hàng:</span>
+                <strong class="field-value">{{ order.tenKhachHang || order.tenKhachHangHienThi || 'Khách hàng' }}</strong>
+              </div>
+              <div class="panel-field-row">
+                <span class="field-label">Số điện thoại:</span>
+                <span class="field-value">{{ order.soDienThoaiKhachHang || order.soDienThoaiHienThi || '—' }}</span>
+              </div>
+              <div class="panel-field-row">
+                <span class="field-label">Địa chỉ nhận:</span>
+                <span class="field-value">{{ order.diaChiNhanHang || '—' }}</span>
+              </div>
+              <div class="panel-divider"></div>
+              <div class="panel-field-row">
+                <span class="field-label">Phương thức:</span>
+                <strong class="field-value text-dark">{{ order.phuongThucThanhToan || (isVnPay(order) ? 'Cổng thanh toán VNPAY' : 'Tiền mặt') }}</strong>
+              </div>
+              <div class="panel-field-row">
+                <span class="field-label">Trạng thái:</span>
+                <span
+                  class="field-badge-status"
+                  :class="order.trangThai === 6 ? 'badge-green' : (order.trangThaiThanhToan === 1 ? 'badge-green' : 'badge-orange')"
+                >
+                  {{ order.trangThai === 6 ? 'Đã nhận hoàn tiền' : (order.trangThaiThanhToan === 1 ? 'Đã thanh toán' : 'Chưa thanh toán') }}
+                </span>
               </div>
             </div>
           </div>
 
-          <!-- Khối Thanh toán -->
-          <div class="info-block-card">
-            <h4>💳 Thanh toán</h4>
-            <div class="info-lines">
-              <div class="i-line">
-                <span class="i-label">Hình thức:</span>
-                <span>{{ order.phuongThucThanhToan || (isVnPay(order) ? 'Thanh toán qua VNPAY' : 'Thanh toán khi nhận hàng (COD)') }}</span>
+          <!-- BẢNG 2: CHI TIẾT THANH TOÁN -->
+          <div class="panel-box-item">
+            <div class="panel-box-header">
+              <h4 class="panel-box-title">💳 Chi tiết thanh toán</h4>
+            </div>
+            <div class="panel-box-content">
+              <div class="calc-field-row">
+                <span class="calc-label">Tổng tiền hàng</span>
+                <span class="calc-val">{{ formatCurrency(goodsTotal) }}</span>
               </div>
-              <div class="i-line">
-                <span class="i-label">Tình trạng:</span>
-                <strong :class="isPaidOrRefunded(order) ? 'text-green' : 'text-orange'">
-                  {{ getPaymentStatusText(order) }}
-                </strong>
+              <div v-if="discountAmount > 0" class="calc-field-row text-green">
+                <span class="calc-label">Giảm giá [{{ order.maPhieuGiamGia || 'VOUCHER' }}]</span>
+                <span class="calc-val">- {{ formatCurrency(discountAmount) }}</span>
+              </div>
+              <div class="calc-field-row">
+                <template v-if="!isPosOrder">
+                  <span class="calc-label">Phí vận chuyển ({{ order.donViVanChuyen || "GHN" }})</span>
+                  <span class="calc-val ship-val">
+                    <img v-if="shippingFee > 0" src="https://cdn.haitrieu.com/wp-content/uploads/2022/05/Logo-GHN-Orange.png" alt="GHN" class="ghn-mini-logo" />
+                    + {{ shippingFee > 0 ? formatCurrency(shippingFee) : '0 ₫' }}
+                  </span>
+                </template>
+                <template v-else>
+                  <span class="calc-label">Hình thức nhận</span>
+                  <span class="tag-pos-mini">Mua &amp; nhận tại quầy (0 ₫)</span>
+                </template>
+              </div>
+              <div class="panel-divider"></div>
+              <div class="calc-field-row total-calc-row">
+                <span class="total-label-text">Thành tiền</span>
+                <strong class="total-number-big">{{ formatCurrency(finalTotal) }}</strong>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 4. DANH SÁCH SẢN PHẨM & TỔNG TIỀN (MATCH CHUẨN tc_1925.png) -->
-        <div class="ordered-items-card">
-          <h4 class="card-head">
-            Danh sách sản phẩm ({{ orderItems.length > 0 ? orderItems.length : 1 }})
-          </h4>
-
-          <div class="items-view-list">
-            <div
-              v-for="it in (orderItems.length > 0 ? orderItems : [{ id: 1, tenSanPham: 'Áo Polo FF Nam Cổ Bẻ Cao Cấp', tenMauSac: 'Đen', tenKichCo: 'M', soLuong: 1, donGia: order.tongTien }])"
-              :key="it.id"
-              class="single-item-row"
-            >
-              <div class="item-img-col">
-                <img
-                  :src="resolveProductImg(it)"
-                  :alt="it.tenSanPham"
-                  class="it-pic"
-                  @error="onImgError"
-                />
-                <span class="badge-num">{{ it.soLuong || 1 }}</span>
-              </div>
-
-              <div class="item-desc-col">
-                <strong>{{ it.tenSanPham || it.idChiTietSanPham?.idSanPham?.tenSanPham || 'Áo Polo Nam Cao Cấp' }}</strong>
-                <p>Phân loại: {{ it.tenMauSac || it.idChiTietSanPham?.idMauSac?.tenMauSac || 'Tiêu chuẩn' }} / {{ it.tenKichCo || it.idChiTietSanPham?.idKichCo?.tenKichCo || 'M' }}</p>
-              </div>
-
-              <div class="item-price-col">
-                {{ formatCurrency(it.thanhTien || ((it.giaDuocTinh || it.donGia || order.tongTien) * (it.soLuong || 1))) }}
-              </div>
-            </div>
+        <!-- SẢN PHẨM TRONG ĐƠN -->
+        <div class="info-section-box">
+          <h4 class="sec-title">🛍️ SẢN PHẨM TRONG ĐƠN ({{ orderItems.length }})</h4>
+          
+          <div v-if="orderItems.length === 0" class="items-loading-box">
+            Đang tải thông tin sản phẩm...
           </div>
 
-          <!-- BẢNG TỔNG KẾT TÀI CHÍNH GÓC DƯỚI BÊN PHẢI (MATCH tc_1925.png) -->
-          <div class="bottom-financial-summary">
-            <div class="sum-line">
-              <span>Tổng tiền hàng:</span>
-              <span>{{ formatCurrency(goodsTotal) }}</span>
-            </div>
-            <div class="sum-line">
-              <span>Phí vận chuyển:</span>
-              <span>+ {{ formatCurrency(shippingFee) }}</span>
-            </div>
-            <div v-if="discountAmount > 0" class="sum-line text-green-discount">
-              <span>Giảm giá (Voucher):</span>
-              <span>- {{ formatCurrency(discountAmount) }}</span>
-            </div>
-            <div class="sum-line big-total-line">
-              <span class="lbl-big">Thành tiền:</span>
-              <strong class="val-big">{{ formatCurrency(finalTotal) }}</strong>
+          <div v-else class="items-table-list">
+            <div v-for="it in orderItems" :key="it.id" class="order-product-row">
+              <img
+                :src="resolveProductImg(it)"
+                @error="onImgError"
+                alt="Sản phẩm"
+                class="product-thumb"
+              />
+              <div class="product-info-col">
+                <span class="prod-name">{{ it.tenSanPham || it.idChiTietSanPham?.idSanPham?.tenSanPham || 'Áo thun FF' }}</span>
+                <span class="prod-meta">Màu: {{ it.tenMauSac || it.idChiTietSanPham?.idMauSac?.tenMauSac || 'Mặc định' }} | Size: {{ it.tenKichCo || it.idChiTietSanPham?.idKichCo?.tenKichCo || 'M' }}</span>
+                <span class="prod-qty">Số lượng: x{{ it.soLuong }}</span>
+              </div>
+              <div class="product-price-col">
+                <span class="price-val">{{ formatCurrency(it.thanhTien || ((it.giaDuocTinh || it.donGia || 0) * (it.soLuong || 1))) }}</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- 5. KHỐI LỊCH SỬ TÁC ĐỘNG ĐƠN HÀNG (MATCH tc_1925.png) -->
-        <div class="info-block-card history-card-block">
-          <h4>🕒 Lịch sử tác động</h4>
-          <div v-if="orderLogs.length > 0" class="order-history-timeline">
-            <div
-              v-for="(log, idx) in orderLogs"
-              :key="log.id || idx"
-              class="history-item-row"
-            >
-              <span class="history-time">{{ formatLogTime(log.thoiGian) }}</span>
-              <span class="history-actor" :class="getActorClass(log)">[{{ getActorName(log) }}]</span>
-              <span class="history-desc">{{ log.ghiChu || log.hanhDong || 'Cập nhật tiến trình đơn hàng' }}</span>
-            </div>
-          </div>
-          <div v-else class="history-empty-text">
-            Chưa có lịch sử cập nhật cho đơn hàng này.
-          </div>
-        </div>
+
+
       </div>
     </div>
   </div>
@@ -523,23 +607,23 @@ onMounted(() => {
 
 <style scoped>
 .tracking-page-wrap {
-  background-color: #fbfcfd;
+  background-color: #f8fafc;
   min-height: 85vh;
-  padding-bottom: 70px;
-  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  padding: 32px 0 60px;
+  font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
   color: #1e293b;
   position: relative;
 }
 
 .container-client {
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 1.5rem;
 }
 
-@media (min-width: 1400px) {
+@media (min-width: 1600px) {
   .container-client {
-    max-width: 1240px;
+    max-width: 1540px;
     padding: 0 2rem;
   }
 }
@@ -550,7 +634,30 @@ onMounted(() => {
   }
 }
 
-/* Toast matching video góc phải trên (tc_1925.png) */
+.text-center {
+  text-align: center;
+}
+
+/* Hero Header */
+.tracking-hero-header {
+  margin-bottom: 24px;
+}
+
+.tracking-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 8px;
+  letter-spacing: -0.5px;
+}
+
+.tracking-subtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Toast */
 .success-top-toast {
   position: fixed;
   top: 85px;
@@ -599,45 +706,24 @@ onMounted(() => {
 
 .toast-text-box p {
   margin: 2px 0 0;
-  font-size: 11px;
+  font-size: 12px;
   color: #64748b;
 }
 
-/* Hero Header (Match Video tc_input_1920.png) */
-.tracking-hero-header {
-  background-color: #ffffff;
-  padding: 36px 0 26px;
-  border-bottom: 1px solid #eef2f6;
-  text-align: center;
-}
-
-.tracking-title {
-  font-size: 32px;
-  font-weight: 800;
-  color: #2c3e50;
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-
-.tracking-main-container {
-  margin-top: 30px;
-  max-width: 900px;
-}
-
-/* Search input card 2 fields (Match Video tc_input_1920.png) */
+/* Search Box Card */
 .search-input-card {
   background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #eef2f6;
+  border-radius: 14px;
   padding: 24px 28px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.02);
   margin-bottom: 24px;
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.03);
 }
 
 .search-two-fields-form {
   display: flex;
+  gap: 18px;
   align-items: flex-end;
-  gap: 16px;
 }
 
 .form-field-col {
@@ -647,55 +733,53 @@ onMounted(() => {
   gap: 6px;
 }
 
-.field-label {
+.form-field-col .field-label {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: #334155;
 }
 
-.field-label .req {
-  color: #dc2626;
-  font-weight: 700;
+.form-field-col .req {
+  color: #ef4444;
 }
 
 .track-input {
   width: 100%;
-  height: 42px;
+  height: 44px;
   padding: 0 14px;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 6px;
-  font-size: 13.5px;
-  outline: none;
-  background-color: #ffffff;
-  transition: all 0.2s;
-  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
   color: #1e293b;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .track-input:focus {
   border-color: #496883;
-  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.15);
 }
 
 .form-btn-col {
-  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
 }
 
 .btn-track-submit {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 26px;
-  height: 42px;
+  height: 44px;
+  padding: 0 28px;
   background: #496883;
   color: #ffffff;
   border: none;
-  border-radius: 6px;
-  font-size: 13.5px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   transition: all 0.2s;
-  box-shadow: 0 3px 8px rgba(73, 104, 131, 0.2);
+  box-shadow: 0 3px 10px rgba(73, 104, 131, 0.2);
 }
 
 .btn-track-submit:hover:not(:disabled) {
@@ -704,359 +788,499 @@ onMounted(() => {
 }
 
 .btn-track-submit:disabled {
-  background: #94a3b8;
+  opacity: 0.6;
   cursor: not-allowed;
-  box-shadow: none;
-}
-
-.btn-icon {
-  font-size: 13px;
 }
 
 .track-err-box {
   margin-top: 14px;
   padding: 10px 14px;
   background: #fef2f2;
-  border-left: 3px solid #ef4444;
-  border-radius: 6px;
-  font-size: 12.5px;
-  color: #b91c1c;
-}
-
-/* Tracking Result Box */
-.tracking-result-box {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-/* 1. Banner trạng thái (Xanh lá tc_1925.png hoặc Đỏ khi hủy) */
-.status-banner {
+  border: 1px solid #fecaca;
+  color: #dc2626;
   border-radius: 8px;
-  padding: 16px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  font-size: 13.5px;
 }
 
-.status-banner-green {
-  background-color: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  color: #065f46;
+@media (max-width: 768px) {
+  .search-two-fields-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .btn-track-submit {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
-.status-banner-red {
-  background-color: #fef2f2;
-  border: 1px solid #fecdd3;
-  color: #991b1b;
-}
-
-.banner-icon-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14.5px;
-  font-weight: 700;
-}
-
-.icon-circle {
-  width: 22px;
-  height: 22px;
-  color: #fff;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 800;
-  flex-shrink: 0;
-}
-
-.status-banner-green .icon-circle {
-  background: #10b981;
-}
-
-.status-banner-red .icon-circle {
-  background: #ef4444;
-}
-
-.banner-time {
-  text-align: right;
-  font-size: 12px;
-  font-family: monospace;
-  line-height: 1.35;
-}
-
-.status-banner-green .banner-time {
-  color: #047857;
-}
-
-.status-banner-red .banner-time {
-  color: #b91c1c;
-}
-
-.banner-time .time-part {
-  font-weight: 700;
-}
-
-/* 2. Stepper tối giản, tinh tế */
-.stepper-minimal-card {
+/* Stepper Box - Match DonHang.vue */
+.order-stepper-box {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 18px 24px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  border-radius: 12px;
+  padding: 24px 28px;
+  border: 1px solid #eef2f6;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  margin-bottom: 22px;
 }
 
-.stepper-line-track {
+.stepper-track {
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: relative;
 }
 
-.stepper-node-item {
+.step-point {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  text-align: center;
+  width: 140px;
   position: relative;
   z-index: 2;
-  flex: 1;
 }
 
-.step-line-segment {
-  position: absolute;
-  top: 13px;
-  left: -50%;
-  width: 100%;
-  height: 3px;
-  background: #e2e8f0;
-  z-index: -1;
-}
-
-.step-line-segment.filled {
-  background: #496883;
-}
-
-.step-bullet-circle {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
+.step-icon {
+  width: 44px;
+  height: 44px;
   background: #f1f5f9;
   border: 2px solid #cbd5e1;
-  color: #64748b;
+  color: #94a3b8;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 700;
-  transition: all 0.2s ease;
+  font-size: 18px;
+  margin-bottom: 8px;
+  transition: all 0.3s;
 }
 
-.stepper-node-item.done .step-bullet-circle {
+.step-point.completed .step-icon {
   background: #496883;
   border-color: #496883;
   color: #ffffff;
+  box-shadow: 0 4px 10px rgba(73, 104, 131, 0.25);
 }
 
-.stepper-node-item.active .step-bullet-circle {
-  background: #ffffff;
-  border-color: #496883;
-  color: #496883;
-  box-shadow: 0 0 0 4px rgba(73, 104, 131, 0.15);
-  font-weight: 800;
+.step-point.current .step-icon {
+  background: #d2a764;
+  border-color: #d2a764;
+  color: #ffffff;
+  animation: pulseStep 1.8s infinite;
 }
 
-.step-label-text {
-  font-size: 11.5px;
+@keyframes pulseStep {
+  0% { box-shadow: 0 0 0 0 rgba(210, 167, 100, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(210, 167, 100, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(210, 167, 100, 0); }
+}
+
+.step-name {
+  font-size: 12.5px;
+  font-weight: 700;
   color: #64748b;
-  font-weight: 500;
-  text-align: center;
 }
 
-.stepper-node-item.done .step-label-text,
-.stepper-node-item.active .step-label-text {
+.step-point.completed .step-name {
+  color: #496883;
+}
+
+.step-sub {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.step-line {
+  flex: 1;
+  height: 3px;
+  background: #e2e8f0;
+  margin: -24px 8px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.step-line.active {
+  background: #d2a764;
+}
+
+/* Cancelled Banner */
+.cancelled-banner-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #991b1b;
+  margin-bottom: 22px;
+}
+
+.cancelled-banner-box .c-icon {
+  font-size: 26px;
+}
+
+/* Shipping Banner (GHN) */
+.online-shipping-detail-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 22px;
+}
+
+.shipping-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed #cbd5e1;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.carrier-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.carrier-icon {
+  font-size: 24px;
+}
+
+.carrier-title {
+  font-size: 15px;
   color: #1e293b;
   font-weight: 700;
+  display: block;
 }
 
-/* 3. Hai khối thông tin side-by-side matching tc_1925.png */
-.two-info-boxes-grid {
+.carrier-badge {
+  display: inline-block;
+  background: #ff6600;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  margin-top: 3px;
+}
+
+.tracking-code-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  padding: 5px 12px;
+  border-radius: 6px;
+}
+
+.trk-label {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.trk-code {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0284c7;
+}
+
+.shipping-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.shipping-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.item-label {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.item-value {
+  font-size: 14px;
+  color: #1e293b;
+}
+
+.item-sub {
+  font-size: 13px;
+  color: #475569;
+}
+
+.text-shipping {
+  color: #059669;
+}
+
+/* Double Panels Grid (Thông tin nhận hàng & Chi tiết thanh toán) */
+.order-double-panels-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
+  align-items: stretch;
+  margin-bottom: 22px;
 }
 
-.info-block-card {
+.panel-box-item {
   background: #ffffff;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  padding: 18px 20px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
-}
-
-.info-block-card h4 {
-  margin: 0 0 14px;
-  font-size: 14.5px;
-  font-weight: 700;
-  color: #334155;
-}
-
-.info-lines {
+  border: 1px solid #eef2f6;
+  border-radius: 12px;
+  padding: 22px 24px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  font-size: 13px;
 }
 
-.i-line {
+.panel-box-header {
   display: flex;
-  gap: 8px;
-}
-
-.i-label {
-  color: #64748b;
-  min-width: 85px;
-  flex-shrink: 0;
-}
-
-.text-green { color: #16a34a; }
-.text-orange { color: #d97706; }
-
-/* 4. Khối danh sách sản phẩm & tổng tiền matching tc_1925.png */
-.ordered-items-card {
-  background: #ffffff;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  padding: 22px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
-}
-
-.card-head {
-  margin: 0 0 16px;
-  font-size: 14.5px;
-  font-weight: 700;
-  color: #496883;
-  padding-bottom: 10px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
   border-bottom: 1px solid #f1f5f9;
 }
 
-.items-view-list {
+.panel-box-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #496883;
+  letter-spacing: 0.2px;
+}
+
+.panel-box-content {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  flex: 1;
+}
+
+.panel-field-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.field-label {
+  color: #64748b;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.field-value {
+  color: #1e293b;
+  text-align: right;
+  max-width: 65%;
+  word-break: break-word;
+}
+
+.field-value.text-dark {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.panel-divider {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 3px 0;
+}
+
+.field-badge-status {
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+}
+
+.field-badge-status.badge-green {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.field-badge-status.badge-orange {
+  background: #fff7ed;
+  color: #ea580c;
+  border: 1px solid #fed7aa;
+}
+
+.calc-field-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
+  color: #64748b;
+}
+
+.calc-label {
+  font-size: 13px;
+}
+
+.calc-val {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.text-green {
+  color: #059669;
+}
+
+.ship-val {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ghn-mini-logo {
+  height: 16px;
+  width: auto;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.tag-pos-mini {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.total-calc-row {
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.total-label-text {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.total-number-big {
+  font-size: 20px;
+  font-weight: 800;
+  color: #496883;
+}
+
+@media (max-width: 868px) {
+  .order-double-panels-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .stepper-track {
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+}
+
+/* Info Section Box (Sản phẩm trong đơn & Lịch sử) */
+.info-section-box {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid #eef2f6;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  margin-bottom: 22px;
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+.sec-title {
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #496883;
+}
+
+.items-loading-box {
+  padding: 20px 0;
+  text-align: center;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.items-table-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 20px;
 }
 
-.single-item-row {
+.order-product-row {
   display: flex;
   align-items: center;
   gap: 14px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.item-img-col {
-  position: relative;
-  width: 56px;
-  height: 56px;
+.order-product-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.product-thumb {
+  width: 58px;
+  height: 58px;
   border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-  flex-shrink: 0;
-}
-
-.it-pic {
-  width: 100%;
-  height: 100%;
   object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid #e2e8f0;
 }
 
-.badge-num {
-  position: absolute;
-  top: 0;
-  right: 0;
-  background: #496883;
-  color: #fff;
-  font-size: 9.5px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-bottom-left-radius: 4px;
-}
-
-.item-desc-col {
+.product-info-col {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
-.item-desc-col strong {
-  display: block;
+.prod-name {
   font-size: 13.5px;
+  font-weight: 700;
   color: #1e293b;
 }
 
-.item-desc-col p {
-  margin: 3px 0 0;
-  font-size: 12px;
+.prod-meta, .prod-qty {
+  font-size: 11.5px;
   color: #64748b;
 }
 
-.item-price-col {
+.product-price-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.price-val {
   font-size: 14px;
   font-weight: 700;
   color: #1e293b;
 }
 
-/* Bảng tổng kết tài chính góc dưới bên phải matching tc_1925.png */
-.bottom-financial-summary {
-  width: 320px;
-  margin-left: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 13px;
-  color: #64748b;
-  padding-top: 14px;
-  border-top: 1px solid #e2e8f0;
-}
-
-.sum-line {
-  display: flex;
-  justify-content: space-between;
-}
-
-.text-green-discount {
-  color: #16a34a;
-}
-
-.big-total-line {
-  margin-top: 6px;
-  padding-top: 10px;
-  border-top: 1px solid #e2e8f0;
-  font-size: 15px;
-  color: #1e293b;
-}
-
-.lbl-big {
-  font-weight: 700;
-}
-
-.val-big {
-  font-size: 18px;
-  font-weight: 800;
-  color: #1e293b;
-}
-
-/* 5. Khối lịch sử tác động đơn hàng (Match video tc_1925.png) */
-.history-card-block {
-  margin-top: 0;
-}
-
+/* History Timeline */
 .order-history-timeline {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: 12px;
 }
 
 .history-item-row {
@@ -1086,49 +1310,11 @@ onMounted(() => {
 }
 
 .actor-customer {
-  color: #2563eb;
+  color: #496883;
 }
 
 .history-desc {
   color: #1e293b;
   flex: 1;
-}
-
-.history-empty-text {
-  font-size: 13px;
-  color: #94a3b8;
-  padding: 8px 0;
-  font-style: italic;
-}
-
-@media (max-width: 768px) {
-  .search-two-fields-form {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .btn-track-submit {
-    width: 100%;
-    justify-content: center;
-  }
-  .two-info-boxes-grid {
-    grid-template-columns: 1fr;
-  }
-  .bottom-financial-summary {
-    width: 100%;
-  }
-  .history-item-row {
-    flex-direction: column;
-    gap: 3px;
-  }
-  .history-time {
-    min-width: auto;
-  }
-  .stepper-line-track {
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  .step-line-segment {
-    display: none;
-  }
 }
 </style>

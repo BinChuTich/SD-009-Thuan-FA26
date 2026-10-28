@@ -696,7 +696,11 @@ const handlePlaceOrder = async () => {
           `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`
         )
         sessionStorage.setItem('vnpay_pending_toast', 'true')
-        router.push(`/don-hang?code=${savedOrder.maHoaDon}`)
+        if (currentClientUser.value?.id) {
+          router.push(`/don-hang?code=${savedOrder.maHoaDon}`)
+        } else {
+          router.push(`/tra-cuu?code=${savedOrder.maHoaDon}`)
+        }
         return
       }
     }
@@ -790,8 +794,30 @@ const syncCartStock = async () => {
         }
         // Tự động đồng bộ đúng ảnh thật của biến thể từ CSDL
         const realVariantImg = res.data.anhDaiDien || res.data.hinhAnh || ''
-        if (realVariantImg && (item.image !== realVariantImg || !item.image || item.image.includes('unsplash') || item.image.includes('default_tshirt'))) {
-          item.image = realVariantImg
+        if (realVariantImg) {
+          if (item.image !== realVariantImg) {
+            item.image = realVariantImg
+            updated = true
+          }
+        } else if (item.image && (item.image.includes('unsplash') || item.image.includes('default_tshirt'))) {
+          item.image = ''
+          updated = true
+        }
+
+        const freshPrice = Number(res.data.giaBan != null ? res.data.giaBan : item.price)
+        const hasDiscount = Boolean(res.data.coGiamGia && res.data.giaSauGiam && Number(res.data.giaSauGiam) < freshPrice)
+        const freshDiscountPrice = hasDiscount ? Number(res.data.giaSauGiam) : freshPrice
+
+        if (item.price !== freshPrice || item.discountPrice !== freshDiscountPrice || Boolean(item.coGiamGia) !== hasDiscount) {
+          item.price = freshPrice
+          item.discountPrice = freshDiscountPrice
+          item.coGiamGia = hasDiscount
+          item.phanTramGiam = res.data.phanTramGiam != null ? Number(res.data.phanTramGiam) : 0
+          item.tenDotGiamGia = res.data.tenDotGiamGia || ''
+          updated = true
+        }
+        if (false) {
+        // sync image done
           updated = true
         }
         validItems.push(item)
@@ -897,7 +923,7 @@ const formatDate = (dateStr) => {
         </div>
 
         <div class="success-actions-row">
-          <button class="btn-primary-action" @click="router.push(`/don-hang?code=${createdOrder?.maHoaDon}`)">
+          <button class="btn-primary-action" @click="currentClientUser?.id ? router.push(`/don-hang?code=${createdOrder?.maHoaDon}`) : router.push(`/tra-cuu?code=${createdOrder?.maHoaDon}`)">
             📦 Theo dõi đơn hàng
           </button>
           <router-link to="/cua-hang" class="btn-secondary-action">

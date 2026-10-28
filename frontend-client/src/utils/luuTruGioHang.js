@@ -63,7 +63,7 @@ export const addToCart = (product, variant, quantity = 1) => {
   if (maxStock <= 0) return false
 
   const existing = cartItems.value.find(item => item.variantId === variant.id)
-  const variantImg = variant.anhDaiDien || variant.hinhAnh || variant.duongDan || variant.image || product.anhDaiDien || (Array.isArray(product.hinhAnhs) ? product.hinhAnhs[0] : '') || ''
+  const variantImg = variant.anhDaiDien || variant.hinhAnh || variant.duongDan || variant.image || ''
 
   if (existing) {
     existing.quantity += quantity

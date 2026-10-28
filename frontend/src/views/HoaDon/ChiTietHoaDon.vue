@@ -269,8 +269,16 @@ const isDeliveryOrder = computed(() => {
 })
 
 // Loại đơn hiển thị: Nếu là đơn giao hàng mà được tạo / xác nhận tại quầy (bởi nhân viên bán hàng/POS/NV...) hoặc loaiDon === 1 thì loại đơn là "Tại quầy", ngược lại là "Online"
-const displayLoaiDon = computed(() => {
-  const empCode = String(invoiceData.value.employee?.code || '').toUpperCase()
+const displayLoaiDon = computed(() => {
+  const note = String(invoiceData.value.delivery?.note || invoiceData.value.ghiChu || '').toLowerCase()
+  const loaiDon = Number(invoiceData.value.delivery?.loaiDon ?? invoiceData.value.loaiDon ?? 0)
+  if (loaiDon === 2 || note.includes('website') || note.includes('online')) {
+    return 'Online'
+  }
+  return 'Tại quầy'
+})
+// old removed
+  /* const empCode = String(invoiceData.value.employee?.code || '').toUpperCase()
   const empName = String(invoiceData.value.employee?.name || '')
   const note = String(invoiceData.value.delivery?.note || '').toLowerCase()
   const loaiDon = Number(invoiceData.value.delivery?.loaiDon || invoiceData.value.loaiDon || 0)
@@ -279,7 +287,7 @@ const displayLoaiDon = computed(() => {
   if (isStaff || loaiDon === 1) {
     return 'Tại quầy'
   }
-  return 'Online'
+  return 'Online' */ const _unused_end = () => ({
 })
 
 // Đơn bán tại quầy (kể cả nhận ngay hay giao hàng tạo/xác nhận tại quầy)
@@ -300,7 +308,20 @@ const isOnlineWaitingConfirm = computed(() => {
 const canPrintInvoice = computed(() => {
   const st = Number(invoiceData.value.status)
   if (isPureStoreOrder.value && st === 5) return true
-  return st === 2
+  return st === 2
+})
+
+// Điều kiện hiển thị nút xác nhận thanh toán:
+// Đối với đơn giao hàng / online, phải đến trạng thái "Đang vận chuyển" (status = 4) mới hiện nút xác nhận thanh toán!
+// Các bước trước đó (Chờ xác nhận = 1, Đã xác nhận = 2, Chờ vận chuyển = 3) chưa hiển thị.
+const canShowPaymentConfirmButton = computed(() => {
+  const st = Number(invoiceData.value.status)
+  const isPaid = invoiceData.value.paymentHistory?.status === 'Đã thanh toán' || Number(invoiceData.value.trangThaiThanhToan) === 1
+  if (st === 5 || st === 6 || isPaid) return false
+  if (!isPureStoreOrder.value) {
+    return st === 4
+  }
+  return true
 })
 
 // =========================================================================
@@ -812,12 +833,33 @@ const loadDetail = async (identifier) => {
     // Khách hàng
     const khachHangObj = (data['idKhachHang'] && typeof data['idKhachHang'] === 'object') ? data['idKhachHang'] : (data['khachHang'] && typeof data['khachHang'] === 'object' ? data['khachHang'] : {})
     const rawCustomerName = getString(data['tenKhachHang'], data['tenKhachHangHienThi'], khachHangObj['tenKhachHang'], data['customerName'], khachHangObj['taiKhoan'], 'Khách lẻ')
-    const customerCatalog = (rawCustomerName === 'Khách lẻ' && data['idKhachHang'] && typeof data['idKhachHang'] !== 'object') ? (DB_CUSTOMER_CATALOG[data['idKhachHang']] || {}) : {}
+    const customerCatalog = (rawCustomerName === 'Khách lẻ' && data['idKhachHang'] && typeof data['idKhachHang'] !== 'object') ? (DB_CUSTOMER_CATALOG[data['idKhachHang']] || {}) : {}
+    const rawCustomerCode = getString(khachHangObj['maKhachHang'], data['maKhachHang'], customerCatalog['code'], '')
+
+    let extractedEmail = getString(
+      data['email'],
+      data['emailKhachHang'],
+      khachHangObj['email'],
+      data['customerEmail'],
+      customerCatalog['email']
+    )
+    if ((!extractedEmail || extractedEmail === '---' || extractedEmail === '—') && data['ghiChu']) {
+      const emailTagMatch = String(data['ghiChu']).match(/\[EMAIL:\s*([^\]]+)\]/i)
+      if (emailTagMatch && emailTagMatch[1]) {
+        extractedEmail = emailTagMatch[1].trim()
+      } else {
+        const regexMatch = String(data['ghiChu']).match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
+        if (regexMatch && regexMatch[1]) {
+          extractedEmail = regexMatch[1].trim()
+        }
+      }
+    }
 
     invoiceData.value.customer = {
       name: rawCustomerName !== 'Khách lẻ' ? rawCustomerName : (customerCatalog['name'] || 'Khách lẻ'),
       phone: getString(data['soDienThoaiKhachHang'], data['soDienThoaiHienThi'], khachHangObj['soDienThoai'], data['soDienThoai'], customerCatalog['phone'], data['sdt'], '---'),
-      email: getString(khachHangObj['email'], data['email'], customerCatalog['email'], '---')
+      code: rawCustomerCode,
+      email: extractedEmail || '---'
     }
 
     // Nhân viên
@@ -887,7 +929,8 @@ const loadDetail = async (identifier) => {
 
     const hasDelivery = Boolean(data['diaChiNhanHang'] && data['diaChiNhanHang'] !== 'Bán tại quầy' && data['diaChiNhanHang'] !== '—') || Number(data['phiVanChuyen'] || data['phiShip'] || 0) > 0 || Boolean(data['donViVanChuyen'] && data['donViVanChuyen'] !== '—')
     const hasStaffCreator = Boolean(data['idNhanVien'] || data['nhanVien'] || (data['nguoiTao'] && !String(data['nguoiTao']).toLowerCase().includes('khách') && !String(data['nguoiTao']).toLowerCase().includes('client') && !String(data['nguoiTao']).toLowerCase().includes('website')))
-    const isOnlineChannel = Number(data['loaiDon']) === 2 && !hasStaffCreator && !String(data['ghiChu'] || '').toLowerCase().includes('pos') && !String(data['ghiChu'] || '').toLowerCase().includes('quầy')
+    const noteLowerRaw = String(data['ghiChu'] || '').toLowerCase()
+    const isOnlineChannel = Number(data['loaiDon']) === 2 || noteLowerRaw.includes('website') || noteLowerRaw.includes('online')
 
     invoiceData.value.loaiDon = isOnlineChannel ? 2 : (Number(data['loaiDon']) || 1)
     invoiceData.value.delivery = {
@@ -1586,7 +1629,7 @@ const handleConfirmPaymentAndPrint = () => {
     subText: isOnlineWaiting
         ? 'Hệ thống sẽ cập nhật trạng thái "Đã thanh toán" cho đơn hàng (chưa in hóa đơn do đơn online đang chờ xác nhận).'
         : 'Hệ thống sẽ cập nhật trạng thái "Đã thanh toán" và tự động mở hộp thoại in hóa đơn.',
-    confirmText: isOnlineWaiting ? 'Xác nhận thanh toán' : 'Xác nhận & In hóa đơn',
+    confirmText: !isPureStoreOrder.value ? 'Xác nhận thanh toán' : 'Xác nhận & In hóa đơn',
     cancelText: 'Hủy bỏ',
     type: 'primary',
     onConfirm: async () => {
@@ -2030,7 +2073,7 @@ onBeforeUnmount(() => {
                 </span>
               </div>
               <div class="info-list-row">
-                <span class="info-row-label">Mã khách hàng</span>
+</div><div v-if="false">
                 <span class="info-row-val" :class="{ 'text-muted': invoiceData.customer.name === 'Khách lẻ' }">
                   {{ invoiceData.customer.name === 'Khách lẻ' ? 'Khách vãng lai' : (invoiceData.customer.code || '—') }}
                 </span>
@@ -2187,7 +2230,7 @@ onBeforeUnmount(() => {
           <div class="payment-actions-col">
             <!-- Nút Xác nhận thanh toán & In hóa đơn khi đơn chưa thanh toán (chỉ hiện khi chưa hoàn thành và chưa hủy) -->
             <button
-                v-if="Number(invoiceData.status) !== 5 && Number(invoiceData.status) !== 6 && invoiceData.paymentHistory.status !== 'Đã thanh toán'"
+                v-if="canShowPaymentConfirmButton"
                 class="btn-pay-confirm-action"
                 type="button"
                 :disabled="updatingStatus"
@@ -2196,7 +2239,7 @@ onBeforeUnmount(() => {
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
-              {{ isOnlineWaitingConfirm ? 'Xác nhận thanh toán' : 'Xác nhận thanh toán & In hóa đơn' }}
+              {{ !isPureStoreOrder ? 'Xác nhận thanh toán' : 'Xác nhận thanh toán & In hóa đơn' }}
             </button>
 
 
@@ -3453,6 +3496,10 @@ onBeforeUnmount(() => {
   border-bottom: 1px dashed #f0e6dc;
 }
 
+.info-list-row:empty {
+  display: none !important;
+}
+
 .info-list-row:last-child {
   border-bottom: none;
   padding-bottom: 0;

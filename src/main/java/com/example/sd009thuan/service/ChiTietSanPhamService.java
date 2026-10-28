@@ -436,13 +436,72 @@ public class ChiTietSanPhamService {
 
         // Kiểm tra giảm giá liên kết (ưu tiên theo biến thể, fallback theo sản phẩm cha)
         Instant now = Instant.now();
-        List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsByVariantId(ct.getId(), now);
+        List<ChiTietDotGiamGia> activeDiscounts = new java.util.ArrayList<>();
+        List<ChiTietDotGiamGia> varDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsByVariantId(ct.getId(), now);
+        if (varDiscounts != null) {
+            activeDiscounts.addAll(varDiscounts);
+        }
+        if (ct.getIdSanPham() != null && ct.getIdSanPham().getId() != null) {
+            List<ChiTietDotGiamGia> spDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsBySanPhamId(ct.getIdSanPham().getId(), now);
+            if (spDiscounts != null) {
+                for (ChiTietDotGiamGia spD : spDiscounts) {
+                    boolean exists = activeDiscounts.stream().anyMatch(d -> 
+                        d.getIdDotGiamGia() != null && spD.getIdDotGiamGia() != null &&
+                        d.getIdDotGiamGia().getId().equals(spD.getIdDotGiamGia().getId())
+                    );
+                    if (!exists) {
+                        activeDiscounts.add(spD);
+                    }
+                }
+            }
+        }
         Boolean coGiamGia = false;
         BigDecimal giaSauGiam = null;
         BigDecimal phanTramGiam = null;
         String tenDotGiamGia = null;
 
-        if (activeDiscounts != null && !activeDiscounts.isEmpty()) {
+        BigDecimal originalPrice = ct.getGiaBan() != null ? ct.getGiaBan() : BigDecimal.ZERO;
+        giaSauGiam = originalPrice;
+        if (!activeDiscounts.isEmpty() && originalPrice.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal maxDiscountAmt = BigDecimal.ZERO;
+            ChiTietDotGiamGia bestDgg = null;
+
+            for (ChiTietDotGiamGia cItem : activeDiscounts) {
+                if (cItem.getIdDotGiamGia() == null) continue;
+                DotGiamGia d = cItem.getIdDotGiamGia();
+                BigDecimal discAmt = BigDecimal.ZERO;
+
+                if (Integer.valueOf(2).equals(d.getLoaiGiamGia())) {
+                    BigDecimal cash = d.getGiaTriGiam() != null ? d.getGiaTriGiam() : BigDecimal.ZERO;
+                    discAmt = cash.min(originalPrice);
+                } else {
+                    BigDecimal pt = cItem.getPhanTramGiamBienThe() != null 
+                            ? cItem.getPhanTramGiamBienThe() 
+                            : (d.getPhanTramGiam() != null ? d.getPhanTramGiam() : BigDecimal.ZERO);
+                    if (pt != null && pt.compareTo(BigDecimal.ZERO) > 0) {
+                        discAmt = originalPrice.multiply(pt).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+                        if (d.getGiamToiDa() != null && d.getGiamToiDa().compareTo(BigDecimal.ZERO) > 0 && discAmt.compareTo(d.getGiamToiDa()) > 0) {
+                            discAmt = d.getGiamToiDa();
+                        }
+                        discAmt = discAmt.min(originalPrice);
+                    }
+                }
+
+                // Tự động chọn đợt giảm giá sâu nhất (số tiền giảm VNĐ lớn nhất)
+                if (discAmt.compareTo(maxDiscountAmt) > 0) {
+                    maxDiscountAmt = discAmt;
+                    bestDgg = cItem;
+                }
+            }
+
+            if (bestDgg != null && maxDiscountAmt.compareTo(BigDecimal.ZERO) > 0) {
+                coGiamGia = true;
+                giaSauGiam = originalPrice.subtract(maxDiscountAmt).max(BigDecimal.ZERO);
+                phanTramGiam = maxDiscountAmt.multiply(BigDecimal.valueOf(100)).divide(originalPrice, 0, java.math.RoundingMode.HALF_UP);
+                tenDotGiamGia = bestDgg.getIdDotGiamGia().getTenDotGiamGia();
+            }
+        }
+        if (false) {
             coGiamGia = true;
             // Thuật toán: Khi có nhiều đợt giảm giá chạy song song (chồng chéo thời gian),
             // tự động chọn đợt giảm giá có % lớn nhất (Max) để tối ưu quyền lợi cho khách hàng

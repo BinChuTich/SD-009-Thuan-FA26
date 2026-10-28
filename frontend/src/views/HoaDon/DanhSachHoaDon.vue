@@ -1,11 +1,12 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
 import QrScannerModal from '@/components/QrScannerModal.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 const showQrScanner = ref(false)
 
@@ -331,8 +332,12 @@ const extractInvoiceArray = (resData) => {
 // Kiểm tra hóa đơn chờ tại quầy (không hiển thị trong danh sách hóa đơn)
 const isWaitingInvoice = (item) => {
   if (!item || typeof item !== 'object') return false
-  const isStoreWaiting = Number(item.loaiDon) === 1 && Number(item.trangThai) === 1
   const note = String(item.ghiChu || '').toLowerCase()
+  // note declared above
+  const isOnline = Number(item.loaiDon) === 2 || note.includes('online') || note.includes('website')
+  if (isOnline) return false
+  const isStoreWaiting = Number(item.loaiDon) === 1 && Number(item.trangThai) === 1 && ((Number(item.tongTien || 0) <= 0 && Number(item.tienSauGiamGia || 0) <= 0) || String(item.diaChiNhanHang || '').includes('quầy') || note.includes('hóa đơn chờ'))
+  // note declared above
   const isWaitingNote = note.includes('hóa đơn chờ') || note.includes('hoa don cho')
   return isStoreWaiting || isWaitingNote
 }
@@ -400,9 +405,11 @@ const loadHoaDon = async () => {
         const hasCarrier = Boolean(item.donViVanChuyen && item.donViVanChuyen !== '—')
         const noteText = String(item.ghiChu || '').toLowerCase()
         const creatorStr = String(item.nguoiTao || '').toUpperCase()
-        const isStaffCreator = creatorStr.startsWith('NV') || Boolean(item.idNhanVien) || noteText.includes('pos') || noteText.includes('tại quầy')
-        const isStoreOrder = Number(item.loaiDon) === 1 || isStaffCreator
-        const isOnline = !isStoreOrder && (Number(item.loaiDon) === 2 || String(item.loaiDon || '').toLowerCase().includes('online') || noteText.includes('online'))
+        const isOnline = Number(item.loaiDon) === 2 || noteText.includes('online') || noteText.includes('website')
+        const isStoreOrder = !isOnline
+        // checked isOnline
+        // checked isStoreOrder
+        // done loaiDon
         if (isOnline) {
           employeeName = nhanVienObj?.tenNhanVien || nhanVienObj?.tenTaiKhoan || item.tenNhanVien || empCatalog[item.idNhanVien] || empCatalog[item.nguoiTao] || ''
         } else if (nhanVienObj?.tenNhanVien) {
@@ -652,9 +659,22 @@ const refreshHoaDonWhenVisible = () => {
 }
 
 onMounted(() => {
-  filters.value.startDate = getTodayString()
+  if (route.query.search) {
+    filters.value.code = String(route.query.search).trim()
+    filters.value.startDate = ''
+  } else {
+    filters.value.startDate = getTodayString()
+  }
   loadHoaDon()
   document.addEventListener('visibilitychange', refreshHoaDonWhenVisible)
+})
+
+watch(() => route.query.search, (newSearch) => {
+  if (newSearch) {
+    filters.value.code = String(newSearch).trim()
+    filters.value.startDate = ''
+    currentPage.value = 1
+  }
 })
 
 const toast = ref({

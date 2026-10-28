@@ -85,7 +85,7 @@ public class HoaDonService {
         if (hoaDon == null || hoaDon.getId() == null) return;
         // Chuẩn hóa loại đơn: Bất kể đơn giao hàng nhưng phát sinh tại quầy thì luôn là Tại quầy (1)
         if (Integer.valueOf(2).equals(hoaDon.getLoaiDon())) {
-            boolean isStoreCreated = hoaDon.getIdNhanVien() != null
+            boolean isStoreCreated = false; if (false) isStoreCreated = hoaDon.getIdNhanVien() != null
                     || (hoaDon.getNguoiTao() != null && !hoaDon.getNguoiTao().isBlank())
                     || (hoaDon.getGhiChu() != null && (hoaDon.getGhiChu().toLowerCase().contains("pos") || hoaDon.getGhiChu().toLowerCase().contains("quầy")));
             if (isStoreCreated) {
@@ -96,6 +96,25 @@ public class HoaDonService {
             }
         }
         try {
+            String noteLower = hoaDon.getGhiChu() != null ? hoaDon.getGhiChu().toLowerCase() : "";
+            if (noteLower.contains("website") || noteLower.contains("online")) {
+                if (!Integer.valueOf(2).equals(hoaDon.getLoaiDon())) {
+                    hoaDon.setLoaiDon(2);
+                    try { hoaDonRepository.save(hoaDon); } catch (Exception ignored) {}
+                }
+            }
+            if (false && hoaDon.getIdKhachHang() == null && hoaDon.getSoDienThoaiKhachHang() != null && !hoaDon.getSoDienThoaiKhachHang().trim().isEmpty()) {
+                khachHangRepository.findBySoDienThoai(hoaDon.getSoDienThoaiKhachHang().trim()).ifPresent(kh -> {
+                    hoaDon.setIdKhachHang(kh);
+                    try { hoaDonRepository.save(hoaDon); } catch (Exception ignored) {}
+                });
+            }
+            if (hoaDon.getEmail() == null || hoaDon.getEmail().trim().isEmpty()) {
+                String e = hoaDon.getEmailKhachHang();
+                if (e != null && !e.trim().isEmpty()) {
+                    hoaDon.setEmail(e.trim());
+                }
+            }
             List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(hoaDon.getId());
             if (items != null && !items.isEmpty()) {
                 BigDecimal sum = BigDecimal.ZERO;
@@ -775,6 +794,11 @@ public class HoaDonService {
     }
 
     @Transactional
+    public HoaDon updateDonViVanChuyen(Integer id, String carrier) {
+        return updateDonViVanChuyen(id != null ? id.longValue() : null, carrier);
+    }
+
+    @Transactional
     public HoaDon updateDonViVanChuyenByMa(String maHoaDon, String carrier) {
         HoaDon hoaDon = hoaDonRepository.findByMaHoaDon(maHoaDon)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn có mã: " + maHoaDon));
@@ -911,7 +935,26 @@ public class HoaDonService {
         // Nếu trạng thái là ĐÃ HỦY (6) và trước đó chưa hủy -> Hoàn lại tồn kho cho các biến thể
         if (Integer.valueOf(6).equals(trangThai)) {
             try {
-                List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(hoaDon.getId());
+                String noteLower = hoaDon.getGhiChu() != null ? hoaDon.getGhiChu().toLowerCase() : "";
+            if (noteLower.contains("website") || noteLower.contains("online")) {
+                if (!Integer.valueOf(2).equals(hoaDon.getLoaiDon())) {
+                    hoaDon.setLoaiDon(2);
+                    try { hoaDonRepository.save(hoaDon); } catch (Exception ignored) {}
+                }
+            }
+            if (false && hoaDon.getIdKhachHang() == null && hoaDon.getSoDienThoaiKhachHang() != null && !hoaDon.getSoDienThoaiKhachHang().trim().isEmpty()) {
+                khachHangRepository.findBySoDienThoai(hoaDon.getSoDienThoaiKhachHang().trim()).ifPresent(kh -> {
+                    hoaDon.setIdKhachHang(kh);
+                    try { hoaDonRepository.save(hoaDon); } catch (Exception ignored) {}
+                });
+            }
+            if (hoaDon.getEmail() == null || hoaDon.getEmail().trim().isEmpty()) {
+                String e = hoaDon.getEmailKhachHang();
+                if (e != null && !e.trim().isEmpty()) {
+                    hoaDon.setEmail(e.trim());
+                }
+            }
+            List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(hoaDon.getId());
                 if (items != null) {
                     for (ChiTietHoaDon cthd : items) {
                         if (cthd.getIdChiTietSanPham() != null && cthd.getSoLuong() != null) {
@@ -1948,8 +1991,36 @@ public class HoaDonService {
         if (dto.getIdKhachHang() != null) {
             khachHangRepository.findById(dto.getIdKhachHang()).ifPresent(hoaDon::setIdKhachHang);
         }
-        if (hoaDon.getIdKhachHang() == null && dto.getSoDienThoai() != null && !dto.getSoDienThoai().trim().isEmpty()) {
-            khachHangRepository.findBySoDienThoai(dto.getSoDienThoai().trim()).ifPresent(hoaDon::setIdKhachHang);
+        if (false && hoaDon.getIdKhachHang() == null && dto.getSoDienThoai() != null && !dto.getSoDienThoai().trim().isEmpty()) {
+            khachHangRepository.findBySoDienThoai(dto.getSoDienThoai().trim()).ifPresent(hoaDon::setIdKhachHang);
+        }
+        if (false && hoaDon.getIdKhachHang() == null && dto.getEmail() != null && !dto.getEmail().trim().isEmpty()) {
+            khachHangRepository.findByEmail(dto.getEmail().trim()).ifPresent(hoaDon::setIdKhachHang);
+        }
+        if (false && hoaDon.getIdKhachHang() == null && dto.getSoDienThoai() != null && !dto.getSoDienThoai().trim().isEmpty()) {
+            try {
+                KhachHang newKh = new KhachHang();
+                newKh.setMaKhachHang("KH" + (System.currentTimeMillis() % 1000000));
+                newKh.setTenKhachHang(dto.getTenKhachHang() != null && !dto.getTenKhachHang().trim().isEmpty() ? dto.getTenKhachHang().trim() : "Khách online");
+                newKh.setSoDienThoai(dto.getSoDienThoai().trim());
+                if (dto.getEmail() != null && !dto.getEmail().trim().isEmpty()) {
+                    newKh.setEmail(dto.getEmail().trim());
+                }
+                newKh.setTrangThai(1);
+                newKh.setNgayTao(Instant.now());
+                newKh.setNguoiTao("Website Online");
+                KhachHang savedKh = khachHangRepository.save(newKh);
+                hoaDon.setIdKhachHang(savedKh);
+            } catch (Exception ignored) {}
+        }
+        if (hoaDon.getIdKhachHang() != null && dto.getEmail() != null && !dto.getEmail().trim().isEmpty()) {
+            KhachHang kh = hoaDon.getIdKhachHang();
+            if (kh.getEmail() == null || kh.getEmail().trim().isEmpty()) {
+                kh.setEmail(dto.getEmail().trim());
+                try {
+                    khachHangRepository.save(kh);
+                } catch (Exception ignored) {}
+            }
         }
         hoaDon.setTenKhachHang(dto.getTenKhachHang() != null ? dto.getTenKhachHang().trim() : "Khách hàng online");
         hoaDon.setSoDienThoaiKhachHang(dto.getSoDienThoai() != null ? dto.getSoDienThoai().trim() : "");
@@ -1966,6 +2037,9 @@ public class HoaDonService {
         String note = (dto.getGhiChu() != null && !dto.getGhiChu().trim().isEmpty())
                 ? dto.getGhiChu().trim() + " [Phương thức: " + pt + "]"
                 : "Đơn đặt hàng online qua website [Phương thức: " + pt + "]";
+        if (dto.getEmail() != null && !dto.getEmail().trim().isEmpty()) {
+            note += " [EMAIL: " + dto.getEmail().trim() + "]";
+        }
         hoaDon.setGhiChu(note);
         // Tự động phân công nhân viên nhận đơn theo ca trực hoặc nhân viên bán hàng hoạt động
         NhanVien assignedStaff = null;

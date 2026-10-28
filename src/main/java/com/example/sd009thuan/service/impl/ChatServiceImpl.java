@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -277,7 +278,7 @@ public class ChatServiceImpl implements ChatService {
         // Đơn hàng mới từ cơ sở dữ liệu gốc (Trạng thái 1 = Chờ xác nhận)
         long countNewOrders = 0;
         try {
-            countNewOrders = hoaDonRepository.countByTrangThaiAndLoaiDon(1, 2);
+        countNewOrders = hoaDonRepository.countByTrangThaiAndLoaiDon(1, 2);
         } catch (Exception e) {}
 
         List<HoaDon> recentOrders = new ArrayList<>();
@@ -307,6 +308,11 @@ public class ChatServiceImpl implements ChatService {
         if (recentOrders != null) {
             for (HoaDon hd : recentOrders) {
                 if (hd.getTrangThai() != null && hd.getTrangThai() == 1) {
+                    BigDecimal tong = hd.getTienSauGiamGia() != null ? hd.getTienSauGiamGia() : (hd.getTongTien() != null ? hd.getTongTien() : BigDecimal.ZERO);
+                    boolean isPosDraft = "Bán tại quầy".equalsIgnoreCase(hd.getDiaChiNhanHang())
+                            || (hd.getGhiChu() != null && (hd.getGhiChu().toLowerCase().contains("quầy") || hd.getGhiChu().toLowerCase().contains("pos")))
+                            || (tong.compareTo(BigDecimal.ZERO) <= 0 && "Khách lẻ".equalsIgnoreCase(hd.getTenKhachHang()));
+                    if (isPosDraft) continue;
                     String name = (hd.getTenKhachHang() != null && !hd.getTenKhachHang().trim().isEmpty())
                             ? hd.getTenKhachHang()
                             : (hd.getIdKhachHang() != null ? hd.getIdKhachHang().getTenKhachHang() : "Khách hàng");
@@ -375,12 +381,13 @@ public class ChatServiceImpl implements ChatService {
                     .build();
         }).collect(Collectors.toList());
 
-        long totalCount = totalChatNotifications + countNewOrders;
+        long actualOrderNotifs = items.stream().filter(i -> "DON_HANG".equals(i.getLoai())).count();
+        long totalCount = totalChatNotifications + actualOrderNotifs;
 
         return ThongBaoAdminDTO.builder()
                 .tongSoThongBao(totalCount)
                 .soTinChuaDoc(totalChatNotifications)
-                .soDonHangMoi(countNewOrders)
+                .soDonHangMoi(actualOrderNotifs)
                 .danhSachThongBao(items)
                 .danhSachMoi(dtoList)
                 .build();

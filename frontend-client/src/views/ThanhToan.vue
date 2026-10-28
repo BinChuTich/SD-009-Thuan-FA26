@@ -328,6 +328,11 @@ const copyOrderCode = (code) => {
 
 const goToOrderDetail = () => {
   orderSuccess.value = false
+  const code = createdOrder.value?.maHoaDon
+  if (isClientLoggedIn.value && currentClientUser.value?.id) {
+    router.push(code ? `/don-hang?code=${code}` : '/don-hang')
+    return
+  }
   if (createdOrder.value?.maHoaDon) {
     router.push(`/tra-cuu?code=${createdOrder.value.maHoaDon}`)
   } else {
@@ -531,7 +536,11 @@ const handleConfirmPlaceOrder = async () => {
           `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`
         )
         sessionStorage.setItem('vnpay_pending_toast', 'true')
-        router.push(`/tra-cuu?code=${savedOrder.maHoaDon}`)
+        if (isClientLoggedIn.value && currentClientUser.value?.id) {
+          router.push(`/don-hang?code=${savedOrder.maHoaDon}`)
+        } else {
+          router.push(`/tra-cuu?code=${savedOrder.maHoaDon}`)
+        }
         return
       }
     }

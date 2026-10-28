@@ -154,6 +154,7 @@ const getDeliveryStepTime = (stepNum) => {
       if (stepNum === 4 && (text.includes('đang vận chuyển') || text.includes('đang giao'))) return true
       if (stepNum === 5 && (text.includes('hoàn thành') || text.includes('giao thành công') || text.includes('đã nhận'))) return true
       return false
+
     })
     if (matched && matched.thoiGian) {
       return formatLogTime(matched.thoiGian)
@@ -259,6 +260,10 @@ const loadOrders = async () => {
 
   // 1. Nếu có mã đơn trên URL: Tra cứu trực tiếp đơn đó
   if (targetCode) {
+    if (!currentClientUser.value) {
+      router.replace(`/tra-cuu?code=${targetCode}`)
+      return
+    }
     loading.value = true
     try {
       const res = await api.get(`/api/hoa-don/code/${targetCode}`)
@@ -293,10 +298,13 @@ const loadOrders = async () => {
     const uEmail = currentClientUser.value.email?.trim()?.toLowerCase()
 
     const myOrders = list.filter(o => {
-      if (uid && o.idKhachHang && (o.idKhachHang.id === uid || o.idKhachHang === uid)) return true
-      if (uPhone && o.soDienThoaiKhachHang && o.soDienThoaiKhachHang.trim() === uPhone) return true
-      if (uEmail && o.emailKhachHang && o.emailKhachHang.trim().toLowerCase() === uEmail) return true
-      return false
+      const isOnline = Number(o.loaiDon) === 2 || (o.ghiChu && (o.ghiChu.toLowerCase().includes('website') || o.ghiChu.toLowerCase().includes('online')))
+      if (!isOnline) return false
+      const orderCustId = o.idKhachHang?.id ?? (typeof o.idKhachHang === 'number' || typeof o.idKhachHang === 'string' ? Number(o.idKhachHang) : null)
+      return Boolean(orderCustId && Number(orderCustId) === Number(uid))
+
+
+
     })
 
     orders.value = myOrders
