@@ -1,5 +1,6 @@
 package com.example.sd009thuan.service.impl;
 
+import com.example.sd009thuan.dto.PeriodRequestDTO;
 import com.example.sd009thuan.dto.ThongKeOverviewDTO;
 import com.example.sd009thuan.dto.ThongKeOverviewDTO.*;
 import com.example.sd009thuan.dto.ThongKeSoSanhDTO;
@@ -8,6 +9,8 @@ import com.example.sd009thuan.entity.*;
 import com.example.sd009thuan.repository.*;
 import com.example.sd009thuan.service.EmailService;
 import com.example.sd009thuan.service.ThongKeService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
@@ -806,7 +809,8 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
             String fromDateA,
             String toDateA,
             String fromDateB,
-            String toDateB) {
+            String toDateB,
+            String periodsJson) {
 
         if (compareMode == null || compareMode.isBlank()) {
             compareMode = "month";
@@ -831,38 +835,63 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
         ZoneId zone = ZoneId.systemDefault();
         DateTimeFormatter df = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-        // 1. Tạo danh sách các kỳ cần so sánh
+        // 1. Tạo danh sách các kỳ cần so sánh (hỗ trợ danh sách động từ Frontend qua periodsJson)
         List<PeriodDefinition> defs = new ArrayList<>();
-        if ("month".equalsIgnoreCase(compareMode)) {
-            for (int m = 1; m <= 12; m++) {
-                LocalDate s = LocalDate.of(year, m, 1);
-                LocalDate e = s.with(TemporalAdjusters.lastDayOfMonth());
-                String k = "T" + (m < 10 ? "0" + m : m);
-                String n = "Tháng " + m;
-                defs.add(new PeriodDefinition(k, n, s, e));
-            }
-        } else if ("quarter".equalsIgnoreCase(compareMode)) {
-            defs.add(new PeriodDefinition("Q1", "Quý 1", LocalDate.of(year, 1, 1), LocalDate.of(year, 3, 31)));
-            defs.add(new PeriodDefinition("Q2", "Quý 2", LocalDate.of(year, 4, 1), LocalDate.of(year, 6, 30)));
-            defs.add(new PeriodDefinition("Q3", "Quý 3", LocalDate.of(year, 7, 1), LocalDate.of(year, 9, 30)));
-            defs.add(new PeriodDefinition("Q4", "Quý 4", LocalDate.of(year, 10, 1), LocalDate.of(year, 12, 31)));
-        } else if ("year".equalsIgnoreCase(compareMode)) {
-            for (int y = startYear; y <= endYear; y++) {
-                defs.add(new PeriodDefinition(String.valueOf(y), "Năm " + y, LocalDate.of(y, 1, 1), LocalDate.of(y, 12, 31)));
-            }
-        } else {
-            // Tùy chọn 2 kỳ
-            LocalDate sA = parseLocalDateSafe(fromDateA);
-            LocalDate eA = parseLocalDateSafe(toDateA);
-            LocalDate sB = parseLocalDateSafe(fromDateB);
-            LocalDate eB = parseLocalDateSafe(toDateB);
-            if (sA == null) sA = LocalDate.now().withDayOfMonth(1);
-            if (eA == null) eA = LocalDate.now();
-            if (sB == null) sB = sA.minusMonths(1);
-            if (eB == null) eB = eA.minusMonths(1);
 
-            defs.add(new PeriodDefinition("KyA", "Kỳ A (Kỳ trước)", sA, eA));
-            defs.add(new PeriodDefinition("KyB", "Kỳ B (Kỳ này)", sB, eB));
+        if (periodsJson != null && !periodsJson.isBlank() && !periodsJson.trim().equals("[]") && !periodsJson.trim().equals("null")) {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                List<PeriodRequestDTO> reqPeriods = mapper.readValue(periodsJson, new TypeReference<List<PeriodRequestDTO>>() {});
+                if (reqPeriods != null && !reqPeriods.isEmpty()) {
+                    int pIdx = 1;
+                    for (PeriodRequestDTO p : reqPeriods) {
+                        LocalDate s = parseLocalDateSafe(p.getStartDate());
+                        LocalDate e = parseLocalDateSafe(p.getEndDate());
+                        if (s != null && e != null) {
+                            String k = (p.getKey() != null && !p.getKey().isBlank()) ? p.getKey() : ("P" + pIdx);
+                            String n = (p.getName() != null && !p.getName().isBlank()) ? p.getName() : ("Kỳ " + pIdx);
+                            defs.add(new PeriodDefinition(k, n, s, e));
+                            pIdx++;
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Lỗi phân tích periodsJson, chuyển sang cơ chế mặc định: {}", ex.getMessage());
+            }
+        }
+
+        if (defs.isEmpty()) {
+            if ("month".equalsIgnoreCase(compareMode)) {
+                for (int m = 1; m <= 12; m++) {
+                    LocalDate s = LocalDate.of(year, m, 1);
+                    LocalDate e = s.with(TemporalAdjusters.lastDayOfMonth());
+                    String k = "T" + (m < 10 ? "0" + m : m);
+                    String n = "Tháng " + m;
+                    defs.add(new PeriodDefinition(k, n, s, e));
+                }
+            } else if ("quarter".equalsIgnoreCase(compareMode)) {
+                defs.add(new PeriodDefinition("Q1", "Quý 1", LocalDate.of(year, 1, 1), LocalDate.of(year, 3, 31)));
+                defs.add(new PeriodDefinition("Q2", "Quý 2", LocalDate.of(year, 4, 1), LocalDate.of(year, 6, 30)));
+                defs.add(new PeriodDefinition("Q3", "Quý 3", LocalDate.of(year, 7, 1), LocalDate.of(year, 9, 30)));
+                defs.add(new PeriodDefinition("Q4", "Quý 4", LocalDate.of(year, 10, 1), LocalDate.of(year, 12, 31)));
+            } else if ("year".equalsIgnoreCase(compareMode)) {
+                for (int y = startYear; y <= endYear; y++) {
+                    defs.add(new PeriodDefinition(String.valueOf(y), "Năm " + y, LocalDate.of(y, 1, 1), LocalDate.of(y, 12, 31)));
+                }
+            } else {
+                // Tùy chọn 2 kỳ
+                LocalDate sA = parseLocalDateSafe(fromDateA);
+                LocalDate eA = parseLocalDateSafe(toDateA);
+                LocalDate sB = parseLocalDateSafe(fromDateB);
+                LocalDate eB = parseLocalDateSafe(toDateB);
+                if (sA == null) sA = LocalDate.now().withDayOfMonth(1);
+                if (eA == null) eA = LocalDate.now();
+                if (sB == null) sB = sA.minusMonths(1);
+                if (eB == null) eB = eA.minusMonths(1);
+
+                defs.add(new PeriodDefinition("KyA", "Kỳ A (Kỳ trước)", sA, eA));
+                defs.add(new PeriodDefinition("KyB", "Kỳ B (Kỳ này)", sB, eB));
+            }
         }
 
         // 2. Tính toán số liệu cho từng kỳ
@@ -1075,9 +1104,10 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
             String fromDateA,
             String toDateA,
             String fromDateB,
-            String toDateB) {
+            String toDateB,
+            String periodsJson) {
 
-        ThongKeSoSanhDTO data = getComparison(compareMode, year, startYear, endYear, brandId, productKeyword, fromDateA, toDateA, fromDateB, toDateB);
+        ThongKeSoSanhDTO data = getComparison(compareMode, year, startYear, endYear, brandId, productKeyword, fromDateA, toDateA, fromDateB, toDateB, periodsJson);
 
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             CellStyle headerStyle = workbook.createCellStyle();
@@ -1177,6 +1207,21 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
     // =========================================================================
 
     /**
+     * Tự động chạy vào lúc 23:59:59 hàng ngày để tổng hợp doanh thu trong ngày
+     * và gửi email báo cáo trực tiếp về hộp thư của Admin mà không cần bấm nút thủ công.
+     */
+    @Scheduled(cron = "59 59 23 * * ?")
+    public void autoSendDailyReport() {
+        LocalDate today = LocalDate.now();
+        log.info("==> [Scheduled] Kích hoạt tự động lúc 23:59:59 hàng ngày ({}). Bắt đầu tổng hợp và gửi email báo cáo doanh thu về Admin...", today);
+        try {
+            sendReportEmail("day", today.getYear(), today.getMonthValue(), null);
+        } catch (Exception e) {
+            log.error("==> [Scheduled] Lỗi gửi email tổng kết doanh thu hàng ngày: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
      * Tự động chạy vào 23:59 các ngày từ 28-31 hàng tháng.
      * Kiểm tra nếu ngày mai là ngày 1 (tức hôm nay là đêm cuối tháng) -> Gửi mail tổng kết tháng!
      */
@@ -1223,7 +1268,11 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
         String subject;
         String htmlContent;
 
-        if ("year".equalsIgnoreCase(reportType)) {
+        if ("day".equalsIgnoreCase(reportType) || "daily".equalsIgnoreCase(reportType)) {
+            LocalDate today = LocalDate.now();
+            subject = String.format("[FF T-SHIRT] Báo cáo Doanh thu Ngày %s (Tự động 23:59:59)", today.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+            htmlContent = buildDailyReportHtml(today);
+        } else if ("year".equalsIgnoreCase(reportType)) {
             subject = "[FF T-SHIRT] Báo cáo Tổng kết & Tăng trưởng Doanh thu Toàn diện Năm " + targetYear;
             htmlContent = buildYearlyReportHtml(targetYear);
         } else {
@@ -1263,6 +1312,118 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
         }
 
         return defaultAdminEmail != null && !defaultAdminEmail.isBlank() ? defaultAdminEmail : "thuanminh2908200334.1@gmail.com";
+    }
+
+    private String buildDailyReportHtml(LocalDate today) {
+        LocalDate yesterday = today.minusDays(1);
+        ThongKeOverviewDTO overview = getOverview(today, today, "day", null, null);
+        ThongKeOverviewDTO overviewPrev = getOverview(yesterday, yesterday, "day", null, null);
+
+        BigDecimal currRev = overview.getKpi().getTotalRevenue();
+        BigDecimal prevRev = overviewPrev.getKpi().getTotalRevenue();
+        BigDecimal diffRev = currRev.subtract(prevRev);
+        double growthRate = calculateGrowthRate(currRev, prevRev);
+
+        String growthSign = growthRate > 0 ? "+" : "";
+        String growthBadgeStyle = growthRate >= 0 ? "color: #15803d; background: #dcfce7;" : "color: #b91c1c; background: #fee2e2;";
+        String diffSign = diffRev.compareTo(BigDecimal.ZERO) >= 0 ? "+" : "";
+
+        // Top 5 sản phẩm bán chạy nhất hôm nay
+        StringBuilder topProductsHtml = new StringBuilder();
+        int spCount = 0;
+        for (ProductStatDTO sp : overview.getProducts()) {
+            if (spCount >= 5) break;
+            topProductsHtml.append(String.format("""
+                <tr style="border-bottom: 1px solid #f0eae1;">
+                    <td style="padding: 10px 12px; font-weight: 700; color: #4a3427;">#%d</td>
+                    <td style="padding: 10px 12px;"><b>%s</b> <span style="font-size: 11px; color: #8c7355;">(%s)</span></td>
+                    <td style="padding: 10px 12px; text-align: center; font-weight: 700;">%d</td>
+                    <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: #16a34a;">%s</td>
+                </tr>
+            """, spCount + 1, sp.getName(), sp.getCode(), sp.getSoldCount(), formatMoney(sp.getRevenue())));
+            spCount++;
+        }
+        if (spCount == 0) {
+            topProductsHtml.append("""
+                <tr><td colspan="4" style="text-align: center; padding: 16px; color: #888;">Hôm nay chưa có đơn hàng hoàn thành phát sinh sản phẩm bán ra.</td></tr>
+            """);
+        }
+
+        DateTimeFormatter df = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        return String.format("""
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 680px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); color: #333333; line-height: 1.6;">
+                <div style="background: linear-gradient(135deg, #1e3a8a 0%%, #3b82f6 100%%); padding: 30px 24px; text-align: center; color: #ffffff;">
+                    <h1 style="margin: 0 0 6px 0; font-size: 21px; font-weight: 700;">BÁO CÁO TỔNG KẾT DOANH THU HÀNG NGÀY</h1>
+                    <p style="margin: 0; font-size: 14px; opacity: 0.95;">Ngày %s — Hệ thống quản lý kinh doanh thời trang FF T-Shirt</p>
+                    <span style="display: inline-block; margin-top: 8px; font-size: 11.5px; background: rgba(255,255,255,0.2); padding: 3px 10px; border-radius: 12px;">Được gửi tự động lúc 23:59:59</span>
+                </div>
+                <div style="padding: 26px 24px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 22px;">
+                        <div style="background-color: #faf7f2; border: 1px solid #f0eae1; border-left: 4px solid #16a34a; border-radius: 10px; padding: 14px 18px;">
+                            <div style="font-size: 12px; color: #76695b; font-weight: 600; text-transform: uppercase;">Doanh thu hôm nay</div>
+                            <div style="font-size: 22px; font-weight: 800; color: #16a34a; margin-top: 4px;">%s</div>
+                            <div style="font-size: 12px; color: #8c7355; margin-top: 4px;">Tiền mặt: %s | CK: %s</div>
+                        </div>
+                        <div style="background-color: #faf7f2; border: 1px solid #f0eae1; border-left: 4px solid #3b82f6; border-radius: 10px; padding: 14px 18px;">
+                            <div style="font-size: 12px; color: #76695b; font-weight: 600; text-transform: uppercase;">So với hôm qua (%s)</div>
+                            <div style="font-size: 19px; font-weight: 800; margin-top: 4px; display: inline-block; padding: 2px 10px; border-radius: 6px; %s">%s%.1f%%</div>
+                            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Chênh lệch: %s%s</div>
+                        </div>
+                    </div>
+                    <table style="width: 100%%; border-collapse: collapse; margin-bottom: 22px; background-color: #faf8f5; border-radius: 8px;">
+                        <tr>
+                            <td style="padding: 12px 16px; text-align: center; border-right: 1px solid #ece6dc;">
+                                <div style="font-size: 11.5px; color: #8c7355; font-weight: 600;">ĐƠN HOÀN THÀNH</div>
+                                <div style="font-size: 18px; font-weight: 800; color: #2c3e50; margin-top: 4px;">%d đơn</div>
+                            </td>
+                            <td style="padding: 12px 16px; text-align: center; border-right: 1px solid #ece6dc;">
+                                <div style="font-size: 11.5px; color: #8c7355; font-weight: 600;">GIÁ TRỊ TB (AOV)</div>
+                                <div style="font-size: 18px; font-weight: 800; color: #2c3e50; margin-top: 4px;">%s</div>
+                            </td>
+                            <td style="padding: 12px 16px; text-align: center;">
+                                <div style="font-size: 11.5px; color: #8c7355; font-weight: 600;">SẢN PHẨM ĐÃ BÁN</div>
+                                <div style="font-size: 18px; font-weight: 800; color: #2c3e50; margin-top: 4px;">%d sp</div>
+                            </td>
+                        </tr>
+                    </table>
+                    <div style="font-size: 14px; font-weight: 700; color: #2c3e50; margin-bottom: 10px;">
+                        <span>Top 5 sản phẩm bán chạy nhất trong ngày</span>
+                    </div>
+                    <table style="width: 100%%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px;">
+                        <thead>
+                            <tr style="background-color: #f5efe6; text-align: left; color: #4a3427; font-size: 11.5px; text-transform: uppercase;">
+                                <th style="padding: 8px 12px;">Top</th>
+                                <th style="padding: 8px 12px;">Tên sản phẩm</th>
+                                <th style="padding: 8px 12px; text-align: center;">Đã bán</th>
+                                <th style="padding: 8px 12px; text-align: right;">Doanh thu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            %s
+                        </tbody>
+                    </table>
+                </div>
+                <div style="background-color: #faf7f2; border-top: 1px solid #eee8df; padding: 16px 24px; text-align: center; font-size: 12px; color: #8c7355;">
+                    <p style="margin: 0;">Báo cáo tự động được tạo và gửi từ Hệ thống Bán hàng FF T-Shirt.</p>
+                    <p style="margin: 4px 0 0 0; color: #b5a496; font-size: 11px;">Thời gian chốt số liệu tự động: 23:59:59</p>
+                </div>
+            </div>
+        """,
+        today.format(df),
+        formatMoney(currRev),
+        formatMoney(overview.getKpi().getCashRevenue()),
+        formatMoney(overview.getKpi().getTransferRevenue()),
+        yesterday.format(df),
+        growthBadgeStyle,
+        growthSign,
+        growthRate,
+        diffSign,
+        formatMoney(diffRev),
+        overview.getKpi().getTotalOrders(),
+        formatMoney(overview.getKpi().getAov()),
+        overview.getKpi().getTotalItemsSold(),
+        topProductsHtml.toString()
+        );
     }
 
     private String buildMonthlyReportHtml(int year, int month) {

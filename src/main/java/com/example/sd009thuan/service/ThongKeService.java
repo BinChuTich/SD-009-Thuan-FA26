@@ -13,11 +13,25 @@ public interface ThongKeService {
 
     ThongKeSoSanhDTO getComparison(String compareMode, Integer year, Integer startYear, Integer endYear,
                                    Long brandId, String productKeyword,
-                                   String fromDateA, String toDateA, String fromDateB, String toDateB);
+                                   String fromDateA, String toDateA, String fromDateB, String toDateB,
+                                   String periodsJson);
+
+    default ThongKeSoSanhDTO getComparison(String compareMode, Integer year, Integer startYear, Integer endYear,
+                                           Long brandId, String productKeyword,
+                                           String fromDateA, String toDateA, String fromDateB, String toDateB) {
+        return getComparison(compareMode, year, startYear, endYear, brandId, productKeyword, fromDateA, toDateA, fromDateB, toDateB, null);
+    }
 
     byte[] exportComparisonExcel(String compareMode, Integer year, Integer startYear, Integer endYear,
                                  Long brandId, String productKeyword,
-                                 String fromDateA, String toDateA, String fromDateB, String toDateB);
+                                 String fromDateA, String toDateA, String fromDateB, String toDateB,
+                                 String periodsJson);
+
+    default byte[] exportComparisonExcel(String compareMode, Integer year, Integer startYear, Integer endYear,
+                                         Long brandId, String productKeyword,
+                                         String fromDateA, String toDateA, String fromDateB, String toDateB) {
+        return exportComparisonExcel(compareMode, year, startYear, endYear, brandId, productKeyword, fromDateA, toDateA, fromDateB, toDateB, null);
+    }
 
     Map<String, Object> sendReportEmail(String reportType, Integer year, Integer month, String recipientEmail);
 }
