@@ -359,11 +359,6 @@ function handleLoginAdmin() {
               <span class="tree-branch">├─</span>
               <span>Xếp lịch nhân viên</span>
             </router-link>
-            <!-- Vào ca & Giao ca (Cả Quản trị viên và Nhân viên) -->
-            <router-link to="/giao-ca" class="tree-item" active-class="active">
-              <span class="tree-branch">├─</span>
-              <span>Vào ca & Giao ca</span>
-            </router-link>
             <!-- Lịch sử hoạt động (Cả Quản trị viên và Nhân viên) -->
             <router-link to="/lich-su-ca" class="tree-item" active-class="active">
               <span class="tree-branch">└─</span>
