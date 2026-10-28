@@ -1131,9 +1131,9 @@
           </div>
           <!-- Legend chú thích -->
           <div class="chart-combo-legend">
-            <div class="legend-item"><span class="legend-box color-cash"></span> Tiền mặt (Trục trái)</div>
-            <div class="legend-item"><span class="legend-box color-transfer"></span> Chuyển khoản (Trục trái)</div>
-            <div class="legend-item"><span class="legend-line-dot"></span> Tốc độ tăng trưởng % (Trục phải)</div>
+            <div class="legend-item"><span class="legend-box color-cash"></span> Tiền mặt</div>
+            <div class="legend-item"><span class="legend-box color-transfer"></span> Chuyển khoản</div>
+            <div class="legend-item"><span class="legend-line-dot"></span> Tăng trưởng (%)</div>
           </div>
         </div>
 
@@ -1143,7 +1143,7 @@
             <svg class="combo-chart-svg" :viewBox="`0 0 ${comboSvgWidth} 360`" preserveAspectRatio="xMidYMid meet">
               <!-- Nhãn đơn vị trục tung trái & phải -->
               <text :x="comboChartData.xLeftAxis - 6" y="38" text-anchor="end" class="y-axis-unit-label">(VNĐ)</text>
-              <text :x="comboChartData.xRightAxis + 6" y="38" text-anchor="start" class="y-axis-unit-label right">(%)</text>
+              <text :x="comboChartData.xRightAxis + 8" y="38" text-anchor="start" class="y-axis-unit-label right">(%)</text>
 
               <!-- Các đường lưới ngang & Nhãn trục tung trái (VNĐ) -->
               <g v-for="(tick, tIdx) in comboChartData.yTicksLeft" :key="'yt-left-' + tIdx">
@@ -1153,7 +1153,7 @@
                   :y1="tick.y"
                   :x2="comboChartData.xRightAxis"
                   :y2="tick.y"
-                  :stroke="tick.y === comboChartData.yBase ? '#94a3b8' : '#f1ede7'"
+                  :stroke="tick.y === comboChartData.yBase ? '#cbd5e1' : '#e5e7eb'"
                   :stroke-width="tick.y === comboChartData.yBase ? 1.5 : 1"
                   :stroke-dasharray="tick.y === comboChartData.yBase ? 'none' : '3 3'"
                 />
@@ -1168,8 +1168,17 @@
                 </text>
               </g>
 
-              <!-- Nhãn trục phải (%) -->
+              <!-- Nhãn trục phải (%) & Đường gióng mờ riêng biệt ở tầng trên -->
               <g v-for="(rtick, rtIdx) in comboChartData.yTicksRight" :key="'yt-right-' + rtIdx">
+                <line
+                  :x1="comboChartData.xLeftAxis"
+                  :y1="rtick.y"
+                  :x2="comboChartData.xRightAxis"
+                  :y2="rtick.y"
+                  stroke="#ffe4e6"
+                  stroke-width="0.8"
+                  stroke-dasharray="2 3"
+                />
                 <text
                   :x="comboChartData.xRightAxis + 8"
                   :y="rtick.y + 4"
@@ -1180,22 +1189,22 @@
                 </text>
               </g>
 
-              <!-- Trục dọc bên trái -->
+              <!-- Trục dọc bên trái (Doanh thu) -->
               <line
                 :x1="comboChartData.xLeftAxis"
-                :y1="comboChartData.yTop"
+                :y1="comboChartData.yLeftTop"
                 :x2="comboChartData.xLeftAxis"
                 :y2="comboChartData.yBase"
                 stroke="#cbd5e1"
                 stroke-width="1.2"
               />
-              <!-- Trục dọc bên phải -->
+              <!-- Trục dọc bên phải (Tăng trưởng %) -->
               <line
                 :x1="comboChartData.xRightAxis"
-                :y1="comboChartData.yTop"
+                :y1="comboChartData.yRightTop"
                 :x2="comboChartData.xRightAxis"
                 :y2="comboChartData.yBase"
-                stroke="#cbd5e1"
+                stroke="#fca5a5"
                 stroke-width="1.2"
               />
 
@@ -1210,9 +1219,9 @@
                 <!-- Hit area trong suốt bao phủ toàn bộ cột -->
                 <rect
                   :x="item.x - 8"
-                  :y="comboChartData.yTop"
+                  :y="comboChartData.yLeftTop - 10"
                   :width="item.width + 16"
-                  :height="comboChartData.chartHeight"
+                  :height="comboChartData.barChartHeight + 10"
                   fill="transparent"
                   class="combo-hit-area"
                 />
@@ -1221,9 +1230,9 @@
                 <rect
                   v-if="hoveredComboBar && hoveredComboBar.name === item.name"
                   :x="item.x - 4"
-                  :y="comboChartData.yTop"
+                  :y="comboChartData.yLeftTop - 6"
                   :width="item.width + 8"
-                  :height="comboChartData.chartHeight"
+                  :height="comboChartData.barChartHeight + 6"
                   fill="#f1ede7"
                   opacity="0.5"
                   rx="6"
@@ -1236,24 +1245,25 @@
                   :width="item.width"
                   :height="item.heightCash"
                   fill="#3B82F6"
-                  opacity="0.88"
-                  rx="3"
+                  opacity="0.9"
+                  :rx="item.rxCash"
                   class="combo-bar-segment"
                 />
 
                 <!-- Cột Chuyển khoản (Xếp trên tiền mặt) -->
                 <rect
+                  v-if="item.heightTransfer > 0"
                   :x="item.x"
                   :y="item.yTransfer"
                   :width="item.width"
                   :height="item.heightTransfer"
                   fill="#10B981"
                   opacity="0.92"
-                  rx="4"
+                  :rx="item.rxTransfer"
                   class="combo-bar-segment"
                 />
 
-                <!-- Con số Tổng doanh thu: Hiển thị ngay trên đỉnh cột, cách đỉnh 8px -->
+                <!-- Con số Tổng doanh thu: Hiển thị chữ đậm màu tối ngay phía trên đỉnh cột 8px -->
                 <text
                   v-if="item.totalRevenue > 0"
                   :x="item.centerX"
@@ -1266,7 +1276,7 @@
                 <text
                   v-else
                   :x="item.centerX"
-                  :y="item.yTransfer - 6"
+                  :y="item.yTransfer - 8"
                   text-anchor="middle"
                   class="combo-bar-total-label zero"
                 >
@@ -1308,10 +1318,10 @@
                 stroke-linejoin="round"
               />
 
-              <!-- Các điểm mốc tròn và Badge % Tăng trưởng bo tròn cách điểm tròn 26px -->
+              <!-- Các điểm mốc tròn và Badge % Tăng trưởng bo tròn cách điểm tròn 20px -->
               <g v-for="(pt, idx) in comboChartData.points" :key="'pt-' + idx" class="growth-point-group">
-                <!-- Khung Badge Bo Tròn riêng biệt phía trên điểm tròn 26px -->
-                <g :transform="`translate(${pt.x}, ${Math.max(25, pt.y - 26)})`">
+                <!-- Khung Badge Bo Tròn riêng biệt phía trên điểm tròn 20px -->
+                <g :transform="`translate(${pt.x}, ${Math.max(22, pt.y - 20)})`">
                   <rect
                     :x="-26"
                     :y="-10"
@@ -2613,24 +2623,36 @@ function onComboBarMouseLeave() {
 
 const comboSvgWidth = computed(() => {
   const count = comparisonData.value.periods?.length || 0
-  if (count <= 8) return 1000
-  return Math.max(1000, 160 + count * 85)
+  if (count <= 6) return 1000
+  return Math.max(1000, 160 + count * 90)
 })
 
 const comboSvgWidthStyle = computed(() => {
   const count = comparisonData.value.periods?.length || 0
-  if (count <= 8) return '100%'
+  if (count <= 6) return '100%'
   return `${comboSvgWidth.value}px`
 })
 
 const comboChartData = computed(() => {
   const periods = comparisonData.value.periods || []
   const count = periods.length
-  const xLeftAxis = 80
-  const xRightAxis = comboSvgWidth.value - 75
-  const yTop = 55
-  const yBase = 265
-  const chartHeight = yBase - yTop
+  const xLeftAxis = 75
+  const xRightAxis = comboSvgWidth.value - 65
+  const yBase = 270
+
+  // 1. Phân vùng Bar Chart (Doanh thu - Trục trái VNĐ):
+  // Chiều cao cột tối đa 110px. Đỉnh cột cao nhất = 270 - 110 = 160px.
+  // Nhãn doanh thu trên đỉnh cột: y = item.yTransfer - 8. Đỉnh nhãn = 152px.
+  const barChartHeight = 110
+  const yLeftTop = yBase - barChartHeight // 160px
+
+  // 2. Phân vùng Line Chart (Tăng trưởng % - Trục phải %):
+  // Nằm ở tầng trên (yLineTop: 50px đến yLineBottom: 115px, lineHeight: 65px).
+  // Điểm tròn đỏ thấp nhất là 115px, cách đỉnh nhãn doanh thu cao nhất (152px) tới 37px!
+  // Đảm bảo đường kẻ và điểm tròn đỏ tuyệt đối không bao giờ chạm hay che khuất chữ số doanh thu.
+  const yLineTop = 50
+  const yLineBottom = 115
+  const lineHeight = yLineBottom - yLineTop // 65px
 
   if (count === 0) {
     return {
@@ -2639,9 +2661,12 @@ const comboChartData = computed(() => {
       linePoints: '',
       xLeftAxis,
       xRightAxis,
-      yTop,
+      yTop: yLineTop,
+      yLeftTop,
+      yRightTop: yLineTop,
       yBase,
-      chartHeight,
+      barChartHeight,
+      chartHeight: barChartHeight,
       yTicksLeft: [],
       yTicksRight: []
     }
@@ -2653,7 +2678,7 @@ const comboChartData = computed(() => {
   const maxRev = Math.ceil(rawMaxRev / (magnitude / 2)) * (magnitude / 2)
 
   const yTicksLeft = [0, 0.25, 0.5, 0.75, 1.0].map(frac => ({
-    y: yBase - frac * chartHeight,
+    y: yBase - frac * barChartHeight,
     label: formatShortCurrency(frac * maxRev)
   }))
 
@@ -2669,17 +2694,46 @@ const comboChartData = computed(() => {
   const yTicksRight = [0, 0.25, 0.5, 0.75, 1.0].map(frac => {
     const v = Math.round(minRate + frac * rateRange)
     return {
-      y: yBase - frac * chartHeight,
+      y: yLineBottom - frac * lineHeight,
       label: `${v > 0 ? '+' : ''}${v}%`
     }
   })
 
-  // 3. Tính toán vị trí các Cột & Điểm Line
-  const availableW = xRightAxis - xLeftAxis - 40
-  const barWidth = Math.min(48, Math.max(20, Math.floor((availableW / count) * 0.52)))
-  const step = count > 1 ? (availableW - barWidth) / (count - 1) : 0
-  const isRotated = count > 6
+  // 3. Phân bổ vị trí các cột cân đối ở khu vực trung tâm khung vẽ (không bị dạt sát ra 2 mép trục tung)
+  const plotW = xRightAxis - xLeftAxis
+  let barWidth = 44
+  const centers = []
 
+  if (count === 1) {
+    centers.push(xLeftAxis + plotW / 2)
+  } else if (count === 2) {
+    barWidth = 46
+    const spacing = 220
+    centers.push(xLeftAxis + plotW / 2 - spacing / 2)
+    centers.push(xLeftAxis + plotW / 2 + spacing / 2)
+  } else if (count === 3) {
+    barWidth = 46
+    const spacing = 200
+    centers.push(xLeftAxis + plotW / 2 - spacing)
+    centers.push(xLeftAxis + plotW / 2)
+    centers.push(xLeftAxis + plotW / 2 + spacing)
+  } else if (count === 4) {
+    barWidth = 44
+    const spacing = 170
+    const startX = xLeftAxis + plotW / 2 - 1.5 * spacing
+    for (let i = 0; i < count; i++) {
+      centers.push(startX + i * spacing)
+    }
+  } else {
+    // count >= 5: chia đều theo các slot tương ứng
+    const slotW = plotW / count
+    barWidth = Math.min(44, Math.max(24, Math.floor(slotW * 0.48)))
+    for (let i = 0; i < count; i++) {
+      centers.push(xLeftAxis + (i + 0.5) * slotW)
+    }
+  }
+
+  const isRotated = count > 6
   const bars = []
   const points = []
 
@@ -2688,12 +2742,12 @@ const comboChartData = computed(() => {
     const cash = Number(p.cashRevenue || 0)
     const transfer = Number(p.transferRevenue || 0)
 
-    const totalH = Math.max((total / maxRev) * chartHeight, total > 0 ? 8 : 2)
+    const totalH = Math.max((total / maxRev) * barChartHeight, total > 0 ? 8 : 2)
     const cashH = total > 0 ? (cash / total) * totalH : 0
     const transferH = total > 0 ? totalH - cashH : 0
 
-    const x = count === 1 ? (xLeftAxis + availableW / 2 - barWidth / 2 + 20) : (xLeftAxis + 20 + idx * step)
-    const centerX = x + barWidth / 2
+    const centerX = centers[idx]
+    const x = centerX - barWidth / 2
     const yTransfer = yBase - totalH
     const yCash = yBase - cashH
 
@@ -2702,6 +2756,7 @@ const comboChartData = computed(() => {
       displayName: p.periodName || p.periodKey,
       dateRangeText: p.dateRangeText || '',
       totalRevenue: total,
+      totalH,
       cash,
       transfer,
       orderCount: Number(p.orderCount || 0),
@@ -2713,13 +2768,15 @@ const comboChartData = computed(() => {
       heightTransfer: transferH,
       yCash,
       heightCash: cashH,
+      rxTransfer: 6,
+      rxCash: transferH > 0 ? 0 : 6,
       isRotated
     })
 
-    // Điểm biểu diễn tốc độ tăng trưởng % (thang đo trục phải)
+    // Điểm biểu diễn tốc độ tăng trưởng % (thang đo trục phải ở tầng trên)
     const g = Number(p.growthRate || 0)
     const clampedG = Math.max(minRate, Math.min(maxRate, g))
-    const yPoint = yBase - ((clampedG - minRate) / rateRange) * chartHeight
+    const yPoint = yLineBottom - ((clampedG - minRate) / rateRange) * lineHeight
 
     points.push({
       x: centerX,
@@ -2736,9 +2793,12 @@ const comboChartData = computed(() => {
     linePoints,
     xLeftAxis,
     xRightAxis,
-    yTop,
+    yTop: yLineTop,
+    yLeftTop,
+    yRightTop: yLineTop,
     yBase,
-    chartHeight,
+    barChartHeight,
+    chartHeight: barChartHeight,
     yTicksLeft,
     yTicksRight
   }
@@ -3204,17 +3264,26 @@ onMounted(async () => {
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .prefix-icon {
   position: absolute;
-  left: 10px;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
   color: #94a3b8;
   pointer-events: none;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.form-control-minimal.with-icon {
-  padding-left: 32px;
+.form-control-minimal.with-icon,
+select.form-control-minimal.with-icon,
+input.form-control-minimal.with-icon {
+  padding-left: 38px !important;
 }
 
 .select-wrapper-minimal {
@@ -4280,7 +4349,7 @@ onMounted(async () => {
 }
 
 .combo-bar-total-label {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
   fill: #1e293b;
   font-family: 'Inter', Roboto, sans-serif;

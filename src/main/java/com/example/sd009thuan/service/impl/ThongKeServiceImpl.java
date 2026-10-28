@@ -1362,7 +1362,12 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
                         <div style="background-color: #faf7f2; border: 1px solid #f0eae1; border-left: 4px solid #16a34a; border-radius: 10px; padding: 14px 18px;">
                             <div style="font-size: 12px; color: #76695b; font-weight: 600; text-transform: uppercase;">Doanh thu hôm nay</div>
                             <div style="font-size: 22px; font-weight: 800; color: #16a34a; margin-top: 4px;">%s</div>
-                            <div style="font-size: 12px; color: #8c7355; margin-top: 4px;">Tiền mặt: %s | CK: %s</div>
+                            <div style="margin-top: 6px; font-size: 13px; color: #57534e; line-height: 1.6;">
+                                Tiền mặt: <b>%s</b>
+                            </div>
+                            <div style="margin-top: 4px; font-size: 13px; color: #57534e; line-height: 1.6;">
+                                Chuyển khoản: <b>%s</b>
+                            </div>
                         </div>
                         <div style="background-color: #faf7f2; border: 1px solid #f0eae1; border-left: 4px solid #3b82f6; border-radius: 10px; padding: 14px 18px;">
                             <div style="font-size: 12px; color: #76695b; font-weight: 600; text-transform: uppercase;">So với hôm qua (%s)</div>
@@ -1516,7 +1521,12 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
                         <div style="background-color: #faf7f2; border: 1px solid #f0eae1; border-left: 4px solid #16a34a; border-radius: 10px; padding: 14px 18px;">
                             <div style="font-size: 12.5px; color: #76695b; font-weight: 600; text-transform: uppercase;">Tổng doanh thu</div>
                             <div style="font-size: 22px; font-weight: 800; color: #16a34a; margin-top: 4px;">%s</div>
-                            <div style="font-size: 12px; color: #8c7355; margin-top: 4px;">Tiền mặt: %s | CK: %s</div>
+                            <div style="margin-top: 6px; font-size: 13px; color: #57534e; line-height: 1.6;">
+                                Tiền mặt: <b>%s</b>
+                            </div>
+                            <div style="margin-top: 4px; font-size: 13px; color: #57534e; line-height: 1.6;">
+                                Chuyển khoản: <b>%s</b>
+                            </div>
                         </div>
                         <div style="background-color: #faf7f2; border: 1px solid #f0eae1; border-left: 4px solid #3b82f6; border-radius: 10px; padding: 14px 18px;">
                             <div style="font-size: 12.5px; color: #76695b; font-weight: 600; text-transform: uppercase;">Tăng trưởng so với tháng trước</div>
@@ -1686,7 +1696,12 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
                     <div style="background-color: #faf7f2; border: 1px solid #f0eae1; border-left: 5px solid #16a34a; border-radius: 10px; padding: 18px 22px; margin-bottom: 24px;">
                         <div style="font-size: 13px; color: #76695b; font-weight: 700; text-transform: uppercase;">TỔNG DOANH THU CẢ NĂM %d</div>
                         <div style="font-size: 28px; font-weight: 800; color: #16a34a; margin: 6px 0;">%s</div>
-                        <div style="font-size: 13px; color: #64748b;">Tiền mặt: %s &nbsp;|&nbsp; Chuyển khoản: %s</div>
+                        <div style="margin-top: 6px; font-size: 13px; color: #57534e; line-height: 1.6;">
+                            Tiền mặt: <b>%s</b>
+                        </div>
+                        <div style="margin-top: 4px; font-size: 13px; color: #57534e; line-height: 1.6;">
+                            Chuyển khoản: <b>%s</b>
+                        </div>
                     </div>
 
                     <table style="width: 100%%; border-collapse: collapse; margin-bottom: 26px; background-color: #faf8f5; border-radius: 8px;">
