@@ -343,48 +343,6 @@ public class HoaDonController {
         }
     }
 
-    // Gửi email xác nhận đơn hàng theo ID
-    @PostMapping("/{id}/send-email")
-    public ResponseEntity<?> sendConfirmationEmail(
-            @PathVariable Long id,
-            @RequestBody(required = false) Map<String, Object> body
-    ) {
-        String email = (body != null && body.get("email") != null) ? body.get("email").toString().trim() : null;
-        try {
-            boolean sent = hoaDonService.sendConfirmationEmail(id, email);
-            if (sent) {
-                return ResponseEntity.ok(Map.of("message", "Đã gửi email xác nhận đơn hàng thành công!"));
-            } else {
-                return ResponseEntity.badRequest().body(Map.of("message", "Không thể gửi email. Vui lòng kiểm tra lại địa chỉ email người nhận!"));
-            }
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage() != null ? e.getMessage() : "Gửi email thất bại!"));
-        }
-    }
-
-    // Gửi email xác nhận đơn hàng theo mã hóa đơn
-    @PostMapping("/code/{maHoaDon}/send-email")
-    public ResponseEntity<?> sendConfirmationEmailByCode(
-            @PathVariable String maHoaDon,
-            @RequestBody(required = false) Map<String, Object> body
-    ) {
-        Optional<HoaDon> opt = hoaDonService.getByMaHoaDon(maHoaDon);
-        if (opt.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        String email = (body != null && body.get("email") != null) ? body.get("email").toString().trim() : null;
-        try {
-            boolean sent = hoaDonService.sendConfirmationEmail(opt.get().getId(), email);
-            if (sent) {
-                return ResponseEntity.ok(Map.of("message", "Đã gửi email xác nhận đơn hàng thành công!"));
-            } else {
-                return ResponseEntity.badRequest().body(Map.of("message", "Không thể gửi email. Vui lòng kiểm tra lại địa chỉ email người nhận!"));
-            }
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage() != null ? e.getMessage() : "Gửi email thất bại!"));
-        }
-    }
-
     // Cập nhật trạng thái thanh toán theo ID
     @PutMapping("/{id}/thanh-toan")
     public ResponseEntity<?> updateTrangThaiThanhToan(

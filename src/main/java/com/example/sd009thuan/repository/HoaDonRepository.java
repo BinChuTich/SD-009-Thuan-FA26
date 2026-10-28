@@ -65,4 +65,11 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Long> {
             @Param("fromTime") Instant fromTime,
             @Param("toTime") Instant toTime
     );
+
+    long countByTrangThai(Integer trangThai);
+
+    @Query("SELECT h FROM HoaDon h " +
+           "LEFT JOIN FETCH h.idKhachHang " +
+           "ORDER BY h.id DESC")
+    List<HoaDon> findRecentOrders(org.springframework.data.domain.Pageable pageable);
 }
