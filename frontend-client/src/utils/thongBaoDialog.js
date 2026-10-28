@@ -58,10 +58,26 @@ export function closeAppDialog(result = false) {
 /**
  * Hiển thị Toast thông báo nổi ở góc màn hình
  */
-export function showAppToast(message, type = 'success', duration = 3500) {
+export function showAppToast(message, type = 'success', duration = 3500, title = null) {
   const id = toastIdCounter++
-  toastsList.value.push({ id, message, type })
+  if (typeof message === 'object' && message !== null) {
+    toastsList.value.push({
+      id,
+      title: message.title || null,
+      message: message.message || message.desc || '',
+      type: message.type || type
+    })
+  } else {
+    toastsList.value.push({ id, title, message, type })
+  }
   setTimeout(() => {
     toastsList.value = toastsList.value.filter(t => t.id !== id)
   }, duration)
 }
+
+if (typeof window !== 'undefined') {
+  window.showAppToast = showAppToast
+  window.showAppAlert = showAppAlert
+  window.showAppConfirm = showAppConfirm
+}
+

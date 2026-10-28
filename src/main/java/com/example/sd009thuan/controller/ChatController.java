@@ -119,10 +119,11 @@ public class ChatController {
     @PutMapping("/cuoc-hoi-thoai/{id}/tiep-nhan")
     public ResponseEntity<?> tiepNhanCuocHoiThoai(
             @PathVariable Long id,
-            @RequestParam(required = false) Long nhanVienId
+            @RequestParam(required = false) Long nhanVienId,
+            @RequestParam(required = false) String tenNhanVien
     ) {
         try {
-            CuocHoiThoaiDTO dto = chatService.tiepNhanCuocHoiThoai(id, nhanVienId);
+            CuocHoiThoaiDTO dto = chatService.tiepNhanCuocHoiThoai(id, nhanVienId, tenNhanVien);
             return ResponseEntity.ok(dto);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
@@ -130,22 +131,11 @@ public class ChatController {
     }
 
     // Khách hàng bấm gặp nhân viên / Chat với người bán (chuyển sang Chờ nhận)
-    @PutMapping({"/cuoc-hoi-thoai/{id}/yeu-cau-ho-tro", "/cuoc-hoi-thoai/{id}/yeu-cau-nhan-vien"})
+    @PutMapping("/cuoc-hoi-thoai/{id}/yeu-cau-ho-tro")
     public ResponseEntity<?> yeuCauHoTro(@PathVariable Long id) {
         try {
             CuocHoiThoaiDTO dto = chatService.yeuCauHoTro(id);
             return ResponseEntity.ok(dto);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
-        }
-    }
-
-    // Xóa tất cả các cuộc trò chuyện
-    @DeleteMapping({"/cuoc-hoi-thoai/tat-ca", "/xoa-tat-ca"})
-    public ResponseEntity<?> xoaTatCaCuocHoiThoai() {
-        try {
-            chatService.xoaTatCaCuocHoiThoai();
-            return ResponseEntity.ok(Map.of("success", true, "message", "Đã dọn sạch toàn bộ cuộc trò chuyện"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
@@ -157,6 +147,17 @@ public class ChatController {
         try {
             chatService.xoaCuocHoiThoai(id);
             return ResponseEntity.ok(Map.of("success", true, "message", "Đã xóa cuộc trò chuyện"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    // Xóa tất cả các cuộc trò chuyện
+    @DeleteMapping("/cuoc-hoi-thoai/tat-ca")
+    public ResponseEntity<?> xoaTatCaCuocHoiThoai() {
+        try {
+            chatService.xoaTatCaCuocHoiThoai();
+            return ResponseEntity.ok(Map.of("success", true, "message", "Đã dọn sạch toàn bộ cuộc trò chuyện"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }

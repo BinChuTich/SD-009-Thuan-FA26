@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import GlobalDialog from '@/components/GlobalDialog.vue'
@@ -23,72 +23,94 @@ const currentUser = ref(getCurrentUser())
 const showUserDropdown = ref(false)
 const userMenuRef = ref(null)
 
-// Quản lý thông báo đơn hàng mới
-const unreadNotifCount = ref(0)
-const notifList = ref([])
-const showNotifDropdown = ref(false)
-const notifMenuRef = ref(null)
-let notifPollTimer = null
+// Live Notifications State cho Chuông thông báo Admin (Đơn hàng mới + Live Chat)
+const adminNotificationCount = ref(0)
+const adminNotificationList = ref([])
+const adminChatUnreadCount = ref(0)
+const adminOrderNewCount = ref(0)
+const bellFilter = ref('ALL') // 'ALL', 'DON_HANG', 'CHAT'
+const showBellDropdown = ref(false)
+const bellRef = ref(null)
+let chatNotifyTimer = null
+let isFirstBellFetch = true
 
-const fetchOrderNotifications = async () => {
+function playAdminChatChime() {
   try {
-    const res = await api.get('/api/hoa-don/thong-bao-moi')
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(523.25, ctx.currentTime)
+    osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1)
+    osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2)
+    gain.gain.setValueAtTime(0.08, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.45)
+  } catch (e) {}
+}
+
+async function fetchAdminChatNotifications() {
+  try {
+    const res = await api.get('/api/chat/thong-bao-admin')
     if (res.data) {
-      unreadNotifCount.value = res.data.unreadCount || 0
-      notifList.value = res.data.notifications || []
+      const newTotal = res.data.tongSoThongBao ?? ((res.data.soTinChuaDoc || 0) + (res.data.soDonHangMoi || 0))
+      if (!isFirstBellFetch && newTotal > adminNotificationCount.value) {
+        playAdminChatChime()
+      }
+      isFirstBellFetch = false
+      adminNotificationCount.value = newTotal
+      adminChatUnreadCount.value = res.data.soTinChuaDoc || 0
+      adminOrderNewCount.value = res.data.soDonHangMoi || 0
+      adminNotificationList.value = res.data.danhSachThongBao || []
     }
   } catch (e) {}
 }
 
-const toggleNotifDropdown = () => {
-  showNotifDropdown.value = !showNotifDropdown.value
-  if (showNotifDropdown.value) {
-    fetchOrderNotifications()
+const filteredNotificationList = computed(() => {
+  if (bellFilter.value === 'DON_HANG') {
+    return adminNotificationList.value.filter(item => item.loai === 'DON_HANG')
+  }
+  if (bellFilter.value === 'CHAT') {
+    return adminNotificationList.value.filter(item => item.loai === 'CHAT')
+  }
+  return adminNotificationList.value
+})
+
+function toggleBellDropdown() {
+  showBellDropdown.value = !showBellDropdown.value
+  if (showBellDropdown.value) {
+    fetchAdminChatNotifications()
   }
 }
 
-const markAllNotifsRead = async () => {
-  try {
-    await api.post('/api/hoa-don/danh-dau-da-doc', { all: true })
-    unreadNotifCount.value = 0
-    notifList.value.forEach(n => { n.daDoc = true })
-  } catch (e) {}
-}
-
-const handleNotifClick = async (notif) => {
-  try {
-    if (!notif.daDoc) {
-      await api.post('/api/hoa-don/danh-dau-da-doc', { maHoaDon: notif.maHoaDon })
-      notif.daDoc = true
-      if (unreadNotifCount.value > 0) unreadNotifCount.value--
+function handleNotificationClick(item) {
+  showBellDropdown.value = false
+  if (item.loai === 'DON_HANG') {
+    if (item.maDonHang) {
+      router.push({ path: '/hoa-don', query: { search: item.maDonHang } })
+    } else {
+      router.push('/hoa-don')
     }
-  } catch (e) {}
-  showNotifDropdown.value = false
-  if (notif.maHoaDon) {
-    router.push(`/hoa-don/${notif.maHoaDon}`)
+  } else {
+    if (item.cuocHoiThoaiId) {
+      router.push({ path: '/tin-nhan', query: { id: item.cuocHoiThoaiId } })
+    } else {
+      router.push('/tin-nhan')
+    }
   }
 }
 
-function formatNotifCurrency(val) {
-  if (val == null) return '0 ₫'
-  return new Intl.NumberFormat('vi-VN').format(val) + ' ₫'
-}
-
-function formatNotifTime(timeStr) {
-  if (!timeStr) return ''
-  try {
-    const d = new Date(timeStr)
-    const now = new Date()
-    const diffSec = Math.floor((now - d) / 1000)
-    if (diffSec < 60) return 'Vừa xong'
-    if (diffSec < 3600) return `${Math.floor(diffSec / 60)} phút trước`
-    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} giờ trước`
-    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-  } catch (e) {
-    return timeStr
+function goToOrdersOrChat() {
+  showBellDropdown.value = false
+  if (bellFilter.value === 'DON_HANG') {
+    router.push('/hoa-don')
+  } else {
+    router.push('/tin-nhan')
   }
 }
-
 
 const isUserAdmin = computed(() => {
   if (!currentUser.value) return false
@@ -110,8 +132,8 @@ function handleClickOutside(e) {
   if (userMenuRef.value && !userMenuRef.value.contains(e.target)) {
     showUserDropdown.value = false
   }
-  if (notifMenuRef.value && !notifMenuRef.value.contains(e.target)) {
-    showNotifDropdown.value = false
+  if (bellRef.value && !bellRef.value.contains(e.target)) {
+    showBellDropdown.value = false
   }
 }
 
@@ -136,24 +158,27 @@ onMounted(() => {
   if (currentUser.value) {
     checkActiveShiftAndPrompt()
   }
-  fetchOrderNotifications()
-  notifPollTimer = setInterval(fetchOrderNotifications, 8000)
 
   window.addEventListener('shift-closed', handleShiftClosed)
   window.addEventListener('shift-opened', handleShiftOpened)
   window.addEventListener('open-mo-ca-popup', handleOpenMoCaEvent)
   window.addEventListener('view-mode-blocked', handleViewModeBlocked)
+
+  fetchAdminChatNotifications()
+  chatNotifyTimer = setInterval(fetchAdminChatNotifications, 4000)
+  window.addEventListener('admin-chat-read', fetchAdminChatNotifications)
 })
 
 onUnmounted(() => {
   window.removeEventListener('auth-changed', onAuthChanged)
   window.removeEventListener('click', handleClickOutside)
   if (clockTimer) clearInterval(clockTimer)
-  if (notifPollTimer) clearInterval(notifPollTimer)
   window.removeEventListener('shift-closed', handleShiftClosed)
   window.removeEventListener('shift-opened', handleShiftOpened)
   window.removeEventListener('open-mo-ca-popup', handleOpenMoCaEvent)
   window.removeEventListener('view-mode-blocked', handleViewModeBlocked)
+  if (chatNotifyTimer) clearInterval(chatNotifyTimer)
+  window.removeEventListener('admin-chat-read', fetchAdminChatNotifications)
 })
 
 function handleLogout() {
@@ -321,41 +346,22 @@ function getShiftStatus(ca) {
   }
 }
 
-const detectedCurrentShift = computed(() => {
-  const sourceList = (isUserAdmin.value && !moCaForm.value.nhanVienId)
-    ? activeShifts.value
-    : (assignedShiftsToday.value.length > 0 ? assignedShiftsToday.value : activeShifts.value)
-
-  if (!sourceList || sourceList.length === 0) return null
-
-  // 1. Tìm ca đang trong khung giờ trực (canOpen == true)
-  const currentActive = sourceList.find(c => getShiftStatus(c).canOpen)
-  if (currentActive) return currentActive
-
-  // 2. Tìm ca sắp diễn ra tiếp theo hôm nay
-  const futureShift = sourceList.find(c => getShiftStatus(c).status === 'future')
-  if (futureShift) return futureShift
-
-  return sourceList[0] || null
-})
-
 const selectedShiftStatus = computed(() => {
-  if (detectedCurrentShift.value) {
-    return getShiftStatus(detectedCurrentShift.value)
-  }
-  return null
+  if (!moCaForm.value.caLamViecId) return null
+  const sourceList = isUserAdmin.value ? activeShifts.value : assignedShiftsToday.value
+  const ca = sourceList.find(c => c.id === Number(moCaForm.value.caLamViecId))
+  return ca ? getShiftStatus(ca) : null
 })
 
 const canSubmitMoCa = computed(() => {
   if (submittingMoCa.value) return false
-  if (!currentUser.value?.id) return false
-  const targetCa = detectedCurrentShift.value
-  if (!targetCa) return false
+  if (!currentUser.value?.id || !moCaForm.value.caLamViecId) return false
   if (!isUserAdmin.value && !hasScheduleToday.value) return false
   if (moCaForm.value.tienMatDauCa === null || moCaForm.value.tienMatDauCa === undefined || moCaForm.value.tienMatDauCa < 0) return false
-  if (selectedShiftStatus.value && !selectedShiftStatus.value.canOpen) return false
+  if (!isUserAdmin.value && selectedShiftStatus.value && !selectedShiftStatus.value.canOpen) return false
   return true
 })
+
 async function initMoCaData() {
   if (!currentUser.value?.id) return
   try {
@@ -479,7 +485,7 @@ async function submitMoCaFromPopup() {
     submittingMoCa.value = true
     const payload = {
       nhanVienId: isUserAdmin.value && moCaForm.value.nhanVienId ? Number(moCaForm.value.nhanVienId) : currentUser.value.id,
-      caLamViecId: Number(detectedCurrentShift.value?.id || moCaForm.value.caLamViecId),
+      caLamViecId: Number(moCaForm.value.caLamViecId),
       tienMatDauCa: Number(moCaForm.value.tienMatDauCa) || 0,
       tienChuyenKhoan: Number(moCaForm.value.tienChuyenKhoan) || 0,
       ghiChu: 'Mở ca từ hệ thống'
@@ -705,7 +711,7 @@ async function submitDongCaFromModal() {
       id: currentOpenShift.value?.id,
       nhanVienId: currentOpenShift.value?.nhanVien?.id || currentUser.value?.id,
       caLamViecId: currentOpenShift.value?.caLamViec?.id,
-      nhanVienNhanId: shiftSummary.value?.nhanVienNhanDuKienId || (dongCaForm.value.nhanVienNhanId ? Number(dongCaForm.value.nhanVienNhanId) : null),
+      nhanVienNhanId: dongCaForm.value.nhanVienNhanId ? Number(dongCaForm.value.nhanVienNhanId) : null,
       tienChiTrongCa: Number(dongCaForm.value.tienChiTrongCa || 0),
       tienMatCuoiCa: Number(dongCaForm.value.tienMatCuoiCa),
       chenhLech: calculatedDiff.value,
@@ -957,6 +963,17 @@ function printReceipt() {
             </router-link>
           </div>
         </div>
+
+        <!-- 10. Quản Lý Chat (Cuối menu) -->
+        <router-link to="/tin-nhan" class="menu-item" active-class="active">
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+            </svg>
+          </span>
+          <span class="menu-text">Quản Lý Chat</span>
+          <span v-if="adminChatUnreadCount > 0" class="sidebar-chat-badge">{{ adminChatUnreadCount }}</span>
+        </router-link>
       </nav>
     </aside>
 
@@ -992,91 +1009,97 @@ function printReceipt() {
             </div>
           </div>
 
-          <!-- Người dùng đang đăng nhập -->
-          
-          <!-- Chuông thông báo đơn hàng mới -->
-          <div ref="notifMenuRef" class="notif-bell-container">
-            <button 
-              type="button" 
-              class="btn-notif-bell" 
-              :class="{ 'has-unread': unreadNotifCount > 0 }"
-              @click="toggleNotifDropdown" 
-              title="Thông báo đơn hàng mới"
+          <!-- Chuông thông báo tổng hợp (Đơn hàng mới & Tin nhắn Chat) -->
+          <div class="header-chat-bell-wrapper" ref="bellRef">
+            <button
+              type="button"
+              class="btn-header-bell"
+              :class="{ 'has-unread': adminNotificationCount > 0 }"
+              @click="toggleBellDropdown"
+              title="Thông Báo"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
               </svg>
-              <span v-if="unreadNotifCount > 0" class="notif-badge">
-                {{ unreadNotifCount > 99 ? '99+' : unreadNotifCount }}
+              <span v-if="adminNotificationCount > 0" class="bell-badge-pill">
+                {{ adminNotificationCount > 99 ? '99+' : adminNotificationCount }}
               </span>
             </button>
 
-            <!-- Dropdown thông báo -->
-            <div v-if="showNotifDropdown" class="notif-dropdown-popover">
-              <div class="notif-dropdown-header">
-                <div class="notif-header-title">
-                  <span class="notif-title-text">Thông báo đơn hàng</span>
-                  <span v-if="unreadNotifCount > 0" class="notif-unread-tag">{{ unreadNotifCount }} mới</span>
+            <!-- Dropdown danh sách thông báo -->
+            <div v-if="showBellDropdown" class="bell-dropdown-popover">
+              <div class="bell-popover-header">
+                <div class="bph-header-top">
+                  <div class="bph-title">
+                    <span>🔔 Thông Báo</span>
+                    <span v-if="adminNotificationCount > 0" class="bph-count-badge">{{ adminNotificationCount }} mới</span>
+                  </div>
                 </div>
-                <button 
-                  v-if="unreadNotifCount > 0" 
-                  type="button" 
-                  class="btn-mark-all-read" 
-                  @click="markAllNotifsRead"
+                <!-- Tabs lọc Đơn hàng / Tin nhắn -->
+                <div class="bph-tabs-row">
+                  <button
+                    type="button"
+                    class="bph-tab-btn"
+                    :class="{ active: bellFilter === 'ALL' }"
+                    @click="bellFilter = 'ALL'"
+                  >
+                    Tất cả ({{ adminNotificationList.length }})
+                  </button>
+                  <button
+                    type="button"
+                    class="bph-tab-btn"
+                    :class="{ active: bellFilter === 'DON_HANG' }"
+                    @click="bellFilter = 'DON_HANG'"
+                  >
+                    Đơn hàng <span v-if="adminOrderNewCount > 0">({{ adminOrderNewCount }})</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="bph-tab-btn"
+                    :class="{ active: bellFilter === 'CHAT' }"
+                    @click="bellFilter = 'CHAT'"
+                  >
+                    Tin nhắn <span v-if="adminChatUnreadCount > 0">({{ adminChatUnreadCount }})</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="bell-popover-list">
+                <div v-if="filteredNotificationList.length === 0" class="bell-empty-box">
+                  <p>Không có thông báo mới nào</p>
+                </div>
+                <div
+                  v-for="item in filteredNotificationList"
+                  :key="item.id + '-' + item.loai"
+                  class="bell-item-row"
+                  :class="{ unread: !item.daDoc, 'order-row': item.loai === 'DON_HANG' }"
+                  @click="handleNotificationClick(item)"
                 >
-                  Đọc tất cả
+                  <div class="bell-item-avatar" :class="item.loai === 'DON_HANG' ? 'order-avatar' : 'chat-avatar'">
+                    <span v-if="item.loai === 'DON_HANG'">📦</span>
+                    <span v-else>💬</span>
+                  </div>
+                  <div class="bell-item-content">
+                    <div class="bic-top">
+                      <strong class="bic-name">{{ item.tieuDe }}</strong>
+                      <span class="bic-time">{{ item.thoiGian }}</span>
+                    </div>
+                    <p class="bic-msg">{{ item.noiDung }}</p>
+                  </div>
+                  <span v-if="!item.daDoc" class="bell-dot-unread"></span>
+                </div>
+              </div>
+
+              <div class="bell-popover-footer">
+                <button type="button" class="btn-bell-view-full" @click="goToOrdersOrChat">
+                  {{ bellFilter === 'DON_HANG' ? 'Xem quản lý hóa đơn →' : 'Xem quản lý chat & tư vấn →' }}
                 </button>
-              </div>
-
-              <div class="notif-list-body">
-                <div v-if="notifList.length === 0" class="notif-empty">
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                  </svg>
-                  <span>Chưa có thông báo đơn hàng mới nào</span>
-                </div>
-
-                <div 
-                  v-for="notif in notifList" 
-                  :key="notif.id || notif.maHoaDon"
-                  class="notif-item"
-                  :class="{ 'is-unread': !notif.daDoc }"
-                  @click="handleNotifClick(notif)"
-                >
-                  <div class="notif-item-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="9" cy="21" r="1"></circle>
-                      <circle cx="20" cy="21" r="1"></circle>
-                      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                    </svg>
-                  </div>
-                  <div class="notif-item-content">
-                    <div class="notif-item-top">
-                      <span class="notif-order-code">{{ notif.maHoaDon }}</span>
-                      <span class="notif-order-time">{{ formatNotifTime(notif.ngayTao) }}</span>
-                    </div>
-                    <div class="notif-item-customer">
-                      {{ notif.tenKhachHang || 'Khách lẻ' }}
-                    </div>
-                    <div class="notif-item-bottom">
-                      <span class="notif-order-total">{{ formatNotifCurrency(notif.tongTien) }}</span>
-                      <span class="notif-status-badge">Đơn hàng mới</span>
-                    </div>
-                  </div>
-                  <span v-if="!notif.daDoc" class="notif-unread-dot"></span>
-                </div>
-              </div>
-
-              <div class="notif-dropdown-footer">
-                <router-link to="/hoa-don" class="btn-view-all-orders" @click="showNotifDropdown = false">
-                  Xem tất cả hóa đơn &rarr;
-                </router-link>
               </div>
             </div>
           </div>
 
+          <!-- Người dùng đang đăng nhập -->
           <div v-if="currentUser" ref="userMenuRef" class="user-profile-menu">
             <div class="admin-badge" @click="showUserDropdown = !showUserDropdown" title="Tài khoản đang đăng nhập">
               <div class="admin-avatar">
@@ -1192,32 +1215,43 @@ function printReceipt() {
             </select>
           </div>
 
-                              <!-- Ca làm việc (Tự động nhận diện) -->
-          <div class="mo-ca-form-group">
-            <label class="mo-ca-form-label">Ca làm việc</label>
-
-            <!-- Nếu KHÔNG tìm thấy lịch phân công hôm nay của nhân viên -->
-            <div v-if="!isUserAdmin && !hasScheduleToday" class="mo-ca-shift-compact-card shift-card-empty">
-              <span>⚠️ Không tìm thấy lịch phân công hôm nay của bạn.</span>
+          <!-- Khung hiển thị Ca làm việc -->
+          <div class="mo-ca-box-wrap">
+            <div class="mo-ca-box-labels">
+              <span class="lbl-left">Ca</span>
+              <span class="lbl-right">Ca làm việc</span>
             </div>
 
-            <!-- Thẻ hiển thị ca làm việc gọn gàng, tinh tế -->
-            <div v-else-if="detectedCurrentShift" class="mo-ca-shift-compact-card" :class="{ 'shift-card-blocked': selectedShiftStatus && !selectedShiftStatus.canOpen }">
-              <div class="shift-compact-left">
-                <span class="shift-compact-name">{{ detectedCurrentShift.tenCa }}</span>
-                <span class="shift-compact-time">({{ formatTime(detectedCurrentShift.gioBatDau) }} - {{ formatTime(detectedCurrentShift.gioKetThuc) }})</span>
-              </div>
-
-              <div class="shift-compact-right">
-                <span class="shift-status-pill" :class="selectedShiftStatus?.canOpen ? 'pill-active' : 'pill-wait'">
-                  <span class="pulse-dot" v-if="selectedShiftStatus?.canOpen"></span>
-                  <span>{{ selectedShiftStatus?.canOpen ? 'Đang trong ca trực' : (selectedShiftStatus?.label || 'Chưa đến giờ') }}</span>
-                </span>
-              </div>
+            <!-- Nếu KHÔNG tìm thấy lịch phân công hôm nay -->
+            <div v-if="!isUserAdmin && !hasScheduleToday" class="mo-ca-empty-schedule">
+              Không tìm thấy lịch phân công
             </div>
 
-            <div v-else class="mo-ca-shift-compact-card shift-card-empty">
-              <span>Không có ca làm việc nào đang kích hoạt trong hệ thống.</span>
+            <!-- Nếu CÓ lịch phân công hôm nay -->
+            <div v-else-if="!isUserAdmin && assignedShiftsToday.length > 0" class="mo-ca-shift-select-box">
+              <select v-model="moCaForm.caLamViecId" class="mo-ca-input-select" required>
+                <option
+                  v-for="ca in assignedShiftsToday"
+                  :key="ca.id"
+                  :value="ca.id"
+                >
+                  {{ ca.tenCa }} ({{ formatTime(ca.gioBatDau) }} - {{ formatTime(ca.gioKetThuc) }}) - [{{ getShiftStatus(ca).label }}]
+                </option>
+              </select>
+            </div>
+
+            <!-- Nếu là Quản trị viên -->
+            <div v-else-if="isUserAdmin" class="mo-ca-shift-select-box">
+              <select v-model="moCaForm.caLamViecId" class="mo-ca-input-select" required>
+                <option value="">-- Chọn ca làm việc --</option>
+                <option
+                  v-for="ca in activeShifts"
+                  :key="ca.id"
+                  :value="ca.id"
+                >
+                  {{ ca.tenCa }} ({{ formatTime(ca.gioBatDau) }} - {{ formatTime(ca.gioKetThuc) }}) - [{{ getShiftStatus(ca).label }}]
+                </option>
+              </select>
             </div>
           </div>
 
@@ -1425,14 +1459,32 @@ function printReceipt() {
             ></textarea>
           </div>
 
-                    <div class="dong-ca-note-group">
-            <label class="dong-ca-label">Ghi chú bàn giao</label>
-            <input
-              type="text"
-              v-model="dongCaForm.ghiChu"
-              placeholder="Ghi chú bàn giao ca (nếu có)..."
-              class="dong-ca-input"
-            />
+          <div class="dong-ca-form-grid">
+            <div class="form-col">
+              <label class="dong-ca-label">Nhân viên nhận bàn giao</label>
+              <div class="select-wrapper-minimal">
+                <select v-model="dongCaForm.nhanVienNhanId" class="dong-ca-input">
+                  <option value="">-- Quản trị viên / Cuối ngày --</option>
+                  <option
+                    v-for="nv in handoverEmployees"
+                    :key="nv.id"
+                    :value="nv.id"
+                  >
+                    {{ nv.maNhanVien }} - {{ nv.tenNhanVien }} ({{ nv.tenTaiKhoan }})
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-col">
+              <label class="dong-ca-label">Ghi chú bàn giao</label>
+              <input
+                type="text"
+                v-model="dongCaForm.ghiChu"
+                placeholder="Ghi chú bàn giao (nếu có)..."
+                class="dong-ca-input"
+              />
+            </div>
           </div>
 
           <!-- Nút hành động kết ca -->
@@ -3350,454 +3402,300 @@ button, input, select, textarea {
   font-size: 12px;
 }
 
-/* Tự động nhận diện ca làm việc */
-.mo-ca-shift-display-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 10px 14px;
-  gap: 12px;
-  transition: all 0.2s ease;
-}
-
-.mo-ca-shift-display-card.shift-card-blocked {
-  background: #fffdf5;
-  border-color: #fde68a;
-}
-
-.shift-display-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.shift-display-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: #eef4f8;
-  color: #496883;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.shift-display-name {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 2px 0;
-}
-
-.shift-display-time {
-  font-size: 0.8rem;
-  color: #64748b;
-  margin: 0;
-}
-
-.shift-display-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.shift-display-badge.badge-open {
-  background: #ecfdf5;
-  color: #059669;
-  border: 1px solid #a7f3d0;
-}
-
-.shift-display-badge.badge-wait {
-  background: #fffbeb;
-  color: #d97706;
-  border: 1px solid #fde68a;
-}
-
-/* Hộp nhận bàn giao tự động */
-.auto-badge-pill {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #2563eb;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  padding: 2px 7px;
-  border-radius: 12px;
-  margin-left: 6px;
-}
-
-.auto-handover-box {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 8px 12px;
-  min-height: 44px;
-}
-
-.auto-handover-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  background: #e2e8f0;
-  color: #475569;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.auto-handover-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.auto-handover-name {
-  font-size: 0.88rem;
-  color: #1e293b;
-}
-
-.auto-handover-sub {
-  font-size: 0.76rem;
-  color: #64748b;
-}
-
-/* Giao diện Ca làm việc tinh gọn */
-.mo-ca-shift-compact-card {
-  min-height: 40px;
-  padding: 0 12px;
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  box-sizing: border-box;
-}
-
-.mo-ca-shift-compact-card.shift-card-blocked {
-  background: #fffdf5;
-  border-color: #fde68a;
-}
-
-.mo-ca-shift-compact-card.shift-card-empty {
-  color: #94a3b8;
-  font-size: 0.84rem;
-}
-
-.shift-compact-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.shift-compact-name {
-  font-weight: 700;
-  font-size: 0.92rem;
-  color: #1e293b;
-  white-space: nowrap;
-}
-
-.shift-compact-time {
-  font-size: 0.84rem;
-  color: #64748b;
-  white-space: nowrap;
-}
-
-.shift-compact-right {
-  flex-shrink: 0;
-}
-
-.shift-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-size: 0.74rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.shift-status-pill.pill-active {
-  background: #ecfdf5;
-  color: #059669;
-  border: 1px solid #a7f3d0;
-}
-
-.shift-status-pill.pill-wait {
-  background: #fffbeb;
-  color: #d97706;
-  border: 1px solid #fde68a;
-}
-
-.dong-ca-note-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.notif-bell-container {
+/* Live Chat Bell Notification & Sidebar Badge */
+.header-chat-bell-wrapper {
   position: relative;
-  margin-right: 14px;
+  display: flex;
+  align-items: center;
 }
 
-.btn-notif-bell {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+.btn-header-bell {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
   background: #ffffff;
   border: 1px solid #ebd9c8;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  color: #634b35;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
   cursor: pointer;
   position: relative;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.btn-notif-bell:hover {
-  background: #fdfbf7;
-  color: #2c3e50;
-  border-color: #cbd5e1;
+.btn-header-bell:hover {
+  background: #fbf8f5;
+  border-color: #c5a25d;
+  color: #1e293b;
   transform: translateY(-1px);
 }
 
-.btn-notif-bell.has-unread {
-  color: #2563eb;
-  border-color: #bfdbfe;
-  background: #eff6ff;
+.btn-header-bell.has-unread {
+  color: #b45309;
+  border-color: #f59e0b;
 }
 
-.notif-badge {
+.btn-header-bell.has-unread svg {
+  animation: bell-shake 2.5s infinite;
+}
+
+@keyframes bell-shake {
+  0%, 100% { transform: rotate(0); }
+  5% { transform: rotate(14deg); }
+  10% { transform: rotate(-14deg); }
+  15% { transform: rotate(10deg); }
+  20% { transform: rotate(-10deg); }
+  25% { transform: rotate(0); }
+}
+
+.bell-badge-pill {
   position: absolute;
   top: -4px;
   right: -4px;
   background: #ef4444;
   color: #ffffff;
-  font-size: 0.7rem;
-  font-weight: 700;
-  min-width: 18px;
-  height: 18px;
-  line-height: 18px;
-  padding: 0 4px;
+  font-size: 10.5px;
+  font-weight: 800;
+  min-width: 19px;
+  height: 19px;
   border-radius: 10px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
   border: 2px solid #ffffff;
-  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
 }
 
-.notif-dropdown-popover {
+.sidebar-chat-badge {
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  margin-left: auto;
+}
+
+/* Bell Dropdown Popover */
+.bell-dropdown-popover {
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
   width: 360px;
   background: #ffffff;
   border-radius: 14px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
   border: 1px solid #ebd9c8;
-  z-index: 1050;
+  box-shadow: 0 14px 36px rgba(90, 70, 50, 0.16);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  animation: notifFadeIn 0.2s ease-out;
+  animation: dropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes notifFadeIn {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 
-.notif-dropdown-header {
-  padding: 12px 16px;
+.bph-header-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #f1f5f9;
-  background: #fafaf9;
+  width: 100%;
 }
 
-.notif-header-title {
+.bph-tabs-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.bph-tab-btn {
+  flex: 1;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.bph-tab-btn:hover {
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+.bph-tab-btn.active {
+  background: #496883;
+  color: #ffffff;
+  border-color: #496883;
+}
+
+.bell-item-avatar.order-avatar {
+  background: #d2a764;
+  font-size: 16px;
+}
+
+.bell-item-avatar.chat-avatar {
+  background: #496883;
+  font-size: 16px;
+}
+
+.bell-popover-header {
+  padding: 12px 16px;
+  background: #fbf8f5;
+  border-bottom: 1px solid #f2ece3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bph-title {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.notif-title-text {
-  font-size: 0.92rem;
+  font-size: 13.5px;
   font-weight: 700;
   color: #1e293b;
 }
 
-.notif-unread-tag {
+.bph-count-badge {
   background: #fee2e2;
   color: #dc2626;
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   padding: 2px 8px;
-  border-radius: 9999px;
+  border-radius: 12px;
 }
 
-.btn-mark-all-read {
-  background: transparent;
+.btn-quick-open-all {
+  background: none;
   border: none;
-  color: #2563eb;
-  font-size: 0.78rem;
-  font-weight: 600;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 700;
   cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 4px;
+  padding: 2px 6px;
 }
 
-.btn-mark-all-read:hover {
+.btn-quick-open-all:hover {
   text-decoration: underline;
-  background: #eff6ff;
 }
 
-.notif-list-body {
-  max-height: 380px;
+.bell-popover-list {
+  max-height: 320px;
   overflow-y: auto;
 }
 
-.notif-empty {
-  padding: 32px 16px;
+.bell-empty-box {
+  padding: 30px 16px;
   text-align: center;
   color: #94a3b8;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
+  font-size: 13px;
 }
 
-.notif-item {
+.bell-item-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   padding: 12px 16px;
   border-bottom: 1px solid #f8fafc;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: all 0.15s;
   position: relative;
 }
 
-.notif-item:hover {
+.bell-item-row:hover {
   background: #f8fafc;
 }
 
-.notif-item.is-unread {
-  background: #f0f7ff;
+.bell-item-row.unread {
+  background: #fefce8;
 }
 
-.notif-item.is-unread:hover {
-  background: #e0effe;
-}
-
-.notif-item-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  background: #e0f2fe;
-  color: #0284c7;
+.bell-item-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #0284c7;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-top: 2px;
 }
 
-.notif-item-content {
+.bell-item-content {
   flex: 1;
   min-width: 0;
 }
 
-.notif-item-top {
+.bic-top {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 2px;
 }
 
-.notif-order-code {
-  font-weight: 700;
+.bic-name {
+  font-size: 13px;
   color: #0f172a;
-  font-size: 0.86rem;
-}
-
-.notif-order-time {
-  font-size: 0.72rem;
-  color: #94a3b8;
-}
-
-.notif-item-customer {
-  font-size: 0.8rem;
-  color: #475569;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 4px;
 }
 
-.notif-item-bottom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.bic-time {
+  font-size: 10.5px;
+  color: #94a3b8;
 }
 
-.notif-order-total {
-  font-weight: 700;
-  color: #dc2626;
-  font-size: 0.82rem;
+.bic-msg {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.notif-status-badge {
-  font-size: 0.68rem;
-  font-weight: 600;
-  background: #fef3c7;
-  color: #b45309;
-  padding: 1px 6px;
-  border-radius: 4px;
-}
-
-.notif-unread-dot {
+.bell-dot-unread {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #2563eb;
-  position: absolute;
-  top: 14px;
-  right: 12px;
+  background: #ef4444;
+  flex-shrink: 0;
 }
 
-.notif-dropdown-footer {
+.bell-popover-footer {
   padding: 10px 16px;
-  border-top: 1px solid #f1f5f9;
-  background: #fafaf9;
+  border-top: 1px solid #f2ece3;
+  background: #fbf8f5;
   text-align: center;
 }
 
-.btn-view-all-orders {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #475569;
-  text-decoration: none;
-  display: block;
+.btn-bell-view-full {
+  background: none;
+  border: none;
+  color: #634b35;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
-.btn-view-all-orders:hover {
-  color: #0284c7;
+.btn-bell-view-full:hover {
+  color: #b45309;
 }
 
 </style>

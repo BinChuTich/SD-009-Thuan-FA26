@@ -140,6 +140,7 @@
               <input
                 type="date"
                 v-model="filters.fromDate"
+                :max="maxFromDate"
                 class="form-control-minimal"
                 :class="{ 'input-error-border': dateFilterError }"
                 @change="onCustomDateChange"
@@ -154,6 +155,8 @@
               <input
                 type="date"
                 v-model="filters.toDate"
+                :max="todayStr"
+                :min="filters.fromDate || undefined"
                 class="form-control-minimal"
                 :class="{ 'input-error-border': dateFilterError }"
                 @change="onCustomDateChange"
@@ -965,13 +968,20 @@
                 <template v-if="compareFilter.mode === 'month'">
                   <div class="mini-field">
                     <span class="mini-label">Tháng:</span>
-                    <select v-model.number="p.month" class="form-control-minimal small select-period" @change="fetchComparisonData">
-                      <option v-for="m in 12" :key="m" :value="m">Tháng {{ m }}</option>
+                    <select v-model.number="p.month" class="form-control-minimal small select-period" @change="onPeriodMonthChange(p)">
+                      <option
+                        v-for="m in 12"
+                        :key="m"
+                        :value="m"
+                        :disabled="p.year === currentYear && m > currentMonth"
+                      >
+                        Tháng {{ m }}
+                      </option>
                     </select>
                   </div>
                   <div class="mini-field">
                     <span class="mini-label">Năm:</span>
-                    <select v-model.number="p.year" class="form-control-minimal small select-period" @change="fetchComparisonData">
+                    <select v-model.number="p.year" class="form-control-minimal small select-period" @change="onPeriodYearChange(p)">
                       <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
                     </select>
                   </div>
@@ -981,16 +991,16 @@
                 <template v-else-if="compareFilter.mode === 'quarter'">
                   <div class="mini-field">
                     <span class="mini-label">Quý:</span>
-                    <select v-model.number="p.quarter" class="form-control-minimal small select-period" @change="fetchComparisonData">
-                      <option :value="1">Quý 1 (T1 - T3)</option>
-                      <option :value="2">Quý 2 (T4 - T6)</option>
-                      <option :value="3">Quý 3 (T7 - T9)</option>
-                      <option :value="4">Quý 4 (T10 - T12)</option>
+                    <select v-model.number="p.quarter" class="form-control-minimal small select-period" @change="onPeriodQuarterChange(p)">
+                      <option :value="1" :disabled="p.year === currentYear && 1 > currentQuarter">Quý 1 (T1 - T3)</option>
+                      <option :value="2" :disabled="p.year === currentYear && 2 > currentQuarter">Quý 2 (T4 - T6)</option>
+                      <option :value="3" :disabled="p.year === currentYear && 3 > currentQuarter">Quý 3 (T7 - T9)</option>
+                      <option :value="4" :disabled="p.year === currentYear && 4 > currentQuarter">Quý 4 (T10 - T12)</option>
                     </select>
                   </div>
                   <div class="mini-field">
                     <span class="mini-label">Năm:</span>
-                    <select v-model.number="p.year" class="form-control-minimal small select-period" @change="fetchComparisonData">
+                    <select v-model.number="p.year" class="form-control-minimal small select-period" @change="onPeriodYearChange(p)">
                       <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
                     </select>
                   </div>
@@ -1000,7 +1010,7 @@
                 <template v-else-if="compareFilter.mode === 'year'">
                   <div class="mini-field">
                     <span class="mini-label">Năm:</span>
-                    <select v-model.number="p.year" class="form-control-minimal small select-period" @change="fetchComparisonData">
+                    <select v-model.number="p.year" class="form-control-minimal small select-period" @change="onPeriodYearChange(p)">
                       <option v-for="y in availableYears" :key="y" :value="y">Năm {{ y }}</option>
                     </select>
                   </div>
@@ -1019,11 +1029,24 @@
                   </div>
                   <div class="mini-field">
                     <span class="mini-label">Từ:</span>
-                    <input type="date" v-model="p.fromDate" class="form-control-minimal small input-period-date" @change="fetchComparisonData" />
+                    <input
+                      type="date"
+                      v-model="p.fromDate"
+                      :max="p.toDate ? (p.toDate < todayStr ? p.toDate : todayStr) : todayStr"
+                      class="form-control-minimal small input-period-date"
+                      @change="onCustomPeriodDateChange(p)"
+                    />
                   </div>
                   <div class="mini-field">
                     <span class="mini-label">Đến:</span>
-                    <input type="date" v-model="p.toDate" class="form-control-minimal small input-period-date" @change="fetchComparisonData" />
+                    <input
+                      type="date"
+                      v-model="p.toDate"
+                      :max="todayStr"
+                      :min="p.fromDate || undefined"
+                      class="form-control-minimal small input-period-date"
+                      @change="onCustomPeriodDateChange(p)"
+                    />
                   </div>
                 </template>
               </div>
@@ -1131,9 +1154,9 @@
           </div>
           <!-- Legend chú thích -->
           <div class="chart-combo-legend">
-            <div class="legend-item"><span class="legend-box color-cash"></span> Tiền mặt (Trục trái)</div>
-            <div class="legend-item"><span class="legend-box color-transfer"></span> Chuyển khoản (Trục trái)</div>
-            <div class="legend-item"><span class="legend-line-dot"></span> Tốc độ tăng trưởng % (Trục phải)</div>
+            <div class="legend-item"><span class="legend-box color-cash"></span> Tiền mặt</div>
+            <div class="legend-item"><span class="legend-box color-transfer"></span> Chuyển khoản</div>
+            <div class="legend-item"><span class="legend-line-dot"></span> Tăng trưởng (%)</div>
           </div>
         </div>
 
@@ -1143,7 +1166,7 @@
             <svg class="combo-chart-svg" :viewBox="`0 0 ${comboSvgWidth} 360`" preserveAspectRatio="xMidYMid meet">
               <!-- Nhãn đơn vị trục tung trái & phải -->
               <text :x="comboChartData.xLeftAxis - 6" y="38" text-anchor="end" class="y-axis-unit-label">(VNĐ)</text>
-              <text :x="comboChartData.xRightAxis + 6" y="38" text-anchor="start" class="y-axis-unit-label right">(%)</text>
+              <text :x="comboChartData.xRightAxis + 8" y="38" text-anchor="start" class="y-axis-unit-label right">(%)</text>
 
               <!-- Các đường lưới ngang & Nhãn trục tung trái (VNĐ) -->
               <g v-for="(tick, tIdx) in comboChartData.yTicksLeft" :key="'yt-left-' + tIdx">
@@ -1153,7 +1176,7 @@
                   :y1="tick.y"
                   :x2="comboChartData.xRightAxis"
                   :y2="tick.y"
-                  :stroke="tick.y === comboChartData.yBase ? '#94a3b8' : '#f1ede7'"
+                  :stroke="tick.y === comboChartData.yBase ? '#cbd5e1' : '#e5e7eb'"
                   :stroke-width="tick.y === comboChartData.yBase ? 1.5 : 1"
                   :stroke-dasharray="tick.y === comboChartData.yBase ? 'none' : '3 3'"
                 />
@@ -1168,8 +1191,17 @@
                 </text>
               </g>
 
-              <!-- Nhãn trục phải (%) -->
+              <!-- Nhãn trục phải (%) & Đường gióng mờ riêng biệt ở tầng trên -->
               <g v-for="(rtick, rtIdx) in comboChartData.yTicksRight" :key="'yt-right-' + rtIdx">
+                <line
+                  :x1="comboChartData.xLeftAxis"
+                  :y1="rtick.y"
+                  :x2="comboChartData.xRightAxis"
+                  :y2="rtick.y"
+                  stroke="#ffe4e6"
+                  stroke-width="0.8"
+                  stroke-dasharray="2 3"
+                />
                 <text
                   :x="comboChartData.xRightAxis + 8"
                   :y="rtick.y + 4"
@@ -1180,22 +1212,22 @@
                 </text>
               </g>
 
-              <!-- Trục dọc bên trái -->
+              <!-- Trục dọc bên trái (Doanh thu) -->
               <line
                 :x1="comboChartData.xLeftAxis"
-                :y1="comboChartData.yTop"
+                :y1="comboChartData.yLeftTop"
                 :x2="comboChartData.xLeftAxis"
                 :y2="comboChartData.yBase"
                 stroke="#cbd5e1"
                 stroke-width="1.2"
               />
-              <!-- Trục dọc bên phải -->
+              <!-- Trục dọc bên phải (Tăng trưởng %) -->
               <line
                 :x1="comboChartData.xRightAxis"
-                :y1="comboChartData.yTop"
+                :y1="comboChartData.yRightTop"
                 :x2="comboChartData.xRightAxis"
                 :y2="comboChartData.yBase"
-                stroke="#cbd5e1"
+                stroke="#fca5a5"
                 stroke-width="1.2"
               />
 
@@ -1210,9 +1242,9 @@
                 <!-- Hit area trong suốt bao phủ toàn bộ cột -->
                 <rect
                   :x="item.x - 8"
-                  :y="comboChartData.yTop"
+                  :y="comboChartData.yLeftTop - 10"
                   :width="item.width + 16"
-                  :height="comboChartData.chartHeight"
+                  :height="comboChartData.barChartHeight + 10"
                   fill="transparent"
                   class="combo-hit-area"
                 />
@@ -1221,9 +1253,9 @@
                 <rect
                   v-if="hoveredComboBar && hoveredComboBar.name === item.name"
                   :x="item.x - 4"
-                  :y="comboChartData.yTop"
+                  :y="comboChartData.yLeftTop - 6"
                   :width="item.width + 8"
-                  :height="comboChartData.chartHeight"
+                  :height="comboChartData.barChartHeight + 6"
                   fill="#f1ede7"
                   opacity="0.5"
                   rx="6"
@@ -1236,24 +1268,25 @@
                   :width="item.width"
                   :height="item.heightCash"
                   fill="#3B82F6"
-                  opacity="0.88"
-                  rx="3"
+                  opacity="0.9"
+                  :rx="item.rxCash"
                   class="combo-bar-segment"
                 />
 
                 <!-- Cột Chuyển khoản (Xếp trên tiền mặt) -->
                 <rect
+                  v-if="item.heightTransfer > 0"
                   :x="item.x"
                   :y="item.yTransfer"
                   :width="item.width"
                   :height="item.heightTransfer"
                   fill="#10B981"
                   opacity="0.92"
-                  rx="4"
+                  :rx="item.rxTransfer"
                   class="combo-bar-segment"
                 />
 
-                <!-- Con số Tổng doanh thu: Hiển thị ngay trên đỉnh cột, cách đỉnh 8px -->
+                <!-- Con số Tổng doanh thu: Hiển thị chữ đậm màu tối ngay phía trên đỉnh cột 8px -->
                 <text
                   v-if="item.totalRevenue > 0"
                   :x="item.centerX"
@@ -1266,7 +1299,7 @@
                 <text
                   v-else
                   :x="item.centerX"
-                  :y="item.yTransfer - 6"
+                  :y="item.yTransfer - 8"
                   text-anchor="middle"
                   class="combo-bar-total-label zero"
                 >
@@ -1308,10 +1341,10 @@
                 stroke-linejoin="round"
               />
 
-              <!-- Các điểm mốc tròn và Badge % Tăng trưởng bo tròn cách điểm tròn 26px -->
+              <!-- Các điểm mốc tròn và Badge % Tăng trưởng bo tròn cách điểm tròn 20px -->
               <g v-for="(pt, idx) in comboChartData.points" :key="'pt-' + idx" class="growth-point-group">
-                <!-- Khung Badge Bo Tròn riêng biệt phía trên điểm tròn 26px -->
-                <g :transform="`translate(${pt.x}, ${Math.max(25, pt.y - 26)})`">
+                <!-- Khung Badge Bo Tròn riêng biệt phía trên điểm tròn 20px -->
+                <g :transform="`translate(${pt.x}, ${Math.max(22, pt.y - 20)})`">
                   <rect
                     :x="-26"
                     :y="-10"
@@ -1743,8 +1776,15 @@
             <div v-if="emailForm.reportType === 'month'" class="form-group-custom">
               <label class="form-label-custom">Chọn Tháng</label>
               <div class="select-wrapper-minimal">
-                <select v-model.number="emailForm.month" class="form-control-minimal">
-                  <option v-for="m in 12" :key="m" :value="m">Tháng {{ m }}</option>
+                <select v-model.number="emailForm.month" class="form-control-minimal" @change="onEmailMonthChange">
+                  <option
+                    v-for="m in 12"
+                    :key="m"
+                    :value="m"
+                    :disabled="emailForm.year === currentYear && m > currentMonth"
+                  >
+                    Tháng {{ m }}
+                  </option>
                 </select>
               </div>
             </div>
@@ -1752,7 +1792,7 @@
             <div class="form-group-custom">
               <label class="form-label-custom">Chọn Năm</label>
               <div class="select-wrapper-minimal">
-                <select v-model.number="emailForm.year" class="form-control-minimal">
+                <select v-model.number="emailForm.year" class="form-control-minimal" @change="onEmailYearChange">
                   <option v-for="y in availableYears" :key="y" :value="y">Năm {{ y }}</option>
                 </select>
               </div>
@@ -1844,6 +1884,14 @@ function getTodayDateString() {
   return `${year}-${month}-${day}`
 }
 
+const todayStr = computed(() => getTodayDateString())
+const maxFromDate = computed(() => {
+  if (filters.toDate && filters.toDate < todayStr.value) {
+    return filters.toDate
+  }
+  return todayStr.value
+})
+
 function formatDateDisplay(dStr) {
   if (!dStr) return '--/--/----'
   const parts = dStr.split('-')
@@ -1857,14 +1905,14 @@ function setQuickFilter(type) {
   quickFilter.value = type
   dateFilterError.value = ''
   const now = new Date()
-  const todayStr = getTodayDateString()
+  const today = todayStr.value
 
   if (type === 'all') {
     filters.fromDate = '2024-01-01'
-    filters.toDate = todayStr
+    filters.toDate = today
   } else if (type === 'today') {
-    filters.fromDate = todayStr
-    filters.toDate = todayStr
+    filters.fromDate = today
+    filters.toDate = today
   } else if (type === '7days') {
     const past7 = new Date()
     past7.setDate(now.getDate() - 6)
@@ -1872,14 +1920,14 @@ function setQuickFilter(type) {
     const m = String(past7.getMonth() + 1).padStart(2, '0')
     const d = String(past7.getDate()).padStart(2, '0')
     filters.fromDate = `${y}-${m}-${d}`
-    filters.toDate = todayStr
+    filters.toDate = today
   } else if (type === 'thisMonth') {
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
     const y = firstDay.getFullYear()
     const m = String(firstDay.getMonth() + 1).padStart(2, '0')
     const d = String(firstDay.getDate()).padStart(2, '0')
     filters.fromDate = `${y}-${m}-${d}`
-    filters.toDate = todayStr
+    filters.toDate = today
   } else if (type === 'lastMonth') {
     const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
@@ -1894,16 +1942,22 @@ function setQuickFilter(type) {
   } else if (type === 'thisYear') {
     const y = now.getFullYear()
     filters.fromDate = `${y}-01-01`
-    filters.toDate = todayStr
+    filters.toDate = today
   }
 
   fetchOverviewData()
 }
 
 function onCustomDateChange() {
+  const today = todayStr.value
+  if (filters.fromDate && filters.fromDate > today) {
+    filters.fromDate = today
+  }
+  if (filters.toDate && filters.toDate > today) {
+    filters.toDate = today
+  }
   if (filters.fromDate && filters.toDate && filters.fromDate > filters.toDate) {
-    dateFilterError.value = 'Từ ngày không được lớn hơn Đến ngày!'
-    return
+    filters.fromDate = filters.toDate
   }
   dateFilterError.value = ''
   quickFilter.value = 'custom'
@@ -2382,8 +2436,11 @@ function exportClientExcelFallback() {
 // =========================================================================
 // PHẦN 10: LOGIC CHO MÀN HÌNH SO SÁNH & TĂNG TRƯỞNG DOANH THU (COMPARISON)
 // =========================================================================
-const currentYear = new Date().getFullYear()
-const availableYears = [currentYear - 3, currentYear - 2, currentYear - 1, currentYear, currentYear + 1]
+const now = new Date()
+const currentYear = now.getFullYear()
+const currentMonth = now.getMonth() + 1
+const currentQuarter = Math.ceil(currentMonth / 3)
+const availableYears = [currentYear - 4, currentYear - 3, currentYear - 2, currentYear - 1, currentYear]
 
 const compareFilter = reactive({
   mode: 'month', // 'month', 'quarter', 'year', 'custom'
@@ -2397,10 +2454,50 @@ const compareFilter = reactive({
 // Danh sách các kỳ so sánh đa kỳ động
 const comparePeriods = ref([])
 
+function onPeriodYearChange(p) {
+  if (p.year >= currentYear) {
+    p.year = currentYear
+    if (p.month && p.month > currentMonth) {
+      p.month = currentMonth
+    }
+    if (p.quarter && p.quarter > currentQuarter) {
+      p.quarter = currentQuarter
+    }
+  }
+  fetchComparisonData()
+}
+
+function onPeriodMonthChange(p) {
+  if (p.year === currentYear && p.month > currentMonth) {
+    p.month = currentMonth
+  }
+  fetchComparisonData()
+}
+
+function onPeriodQuarterChange(p) {
+  if (p.year === currentYear && p.quarter > currentQuarter) {
+    p.quarter = currentQuarter
+  }
+  fetchComparisonData()
+}
+
+function onCustomPeriodDateChange(p) {
+  const today = todayStr.value
+  if (p.fromDate && p.fromDate > today) {
+    p.fromDate = today
+  }
+  if (p.toDate && p.toDate > today) {
+    p.toDate = today
+  }
+  if (p.fromDate && p.toDate && p.fromDate > p.toDate) {
+    p.fromDate = p.toDate
+  }
+  fetchComparisonData()
+}
+
 function initPeriodsForMode(mode) {
-  const now = new Date()
   const y = currentYear
-  const m = now.getMonth() + 1
+  const m = currentMonth
 
   if (mode === 'month') {
     const prevM = m === 1 ? 12 : m - 1
@@ -2410,12 +2507,11 @@ function initPeriodsForMode(mode) {
       { id: 2, month: m, year: y }
     ]
   } else if (mode === 'quarter') {
-    const currentQ = Math.ceil(m / 3)
-    const prevQ = currentQ === 1 ? 4 : currentQ - 1
-    const prevQYear = currentQ === 1 ? y - 1 : y
+    const prevQ = currentQuarter === 1 ? 4 : currentQuarter - 1
+    const prevQYear = currentQuarter === 1 ? y - 1 : y
     comparePeriods.value = [
       { id: 1, quarter: prevQ, year: prevQYear },
-      { id: 2, quarter: currentQ, year: y }
+      { id: 2, quarter: currentQuarter, year: y }
     ]
   } else if (mode === 'year') {
     comparePeriods.value = [
@@ -2423,9 +2519,14 @@ function initPeriodsForMode(mode) {
       { id: 2, year: y }
     ]
   } else if (mode === 'custom') {
+    const past30 = new Date()
+    past30.setDate(now.getDate() - 30)
+    const past60 = new Date()
+    past60.setDate(now.getDate() - 60)
+    const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     comparePeriods.value = [
-      { id: 1, name: 'Kỳ A (Kỳ trước)', fromDate: `${y}-01-01`, toDate: `${y}-06-30` },
-      { id: 2, name: 'Kỳ B (Kỳ này)', fromDate: `${y}-07-01`, toDate: `${y}-12-31` }
+      { id: 1, name: 'Kỳ A (Kỳ trước)', fromDate: fmt(past60), toDate: fmt(past30) },
+      { id: 2, name: 'Kỳ B (Kỳ này)', fromDate: fmt(past30), toDate: todayStr.value }
     ]
   }
 }
@@ -2433,36 +2534,62 @@ function initPeriodsForMode(mode) {
 function addComparePeriod() {
   const mode = compareFilter.mode
   const nextId = Date.now()
-  const len = comparePeriods.value.length
 
   if (mode === 'month') {
-    const last = comparePeriods.value[len - 1] || { month: 1, year: currentYear }
-    let nextM = last.month + 1
-    let nextY = last.year
-    if (nextM > 12) {
-      nextM = 1
-      nextY += 1
+    // Tìm kỳ sớm nhất hiện có để lùi tiếp về quá khứ (không bao giờ vượt tới tương lai)
+    let earliest = comparePeriods.value[0] || { month: currentMonth, year: currentYear }
+    for (const p of comparePeriods.value) {
+      if (p.year < earliest.year || (p.year === earliest.year && p.month < earliest.month)) {
+        earliest = p
+      }
     }
-    comparePeriods.value.push({ id: nextId, month: nextM, year: nextY })
+    let newM = earliest.month - 1
+    let newY = earliest.year
+    if (newM < 1) {
+      newM = 12
+      newY -= 1
+    }
+    comparePeriods.value.unshift({ id: nextId, month: newM, year: newY })
   } else if (mode === 'quarter') {
-    const last = comparePeriods.value[len - 1] || { quarter: 1, year: currentYear }
-    let nextQ = last.quarter + 1
-    let nextY = last.year
-    if (nextQ > 4) {
-      nextQ = 1
-      nextY += 1
+    let earliest = comparePeriods.value[0] || { quarter: currentQuarter, year: currentYear }
+    for (const p of comparePeriods.value) {
+      if (p.year < earliest.year || (p.year === earliest.year && p.quarter < earliest.quarter)) {
+        earliest = p
+      }
     }
-    comparePeriods.value.push({ id: nextId, quarter: nextQ, year: nextY })
+    let newQ = earliest.quarter - 1
+    let newY = earliest.year
+    if (newQ < 1) {
+      newQ = 4
+      newY -= 1
+    }
+    comparePeriods.value.unshift({ id: nextId, quarter: newQ, year: newY })
   } else if (mode === 'year') {
-    const last = comparePeriods.value[len - 1] || { year: currentYear }
-    comparePeriods.value.push({ id: nextId, year: last.year + 1 })
+    let earliest = comparePeriods.value[0] || { year: currentYear }
+    for (const p of comparePeriods.value) {
+      if (p.year < earliest.year) {
+        earliest = p
+      }
+    }
+    const newY = earliest.year - 1
+    comparePeriods.value.unshift({ id: nextId, year: newY })
   } else if (mode === 'custom') {
-    const todayStr = getTodayDateString()
-    comparePeriods.value.push({
+    let earliestFrom = comparePeriods.value[0]?.fromDate || todayStr.value
+    for (const p of comparePeriods.value) {
+      if (p.fromDate && p.fromDate < earliestFrom) {
+        earliestFrom = p.fromDate
+      }
+    }
+    const dEnd = new Date(earliestFrom)
+    dEnd.setDate(dEnd.getDate() - 1)
+    const dStart = new Date(dEnd)
+    dStart.setDate(dStart.getDate() - 30)
+    const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    comparePeriods.value.unshift({
       id: nextId,
-      name: `Kỳ ${String.fromCharCode(65 + len)}`,
-      fromDate: todayStr,
-      toDate: todayStr
+      name: `Kỳ ${comparePeriods.value.length + 1}`,
+      fromDate: fmt(dStart),
+      toDate: fmt(dEnd)
     })
   }
   fetchComparisonData()
@@ -2613,24 +2740,36 @@ function onComboBarMouseLeave() {
 
 const comboSvgWidth = computed(() => {
   const count = comparisonData.value.periods?.length || 0
-  if (count <= 8) return 1000
-  return Math.max(1000, 160 + count * 85)
+  if (count <= 6) return 1000
+  return Math.max(1000, 160 + count * 90)
 })
 
 const comboSvgWidthStyle = computed(() => {
   const count = comparisonData.value.periods?.length || 0
-  if (count <= 8) return '100%'
+  if (count <= 6) return '100%'
   return `${comboSvgWidth.value}px`
 })
 
 const comboChartData = computed(() => {
   const periods = comparisonData.value.periods || []
   const count = periods.length
-  const xLeftAxis = 80
-  const xRightAxis = comboSvgWidth.value - 75
-  const yTop = 55
-  const yBase = 265
-  const chartHeight = yBase - yTop
+  const xLeftAxis = 75
+  const xRightAxis = comboSvgWidth.value - 65
+  const yBase = 270
+
+  // 1. Phân vùng Bar Chart (Doanh thu - Trục trái VNĐ):
+  // Chiều cao cột tối đa 110px. Đỉnh cột cao nhất = 270 - 110 = 160px.
+  // Nhãn doanh thu trên đỉnh cột: y = item.yTransfer - 8. Đỉnh nhãn = 152px.
+  const barChartHeight = 110
+  const yLeftTop = yBase - barChartHeight // 160px
+
+  // 2. Phân vùng Line Chart (Tăng trưởng % - Trục phải %):
+  // Nằm ở tầng trên (yLineTop: 50px đến yLineBottom: 115px, lineHeight: 65px).
+  // Điểm tròn đỏ thấp nhất là 115px, cách đỉnh nhãn doanh thu cao nhất (152px) tới 37px!
+  // Đảm bảo đường kẻ và điểm tròn đỏ tuyệt đối không bao giờ chạm hay che khuất chữ số doanh thu.
+  const yLineTop = 50
+  const yLineBottom = 115
+  const lineHeight = yLineBottom - yLineTop // 65px
 
   if (count === 0) {
     return {
@@ -2639,9 +2778,12 @@ const comboChartData = computed(() => {
       linePoints: '',
       xLeftAxis,
       xRightAxis,
-      yTop,
+      yTop: yLineTop,
+      yLeftTop,
+      yRightTop: yLineTop,
       yBase,
-      chartHeight,
+      barChartHeight,
+      chartHeight: barChartHeight,
       yTicksLeft: [],
       yTicksRight: []
     }
@@ -2653,7 +2795,7 @@ const comboChartData = computed(() => {
   const maxRev = Math.ceil(rawMaxRev / (magnitude / 2)) * (magnitude / 2)
 
   const yTicksLeft = [0, 0.25, 0.5, 0.75, 1.0].map(frac => ({
-    y: yBase - frac * chartHeight,
+    y: yBase - frac * barChartHeight,
     label: formatShortCurrency(frac * maxRev)
   }))
 
@@ -2669,17 +2811,46 @@ const comboChartData = computed(() => {
   const yTicksRight = [0, 0.25, 0.5, 0.75, 1.0].map(frac => {
     const v = Math.round(minRate + frac * rateRange)
     return {
-      y: yBase - frac * chartHeight,
+      y: yLineBottom - frac * lineHeight,
       label: `${v > 0 ? '+' : ''}${v}%`
     }
   })
 
-  // 3. Tính toán vị trí các Cột & Điểm Line
-  const availableW = xRightAxis - xLeftAxis - 40
-  const barWidth = Math.min(48, Math.max(20, Math.floor((availableW / count) * 0.52)))
-  const step = count > 1 ? (availableW - barWidth) / (count - 1) : 0
-  const isRotated = count > 6
+  // 3. Phân bổ vị trí các cột cân đối ở khu vực trung tâm khung vẽ (không bị dạt sát ra 2 mép trục tung)
+  const plotW = xRightAxis - xLeftAxis
+  let barWidth = 44
+  const centers = []
 
+  if (count === 1) {
+    centers.push(xLeftAxis + plotW / 2)
+  } else if (count === 2) {
+    barWidth = 46
+    const spacing = 220
+    centers.push(xLeftAxis + plotW / 2 - spacing / 2)
+    centers.push(xLeftAxis + plotW / 2 + spacing / 2)
+  } else if (count === 3) {
+    barWidth = 46
+    const spacing = 200
+    centers.push(xLeftAxis + plotW / 2 - spacing)
+    centers.push(xLeftAxis + plotW / 2)
+    centers.push(xLeftAxis + plotW / 2 + spacing)
+  } else if (count === 4) {
+    barWidth = 44
+    const spacing = 170
+    const startX = xLeftAxis + plotW / 2 - 1.5 * spacing
+    for (let i = 0; i < count; i++) {
+      centers.push(startX + i * spacing)
+    }
+  } else {
+    // count >= 5: chia đều theo các slot tương ứng
+    const slotW = plotW / count
+    barWidth = Math.min(44, Math.max(24, Math.floor(slotW * 0.48)))
+    for (let i = 0; i < count; i++) {
+      centers.push(xLeftAxis + (i + 0.5) * slotW)
+    }
+  }
+
+  const isRotated = count > 6
   const bars = []
   const points = []
 
@@ -2688,12 +2859,12 @@ const comboChartData = computed(() => {
     const cash = Number(p.cashRevenue || 0)
     const transfer = Number(p.transferRevenue || 0)
 
-    const totalH = Math.max((total / maxRev) * chartHeight, total > 0 ? 8 : 2)
+    const totalH = Math.max((total / maxRev) * barChartHeight, total > 0 ? 8 : 2)
     const cashH = total > 0 ? (cash / total) * totalH : 0
     const transferH = total > 0 ? totalH - cashH : 0
 
-    const x = count === 1 ? (xLeftAxis + availableW / 2 - barWidth / 2 + 20) : (xLeftAxis + 20 + idx * step)
-    const centerX = x + barWidth / 2
+    const centerX = centers[idx]
+    const x = centerX - barWidth / 2
     const yTransfer = yBase - totalH
     const yCash = yBase - cashH
 
@@ -2702,6 +2873,7 @@ const comboChartData = computed(() => {
       displayName: p.periodName || p.periodKey,
       dateRangeText: p.dateRangeText || '',
       totalRevenue: total,
+      totalH,
       cash,
       transfer,
       orderCount: Number(p.orderCount || 0),
@@ -2713,13 +2885,15 @@ const comboChartData = computed(() => {
       heightTransfer: transferH,
       yCash,
       heightCash: cashH,
+      rxTransfer: 6,
+      rxCash: transferH > 0 ? 0 : 6,
       isRotated
     })
 
-    // Điểm biểu diễn tốc độ tăng trưởng % (thang đo trục phải)
+    // Điểm biểu diễn tốc độ tăng trưởng % (thang đo trục phải ở tầng trên)
     const g = Number(p.growthRate || 0)
     const clampedG = Math.max(minRate, Math.min(maxRate, g))
-    const yPoint = yBase - ((clampedG - minRate) / rateRange) * chartHeight
+    const yPoint = yLineBottom - ((clampedG - minRate) / rateRange) * lineHeight
 
     points.push({
       x: centerX,
@@ -2736,9 +2910,12 @@ const comboChartData = computed(() => {
     linePoints,
     xLeftAxis,
     xRightAxis,
-    yTop,
+    yTop: yLineTop,
+    yLeftTop,
+    yRightTop: yLineTop,
     yBase,
-    chartHeight,
+    barChartHeight,
+    chartHeight: barChartHeight,
     yTicksLeft,
     yTicksRight
   }
@@ -2892,14 +3069,29 @@ const sendingEmail = ref(false)
 const emailForm = reactive({
   reportType: 'day', // 'day', 'month', 'year'
   year: currentYear,
-  month: new Date().getMonth() + 1,
+  month: currentMonth,
   recipientEmail: 'thuanminh2908200334.1@gmail.com'
 })
+
+function onEmailYearChange() {
+  if (emailForm.year >= currentYear) {
+    emailForm.year = currentYear
+    if (emailForm.month > currentMonth) {
+      emailForm.month = currentMonth
+    }
+  }
+}
+
+function onEmailMonthChange() {
+  if (emailForm.year === currentYear && emailForm.month > currentMonth) {
+    emailForm.month = currentMonth
+  }
+}
 
 function openEmailModal() {
   emailForm.reportType = 'day'
   emailForm.year = currentYear
-  emailForm.month = new Date().getMonth() + 1
+  emailForm.month = currentMonth
   if (!emailForm.recipientEmail) {
     emailForm.recipientEmail = 'thuanminh2908200334.1@gmail.com'
   }
@@ -3204,17 +3396,26 @@ onMounted(async () => {
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .prefix-icon {
   position: absolute;
-  left: 10px;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
   color: #94a3b8;
   pointer-events: none;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.form-control-minimal.with-icon {
-  padding-left: 32px;
+.form-control-minimal.with-icon,
+select.form-control-minimal.with-icon,
+input.form-control-minimal.with-icon {
+  padding-left: 38px !important;
 }
 
 .select-wrapper-minimal {
@@ -4280,7 +4481,7 @@ onMounted(async () => {
 }
 
 .combo-bar-total-label {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
   fill: #1e293b;
   font-family: 'Inter', Roboto, sans-serif;

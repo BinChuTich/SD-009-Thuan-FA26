@@ -10,9 +10,9 @@ const getStoredUser = () => {
     // Tự động dọn dẹp tài khoản mẫu cũ nếu người dùng còn lưu trong trình duyệt
     if (user && (user.name === 'Dương Ngọc Chiến' || user.phone === '0988776655' || (user.email && user.email.includes('chien')))) {
       localStorage.removeItem(USER_STORAGE_KEY)
-  localStorage.removeItem('client_user')
-  localStorage.removeItem('fftshirt_last_google_account')
-  localStorage.removeItem('fftshirt_device_google_accounts')
+      localStorage.removeItem('client_user')
+      localStorage.removeItem('fftshirt_last_google_account')
+      localStorage.removeItem('fftshirt_device_google_accounts')
       return null
     }
     return user
@@ -30,6 +30,9 @@ export const isClientLoggedIn = computed(() => {
 export const loginClient = (userData) => {
   currentClientUser.value = userData
   localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData))
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('client-auth-change'))
+  }
 }
 
 export const logoutClient = () => {
@@ -38,4 +41,15 @@ export const logoutClient = () => {
   localStorage.removeItem('client_user')
   localStorage.removeItem('fftshirt_last_google_account')
   localStorage.removeItem('fftshirt_device_google_accounts')
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('client-auth-change'))
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('client-auth-change', () => {
+    currentClientUser.value = getStoredUser()
+  })
+  window.loginClient = loginClient
+  window.logoutClient = logoutClient
 }

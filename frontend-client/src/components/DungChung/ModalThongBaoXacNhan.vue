@@ -88,7 +88,10 @@ const handleCancel = () => {
           <span class="toast-icon">
             {{ t.type === 'error' ? '✕' : (t.type === 'warning' ? '⚠️' : '✓') }}
           </span>
-          <span class="toast-message">{{ t.message }}</span>
+          <div class="toast-content-col">
+            <div v-if="t.title" class="toast-title">{{ t.title }}</div>
+            <div :class="t.title ? 'toast-desc' : 'toast-message'">{{ t.message }}</div>
+          </div>
         </div>
       </transition-group>
     </div>
@@ -254,17 +257,41 @@ const handleCancel = () => {
 .toast-item {
   pointer-events: auto;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 12px;
   padding: 12px 18px;
   border-radius: 12px;
   background: #ffffff;
   box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.15), 0 0 0 1px rgba(226, 232, 240, 0.8);
   font-size: 14px;
-  font-weight: 600;
   color: #1e293b;
   min-width: 280px;
   max-width: 400px;
+}
+
+.toast-content-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.toast-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #1e293b;
+  margin-bottom: 2px;
+}
+
+.toast-desc {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.toast-message {
+  font-weight: 600;
+  color: #1e293b;
 }
 
 .toast-icon {
@@ -276,6 +303,8 @@ const handleCancel = () => {
   justify-content: center;
   font-size: 12px;
   font-weight: 800;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .toast-success .toast-icon {

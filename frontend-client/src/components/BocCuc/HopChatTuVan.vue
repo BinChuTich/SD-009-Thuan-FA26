@@ -1,9 +1,10 @@
 <script setup>
-import { ref, reactive, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
-import { currentClientUser } from '@/utils/taiKhoanKhachHang.js'
+import { currentClientUser, isClientLoggedIn } from '@/utils/taiKhoanKhachHang.js'
+import ModalDangNhap from '@/components/BocCuc/ModalDangNhap.vue'
 
 const router = useRouter()
 const isOpen = ref(false)
@@ -11,35 +12,89 @@ const inputMessage = ref('')
 const isTyping = ref(false)
 const chatBodyRef = ref(null)
 const conversationId = ref(null)
+const conversationStatus = ref(null) // 1: Đang hoạt động, 2: Chờ nhận (Đã chuyển yêu cầu), 0: Đã đóng, null: AI bot mode
+const assignedStaffName = ref(null)
 const unreadForClient = ref(0)
+const showLoginModal = ref(false)
+const featuredProducts = ref([])
 let pollTimer = null
 
 const CHAT_STORAGE_KEY = 'fftshirt_client_chat_conv_id'
 
-const messages = ref([
-  {
+// Tải danh sách sản phẩm mẫu để hiển thị dạng thẻ ngang (Card carousel) khi khách hỏi
+const loadFeaturedProducts = async () => {
+  try {
+    const res = await api.get('/api/san-pham?page=0&size=6')
+    const list = res.data?.content || res.data || []
+    featuredProducts.value = list
+  } catch (e) {
+    console.warn('Lỗi tải sản phẩm chat:', e)
+  }
+}
+
+// Gợi ý thao tác nhanh ở chân khung chat chuẩn video (chỉ hiện "Gặp nhân viên" khi đã đăng nhập)
+const quickPromptChips = computed(() => {
+  const chips = [
+    { text: 'Sản phẩm bán chạy', type: 'bestseller' },
+    { text: 'Sản phẩm đang giảm giá', type: 'promo' },
+    { text: 'Tư vấn size', type: 'size' }
+  ]
+  if (isClientLoggedIn.value) {
+    chips.push({ text: 'Gặp nhân viên', type: 'agent' })
+  }
+  return chips
+})
+
+// Danh sách các lựa chọn hành động nhanh ở tin nhắn chào mừng (chuẩn, không có đổi trả, không có chất liệu form dáng)
+const welcomeActions = computed(() => {
+  const acts = [
+    { text: '📏 Tư vấn chọn size', type: 'size' },
+    { text: '🚚 Tra cứu đơn hàng', type: 'track' },
+    { text: '🔥 Xem ưu đãi hôm nay', type: 'promo' }
+  ]
+  if (isClientLoggedIn.value) {
+    acts.push({ text: '💬 Gặp nhân viên tư vấn', type: 'agent' })
+  }
+  return acts
+})
+
+// Tiêu đề phụ (Subtitle) theo trạng thái chuẩn video & ảnh
+const chatSubtitle = computed(() => {
+  if (conversationStatus.value === 0) {
+    return 'Phiên tư vấn đã kết thúc'
+  }
+  if (conversationStatus.value === 2) {
+    return 'Đang chờ nhân viên tiếp nhận'
+  }
+  if (conversationStatus.value === 1) {
+    return `Đang hỗ trợ bởi ${assignedStaffName.value || 'chuyên viên tư vấn'}`
+  }
+  return 'Tư vấn sản phẩm và mua sắm'
+})
+
+const createWelcomeMessage = () => {
+  return {
     id: 'welcome-0',
     sender: 'bot',
-    text: 'Xin chào! FF T-Shirt có thể hỗ trợ gì cho bạn hôm nay?',
+    text: isClientLoggedIn.value
+      ? `Xin chào ${currentClientUser.value?.name || 'quý khách'}! FF T-Shirt có thể hỗ trợ gì cho bạn hôm nay ạ?`
+      : 'Xin chào bạn! FF T-Shirt có thể hỗ trợ tư vấn chọn size, sản phẩm hoặc ưu đãi nào cho bạn hôm nay ạ?',
     time: 'Vừa xong',
-    actions: [
-      { text: '📏 Tư vấn chọn size', type: 'size' },
-      { text: '🚚 Tra cứu đơn hàng', type: 'track' },
-      { text: '🔥 Xem ưu đãi hôm nay', type: 'promo' },
-      { text: '💬 Gặp nhân viên tư vấn', type: 'agent' }
-    ]
+    actions: welcomeActions.value
   }
-])
+}
 
-// Phát âm thanh nhẹ khi có tin nhắn mới
+const messages = ref([createWelcomeMessage()])
+
+// Phát âm thanh chuông nhẹ khi có tin nhắn từ nhân viên
 const playNotificationSound = () => {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
     osc.type = 'sine'
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime) // D5
-    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1) // A5
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime)
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1)
     gain.gain.setValueAtTime(0.08, ctx.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35)
     osc.connect(gain)
@@ -53,7 +108,9 @@ const toggleChat = () => {
   isOpen.value = !isOpen.value
   if (isOpen.value) {
     unreadForClient.value = 0
-    initOrLoadConversation()
+    if (isClientLoggedIn.value) {
+      initOrLoadConversation()
+    }
     scrollToBottom()
   }
 }
@@ -66,12 +123,15 @@ const scrollToBottom = () => {
   })
 }
 
-// Khởi tạo cuộc trò chuyện kết nối Spring Boot Backend
+// Nạp lại cuộc hội thoại kết nối với nhân viên (chỉ khi khách hàng đã có phiên chat dở trước đó)
 const initOrLoadConversation = async () => {
+  if (!isClientLoggedIn.value) return
+  const savedId = localStorage.getItem(CHAT_STORAGE_KEY)
+  if (!savedId) return
+
   try {
-    const savedId = localStorage.getItem(CHAT_STORAGE_KEY)
     const payload = {
-      cuocHoiThoaiId: savedId ? Number(savedId) : null,
+      cuocHoiThoaiId: Number(savedId),
       khachHangId: currentClientUser.value?.id || null,
       tenKhachHang: currentClientUser.value?.name || null,
       soDienThoai: currentClientUser.value?.phone || null
@@ -79,7 +139,17 @@ const initOrLoadConversation = async () => {
 
     const res = await api.post('/api/chat/khoi-tao', payload)
     if (res.data && res.data.id) {
+      if (res.data.trangThai === 0) {
+        conversationId.value = null
+        conversationStatus.value = 0
+        assignedStaffName.value = null
+        localStorage.removeItem(CHAT_STORAGE_KEY)
+        messages.value = [createWelcomeMessage()]
+        return
+      }
       conversationId.value = res.data.id
+      conversationStatus.value = res.data.trangThai
+      assignedStaffName.value = res.data.tenNhanVien || null
       localStorage.setItem(CHAT_STORAGE_KEY, String(res.data.id))
       await loadMessages()
     }
@@ -88,50 +158,92 @@ const initOrLoadConversation = async () => {
   }
 }
 
-// Nạp lịch sử tin nhắn từ cơ sở dữ liệu
+// Xóa tiền tố "Nhân viên" nếu có ở thông báo tiếp nhận
+const cleanMsgContent = (txt) => {
+  if (!txt) return ''
+  return txt.replace(/^Nhân viên\s+/i, '')
+}
+
+// Nạp lịch sử tin nhắn từ Backend
 const loadMessages = async () => {
   if (!conversationId.value) return
   try {
     const res = await api.get(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/tin-nhan`)
     if (Array.isArray(res.data) && res.data.length > 0) {
-      const dbMsgs = res.data.map(m => ({
-        id: m.id,
-        sender: m.nguoiGui === 'KHACH_HANG' ? 'user' : 'bot',
-        text: m.noiDung,
-        staffName: m.tenNhanVien || (m.nguoiGui === 'NHAN_VIEN' ? 'Nhân viên FF' : null),
-        time: formatMsgTime(m.ngayTao)
-      }))
+      const isClosed = res.data.some(m => m.noiDung && (m.noiDung.includes('Phiên hỗ trợ đã kết thúc') || m.noiDung.includes('kết thúc')))
 
-      // Giữ tin nhắn chào mừng và các action buttons ở đầu
-      messages.value = [
-        {
-          id: 'welcome-0',
-          sender: 'bot',
-          text: 'Xin chào! FF T-Shirt có thể hỗ trợ gì cho bạn hôm nay?',
-          time: 'Vừa xong',
-          actions: [
-            { text: '📏 Tư vấn chọn size', type: 'size' },
-            { text: '🚚 Tra cứu đơn hàng', type: 'track' },
-            { text: '🔥 Xem ưu đãi hôm nay', type: 'promo' },
-            { text: '💬 Gặp nhân viên tư vấn', type: 'agent' }
-          ]
-        },
-        ...dbMsgs
-      ]
+      const dbMsgs = res.data.map(m => {
+        const isStaff = m.nguoiGui === 'NHAN_VIEN' || m.nguoiGui === 'ADMIN'
+        const isSystem = m.nguoiGui === 'HE_THONG' || (m.noiDung && (m.noiDung.includes('Phiên hỗ trợ đã kết thúc') || m.noiDung.includes('kết thúc') || m.noiDung.includes('tiếp nhận') || m.noiDung.includes('Yêu cầu hỗ trợ trực tiếp')))
+
+        if (isStaff && m.tenNhanVien && !isClosed) {
+          assignedStaffName.value = m.tenNhanVien
+          conversationStatus.value = 1
+        }
+        return {
+          id: m.id,
+          sender: isSystem ? 'system' : (m.nguoiGui === 'KHACH_HANG' ? 'user' : 'staff'),
+          text: cleanMsgContent(m.noiDung),
+          staffName: m.tenNhanVien || (isStaff ? 'Chuyên viên tư vấn' : null),
+          time: formatMsgTime(m.ngayTao),
+          isSystem
+        }
+      })
+
+      const welcome = messages.value.find(m => m.id === 'welcome-0') || createWelcomeMessage()
+      const waitingSysMsg = conversationStatus.value === 2
+        ? [{
+            id: 'sys-transfer',
+            sender: 'system',
+            text: 'Yêu cầu hỗ trợ trực tiếp đã được gửi. Vui lòng chờ nhân viên tiếp nhận cuộc trò chuyện.',
+            isSystem: true
+          }]
+        : []
+      messages.value = [welcome, ...waitingSysMsg, ...dbMsgs]
       scrollToBottom()
 
-      // Đánh dấu đã đọc
-      api.put(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/da-doc?role=KHACH_HANG`).catch(() => {})
+      if (isClosed) {
+        conversationStatus.value = 0
+        assignedStaffName.value = null
+        localStorage.removeItem(CHAT_STORAGE_KEY)
+      } else if (conversationId.value) {
+        api.put(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/da-doc?role=KHACH_HANG`).catch(() => {})
+      }
+    } else {
+      const welcome = messages.value.find(m => m.id === 'welcome-0') || createWelcomeMessage()
+      const waitingSysMsg = conversationStatus.value === 2
+        ? [{
+            id: 'sys-transfer',
+            sender: 'system',
+            text: 'Yêu cầu hỗ trợ trực tiếp đã được gửi. Vui lòng chờ nhân viên tiếp nhận cuộc trò chuyện.',
+            isSystem: true
+          }]
+        : []
+      messages.value = [welcome, ...waitingSysMsg]
+      scrollToBottom()
     }
   } catch (e) {
     console.warn('Lỗi nạp tin nhắn chat:', e)
   }
 }
 
-// Polling kiểm tra tin nhắn mới từ Admin
+// Polling tin nhắn mới định kỳ khi mở chat
 const pollNewMessages = async () => {
-  if (!conversationId.value) return
+  if (!conversationId.value || !isClientLoggedIn.value) return
   try {
+    // 1. Kiểm tra trực tiếp trạng thái cuộc hội thoại nếu đang chờ nhân viên tiếp nhận
+    if (conversationStatus.value === 2 && conversationId.value) {
+      try {
+        const convRes = await api.get(`/api/chat/cuoc-hoi-thoai/${conversationId.value}`)
+        if (convRes.data && convRes.data.trangThai === 1) {
+          conversationStatus.value = 1
+          if (convRes.data.tenNhanVien) {
+            assignedStaffName.value = convRes.data.tenNhanVien
+          }
+        }
+      } catch (err) {}
+    }
+
     const numericIds = messages.value
       .map(m => typeof m.id === 'number' ? m.id : 0)
       .filter(n => n > 0)
@@ -142,16 +254,33 @@ const pollNewMessages = async () => {
       let hasNewStaffMsg = false
 
       res.data.forEach(m => {
-        // Tránh trùng tin nhắn
         if (!messages.value.some(existing => existing.id === m.id)) {
-          const isStaff = m.nguoiGui === 'NHAN_VIEN'
-          if (isStaff) hasNewStaffMsg = true
+          const isStaff = m.nguoiGui === 'NHAN_VIEN' || m.nguoiGui === 'ADMIN'
+          const isSystem = m.nguoiGui === 'HE_THONG' || (m.noiDung && (m.noiDung.includes('Phiên hỗ trợ đã kết thúc') || m.noiDung.includes('kết thúc') || m.noiDung.includes('tiếp nhận') || m.noiDung.includes('Yêu cầu hỗ trợ trực tiếp')))
+
+          if (isStaff) {
+            hasNewStaffMsg = true
+            conversationStatus.value = 1
+            if (m.tenNhanVien) assignedStaffName.value = m.tenNhanVien
+          }
+          if (m.noiDung && m.noiDung.includes('đã tiếp nhận')) {
+            conversationStatus.value = 1
+            if (m.tenNhanVien) assignedStaffName.value = m.tenNhanVien
+          }
+          const isClosedMsg = m.noiDung && (m.noiDung.includes('Phiên hỗ trợ đã kết thúc') || m.noiDung.includes('kết thúc'))
+          if (isClosedMsg) {
+            conversationStatus.value = 0
+            assignedStaffName.value = null
+            localStorage.removeItem(CHAT_STORAGE_KEY)
+          }
+
           messages.value.push({
             id: m.id,
-            sender: m.nguoiGui === 'KHACH_HANG' ? 'user' : 'bot',
-            text: m.noiDung,
-            staffName: m.tenNhanVien || (isStaff ? 'Chuyên viên FF' : null),
-            time: formatMsgTime(m.ngayTao)
+            sender: isSystem ? 'system' : (m.nguoiGui === 'KHACH_HANG' ? 'user' : 'staff'),
+            text: cleanMsgContent(m.noiDung),
+            staffName: m.tenNhanVien || (isStaff ? 'Chuyên viên tư vấn' : null),
+            time: formatMsgTime(m.ngayTao),
+            isSystem
           })
         }
       })
@@ -181,59 +310,125 @@ const formatMsgTime = (dtStr) => {
   }
 }
 
+// Bắt đầu phiên trò chuyện mới sau khi phiên cũ đã kết thúc (chuẩn video)
+const resetToNewSession = () => {
+  conversationId.value = null
+  conversationStatus.value = null
+  assignedStaffName.value = null
+  localStorage.removeItem(CHAT_STORAGE_KEY)
+  messages.value = [createWelcomeMessage()]
+  inputMessage.value = ''
+  scrollToBottom()
+}
+
+// Xử lý các lựa chọn hành động nhanh dạng dọc (chuẩn Ảnh 2, không có đổi trả, không có chất liệu)
 const handleActionClick = (action) => {
+  if (!action) return
+
   if (action.type === 'size') {
-    sendMessageText('Tôi muốn tư vấn chọn size áo phông')
-    showBotReply('Dạ, bảng size chuẩn tại FF T-Shirt (Form Regular Fit ôm vừa vặn, tôn dáng):\n\n• Size S: 48 - 55kg (cao dưới 1m65)\n• Size M: 56 - 65kg (cao 1m65 - 1m70)\n• Size L: 66 - 74kg (cao 1m71 - 1m76)\n• Size XL: 75 - 84kg (cao 1m77 - 1m83)\n• Size XXL: Trên 85kg\n\n💡 Nếu bạn thích mặc form rộng thoải mái (Oversize) thì tăng thêm 1 size nhé!', [
-      { text: '1m65, 55kg (Size M)', type: 'custom-size', val: 'M' },
-      { text: '1m72, 68kg (Size L)', type: 'custom-size', val: 'L' },
-      { text: '1m78, 78kg (Size XL)', type: 'custom-size', val: 'XL' },
-      { text: '🛍️ Đi đến Cửa hàng chọn áo', type: 'link-shop' }
-    ])
-  } else if (action.type === 'material') {
-    sendMessageText('Chất liệu áo của shop là gì?')
-    showBotReply('Dạ, toàn bộ sản phẩm áo thun & áo polo tại FF T-Shirt đều được may từ chất liệu cao cấp:\n\n✨ 100% Cotton tự nhiên & Cotton Pique dệt mắt chim thoáng khí.\n✨ Co giãn 4 chiều mềm mịn, thấm hút mồ hôi tối đa, không bí bách.\n✨ Đã qua xử lý chống co rút, không xù lông và hạn chế nhăn sau khi giặt máy.\n✨ Form áo Regular Fit tôn dáng, mặc rất thoải mái ạ! 👕', [
-      { text: '🛍️ Xem Cửa hàng ngay', type: 'link-shop' },
-      { text: '👨‍💼 Chat với nhân viên tư vấn', type: 'agent' }
-    ])
-  } else if (action.type === 'shipping') {
-    sendMessageText('Phí ship và thời gian giao hàng như thế nào?')
-    showBotReply('Dạ, FF T-Shirt hợp tác vận chuyển hỏa tốc cùng đối tác Giao Hàng Nhanh (GHN) trên toàn quốc:\n\n🚚 Tuyến nội thành & lân cận: 1 - 2 ngày làm việc.\n🚚 Các tỉnh thành khác: 2 - 4 ngày làm việc.\n🎁 Miễn phí vận chuyển toàn quốc cho đơn hàng từ 500.000đ!\n\nĐặc biệt, quý khách được quyền kiểm tra hàng trước khi thanh toán nên anh/chị hoàn toàn yên tâm nhé! 😊', [
-      { text: '🛍️ Mua sắm ngay hôm nay', type: 'link-shop' },
-      { text: '🔍 Tra cứu đơn hàng của tôi', type: 'track' }
-    ])
-  } else if (action.type === 'return_policy') {
-    sendMessageText('Chính sách đổi trả hàng như thế nào?')
-    showBotReply('Dạ, FF T-Shirt cam kết chính sách bảo hành & đổi trả thuận tiện nhất:\n\n🔄 Hỗ trợ đổi size / đổi mẫu tận nơi trong vòng 7 ngày kể từ khi nhận hàng.\n🔄 Yêu cầu sản phẩm còn nguyên tem mác, chưa qua giặt tẩy.\n🔄 Miễn phí 100% phí đổi trả nếu sản phẩm có lỗi từ nhà sản xuất hoặc giao sai mẫu ạ! ❤️', [
-      { text: '👨‍💼 Nhờ nhân viên hỗ trợ đổi hàng', type: 'agent' }
-    ])
+    messages.value.push({
+      id: Date.now(),
+      sender: 'user',
+      text: 'Tư vấn chọn size',
+      time: 'Vừa xong'
+    })
+    scrollToBottom()
+    showBotReply(
+      'Dạ, bạn gửi giúp shop Chiều cao và Cân nặng (Ví dụ: 1m70 - 65kg) để shop chọn size chuẩn và vừa vặn nhất cho bạn nhé! 📏'
+    )
   } else if (action.type === 'track') {
-    sendMessageText('Tôi muốn tra cứu tình trạng đơn hàng')
-    showBotReply('Dạ, bạn vui lòng nhập Mã đơn hàng (Ví dụ: HD00001) hoặc Số điện thoại để hệ thống kiểm tra ngay nhé! 🔍')
+    messages.value.push({
+      id: Date.now(),
+      sender: 'user',
+      text: 'Tra cứu đơn hàng',
+      time: 'Vừa xong'
+    })
+    scrollToBottom()
+    showBotReply(
+      'Dạ, bạn gửi giúp shop Mã đơn hàng (Ví dụ: HD00001) hoặc Số điện thoại đặt hàng để shop kiểm tra thông tin đơn cho bạn ngay nhé! 🚚'
+    )
   } else if (action.type === 'promo') {
-    sendMessageText('Hôm nay có chương trình khuyến mãi gì?')
-    showBotReply('🎉 Hiện tại FF T-Shirt đang có các ưu đãi cực sốc:\n\n🔥 Giảm tới 30% bộ sưu tập Áo Polo Mắt Chim & Áo Thun Cotton.\n🔥 Miễn phí vận chuyển toàn quốc cho đơn từ 500.000đ.\n🔥 Áp dụng Voucher VC-GIAM50K giảm trực tiếp 50k khi đặt hàng online!', [
-      { text: '👉 Xem ngay tại Cửa hàng', type: 'link-shop' }
-    ])
+    messages.value.push({
+      id: Date.now(),
+      sender: 'user',
+      text: 'Xem ưu đãi hôm nay',
+      time: 'Vừa xong'
+    })
+    scrollToBottom()
+    showBotReply(
+      'Dạ, hôm nay FF T-Shirt đang có nhiều chương trình ưu đãi hấp dẫn:\n• Giảm giá tới 30% cho nhiều mẫu áo polo & áo thun hot\n• Tặng voucher giảm giá khi đặt hàng online\n\nBạn tham khảo một số mẫu đang có giá tốt dưới đây nhé! 👇',
+      featuredProducts.value.slice(0, 4)
+    )
   } else if (action.type === 'agent') {
-    sendMessageText('Tôi muốn gặp nhân viên tư vấn trực tiếp')
-    showBotReply('Dạ em đã nhận được yêu cầu ạ! Em đang kết nối anh/chị với chuyên viên tư vấn của FF T-Shirt ngay đây ạ. Anh/chị vui lòng chờ trong giây lát nhé! ❤️')
-    requestStaffSupport()
-  } else if (action.type === 'custom-size') {
-    sendMessageText(`Gợi ý size: ${action.text}`)
-    showBotReply(`Dạ, với thông số trên, Size ${action.val} sẽ ôm vừa vặn thanh lịch; nếu bạn thích mặc form rộng thoải mái (Oversize) có thể tăng thêm 1 size nhé! ❤️`, [
-      { text: '🛍️ Đi đến Cửa hàng chọn áo', type: 'link-shop' }
-    ])
-  } else if (action.type === 'link-shop') {
-    isOpen.value = false
-    router.push('/cua-hang')
-  } else if (action.type === 'track-direct' && action.code) {
-    isOpen.value = false
-    router.push(`/tra-cuu?ma=${encodeURIComponent(action.code)}`)
+    if (!isClientLoggedIn.value) {
+      showBotReply('Dạ, để kết nối và trò chuyện trực tiếp với nhân viên tư vấn của FF T-Shirt, bạn vui lòng đăng nhập tài khoản trước nhé! ❤️')
+      showLoginModal.value = true
+      return
+    }
+    handleStaffRequest()
   }
 }
 
-// Gửi tin nhắn đồng bộ lên Database
+// Xử lý khi khách bấm các chip gợi ý nhanh (Sản phẩm bán chạy, Giảm giá, Tư vấn size, Gặp nhân viên)
+const handleChipClick = (chip) => {
+  if (!chip) return
+
+  if (chip.type === 'bestseller') {
+    messages.value.push({
+      id: Date.now(),
+      sender: 'user',
+      text: 'Sản phẩm bán chạy',
+      time: 'Vừa xong'
+    })
+    scrollToBottom()
+    showBotReply(
+      'Dựa trên các đơn hàng đã hoàn thành, đây là những mẫu áo thun & polo có lượng bán tốt nhất tại FF T-Shirt. Bạn có thể chọn trực tiếp một sản phẩm để xem chi tiết:',
+      featuredProducts.value.slice(0, 4)
+    )
+  } else if (chip.type === 'promo') {
+    messages.value.push({
+      id: Date.now(),
+      sender: 'user',
+      text: 'Sản phẩm đang giảm giá',
+      time: 'Vừa xong'
+    })
+    scrollToBottom()
+    showBotReply(
+      'Đây là các sản phẩm đang có giá ưu đãi nổi bật tại FF T-Shirt. Giá gốc, giá hiện tại và mức giảm đều được lấy từ chương trình đang có hiệu lực:',
+      featuredProducts.value.slice(0, 4)
+    )
+  } else if (chip.type === 'size') {
+    messages.value.push({
+      id: Date.now(),
+      sender: 'user',
+      text: 'Tư vấn size',
+      time: 'Vừa xong'
+    })
+    scrollToBottom()
+    showBotReply(
+      'Dạ, bạn gửi giúp shop Chiều cao và Cân nặng (Ví dụ: 1m70 - 65kg) để shop chọn size chuẩn và vừa vặn nhất cho bạn nhé! 📏'
+    )
+  } else if (chip.type === 'agent') {
+    if (!isClientLoggedIn.value) {
+      showBotReply('Dạ, để kết nối và trò chuyện trực tiếp với nhân viên tư vấn của FF T-Shirt, bạn vui lòng đăng nhập tài khoản trước nhé! ❤️')
+      showLoginModal.value = true
+      return
+    }
+    handleStaffRequest()
+  }
+}
+
+// Điều hướng tới trang chi tiết sản phẩm hoặc cửa hàng khi click vào thẻ sản phẩm
+const viewProductDetail = (p) => {
+  isOpen.value = false
+  if (p && p.id) {
+    router.push(`/san-pham/${p.id}`)
+  } else {
+    router.push('/cua-hang')
+  }
+}
+
+// Gửi tin nhắn thực tế tới nhân viên qua API Backend
 const sendMessageText = async (txt) => {
   const tempId = Date.now()
   messages.value.push({
@@ -244,8 +439,14 @@ const sendMessageText = async (txt) => {
   })
   scrollToBottom()
 
+  if (!isClientLoggedIn.value) return
+
   try {
-    if (!conversationId.value) {
+    if (conversationStatus.value === 0 || !conversationId.value) {
+      conversationId.value = null
+      conversationStatus.value = null
+      assignedStaffName.value = null
+      localStorage.removeItem(CHAT_STORAGE_KEY)
       await initOrLoadConversation()
     }
 
@@ -260,16 +461,15 @@ const sendMessageText = async (txt) => {
 
     const res = await api.post('/api/chat/gui-tin-nhan', payload)
     if (res.data && res.data.id) {
-      // Cập nhật lại ID từ DB cho tin nhắn tạm
       const match = messages.value.find(m => m.id === tempId)
       if (match) match.id = res.data.id
     }
   } catch (e) {
-    console.warn('Lỗi lưu tin nhắn:', e)
+    console.warn('Lỗi gửi tin nhắn tới server:', e)
   }
 }
 
-const showBotReply = (replyText, actions = null) => {
+const showBotReply = (replyText, products = null) => {
   isTyping.value = true
   setTimeout(() => {
     isTyping.value = false
@@ -277,233 +477,357 @@ const showBotReply = (replyText, actions = null) => {
       id: 'bot-' + Date.now(),
       sender: 'bot',
       text: replyText,
-      time: 'Vừa xong',
-      actions: actions
+      products: products || null,
+      time: 'Vừa xong'
     })
     scrollToBottom()
   }, 350)
 }
 
-const handleSend = () => {
+// BỘ NÃO TƯ VẤN THÔNG MINH CỦA FF T-SHIRT
+const generateSmartAiReply = (rawTxt) => {
+  const txt = rawTxt.trim()
+  const lower = txt.toLowerCase()
+
+  // 1. Chào hỏi
+  if (/^(xin\s*chào|chào|chào\s*(bạn|shop|ad|admin|em|anh|chị)|hello|hi|hey|alo|ê|ad\s*ơi|shop\s*ơi|bạn\s*ơi|cho\s*mình\s*hỏi|mình\s*cần\s*hỏi|có\s*ai|hé\s*lô)/i.test(lower) ||
+      ['chào', 'xin chào', 'hi', 'hello', 'alo', 'shop ơi', 'ad ơi', 'có ai không', 'bạn ơi', 'hé lô', 'ad'].includes(lower)) {
+    return {
+      text: 'Dạ, FF T-Shirt xin chào bạn! Rất vui được hỗ trợ bạn hôm nay. Bạn đang cần tư vấn về chọn size áo, mẫu áo hot hay chương trình ưu đãi nào ạ? 😊'
+    }
+  }
+
+  // 2. Tính size áo thông minh dựa trên số đo
+  const weightMatch = lower.match(/(\d{2,3})\s*(?:kg|kí|cân|kilo)/i) || lower.match(/(?:nặng|cân\s*nặng)\s*(\d{2,3})/i)
+  const heightMatch = lower.match(/(?:1m|1\.|m)(\d{2})/i) || lower.match(/(\d{3})\s*(?:cm|phân)/i) || lower.match(/(?:cao)\s*(\d{2,3})/i)
+  
+  if (weightMatch || heightMatch || lower.includes('size') || lower.includes('bảng size') || lower.includes('vừa không') || lower.includes('chật') || lower.includes('rộng') || lower.includes('mặc size gì')) {
+    let weight = weightMatch ? parseInt(weightMatch[1]) : null
+    let height = null
+    if (heightMatch) {
+      const hVal = parseInt(heightMatch[1])
+      height = hVal < 100 ? 100 + hVal : hVal
+    }
+
+    if (weight || height) {
+      let suggestedSize = 'L'
+      let desc = ''
+      const w = weight || (height ? (height - 105) : 65)
+
+      if (w < 55) {
+        suggestedSize = 'S'
+        desc = 'ôm vừa vặn tôn dáng'
+      } else if (w <= 65) {
+        suggestedSize = 'M'
+        desc = 'chuẩn form Regular Fit thanh lịch'
+      } else if (w <= 74) {
+        suggestedSize = 'L'
+        desc = 'rất vừa vặn, cử động thoải mái'
+      } else if (w <= 84) {
+        suggestedSize = 'XL'
+        desc = 'rộng rãi, đứng form'
+      } else {
+        suggestedSize = 'XXL'
+        desc = 'form rộng thoải mái tối đa'
+      }
+
+      const sizeRank = ['S', 'M', 'L', 'XL', 'XXL']
+      const curIdx = sizeRank.indexOf(suggestedSize)
+      const oversize = curIdx < sizeRank.length - 1 ? sizeRank[curIdx + 1] : 'XXL'
+      const spec = [height ? `${height}cm` : null, weight ? `${weight}kg` : null].filter(Boolean).join(' - ')
+
+      return {
+        text: `Dạ với thông số (${spec}), bạn mặc **Size ${suggestedSize}** (${desc}) là vừa đẹp nhất ạ! ✨\n\n💡 **Mẹo chọn size:**\n• Mặc vừa vặn, chỉn chu: Bạn chọn **Size ${suggestedSize}** nhé.\n• Mặc rộng rãi, thoải mái (Oversize): Bạn có thể tăng 1 size lên **Size ${oversize}** nha! ❤️`
+      }
+    }
+
+    return {
+      text: 'Dạ, bảng size áo chuẩn tại FF T-Shirt:\n\n• **Size S**: Dưới 55kg (chiều cao dưới 1m65)\n• **Size M**: 56 - 65kg (chiều cao 1m65 - 1m70)\n• **Size L**: 66 - 74kg (chiều cao 1m71 - 1m76)\n• **Size XL**: 75 - 84kg (chiều cao 1m77 - 1m83)\n• **Size XXL**: Trên 85kg\n\n👉 Bạn gửi giúp shop Chiều cao và Cân nặng (Ví dụ: 1m70 - 65kg) để shop chọn size chuẩn và vừa vặn nhất cho bạn nhé! 📏'
+    }
+  }
+
+  // 3. Giá cả, khuyến mãi
+  if (lower.includes('giá') || lower.includes('nhiêu') || lower.includes('bao tiền') || lower.includes('tiền') || lower.includes('đắt') || lower.includes('rẻ') || lower.includes('khuyến mãi') || lower.includes('ưu đãi')) {
+    return {
+      text: 'Dạ, các sản phẩm áo tại FF T-Shirt có mức giá cực kỳ cạnh tranh đi cùng chất lượng vải cao cấp ạ:\n\n👕 **Áo Thun T-Shirt Basic Cotton**: Chỉ từ 150.000đ - 220.000đ.\n👔 **Áo Polo Cổ Bẻ Pique Mắt Chim**: Chỉ từ 250.000đ - 350.000đ.\n\n🔥 **Ưu đãi hôm nay:** Đang giảm tới 30% cho nhiều mẫu và tặng voucher giảm giá khi đặt hàng online!'
+    }
+  }
+
+  // 4. Sản phẩm, mẫu mã
+  if (lower.includes('sản phẩm') || lower.includes('mẫu') || lower.includes('bán gì') || lower.includes('polo') || lower.includes('thun') || lower.includes('phông')) {
+    return {
+      text: 'Dạ, FF T-Shirt có các dòng áo nam chất lượng cao:\n\n✨ **Áo Polo Pique Mắt Chim**: Thoáng khí, cổ bẻ lịch sự, đứng form.\n✨ **Áo Thun T-Shirt Cotton**: Cổ tròn trẻ trung, mềm mại và thoáng mát.\n✨ **Áo Phông Graphic In Hình**: Trẻ trung, năng động.\n\nBạn có thể gửi câu hỏi hoặc chọn sản phẩm cần tư vấn chi tiết nhé!'
+    }
+  }
+
+  // 5. Yêu cầu gặp trực tiếp nhân viên
+  if (lower.includes('người bán') || lower.includes('nhân viên') || lower.includes('gặp nhân viên') || lower.includes('chuyên viên') || lower.includes('người thật')) {
+    return { isStaffRequest: true }
+  }
+
+  // 6. Câu hỏi tổng quát khác
+  return {
+    text: 'Dạ, FF T-Shirt có thể hỗ trợ bạn về chọn size áo, giá cả, mẫu mã hoặc ưu đãi hôm nay. Bạn có thể gửi câu hỏi hoặc chọn "Gặp nhân viên tư vấn" để được hỗ trợ trực tiếp nhé! ❤️'
+  }
+}
+
+// Gửi tin nhắn từ ô input
+const handleSend = async () => {
+  // Khi đang chờ nhân viên tiếp nhận (trangThai === 2), khóa không cho gửi tin nhắn
+  if (conversationStatus.value === 2) return
+
   const txt = inputMessage.value.trim()
   if (!txt) return
-  sendMessageText(txt)
   inputMessage.value = ''
 
-  // Phân tích câu hỏi thông minh, tự nhiên, không đẩy việc máy móc
-  const lower = txt.toLowerCase().trim()
-
-  // 1. CHÀO HỎI TỰ NHIÊN (Greetings: xin chào, chào shop, hello, hi, alo, shop ơi...)
-  const isGreeting = /^(xin\s*chào|chào|chào\s*(bạn|shop|ad|admin|em|anh|chị)|hello|hi|hey|alo|ê|ad\s*ơi|shop\s*ơi|bạn\s*ơi|cho\s*mình\s*hỏi|mình\s*cần\s*hỏi|có\s*ai|hé\s*lô)/i.test(lower) ||
-    ['chào', 'xin chào', 'hi', 'hello', 'alo', 'shop ơi', 'ad ơi', 'có ai không', 'bạn ơi', 'hé lô', 'ad'].includes(lower)
-
-  if (isGreeting) {
-    showBotReply('Dạ em chào anh/chị ạ! Rất vui được đón tiếp anh/chị ghé thăm FF T-Shirt! 😊\n\nEm có thể hỗ trợ gì cho mình hôm nay ạ? Anh/chị có thể chọn nhanh các chủ đề bên dưới hoặc nhắn tin trực tiếp nhé:', [
-      { text: '👕 Tư vấn chọn size áo', type: 'size' },
-      { text: '🧵 Chất liệu & Form dáng', type: 'material' },
-      { text: '🚚 Phí ship & Giao hàng', type: 'shipping' },
-      { text: '🔄 Chính sách đổi trả', type: 'return_policy' },
-      { text: '🎉 Khuyến mãi & Ưu đãi', type: 'promo' },
-      { text: '👨‍💼 Gặp nhân viên tư vấn', type: 'agent' }
-    ])
+  // 1. Đang chat với nhân viên (trangThai === 1)
+  if (isClientLoggedIn.value && conversationStatus.value === 1) {
+    sendMessageText(txt)
     return
   }
 
-  // 2. TƯ VẤN SIZE & CHIỀU CAO, CÂN NẶNG
-  if (lower.includes('size') || lower.includes('kg') || lower.includes('cm') || lower.includes('nặng') || lower.includes('cao') || lower.includes('bảng size') || lower.includes('vừa không') || lower.includes('chật') || lower.includes('rộng')) {
-    showBotReply('Dạ, bảng gợi ý chọn size áo chuẩn tại FF T-Shirt (Form Regular Fit tôn dáng):\n\n• Size S: Dưới 55kg (chiều cao dưới 1m65)\n• Size M: 56 - 65kg (chiều cao 1m65 - 1m70)\n• Size L: 66 - 74kg (chiều cao 1m71 - 1m76)\n• Size XL: 75 - 84kg (chiều cao 1m77 - 1m83)\n• Size XXL: Trên 85kg\n\n💡 Nếu anh/chị thích mặc form rộng thoải mái (Oversize) thì có thể tăng thêm 1 size nhé! Anh/chị có thể cho em xin cụ thể chiều cao & cân nặng để em tư vấn chuẩn nhất ạ.', [
-      { text: '🛍️ Đi đến Cửa hàng chọn áo', type: 'link-shop' },
-      { text: '👨‍💼 Nhờ nhân viên tư vấn size', type: 'agent' }
-    ])
+  // 2. Chat với AI Bot
+  messages.value.push({
+    id: Date.now(),
+    sender: 'user',
+    text: txt,
+    time: 'Vừa xong'
+  })
+  scrollToBottom()
+
+  const aiResult = generateSmartAiReply(txt)
+  if (aiResult.isStaffRequest) {
+    await handleStaffRequest()
     return
   }
 
-  // 3. CHẤT LIỆU, VẢI, ĐỘ BỀN, GIẶT
-  if (lower.includes('chất liệu') || lower.includes('chất vải') || lower.includes('vải gì') || lower.includes('vải') || lower.includes('cotton') || lower.includes('mát') || lower.includes('co giãn') || lower.includes('dày') || lower.includes('xù') || lower.includes('nhăn') || lower.includes('form')) {
-    showBotReply('Dạ, toàn bộ sản phẩm áo thun & áo polo tại FF T-Shirt được hoàn thiện từ chất liệu cao cấp:\n\n✨ 100% Cotton Compact tự nhiên & Cotton Pique dệt mắt chim thoáng khí.\n✨ Co giãn 4 chiều mềm mịn, thấm hút mồ hôi tối đa, không bí bách.\n✨ Đã qua xử lý chống co rút, không xù lông và hạn chế nhăn sau khi giặt máy.\n✨ Form áo Regular Fit hiện đại, đứng dáng, dễ phối đồ đi làm hoặc đi chơi ạ!', [
-      { text: '👕 Xem Bộ sưu tập Polo & T-Shirt', type: 'link-shop' },
-      { text: '👨‍💼 Gặp nhân viên tư vấn thêm', type: 'agent' }
-    ])
+  showBotReply(aiResult.text)
+}
+
+// Xử lý yêu cầu gặp nhân viên tư vấn: Đẩy vào Chờ nhận (trangThai = 2)
+const handleStaffRequest = async () => {
+  if (!isClientLoggedIn.value) {
+    showBotReply('Dạ, để kết nối và trò chuyện trực tiếp với nhân viên tư vấn của FF T-Shirt, bạn vui lòng đăng nhập tài khoản trước nhé! ❤️')
+    showLoginModal.value = true
     return
   }
 
-  // 4. PHÍ SHIP, VẬN CHUYỂN, THỜI GIAN GIAO HÀNG
-  if (lower.includes('ship') || lower.includes('phí vận chuyển') || lower.includes('giao hàng') || lower.includes('bao lâu') || lower.includes('mấy ngày') || lower.includes('nhận hàng') || lower.includes('ghn') || lower.includes('vận chuyển')) {
-    showBotReply('Dạ, FF T-Shirt hợp tác vận chuyển hỏa tốc cùng đối tác Giao Hàng Nhanh (GHN) trên toàn quốc:\n\n🚚 Tuyến nội thành & lân cận: 1 - 2 ngày làm việc.\n🚚 Các tỉnh thành khác: 2 - 4 ngày làm việc.\n🎁 Miễn phí vận chuyển toàn quốc cho đơn hàng từ 500.000đ!\n\nĐặc biệt, quý khách được quyền kiểm tra hàng (đồng kiểm) trước khi thanh toán nên anh/chị hoàn toàn yên tâm nhé! 😊', [
-      { text: '🛍️ Mua sắm ngay hôm nay', type: 'link-shop' },
-      { text: '🔍 Tra cứu đơn hàng của tôi', type: 'track' }
-    ])
+  // Nếu đã được nhân viên tiếp nhận rồi
+  if (conversationStatus.value === 1) {
+    const staff = assignedStaffName.value || 'chuyên viên tư vấn'
+    showBotReply(`Dạ, ${staff} đã tiếp nhận cuộc trò chuyện và đang hỗ trợ bạn. Bạn cứ nhắn nội dung bên dưới nhé! ❤️`)
     return
   }
 
-  // 5. CHÍNH SÁCH ĐỔI TRẢ, ĐỔI SIZE, BẢO HÀNH
-  if (lower.includes('đổi trả') || lower.includes('đổi size') || lower.includes('đổi hàng') || lower.includes('bảo hành') || lower.includes('trả hàng') || lower.includes('lỗi') || lower.includes('đổi')) {
-    showBotReply('Dạ, FF T-Shirt cam kết chính sách bảo hành & đổi trả thuận tiện nhất cho khách hàng:\n\n🔄 Hỗ trợ đổi size / đổi mẫu tận nơi trong vòng 7 ngày kể từ khi nhận hàng.\n🔄 Yêu cầu sản phẩm còn nguyên tem mác, chưa qua giặt tẩy.\n🔄 Miễn phí 100% phí đổi trả nếu sản phẩm có lỗi từ nhà sản xuất hoặc giao sai mẫu.\n\nAnh/chị cần hỗ trợ đổi đơn hàng nào có thể gửi mã đơn để em hỗ trợ nhé!', [
-      { text: '👨‍💼 Nhờ nhân viên hỗ trợ đổi hàng', type: 'agent' }
-    ])
+  // Nếu đang ở hàng chờ sẵn
+  if (conversationStatus.value === 2) {
+    showBotReply('Dạ, yêu cầu của bạn đang trong danh sách chờ tiếp nhận. Bạn vui lòng chờ trong giây lát nhé! ❤️')
     return
   }
 
-  // 6. KHUYẾN MÃI, GIẢM GIÁ, VOUCHER
-  if (lower.includes('khuyến mãi') || lower.includes('ưu đãi') || lower.includes('voucher') || lower.includes('giảm giá') || lower.includes('sale') || lower.includes('mã giảm') || lower.includes('quà')) {
-    showBotReply('🎉 Hiện tại FF T-Shirt đang áp dụng nhiều chương trình ưu đãi rất hấp dẫn:\n\n🔥 Giảm tới 30% cho bộ sưu tập Áo Polo Mắt Chim & Áo Thun Cotton.\n🔥 Miễn phí ship toàn quốc cho mọi đơn hàng từ 500k.\n🔥 Voucher VC-GIAM50K giảm trực tiếp 50.000đ khi đặt online!\n\nAnh/chị nhanh tay ghé Cửa Hàng để săn ưu đãi nhé ạ! 👇', [
-      { text: '👉 Xem ngay tại Cửa hàng', type: 'link-shop' }
-    ])
-    return
-  }
+  // Tạo phiên mới và gửi yêu cầu hỗ trợ (trangThai = 2)
+  conversationId.value = null
+  conversationStatus.value = 2
+  assignedStaffName.value = null
+  localStorage.removeItem(CHAT_STORAGE_KEY)
 
-  // 7. ĐỊA CHỈ, CỬA HÀNG TRỰC TIẾP
-  if (lower.includes('địa chỉ') || lower.includes('cửa hàng ở đâu') || lower.includes('shop ở đâu') || lower.includes('ở đâu') || lower.includes('chi nhánh') || lower.includes('showroom') || lower.includes('store')) {
-    showBotReply('Dạ, FF T-Shirt hiện đang phục vụ khách hàng trên toàn quốc với dịch vụ giao hàng tận nhà 24/7 đồng kiểm trước khi nhận.\n\nAnh/chị có thể đặt trực tiếp tại website để nhận trọn vẹn ưu đãi vận chuyển và mã giảm giá tốt nhất nhé ạ! 🛍️', [
-      { text: '🛍️ Khám phá Cửa hàng online', type: 'link-shop' },
-      { text: '👨‍💼 Chat với nhân viên', type: 'agent' }
-    ])
-    return
-  }
+  // Đẩy tin thông báo hệ thống chuẩn câu thoại mới
+  messages.value.push({
+    id: 'sys-' + Date.now(),
+    sender: 'system',
+    text: 'Yêu cầu hỗ trợ trực tiếp đã được gửi. Vui lòng chờ nhân viên tiếp nhận cuộc trò chuyện.',
+    isSystem: true
+  })
+  scrollToBottom()
 
-  // 8. TRA CỨU ĐƠN HÀNG (MÃ ĐƠN HOẶC TỪ KHÓA)
-  if (lower.startsWith('hd') || (lower.length >= 7 && /^\d+$/.test(lower)) || lower.includes('tra cứu') || lower.includes('đơn hàng của tôi') || lower.includes('tình trạng đơn')) {
-    if (lower.startsWith('hd') || /^\d+$/.test(lower)) {
-      showBotReply(`Dạ, đang kiểm tra trạng thái đơn "${txt}"... Anh/chị có thể bấm nút bên dưới để mở ngay màn hình tra cứu chi tiết nhé! 🔍`, [
-        { text: `🔍 Mở tra cứu đơn ${txt}`, type: 'track-direct', code: txt }
-      ])
-    } else {
-      showBotReply('Dạ, để kiểm tra tình trạng đơn hàng, anh/chị vui lòng nhập Mã đơn hàng (Ví dụ: HD00001) hoặc Số điện thoại đặt hàng để hệ thống tra cứu ngay nhé!', [
-        { text: '🔍 Mở trang tra cứu đơn', type: 'track' }
-      ])
-    }
-    return
-  }
-
-  // 9. CẢM ƠN, PHẢN HỒI TÍCH CỰC, TẠM BIỆT
-  if (lower.includes('cảm ơn') || lower.includes('cám ơn') || lower.includes('thank') || lower.includes('tks') || lower.includes('ok') || lower.includes('oke') || lower.includes('tạm biệt') || lower.includes('bye') || lower.includes('tuyệt')) {
-    showBotReply('Dạ không có gì ạ! Rất vui được đồng hành cùng anh/chị. Nếu có bất kỳ câu hỏi nào trong quá trình chọn sắm đồ, anh/chị cứ nhắn em bất cứ lúc nào nhé. Chúc anh/chị một ngày thật vui vẻ và chọn được chiếc áo ưng ý nhất! ❤️', [
-      { text: '🛍️ Xem Cửa hàng', type: 'link-shop' }
-    ])
-    return
-  }
-
-  // 10. KHÁCH YÊU CẦU GẶP TRỰC TIẾP NHÂN VIÊN
-  if (lower.includes('người bán') || lower.includes('nhân viên') || lower.includes('tư vấn') || lower.includes('gặp') || lower.includes('chuyên viên') || lower.includes('người thật') || lower.includes('admin ơi')) {
-    showBotReply('Dạ em đã nhận được yêu cầu ạ! Em đang kết nối anh/chị với chuyên viên tư vấn của FF T-Shirt ngay đây ạ. Anh/chị vui lòng chờ trong giây lát nhé! ❤️')
-    requestStaffSupport()
-    return
-  }
-
-  // 11. CÂU HỎI RIÊNG BIỆT KHÁC -> ĐẨY SANG ADMIN VỚI LỜI NÓI TỰ NHIÊN, KHÔNG MÁY MÓC
-  showBotReply('Dạ, để hỗ trợ anh/chị chu đáo và chính xác nhất cho yêu cầu này, em đã chuyển tin nhắn của mình tới chuyên viên tư vấn của FF T-Shirt rồi ạ. Quý khách vui lòng đợi trong giây lát, chuyên viên sẽ phản hồi ngay nhé! ❤️')
-  requestStaffSupport()
+  await requestStaffSupport()
 }
 
 const requestStaffSupport = async () => {
+  if (!isClientLoggedIn.value) return
   try {
-    if (!conversationId.value) {
-      await initOrLoadConversation()
+    const payload = {
+      khachHangId: currentClientUser.value?.id || null,
+      tenKhachHang: currentClientUser.value?.name || null,
+      soDienThoai: currentClientUser.value?.phone || null
     }
-    if (conversationId.value) {
-      await api.put(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/yeu-cau-ho-tro`)
+    const res = await api.post('/api/chat/khoi-tao', payload)
+    if (res.data && res.data.id) {
+      conversationId.value = res.data.id
+      conversationStatus.value = res.data.trangThai || 2
+      localStorage.setItem(CHAT_STORAGE_KEY, String(res.data.id))
+      await api.put(`/api/chat/cuoc-hoi-thoai/${res.data.id}/yeu-cau-ho-tro`).catch(() => {})
     }
   } catch (e) {
     console.warn('Lỗi gửi yêu cầu hỗ trợ nhân viên:', e)
   }
 }
 
+// Làm mới phiên chat màn online khi đăng nhập
+const refreshChatOnLogin = async () => {
+  conversationId.value = null
+  conversationStatus.value = null
+  assignedStaffName.value = null
+  localStorage.removeItem(CHAT_STORAGE_KEY)
+  messages.value = [createWelcomeMessage()]
+}
+
+// Đăng nhập thành công từ Modal
+const onLoginSuccess = async () => {
+  showLoginModal.value = false
+  await refreshChatOnLogin()
+}
+
 onMounted(() => {
-  // Lấy ID cuộc trò chuyện đã lưu nếu có
+  loadFeaturedProducts()
   const savedId = localStorage.getItem(CHAT_STORAGE_KEY)
   if (savedId) {
     conversationId.value = Number(savedId)
   }
-
-  // Khởi động chu kỳ polling định kỳ mỗi 3s
   pollTimer = setInterval(pollNewMessages, 3000)
+  window.addEventListener('client-auth-change', refreshChatOnLogin)
 })
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
+  window.removeEventListener('client-auth-change', refreshChatOnLogin)
 })
 
-// Khi người dùng đăng nhập hoặc đổi tài khoản, kết nối lại cuộc trò chuyện
-watch(() => currentClientUser.value, () => {
-  if (isOpen.value) {
-    initOrLoadConversation()
+watch(() => currentClientUser.value, async (newVal) => {
+  if (newVal) {
+    await refreshChatOnLogin()
+  } else {
+    resetToNewSession()
   }
 })
 </script>
 
 <template>
   <div class="chat-widget-root">
-    <!-- NÚT BONG BÓNG CHAT NỔI (MATCH VIDEO) -->
-    <button class="chat-floating-btn" @click="toggleChat" :class="{ open: isOpen }" title="Chat với hỗ trợ">
-      <svg v-if="!isOpen" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
-      </svg>
-      <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-      </svg>
-      <span v-if="!isOpen && unreadForClient === 0" class="online-indicator"></span>
-      <span v-if="!isOpen && unreadForClient > 0" class="client-unread-badge">{{ unreadForClient }}</span>
+    <!-- NÚT BONG BÓNG CHAT NỔI (Khi đóng: 'Tư vấn' | Khi mở: 'Đóng') - Chuẩn màu cũ #496883 -->
+    <button
+      class="chat-floating-btn"
+      :class="{ 'is-open': isOpen }"
+      @click="toggleChat"
+      title="Hỗ trợ trực tuyến"
+    >
+      <template v-if="!isOpen">
+        <!-- Icon Chat -->
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+        </svg>
+        <span class="btn-text">Tư vấn</span>
+        <span v-if="unreadForClient > 0" class="client-unread-badge">{{ unreadForClient }}</span>
+      </template>
+
+      <template v-else>
+        <!-- Icon Đóng -->
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+        <span class="btn-text">Đóng</span>
+      </template>
     </button>
 
-    <!-- CỬA SỔ HỘP THOẠI CHAT -->
+    <!-- CỬA SỔ HỘP THOẠI CHAT (MÀU SẮC CHUẨN THƯƠNG HIỆU CŨ #496883) -->
     <div v-if="isOpen" class="chat-window-box">
-      <!-- Chat Header mang màu thương hiệu và logo FF -->
+      <!-- Chat Header -->
       <div class="chat-header">
         <div class="header-info">
-          <div class="brand-avatar-box">
-            <span class="chat-ray ray-1"></span>
-            <span class="chat-ray ray-2"></span>
-            <span class="chat-ray ray-3"></span>
-            <span class="f-blue-char">F</span>
-            <span class="f-gold-char">F</span>
-            <span class="status-dot"></span>
+          <div class="brand-title-row">
+            <h4 class="brand-title">Tư vấn FF T-Shirt</h4>
+            <span class="status-live-dot"></span>
           </div>
-          <div>
-            <h4>FF T-Shirt Support</h4>
-            <span class="status-text">Đang trực tuyến • Sẵn sàng hỗ trợ</span>
-          </div>
+          <span class="status-subtext">{{ chatSubtitle }}</span>
         </div>
-        <button class="btn-close-chat" @click="isOpen = false">✕</button>
+        <button class="btn-collapse" @click="isOpen = false">Thu gọn</button>
       </div>
 
       <!-- Chat Body -->
       <div class="chat-body" ref="chatBodyRef">
-        <div class="chat-notice-box">
-          Chào mừng bạn đến với <strong>FF T-Shirt</strong>! Chúng tôi luôn ở đây để giúp bạn chọn được chiếc áo ưng ý nhất.
-        </div>
-
-        <div v-for="msg in messages" :key="msg.id" class="message-row" :class="msg.sender">
-          <div v-if="msg.sender === 'bot'" class="bot-avatar">
-            <span class="f-w">F</span><span class="f-g">F</span>
+        <!-- Vòng lặp tin nhắn -->
+        <div
+          v-for="msg in messages"
+          :key="msg.id"
+          class="message-row"
+          :class="[msg.sender, { 'is-system-row': msg.isSystem }]"
+        >
+          <!-- Thông báo hệ thống nhẹ nhàng ở giữa màn hình (chuẩn video & ảnh 3) -->
+          <div v-if="msg.isSystem" class="system-event-bubble">
+            {{ msg.text }}
           </div>
-          <div class="bubble-wrap">
-            <div v-if="msg.staffName" class="staff-sender-name">
-              👨‍💼 {{ msg.staffName }}
+
+          <!-- Tin nhắn thông thường -->
+          <template v-else>
+            <!-- Tên người gửi phía trên bóng tin nhắn -->
+            <div class="sender-header-tag" v-if="msg.sender !== 'user'">
+              <span v-if="msg.sender === 'bot'">Tư vấn FF T-Shirt</span>
+              <span v-else>{{ msg.staffName || 'Chuyên viên tư vấn' }}</span>
+              <span class="dot-sep">•</span>
+              <span class="tag-time">{{ msg.time }}</span>
             </div>
+            <div class="sender-header-tag text-right" v-else>
+              <span>Bạn</span>
+              <span class="dot-sep">•</span>
+              <span class="tag-time">{{ msg.time }}</span>
+            </div>
+
+            <!-- Khối nội dung tin nhắn (Chuẩn màu cũ #496883) -->
             <div class="message-bubble" :class="msg.sender">
-              <p style="white-space: pre-line; margin: 0;">{{ msg.text }}</p>
+              <p class="bubble-text">{{ msg.text }}</p>
+
+              <!-- Thẻ hiển thị sản phẩm dạng băng chuyền ngang (Card Carousel) -->
+              <div v-if="msg.products && msg.products.length > 0" class="products-carousel-wrap">
+                <div v-for="p in msg.products" :key="p.id" class="product-mini-card">
+                  <div class="card-img-wrap">
+                    <img
+                      :src="p.anhDaiDien || '/placeholder-shirt.png'"
+                      :alt="p.tenSanPham"
+                      class="product-thumb"
+                      @error="(e) => e.target.src = 'https://placehold.co/200x200?text=FF+T-Shirt'"
+                    />
+                    <span v-if="p.coGiamGia || p.phanTramGiam" class="card-discount-tag">
+                      -{{ p.phanTramGiam || 20 }}%
+                    </span>
+                  </div>
+                  <div class="card-info">
+                    <div class="card-brand">{{ p.tenThuongHieu || 'FF T-SHIRT' }}</div>
+                    <div class="card-title" :title="p.tenSanPham">{{ p.tenSanPham }}</div>
+                    <div class="card-price-row">
+                      <span class="card-cur-price">{{ formatCurrency(p.minGiaSauGiam || p.minGia || 189000) }}</span>
+                      <span v-if="p.coGiamGia" class="card-old-price">{{ formatCurrency(p.minGia || 250000) }}</span>
+                    </div>
+                    <button class="card-btn-view" @click="viewProductDetail(p)">
+                      Xem thông tin sản phẩm
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-            <span class="msg-timestamp">{{ msg.time }}</span>
-            
-            <!-- Quick actions / Suggestions -->
-            <div v-if="msg.actions && msg.actions.length > 0" class="actions-list">
+
+            <!-- Các nút hành động nhanh dạng dọc dưới tin nhắn (chuẩn Ảnh 2, không có đổi trả) -->
+            <div
+              v-if="msg.actions && msg.actions.length > 0 && conversationStatus !== 2 && conversationStatus !== 0"
+              class="actions-vertical-list"
+            >
               <button
                 v-for="(act, idx) in msg.actions"
                 :key="idx"
-                class="action-pill-btn"
+                type="button"
+                class="action-item-pill"
                 @click="handleActionClick(act)"
               >
                 {{ act.text }}
               </button>
             </div>
-          </div>
+          </template>
         </div>
 
-        <!-- Typing Indicator -->
+        <!-- Trạng thái đang gõ -->
         <div v-if="isTyping" class="message-row bot">
-          <div class="bot-avatar">
-            <span class="f-w">F</span><span class="f-g">F</span>
+          <div class="sender-header-tag">
+            <span>Tư vấn FF T-Shirt đang trả lời...</span>
           </div>
           <div class="typing-bubble">
             <span></span><span></span><span></span>
@@ -511,76 +835,97 @@ watch(() => currentClientUser.value, () => {
         </div>
       </div>
 
-      <!-- Chat Input Footer -->
+      <!-- Khung thông báo ĐÃ CHUYỂN YÊU CẦU chuẩn câu thoại mới -->
+      <div v-if="conversationStatus === 2" class="transfer-request-bar">
+        <div class="transfer-request-title">
+          <span class="transfer-dot"></span>
+          Đã chuyển yêu cầu hỗ trợ
+        </div>
+        <div class="transfer-request-desc">Hệ thống đã gửi thông báo đến nhân viên. Vui lòng chờ nhân viên tiếp nhận để bắt đầu trò chuyện.</div>
+      </div>
+
+      <!-- Khung chân chat (Input Footer hoặc Thanh Bắt đầu phiên mới) -->
       <div class="chat-footer">
-        <form @submit.prevent="handleSend" class="input-form">
+        <!-- Khi phiên chat ĐÃ ĐÓNG (trangThai === 0): Hiện thông báo và nút Bắt đầu phiên mới -->
+        <div v-if="conversationStatus === 0" class="closed-session-footer">
+          <div class="closed-footer-text">
+            <strong>Phiên tư vấn đã kết thúc</strong>
+            <span>Bạn có thể bắt đầu một cuộc trò chuyện mới khi cần.</span>
+          </div>
+          <button class="btn-restart-session" @click="resetToNewSession">
+            Bắt đầu phiên mới
+          </button>
+        </div>
+
+        <!-- Khi phiên đang hoạt động hoặc chờ nhận: Form nhập tin nhắn -->
+        <form v-else @submit.prevent="handleSend" class="input-form">
           <input
             v-model="inputMessage"
             type="text"
-            placeholder="Nhập tin nhắn tư vấn hoặc mã đơn..."
+            :placeholder="conversationStatus === 2 ? 'Đang chờ nhân viên tiếp nhận cuộc trò chuyện...' : 'Nhập câu hỏi về sản phẩm, size hoặc khuyến mãi...'"
             class="chat-input"
+            :disabled="conversationStatus === 2"
           />
-          <button type="submit" class="btn-send" :disabled="!inputMessage.trim()">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
+          <button
+            type="submit"
+            class="btn-send"
+            :disabled="!inputMessage.trim() || conversationStatus === 2"
+          >
+            Gửi
           </button>
         </form>
       </div>
     </div>
+
+    <!-- Modal Đăng nhập khi khách chưa đăng nhập bấm Gặp nhân viên -->
+    <ModalDangNhap
+      v-if="showLoginModal"
+      @close="showLoginModal = false"
+      @login-success="onLoginSuccess"
+    />
   </div>
 </template>
 
 <style scoped>
 .chat-widget-root {
   position: fixed;
-  bottom: 28px;
-  right: 28px;
-  z-index: 99999;
-  font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  font-family: inherit;
 }
 
-/* 1. Nút bong bóng chat nổi */
+/* Nút bấm nổi Tư vấn / Đóng góc phải - Phong cách hiện đại cao cấp */
 .chat-floating-btn {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #496883 0%, #2f4557 100%);
-  color: #d2a764;
-  border: 2px solid #d2a764;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+  color: #ffffff;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 8px 24px -4px rgba(37, 99, 235, 0.4);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
 }
 
 .chat-floating-btn:hover {
-  transform: scale(1.08) translateY(-2px);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.45);
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -4px rgba(37, 99, 235, 0.5);
+}
+
+.chat-floating-btn.is-open {
+  background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+  box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.3);
+}
+
+.chat-floating-btn.is-open:hover {
   background: #0f172a;
-}
-
-.chat-floating-btn.open {
-  background: #334155;
-  border-color: #94a3b8;
-  color: #ffffff;
-  transform: rotate(90deg);
-}
-
-.online-indicator {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 13px;
-  height: 13px;
-  background-color: #22c55e;
-  border: 2px solid #ffffff;
-  border-radius: 50%;
-  animation: pulse-ring 2s infinite;
 }
 
 .client-unread-badge {
@@ -589,283 +934,407 @@ watch(() => currentClientUser.value, () => {
   right: -4px;
   background: #ef4444;
   color: #ffffff;
-  font-size: 11px;
-  font-weight: 800;
-  min-width: 20px;
-  height: 20px;
-  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 4px;
   border: 2px solid #ffffff;
-  animation: pulse-ring 1.5s infinite;
 }
 
-@keyframes pulse-ring {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-}
-
-/* 2. Cửa sổ chat nổi */
+/* Cửa sổ chat */
 .chat-window-box {
   position: absolute;
-  bottom: 74px;
+  bottom: 60px;
   right: 0;
-  width: 380px;
-  height: 540px;
-  max-height: calc(100vh - 120px);
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  height: 585px;
+  max-height: calc(100vh - 110px);
   background: #ffffff;
-  border-radius: 20px;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
+  border-radius: 18px;
+  box-shadow: 0 20px 48px -10px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(15, 23, 42, 0.05);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
-  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideUp 0.22s ease-out;
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px) scale(0.96); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-/* Header */
+/* Chat Header */
 .chat-header {
-  background: linear-gradient(135deg, #496883 0%, #2f4557 100%);
-  color: #ffffff;
   padding: 14px 18px;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  border-bottom: 2px solid #d2a764;
+  align-items: center;
 }
 
 .header-info {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.brand-avatar-box {
-  width: 38px;
-  height: 38px;
-  background: #ffffff;
-  border-radius: 10px;
+.brand-title-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  position: relative;
-  font-weight: 900;
-  font-size: 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  gap: 6px;
 }
 
-.f-blue-char { color: #496883; }
-.f-gold-char { color: #d2a764; }
-
-.status-dot {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 10px;
-  height: 10px;
-  background: #22c55e;
-  border: 2px solid #0f172a;
-  border-radius: 50%;
-}
-
-.header-info h4 {
+.brand-title {
   margin: 0;
   font-size: 15px;
   font-weight: 700;
-  color: #ffffff;
+  color: #0f172a;
 }
 
-.status-text {
-  font-size: 11px;
-  color: #94a3b8;
-  display: block;
-  margin-top: 2px;
+.status-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
 }
 
-.btn-close-chat {
-  background: transparent;
+.status-subtext {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.btn-collapse {
+  background: #f1f5f9;
   border: none;
-  color: #94a3b8;
-  font-size: 18px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
   cursor: pointer;
-  padding: 4px;
+  padding: 4px 10px;
   border-radius: 6px;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
-.btn-close-chat:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.1);
+.btn-collapse:hover {
+  background: #e2e8f0;
+  color: #0f172a;
 }
 
-/* Body */
+/* Chat Body */
 .chat-body {
   flex: 1;
-  padding: 16px;
   overflow-y: auto;
-  background-color: #f8fafc;
+  padding: 16px;
+  background: #f8fafc;
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-.chat-notice-box {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #1e40af;
-  font-size: 12px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  line-height: 1.5;
-  text-align: center;
-}
-
 .message-row {
   display: flex;
-  gap: 10px;
-  max-width: 85%;
+  flex-direction: column;
+  max-width: 88%;
 }
 
-.message-row.bot {
+.message-row.bot,
+.message-row.staff {
   align-self: flex-start;
 }
 
 .message-row.user {
   align-self: flex-end;
-  flex-direction: row-reverse;
 }
 
-.bot-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #1e293b;
+.message-row.is-system-row {
+  align-self: center;
+  max-width: 95%;
+}
+
+/* Thông báo hệ thống nhẹ nhàng ở giữa màn hình */
+.system-event-bubble {
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 14px;
+  border: 1px solid #dbeafe;
+  text-align: center;
+  line-height: 1.45;
+  margin: 4px 0;
+}
+
+.sender-header-tag {
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 4px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 900;
-  flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  gap: 4px;
 }
 
-.bot-avatar .f-w { color: #ffffff; }
-.bot-avatar .f-g { color: #ecd8af; }
+.sender-header-tag.text-right {
+  justify-content: flex-end;
+}
 
-.bubble-wrap {
+.dot-sep {
+  opacity: 0.5;
+}
+
+.tag-time {
+  color: #94a3b8;
+}
+
+/* Bong bóng chat */
+.message-bubble {
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.message-bubble.bot {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  border-bottom-left-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.message-bubble.staff {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  border-bottom-left-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.message-bubble.user {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  border-bottom-right-radius: 3px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.22);
+}
+
+.bubble-text {
+  margin: 0;
+  white-space: pre-line;
+}
+
+/* Thẻ Carousel sản phẩm chuẩn video */
+.products-carousel-wrap {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 10px 2px 4px 2px;
+  margin-top: 8px;
+}
+
+.products-carousel-wrap::-webkit-scrollbar {
+  height: 4px;
+}
+
+.products-carousel-wrap::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.product-mini-card {
+  width: 175px;
+  min-width: 175px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.card-img-wrap {
+  position: relative;
+  width: 100%;
+  height: 110px;
+  background: #f1f5f9;
+}
+
+.product-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-discount-tag {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.card-info {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.card-brand {
+  font-size: 9px;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 2px 0 6px 0;
+}
+
+.card-cur-price {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.card-old-price {
+  font-size: 10px;
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+.card-btn-view {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+  margin-top: auto;
+}
+
+.card-btn-view:hover {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+/* Khung thông báo ĐÃ CHUYỂN YÊU CẦU */
+.transfer-request-bar {
+  padding: 12px 18px;
+  background: #f8fafc;
+  border-top: 1px solid #eef2f6;
+  border-left: 3px solid #2563eb;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.staff-sender-name {
-  font-size: 11px;
+.transfer-request-title {
+  font-size: 13px;
   font-weight: 700;
-  color: #b45309;
-  margin-bottom: 2px;
-}
-
-.message-bubble {
-  padding: 10px 14px;
-  border-radius: 16px;
-  font-size: 13.5px;
-  line-height: 1.5;
-  word-break: break-word;
-}
-
-.message-bubble.bot {
-  background: #ffffff;
-  color: #1e293b;
-  border: 1px solid #e2e8f0;
-  border-top-left-radius: 4px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.03);
-}
-
-.message-bubble.user {
-  background: #1e293b;
-  color: #ffffff;
-  border-top-right-radius: 4px;
-  box-shadow: 0 2px 8px rgba(30, 41, 59, 0.15);
-}
-
-.msg-timestamp {
-  font-size: 10px;
-  color: #94a3b8;
-  align-self: flex-end;
-  margin-top: 2px;
-}
-
-.message-row.bot .msg-timestamp {
-  align-self: flex-start;
-}
-
-/* Actions list */
-.actions-list {
+  color: #0f172a;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
-}
-
-.action-pill-btn {
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #1e293b;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 6px 12px;
-  border-radius: 20px;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-}
-
-.action-pill-btn:hover {
-  background: #1e293b;
-  color: #ecd8af;
-  border-color: #1e293b;
-  transform: translateY(-1px);
-}
-
-/* Typing bubble */
-.typing-bubble {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  padding: 10px 16px;
-  border-radius: 16px;
-  display: flex;
-  gap: 4px;
   align-items: center;
+  gap: 6px;
 }
 
-.typing-bubble span {
-  width: 6px;
-  height: 6px;
-  background: #94a3b8;
+.transfer-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  animation: bounce 1.4s infinite ease-in-out;
+  background: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  animation: pulse 1.5s infinite;
 }
 
-.typing-bubble span:nth-child(2) { animation-delay: 0.2s; }
-.typing-bubble span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes bounce {
-  0%, 80%, 100% { transform: translateY(0); }
-  40% { transform: translateY(-6px); }
+@keyframes pulse {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
 }
 
-/* Footer */
-.chat-footer {
-  padding: 12px 14px;
+.transfer-request-desc {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+/* Danh sách các nút hành động dạng dọc */
+.actions-vertical-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.action-item-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: #ffffff;
-  border-top: 1px solid #e2e8f0;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  text-align: left;
+}
+
+.action-item-pill:hover {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  background: #eff6ff;
+  transform: translateX(4px);
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.12);
+}
+
+/* Chat Footer */
+.chat-footer {
+  padding: 12px 16px;
+  background: #ffffff;
+  border-top: 1px solid #edf2f7;
 }
 
 .input-form {
@@ -876,52 +1345,129 @@ watch(() => currentClientUser.value, () => {
 
 .chat-input {
   flex: 1;
-  padding: 10px 14px;
-  border: 1px solid #cbd5e1;
-  border-radius: 24px;
+  padding: 10px 16px;
   font-size: 13.5px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 22px;
   outline: none;
   background: #f8fafc;
+  color: #0f172a;
   transition: all 0.2s;
+}
+
+.chat-input::placeholder {
+  color: #94a3b8;
 }
 
 .chat-input:focus {
   background: #ffffff;
-  border-color: #1e293b;
-  box-shadow: 0 0 0 3px rgba(30, 41, 59, 0.1);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.chat-input:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  cursor: not-allowed;
+  border-color: #e2e8f0;
 }
 
 .btn-send {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: #1e293b;
-  color: #ecd8af;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
   border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s;
-  flex-shrink: 0;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
 }
 
 .btn-send:hover:not(:disabled) {
-  background: #0f172a;
-  transform: scale(1.05);
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
 }
 
 .btn-send:disabled {
-  background: #e2e8f0;
-  color: #94a3b8;
+  background: #a5c5f8;
+  color: #ffffff;
+  box-shadow: none;
   cursor: not-allowed;
+  transform: none;
 }
 
-@media (max-width: 480px) {
-  .chat-window-box {
-    width: calc(100vw - 32px);
-    right: 0;
-    bottom: 74px;
-  }
+/* Khung phiên chat đã kết thúc chuẩn video */
+.closed-session-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 2px;
+}
+
+.closed-footer-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.closed-footer-text strong {
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.closed-footer-text span {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.btn-restart-session {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-restart-session:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+/* Typing indicator */
+.typing-bubble {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.typing-bubble span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2563eb;
+  animation: bounce 1.2s infinite ease-in-out;
+}
+
+.typing-bubble span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-bubble span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-5px); }
 }
 </style>
