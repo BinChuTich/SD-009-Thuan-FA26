@@ -88,7 +88,7 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
         CaLamViec ca = caLamViecRepository.findById(req.getCaLamViecId())
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy ca làm việc"));
 
-        // 1. Kiểm tra khung giờ làm việc của ca (chỉ được mở trong khoảng từ trước 30p đến khi kết thúc ca)
+
         LocalTime now = LocalTime.now();
         LocalTime start = ca.getGioBatDau();
         LocalTime end = ca.getGioKetThuc();
@@ -120,7 +120,7 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
             }
         }
 
-        // 2. Kiểm tra phân công ca của nhân viên trong ngày (nếu không phải Quản trị viên)
+
         if (!isEmployeeAdmin(nv)) {
             boolean hasSchedule = lichLamViecRepository
                     .findByNhanVienIdAndCaLamViecIdAndNgayLamViec(nv.getId(), ca.getId(), LocalDate.now())
