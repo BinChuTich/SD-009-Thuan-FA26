@@ -320,6 +320,18 @@ public class HoaDon {
         return idPhieuGiamGia != null ? idPhieuGiamGia.getMaPhieuGiamGia() : null;
     }
 
+    @JsonProperty("tongTienGiamGia")
+    public BigDecimal getTongTienGiamGia() {
+        if (this.tongTien != null && this.tienSauGiamGia != null) {
+            BigDecimal ship = this.phiVanChuyen != null ? this.phiVanChuyen : BigDecimal.ZERO;
+            BigDecimal subtotalWithShip = this.tongTien.add(ship);
+            if (subtotalWithShip.compareTo(this.tienSauGiamGia) > 0) {
+                return subtotalWithShip.subtract(this.tienSauGiamGia);
+            }
+        }
+        return BigDecimal.ZERO;
+    }
+
     @JsonProperty("trangThaiHienThi")
     public Integer getTrangThaiHienThi() {
         if (Integer.valueOf(6).equals(this.trangThai) && this.ghiChu != null) {

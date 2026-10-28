@@ -1,6 +1,6 @@
-<template>
+﻿<template>
   <div class="giao-ca-page">
-    <!-- Thanh điều hướng và tiêu đề trên cùng -->
+
     <div class="page-top-header">
       <div class="page-breadcrumb">
         <router-link to="/giao-ca" class="crumb-parent">Lịch làm việc</router-link>
@@ -219,34 +219,14 @@
             ></textarea>
           </div>
 
-          <div class="form-cols-2">
-            <!-- 3. Chọn nhân viên nhận bàn giao ca -->
-            <div class="form-item">
-              <label class="field-label">Nhân viên nhận bàn giao</label>
-              <div class="select-wrapper-minimal">
-                <select v-model="dongCaForm.nhanVienNhanId" class="form-control-minimal">
-                  <option value="">-- Quản trị viên / Không bàn giao ca tiếp theo --</option>
-                  <option
-                    v-for="nv in handoverEmployees"
-                    :key="nv.id"
-                    :value="nv.id"
-                  >
-                    {{ nv.maNhanVien }} - {{ nv.tenNhanVien }} ({{ nv.tenTaiKhoan }})
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <!-- 4. Ghi chú chung khi bàn giao -->
-            <div class="form-item">
-              <label class="field-label">Ghi chú bàn giao</label>
-              <input
-                type="text"
-                v-model="dongCaForm.ghiChu"
-                placeholder="Ghi chú bàn giao (nếu có)..."
-                class="form-control-minimal"
-              />
-            </div>
+                    <div class="form-item" style="margin-top: 6px;">
+            <label class="field-label">Ghi chú bàn giao</label>
+            <input
+              type="text"
+              v-model="dongCaForm.ghiChu"
+              placeholder="Ghi chú bàn giao ca (nếu có)..."
+              class="form-control-minimal"
+            />
           </div>
 
           <div class="form-actions-bar">
@@ -268,155 +248,26 @@
 
     <!-- KHU VỰC 2: TRƯỜNG HỢP NHÂN VIÊN CHƯA MỞ CA LÀM VIỆC -->
     <div v-else class="shift-inactive-container">
-      <div class="content-card open-shift-card">
-        <div class="open-shift-header">
-          <div class="inactive-badge">
-            <span class="idle-dot"></span>
-            <span>CHƯA VÀO CA LÀM VIỆC</span>
-          </div>
-          <h2 class="open-card-title">Mở ca làm việc & Kiểm đếm tiền ban đầu</h2>
-        </div>
-
-        <!-- Banner thông tin tiền mặt từ ca trước vừa đóng (nếu có) -->
-        <div v-if="lastClosedShift" class="last-shift-suggestion">
-          <div class="suggestion-left">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="16" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12.01" y2="8" />
+      <div class="shift-inactive-empty-card">
+        <div class="empty-shift-content">
+          <div class="empty-shift-icon-wrap">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--blue, #496883)" stroke-width="1.8">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
             </svg>
-            <div>
-              <strong>Ca trước ({{ lastClosedShift.caLamViec?.tenCa || lastClosedShift.maGiaoCa }})</strong> vừa bàn giao kết ca lúc
-              {{ formatDateTime(lastClosedShift.thoiGianDongCa) }}.
-              <div class="suggestion-cash">
-                Tiền mặt bàn giao lại trong két: <strong>{{ formatCurrency(lastClosedShift.tienMatCuoiCa || 0) }}</strong>
-                (bởi nhân viên {{ lastClosedShift.nhanVien?.tenNhanVien }}).
-              </div>
-            </div>
           </div>
-          <button type="button" class="btn-use-last-cash" @click="applyLastClosedCash">
-            Dùng số tiền này ({{ formatCurrency(lastClosedShift.tienMatCuoiCa || 0) }})
+          <h3 class="empty-shift-title">Bạn hiện chưa vào ca làm việc</h3>
+          <p class="empty-shift-desc">
+            Vui lòng mở ca làm việc để thực hiện ghi nhận doanh số, quản lý két tiền và bàn giao ca.
+          </p>
+          <button type="button" class="btn-open-shift-action" @click="triggerOpenMoCaPopup">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 11 12 14 22 4" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+            </svg>
+            <span>Mở ca làm việc ngay</span>
           </button>
         </div>
-
-        <!-- Form Mở ca -->
-        <form @submit.prevent="submitMoCa" class="open-shift-form">
-          <div class="form-cols-2">
-            <!-- 1. Chọn ca làm việc -->
-            <div class="form-item">
-              <label class="field-label">Ca làm việc <span class="required-star">*</span></label>
-              <!-- Tự động xác định ca làm việc theo thời điểm hiện tại -->
-              <div v-if="detectedCurrentShift && !showManualShiftSelect" class="auto-detected-shift-card">
-                <div class="detected-shift-main">
-                  <div class="detected-shift-header">
-                    <span class="detected-shift-badge">Ca hiện tại (Tự động)</span>
-                    <span class="detected-shift-status-tag" :class="{ 'status-openable': getShiftStatus(detectedCurrentShift).canOpen }">
-                      {{ getShiftStatus(detectedCurrentShift).label }}
-                    </span>
-                  </div>
-                  <div class="detected-shift-name">{{ detectedCurrentShift.tenCa }}</div>
-                  <div class="detected-shift-time">
-                    {{ formatTime(detectedCurrentShift.gioBatDau) }} - {{ formatTime(detectedCurrentShift.gioKetThuc) }}
-                  </div>
-                </div>
-                <button
-                  v-if="isUserAdmin"
-                  type="button"
-                  class="btn-change-shift-link"
-                  @click="showManualShiftSelect = true"
-                  title="Quản trị viên có thể đổi sang ca khác nếu cần"
-                >
-                  Đổi ca
-                </button>
-              </div>
-
-              <!-- Combobox chọn thủ công khi Admin cần đổi ca hoặc chưa nhận diện được ca -->
-              <div v-else class="select-wrapper-minimal">
-                <select v-model="moCaForm.caLamViecId" class="form-control-minimal" required>
-                  <option value="">-- Chọn ca làm việc hôm nay --</option>
-                  <option
-                    v-for="ca in activeShifts"
-                    :key="ca.id"
-                    :value="ca.id"
-                    :disabled="!isUserAdmin && !getShiftStatus(ca).canOpen"
-                  >
-                    {{ ca.tenCa }} ({{ formatTime(ca.gioBatDau) }} - {{ formatTime(ca.gioKetThuc) }})
-                    {{ !getShiftStatus(ca).canOpen ? (' - [' + getShiftStatus(ca).label + ']') : ' - [Đang trong ca]' }}
-                  </option>
-                </select>
-              </div>
-              <div v-if="selectedShiftStatus && !selectedShiftStatus.canOpen" class="shift-time-warning">
-                ⚠️ {{ selectedShiftStatus.label }}. Bạn chỉ có thể mở ca trước tối đa 30 phút!
-              </div>
-            </div>
-
-            <!-- 2. Chọn nhân viên trực -->
-            <div class="form-item">
-              <label class="field-label">Nhân viên trực quầy <span class="required-star">*</span></label>
-              <!-- Nếu là Nhân viên: Khóa cứng theo tài khoản đang đăng nhập, không được mở cho nhân viên khác -->
-              <div v-if="!isUserAdmin" class="locked-staff-box">
-                <div class="staff-avatar-mini">{{ getInitial(currentUser?.tenNhanVien) }}</div>
-                <div class="staff-text-locked">
-                  <strong class="staff-name-locked">{{ currentUser?.tenNhanVien }}</strong>
-                  <span class="staff-code-locked">Mã: {{ currentUser?.maNhanVien || currentUser?.tenTaiKhoan }} (Tài khoản đang đăng nhập)</span>
-                </div>
-              </div>
-              <!-- Nếu là Quản trị viên: Có quyền chọn nhân viên mở ca thay -->
-              <div v-else class="select-wrapper-minimal">
-                <select v-model="moCaForm.nhanVienId" class="form-control-minimal" required>
-                  <option value="">-- Chọn nhân viên --</option>
-                  <option v-for="nv in activeEmployees" :key="nv.id" :value="nv.id">
-                    {{ nv.maNhanVien }} - {{ nv.tenNhanVien }} ({{ nv.tenTaiKhoan }})
-                  </option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-cols-2">
-            <!-- 3. Tiền mặt đầu ca -->
-            <div class="form-item">
-              <label class="field-label">Số tiền mặt đầu ca trong két <span class="required-star">*</span></label>
-              <div class="input-currency-box">
-                <input
-                  type="text"
-                  inputmode="numeric"
-                  v-model="displayTienMatDauCa"
-                  placeholder="0"
-                  class="form-control-minimal"
-                  required
-                />
-                <span class="currency-tag">VNĐ</span>
-              </div>
-            </div>
-
-            <!-- 4. Ghi chú mở ca -->
-            <div class="form-item">
-              <label class="field-label">Ghi chú khi mở ca</label>
-              <input
-                type="text"
-                v-model="moCaForm.ghiChu"
-                placeholder="Ghi chú mở ca (nếu có)..."
-                class="form-control-minimal"
-              />
-            </div>
-          </div>
-
-          <div class="form-actions-bar">
-            <button
-              type="submit"
-              class="btn-submit-open-shift"
-              :disabled="!canSubmitMoCa"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="16" />
-                <line x1="8" y1="12" x2="16" y2="12" />
-              </svg>
-              <span>{{ submittingMoCa ? 'Đang mở ca...' : 'Bắt đầu ca làm việc ngay' }}</span>
-            </button>
-          </div>
-        </form>
       </div>
     </div>
 
@@ -598,10 +449,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
-import { getCurrentUser, getRoleCode } from '@/utils/auth.js'
+import { getCurrentUser, getRoleCode, setActiveShift, clearActiveShift } from '@/utils/auth.js'
 import { showAlert, showConfirm, showToast } from '@/utils/dialog.js'
 
 const router = useRouter()
@@ -618,24 +469,49 @@ const lastClosedShift = ref(null)
 const recentShifts = ref([])
 
 // Form Mở ca
-const submittingMoCa = ref(false)
-const showManualShiftSelect = ref(false)
+const assignedShiftsToday = ref([])
+const hasScheduleToday = ref(false)
+const loadingSchedule = ref(false)
 
-const detectedCurrentShift = computed(() => {
-  if (!activeShifts.value || activeShifts.value.length === 0) return null
-  const openable = activeShifts.value.find(ca => getShiftStatus(ca).canOpen)
-  return openable || activeShifts.value[0]
+const currentTimeStr = ref('')
+const currentDateStr = ref('')
+let clockTimer = null
+
+function updateClock() {
+  const now = new Date()
+  const hh = String(now.getHours()).padStart(2, '0')
+  const mm = String(now.getMinutes()).padStart(2, '0')
+  const ss = String(now.getSeconds()).padStart(2, '0')
+  currentTimeStr.value = `${hh}:${mm}:${ss}`
+
+  const dd = String(now.getDate()).padStart(2, '0')
+  const MM = String(now.getMonth() + 1).padStart(2, '0')
+  const yyyy = now.getFullYear()
+  currentDateStr.value = `${dd}/${MM}/${yyyy}`
+}
+
+const displayEmployeeName = computed(() => {
+  if (isUserAdmin.value && moCaForm.nhanVienId) {
+    const nv = activeEmployees.value.find(e => e.id === Number(moCaForm.nhanVienId))
+    if (nv) return nv.tenNhanVien
+  }
+  return currentUser?.tenNhanVien || 'Nhân viên'
 })
 
-watch(detectedCurrentShift, (newShift) => {
-  if (newShift && !moCaForm.caLamViecId) {
-    moCaForm.caLamViecId = newShift.id
+const displayEmployeeCode = computed(() => {
+  if (isUserAdmin.value && moCaForm.nhanVienId) {
+    const nv = activeEmployees.value.find(e => e.id === Number(moCaForm.nhanVienId))
+    if (nv) return nv.maNhanVien || nv.tenTaiKhoan
   }
-}, { immediate: true })
+  return currentUser?.maNhanVien || currentUser?.tenTaiKhoan || 'NV'
+})
+
+const submittingMoCa = ref(false)
 const moCaForm = reactive({
   nhanVienId: '',
   caLamViecId: '',
   tienMatDauCa: 0,
+  tienChuyenKhoan: 0,
   ghiChu: ''
 })
 
@@ -662,6 +538,21 @@ const displayTienMatDauCa = computed({
     }
     const clean = String(val).replace(/\D/g, '')
     moCaForm.tienMatDauCa = clean !== '' ? parseInt(clean, 10) : 0
+  }
+})
+
+const displayTienTaiKhoanDauCa = computed({
+  get() {
+    if (moCaForm.tienChuyenKhoan === null || moCaForm.tienChuyenKhoan === undefined || moCaForm.tienChuyenKhoan === '') return ''
+    return Number(moCaForm.tienChuyenKhoan).toLocaleString('vi-VN')
+  },
+  set(val) {
+    if (!val) {
+      moCaForm.tienChuyenKhoan = 0
+      return
+    }
+    const clean = String(val).replace(/\D/g, '')
+    moCaForm.tienChuyenKhoan = clean !== '' ? parseInt(clean, 10) : 0
   }
 })
 
@@ -776,13 +667,15 @@ function getShiftStatus(ca) {
 
 const selectedShiftStatus = computed(() => {
   if (!moCaForm.caLamViecId) return null
-  const ca = activeShifts.value.find(c => c.id === Number(moCaForm.caLamViecId))
+  const sourceList = isUserAdmin.value ? activeShifts.value : assignedShiftsToday.value
+  const ca = sourceList.find(c => c.id === Number(moCaForm.caLamViecId))
   return ca ? getShiftStatus(ca) : null
 })
 
 const canSubmitMoCa = computed(() => {
   if (submittingMoCa.value) return false
   if (!moCaForm.nhanVienId || !moCaForm.caLamViecId) return false
+  if (!isUserAdmin.value && !hasScheduleToday.value) return false
   if (moCaForm.tienMatDauCa === null || moCaForm.tienMatDauCa === undefined || moCaForm.tienMatDauCa < 0) return false
   if (!isUserAdmin.value && selectedShiftStatus.value && !selectedShiftStatus.value.canOpen) return false
   return true
@@ -844,8 +737,10 @@ async function checkCurrentOpenShift() {
     currentOpenShift.value = res.data || null
 
     if (currentOpenShift.value) {
+      setActiveShift(currentOpenShift.value)
       await loadShiftSummary(currentOpenShift.value.id)
     } else {
+      clearActiveShift()
       await loadLastClosedShift()
       autoSelectShiftAndEmployee()
     }
@@ -888,16 +783,60 @@ async function loadRecentShifts() {
   }
 }
 
-function autoSelectShiftAndEmployee() {
+// Tải lịch làm việc hôm nay của nhân viên
+async function loadTodayShiftsForEmployee(targetEmpId = null) {
+  const empId = targetEmpId || currentUser?.id
+  if (!empId) return
+  loadingSchedule.value = true
+  try {
+    const res = await api.get(`/api/lich-lam-viec/hom-nay/${empId}`)
+    const schedules = res.data || []
+    assignedShiftsToday.value = schedules.map(s => s.caLamViec).filter(Boolean)
+    hasScheduleToday.value = assignedShiftsToday.value.length > 0
+  } catch (e) {
+    assignedShiftsToday.value = []
+    hasScheduleToday.value = false
+  } finally {
+    loadingSchedule.value = false
+  }
+}
+
+async function onAdminEmployeeChange() {
+  if (isUserAdmin.value && moCaForm.nhanVienId) {
+    await loadTodayShiftsForEmployee(moCaForm.nhanVienId)
+    if (assignedShiftsToday.value.length > 0) {
+      moCaForm.caLamViecId = assignedShiftsToday.value[0].id
+    }
+  }
+}
+
+function goToViewSchedule() {
+  showToast('Chuyển sang chế độ xem lịch làm việc...', 'info')
+  router.push('/xep-lich')
+}
+
+async function autoSelectShiftAndEmployee() {
   if (currentUser?.id) {
     moCaForm.nhanVienId = currentUser.id
   }
-  if (activeShifts.value.length > 0) {
+  if (!isUserAdmin.value) {
+    await loadTodayShiftsForEmployee(currentUser?.id)
+    if (assignedShiftsToday.value.length > 0) {
+      const validShift = assignedShiftsToday.value.find(ca => getShiftStatus(ca).canOpen)
+      if (validShift) {
+        moCaForm.caLamViecId = validShift.id
+      } else {
+        moCaForm.caLamViecId = assignedShiftsToday.value[0].id
+      }
+    } else {
+      moCaForm.caLamViecId = ''
+    }
+  } else if (activeShifts.value.length > 0) {
     const validShift = activeShifts.value.find(ca => getShiftStatus(ca).canOpen)
     if (validShift) {
       moCaForm.caLamViecId = validShift.id
     } else {
-      moCaForm.caLamViecId = ''
+      moCaForm.caLamViecId = activeShifts.value[0]?.id || ''
     }
   }
 }
@@ -929,16 +868,24 @@ async function submitMoCa() {
 
   submittingMoCa.value = true
   try {
-    await api.post('/api/lich-su-ca/mo-ca', {
+    const res = await api.post('/api/lich-su-ca/mo-ca', {
       nhanVienId: Number(moCaForm.nhanVienId),
       caLamViecId: Number(moCaForm.caLamViecId),
       tienMatDauCa: Number(moCaForm.tienMatDauCa || 0),
+      tienChuyenKhoan: Number(moCaForm.tienChuyenKhoan || 0),
       ghiChu: moCaForm.ghiChu ? moCaForm.ghiChu.trim() : null
     })
 
     showToast('Mở ca làm việc thành công!', 'success')
-    await checkCurrentOpenShift()
+    const openedShift = res?.data || null
+    if (openedShift) {
+      setActiveShift(openedShift)
+      currentOpenShift.value = openedShift
+    } else {
+      await checkCurrentOpenShift()
+    }
     await loadRecentShifts()
+    window.dispatchEvent(new CustomEvent('shift-opened', { detail: openedShift || currentOpenShift.value }))
 
     showAlert({
       title: 'Mở ca thành công!',
@@ -963,7 +910,7 @@ async function submitMoCa() {
   }
 }
 
-// Xử lý Đóng ca & Bàn giao
+
 async function submitDongCa() {
   if (dongCaForm.tienMatCuoiCa === null || dongCaForm.tienMatCuoiCa === undefined || dongCaForm.tienMatCuoiCa < 0) {
     showToast('Vui lòng nhập số tiền mặt thực tế kiểm đếm', 'warning')
@@ -980,7 +927,7 @@ async function submitDongCa() {
       id: currentOpenShift.value?.id,
       nhanVienId: currentOpenShift.value?.nhanVien?.id,
       caLamViecId: currentOpenShift.value?.caLamViec?.id,
-      nhanVienNhanId: dongCaForm.nhanVienNhanId ? Number(dongCaForm.nhanVienNhanId) : null,
+      nhanVienNhanId: shiftSummary.value?.nhanVienNhanDuKienId || (dongCaForm.nhanVienNhanId ? Number(dongCaForm.nhanVienNhanId) : null),
       tienChiTrongCa: Number(dongCaForm.tienChiTrongCa || 0),
       tienMatCuoiCa: Number(dongCaForm.tienMatCuoiCa),
       chenhLech: calculatedDiff.value,
@@ -996,8 +943,10 @@ async function submitDongCa() {
     dongCaForm.lyDoChenhLech = ''
     dongCaForm.ghiChu = ''
 
+    clearActiveShift()
     await checkCurrentOpenShift()
     await loadRecentShifts()
+    window.dispatchEvent(new CustomEvent('shift-closed', { detail: closedShiftData }))
 
     if (closedShiftData) {
       openReceiptModal(closedShiftData)
@@ -1038,18 +987,100 @@ function calculateReceiptExpected(s) {
   return Math.max(0, start + thu - chi)
 }
 
+function triggerOpenMoCaPopup() {
+  window.dispatchEvent(new CustomEvent('open-mo-ca-popup'))
+}
+
+async function onGlobalShiftOpened() {
+  await checkCurrentOpenShift()
+  await loadRecentShifts()
+}
+
 function printReceipt() {
   window.print()
 }
 
 onMounted(async () => {
+  window.addEventListener('shift-opened', onGlobalShiftOpened)
+  updateClock()
+  clockTimer = setInterval(updateClock, 1000)
   await loadBaseData()
   await checkCurrentOpenShift()
   await loadRecentShifts()
 })
+onUnmounted(() => {
+  window.removeEventListener('shift-opened', onGlobalShiftOpened)
+  if (clockTimer) clearInterval(clockTimer)
+})
 </script>
 
 <style scoped>
+.shift-inactive-empty-card {
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
+  padding: 3rem 2rem;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+}
+
+.empty-shift-content {
+  max-width: 440px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.empty-shift-icon-wrap {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: #f0f6fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+
+.empty-shift-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.empty-shift-desc {
+  font-size: 0.88rem;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.btn-open-shift-action {
+  margin-top: 10px;
+  padding: 10px 24px;
+  background: var(--blue, #496883);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(73, 104, 131, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btn-open-shift-action:hover {
+  background: #3b576e;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(73, 104, 131, 0.35);
+}
+
 .giao-ca-page {
   padding: 1.25rem 2rem 3rem;
   background-color: #f7f5ef;
@@ -1063,10 +1094,10 @@ onMounted(async () => {
 
 .content-card {
   background-color: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #ece6dc;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
-  padding: 1.35rem 1.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(65, 60, 50, 0.025);
+  padding: 1.4rem 1.6rem;
   box-sizing: border-box;
 }
 
@@ -1085,10 +1116,10 @@ onMounted(async () => {
 }
 
 .title-icon-box {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background-color: #f1ede7;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background-color: #eaf2f6;
   color: var(--blue, #496883);
   display: flex;
   align-items: center;
@@ -1264,7 +1295,7 @@ onMounted(async () => {
 }
 
 .btn-refresh-clean:hover {
-  background-color: #f1ede7;
+  background-color: #eaf2f6;
 }
 
 .metrics-grid {
@@ -1326,7 +1357,7 @@ onMounted(async () => {
   color: var(--blue, #496883);
   margin-bottom: 1.25rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid #f1ede7;
+  border-bottom: 1px solid var(--line, #e9e5db);
 }
 
 .card-section-title h2 {
@@ -1384,7 +1415,7 @@ onMounted(async () => {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #8c7355, #634b35);
+  background: linear-gradient(135deg, var(--blue, #496883), #3b576e);
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -1444,7 +1475,7 @@ onMounted(async () => {
 
 .form-control-minimal:focus {
   border-color: var(--blue, #496883);
-  box-shadow: 0 0 0 3px rgba(140, 115, 85, 0.12);
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.15);
 }
 
 .select-wrapper-minimal {
@@ -1600,116 +1631,235 @@ onMounted(async () => {
   box-shadow: none;
 }
 
-/* KHỐI CHƯA MỞ CA */
+/* KHỐI CHƯA MỞ CA - CARD CHUẨN THEO ẢNH */
 .shift-inactive-container {
   display: flex;
   flex-direction: column;
-}
-
-.open-shift-card {
-  border-top: 5px solid var(--blue, #496883);
-}
-
-.open-shift-header {
-  margin-bottom: 1.25rem;
-}
-
-.inactive-badge {
-  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
-  border-radius: 20px;
-  background-color: #eceff1;
-  color: #546e7a;
-  font-size: 0.78rem;
-  font-weight: 700;
+  padding: 1.5rem 0 2.5rem;
+}
+
+.open-shift-modal-card {
+  width: 100%;
+  max-width: 480px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #dfd8cc;
+}
+
+.open-shift-modal-header {
+  background-color: var(--blue, #496883);
+  padding: 18px 24px 16px;
+  text-align: center;
+}
+
+.open-modal-title {
+  margin: 0;
+  font-size: 1.18rem;
+  font-weight: 800;
+  color: #ffffff;
   letter-spacing: 0.5px;
-  margin-bottom: 0.75rem;
 }
 
-.idle-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: #78909c;
+.open-modal-subtitle {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: #eaf2f6;
+  opacity: 0.95;
 }
 
-.open-card-title {
+.open-shift-modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background-color: #ffffff;
+}
+
+.open-modal-staff-info {
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.open-modal-staff-name {
+  margin: 0;
   font-size: 1.25rem;
   font-weight: 700;
-  color: #2c3e50;
-  margin: 0;
+  color: #1e293b;
 }
 
-.last-shift-suggestion {
-  background-color: #faf5ee;
-  border: 1px solid #f0e6d6;
-  border-radius: 12px;
-  padding: 1rem 1.25rem;
-  margin-bottom: 1.25rem;
+.open-modal-staff-sub {
+  margin-top: 4px;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.form-item-admin-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background-color: #f8fafc;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px dashed #cbd5e1;
+}
+
+.shift-status-container-box {
+  border: 1px solid #dfd8cc;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background-color: #fcfbf9;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shift-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.empty-shift-notice {
+  font-size: 0.88rem;
+  color: #94a3b8;
+  font-weight: 500;
+  padding: 4px 0;
+}
+
+.shift-select-custom {
+  background: transparent;
+  border: none;
+  font-weight: 600;
+  padding: 0;
+  height: auto;
+  color: #1e293b;
+}
+
+.shift-time-alert {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background-color: #fff8eb;
+  border: 1px solid #fed7aa;
+  color: #c2410c;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.modal-form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal-item-label {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.modal-input-field {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #dfd8cc;
+  background-color: #ffffff;
+  color: #1e293b;
+  font-size: 0.88rem;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s;
+}
+
+.modal-input-field:focus {
+  border-color: var(--blue, #496883);
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, 0.15);
+}
+
+.last-shift-summary-line {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.suggestion-left {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  color: var(--blue, #496883);
-  font-size: 0.88rem;
-}
-
-.suggestion-cash {
-  margin-top: 3px;
-  font-size: 0.84rem;
-}
-
-.btn-use-last-cash {
-  padding: 7px 14px;
-  border-radius: 8px;
-  border: 1px solid #8c7355;
-  background-color: #ffffff;
-  color: var(--blue, #496883);
   font-size: 0.82rem;
-  font-weight: 700;
+  color: #64748b;
+  margin-top: -4px;
+}
+
+.btn-quick-apply-cash {
+  background: none;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  color: var(--blue, #496883);
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.btn-use-last-cash:hover {
+.btn-quick-apply-cash:hover {
+  background-color: #f1f5f9;
+  border-color: var(--blue, #496883);
+}
+
+.open-modal-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.btn-view-mode {
+  flex: 1;
+  height: 42px;
+  border: 1px solid #d1c8bd;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-view-mode:hover {
+  background-color: #f8fafc;
+  border-color: var(--blue, #496883);
+  color: var(--blue, #496883);
+}
+
+.btn-confirm-enter-shift {
+  flex: 1;
+  height: 42px;
+  border: 1px solid var(--blue, #496883);
+  border-radius: 8px;
   background-color: var(--blue, #496883);
   color: #ffffff;
-}
-
-.btn-submit-open-shift {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 11px 26px;
-  border-radius: 8px;
-  background-color: #8c7355;
-  color: #ffffff;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   font-weight: 700;
-  border: 1px solid #7d6549;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 14px rgba(140, 115, 85, 0.25);
-  font-family: inherit;
+  box-shadow: 0 2px 6px rgba(73, 104, 131, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.btn-submit-open-shift:hover:not(:disabled) {
-  background-color: #755f45;
-  border-color: #68533b;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(140, 115, 85, 0.32);
+.btn-confirm-enter-shift:hover:not(:disabled) {
+  background-color: #3b576e;
+  border-color: #3b576e;
 }
 
-.btn-submit-open-shift:disabled {
+.btn-confirm-enter-shift:disabled {
   opacity: 0.55;
   cursor: not-allowed;
   box-shadow: none;
@@ -1841,7 +1991,7 @@ onMounted(async () => {
 
 .modal-dialog-clean {
   background-color: #ffffff;
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
@@ -2061,69 +2211,53 @@ onMounted(async () => {
   }
 }
 
-/* Auto Detected Shift Card */
-.auto-detected-shift-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #f8fafc;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 10px 14px;
-  transition: all 0.2s ease;
-}
-.auto-detected-shift-card:hover {
-  border-color: #94a3b8;
-  background: #ffffff;
-}
-.detected-shift-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-.detected-shift-badge {
+/* Hộp nhận bàn giao tự động */
+.auto-badge-pill {
   font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #1e40af;
-  background: #dbeafe;
-  padding: 2px 7px;
-  border-radius: 4px;
-}
-.detected-shift-status-tag {
-  font-size: 0.75rem;
   font-weight: 600;
-  color: #b45309;
-}
-.detected-shift-status-tag.status-openable {
-  color: #15803d;
-}
-.detected-shift-name {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #0f172a;
-}
-.detected-shift-time {
-  font-size: 0.82rem;
-  color: #64748b;
-  font-weight: 500;
-}
-.btn-change-shift-link {
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  padding: 5px 12px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #475569;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-change-shift-link:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-left: 6px;
 }
 
+.auto-handover-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 14px;
+  min-height: 44px;
+}
+
+.auto-handover-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #e2e8f0;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.auto-handover-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.auto-handover-name {
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+
+.auto-handover-sub {
+  font-size: 0.78rem;
+  color: #64748b;
+}
 </style>

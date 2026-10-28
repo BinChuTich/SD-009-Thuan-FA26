@@ -145,7 +145,26 @@ const emit = defineEmits([
       </select>
     </div>
 
-    <!-- 5. Kích cỡ -->
+    <!-- 5. Màu sắc (Combobox tự động cập nhật) -->
+    <div class="filter-field">
+      <label class="field-label">Màu Sắc</label>
+      <select
+        :value="selectedColor"
+        @change="emit('update:selectedColor', $event.target.value)"
+        class="form-control"
+      >
+        <option value="">-- Tất cả màu sắc --</option>
+        <option
+          v-for="cl in colors"
+          :key="cl.id"
+          :value="cl.id"
+        >
+          {{ cl.tenMauSac }}
+        </option>
+      </select>
+    </div>
+
+    <!-- 6. Kích cỡ (Size) -->
     <div class="filter-field">
       <label class="field-label">Kích Cỡ (Size)</label>
       <div class="filter-chips-grid">
@@ -164,29 +183,6 @@ const emit = defineEmits([
           @click="emit('update:selectedSize', sz.id)"
         >
           {{ sz.tenKichCo }}
-        </button>
-      </div>
-    </div>
-
-    <!-- 6. Màu sắc -->
-    <div class="filter-field">
-      <label class="field-label">Màu Sắc</label>
-      <div class="filter-chips-grid">
-        <button
-          class="chip-btn"
-          :class="{ active: !selectedColor }"
-          @click="emit('update:selectedColor', '')"
-        >
-          Tất cả
-        </button>
-        <button
-          v-for="cl in colors"
-          :key="cl.id"
-          class="chip-btn"
-          :class="{ active: selectedColor == cl.id }"
-          @click="emit('update:selectedColor', cl.id)"
-        >
-          {{ cl.tenMauSac }}
         </button>
       </div>
     </div>
@@ -374,4 +370,3 @@ const emit = defineEmits([
   }
 }
 </style>
-

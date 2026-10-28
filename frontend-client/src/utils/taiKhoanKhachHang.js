@@ -10,6 +10,9 @@ const getStoredUser = () => {
     // Tự động dọn dẹp tài khoản mẫu cũ nếu người dùng còn lưu trong trình duyệt
     if (user && (user.name === 'Dương Ngọc Chiến' || user.phone === '0988776655' || (user.email && user.email.includes('chien')))) {
       localStorage.removeItem(USER_STORAGE_KEY)
+  localStorage.removeItem('client_user')
+  localStorage.removeItem('fftshirt_last_google_account')
+  localStorage.removeItem('fftshirt_device_google_accounts')
       return null
     }
     return user
@@ -32,4 +35,7 @@ export const loginClient = (userData) => {
 export const logoutClient = () => {
   currentClientUser.value = null
   localStorage.removeItem(USER_STORAGE_KEY)
+  localStorage.removeItem('client_user')
+  localStorage.removeItem('fftshirt_last_google_account')
+  localStorage.removeItem('fftshirt_device_google_accounts')
 }

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
 import {
@@ -21,6 +21,7 @@ import { currentClientUser, isClientLoggedIn, loginClient } from '@/utils/taiKho
 import { notifyOrderSuccess, fetchNotifications } from '@/utils/thongBao.js'
 
 const router = useRouter()
+const route = useRoute()
 
 // ==========================================
 // 1. QUẢN LÝ ĐĂNG NHẬP / MODAL TÀI KHOẢN
@@ -34,7 +35,7 @@ const openLogin = () => {
 }
 
 const openGoogleLogin = () => {
-  authInitialView.value = 'google'
+  authInitialView.value = 'login'
   showLoginModal.value = true
 }
 
@@ -130,6 +131,37 @@ const paymentMethod = ref('COD') // 'COD' | 'VNPAY'
 // ==========================================
 // 4. QUẢN LÝ SẢN PHẨM TRONG GIỎ HÀNG
 // ==========================================
+const currentStep = ref('cart') // 'cart' | 'checkout'
+
+const goToCheckoutStep = () => {
+  if (cartItems.value.length === 0) {
+    showAppToast('Giỏ hàng của bạn đang trống!', 'warning')
+    return
+  }
+  if (selectedItemIds.value.length === 0) {
+    showAppToast('Vui lòng chọn ít nhất 1 sản phẩm để tiến hành thanh toán!', 'warning')
+    return
+  }
+  currentStep.value = 'checkout'
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const backToCartStep = () => {
+  currentStep.value = 'cart'
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const resolveProductImg = (item) => {
+  const raw = item?.image || item?.anh || item?.hinhAnh
+  if (!raw) return 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=200&q=80'
+  if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) return raw
+  return `http://localhost:8080${raw.startsWith('/') ? '' : '/'}${raw}`
+}
+
+const onImgError = (e) => {
+  e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=200&q=80'
+}
+
 const selectedItemIds = ref(cartItems.value.map(i => i.variantId))
 
 watch(cartItems, (newItems) => {
@@ -612,7 +644,14 @@ const handlePlaceOrder = async () => {
       }
     }
 
-
+    // Gửi email xác nhận đặt hàng kèm link theo dõi đơn hàng
+    try {
+      if (customerEmail.value && customerEmail.value.trim().includes('@')) {
+        api.post(`/api/hoa-don/code/${savedOrder.maHoaDon}/send-email`, {
+          email: customerEmail.value.trim()
+        }).catch(e => console.warn('Gửi email theo dõi đơn hàng:', e))
+      }
+    } catch (e) {}
 
     // Kích hoạt thông báo đặt hàng thành công riêng cho tài khoản
     try {
@@ -712,6 +751,9 @@ const syncCartStock = async () => {
 }
 
 onMounted(async () => {
+  if (route.query.step === 'checkout') {
+    currentStep.value = 'checkout'
+  }
   syncCartStock()
   loadRecommendedProducts()
   fetchPublicVouchers()
@@ -781,7 +823,13 @@ const formatDate = (dateStr) => {
             </div>
           </div>
 
-
+          <div class="email-sent-success-box" v-if="customerEmail">
+            <span class="ess-icon">✉️</span>
+            <div class="ess-text">
+              Hệ thống đã gửi email xác nhận đặt hàng thành công kèm đường link theo dõi đơn hàng đến:
+              <strong>{{ customerEmail }}</strong>. Bạn có thể kiểm tra hòm thư bất kỳ lúc nào!
+            </div>
+          </div>
         </div>
 
         <div class="success-actions-row">
@@ -797,7 +845,191 @@ const formatDate = (dateStr) => {
 
         <div class="container-client page-body-container">
       <!-- BỐ CỤC 2 CỘT CHUẨN COOLMATE (LUÔN HIỂN THỊ ĐẦY ĐỦ FORM & GIỎ HÀNG) -->
-      <div class="checkout-split-grid">
+      <!-- TRƯỜNG HỢP 1: GIỎ HÀNG TRỐNG -->
+      <div v-if="cartItems.length === 0" class="empty-cart-card">
+        <div class="empty-icon">🛒</div>
+        <h3 class="empty-title">Giỏ hàng của bạn đang trống</h3>
+        <p class="empty-sub">Hãy khám phá các mẫu áo phông phong cách mới nhất để bổ sung vào giỏ hàng nhé!</p>
+        <router-link to="/cua-hang" class="btn-goto-shop">Khám phá cửa hàng ngay</router-link>
+      </div>
+
+      <!-- TRƯỜNG HỢP 2: BƯỚC 1 - GIAO DIỆN GIỎ HÀNG (MATCH ẢNH MẪU) -->
+      <div v-else-if="currentStep === 'cart'" class="cart-step-wrapper">
+        <!-- Tiêu đề lãng mạn Giỏ Hàng -->
+        <div class="cart-step-hero">
+          <h1 class="cart-fancy-title">Giỏ Hàng</h1>
+          <p class="cart-fancy-sub">Kiểm tra sản phẩm, số lượng trước khi tiến hành đặt hàng</p>
+        </div>
+
+        <!-- Bố cục 2 cột: Bảng sản phẩm & Tóm tắt -->
+        <div class="cart-step-layout">
+          <!-- BẢNG SẢN PHẨM BÊN TRÁI -->
+          <div class="cart-step-table-card">
+            <!-- Header bảng -->
+            <div class="table-header-row">
+              <div class="col-head col-prod">
+                <label class="custom-checkbox-label">
+                  <input
+                    type="checkbox"
+                    :checked="isAllSelected"
+                    @change="toggleSelectAll"
+                  />
+                  <span class="custom-check-box"></span>
+                </label>
+                <span class="head-text">SẢN PHẨM</span>
+              </div>
+              <div class="col-head col-price">ĐƠN GIÁ</div>
+              <div class="col-head col-discount">GIẢM GIÁ</div>
+              <div class="col-head col-qty">SỐ LƯỢNG</div>
+              <div class="col-head col-total">TỔNG TIỀN</div>
+            </div>
+
+            <!-- Danh sách từng sản phẩm -->
+            <div class="table-items-body">
+              <div
+                v-for="item in cartItems"
+                :key="item.variantId"
+                class="cart-item-table-row"
+              >
+                <!-- Checkbox + Ảnh + Tên + Size + Tồn kho -->
+                <div class="col-cell col-prod">
+                  <label class="custom-checkbox-label">
+                    <input
+                      type="checkbox"
+                      :value="item.variantId"
+                      v-model="selectedItemIds"
+                    />
+                    <span class="custom-check-box"></span>
+                  </label>
+
+                  <img
+                    :src="resolveProductImg(item)"
+                    :alt="item.productName"
+                    class="prod-table-pic"
+                    @error="onImgError"
+                  />
+
+                  <div class="prod-table-details">
+                    <h4 class="prod-table-name">
+                      {{ item.productName }} <span v-if="item.color">({{ item.color }})</span>
+                    </h4>
+                    <div class="prod-table-badges" v-if="item.size">
+                      <span class="badge-size-tag">Size: {{ item.size }}</span>
+                    </div>
+                    <span class="prod-table-stock">Còn lại: {{ item.maxStock || 100 }}</span>
+                  </div>
+                </div>
+
+                <!-- Đơn giá: Giá hiện tại + Giá gốc gạch ngang -->
+                <div class="col-cell col-price">
+                  <div class="price-stack">
+                    <span class="price-sale">{{ formatCurrency(item.discountPrice > 0 ? item.discountPrice : item.price) }}</span>
+                    <span v-if="item.price > item.discountPrice && item.discountPrice > 0" class="price-origin">
+                      {{ formatCurrency(item.price) }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Giảm giá: Badge xanh % -->
+                <div class="col-cell col-discount">
+                  <span
+                    v-if="item.price > item.discountPrice && item.discountPrice > 0"
+                    class="discount-percent-badge"
+                  >
+                    🏷️ {{ Math.round((item.price - item.discountPrice) / item.price * 100) }}%
+                  </span>
+                  <span v-else class="text-dash">—</span>
+                </div>
+
+                <!-- Số lượng: Nút - và + -->
+                <div class="col-cell col-qty">
+                  <div class="qty-pill-box">
+                    <button
+                      type="button"
+                      class="qty-pill-btn"
+                      :disabled="item.quantity <= 1"
+                      @click="handleQtyChange(item.variantId, -1, item.quantity, item.maxStock)"
+                    >−</button>
+                    <span class="qty-pill-val">{{ item.quantity }}</span>
+                    <button
+                      type="button"
+                      class="qty-pill-btn"
+                      :disabled="item.maxStock != null && item.quantity >= item.maxStock"
+                      @click="handleQtyChange(item.variantId, 1, item.quantity, item.maxStock)"
+                    >+</button>
+                  </div>
+                </div>
+
+                <!-- Tổng tiền + Nút xóa thùng rác -->
+                <div class="col-cell col-total">
+                  <span class="item-line-total">
+                    {{ formatCurrency((item.discountPrice > 0 ? item.discountPrice : item.price) * item.quantity) }}
+                  </span>
+                  <button
+                    type="button"
+                    class="btn-trash-row"
+                    title="Xóa sản phẩm"
+                    @click="handleRemove(item.variantId, item.productName)"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer: Link chọn thêm sản phẩm khác -->
+            <div class="table-footer-row">
+              <router-link to="/cua-hang" class="link-add-more">
+                ← Chọn thêm sản phẩm khác
+              </router-link>
+            </div>
+          </div>
+
+          <!-- CARD TÓM TẮT ĐƠN HÀNG BÊN PHẢI -->
+          <div class="cart-step-summary-card">
+            <h3 class="summary-card-title">TÓM TẮT ĐƠN HÀNG</h3>
+            <div class="summary-card-body">
+              <div class="sum-row-item">
+                <span class="sum-label">Tổng sản phẩm chọn:</span>
+                <strong class="sum-val">{{ activeCheckoutItems.reduce((acc, it) => acc + it.quantity, 0) }}</strong>
+              </div>
+              <div class="sum-row-item">
+                <span class="sum-label">Tạm tính:</span>
+                <span class="sum-val font-semibold">{{ formatCurrency(selectedSubtotal) }}</span>
+              </div>
+              <div class="sum-card-sep"></div>
+              <div class="sum-row-item sum-row-total">
+                <span class="sum-total-label">Thành tiền</span>
+                <strong class="sum-total-value">{{ formatCurrency(selectedSubtotal) }}</strong>
+              </div>
+              <button
+                type="button"
+                class="btn-action-proceed"
+                :disabled="selectedItemIds.length === 0"
+                @click="goToCheckoutStep"
+              >
+                TIẾN HÀNH THANH TOÁN
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRƯỜNG HỢP 3: BƯỚC 2 - TIẾN HÀNH THANH TOÁN (GIAO DIỆN HIỆN TẠI) -->
+      <div v-else class="checkout-step-container">
+        <!-- Thanh điều hướng quay lại Giỏ hàng -->
+        <div class="checkout-back-bar" v-if="false">
+          <button type="button" class="btn-step-back-cart" @click="backToCartStep">
+            ← Quay lại giỏ hàng (Chỉnh sửa số lượng &amp; sản phẩm)
+          </button>
+          <div class="checkout-flow-breadcrumbs">
+            <span class="flow-step clickable" @click="backToCartStep">1. Giỏ hàng</span>
+            <span class="flow-sep">›</span>
+            <span class="flow-step current">2. Tiến hành thanh toán</span>
+          </div>
+        </div>
+
+        <div class="checkout-split-grid">
         <!-- ============================================== -->
         <!-- CỘT TRÁI: THÔNG TIN KHÁCH HÀNG & GIAO HÀNG & PHƯƠNG THỨC -->
         <!-- ============================================== -->
@@ -811,8 +1043,8 @@ const formatDate = (dateStr) => {
             <div v-else class="guest-auth-actions">
               <span class="auth-ask">Đã có tài khoản?</span>
               <button type="button" class="btn-auth-link" @click="openLogin">Đăng nhập</button>
-              <span class="auth-sep-pipe">|</span>
-              <button type="button" class="btn-google-cart-quick" @click="openGoogleLogin">
+              <!-- hidden google button -->
+              <button v-if="false" type="button" class="btn-google-cart-quick" @click="openGoogleLogin">
                 <svg viewBox="0 0 24 24" width="18" height="18">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -917,9 +1149,38 @@ const formatDate = (dateStr) => {
                 <span v-if="errors.selectedWard" class="field-error-text">{{ errors.selectedWard }}</span>
               </div>
             </div>
+
+            <!-- Giờ giao hàng của đơn vị vận chuyển -->
+            <div class="delivery-schedule-notice mt-2">
+              <span class="ds-icon">🕒</span>
+              <span>Đơn hàng được giao trong giờ hành chính (thứ 2 đến thứ 7). <a href="javascript:void(0)" class="link-detail-sub" @click="showAppAlert('Đơn vị vận chuyển GHN Express giao hàng từ 8h00 - 18h00 từ thứ 2 đến thứ 7 hàng tuần.', 'Thời gian giao hàng', 'info')">Xem chi tiết</a></span>
+            </div>
           </div>
 
-
+          <!-- 3. Đơn vị vận chuyển (GHN Express thiết kế siêu gọn nhẹ) -->
+          <div class="section-card-panel shipping-panel-slim mt-3" v-if="false">
+            <h3 class="panel-section-title shipping-title-slim">Hình thức vận chuyển</h3>
+            <div class="shipping-carrier-compact">
+              <div class="scc-left">
+                <input type="radio" checked readonly class="scc-radio" />
+                <img src="/img/ghn-brand-logo.png" alt="GHN Express" class="scc-logo" />
+                <span class="scc-title">Giao Hàng Nhanh (GHN)</span>
+              </div>
+              <div class="scc-right">
+                <span class="scc-price">
+                  <template v-if="!hasEnteredAddress">
+                    <span class="scc-price-pending">Chưa có địa chỉ</span>
+                  </template>
+                  <template v-else-if="shippingFee === 0">
+                    MIỄN PHÍ
+                  </template>
+                  <template v-else>
+                    {{ formatCurrency(shippingFee) }}
+                  </template>
+                </span>
+              </div>
+            </div>
+          </div>
 
           <!-- 4. Phương thức thanh toán (COD & VNPAY) - KHÔNG CÓ MOMO & SHOPEEPAY -->
           <div class="section-card-panel mt-4">
@@ -936,9 +1197,9 @@ const formatDate = (dateStr) => {
                 </div>
                 <div class="choice-info-wrap">
                   <strong class="choice-title">Thanh toán khi nhận hàng (COD)</strong>
-                  <span class="choice-desc">Quý khách thanh toán tiền mặt trực tiếp cho nhân viên giao nhận khi nhận hàng.</span>
+                  <span class="choice-desc">Quý khách thanh toán tiền mặt trực tiếp cho nhân viên giao nhận khi nhận hàng.</span></div></label><div style="display:none"><div>
                 </div>
-              </label>
+              </div>
 
               <!-- Lựa chọn 2: VNPAY -->
               <label class="payment-choice-card" :class="{ active: paymentMethod === 'VNPAY' }">
@@ -950,9 +1211,9 @@ const formatDate = (dateStr) => {
                 </div>
                 <div class="choice-info-wrap">
                   <strong class="choice-title">Cổng thanh toán trực tuyến VNPAY</strong>
-                  <span class="choice-desc">Quét mã VNPAY-QR qua ứng dụng Ngân hàng hoặc thẻ ATM / Internet Banking / Visa.</span>
+                  <span class="choice-desc">Quét mã VNPAY-QR qua ứng dụng Ngân hàng hoặc thẻ ATM / Internet Banking / Visa.</span></div></label><div style="display:none"><div>
                 </div>
-              </label>
+              </div>
             </div>
           </div>
         </div>
@@ -964,27 +1225,27 @@ const formatDate = (dateStr) => {
           <!-- 1. Danh sách sản phẩm trong giỏ -->
           <div class="summary-section-box">
             <div class="cart-items-header-bar">
-              <label class="select-all-label">
+              <span class="checkout-items-title">Sản phẩm thanh toán ({{ activeCheckoutItems.length }})</span><div style="display:none">
                 <input
                   type="checkbox"
                   :checked="isAllSelected"
                   @change="toggleSelectAll"
                 />
-                <span>Tất cả sản phẩm ({{ cartItems.length }})</span>
-              </label>
-              <button type="button" class="btn-clear-all" @click="handleClearCart" title="Xóa toàn bộ giỏ hàng">
-                🗑️ Xóa tất cả
+
+              </div>
+              <button type="button" class="btn-edit-cart-link" @click="backToCartStep" title="Quay lại giỏ hàng để chọn lại hoặc thay đổi">
+                ✏️ Thay đổi sản phẩm
               </button>
             </div>
 
-            <div v-if="cartItems.length > 0" class="cart-items-list-scroll">
+            <div v-if="activeCheckoutItems.length > 0" class="cart-items-list-scroll">
               <div
-                v-for="item in cartItems"
+                v-for="item in activeCheckoutItems"
                 :key="item.variantId"
                 class="cart-item-row"
               >
                 <!-- Checkbox chọn item -->
-                <div class="item-checkbox">
+                <div class="item-checkbox" style="display:none">
                   <input
                     type="checkbox"
                     :value="item.variantId"
@@ -994,7 +1255,7 @@ const formatDate = (dateStr) => {
 
                 <!-- Ảnh sản phẩm -->
                 <div class="item-thumb-box">
-                  <img :src="item.image || '/images/products/default_tshirt.jpg'" :alt="item.productName" />
+                  <img :src="resolveProductImg(item)" :alt="item.productName" @error="onImgError" />
                 </div>
 
                 <!-- Thông tin & Stepper -->
@@ -1006,7 +1267,7 @@ const formatDate = (dateStr) => {
 
                   <div class="item-qty-price-row">
                     <!-- Nút số lượng -->
-                    <div class="qty-stepper-box">
+                    <span class="checkout-static-qty">Số lượng: <strong>{{ item.quantity }}</strong></span><div class="qty-stepper-box" style="display:none">
                       <button
                         type="button"
                         class="btn-step"
@@ -1038,7 +1299,7 @@ const formatDate = (dateStr) => {
                 <!-- Nút xóa 1 dòng -->
                 <button
                   type="button"
-                  class="btn-del-single"
+                  class="btn-del-single" style="display:none !important;"
                   @click="handleRemove(item.variantId, item.productName)"
                   title="Xóa sản phẩm này"
                 >
@@ -1050,7 +1311,7 @@ const formatDate = (dateStr) => {
             <!-- Khối trạng thái khi giỏ hàng trống (Match style Coolmate) -->
             <div v-else class="cart-empty-inline-box">
               <div class="cei-icon">🛒</div>
-              <h4 class="cei-title">Giỏ hàng của bạn đang trống</h4>
+              <h4 class="cei-title">Chưa có sản phẩm nào để thanh toán</h4>
               <p class="cei-sub">Chưa có sản phẩm nào được chọn để thanh toán.</p>
               <div class="cei-buttons">
                 <router-link to="/cua-hang" class="btn-cei-shop">
@@ -1181,7 +1442,7 @@ const formatDate = (dateStr) => {
                 </span>
                 <span class="ship-cost">
                   <template v-if="!hasEnteredAddress">
-                    —
+                    <span class="text-muted" style="font-size: 13px; font-weight: 500; font-style: italic;">Chưa chọn địa chỉ</span>
                   </template>
                   <template v-else-if="shippingFee === 0">
                     MIỄN PHÍ
@@ -1220,6 +1481,8 @@ const formatDate = (dateStr) => {
       </div>
     </div>
 
+    </div>
+
     <!-- Modal Đăng nhập / Đăng ký nếu khách muốn đăng nhập -->
     <ModalDangNhap
       v-model="showLoginModal"
@@ -1239,10 +1502,526 @@ const formatDate = (dateStr) => {
 }
 
 .container-client {
-  max-width: 1540px !important;
-  width: 95% !important;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 0 1.5rem;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
+
+/* ======================================================== */
+/* BƯỚC 1: GIAO DIỆN GIỎ HÀNG CHUẨN THIẾT KẾ ẢNH MẪU        */
+/* ======================================================== */
+.cart-step-wrapper {
+  margin-top: 10px;
+}
+
+.cart-step-hero {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.cart-fancy-title {
+  font-family: 'Dancing Script', cursive, -apple-system, sans-serif;
+  font-size: 52px;
+  font-weight: 700;
+  color: #3f2e23;
+  margin: 0 0 6px;
+  line-height: 1.15;
+}
+
+.cart-fancy-sub {
+  font-size: 14px;
+  color: #78716c;
+  margin: 0;
+}
+
+.cart-step-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 1080px) {
+  .cart-step-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cart-step-table-card {
+  background: #ffffff;
+  border: 1px solid #e7e2de;
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+}
+
+.table-header-row {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr 0.9fr 1fr 1.1fr;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0ebe6;
+  background: #faf8f5;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #57463a;
+  letter-spacing: 0.5px;
+}
+
+.table-header-row .col-head {
+  display: flex;
+  align-items: center;
+}
+
+.col-prod {
+  gap: 12px;
+}
+
+.col-price {
+  justify-content: flex-start;
+}
+
+.col-discount {
+  justify-content: center;
+}
+
+.col-qty {
+  justify-content: center;
+}
+
+.col-total {
+  justify-content: flex-end;
+}
+
+.custom-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.custom-checkbox-label input {
+  display: none;
+}
+
+.custom-check-box {
+  width: 19px;
+  height: 19px;
+  border: 2px solid #b5a498;
+  border-radius: 4px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.custom-checkbox-label input:checked + .custom-check-box {
+  background: #6d4c41;
+  border-color: #6d4c41;
+}
+
+.custom-checkbox-label input:checked + .custom-check-box::after {
+  content: '✓';
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.table-items-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.cart-item-table-row {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr 0.9fr 1fr 1.1fr;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #f5f1ed;
+  transition: background 0.2s;
+}
+
+.cart-item-table-row:hover {
+  background: #fdfbf9;
+}
+
+.cart-item-table-row:last-child {
+  border-bottom: none;
+}
+
+.col-cell {
+  display: flex;
+  align-items: center;
+}
+
+.col-cell.col-prod {
+  gap: 14px;
+}
+
+.prod-table-pic {
+  width: 76px;
+  height: 76px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #eef2f6;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.prod-table-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.prod-table-name {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #292524;
+  line-height: 1.35;
+}
+
+.prod-table-badges {
+  display: flex;
+  gap: 6px;
+}
+
+.badge-size-tag {
+  display: inline-block;
+  padding: 2px 7px;
+  font-size: 12px;
+  background: #f5f5f4;
+  color: #44403c;
+  border: 1px solid #e7e5e4;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.prod-table-stock {
+  font-size: 12px;
+  color: #a8a29e;
+}
+
+.price-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.price-sale {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #1c1917;
+}
+
+.price-origin {
+  font-size: 12px;
+  color: #a8a29e;
+  text-decoration: line-through;
+}
+
+.discount-percent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: #ecfdf5;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  border-radius: 5px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.text-dash {
+  color: #d6d3d1;
+  font-size: 14px;
+}
+
+.qty-pill-box {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #d6d3d1;
+  border-radius: 6px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.qty-pill-btn {
+  width: 28px;
+  height: 28px;
+  background: #fbfaf9;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: #44403c;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.qty-pill-btn:hover:not(:disabled) {
+  background: #e7e5e4;
+  color: #1c1917;
+}
+
+.qty-pill-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.qty-pill-val {
+  width: 32px;
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1c1917;
+}
+
+.col-cell.col-total {
+  gap: 14px;
+  justify-content: flex-end;
+}
+
+.item-line-total {
+  font-size: 15px;
+  font-weight: 800;
+  color: #8c2b18;
+}
+
+.btn-trash-row {
+  background: none;
+  border: none;
+  color: #a8a29e;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-trash-row:hover {
+  color: #dc2626;
+  transform: scale(1.15);
+}
+
+.table-footer-row {
+  padding: 16px 20px;
+  background: #ffffff;
+  border-top: 1px solid #f5f1ed;
+}
+
+.link-add-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #78716c;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.link-add-more:hover {
+  color: #44403c;
+  text-decoration: underline;
+}
+
+.cart-step-summary-card {
+  background: #ffffff;
+  border: 1px solid #e7e2de;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.02);
+  position: sticky;
+  top: 90px;
+}
+
+.summary-card-title {
+  margin: 0 0 18px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #443428;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #f0ebe6;
+  padding-bottom: 12px;
+}
+
+.summary-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sum-row-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: #57534e;
+}
+
+.sum-val {
+  color: #1c1917;
+}
+
+.sum-card-sep {
+  height: 1px;
+  background: #f0ebe6;
+  margin: 4px 0;
+}
+
+.sum-row-total {
+  font-size: 15px;
+}
+
+.sum-total-label {
+  font-weight: 700;
+  color: #292524;
+}
+
+.sum-total-value {
+  font-size: 21px;
+  font-weight: 800;
+  color: #8c2b18;
+}
+
+.btn-action-proceed {
+  width: 100%;
+  padding: 15px 20px;
+  background: #6d4c41;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(109, 76, 65, 0.25);
+}
+
+.btn-action-proceed:hover:not(:disabled) {
+  background: #54382e;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(109, 76, 65, 0.35);
+}
+
+.btn-action-proceed:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.checkout-back-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 22px;
+  padding: 14px 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.btn-step-back-cart {
+  background: none;
+  border: none;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #6d4c41;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.btn-step-back-cart:hover {
+  color: #3f2e23;
+  text-decoration: underline;
+}
+
+.checkout-flow-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.flow-step {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.flow-step.clickable {
+  color: #6d4c41;
+  cursor: pointer;
+}
+
+.flow-step.clickable:hover {
+  text-decoration: underline;
+}
+
+.flow-step.current {
+  color: #1e293b;
+  font-weight: 800;
+}
+
+.flow-sep {
+  color: #cbd5e1;
+}
+
+@media (max-width: 768px) {
+  .table-header-row {
+    display: none;
+  }
+  .cart-item-table-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 16px;
+  }
+  .col-cell.col-price,
+  .col-cell.col-discount,
+  .col-cell.col-qty,
+  .col-cell.col-total {
+    justify-content: space-between;
+  }
+  .col-cell.col-price::before {
+    content: 'Đơn giá:';
+    font-size: 13px;
+    color: #78716c;
+  }
+  .col-cell.col-discount::before {
+    content: 'Giảm giá:';
+    font-size: 13px;
+    color: #78716c;
+  }
+  .col-cell.col-qty::before {
+    content: 'Số lượng:';
+    font-size: 13px;
+    color: #78716c;
+  }
+  .col-cell.col-total::before {
+    content: 'Tổng tiền:';
+    font-size: 13px;
+    color: #78716c;
+  }
 }
 
 /* 1. Header Banner màu sắc thương hiệu website */
@@ -1340,15 +2119,14 @@ const formatDate = (dateStr) => {
 /* 3. Bố cục 2 cột chính */
 .checkout-split-grid {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
-  gap: 32px;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 28px;
   align-items: start;
 }
 
 @media (max-width: 1024px) {
   .checkout-split-grid {
     grid-template-columns: 1fr;
-    gap: 24px;
   }
 }
 
@@ -1356,7 +2134,7 @@ const formatDate = (dateStr) => {
 .left-delivery-column {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
 .auth-helper-banner {
@@ -1396,41 +2174,40 @@ const formatDate = (dateStr) => {
 .section-card-panel {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 26px 28px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
 }
 
 .panel-section-title {
-  font-size: 18.5px;
+  font-size: 17px;
   font-weight: 800;
   color: #0f172a;
-  margin: 0 0 20px;
-  padding-bottom: 14px;
+  margin: 0 0 18px;
+  padding-bottom: 12px;
   border-bottom: 1px solid #f1f5f9;
 }
 
 .form-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 18px;
+  gap: 16px;
 }
 
 @media (max-width: 640px) {
   .form-grid-2 {
     grid-template-columns: 1fr;
-    gap: 14px;
   }
 }
 
 .form-group-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .form-group-field label {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 700;
   color: #334155;
 }
@@ -1442,15 +2219,14 @@ const formatDate = (dateStr) => {
 .form-input-text,
 .form-input-select {
   width: 100%;
-  padding: 12px 16px;
-  font-size: 14.5px;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
   background-color: #ffffff;
   color: #0f172a;
   transition: all 0.2s;
   box-sizing: border-box;
-  min-height: 46px;
 }
 
 .form-input-text:focus,
@@ -1571,16 +2347,16 @@ const formatDate = (dateStr) => {
 .summary-section-box {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 24px 26px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
 }
 
 .box-mini-title {
-  font-size: 17px;
+  font-size: 15.5px;
   font-weight: 800;
   color: #0f172a;
-  margin: 0 0 16px;
+  margin: 0 0 14px;
 }
 
 /* Danh sách sản phẩm trong giỏ */
@@ -1611,6 +2387,50 @@ const formatDate = (dateStr) => {
   font-weight: 600;
   cursor: pointer;
   transition: color 0.2s;
+}
+
+.checkout-items-title {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.btn-edit-cart-link {
+  background: none;
+  border: none;
+  color: #b88d4c;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.checkout-static-qty {
+  font-size: 13px;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.checkout-static-qty strong {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.btn-edit-cart-link:hover {
+  color: #93652b;
+  background-color: #fefce8;
 }
 
 .btn-clear-all:hover {
@@ -1699,8 +2519,8 @@ const formatDate = (dateStr) => {
 .cart-items-list-scroll {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  max-height: 480px;
+  gap: 14px;
+  max-height: 380px;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -1708,8 +2528,8 @@ const formatDate = (dateStr) => {
 .cart-item-row {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding-bottom: 14px;
+  gap: 12px;
+  padding-bottom: 12px;
   border-bottom: 1px dashed #e2e8f0;
 }
 
@@ -1719,17 +2539,17 @@ const formatDate = (dateStr) => {
 }
 
 .item-checkbox input {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   cursor: pointer;
   accent-color: #d2a764;
 }
 
 .item-thumb-box img {
-  width: 76px;
-  height: 84px;
+  width: 58px;
+  height: 64px;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid #e2e8f0;
 }
 
@@ -1737,11 +2557,11 @@ const formatDate = (dateStr) => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .item-product-name {
-  font-size: 14.5px;
+  font-size: 13.5px;
   font-weight: 700;
   color: #0f172a;
   margin: 0;
@@ -1749,11 +2569,11 @@ const formatDate = (dateStr) => {
 }
 
 .item-variant-pill {
-  font-size: 12px;
-  color: #475569;
+  font-size: 11.5px;
+  color: #64748b;
   background: #f1f5f9;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 2px 7px;
+  border-radius: 4px;
   display: inline-block;
   width: fit-content;
 }
