@@ -23,6 +23,8 @@ public interface ChatService {
 
     CuocHoiThoaiDTO tiepNhanCuocHoiThoai(Long id, Long nhanVienId);
 
+    CuocHoiThoaiDTO tiepNhanCuocHoiThoai(Long id, Long nhanVienId, String tenNhanVien);
+
     CuocHoiThoaiDTO yeuCauHoTro(Long id);
 
     void xoaCuocHoiThoai(Long id);

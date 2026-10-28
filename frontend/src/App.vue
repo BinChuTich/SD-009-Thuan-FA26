@@ -32,6 +32,7 @@ const bellFilter = ref('ALL') // 'ALL', 'DON_HANG', 'CHAT'
 const showBellDropdown = ref(false)
 const bellRef = ref(null)
 let chatNotifyTimer = null
+let isFirstBellFetch = true
 
 function playAdminChatChime() {
   try {
@@ -56,9 +57,10 @@ async function fetchAdminChatNotifications() {
     const res = await api.get('/api/chat/thong-bao-admin')
     if (res.data) {
       const newTotal = res.data.tongSoThongBao ?? ((res.data.soTinChuaDoc || 0) + (res.data.soDonHangMoi || 0))
-      if (newTotal > adminNotificationCount.value && adminNotificationCount.value > 0) {
+      if (!isFirstBellFetch && newTotal > adminNotificationCount.value) {
         playAdminChatChime()
       }
+      isFirstBellFetch = false
       adminNotificationCount.value = newTotal
       adminChatUnreadCount.value = res.data.soTinChuaDoc || 0
       adminOrderNewCount.value = res.data.soDonHangMoi || 0

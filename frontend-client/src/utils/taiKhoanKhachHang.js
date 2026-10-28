@@ -6,13 +6,7 @@ const getStoredUser = () => {
   try {
     const raw = localStorage.getItem(USER_STORAGE_KEY)
     if (!raw) return null
-    const user = JSON.parse(raw)
-    // Tự động dọn dẹp tài khoản mẫu cũ nếu người dùng còn lưu trong trình duyệt
-    if (user && (user.name === 'Dương Ngọc Chiến' || user.phone === '0988776655' || (user.email && user.email.includes('chien')))) {
-      localStorage.removeItem(USER_STORAGE_KEY)
-      return null
-    }
-    return user
+    return JSON.parse(raw)
   } catch (e) {
     return null
   }
@@ -27,9 +21,23 @@ export const isClientLoggedIn = computed(() => {
 export const loginClient = (userData) => {
   currentClientUser.value = userData
   localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData))
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('client-auth-change'))
+  }
 }
 
 export const logoutClient = () => {
   currentClientUser.value = null
   localStorage.removeItem(USER_STORAGE_KEY)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('client-auth-change'))
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('client-auth-change', () => {
+    currentClientUser.value = getStoredUser()
+  })
+  window.loginClient = loginClient
+  window.logoutClient = logoutClient
 }

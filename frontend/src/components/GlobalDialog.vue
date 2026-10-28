@@ -30,7 +30,10 @@
               <line x1="12" y1="8" x2="12.01" y2="8"></line>
             </svg>
           </div>
-          <div class="toast-content">{{ toast.message }}</div>
+          <div class="toast-content">
+            <div v-if="toast.title" class="toast-title">{{ toast.title }}</div>
+            <div :class="toast.title ? 'toast-desc' : 'toast-msg'">{{ toast.message }}</div>
+          </div>
           <button class="toast-close-btn" @click="removeToast(toast.id)" title="Đóng">✕</button>
         </div>
       </transition-group>
@@ -45,7 +48,7 @@
       >
         <div class="confirm-modal-box">
           <div class="confirm-modal-header" :class="{ 'header-danger': dialogState.confirm.type === 'danger' }">
-            <div class="confirm-warning-icon">
+            <div v-if="!dialogState.confirm.hideIcon && dialogState.confirm.showIcon !== false" class="confirm-warning-icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
                 <line x1="12" y1="9" x2="12" y2="13"></line>
@@ -157,7 +160,7 @@ import { dialogState, handleConfirmChoice, handleAlertClose, removeToast } from 
 .toast-item {
   pointer-events: auto;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 12px 18px;
   border-radius: 10px;
@@ -206,10 +209,30 @@ import { dialogState, handleConfirmChoice, handleAlertClose, removeToast } from 
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .toast-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.toast-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #1e293b;
+  margin-bottom: 2px;
+}
+
+.toast-desc {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.toast-msg {
   font-weight: 500;
   color: #2e383d;
 }
@@ -406,4 +429,3 @@ import { dialogState, handleConfirmChoice, handleAlertClose, removeToast } from 
   opacity: 0;
 }
 </style>
-

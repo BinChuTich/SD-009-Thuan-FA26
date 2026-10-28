@@ -144,7 +144,11 @@ const selectAccountAndLogin = async (email, name) => {
       loginClient(userData)
       emit('login-success', userData)
       closeModal()
-      showAppToast(`Xin chào ${displayName}! Đã đăng nhập bằng Google thành công.`, 'success')
+      showAppToast({
+        title: 'Thành công!',
+        message: `Chào mừng ${displayName}! Đăng nhập thành công.`,
+        type: 'success'
+      })
       return
     } else {
       errorMessage.value = res.data?.message || 'Không thể đăng nhập với tài khoản này.'
@@ -259,7 +263,11 @@ const handleLogin = async () => {
       loginClient(userData)
       emit('login-success', userData)
       closeModal()
-      showAppToast(`Xin chào ${displayName}! Đăng nhập thành công.`, 'success')
+      showAppToast({
+        title: 'Thành công!',
+        message: `Chào mừng ${displayName}! Đăng nhập thành công.`,
+        type: 'success'
+      })
     } else {
       errorMessage.value = res.data?.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại tài khoản hoặc mật khẩu!'
     }
