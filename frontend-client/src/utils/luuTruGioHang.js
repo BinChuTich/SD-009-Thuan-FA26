@@ -24,13 +24,23 @@ const loadCart = () => {
     if (!raw) return []
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
-    // Khôi phục và đảm bảo mỗi sản phẩm luôn có số lượng hợp lệ >= 1
-    return parsed.map(item => ({
-      ...item,
-      image: (item.image && !item.image.includes('unsplash.com') && !item.image.includes('default_tshirt')) ? item.image : '',
-      quantity: Math.max(1, Number(item.quantity) || 1),
-      maxStock: item.maxStock != null ? Number(item.maxStock) : 99
-    }))
+    // Khôi phục và đảm bảo mỗi sản phẩm luôn có số lượng và giá hợp lệ
+    return parsed.map(item => {
+      const basePrice = Number(item.price || 0)
+      const discountP = item.discountPrice != null && Number(item.discountPrice) > 0 ? Number(item.discountPrice) : basePrice
+      const hasDiscount = Boolean(item.coGiamGia || (discountP < basePrice))
+      return {
+        ...item,
+        price: basePrice,
+        discountPrice: discountP,
+        coGiamGia: hasDiscount,
+        phanTramGiam: item.phanTramGiam != null ? Number(item.phanTramGiam) : (hasDiscount && basePrice > 0 ? Math.round((basePrice - discountP) / basePrice * 100) : 0),
+        tenDotGiamGia: item.tenDotGiamGia || '',
+        image: (item.image && !item.image.includes('unsplash.com') && !item.image.includes('default_tshirt')) ? item.image : '',
+        quantity: Math.max(1, Number(item.quantity) || 1),
+        maxStock: item.maxStock != null ? Number(item.maxStock) : 99
+      }
+    })
   } catch (e) {
     return []
   }
@@ -65,9 +75,25 @@ export const addToCart = (product, variant, quantity = 1) => {
   const existing = cartItems.value.find(item => item.variantId === variant.id)
   const variantImg = variant.anhDaiDien || variant.hinhAnh || variant.duongDan || variant.image || ''
 
+  const basePrice = Number(variant.giaBan != null ? variant.giaBan : (variant.gia != null ? variant.gia : (product.minGia || product.gia || 0)))
+  const salePrice = (variant.giaSauGiam != null && Number(variant.giaSauGiam) > 0 && Number(variant.giaSauGiam) < basePrice)
+    ? Number(variant.giaSauGiam)
+    : (variant.coGiamGia && variant.phanTramGiam && variant.phanTramGiam > 0
+        ? Math.round(basePrice * (100 - variant.phanTramGiam) / 100)
+        : basePrice)
+
+  const hasDiscount = salePrice < basePrice
+  const discountPercent = (hasDiscount && variant.phanTramGiam) ? variant.phanTramGiam : (hasDiscount && basePrice > 0 ? Math.round((basePrice - salePrice) / basePrice * 100) : 0)
+  const campaignName = hasDiscount ? (variant.tenDotGiamGia || product.tenDotGiamGia || '') : ''
+
   if (existing) {
     existing.quantity += quantity
     existing.maxStock = maxStock
+    existing.price = basePrice
+    existing.discountPrice = salePrice
+    existing.coGiamGia = hasDiscount
+    existing.phanTramGiam = discountPercent
+    existing.tenDotGiamGia = campaignName
     if (variantImg) {
       existing.image = variantImg
     }
@@ -84,8 +110,11 @@ export const addToCart = (product, variant, quantity = 1) => {
       color: variant.tenMauSac || variant.mauSac || 'Tiêu chuẩn',
       size: variant.tenKichCo || variant.kichCo || 'M',
       image: variantImg,
-      price: Number(variant.giaBan || variant.gia || product.gia || 0),
-      discountPrice: Number(variant.giaSauGiam || variant.giaBan || variant.gia || product.gia || 0),
+      price: basePrice,
+      discountPrice: salePrice,
+      coGiamGia: hasDiscount,
+      phanTramGiam: discountPercent,
+      tenDotGiamGia: campaignName,
       quantity: Math.min(quantity, maxStock),
       maxStock: maxStock
     })

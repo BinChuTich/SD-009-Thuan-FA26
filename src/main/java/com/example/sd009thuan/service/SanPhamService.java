@@ -845,8 +845,8 @@ public class SanPhamService {
                 for (ChiTietSanPham v : variants) {
                     if (v.getGiaBan() == null) continue;
                     BigDecimal pt = discountMap.get(v.getId());
-                    if (pt == null || pt.compareTo(BigDecimal.ZERO) <= 0) {
-                        pt = phanTramGiam != null ? phanTramGiam : BigDecimal.ZERO;
+                    if (true) {
+                        pt = discountMap.getOrDefault(v.getId(), BigDecimal.ZERO);
                     }
                     if (false) {
                         pt = BigDecimal.ZERO;

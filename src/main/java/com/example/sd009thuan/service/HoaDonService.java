@@ -25,7 +25,8 @@ import com.example.sd009thuan.repository.PhuongThucThanhToanRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -199,6 +200,12 @@ public class HoaDonService {
         } catch (Exception e) {
             opt = hoaDonRepository.findById(id);
         }
+        if (opt.isPresent()) {
+            HoaDon hd = opt.get();
+            if (isExpiredVnPayOrder(hd)) {
+                cancelSingleVnPayOrder(hd, "Hệ thống tự động hủy đơn do quá hạn thanh toán VNPAY (5 phút)");
+            }
+        }
         opt.ifPresent(this::syncInvoiceTotals);
         return opt;
     }
@@ -210,6 +217,12 @@ public class HoaDonService {
         } catch (Exception e) {
             opt = hoaDonRepository.findByMaHoaDon(maHoaDon);
         }
+        if (opt.isPresent()) {
+            HoaDon hd = opt.get();
+            if (isExpiredVnPayOrder(hd)) {
+                cancelSingleVnPayOrder(hd, "Hệ thống tự động hủy đơn do quá hạn thanh toán VNPAY (5 phút)");
+            }
+        }
         opt.ifPresent(this::syncInvoiceTotals);
         return opt;
     }
@@ -382,11 +395,142 @@ public class HoaDonService {
         return expiredWaitingInvoices;
     }
     @Scheduled(cron = "0 0 0 * * ?", zone = "Asia/Ho_Chi_Minh")
+    /**
+     * Tự động quét và hủy các đơn hàng online thanh toán qua VNPAY nhưng chưa thanh toán sau 5 phút.
+     * Hoàn lại số lượng tồn kho sản phẩm, ghi nhận lịch sử đơn hàng và cập nhật trạng thái là Đã hủy (6).
+     */
+    @Scheduled(fixedDelay = 15000)
+    @Transactional
+    public List<HoaDon> autoCancelExpiredVnPayOrders() {
+        Instant fiveMinutesAgo = Instant.now().minus(5, ChronoUnit.MINUTES);
+        List<HoaDon> allInvoices = hoaDonRepository.findAll();
+        List<HoaDon> expiredOrders = allInvoices.stream()
+                .filter(h -> (Integer.valueOf(2).equals(h.getLoaiDon()) || (h.getLoaiDon() != null && h.getLoaiDon() != 1)))
+                .filter(h -> Integer.valueOf(1).equals(h.getTrangThai()))
+                .filter(h -> h.getTrangThaiThanhToan() == null || Integer.valueOf(0).equals(h.getTrangThaiThanhToan()))
+                .filter(this::isVnPayOrder)
+                .filter(h -> h.getNgayTao() != null && h.getNgayTao().isBefore(fiveMinutesAgo))
+                .toList();
+
+        if (expiredOrders.isEmpty()) {
+            return List.of();
+        }
+
+        for (HoaDon hd : expiredOrders) {
+            cancelSingleVnPayOrder(hd, "Hệ thống tự động hủy đơn do quá hạn thanh toán VNPAY (5 phút)");
+        }
+
+        return expiredOrders;
+    }
+
+    public boolean isVnPayOrder(HoaDon h) {
+        if (h == null) return false;
+        String note = (h.getGhiChu() != null ? h.getGhiChu() : "").toUpperCase();
+        if (note.contains("VNPAY")) {
+            return true;
+        }
+        try {
+            List<HinhThucThanhToan> htttList = hinhThucThanhToanRepository.findByIdHoaDon_Id(h.getId());
+            if (htttList != null) {
+                for (HinhThucThanhToan httt : htttList) {
+                    if (httt.getMaGiaoDich() != null && httt.getMaGiaoDich().toUpperCase().contains("VNPAY")) {
+                        return true;
+                    }
+                    if (httt.getIdPhuongThuc() != null && httt.getIdPhuongThuc().getTenPhuongThuc() != null) {
+                        if (httt.getIdPhuongThuc().getTenPhuongThuc().toUpperCase().contains("VNPAY")) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
+    public boolean isExpiredVnPayOrder(HoaDon h) {
+        if (h == null) return false;
+        if (!Integer.valueOf(1).equals(h.getTrangThai())) {
+            return false;
+        }
+        if (h.getTrangThaiThanhToan() != null && h.getTrangThaiThanhToan() == 1) {
+            return false;
+        }
+        if (!isVnPayOrder(h)) {
+            return false;
+        }
+        if (h.getNgayTao() == null) {
+            return false;
+        }
+        Instant fiveMinutesAgo = Instant.now().minus(5, ChronoUnit.MINUTES);
+        return h.getNgayTao().isBefore(fiveMinutesAgo);
+    }
+
+    @Transactional
+    public void cancelSingleVnPayOrder(HoaDon hd, String cancelReason) {
+        if (hd == null || Integer.valueOf(6).equals(hd.getTrangThai())) {
+            return;
+        }
+        hd.setTrangThai(6); // 6: Đã hủy
+        hd.setNgayCapNhat(Instant.now());
+        hd.setNguoiCapNhat("Hệ thống");
+
+        // Hoàn lại tồn kho
+        try {
+            List<ChiTietHoaDon> details = chiTietHoaDonRepository.findByIdHoaDon_Id(hd.getId());
+            if (details != null && !details.isEmpty()) {
+                for (ChiTietHoaDon cthd : details) {
+                    if (cthd.getIdChiTietSanPham() != null && cthd.getIdChiTietSanPham().getId() != null) {
+                        Long vid = cthd.getIdChiTietSanPham().getId();
+                        int qty = cthd.getSoLuong() != null ? cthd.getSoLuong() : 0;
+                        if (qty > 0) {
+                            Optional<ChiTietSanPham> ctspOpt = chiTietSanPhamRepository.findById(vid);
+                            if (ctspOpt.isPresent()) {
+                                ChiTietSanPham ctsp = ctspOpt.get();
+                                int curStock = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
+                                ctsp.setSoLuong(curStock + qty);
+                                chiTietSanPhamRepository.save(ctsp);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            System.err.println("Lỗi hoàn tồn kho khi hủy đơn VNPAY quá hạn: " + ex.getMessage());
+        }
+
+        String currentNote = hd.getGhiChu() != null ? hd.getGhiChu().trim() : "";
+        if (!currentNote.isEmpty() && !currentNote.contains("Tự động hủy")) {
+            hd.setGhiChu(currentNote + " - " + cancelReason);
+        } else if (currentNote.isEmpty()) {
+            hd.setGhiChu(cancelReason);
+        }
+        hoaDonRepository.save(hd);
+
+        // Ghi nhật ký vào LichSuHoaDon
+        try {
+            LichSuHoaDon log = new LichSuHoaDon();
+            log.setIdHoaDon(hd);
+            log.setTrangThai(6);
+            log.setThoiGian(Instant.now());
+            log.setHanhDong(cancelReason);
+            log.setGhiChu(cancelReason);
+            log.setNguoiThucHien("Hệ thống");
+            log.setVaiTroNguoiThucHien("Hệ thống");
+            lichSuHoaDonRepository.save(log);
+        } catch (Exception ex) {
+            System.err.println("Lỗi ghi log lịch sử hủy đơn VNPAY: " + ex.getMessage());
+        }
+        System.out.println("==> [VNPAY AUTO CANCEL] Đã tự động hủy đơn hàng #" + hd.getMaHoaDon() + " do quá hạn 5 phút chưa thanh toán");
+    }
+
     public void scheduleCancelExpiredWaitingInvoices() {
         cancelExpiredWaitingInvoices();
     }
     @EventListener(ApplicationReadyEvent.class)
-    public void onApplicationReady() {
+    public void onApplicationReady() {
+        try {
+            autoCancelExpiredVnPayOrders();
+        } catch (Exception ignored) {}
         try {
             cancelExpiredWaitingInvoices();
         } catch (Exception e) {

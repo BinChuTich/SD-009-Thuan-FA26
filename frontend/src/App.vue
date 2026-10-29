@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import GlobalDialog from '@/components/GlobalDialog.vue'
 import { showToast, showAlert } from '@/utils/dialog.js'
@@ -19,6 +19,10 @@ const toggleMenu = (menu) => {
 
 const router = useRouter()
 const route = useRoute()
+const isMobileSidebarOpen = ref(false)
+watch(() => route.path, () => {
+  isMobileSidebarOpen.value = false
+})
 const currentUser = ref(getCurrentUser())
 const showUserDropdown = ref(false)
 const userMenuRef = ref(null)
@@ -780,13 +784,14 @@ function printReceipt() {
 </script>
 
 <template>
-  <div v-if="route.path === '/login'">
+  <div v-if="route.path === '/login' || route.path === '/quet-ma-pos'">
     <router-view />
     <GlobalDialog />
   </div>
 
   <div v-else class="app-shell">
-    <aside class="sidebar">
+    <div v-if="isMobileSidebarOpen" class="sidebar-backdrop" @click="isMobileSidebarOpen = false"></div>
+    <aside class="sidebar" :class="{ 'mobile-open': isMobileSidebarOpen }">
       <div class="logo-box">
         <div class="logo-wrapper">
           <!-- 3 vạch tia sáng phát ra phía trên bên trái -->
@@ -1003,6 +1008,9 @@ function printReceipt() {
 
     <main class="main-content">
       <header class="top-header">
+        <button type="button" class="btn-hamburger-mobile" @click="isMobileSidebarOpen = !isMobileSidebarOpen" title="Mở menu">
+          <span>☰</span>
+        </button>
         <div class="header-right">
           <!-- Nút chế độ xem / Trạng thái ca làm việc theo ảnh mẫu (chỉ hiện cho nhân viên, ẩn với quản trị viên) -->
           <div v-if="currentUser && !isUserAdmin" class="header-shift-action">
@@ -2416,6 +2424,58 @@ button, input, select, textarea {
     max-width: 100% !important;
   }
 }
+/* ==================== RESPONSIVE CHO THIẾT BỊ DI ĐỘNG (MOBILE & TABLET) ==================== */
+.btn-hamburger-mobile {
+  display: none;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: #1e293b;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  line-height: 1;
+}
+
+@media (max-width: 992px) {
+  .btn-hamburger-mobile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden;
+  }
+
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 9999;
+    box-shadow: none;
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 9998;
+    backdrop-filter: blur(2px);
+  }
+
+  .top-header {
+    padding: 10px 14px;
+  }
+}
+
 /* BANNER THÔNG BÁO CHẾ ĐỘ XEM */
 .view-mode-alert-banner {
   background: linear-gradient(90deg, #fffbeb, #fef3c7);

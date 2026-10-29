@@ -130,6 +130,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopPaymentPolling()
+  stopVnpayTracking()
 })
 
 watch(isClientLoggedIn, () => {
@@ -419,6 +420,85 @@ const qrOrderCode = ref('')
 const qrAmount = ref(0)
 const qrCodeUrl = ref('')
 const momoPayUrl = ref('')
+
+// Quản lý trạng thái chờ thanh toán VNPAY
+const showVnpayWaitingModal = ref(false)
+const vnpayWaitingOrder = ref(null)
+const vnpayPaymentUrl = ref('')
+const vnpayChecking = ref(false)
+let vnpayPollTimer = null
+let vnpayMessageHandler = null
+
+const stopVnpayTracking = () => {
+  if (vnpayPollTimer) {
+    clearInterval(vnpayPollTimer)
+    vnpayPollTimer = null
+  }
+  if (vnpayMessageHandler) {
+    window.removeEventListener('message', vnpayMessageHandler)
+    vnpayMessageHandler = null
+  }
+}
+
+const openVnpayPopup = (url) => {
+  const targetUrl = url || vnpayPaymentUrl.value
+  if (!targetUrl) return
+  const width = 850
+  const height = 750
+  const left = Math.max(0, (window.screen.width - width) / 2)
+  const top = Math.max(0, (window.screen.height - height) / 2)
+  window.open(
+    targetUrl,
+    'VNPayPaymentPopup',
+    `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`
+  )
+}
+
+const onVnpaySuccess = (orderCode) => {
+  stopVnpayTracking()
+  showVnpayWaitingModal.value = false
+  alert(`Thanh toán VNPAY thành công cho đơn hàng #${orderCode}!`)
+  if (isClientLoggedIn.value && currentClientUser.value?.id) {
+    router.push(`/don-hang?code=${orderCode}`)
+  } else {
+    router.push(`/tra-cuu?code=${orderCode}`)
+  }
+}
+
+const checkVnpayStatus = async (isManual = false) => {
+  const code = vnpayWaitingOrder.value?.maHoaDon
+  if (!code) return
+  if (isManual) vnpayChecking.value = true
+  try {
+    const res = await api.get(`/api/hoa-don/code/${code}`)
+    if (res.data && Number(res.data.trangThaiThanhToan) === 1) {
+      onVnpaySuccess(code)
+      return
+    }
+    if (isManual) {
+      alert('Hệ thống chưa ghi nhận thanh toán. Vui lòng thử lại sau khi hoàn tất chuyển khoản!')
+    }
+  } catch (err) {
+    if (isManual) {
+      alert('Chưa thể kiểm tra trạng thái lúc này. Vui lòng thử lại sau!')
+    }
+  } finally {
+    if (isManual) vnpayChecking.value = false
+  }
+}
+
+const skipVnpayWaitingAndNavigate = () => {
+  const code = vnpayWaitingOrder.value?.maHoaDon
+  stopVnpayTracking()
+  showVnpayWaitingModal.value = false
+  if (code) {
+    if (isClientLoggedIn.value && currentClientUser.value?.id) {
+      router.push(`/don-hang?code=${code}`)
+    } else {
+      router.push(`/tra-cuu?code=${code}`)
+    }
+  }
+}
 let paymentPollTimer = null
 
 const stopPaymentPolling = () => {
@@ -430,11 +510,13 @@ const stopPaymentPolling = () => {
 
 const startPaymentPolling = (maHoaDon) => {
   stopPaymentPolling()
+  stopVnpayTracking()
   paymentPollTimer = setInterval(async () => {
     try {
       const res = await api.get(`/api/payment/check-status/${maHoaDon}`)
       if (res.data && res.data.daThanhToan) {
         stopPaymentPolling()
+  stopVnpayTracking()
         showVietQrModal.value = false
         showMoMoModal.value = false
         orderSuccess.value = true
@@ -445,6 +527,7 @@ const startPaymentPolling = (maHoaDon) => {
 
 const handleConfirmTransferManual = () => {
   stopPaymentPolling()
+  stopVnpayTracking()
   showVietQrModal.value = false
   showMoMoModal.value = false
   orderSuccess.value = true
@@ -535,7 +618,22 @@ const handleConfirmPlaceOrder = async () => {
           'VNPayPaymentPopup',
           `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`
         )
-        sessionStorage.setItem('vnpay_pending_toast', 'true')
+        vnpayPaymentUrl.value = vnpRes.data.paymentUrl
+        vnpayWaitingOrder.value = savedOrder
+        showVnpayWaitingModal.value = true
+        stopVnpayTracking()
+        vnpayMessageHandler = (event) => {
+          if (event.data && (event.data.type === 'VNPAY_PAID_SUCCESS' || event.data.type === 'VNPAY_PAYMENT_RESULT')) {
+            if (event.data.type === 'VNPAY_PAID_SUCCESS' || event.data.success) {
+              onVnpaySuccess(savedOrder.maHoaDon)
+            }
+          }
+        }
+        window.addEventListener('message', vnpayMessageHandler)
+        vnpayPollTimer = setInterval(() => {
+          checkVnpayStatus(false)
+        }, 2500)
+        return
         if (isClientLoggedIn.value && currentClientUser.value?.id) {
           router.push(`/don-hang?code=${savedOrder.maHoaDon}`)
         } else {
@@ -868,6 +966,87 @@ const handleConfirmPlaceOrder = async () => {
 
 
   </div>
+    <!-- MODAL ĐANG CHỜ THANH TOÁN VNPAY -->
+    <Teleport to="body">
+      <div v-if="showVnpayWaitingModal" class="vnpay-waiting-modal-backdrop">
+        <div class="vnpay-waiting-modal-card animate-pop">
+          <!-- Header -->
+          <div class="vnpay-waiting-header">
+            <div class="vnpay-header-logo-row">
+              <span class="vnpay-badge-logo">VNPAY</span>
+              <span class="vnpay-waiting-title">Đang Chờ Bạn Thanh Toán</span>
+            </div>
+            <button class="vnpay-close-btn" @click="skipVnpayWaitingAndNavigate" title="Xem đơn hàng">&times;</button>
+          </div>
+
+          <!-- Body -->
+          <div class="vnpay-waiting-body">
+            <!-- Animated Spinner / Waiting Graphic -->
+            <div class="vnpay-waiting-graphic-box">
+              <div class="vnpay-pulse-ring"></div>
+              <div class="vnpay-center-icon">
+                <span class="vnpay-icon-text">💳</span>
+              </div>
+            </div>
+
+            <h4 class="vnpay-status-heading">Vui lòng hoàn tất thanh toán trên cổng VNPAY</h4>
+            <p class="vnpay-status-desc">
+              Cửa sổ cổng thanh toán VNPAY đã được mở để bạn quét mã QR hoặc chuyển khoản ngân hàng. 
+              <strong>Hệ thống sẽ tự động chuyển sang trang chi tiết đơn hàng ngay khi bạn thanh toán thành công!</strong>
+            </p>
+
+            <!-- Order info snapshot -->
+            <div class="vnpay-order-snapshot" v-if="vnpayWaitingOrder">
+              <div class="vnpay-snap-row">
+                <span class="snap-label">Mã đơn hàng:</span>
+                <strong class="snap-val">#{{ vnpayWaitingOrder.maHoaDon }}</strong>
+              </div>
+              <div class="vnpay-snap-row">
+                <span class="snap-label">Số tiền cần thanh toán:</span>
+                <strong class="snap-val text-gold">{{ formatCurrency(vnpayWaitingOrder.tienSauGiamGia || finalTotal) }}</strong>
+              </div>
+              <div class="vnpay-snap-row">
+                <span class="snap-label">Trạng thái:</span>
+                <span class="snap-badge-pending">
+                  <span class="blink-dot"></span> Đang chờ chuyển khoản...
+                </span>
+              </div>
+            </div>
+
+            <div class="vnpay-helper-tip">
+              💡 <em>Nếu trình duyệt chặn cửa sổ popup hoặc bạn đã lỡ tay đóng tab VNPAY, hãy bấm <strong>"Mở lại trang thanh toán"</strong> bên dưới.</em>
+            </div>
+          </div>
+
+          <!-- Footer Actions -->
+          <div class="vnpay-waiting-footer">
+            <button
+              type="button"
+              class="btn-vnpay-reopen"
+              @click="openVnpayPopup(vnpayPaymentUrl)"
+            >
+              🔄 Mở lại trang thanh toán VNPAY
+            </button>
+            <button
+              type="button"
+              class="btn-vnpay-check"
+              :disabled="vnpayChecking"
+              @click="checkVnpayStatus(true)"
+            >
+              <span v-if="vnpayChecking">⏳ Đang kiểm tra...</span>
+              <span v-else>✓ Tôi đã chuyển khoản xong</span>
+            </button>
+            <button
+              type="button"
+              class="btn-vnpay-skip"
+              @click="skipVnpayWaitingAndNavigate"
+            >
+              Xem chi tiết đơn hàng &rarr;
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 </template>
 
 <style scoped>
@@ -1669,4 +1848,269 @@ const handleConfirmPlaceOrder = async () => {
   text-decoration: none;
   font-size: 13.5px;
 }
+/* VNPAY WAITING MODAL */
+.vnpay-waiting-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.vnpay-waiting-modal-card {
+  width: 100%;
+  max-width: 520px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.vnpay-waiting-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #005baa;
+  color: #ffffff;
+}
+
+.vnpay-header-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vnpay-badge-logo {
+  background: #ffffff;
+  color: #005baa;
+  font-weight: 900;
+  font-size: 0.85rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.vnpay-waiting-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.vnpay-close-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.vnpay-close-btn:hover {
+  opacity: 1;
+}
+
+.vnpay-waiting-body {
+  padding: 24px 22px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.vnpay-waiting-graphic-box {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vnpay-pulse-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 4px solid #005baa;
+  border-top-color: transparent;
+  animation: vnpay-spin 1.2s linear infinite;
+}
+
+@keyframes vnpay-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.vnpay-center-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vnpay-icon-text {
+  font-size: 1.8rem;
+}
+
+.vnpay-status-heading {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.vnpay-status-desc {
+  font-size: 0.88rem;
+  color: #475569;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.vnpay-order-snapshot {
+  width: 100%;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.vnpay-snap-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 0.88rem;
+}
+
+.vnpay-snap-row + .vnpay-snap-row {
+  border-top: 1px dashed #e2e8f0;
+}
+
+.snap-label {
+  color: #64748b;
+}
+
+.snap-val {
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.snap-badge-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.blink-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+  animation: vnpay-pulse 1s ease infinite alternate;
+}
+
+@keyframes vnpay-pulse {
+  from { opacity: 0.3; }
+  to { opacity: 1; }
+}
+
+.vnpay-helper-tip {
+  font-size: 0.8rem;
+  color: #64748b;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 4px;
+}
+
+.vnpay-waiting-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 20px;
+  background: #fafbfc;
+  border-top: 1px solid #f1f5f9;
+  width: 100%;
+}
+
+.btn-vnpay-reopen {
+  width: 100%;
+  height: 42px;
+  background: #005baa;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-vnpay-reopen:hover {
+  background: #004b8d;
+}
+
+.btn-vnpay-check {
+  width: 100%;
+  height: 40px;
+  background: #ffffff;
+  color: #059669;
+  border: 1.5px solid #10b981;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-vnpay-check:hover:not(:disabled) {
+  background: #ecfdf5;
+}
+
+.btn-vnpay-check:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.btn-vnpay-skip {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 6px;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.btn-vnpay-skip:hover {
+  color: #1e293b;
+}
+
 </style>

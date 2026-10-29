@@ -421,39 +421,14 @@ public class ChiTietSanPhamService {
                         }
                     }
                 }
-                // Không tự fill ảnh khác nếu biến thể chưa có ảnh riêng hoặc ảnh màu
-                if (false) {
-                    for (HinhAnh img : imgs) {
-                        String tenAnh = img.getTenAnh();
-                        if (tenAnh == null || (!tenAnh.startsWith("CTSP_") && !tenAnh.startsWith("COLOR_"))) {
-                            anhDaiDien = img.getDuongDan();
-                            break;
-                        }
-                    }
-                }
             }
         }
 
-        // Kiểm tra giảm giá liên kết (ưu tiên theo biến thể, fallback theo sản phẩm cha)
+        // Kiểm tra giảm giá liên kết (chỉ áp dụng chính xác theo biến thể)
         Instant now = Instant.now();
-        List<ChiTietDotGiamGia> activeDiscounts = new java.util.ArrayList<>();
-        List<ChiTietDotGiamGia> varDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsByVariantId(ct.getId(), now);
-        if (varDiscounts != null) {
-            activeDiscounts.addAll(varDiscounts);
-        }
-        if (ct.getIdSanPham() != null && ct.getIdSanPham().getId() != null) {
-            List<ChiTietDotGiamGia> spDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsBySanPhamId(ct.getIdSanPham().getId(), now);
-            if (spDiscounts != null) {
-                for (ChiTietDotGiamGia spD : spDiscounts) {
-                    boolean exists = activeDiscounts.stream().anyMatch(d -> 
-                        d.getIdDotGiamGia() != null && spD.getIdDotGiamGia() != null &&
-                        d.getIdDotGiamGia().getId().equals(spD.getIdDotGiamGia().getId())
-                    );
-                    if (!exists) {
-                        activeDiscounts.add(spD);
-                    }
-                }
-            }
+        List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsByVariantId(ct.getId(), now);
+        if (activeDiscounts == null) {
+            activeDiscounts = java.util.Collections.emptyList();
         }
         Boolean coGiamGia = false;
         BigDecimal giaSauGiam = null;
@@ -500,58 +475,6 @@ public class ChiTietSanPhamService {
                 phanTramGiam = maxDiscountAmt.multiply(BigDecimal.valueOf(100)).divide(originalPrice, 0, java.math.RoundingMode.HALF_UP);
                 tenDotGiamGia = bestDgg.getIdDotGiamGia().getTenDotGiamGia();
             }
-        }
-        if (false) {
-            coGiamGia = true;
-            // Thuật toán: Khi có nhiều đợt giảm giá chạy song song (chồng chéo thời gian),
-            // tự động chọn đợt giảm giá có % lớn nhất (Max) để tối ưu quyền lợi cho khách hàng
-            ChiTietDotGiamGia bestDgg = activeDiscounts.stream()
-                .max(java.util.Comparator.comparing(cItem -> {
-                    if (cItem.getIdDotGiamGia() == null) return BigDecimal.ZERO;
-                    DotGiamGia d = cItem.getIdDotGiamGia();
-                    if (Integer.valueOf(2).equals(d.getLoaiGiamGia())) {
-                        return d.getGiaTriGiam() != null ? d.getGiaTriGiam() : BigDecimal.ZERO;
-                    }
-                    BigDecimal pt = cItem.getPhanTramGiamBienThe() != null 
-                            ? cItem.getPhanTramGiamBienThe() 
-                            : (d.getPhanTramGiam() != null ? d.getPhanTramGiam() : BigDecimal.ZERO);
-                    return pt != null ? pt : BigDecimal.ZERO;
-                }))
-                .orElse(activeDiscounts.get(0));
-
-            if (bestDgg.getIdDotGiamGia() != null) {
-                DotGiamGia dgg = bestDgg.getIdDotGiamGia();
-                tenDotGiamGia = dgg.getTenDotGiamGia();
-                boolean isCash = Integer.valueOf(2).equals(dgg.getLoaiGiamGia());
-                if (isCash) {
-                    BigDecimal cashDiscount = dgg.getGiaTriGiam() != null ? dgg.getGiaTriGiam() : BigDecimal.ZERO;
-                    if (ct.getGiaBan() != null) {
-                        giaSauGiam = ct.getGiaBan().subtract(cashDiscount).max(BigDecimal.ZERO);
-                        if (ct.getGiaBan().compareTo(BigDecimal.ZERO) > 0) {
-                            phanTramGiam = cashDiscount.multiply(BigDecimal.valueOf(100)).divide(ct.getGiaBan(), 0, java.math.RoundingMode.HALF_UP);
-                        }
-                    } else {
-                        giaSauGiam = BigDecimal.ZERO;
-                    }
-                } else {
-                    phanTramGiam = bestDgg.getPhanTramGiamBienThe() != null 
-                        ? bestDgg.getPhanTramGiamBienThe() 
-                        : (dgg.getPhanTramGiam() != null ? dgg.getPhanTramGiam() : BigDecimal.ZERO);
-                    if (ct.getGiaBan() != null && phanTramGiam != null && phanTramGiam.compareTo(BigDecimal.ZERO) > 0) {
-                        BigDecimal discountAmt = ct.getGiaBan().multiply(phanTramGiam).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
-                        if (dgg.getGiamToiDa() != null && dgg.getGiamToiDa().compareTo(BigDecimal.ZERO) > 0 && discountAmt.compareTo(dgg.getGiamToiDa()) > 0) {
-                            discountAmt = dgg.getGiamToiDa();
-                        }
-                        giaSauGiam = ct.getGiaBan().subtract(discountAmt).max(BigDecimal.ZERO);
-                    } else {
-                        giaSauGiam = ct.getGiaBan();
-                    }
-                }
-            } else {
-                giaSauGiam = ct.getGiaBan();
-            }
-        } else {
-            giaSauGiam = ct.getGiaBan();
         }
 
         return ChiTietSanPhamResponse.builder()

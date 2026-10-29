@@ -53,6 +53,7 @@ import QuanLyCa from '../views/LichLamViec/QuanLyCa.vue'
 import XepLich from '../views/LichLamViec/XepLich.vue'
 import GiaoCa from '../views/LichLamViec/GiaoCa.vue'
 import LichSuHoatDong from '../views/LichLamViec/LichSuHoatDong.vue'
+import MobilePosScanner from '../views/MobilePosScanner.vue'
 
 const routes = [
     // Trang đăng nhập công khai
@@ -60,6 +61,12 @@ const routes = [
         path: '/login',
         name: 'Login',
         component: Login,
+        meta: { public: true }
+    },
+    {
+        path: '/quet-ma-pos',
+        name: 'MobilePosScanner',
+        component: MobilePosScanner,
         meta: { public: true }
     },
 
