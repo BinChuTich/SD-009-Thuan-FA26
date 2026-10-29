@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="giao-ca-page">
 
     <div class="page-top-header">
@@ -219,7 +219,9 @@
             ></textarea>
           </div>
 
-                    <div class="form-item" style="margin-top: 6px;">
+
+
+          <div class="form-item" style="margin-top: 6px;">
             <label class="field-label">Ghi chú bàn giao</label>
             <input
               type="text"
@@ -2189,6 +2191,50 @@ onUnmounted(() => {
 .sig-name {
   font-weight: 700;
   margin: 0;
+}
+
+/* Khối hiển thị người nhận bàn giao tự động */
+.auto-handover-wrapper {
+  margin-top: 10px;
+}
+
+.auto-handover-box-clean {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.auto-handover-icon-circle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #496883;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.auto-handover-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.text-handover-name {
+  font-size: 0.9rem;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.auto-handover-tag {
+  font-size: 0.78rem;
+  color: #64748b;
 }
 
 @media print {

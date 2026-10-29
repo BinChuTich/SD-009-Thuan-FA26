@@ -502,11 +502,27 @@
             <span v-if="dongCaErrors.lyDoChenhLech" class="error-text-red">{{ dongCaErrors.lyDoChenhLech }}</span>
           </div>
 
-          <!-- Chọn nhân viên nhận bàn giao ca -->
+          <div v-if="false" class="form-group-item-hidden">
           <div class="form-group-item">
-            <label class="modal-field-label">Nhân viên nhận bàn giao ca</label>
+            <div class="auto-handover-box-clean">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              <div>
+                <strong v-if="shiftSummary?.tenNhanVienNhanDuKien">
+                  {{ shiftSummary.tenNhanVienNhanDuKien }} ({{ shiftSummary.maNhanVienNhanDuKien || 'NV' }})
+                </strong>
+                <strong v-else class="text-muted">
+                  Bàn giao cho Quản lý / Nộp két cửa hàng (Ca cuối ngày)
+                </strong>
+                <div class="auto-handover-desc">
+                  {{ shiftSummary?.thongTinBaoGiao || 'Hệ thống tự động chuyển tiếp ca kế tiếp theo lịch làm việc' }}
+                </div>
+              </div>
+            </div>
             <div class="select-wrapper-minimal">
-              <select v-model="dongCaForm.nhanVienNhanId" class="form-control-minimal modal-input">
+              <select v-if="false" v-model="dongCaForm.nhanVienNhanId" class="form-control-minimal modal-input">
                 <option value="">-- Bàn giao cho Quản lý / Nộp két cửa hàng (Ca cuối ngày) --</option>
                 <option
                   v-for="emp in activeEmployees.filter(e => e.id !== closingTarget?.nhanVien?.id)"
@@ -517,6 +533,8 @@
                 </option>
               </select>
             </div>
+          </div>
+
           </div>
 
           <!-- Ghi chú chung -->
@@ -1079,6 +1097,9 @@ async function openModalDongCa(shift) {
     }
   }
 
+  if (shiftSummary.value?.nhanVienNhanDuKienId) {
+    dongCaForm.nhanVienNhanId = shiftSummary.value.nhanVienNhanDuKienId
+  }
   dongCaForm.tienMatCuoiCa = Number(calculatedExpectedCash.value)
   computeClosingDiff()
   showDongCaModal.value = true
@@ -1124,7 +1145,7 @@ async function submitDongCa() {
       id: closingTarget.value?.id,
       nhanVienId: closingTarget.value?.nhanVien?.id,
       caLamViecId: closingTarget.value?.caLamViec?.id,
-      nhanVienNhanId: dongCaForm.nhanVienNhanId ? Number(dongCaForm.nhanVienNhanId) : null,
+      nhanVienNhanId: shiftSummary.value?.nhanVienNhanDuKienId || (dongCaForm.nhanVienNhanId ? Number(dongCaForm.nhanVienNhanId) : null),
       tienChiTrongCa: Number(dongCaForm.tienChiTrongCa || 0),
       tienMatCuoiCa: Number(dongCaForm.tienMatCuoiCa),
       chenhLech: calculatedDiff.value,
@@ -1898,6 +1919,24 @@ onMounted(async () => {
 
 .btn-use-last-cash:hover {
   background: #15803d;
+}
+
+/* Khối hiển thị người nhận bàn giao tự động */
+.auto-handover-box-clean {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #1e293b;
+}
+
+.auto-handover-desc {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 2px;
 }
 
 /* Modal Biên Bản Giao Ca & Print */

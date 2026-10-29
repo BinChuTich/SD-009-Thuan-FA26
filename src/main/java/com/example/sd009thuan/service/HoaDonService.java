@@ -863,18 +863,54 @@ public class HoaDonService {
     ) {
         return updateTrangThai(id, trangThai, ghiChu, null);
     }
+    // Cập nhật trạng thái hóa đơn kèm nhân viên và người thực hiện
+    @Transactional
+    public HoaDon updateTrangThai(Long id, Integer trangThai, String ghiChu, String email) {
+        return updateTrangThai(id, trangThai, ghiChu, email, null, null);
+    }
     // Cập nhật trạng thái hóa đơn, ghi chú và email khách hàng theo ID
     @Transactional
     public HoaDon updateTrangThai(
             Long id,
             Integer trangThai,
             String ghiChu,
-            String email
+            String email,
+            Long nhanVienId,
+            String nguoiThucHien
     ) {
         HoaDon hoaDon = hoaDonRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException(
                         "Không tìm thấy hóa đơn có ID: " + id
                 ));
+        NhanVien actorStaff = null;
+        if (nhanVienId != null) {
+            actorStaff = nhanVienRepository.findById(nhanVienId).orElse(null);
+        }
+        if (actorStaff == null && nguoiThucHien != null && !nguoiThucHien.trim().isEmpty()) {
+            String trimmed = nguoiThucHien.trim();
+            actorStaff = nhanVienRepository.findByTenTaiKhoanIgnoreCase(trimmed)
+                    .or(() -> nhanVienRepository.findByMaNhanVienIgnoreCase(trimmed))
+                    .orElse(null);
+            if (actorStaff == null) {
+                try {
+                    List<NhanVien> all = nhanVienRepository.findAll();
+                    for (NhanVien nv : all) {
+                        if (nv.getTenNhanVien() != null && nv.getTenNhanVien().equalsIgnoreCase(trimmed)) {
+                            actorStaff = nv;
+                            break;
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+        if (actorStaff != null) {
+            if (hoaDon.getIdNhanVien() == null || Integer.valueOf(2).equals(trangThai)) {
+                hoaDon.setIdNhanVien(actorStaff);
+            }
+            hoaDon.setNguoiCapNhat(actorStaff.getTenNhanVien() != null ? actorStaff.getTenNhanVien() : actorStaff.getTenTaiKhoan());
+        } else if (nguoiThucHien != null && !nguoiThucHien.trim().isEmpty()) {
+            hoaDon.setNguoiCapNhat(nguoiThucHien.trim());
+        }
         long retryCount = countGiaoLaiDonHang(hoaDon.getId());
         String actionDesc = (ghiChu != null && !ghiChu.trim().isEmpty())
                 ? ghiChu.trim()
@@ -1005,7 +1041,25 @@ public class HoaDonService {
             if (actionDesc.length() > 250) {
                 actionDesc = actionDesc.substring(0, 250);
             }
-            log.setHanhDong(actionDesc);
+            log.setHanhDong(actionDesc);
+            log.setGhiChu(actionDesc);
+            String actorName = null;
+            String actorRole = "Nhân viên";
+            if (actorStaff != null) {
+                actorName = actorStaff.getTenNhanVien() != null ? actorStaff.getTenNhanVien() : actorStaff.getTenTaiKhoan();
+                if (actorStaff.getIdVaiTro() != null && actorStaff.getIdVaiTro().getTenVaiTro() != null) {
+                    actorRole = actorStaff.getIdVaiTro().getTenVaiTro();
+                }
+            } else if (nguoiThucHien != null && !nguoiThucHien.trim().isEmpty() && !nguoiThucHien.equals("Nhân viên bán hàng")) {
+                actorName = nguoiThucHien.trim();
+            }
+            if (actorName != null && !actorName.trim().isEmpty()) {
+                if (actorName.length() > 95) actorName = actorName.substring(0, 95);
+                log.setNguoiThucHien(actorName);
+                log.setVaiTroNguoiThucHien(actorRole);
+                lichSuHoaDonRepository.save(log);
+                return saved;
+            }
             String nguoiTh = (saved.getNguoiCapNhat() != null && !saved.getNguoiCapNhat().equals("Nhân viên bán hàng") && !saved.getNguoiCapNhat().equals("Nhân viên"))
                     ? saved.getNguoiCapNhat()
                     : ((saved.getIdNhanVien() != null && saved.getIdNhanVien().getTenNhanVien() != null)
@@ -1027,19 +1081,46 @@ public class HoaDonService {
     ) {
         return updateTrangThaiByMa(maHoaDon, trangThai, ghiChu, null);
     }
-    // Cập nhật trạng thái hóa đơn theo mã hóa đơn kèm email
+    // Cập nhật trạng thái hóa đơn theo mã hóa đơn kèm email
+    @Transactional
+    public HoaDon updateTrangThaiByMa(String maHoaDon, Integer trangThai, String ghiChu, String email) {
+        return updateTrangThaiByMa(maHoaDon, trangThai, ghiChu, email, null, null);
+    }
+    // Cập nhật trạng thái hóa đơn theo mã hóa đơn đầy đủ tham số
+    @Transactional
+    public HoaDon updateTrangThaiByMa(
+            String maHoaDon,
+            Integer trangThai,
+            String ghiChu,
+            String email,
+            Long nhanVienId,
+            String nguoiThucHien
+    ) {
+        HoaDon hoaDon = hoaDonRepository.findByMaHoaDon(maHoaDon)
+                .orElseThrow(() -> new RuntimeException(
+                        "Không tìm thấy hóa đơn có mã: " + maHoaDon
+                ));
+        return updateTrangThai(hoaDon.getId(), trangThai, ghiChu, email, nhanVienId, nguoiThucHien);
+    }
+    /*
+    }
     @Transactional
     public HoaDon updateTrangThaiByMa(
             String maHoaDon,
             Integer trangThai,
             String ghiChu,
-            String email
+            String email,
+            Long nhanVienId,
+            String nguoiThucHien
     ) {
         HoaDon hoaDon = hoaDonRepository.findByMaHoaDon(maHoaDon)
                 .orElseThrow(() -> new RuntimeException(
                         "Không tìm thấy hóa đơn có mã: " + maHoaDon
                 ));
-        return updateTrangThai(hoaDon.getId(), trangThai, ghiChu, email);
+        return null;
+    }
+    */
+    private void _dummyUnused() {
     }
     // Gửi email xác nhận đơn hàng theo yêu cầu
     public boolean sendConfirmationEmail(Long id, String emailOverride) {
@@ -2063,7 +2144,7 @@ public class HoaDonService {
             } catch (Exception ignored) {}
         }
         if (assignedStaff != null) {
-            hoaDon.setIdNhanVien(assignedStaff);
+            hoaDon.setIdNhanVien(null);
         }
         hoaDon.setNgayTao(Instant.now());
         hoaDon.setNgayCapNhat(Instant.now());
@@ -2129,7 +2210,7 @@ public class HoaDonService {
             log1.setNguoiThucHien("Khách hàng online");
             log1.setVaiTroNguoiThucHien("Khách hàng");
             lichSuHoaDonRepository.save(log1);
-            if (assignedStaff != null) {
+            if (false && assignedStaff != null) {
                 LichSuHoaDon assignLog = new LichSuHoaDon();
                 assignLog.setIdHoaDon(saved);
                 assignLog.setTrangThai(1);

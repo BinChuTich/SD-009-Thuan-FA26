@@ -690,13 +690,59 @@ watch(() => route.query.id, (newId) => {
 .chat-page-container {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  padding: 1.25rem 2rem 2rem;
+  background-color: var(--bg, #f7f5ef);
   width: 100%;
-  height: calc(100vh - 84px);
+  height: calc(100vh - 3.5rem);
   box-sizing: border-box;
 }
 
-/* Breadcrumb như cũ chuẩn Admin */
+/* Breadcrumb chuẩn Admin */
+.page-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.crumb-parent {
+  color: #8c969e;
+  text-decoration: none;
+  font-weight: 400;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.crumb-parent:hover {
+  color: var(--blue, #496883);
+}
+
+.crumb-separator {
+  color: #b0b7bd;
+  font-weight: 300;
+  user-select: none;
+}
+
+.crumb-current {
+  color: var(--blue, #496883);
+  font-weight: 600;
+}
+
+/* Khối Workspace 2 cột */
+.chat-workspace-card {
+  display: flex;
+  flex: 1;
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.old-breadcrumb-unused {
 .page-breadcrumb {
   display: flex;
   align-items: center;
@@ -738,12 +784,14 @@ watch(() => route.query.id, (newId) => {
   min-height: 0;
 }
 
+}
+
 /* CỘT TRÁI */
 .chat-left-pane {
   width: 320px;
   min-width: 290px;
   max-width: 340px;
-  border-right: 1px solid #e2e8f0;
+  border-right: 1px solid var(--line, #e9e5db);
   display: flex;
   flex-direction: column;
   background: #f8fafc;
@@ -754,7 +802,7 @@ watch(() => route.query.id, (newId) => {
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--line, #e9e5db);
   background: #ffffff;
 }
 
@@ -769,6 +817,7 @@ watch(() => route.query.id, (newId) => {
 }
 
 .title-text {
+  color: var(--blue, #496883) !important;
   font-size: 15px;
   font-weight: 700;
   color: #1e293b;
@@ -778,7 +827,7 @@ watch(() => route.query.id, (newId) => {
 .search-box-wrap {
   position: relative;
   padding: 10px 14px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--line, #e9e5db);
   background: #ffffff;
 }
 
@@ -825,7 +874,7 @@ watch(() => route.query.id, (newId) => {
 .tabs-header-bar {
   display: flex;
   background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--line, #e9e5db);
   padding: 4px 8px;
   gap: 4px;
 }
@@ -1027,7 +1076,7 @@ watch(() => route.query.id, (newId) => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 18px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--line, #e9e5db);
   background: #ffffff;
 }
 
@@ -1035,6 +1084,14 @@ watch(() => route.query.id, (newId) => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.old-header-ignore {
+  gap: 12px;
+  display: flex;
+  align-items: center;
+  padding: 1.25rem 2rem 2rem;
+  background-color: var(--bg, #f7f5ef);
 }
 
 .header-avatar-circle {
@@ -1208,7 +1265,7 @@ watch(() => route.query.id, (newId) => {
 /* Footer / Input */
 .chat-input-footer {
   padding: 14px 18px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--line, #e9e5db);
   background: #ffffff;
   display: flex;
   flex-direction: column;

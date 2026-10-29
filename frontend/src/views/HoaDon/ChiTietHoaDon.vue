@@ -868,12 +868,28 @@ const loadDetail = async (identifier) => {
     const currentAuth = getCurrentUser()
     const authStaffName = currentAuth?.tenNhanVien || currentAuth?.tenTaiKhoan || ''
 
-    let employeeName = nhanVienObj['tenNhanVien']
+    let employeeName = ''
+    let employeeCode = '—'
+    const orderNoteLower = String(data['ghiChu'] || '').toLowerCase()
+    const isOnline = Number(data['loaiDon']) === 2 || orderNoteLower.includes('online') || orderNoteLower.includes('website')
+
+    if (isOnline) {
+      if (Number(data['trangThai']) === 1 || (!data['idNhanVien'] && !nhanVienObj['tenNhanVien'] && !data['tenNhanVien'])) {
+        employeeName = '—'
+        employeeCode = '—'
+      } else {
+        employeeName = nhanVienObj['tenNhanVien'] || nhanVienObj['tenTaiKhoan'] || data['tenNhanVien'] || (data['idNhanVien'] ? (employeeCatalog['name'] || '—') : '—')
+        employeeCode = nhanVienObj['maNhanVien'] || (data['idNhanVien'] ? (employeeCatalog['code'] || '—') : '—')
+      }
+    } else {
+      employeeName = nhanVienObj['tenNhanVien']
         || (data['nguoiTao'] && !data['nguoiTao'].includes('Nhân viên bán hàng') ? data['nguoiTao'] : null)
         || employeeCatalog['name']
         || authStaffName
-        || (Number(data['loaiDon']) === 1 ? (authStaffName || 'Nhân viên bán hàng') : 'Đơn Online')
-    let employeeCode = nhanVienObj['maNhanVien'] || employeeCatalog['code'] || (String(data['nguoiTao'] || '').toUpperCase().startsWith('NV') ? data['nguoiTao'] : '---')
+        || (Number(data['loaiDon']) === 1 ? (authStaffName || 'Nhân viên bán hàng') : '—')
+      employeeCode = nhanVienObj['maNhanVien'] || employeeCatalog['code'] || (String(data['nguoiTao'] || '').toUpperCase().startsWith('NV') ? data['nguoiTao'] : '—')
+    }
+    // employeeCode determined above
 
     invoiceData.value.employee = {
       name: employeeName,
@@ -1296,13 +1312,16 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null, cus
 
   updatingStatus.value = true
   const currentAuth = getCurrentUser()
-  const authStaffName = currentAuth?.tenNhanVien || currentAuth?.tenTaiKhoan || 'Nhân viên bán hàng'
+  const authStaffName = currentAuth?.tenNhanVien || currentAuth?.tenTaiKhoan || 'Nhân viên bán hàng'
+  const authStaffId = currentAuth?.id || null
   try {
     let success = false
     let lastError = null
 
     const payload = {
       trangThai: newStatus,
+      idNhanVien: authStaffId,
+      nhanVienId: authStaffId,
       nguoiThucHien: authStaffName,
       nguoiCapNhat: authStaffName,
       ghiChu: note || undefined,
@@ -1638,7 +1657,8 @@ const handleConfirmPaymentAndPrint = () => {
       if (!id && !code) return
       updatingStatus.value = true
       const currentAuth = getCurrentUser()
-      const authStaffName = currentAuth?.tenNhanVien || currentAuth?.tenTaiKhoan || 'Nhân viên bán hàng'
+      const authStaffName = currentAuth?.tenNhanVien || currentAuth?.tenTaiKhoan || 'Nhân viên bán hàng'
+  const authStaffId = currentAuth?.id || null
       try {
         let success = false
         const isStore = isPureStoreOrder.value || (!isDeliveryOrder.value && Number(invoiceData.value.loaiDon) === 1)

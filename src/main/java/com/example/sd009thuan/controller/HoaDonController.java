@@ -231,6 +231,8 @@ public class HoaDonController {
         Integer trangThai = paramTrangThai;
         String ghiChu = null;
         String email = paramEmail;
+        Long nhanVienId = null;
+        String nguoiThucHien = null;
 
         if (body != null) {
             if (body.get("trangThai") != null) {
@@ -252,6 +254,16 @@ public class HoaDonController {
             } else if (body.get("emailKhachHang") != null && !body.get("emailKhachHang").toString().trim().isEmpty()) {
                 email = body.get("emailKhachHang").toString().trim();
             }
+            if (body.get("idNhanVien") != null) {
+                try { nhanVienId = Long.valueOf(body.get("idNhanVien").toString()); } catch (Exception ignored) {}
+            } else if (body.get("nhanVienId") != null) {
+                try { nhanVienId = Long.valueOf(body.get("nhanVienId").toString()); } catch (Exception ignored) {}
+            }
+            if (body.get("nguoiThucHien") != null && !body.get("nguoiThucHien").toString().trim().isEmpty()) {
+                nguoiThucHien = body.get("nguoiThucHien").toString().trim();
+            } else if (body.get("nguoiCapNhat") != null && !body.get("nguoiCapNhat").toString().trim().isEmpty()) {
+                nguoiThucHien = body.get("nguoiCapNhat").toString().trim();
+            }
         }
 
         if (trangThai == null) {
@@ -264,7 +276,7 @@ public class HoaDonController {
 
         try {
             return ResponseEntity.ok(
-                    hoaDonService.updateTrangThai(id, trangThai, ghiChu, email)
+                    hoaDonService.updateTrangThai(id, trangThai, ghiChu, email, nhanVienId, nguoiThucHien)
             );
         } catch (Exception e) {
             try {
@@ -295,6 +307,8 @@ public class HoaDonController {
         Integer trangThai = paramTrangThai;
         String ghiChu = null;
         String email = paramEmail;
+        Long nhanVienId = null;
+        String nguoiThucHien = null;
 
         if (body != null) {
             if (body.get("trangThai") != null) {
@@ -316,6 +330,16 @@ public class HoaDonController {
             } else if (body.get("emailKhachHang") != null && !body.get("emailKhachHang").toString().trim().isEmpty()) {
                 email = body.get("emailKhachHang").toString().trim();
             }
+            if (body.get("idNhanVien") != null) {
+                try { nhanVienId = Long.valueOf(body.get("idNhanVien").toString()); } catch (Exception ignored) {}
+            } else if (body.get("nhanVienId") != null) {
+                try { nhanVienId = Long.valueOf(body.get("nhanVienId").toString()); } catch (Exception ignored) {}
+            }
+            if (body.get("nguoiThucHien") != null && !body.get("nguoiThucHien").toString().trim().isEmpty()) {
+                nguoiThucHien = body.get("nguoiThucHien").toString().trim();
+            } else if (body.get("nguoiCapNhat") != null && !body.get("nguoiCapNhat").toString().trim().isEmpty()) {
+                nguoiThucHien = body.get("nguoiCapNhat").toString().trim();
+            }
         }
 
         if (trangThai == null) {
@@ -332,7 +356,9 @@ public class HoaDonController {
                             maHoaDon,
                             trangThai,
                             ghiChu,
-                            email
+                            email,
+                            nhanVienId,
+                            nguoiThucHien
                     )
             );
         } catch (Exception e) {

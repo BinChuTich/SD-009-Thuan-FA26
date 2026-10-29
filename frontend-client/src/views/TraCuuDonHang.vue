@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
@@ -177,6 +177,57 @@ const getDeliveryStepTime = (stepNum) => {
   return ''
 }
 
+const visibleOnlineSteps = computed(() => {
+  const o = order.value
+  if (!o) return []
+  const curStatus = Number(o.trangThai || 1)
+
+  // 1. Đơn đã hủy (status = 6)
+  if (curStatus === 6) {
+    return [
+      { id: 1, name: 'Chờ xác nhận', time: getDeliveryStepTime(1), completed: true, current: false },
+      { id: 6, name: 'Đã hủy đơn', time: formatLogTime(o.ngayCapNhat || o.ngayTao), completed: false, current: true, isCancelled: true }
+    ]
+  }
+
+  // 2. Đơn giao hàng thất bại (status = 7)
+  if (curStatus === 7) {
+    return [
+      { id: 1, name: 'Chờ xác nhận', time: getDeliveryStepTime(1), completed: true, current: false },
+      { id: 2, name: 'Đã xác nhận', time: getDeliveryStepTime(2), completed: true, current: false },
+      { id: 3, name: 'Chờ vận chuyển', time: getDeliveryStepTime(3), completed: true, current: false },
+      { id: 4, name: 'Đang vận chuyển', time: getDeliveryStepTime(4), completed: true, current: false },
+      { id: 7, name: 'Giao hàng thất bại', time: formatLogTime(o.ngayCapNhat || o.ngayTao), completed: false, current: true, isFailed: true }
+    ]
+  }
+
+  // 3. Đơn online bình thường: chỉ hiện các bước đã tới + duy nhất 1 bước tiếp theo liền kề (pending)
+  const maxStepToShow = Math.min(curStatus + 1, 5)
+
+  const stepsDef = [
+    { id: 1, name: 'Chờ xác nhận' },
+    { id: 2, name: 'Đã xác nhận' },
+    { id: 3, name: 'Chờ vận chuyển' },
+    { id: 4, name: 'Đang vận chuyển' },
+    { id: 5, name: 'Giao thành công' }
+  ]
+
+  return stepsDef
+    .filter(s => s.id <= maxStepToShow)
+    .map(s => {
+      const isCompleted = s.id <= curStatus
+      const isCurrent = s.id === curStatus
+      const isPending = s.id > curStatus
+      return {
+        ...s,
+        time: s.id <= curStatus ? getDeliveryStepTime(s.id) : '',
+        completed: isCompleted,
+        current: isCurrent,
+        pending: isPending
+      }
+    })
+})
+
 const isVnPay = (o) => {
   if (!o) return false
   const pt = (o.phuongThucThanhToan || o.ghiChu || '').toUpperCase()
@@ -259,12 +310,67 @@ watch(
   { immediate: true }
 )
 
+let autoRefreshTimer = null
+let isRefreshingSilently = false
+
+const refreshTrackingSilently = async () => {
+  if (!order.value || !order.value.maHoaDon || isRefreshingSilently) return
+  isRefreshingSilently = true
+  const code = order.value.maHoaDon
+  const prevStatus = Number(order.value.trangThai)
+  const prevUpdatedAt = order.value.ngayCapNhat
+
+  try {
+    const [resOrder, resLogs] = await Promise.all([
+      api.get(`/api/hoa-don/code/${code}`).catch(() => null),
+      api.get(`/api/hoa-don/code/${code}/lich-su`).catch(() => null)
+    ])
+
+    if (resOrder && resOrder.data && resOrder.data.maHoaDon) {
+      if (order.value && order.value.maHoaDon === code) {
+        order.value = resOrder.data
+        if (Number(resOrder.data.trangThai) !== prevStatus || resOrder.data.ngayCapNhat !== prevUpdatedAt) {
+          try {
+            const resItems = await api.get(`/api/hoa-don/code/${code}/chi-tiet`)
+            if (Array.isArray(resItems.data)) {
+              orderItems.value = resItems.data
+            }
+          } catch (_) {}
+        }
+      }
+    }
+
+    if (resLogs && Array.isArray(resLogs.data)) {
+      const logs = resLogs.data
+      logs.sort((a, b) => new Date(b.thoiGian || 0) - new Date(a.thoiGian || 0))
+      orderLogs.value = logs
+    }
+  } catch (_) {
+  } finally {
+    isRefreshingSilently = false
+  }
+}
+
+const onVisibilityChange = () => {
+  if (!document.hidden) {
+    refreshTrackingSilently()
+  }
+}
+
 onMounted(() => {
+  autoRefreshTimer = setInterval(refreshTrackingSilently, 2500)
+  window.addEventListener('focus', refreshTrackingSilently)
+  document.addEventListener('visibilitychange', onVisibilityChange)
   if (route.query.ma || route.query.code || route.query.sdt || route.query.phone) {
     if (route.query.ma || route.query.code) searchCode.value = route.query.ma || route.query.code
     if (route.query.sdt || route.query.phone) searchPhone.value = route.query.sdt || route.query.phone
     handleSearch()
   }
+})
+onUnmounted(() => {
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer)
+  window.removeEventListener('focus', refreshTrackingSilently)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 </script>
 
@@ -374,7 +480,74 @@ onMounted(() => {
         </div>
 
         <!-- TRƯỜNG HỢP 2: ĐƠN GIAO HÀNG / ONLINE (5 BƯỚC CHUẨN) -->
-        <div class="order-stepper-box" v-else-if="order.trangThai !== 6">
+        <!-- TRƯỜNG HỢP 2: ĐƠN GIAO HÀNG / ONLINE (CHỈ HIỆN CÁC BƯỚC ĐÃ TỚI + 1 BƯỚC TIẾP THEO NHƯ ADMIN) -->
+        <div class="order-stepper-box" v-else-if="!isPosOrder">
+          <div class="stepper-track">
+            <template v-for="(step, idx) in visibleOnlineSteps" :key="step.id">
+              <div
+                v-if="idx > 0"
+                class="step-line"
+                :class="{
+                  active: step.completed && !step.isCancelled && !step.isFailed,
+                  'line-failed': step.isFailed,
+                  'line-cancelled': step.isCancelled
+                }"
+              ></div>
+
+              <div
+                class="step-point"
+                :class="{
+                  completed: step.completed,
+                  current: step.current && !step.isCancelled && !step.isFailed,
+                  'step-failed': step.isFailed,
+                  'step-cancelled': step.isCancelled
+                }"
+              >
+                <div class="step-icon">
+                  <svg v-if="step.id === 1" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <path d="M16 10a4 4 0 0 1-8 0"></path>
+                  </svg>
+                  <svg v-else-if="step.id === 2" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <polyline points="9 15 11 17 15 13"></polyline>
+                  </svg>
+                  <svg v-else-if="step.id === 3" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                  </svg>
+                  <svg v-else-if="step.id === 4" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="1" y="3" width="15" height="13"></rect>
+                    <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
+                    <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                    <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                  </svg>
+                  <svg v-else-if="step.id === 5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                  </svg>
+                  <svg v-else-if="step.id === 6" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                  </svg>
+                  <svg v-else-if="step.id === 7" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                  </svg>
+                </div>
+                <span class="step-name">{{ step.name }}</span>
+                <span class="step-sub">{{ step.time }}</span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div v-if="false" class="old-stepper-unused">
           <div class="stepper-track">
             <!-- Step 1: Chờ xác nhận -->
             <div class="step-point" :class="{ completed: order.trangThai >= 1 }">
@@ -448,7 +621,7 @@ onMounted(() => {
         </div>
 
         <!-- Banner đơn đã hủy -->
-        <div v-else class="cancelled-banner-box">
+        <div v-if="order.trangThai === 6" class="cancelled-banner-box">
           <span class="c-icon">🚫</span>
           <div>
             <strong>Đơn hàng đã được Hủy trên hệ thống</strong>
@@ -826,7 +999,7 @@ onMounted(() => {
 .stepper-track {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start !important;
   position: relative;
 }
 
@@ -835,7 +1008,8 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  width: 140px;
+  width: 130px !important;
+  flex-shrink: 0 !important;
   position: relative;
   z-index: 2;
 }
@@ -893,6 +1067,8 @@ onMounted(() => {
 
 .step-line {
   flex: 1;
+  max-width: 140px !important;
+  min-width: 50px !important;
   height: 3px;
   background: #e2e8f0;
   margin: -24px 8px 0;
@@ -902,6 +1078,24 @@ onMounted(() => {
 
 .step-line.active {
   background: #d2a764;
+}
+
+.step-point.step-cancelled .step-icon,
+.step-point.step-failed .step-icon {
+  background: #ef4444 !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+  animation: none !important;
+}
+
+.step-point.step-cancelled .step-name,
+.step-point.step-failed .step-name {
+  color: #dc2626 !important;
+}
+
+.step-line.line-failed,
+.step-line.line-cancelled {
+  background: #fca5a5 !important;
 }
 
 /* Cancelled Banner */

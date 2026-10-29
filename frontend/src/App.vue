@@ -355,6 +355,18 @@ function getShiftStatus(ca) {
   }
 }
 
+const currentMatchedShift = computed(() => {
+  const sourceList = isUserAdmin.value ? activeShifts.value : assignedShiftsToday.value
+  if (!sourceList || sourceList.length === 0) return null
+  const currentValid = sourceList.find(c => getShiftStatus(c).canOpen)
+  if (currentValid) return currentValid
+  if (moCaForm.value.caLamViecId) {
+    const found = sourceList.find(c => c.id === Number(moCaForm.value.caLamViecId))
+    if (found) return found
+  }
+  return sourceList[0] || null
+})
+
 const selectedShiftStatus = computed(() => {
   if (!moCaForm.value.caLamViecId) return null
   const sourceList = isUserAdmin.value ? activeShifts.value : assignedShiftsToday.value
@@ -364,7 +376,7 @@ const selectedShiftStatus = computed(() => {
 
 const canSubmitMoCa = computed(() => {
   if (submittingMoCa.value) return false
-  if (!currentUser.value?.id || !moCaForm.value.caLamViecId) return false
+  if (!currentUser.value?.id || !currentMatchedShift.value?.id) return false
   if (!isUserAdmin.value && !hasScheduleToday.value) return false
   if (moCaForm.value.tienMatDauCa === null || moCaForm.value.tienMatDauCa === undefined || moCaForm.value.tienMatDauCa < 0) return false
   if (!isUserAdmin.value && selectedShiftStatus.value && !selectedShiftStatus.value.canOpen) return false
@@ -494,7 +506,7 @@ async function submitMoCaFromPopup() {
     submittingMoCa.value = true
     const payload = {
       nhanVienId: isUserAdmin.value && moCaForm.value.nhanVienId ? Number(moCaForm.value.nhanVienId) : currentUser.value.id,
-      caLamViecId: Number(moCaForm.value.caLamViecId),
+      caLamViecId: Number(currentMatchedShift.value?.id || moCaForm.value.caLamViecId),
       tienMatDauCa: Number(moCaForm.value.tienMatDauCa) || 0,
       tienChuyenKhoan: Number(moCaForm.value.tienChuyenKhoan) || 0,
       ghiChu: 'Mở ca từ hệ thống'
@@ -686,6 +698,9 @@ async function loadShiftSummary(shiftId) {
   try {
     const res = await api.get(`/api/lich-su-ca/${shiftId}/summary`)
     shiftSummary.value = res.data || null
+    if (shiftSummary.value?.nhanVienNhanDuKienId) {
+      dongCaForm.value.nhanVienNhanId = shiftSummary.value.nhanVienNhanDuKienId
+    }
   } catch (e) {
     console.error('Lỗi khi tải tổng hợp két tiền:', e)
   } finally {
@@ -720,7 +735,7 @@ async function submitDongCaFromModal() {
       id: currentOpenShift.value?.id,
       nhanVienId: currentOpenShift.value?.nhanVien?.id || currentUser.value?.id,
       caLamViecId: currentOpenShift.value?.caLamViec?.id,
-      nhanVienNhanId: dongCaForm.value.nhanVienNhanId ? Number(dongCaForm.value.nhanVienNhanId) : null,
+      nhanVienNhanId: shiftSummary.value?.nhanVienNhanDuKienId || (dongCaForm.value.nhanVienNhanId ? Number(dongCaForm.value.nhanVienNhanId) : null),
       tienChiTrongCa: Number(dongCaForm.value.tienChiTrongCa || 0),
       tienMatCuoiCa: Number(dongCaForm.value.tienMatCuoiCa),
       chenhLech: calculatedDiff.value,
@@ -1226,18 +1241,42 @@ function printReceipt() {
 
           <!-- Khung hiển thị Ca làm việc -->
           <div class="mo-ca-box-wrap">
-            <div class="mo-ca-box-labels">
-              <span class="lbl-left">Ca</span>
-              <span class="lbl-right">Ca làm việc</span>
+            <div class="mo-ca-field-title">Ca làm việc thời điểm hiện tại</div><div v-if="false">
+              <span class="lbl-left">Ca làm việc thời điểm hiện tại</span>
+              <span class="lbl-right" v-if="currentMatchedShift">{{ selectedShiftStatus?.canOpen ? '🟢 Sẵn sàng vào ca' : '🟡 ' + (selectedShiftStatus?.label || '') }}</span>
             </div>
 
-            <!-- Nếu KHÔNG tìm thấy lịch phân công hôm nay -->
+            <!-- Nếu KHÔNG tìm thấy lịch phân công hôm nay (cho nhân viên thường) -->
             <div v-if="!isUserAdmin && !hasScheduleToday" class="mo-ca-empty-schedule">
-              Không tìm thấy lịch phân công
+              ⚠️ Không tìm thấy ca làm việc được phân công hôm nay của bạn.
             </div>
 
-            <!-- Nếu CÓ lịch phân công hôm nay -->
-            <div v-else-if="!isUserAdmin && assignedShiftsToday.length > 0" class="mo-ca-shift-select-box">
+            <!-- Thẻ hiển thị Ca làm việc tự động (KHÔNG DÙNG COMBOBOX) -->
+            <div v-else-if="currentMatchedShift" class="mo-ca-auto-shift-card" :class="{ 'is-in-shift': selectedShiftStatus?.canOpen, 'is-out-shift': !selectedShiftStatus?.canOpen }">
+              <div class="auto-shift-main">
+                <div class="auto-shift-icon-wrap">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 14 14"></polyline>
+                  </svg>
+                </div>
+                <div class="auto-shift-text">
+                  <div class="auto-shift-title">{{ currentMatchedShift.tenCa }}</div>
+                  <div class="auto-shift-hours">
+                    Khung giờ: <span class="hours-val">{{ formatTime(currentMatchedShift.gioBatDau) }} – {{ formatTime(currentMatchedShift.gioKetThuc) }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="auto-shift-badge" :class="selectedShiftStatus?.canOpen ? 'badge-live' : 'badge-wait'">
+                {{ selectedShiftStatus?.canOpen ? '🟢 Trong ca' : '🟡 Ngoài giờ' }}
+              </div>
+            </div>
+            <div v-else class="mo-ca-empty-schedule">
+              ⚠️ Không tìm thấy ca làm việc phù hợp lúc này
+            </div>
+            <!-- Bỏ combobox cũ -->
+
+            <div v-if="false" class="mo-ca-shift-select-box">
               <select v-model="moCaForm.caLamViecId" class="mo-ca-input-select" required>
                 <option
                   v-for="ca in assignedShiftsToday"
@@ -1250,7 +1289,7 @@ function printReceipt() {
             </div>
 
             <!-- Nếu là Quản trị viên -->
-            <div v-else-if="isUserAdmin" class="mo-ca-shift-select-box">
+            <div v-if="false" class="mo-ca-shift-select-box">
               <select v-model="moCaForm.caLamViecId" class="mo-ca-input-select" required>
                 <option value="">-- Chọn ca làm việc --</option>
                 <option
@@ -1265,13 +1304,26 @@ function printReceipt() {
           </div>
 
           <!-- Thông báo trạng thái nếu chưa đến giờ vào ca -->
-          <div v-if="selectedShiftStatus && !selectedShiftStatus.canOpen && !isUserAdmin" class="mo-ca-alert-warning">
+          <div v-if="false" class="mo-ca-alert-warning">
             ⚠️ {{ selectedShiftStatus.label }}. Bạn chỉ có thể xác nhận vào ca trước tối đa 30 phút!
           </div>
 
           <!-- Ô nhập Tiền mặt đầu ca -->
           <div class="mo-ca-form-group">
-            <label class="mo-ca-form-label">Tiền mặt đầu ca</label>
+            <label class="mo-ca-form-label">Tiền mặt đầu ca</label><div>
+            <div class="mo-ca-input-wrapper">
+              <input
+                type="text"
+                inputmode="numeric"
+                v-model="displayTienMatDauCa"
+                placeholder="0"
+                class="mo-ca-input-modern"
+                required
+              />
+              <span class="mo-ca-currency-suffix">₫</span>
+            </div>
+          </div>
+          <div v-if="false">
             <input
               type="text"
               inputmode="numeric"
@@ -1282,7 +1334,22 @@ function printReceipt() {
             />
           </div>
 
+          </div>
           <!-- Ô nhập Tiền tài khoản đầu ca -->
+          <div class="mo-ca-form-group">
+            <label class="mo-ca-form-label">Tiền tài khoản đầu ca</label>
+            <div class="mo-ca-input-wrapper">
+              <input
+                type="text"
+                inputmode="numeric"
+                v-model="displayTienTaiKhoanDauCa"
+                placeholder="0"
+                class="mo-ca-input-modern"
+              />
+              <span class="mo-ca-currency-suffix">₫</span>
+            </div>
+          </div>
+          <div v-if="false">
           <div class="mo-ca-form-group">
             <label class="mo-ca-form-label">Tiền tài khoản đầu ca</label>
             <input
@@ -1294,8 +1361,9 @@ function printReceipt() {
             />
           </div>
 
+          </div>
           <!-- Số dự kiến từ ca trước -->
-          <div class="mo-ca-prev-cash-row">
+          <div class="mo-ca-prev-cash-pill-box">
             <span>Số dự kiến từ ca trước: <strong>{{ formatCurrency(lastClosedShift?.tienMatCuoiCa || 0) }}</strong></span>
             <button
               v-if="lastClosedShift && (lastClosedShift.tienMatCuoiCa || 0) > 0"
@@ -1470,8 +1538,29 @@ function printReceipt() {
 
           <div class="dong-ca-form-grid">
             <div class="form-col">
-              <label class="dong-ca-label">Nhân viên nhận bàn giao</label>
-              <div class="select-wrapper-minimal">
+              <label class="dong-ca-label handover-col-hidden" v-if="false">Người nhận bàn giao</label>
+              <div class="handover-col-hidden" v-if="false">
+                <div class="auto-handover-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </div>
+                <div class="auto-handover-info">
+                  <div class="auto-handover-name">
+                    <strong v-if="shiftSummary?.tenNhanVienNhanDuKien">
+                      {{ shiftSummary.tenNhanVienNhanDuKien }} ({{ shiftSummary.maNhanVienNhanDuKien || 'NV' }})
+                    </strong>
+                    <strong v-else class="text-muted">
+                      Quản trị viên / Két cửa hàng (Ca cuối ngày)
+                    </strong>
+                  </div>
+                  <div class="auto-handover-sub">
+                    {{ shiftSummary?.thongTinBaoGiao || 'Tự động bàn giao cho ca tiếp theo' }}
+                  </div>
+                </div>
+              </div>
+              <div v-if="false" class="select-wrapper-minimal">
                 <select v-model="dongCaForm.nhanVienNhanId" class="dong-ca-input">
                   <option value="">-- Quản trị viên / Cuối ngày --</option>
                   <option
@@ -1486,7 +1575,7 @@ function printReceipt() {
             </div>
 
             <div class="form-col">
-              <label class="dong-ca-label">Ghi chú bàn giao</label>
+              <label class="dong-ca-label dong-ca-label-note">Ghi chú bàn giao</label>
               <input
                 type="text"
                 v-model="dongCaForm.ghiChu"
@@ -2543,7 +2632,20 @@ button, input, select, textarea {
 }
 
 /* Hộp Ca */
+.mo-ca-field-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 3px;
+}
+
 .mo-ca-box-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 0;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 10px 14px;
@@ -2575,6 +2677,149 @@ button, input, select, textarea {
   padding: 2px 0;
 }
 
+/* Thẻ hiển thị Ca làm việc tự động */
+.mo-ca-auto-shift-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  gap: 12px;
+  margin-top: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.mo-ca-auto-shift-card.is-in-shift {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  border-color: #86efac;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.08);
+}
+
+.mo-ca-auto-shift-card.is-out-shift {
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+  border-color: #fcd34d;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.08);
+}
+/*
+}
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+*/
+.auto-shift-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auto-shift-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: #e2e8f0;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mo-ca-auto-shift-card.is-in-shift .auto-shift-icon-wrap {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.mo-ca-auto-shift-card.is-out-shift .auto-shift-icon-wrap {
+  background: #fef3c7;
+  color: #d97706;
+}
+/*
+}
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+*/
+.auto-shift-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.auto-shift-hours {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+.auto-shift-hours .hours-val {
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+}
+
+.auto-shift-badge {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
+.auto-shift-badge.badge-live {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.auto-shift-badge.badge-wait {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fef3c7;
+}
+
+/* Khối nhận bàn giao tự động */
+.auto-handover-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  min-height: 40px;
+}
+
+.auto-handover-icon {
+  color: #496883;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.auto-handover-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.auto-handover-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.auto-handover-sub {
+  font-size: 0.74rem;
+  color: #64748b;
+}
+
 .mo-ca-shift-select-box {
   width: 100%;
 }
@@ -2591,6 +2836,16 @@ button, input, select, textarea {
 }
 
 .mo-ca-alert-warning {
+  padding: 10px 14px;
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+  border-radius: 10px;
+  color: #92400e;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 12px;
   background: #fffbeb;
   border: 1px solid #fef3c7;
@@ -2630,6 +2885,102 @@ button, input, select, textarea {
   border-color: var(--blue, #496883);
 }
 
+.mo-ca-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.mo-ca-input-modern {
+  width: 100%;
+  height: 42px;
+  padding: 0 38px 0 14px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e293b;
+  outline: none;
+  background: #ffffff;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.mo-ca-input-modern:focus {
+  border-color: var(--blue, #496883);
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
+}
+
+.mo-ca-currency-suffix {
+  position: absolute;
+  right: 14px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.mo-ca-prev-cash-pill-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.mo-ca-prev-cash-pill-box strong {
+  color: #0f172a;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.mo-ca-prev-cash-pill-box .btn-apply-prev-cash {
+  background: #e2e8f0;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  color: var(--blue, #496883);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.mo-ca-prev-cash-pill-box .btn-apply-prev-cash:hover {
+  background: var(--blue, #496883);
+  color: #ffffff;
+}
+
+/* Tự động kéo dài Ghi chú bàn giao full chiều rộng cân đối */
+.dong-ca-form-grid:has(.dong-ca-label-note) {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+}
+
+.dong-ca-form-grid:has(.dong-ca-label-note) .form-col:first-child {
+  display: none !important;
+}
+
+.dong-ca-form-grid:has(.dong-ca-label-note) .form-col:last-child {
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.dong-ca-form-grid:has(.dong-ca-label-note) .dong-ca-input {
+  width: 100% !important;
+  height: 42px;
+  border-radius: 10px;
+  padding: 0 14px;
+}
+
 .mo-ca-prev-cash-row {
   display: flex;
   justify-content: space-between;
@@ -2663,7 +3014,7 @@ button, input, select, textarea {
 }
 
 .btn-che-do-xem {
-  padding: 8px 18px;
+  padding: 10px 20px;
   background: #ffffff;
   border: 1.5px solid #cbd5e1;
   border-radius: 8px;
@@ -3265,7 +3616,7 @@ button, input, select, textarea {
 }
 
 .btn-cancel-modal {
-  padding: 8px 18px;
+  padding: 10px 20px;
   border-radius: 8px;
   border: 1px solid #cbd5e1;
   background-color: #ffffff;
@@ -3276,7 +3627,7 @@ button, input, select, textarea {
 }
 
 .btn-print-action {
-  padding: 8px 18px;
+  padding: 10px 20px;
   border-radius: 8px;
   border: none;
   background-color: var(--blue, #496883);

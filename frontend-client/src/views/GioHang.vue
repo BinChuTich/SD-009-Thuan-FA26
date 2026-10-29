@@ -41,7 +41,266 @@ const openGoogleLogin = () => {
   showLoginModal.value = true
 }
 
-const handleLoginSuccess = (userData) => {
+// Quản lý sổ địa chỉ của khách hàng đăng nhập
+const savedAddresses = ref([])
+const selectedAddressId = ref(null)
+const addressModalVisible = ref(false)
+const showAddressForm = ref(false)
+const editingAddressId = ref(null)
+const loadingAddresses = ref(false)
+const savingAddress = ref(false)
+
+const addrForm = ref({
+  thanhPho: '',
+  phuong: '',
+  huyen: '',
+  diaChiCuThe: '',
+  macDinh: false
+})
+const addrWardsList = ref([])
+
+const onAddrProvinceChange = async () => {
+  addrForm.value.phuong = ''
+  addrWardsList.value = []
+  if (addrForm.value.thanhPho) {
+    addrWardsList.value = await getWardsForProvince(addrForm.value.thanhPho)
+  }
+}
+
+const openAddressModal = () => {
+  addressModalVisible.value = true
+  showAddressForm.value = false
+  editingAddressId.value = null
+}
+
+const closeAddressModal = () => {
+  addressModalVisible.value = false
+  showAddressForm.value = false
+  editingAddressId.value = null
+}
+
+const openAddAddressForm = () => {
+  editingAddressId.value = null
+  addrForm.value = {
+    thanhPho: selectedProvince.value || '',
+    phuong: '',
+    huyen: '',
+    diaChiCuThe: '',
+    macDinh: savedAddresses.value.length === 0
+  }
+  if (addrForm.value.thanhPho) {
+    onAddrProvinceChange()
+  } else {
+    addrWardsList.value = []
+  }
+  showAddressForm.value = true
+}
+
+const cancelAddressForm = () => {
+  showAddressForm.value = false
+  editingAddressId.value = null
+}
+
+const editAddress = async (addr) => {
+  editingAddressId.value = addr.id
+  addrForm.value = {
+    thanhPho: addr.thanhPho || '',
+    phuong: addr.phuong || '',
+    huyen: addr.huyen || '',
+    diaChiCuThe: addr.diaChiCuThe || '',
+    macDinh: !!addr.macDinh
+  }
+  if (addr.thanhPho) {
+    addrWardsList.value = await getWardsForProvince(addr.thanhPho)
+  } else {
+    addrWardsList.value = []
+  }
+  showAddressForm.value = true
+}
+
+const selectAddressForCheckout = async (addr) => {
+  if (!addr) return
+  selectedAddressId.value = addr.id
+  streetAddress.value = addr.diaChiCuThe || ''
+  selectedProvince.value = addr.thanhPho || ''
+  clearError('streetAddress')
+  clearError('selectedProvince')
+
+  if (addr.thanhPho) {
+    await reloadWards(addr.thanhPho)
+    selectedWard.value = addr.phuong || ''
+    clearError('selectedWard')
+  }
+  updateGhnShipping()
+}
+
+const loadCustomerAddresses = async (customerId) => {
+  if (!customerId) return
+  loadingAddresses.value = true
+  try {
+    const res = await api.get(`/api/khach-hang/${customerId}/dia-chi`)
+    const list = Array.isArray(res.data) ? res.data : []
+    savedAddresses.value = list
+
+    if (list.length > 0) {
+      const currentSelected = list.find(a => a.id === selectedAddressId.value)
+      const defaultAddr = currentSelected || list.find(a => a.macDinh) || list[0]
+      if (defaultAddr && (!streetAddress.value || !selectedProvince.value || !selectedAddressId.value)) {
+        await selectAddressForCheckout(defaultAddr)
+      }
+    }
+  } catch (err) {
+    console.warn('Lỗi tải danh sách địa chỉ:', err)
+  } finally {
+    loadingAddresses.value = false
+  }
+}
+
+const saveAddress = async () => {
+  if (!addrForm.value.thanhPho || !addrForm.value.thanhPho.trim()) {
+    return showAppAlert('Vui lòng chọn Tỉnh / Thành phố!', 'Thiếu thông tin', 'warning')
+  }
+  if (!addrForm.value.phuong || !addrForm.value.phuong.trim()) {
+    return showAppAlert('Vui lòng chọn Phường / Xã!', 'Thiếu thông tin', 'warning')
+  }
+  if (!addrForm.value.diaChiCuThe || !addrForm.value.diaChiCuThe.trim()) {
+    return showAppAlert('Vui lòng nhập địa chỉ cụ thể (số nhà, ngõ, tên đường...)!', 'Thiếu thông tin', 'warning')
+  }
+
+  const customerId = currentClientUser.value?.id
+  if (!customerId) return
+
+  savingAddress.value = true
+  try {
+    const payload = {
+      thanhPho: addrForm.value.thanhPho.trim(),
+      huyen: addrForm.value.huyen ? addrForm.value.huyen.trim() : '',
+      phuong: addrForm.value.phuong.trim(),
+      diaChiCuThe: addrForm.value.diaChiCuThe.trim(),
+      macDinh: addrForm.value.macDinh
+    }
+
+    let saved = null
+    if (editingAddressId.value) {
+      const res = await api.put(`/api/khach-hang/${customerId}/dia-chi/${editingAddressId.value}`, payload)
+      saved = res.data
+      showAppToast('Cập nhật địa chỉ thành công!', 'success')
+    } else {
+      const res = await api.post(`/api/khach-hang/${customerId}/dia-chi`, payload)
+      saved = res.data
+      showAppToast('Thêm địa chỉ mới thành công!', 'success')
+    }
+
+    showAddressForm.value = false
+    await loadCustomerAddresses(customerId)
+  await fetchPublicVouchers()
+
+    if (saved) {
+      await selectAddressForCheckout(saved)
+    }
+  } catch (err) {
+    console.error('Lỗi lưu địa chỉ:', err)
+    showAppAlert(err?.response?.data?.message || 'Không thể lưu địa chỉ khách hàng.', 'Lỗi lưu địa chỉ', 'error')
+  } finally {
+    savingAddress.value = false
+  }
+}
+
+const setAsDefault = async (addressId) => {
+  const customerId = currentClientUser.value?.id
+  if (!customerId) return
+  try {
+    await api.put(`/api/khach-hang/${customerId}/dia-chi/${addressId}/mac-dinh`)
+    showAppToast('Đã đặt làm địa chỉ mặc định!', 'success')
+    await loadCustomerAddresses(customerId)
+  await fetchPublicVouchers()
+  } catch (err) {
+    showAppAlert(err?.response?.data?.message || 'Không thể đặt địa chỉ mặc định.', 'Lỗi', 'error')
+  }
+}
+
+const deleteAddress = async (addressId) => {
+  const confirmed = await showAppConfirm('Bạn có chắc chắn muốn xóa địa chỉ này khỏi danh sách không?', 'Xác nhận xóa địa chỉ')
+  if (!confirmed) return
+
+  const customerId = currentClientUser.value?.id
+  if (!customerId) return
+  try {
+    await api.delete(`/api/khach-hang/${customerId}/dia-chi/${addressId}`)
+    showAppToast('Đã xóa địa chỉ thành công!', 'success')
+    await loadCustomerAddresses(customerId)
+  await fetchPublicVouchers()
+    if (selectedAddressId.value === addressId) {
+      selectedAddressId.value = null
+      streetAddress.value = ''
+      selectedProvince.value = ''
+      selectedWard.value = ''
+    }
+  } catch (err) {
+    showAppAlert(err?.response?.data?.message || 'Không thể xóa địa chỉ.', 'Lỗi', 'error')
+  }
+}
+
+const syncCustomerProfileAndAddresses = async (forceSync = false) => {
+  if (!isClientLoggedIn.value || !currentClientUser.value) {
+    return
+  }
+
+  // Tự động điền họ tên, số điện thoại, email từ thông tin đăng nhập
+  if (forceSync || !customerName.value) {
+    customerName.value = currentClientUser.value.name || ''
+  }
+  if (forceSync || !customerEmail.value) {
+    customerEmail.value = currentClientUser.value.email || ''
+  }
+  if (forceSync || !customerPhone.value) {
+    customerPhone.value = currentClientUser.value.phone || ''
+  }
+
+  const customerId = currentClientUser.value.id
+  if (!customerId) return
+
+  try {
+    const custRes = await api.get(`/api/khach-hang/${customerId}`)
+    if (custRes.data) {
+      if ((!customerPhone.value || forceSync) && custRes.data.soDienThoai) {
+        customerPhone.value = custRes.data.soDienThoai
+      }
+      if ((!customerName.value || forceSync) && custRes.data.tenKhachHang) {
+        customerName.value = custRes.data.tenKhachHang
+      }
+      if ((!customerEmail.value || forceSync) && custRes.data.email) {
+        customerEmail.value = custRes.data.email
+      }
+      if (custRes.data.maKhachHang && !currentClientUser.value.maKhachHang) {
+        currentClientUser.value.maKhachHang = custRes.data.maKhachHang
+      }
+    }
+  } catch (e) {
+    console.warn('Không thể lấy chi tiết khách hàng:', e)
+  }
+
+  await loadCustomerAddresses(customerId)
+  await fetchPublicVouchers()
+}
+
+watch(currentClientUser, async (newVal) => {
+  if (newVal) {
+    await syncCustomerProfileAndAddresses()
+  } else {
+    await resetCustomerFormToDefault()
+    // Hoàn tất đặt lại trạng thái mặc định
+  }
+})
+
+const handleLoginSuccess = async (userData) => {
+  if (userData) {
+    await syncCustomerProfileAndAddresses(true)
+    await fetchPublicVouchers()
+  }
+}
+
+const _oldLoginHelper = (userData) => {
   if (userData) {
     if (!customerName.value) customerName.value = userData.name || ''
     if (!customerPhone.value) customerPhone.value = userData.phone || ''
@@ -249,6 +508,47 @@ const appliedVoucher = ref(null)
 const availableVouchers = ref([])
 const allVouchers = ref([])
 
+const voucherTab = ref('ALL') // 'ALL' | 'PERSONAL' | 'PUBLIC'
+
+const customerHasAccessToVoucher = (v) => {
+  if (!v) return false
+  if (!isVoucherPersonal(v)) return true // Mã công khai
+
+  // Mã cá nhân: bắt buộc phải có tài khoản đăng nhập
+  if (!isClientLoggedIn.value || !currentClientUser.value) {
+    return false
+  }
+
+  const userId = currentClientUser.value.id
+  const userName = (currentClientUser.value.name || '').trim().toLowerCase()
+  const userCode = (currentClientUser.value.maKhachHang || '').trim().toLowerCase()
+  const userEmail = (currentClientUser.value.email || '').trim().toLowerCase()
+  const userPhone = (currentClientUser.value.phone || '').trim().toLowerCase()
+
+  // 1. Kiểm tra qua idKhachHangList (Long/Number/String)
+  if (Array.isArray(v.idKhachHangList) && v.idKhachHangList.length > 0) {
+    if (userId && v.idKhachHangList.some(id => String(id) === String(userId))) {
+      return true
+    }
+  }
+
+  // 2. Kiểm tra qua danhSachKhachHang (tên khách, mã khách KHxxx, email, sđt)
+  if (Array.isArray(v.danhSachKhachHang) && v.danhSachKhachHang.length > 0) {
+    const match = v.danhSachKhachHang.some(item => {
+      if (!item) return false
+      const s = String(item).trim().toLowerCase()
+      return (userName && s === userName) ||
+             (userCode && s === userCode) ||
+             (userEmail && s === userEmail) ||
+             (userPhone && s === userPhone) ||
+             (userName && (s.includes(userName) || userName.includes(s)))
+    })
+    if (match) return true
+  }
+
+  return false
+}
+
 const isVoucherPersonal = (v) => {
   if (!v) return false
   if (v.hinhThuc) {
@@ -268,7 +568,10 @@ const fetchPublicVouchers = async () => {
     const isValidDate = (d) => d && !isNaN(new Date(d).getTime())
     availableVouchers.value = list.filter(v => {
       // Chỉ fill các mã CÔNG KHAI
-      if (isVoucherPersonal(v)) return false
+      // Nếu là mã cá nhân, chỉ giữ lại nếu khách hàng hiện tại được tặng
+      if (isVoucherPersonal(v)) {
+        return customerHasAccessToVoucher(v)
+      }
       if (v.trangThai != null && Number(v.trangThai) !== 1) return false
       if (v.soLuongSuDung != null && v.soLuongSuDung <= 0) return false
       if (isValidDate(v.ngayBatDau) && new Date(v.ngayBatDau).getTime() > nowTime) return false
@@ -339,12 +642,71 @@ const calculateDiscountForVoucher = (voucher, subtotal) => {
   return Math.min(disc, subtotal)
 }
 
+const personalVouchersCount = computed(() => {
+  return availableVouchers.value.filter(v => isVoucherPersonal(v)).length
+})
+
+const publicVouchersCount = computed(() => {
+  return availableVouchers.value.filter(v => !isVoucherPersonal(v)).length
+})
+
+const hasPersonalVouchers = computed(() => {
+  return personalVouchersCount.value > 0
+})
+
+// Tính toán mã giảm giá tốt nhất / phù hợp nhất với đơn hàng hiện tại
+const calculatedBestVoucherId = computed(() => {
+  if (!availableVouchers.value || availableVouchers.value.length === 0) return null
+  const sub = Number(selectedSubtotal.value || 0)
+
+  // 1. Tìm trong các mã thỏa mãn điều kiện đơn tối thiểu của giỏ hàng hiện tại
+  const eligibleVouchers = availableVouchers.value.filter(v => {
+    const minSpend = Number(v.hoaDonToiThieu || 0)
+    return sub <= 0 || sub >= minSpend
+  })
+
+  if (eligibleVouchers.length > 0) {
+    const sorted = [...eligibleVouchers].sort((a, b) => {
+      if (sub > 0) {
+        const discA = calculateDiscountForVoucher(a, sub)
+        const discB = calculateDiscountForVoucher(b, sub)
+        if (discB !== discA) return discB - discA
+      }
+      return Number(a.hoaDonToiThieu || 0) - Number(b.hoaDonToiThieu || 0)
+    })
+    return sorted[0]?.id || null
+  }
+
+  // 2. Nếu đơn hàng chưa đủ điều kiện cho mã nào, gợi ý mã có mức yêu cầu đơn thấp nhất
+  const fallbackSorted = [...availableVouchers.value].sort((a, b) => {
+    return Number(a.hoaDonToiThieu || 0) - Number(b.hoaDonToiThieu || 0)
+  })
+  return fallbackSorted[0]?.id || null
+})
+
 // Đưa phiếu giảm giá tốt nhất lên đầu danh sách
 const sortedAvailableVouchers = computed(() => {
   if (!availableVouchers.value || availableVouchers.value.length === 0) return []
   const sub = Number(selectedSubtotal.value || 0)
 
-  return [...availableVouchers.value].sort((a, b) => {
+  let list = [...availableVouchers.value]
+  if (voucherTab.value === 'PERSONAL') {
+    list = list.filter(v => isVoucherPersonal(v))
+  } else if (voucherTab.value === 'PUBLIC') {
+    list = list.filter(v => !isVoucherPersonal(v))
+  }
+
+  return list.sort((a, b) => {
+    const isPersonalA = isVoucherPersonal(a) ? 1 : 0
+    const isPersonalB = isVoucherPersonal(b) ? 1 : 0
+
+    // Ở tab Tất cả, ưu tiên đưa phiếu cá nhân của khách lên trước
+    const bestId = calculatedBestVoucherId.value
+    if (a.id === bestId) return -1
+    if (b.id === bestId) return 1
+    if (false) {
+      return isPersonalB - isPersonalA
+    }
     // 1. Nếu giỏ hàng có tiền, ưu tiên phiếu đủ điều kiện và mức giảm thực tế cao nhất
     if (sub > 0) {
       const discA = calculateDiscountForVoucher(a, sub)
@@ -364,7 +726,7 @@ const sortedAvailableVouchers = computed(() => {
 
 const bestVoucherId = computed(() => {
   if (!sortedAvailableVouchers.value || sortedAvailableVouchers.value.length === 0) return null
-  return sortedAvailableVouchers.value[0]?.id || null
+  return calculatedBestVoucherId.value
 })
 
 const handleApplyVoucher = async (codeToApply) => {
@@ -380,7 +742,7 @@ const handleApplyVoucher = async (codeToApply) => {
     voucher = allVouchers.value.find(v => (v.maPhieuGiamGia || '').toUpperCase() === code)
     if (voucher && isVoucherPersonal(voucher)) {
       const currentUserId = currentClientUser.value?.id
-      const hasAccess = Array.isArray(voucher.idKhachHangList) && currentUserId && voucher.idKhachHangList.includes(Number(currentUserId))
+      const hasAccess = customerHasAccessToVoucher(voucher)
       if (!hasAccess) {
         await showAppAlert('Mã giảm giá này là mã riêng tư và không áp dụng cho tài khoản của bạn!', 'Mã không hợp lệ', 'error')
         return
@@ -506,6 +868,40 @@ const updateGhnShipping = async () => {
   }
 }
 
+async function resetCustomerFormToDefault() {
+  customerName.value = ''
+  customerPhone.value = ''
+  customerEmail.value = ''
+  streetAddress.value = ''
+  selectedProvince.value = ''
+  selectedWard.value = ''
+  currentWards.value = []
+  savedAddresses.value = []
+  selectedAddressId.value = null
+  addressModalVisible.value = false
+  showAddressForm.value = false
+  voucherTab.value = 'ALL'
+  voucherInput.value = ''
+
+  if (appliedVoucher.value && isVoucherPersonal(appliedVoucher.value.raw)) {
+    appliedVoucher.value = null
+  }
+
+  errors.value = {
+    customerName: '',
+    customerPhone: '',
+    customerEmail: '',
+    selectedProvince: '',
+    selectedWard: '',
+    streetAddress: ''
+  }
+
+  calculatedGhnFee.value = 30000
+  ghnLeadTime.value = ''
+
+  await fetchPublicVouchers()
+}
+
 watch([selectedProvince, selectedWard], () => {
   updateGhnShipping()
 })
@@ -538,6 +934,7 @@ const finalTotal = computed(() => {
 // 8. ĐẶT HÀNG & THANH TOÁN
 // ==========================================
 const submitting = ref(false)
+const showConfirmOrderModal = ref(false)
 const orderSuccess = ref(false)
 const createdOrder = ref(null)
 const copySuccess = ref(false)
@@ -632,6 +1029,10 @@ const handlePlaceOrder = async () => {
     return
   }
 
+  showConfirmOrderModal.value = true
+}
+
+const executePlaceOrder = async () => {
   submitting.value = true
   try {
     const subtotal = selectedSubtotal.value
@@ -686,6 +1087,7 @@ const handlePlaceOrder = async () => {
       const vnpRes = await api.post('/api/vnpay/create-payment', vnpPayload)
       if (vnpRes.data && vnpRes.data.paymentUrl) {
         removeMultipleFromCart(purchasedIds)
+        showConfirmOrderModal.value = false
         const width = 850
         const height = 750
         const left = Math.max(0, (window.screen.width - width) / 2)
@@ -722,7 +1124,16 @@ const handlePlaceOrder = async () => {
 
     // Nếu là COD
     removeMultipleFromCart(purchasedIds)
-    orderSuccess.value = true
+    showConfirmOrderModal.value = false
+    showAppToast(`Đặt hàng thành công! Mã đơn hàng #${savedOrder.maHoaDon}`, 'success')
+
+    // Nhảy sang luôn phần chi tiết đơn hàng đó
+    if (currentClientUser.value?.id) {
+      router.push(`/don-hang?code=${savedOrder.maHoaDon}`)
+    } else {
+      router.push(`/tra-cuu?code=${savedOrder.maHoaDon}`)
+    }
+    return
     window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (err) {
     console.error('Lỗi đặt hàng:', err)
@@ -845,6 +1256,16 @@ onMounted(async () => {
     currentStep.value = 'checkout'
   }
   syncCartStock()
+  if (typeof window !== 'undefined') {
+    window.addEventListener('client-auth-change', () => {
+      if (currentClientUser.value) {
+        syncCustomerProfileAndAddresses()
+      } else {
+        resetCustomerFormToDefault()
+      }
+    })
+  }
+  await syncCustomerProfileAndAddresses()
   loadRecommendedProducts()
   fetchPublicVouchers()
 
@@ -1148,7 +1569,19 @@ const formatDate = (dateStr) => {
 
           <!-- 2. Form Thông tin người nhận hàng (Đầy đủ tiêu đề rõ ràng từng trường) -->
           <div class="section-card-panel">
-            <h3 class="panel-section-title">Thông tin giao hàng</h3>
+            <div class="panel-header-with-action">
+              <h3 class="panel-section-title">Thông tin giao hàng</h3>
+              <button
+
+                type="button"
+                v-if="false"
+                class="btn-manage-addr-trigger"
+                @click="openAddressModal"
+                title="Xem và quản lý tất cả các địa chỉ đã lưu"
+              >
+                📍 Sổ địa chỉ ({{ savedAddresses.length }})
+              </button>
+            </div>
 
             <div class="form-salutation-name-phone-row">
               <div class="form-group-field field-fullname">
@@ -1240,10 +1673,39 @@ const formatDate = (dateStr) => {
               </div>
             </div>
 
-            <!-- Giờ giao hàng của đơn vị vận chuyển -->
-            <div class="delivery-schedule-notice mt-2">
-              <span class="ds-icon">🕒</span>
-              <span>Đơn hàng được giao trong giờ hành chính (thứ 2 đến thứ 7). <a href="javascript:void(0)" class="link-detail-sub" @click="showAppAlert('Đơn vị vận chuyển GHN Express giao hàng từ 8h00 - 18h00 từ thứ 2 đến thứ 7 hàng tuần.', 'Thời gian giao hàng', 'info')">Xem chi tiết</a></span>
+
+            <!-- THANH THAO TÁC ĐỊA CHỈ CHO KHÁCH HÀNG ĐÃ ĐĂNG NHẬP (CÓ NÚT THÊM ĐỊA CHỈ MỚI) -->
+            <div v-if="isClientLoggedIn" class="address-book-toolbar mt-3">
+              <div class="abt-left">
+                <span v-if="savedAddresses.length > 0" class="abt-info">
+                  <span class="abt-dot">✓</span> Địa chỉ đang chọn: <strong>{{ savedAddresses.find(a => a.id === selectedAddressId)?.diaChiCuThe || streetAddress || 'Mặc định' }}</strong>
+                </span>
+                <span v-else class="abt-info text-muted">
+                  Bạn chưa có địa chỉ nào được lưu
+                </span>
+              </div>
+              <div class="abt-right">
+                <button
+                  type="button"
+                  v-if="false"
+                  class="btn-add-new-addr-action"
+                  @click="openAddAddressForm(); addressModalVisible = true"
+                >
+                  + Thêm địa chỉ mới
+                </button>
+                <button
+
+                  type="button"
+                  class="btn-open-addr-list-action"
+                  @click="openAddressModal"
+                >
+                  Đổi địa chỉ{{ savedAddresses.length > 0 ? ` (${savedAddresses.length})` : '' }}
+                </button>
+              </div>
+            </div>
+            <div v-if="false" class="delivery-schedule-notice mt-2">
+
+
             </div>
           </div>
 
@@ -1431,7 +1893,7 @@ const formatDate = (dateStr) => {
               <input
                 type="text"
                 v-model="voucherInput"
-                placeholder="Nhập mã giảm giá"
+                placeholder="Nhập mã giảm giá..."
                 class="form-input-text voucher-text-input"
                 @keyup.enter="handleApplyVoucher()"
               />
@@ -1441,12 +1903,12 @@ const formatDate = (dateStr) => {
                 @click="handleApplyVoucher()"
                 :disabled="!voucherInput.trim()"
               >
-                ÁP DỤNG
+                Áp dụng
               </button>
             </div>
 
             <!-- GỢI Ý MÃ GIẢM GIÁ (Chỉ hiển thị khi có mã công khai từ Admin DB) -->
-            <div v-if="suggestedCodes.length > 0" class="suggested-vouchers-row">
+            <div v-if="false" class="suggested-vouchers-row">
               <span class="sv-label">Gợi ý mã:</span>
               <div class="sv-tags-wrap">
                 <button
@@ -1454,7 +1916,10 @@ const formatDate = (dateStr) => {
                   :key="code"
                   type="button"
                   class="btn-suggest-code-tag"
-                  :class="{ active: appliedVoucher?.code === code }"
+                  :class="{
+                    active: appliedVoucher?.code === code,
+                    'is-personal-tag': isVoucherPersonal(availableVouchers.find(v => v.maPhieuGiamGia === code))
+                  }"
                   @click="applySuggestedCode(code)"
                 >
                   {{ code }}
@@ -1469,6 +1934,7 @@ const formatDate = (dateStr) => {
                 <div>
                   <div class="av-code-badge-row" style="display: flex; align-items: center; gap: 6px;">
                     <strong>Mã: {{ appliedVoucher.code }}</strong>
+
                     <span class="av-best-badge" v-if="appliedVoucher.id === bestVoucherId">Tốt nhất</span>
                   </div>
                   <span class="av-disc">Đã giảm -{{ formatCurrency(appliedVoucher.discount) }}</span>
@@ -1479,7 +1945,35 @@ const formatDate = (dateStr) => {
               </button>
             </div>
 
-            <!-- Danh sách thẻ voucher CÔNG KHAI từ Admin (Match style Coolmate) -->
+            <!-- Bộ lọc phân loại phiếu: Tất cả | Cá nhân | Công khai -->
+            <div v-if="hasPersonalVouchers" class="voucher-filter-tabs">
+              <button
+                type="button"
+                class="btn-v-tab"
+                :class="{ active: voucherTab === 'ALL' }"
+                @click="voucherTab = 'ALL'"
+              >
+                Tất cả ({{ availableVouchers.length }})
+              </button>
+              <button
+                type="button"
+                class="btn-v-tab btn-v-tab-personal"
+                :class="{ active: voucherTab === 'PERSONAL' }"
+                @click="voucherTab = 'PERSONAL'"
+              >
+                Dành riêng cho bạn ({{ personalVouchersCount }})
+              </button>
+              <button
+                type="button"
+                class="btn-v-tab"
+                :class="{ active: voucherTab === 'PUBLIC' }"
+                @click="voucherTab = 'PUBLIC'"
+              >
+                Toàn sàn ({{ publicVouchersCount }})
+              </button>
+            </div>
+
+            <!-- Danh sách thẻ voucher CÔNG KHAI & CÁ NHÂN từ Admin -->
             <div v-if="sortedAvailableVouchers.length > 0" class="public-coupons-carousel">
               <div
                 v-for="v in sortedAvailableVouchers"
@@ -1491,6 +1985,7 @@ const formatDate = (dateStr) => {
                 <div class="ticket-left">
                   <div style="display: flex; align-items: center; gap: 6px;">
                     <div class="ticket-badge">{{ v.maPhieuGiamGia }}</div>
+
                     <span v-if="v.id === bestVoucherId" class="av-best-badge" style="margin-left: 0;">Tốt nhất</span>
                   </div>
                   <div class="ticket-name">
@@ -1512,7 +2007,7 @@ const formatDate = (dateStr) => {
             </div>
 
             <!-- Link mã giới thiệu (Ảnh 5) -->
-            <div class="referral-code-link-row">
+            <div v-if="false" class="referral-code-link-row">
               <a href="javascript:void(0)" class="referral-link" @click="showAppAlert('Tính năng giới thiệu bạn bè nhận ưu đãi sẽ sớm được cập nhật!', 'Mã giới thiệu', 'info')">
                 Bạn có mã giới thiệu? &rarr;
               </a>
@@ -1585,6 +2080,280 @@ const formatDate = (dateStr) => {
       v-model="showLoginModal"
       :initial-view="authInitialView"
       @login-success="handleLoginSuccess"
+    />
+
+    <!-- POPUP XÁC NHẬN ĐƠN HÀNG TRƯỚC KHI ĐẶT -->
+    <Teleport to="body">
+      <div v-if="showConfirmOrderModal" class="client-confirm-order-backdrop" @click.self="showConfirmOrderModal = false">
+        <div class="client-confirm-order-card animate-pop">
+          <!-- Header Modal -->
+          <div class="confirm-modal-header">
+            <div class="confirm-header-left">
+              <span class="confirm-header-icon">📋</span>
+              <div>
+                <h3 class="confirm-modal-title">Xác nhận thông tin đơn hàng</h3>
+                <p class="confirm-modal-sub">Vui lòng kiểm tra lại thông tin trước khi hoàn tất đặt hàng</p>
+              </div>
+            </div>
+            <button class="confirm-close-btn" @click="showConfirmOrderModal = false" title="Đóng">&times;</button>
+          </div>
+
+          <!-- Body Modal -->
+          <div class="confirm-modal-body">
+            <!-- Box 1: Thông tin khách hàng & Giao hàng -->
+            <div class="confirm-info-box">
+              <h4 class="confirm-box-title">
+                <span>📍 Thông tin người nhận & Giao hàng</span>
+              </h4>
+              <div class="confirm-meta-grid">
+                <div class="confirm-meta-item">
+                  <span class="c-label">Họ và tên:</span>
+                  <strong class="c-val">{{ customerName }}</strong>
+                </div>
+                <div class="confirm-meta-item">
+                  <span class="c-label">Số điện thoại:</span>
+                  <strong class="c-val">{{ customerPhone }}</strong>
+                </div>
+                <div class="confirm-meta-item full-row" v-if="customerEmail">
+                  <span class="c-label">Email:</span>
+                  <span class="c-val">{{ customerEmail }}</span>
+                </div>
+                <div class="confirm-meta-item full-row">
+                  <span class="c-label">Địa chỉ nhận hàng:</span>
+                  <span class="c-val font-medium">{{ fullDeliveryAddress }}</span>
+                </div>
+                <div class="confirm-meta-item full-row">
+                  <span class="c-label">Hình thức thanh toán:</span>
+                  <span class="c-val font-semibold text-primary">
+                    {{ paymentMethod === 'VNPAY' ? 'Cổng thanh toán trực tuyến VNPAY' : 'Thanh toán tiền mặt khi nhận hàng (COD)' }}
+                  </span>
+                </div>
+                <div class="confirm-meta-item full-row">
+                  <span class="c-label">Đơn vị vận chuyển:</span>
+                  <span class="c-val font-semibold">Giao Hàng Nhanh (GHN Express)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Box 2: Tóm tắt sản phẩm đặt mua -->
+            <div class="confirm-info-box">
+              <h4 class="confirm-box-title">
+                <span>🛍️ Sản phẩm đặt mua ({{ activeCheckoutItems.length }})</span>
+              </h4>
+              <div class="confirm-items-list">
+                <div v-for="item in activeCheckoutItems" :key="item.variantId" class="confirm-item-row">
+                  <img :src="resolveProductImg(item)" :alt="item.productName" class="confirm-item-img" @error="onImgError" />
+                  <div class="confirm-item-details">
+                    <div class="confirm-item-name" :title="item.productName">{{ item.productName }}</div>
+                    <div class="confirm-item-attr">
+                      <span v-if="item.colorName">Màu: {{ item.colorName }}</span>
+                      <span v-if="item.sizeName">Size: {{ item.sizeName }}</span>
+                      <span class="confirm-item-qty">x{{ item.quantity }}</span>
+                    </div>
+                  </div>
+                  <div class="confirm-item-price">
+                    {{ formatCurrency((item.discountPrice > 0 ? item.discountPrice : item.price) * item.quantity) }}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Box 3: Tóm tắt chi phí & Tổng tiền -->
+            <div class="confirm-info-box confirm-pricing-box">
+              <h4 class="confirm-box-title">
+                <span>💰 Tóm tắt thanh toán</span>
+              </h4>
+              <div class="confirm-fee-rows">
+                <div class="confirm-fee-line">
+                  <span>Tổng tiền hàng:</span>
+                  <strong>{{ formatCurrency(selectedSubtotal) }}</strong>
+                </div>
+                <div class="confirm-fee-line">
+                  <span>Phí ship (vận chuyển):</span>
+                  <strong>{{ shippingFee === 0 ? 'Miễn phí' : formatCurrency(shippingFee || 30000) }}</strong>
+                </div>
+                <div class="confirm-fee-line text-green" v-if="voucherDiscount > 0">
+                  <span>Giảm giá (Phiếu {{ appliedVoucher?.code }}):</span>
+                  <strong>-{{ formatCurrency(voucherDiscount) }}</strong>
+                </div>
+                <div class="confirm-fee-line text-muted" v-else>
+                  <span>Giảm giá:</span>
+                  <span>0 đ</span>
+                </div>
+                <div class="confirm-fee-line confirm-total-line">
+                  <span class="total-label">TỔNG CỘNG:</span>
+                  <strong class="total-value">{{ formatCurrency(finalTotal) }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer Actions -->
+          <div class="confirm-modal-footer">
+            <button type="button" class="btn-confirm-cancel" :disabled="submitting" @click="showConfirmOrderModal = false">
+              Quay lại kiểm tra
+            </button>
+            <button type="button" class="btn-confirm-submit" :disabled="submitting" @click="executePlaceOrder">
+              <span v-if="submitting">Đang xử lý đặt hàng...</span>
+              <span v-else>✓ Xác nhận đặt hàng</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- MODAL QUẢN LÝ ĐỊA CHỈ KHÁCH HÀNG (GIỐNG 100% ẢNH MẪU 2 VÀ 3) -->
+    <Teleport to="body">
+      <div v-if="addressModalVisible" class="client-addr-modal-backdrop" @click.self="closeAddressModal">
+        <div class="client-addr-modal-card animate-pop">
+          <div class="client-addr-modal-header">
+            <h3 class="client-addr-modal-title">
+              Quản lý địa chỉ: {{ currentClientUser?.name }}
+            </h3>
+            <button class="client-addr-close-btn" @click="closeAddressModal" title="Đóng">&times;</button>
+          </div>
+
+          <div class="client-addr-modal-body">
+            <!-- Thanh tác vụ trên: số lượng + nút Thêm địa chỉ mới -->
+            <div class="addr-top-actions-bar">
+              <span class="addr-total-count">
+                Tổng cộng: {{ savedAddresses.length }} địa chỉ
+              </span>
+              <button
+                v-if="!showAddressForm"
+                type="button"
+                class="btn-primary-addr-sm"
+                @click="openAddAddressForm"
+              >
+                + Thêm địa chỉ mới
+              </button>
+            </div>
+
+            <!-- FORM THÊM / SỬA ĐỊA CHỈ (ĐÚNG THEO ẢNH MẪU 3) -->
+            <div v-if="showAddressForm" class="addr-inline-form-box">
+              <h4 class="addr-form-box-title">
+                {{ editingAddressId ? 'Chỉnh sửa địa chỉ' : 'Thêm địa chỉ mới' }}
+              </h4>
+              <div class="addr-form-grid-2">
+                <div class="addr-form-field">
+                  <label>Tỉnh / Thành phố <span class="req-star">*</span></label>
+                  <select
+                    v-model="addrForm.thanhPho"
+                    @change="onAddrProvinceChange"
+                    class="addr-form-select"
+                  >
+                    <option value="" disabled>-- Chọn Tỉnh / Thành phố --</option>
+                    <option v-for="p in provincesList" :key="p.name || p" :value="p.name || p">
+                      {{ p.name || p }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="addr-form-field">
+                  <label>Phường / Xã <span class="req-star">*</span></label>
+                  <select
+                    v-model="addrForm.phuong"
+                    :disabled="!addrForm.thanhPho"
+                    class="addr-form-select"
+                  >
+                    <option value="" disabled>-- Chọn Phường / Xã --</option>
+                    <option v-for="w in addrWardsList" :key="w.name || w" :value="w.name || w">
+                      {{ w.name || w }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="addr-form-field full-width">
+                  <label>Địa chỉ cụ thể <span class="req-star">*</span></label>
+                  <input
+                    v-model="addrForm.diaChiCuThe"
+                    type="text"
+                    placeholder="Số nhà, ngõ, tên đường..."
+                    class="addr-form-input"
+                  />
+                </div>
+
+                <div class="addr-form-field full-width">
+                  <label class="addr-checkbox-label">
+                    <input type="checkbox" v-model="addrForm.macDinh" />
+                    <span>Đặt làm địa chỉ mặc định</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="addr-form-button-row">
+                <button type="button" class="btn-cancel-addr" @click="cancelAddressForm">
+                  Hủy
+                </button>
+                <button type="button" class="btn-save-addr" :disabled="savingAddress" @click="saveAddress">
+                  {{ savingAddress ? 'Đang lưu...' : 'Lưu địa chỉ' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- DANH SÁCH ĐỊA CHỈ HIỆN CÓ CỦA KHÁCH HÀNG (ĐÚNG THEO ẢNH MẪU 2) -->
+            <div class="addr-items-scroll-list">
+              <div v-if="loadingAddresses" class="addr-empty-state">
+                Đang tải danh sách địa chỉ...
+              </div>
+              <div v-else-if="!savedAddresses.length && !showAddressForm" class="addr-empty-state">
+                Khách hàng chưa có địa chỉ nào. Nhấn "+ Thêm địa chỉ mới" để tạo.
+              </div>
+              <div
+                v-for="addr in savedAddresses"
+                :key="addr.id"
+                class="addr-item-card"
+                :class="{ 'is-default': addr.macDinh, 'is-active-choice': selectedAddressId === addr.id }"
+              >
+                <div class="addr-card-main-col">
+                  <div class="addr-card-header-row">
+                    <span v-if="addr.macDinh" class="addr-default-badge">Mặc định</span>
+                    <span class="addr-code-tag">{{ addr.maDiaChi }}</span>
+                    <span v-if="selectedAddressId === addr.id" class="addr-active-choice-badge">✓ Đang chọn nhận hàng</span>
+                  </div>
+                  <div class="addr-card-address-text">
+                    <strong>{{ addr.diaChiCuThe }}</strong>, {{ [addr.phuong, addr.huyen, addr.thanhPho].filter(Boolean).join(', ') }}
+                  </div>
+                </div>
+
+                <div class="addr-card-btn-actions">
+                  <button
+                    type="button"
+                    class="btn-text-act btn-select-addr"
+                    @click="selectAddressForCheckout(addr); closeAddressModal()"
+                  >
+                    Giao đến đây
+                  </button>
+                  <button
+                    v-if="!addr.macDinh"
+                    type="button"
+                    class="btn-text-act btn-set-default"
+                    @click="setAsDefault(addr.id)"
+                  >
+                    Đặt làm mặc định
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-text-act btn-edit-addr"
+                    @click="editAddress(addr)"
+                  >
+                    Sửa
+                  </button>
+                  <button
+                    v-if="!addr.macDinh"
+                    type="button"
+                    class="btn-text-act btn-del-addr"
+                    @click="deleteAddress(addr.id)"
+                  >
+                    Xóa
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
     />
   </div>
 </template>
@@ -2744,16 +3513,70 @@ const formatDate = (dateStr) => {
   display: flex;
   gap: 8px;
   margin-bottom: 12px;
+  align-items: stretch;
 }
 
 .voucher-text-input {
+  flex: 1;
+  height: 38px;
+  padding: 0 12px !important;
+  font-size: 13.5px !important;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #0f172a;
+  text-transform: uppercase;
+  box-sizing: border-box;
+}
+
+.voucher-text-input::placeholder {
+  text-transform: none;
+  font-weight: 400;
+  color: #94a3b8;
+  letter-spacing: normal;
+}
+
+.btn-apply-voucher {
+  height: 38px;
+  background: #425b76;
+  color: #ffffff;
+  border: none;
+  padding: 0 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-apply-voucher:hover:not(:disabled) {
+  background: #34485e;
+}
+
+.btn-apply-voucher:disabled {
+  background: #94a3b8;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.old-voucher-input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.old-voucher-text-input {
   flex: 1;
   text-transform: uppercase;
   font-weight: 700;
   letter-spacing: 0.5px;
 }
 
-.btn-apply-voucher {
+.old-btn-apply-voucher {
   background: #1e293b;
   color: #ffffff;
   border: none;
@@ -3636,6 +4459,83 @@ const formatDate = (dateStr) => {
   color: #94a3b8;
   font-style: italic;
 }
+.av-personal-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7c3aed;
+  background: #f3e8ff;
+  border: 1px solid #ddd6fe;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-left: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Tabs phân loại voucher */
+.voucher-filter-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  margin-bottom: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.btn-v-tab {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.btn-v-tab:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.btn-v-tab.active {
+  background: #1e293b;
+  color: #ffffff;
+  border-color: #1e293b;
+}
+
+.btn-v-tab-personal {
+  color: #7c3aed;
+  border-color: #ddd6fe;
+  background: #fdf4ff;
+}
+
+.btn-v-tab-personal:hover {
+  background: #fae8ff;
+  color: #6b21a8;
+}
+
+.btn-v-tab-personal.active {
+  background: #7c3aed;
+  color: #ffffff;
+  border-color: #7c3aed;
+}
+
+.btn-suggest-code-tag.is-personal-tag {
+  border-color: #c084fc;
+  color: #7c3aed;
+  background: #faf5ff;
+}
+
+.btn-suggest-code-tag.is-personal-tag:hover {
+  background: #f3e8ff;
+  border-color: #a855f7;
+}
+
 .av-best-badge {
   font-size: 11px;
   font-weight: 700;
@@ -3644,6 +4544,733 @@ const formatDate = (dateStr) => {
   padding: 2px 6px;
   border-radius: 4px;
   margin-left: 6px;
+}
+
+/* =========================================================
+   STYLE CHO SỔ ĐỊA CHỈ & MODAL QUẢN LÝ ĐỊA CHỈ KHÁCH HÀNG
+   ========================================================= */
+.panel-header-with-action {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.panel-header-with-action .panel-section-title {
+  margin-bottom: 0;
+}
+
+.btn-manage-addr-trigger {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn-manage-addr-trigger:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.address-book-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: #f8fafc;
+  border: 1px dashed #94a3b8;
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.abt-left {
+  font-size: 0.85rem;
+  color: #334155;
+}
+
+.abt-dot {
+  color: #16a34a;
+  font-weight: 700;
+  margin-right: 3px;
+}
+
+.btn-add-new-addr-action {
+  background: #425b76;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.83rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-add-new-addr-action:hover {
+  background: #34485e;
+}
+
+.btn-open-addr-list-action {
+  background: #ffffff;
+  color: #425b76;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.83rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: all 0.2s;
+}
+
+.btn-open-addr-list-action:hover {
+  background: #f1f5f9;
+}
+
+/* Modal Quản lý địa chỉ khách hàng (Teleport) */
+.client-addr-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.client-addr-modal-card {
+  width: 100%;
+  max-width: 680px;
+  max-height: 90vh;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalScaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.client-addr-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid #f1ece4;
+  background-color: #fcfbf9;
+}
+
+.client-addr-modal-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #2c445a;
+  margin: 0;
+}
+
+.client-addr-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.7rem;
+  line-height: 1;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.client-addr-close-btn:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+.client-addr-modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.addr-top-actions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.addr-total-count {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.btn-primary-addr-sm {
+  background: #425b76;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary-addr-sm:hover {
+  background: #34485e;
+}
+
+/* Box form thêm/sửa địa chỉ */
+.addr-inline-form-box {
+  background-color: #fdfbf7;
+  border: 1px solid #eedecb;
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.addr-form-box-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #2c445a;
+  margin: 0 0 14px 0;
+}
+
+.addr-form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.addr-form-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.addr-form-field.full-width {
+  grid-column: span 2;
+}
+
+.addr-form-field label {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.addr-form-select,
+.addr-form-input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 0.92rem;
+  color: #0f172a;
+  background-color: #ffffff;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.addr-form-select:focus,
+.addr-form-input:focus {
+  border-color: #425b76;
+}
+
+.addr-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.addr-checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: #425b76;
+}
+
+.addr-form-button-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.btn-cancel-addr {
+  height: 38px;
+  padding: 0 18px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel-addr:hover {
+  background-color: #f1f5f9;
+}
+
+.btn-save-addr {
+  height: 38px;
+  padding: 0 20px;
+  border-radius: 8px;
+  border: none;
+  background-color: #425b76;
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-save-addr:hover {
+  background-color: #34485e;
+}
+
+.btn-save-addr:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Danh sách địa chỉ dạng thẻ */
+.addr-items-scroll-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.addr-empty-state {
+  text-align: center;
+  padding: 32px 16px;
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
+.addr-item-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background-color: #ffffff;
+  transition: all 0.2s;
+}
+
+.addr-item-card.is-default {
+  border-color: #425b76;
+  background-color: #f8fafc;
+}
+
+.addr-item-card.is-active-choice {
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+.addr-card-main-col {
+  flex: 1;
+}
+
+.addr-card-header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.addr-default-badge {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+}
+
+.addr-code-tag {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.addr-active-choice-badge {
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+}
+
+.addr-card-address-text {
+  font-size: 0.92rem;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.addr-card-btn-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-text-act {
+  background: none;
+  border: none;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.btn-select-addr {
+  background-color: #eff6ff;
+  color: #2563eb;
+}
+
+.btn-select-addr:hover {
+  background-color: #dbeafe;
+}
+
+.btn-set-default {
+  color: #425b76;
+}
+
+.btn-set-default:hover {
+  background-color: #f1f5f9;
+}
+
+.btn-edit-addr {
+  color: #425b76;
+}
+
+.btn-edit-addr:hover {
+  background-color: #f1f5f9;
+}
+
+.btn-del-addr {
+  color: #dc2626;
+}
+
+.btn-del-addr:hover {
+  background-color: #fee2e2;
+}
+
+/* ======================================================== */
+/* MODAL XÁC NHẬN ĐƠN HÀNG (POPUP TRƯỚC KHI ĐẶT) */
+/* ======================================================== */
+.client-confirm-order-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.client-confirm-order-card {
+  width: 100%;
+  max-width: 620px;
+  max-height: 90vh;
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalScaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.confirm-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid #f1f5f9;
+  background-color: #fafbfc;
+}
+
+.confirm-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.confirm-header-icon {
+  font-size: 1.6rem;
+}
+
+.confirm-modal-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.confirm-modal-sub {
+  font-size: 0.83rem;
+  color: #64748b;
+  margin: 2px 0 0 0;
+}
+
+.confirm-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.7rem;
+  line-height: 1;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.confirm-close-btn:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+.confirm-modal-body {
+  padding: 18px 22px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.confirm-info-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.confirm-box-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #334155;
+  margin: 0 0 10px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.confirm-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 14px;
+}
+
+.confirm-meta-item {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.88rem;
+}
+
+.confirm-meta-item.full-row {
+  grid-column: span 2;
+}
+
+.c-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.c-val {
+  color: #1e293b;
+  word-break: break-word;
+}
+
+.confirm-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.confirm-item-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  background: #ffffff;
+  border: 1px solid #edf2f7;
+  border-radius: 8px;
+}
+
+.confirm-item-img {
+  width: 42px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background-color: #f1f5f9;
+}
+
+.confirm-item-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.confirm-item-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.confirm-item-attr {
+  font-size: 0.76rem;
+  color: #64748b;
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.confirm-item-qty {
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.confirm-item-price {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.confirm-pricing-box {
+  background: #fdfbf7;
+  border-color: #eedecb;
+}
+
+.confirm-fee-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.confirm-fee-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.88rem;
+  color: #334155;
+}
+
+.confirm-fee-line.text-green strong {
+  color: #16a34a;
+}
+
+.confirm-total-line {
+  padding-top: 10px;
+  margin-top: 4px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.confirm-total-line .total-label {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.confirm-total-line .total-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #c2410c;
+}
+
+.confirm-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 22px;
+  border-top: 1px solid #f1f5f9;
+  background-color: #fafbfc;
+}
+
+.btn-confirm-cancel {
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-confirm-cancel:hover {
+  background-color: #f1f5f9;
+}
+
+.btn-confirm-submit {
+  height: 40px;
+  padding: 0 22px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #d08344 0%, #b86b2d 100%);
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(208, 131, 68, 0.25);
+}
+
+.btn-confirm-submit:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.btn-confirm-submit:disabled,
+.btn-confirm-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 </style>

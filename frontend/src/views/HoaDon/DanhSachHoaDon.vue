@@ -411,7 +411,11 @@ const loadHoaDon = async () => {
         // checked isStoreOrder
         // done loaiDon
         if (isOnline) {
-          employeeName = nhanVienObj?.tenNhanVien || nhanVienObj?.tenTaiKhoan || item.tenNhanVien || empCatalog[item.idNhanVien] || empCatalog[item.nguoiTao] || ''
+          if (Number(item.trangThai) === 1 || (!nhanVienObj?.tenNhanVien && !item.idNhanVien && !item.tenNhanVien)) {
+            employeeName = '—'
+          } else {
+            employeeName = nhanVienObj?.tenNhanVien || nhanVienObj?.tenTaiKhoan || item.tenNhanVien || empCatalog[item.idNhanVien] || '—'
+          }
         } else if (nhanVienObj?.tenNhanVien) {
           employeeName = nhanVienObj.tenNhanVien
         } else if (empCatalog[item.idNhanVien]) {
@@ -918,7 +922,7 @@ onBeforeUnmount(() => {
             <td class="text-muted">{{ (currentPage - 1) * pageSize + index + 1 }}</td>
             <td class="font-bold text-code">{{ item.code }}</td>
             <td class="text-customer">{{ item.customerName }}</td>
-            <td class="text-employee">{{ item.employeeName }}</td>
+            <td class="text-employee">{{ item.employeeName || '—' }}</td>
             <td class="font-bold text-price">{{ formatMoney(item.totalPrice) }}</td>
             <td>
                 <span :class="item.type === 'Tại cửa hàng' ? 'badge-store' : 'badge-online'">
