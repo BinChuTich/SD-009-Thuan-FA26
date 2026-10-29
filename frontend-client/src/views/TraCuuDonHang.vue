@@ -228,6 +228,73 @@ const visibleOnlineSteps = computed(() => {
     })
 })
 
+// Countdown 5 phút tự động hủy cho đơn chưa thanh toán VNPAY
+const countdownSeconds = ref(0)
+let timerInterval = null
+
+const formatTimer = (sec) => {
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`
+}
+
+const calculateRemainingSeconds = (o) => {
+  if (!o || !o.ngayTao || !isVnPay(o) || o.trangThaiThanhToan === 1 || o.trangThai !== 1) {
+    return 0
+  }
+  const createdMs = new Date(o.ngayTao).getTime()
+  if (isNaN(createdMs)) return 0
+  const expiryMs = createdMs + 5 * 60 * 1000
+  const now = Date.now()
+  return Math.max(0, Math.floor((expiryMs - now) / 1000))
+}
+
+let isCancellingExpired = false
+const updateCountdown = async () => {
+  if (!order.value) return
+  const remaining = calculateRemainingSeconds(order.value)
+  countdownSeconds.value = remaining
+
+  if (remaining <= 0 && isVnPay(order.value) && order.value.trangThai === 1 && order.value.trangThaiThanhToan !== 1) {
+    if (isCancellingExpired) return
+    isCancellingExpired = true
+    try {
+      await api.post(`/api/hoa-don/code/${order.value.maHoaDon}/cancel-expired-vnpay`)
+      order.value.trangThai = 6
+      await handleSearch()
+    } catch (e) {
+      console.warn('Auto cancel error:', e)
+    } finally {
+      isCancellingExpired = false
+    }
+  }
+}
+
+const openPayModal = async () => {
+  if (!order.value || !order.value.maHoaDon) return
+  try {
+    const payAmount = Math.max(1, Math.round(Number(order.value.tienSauGiamGia || order.value.tongTienSauGiam || order.value.tongTien || 0)))
+    const res = await api.post('/api/vnpay/create-payment', {
+      orderCode: order.value.maHoaDon,
+      amount: payAmount,
+      orderInfo: `Thanh toan don hang ${order.value.maHoaDon}`
+    })
+    if (res.data && res.data.paymentUrl) {
+      const w = 850
+      const h = 750
+      const left = (window.screen.width - w) / 2
+      const top = (window.screen.height - h) / 2
+      window.open(
+        res.data.paymentUrl,
+        'VNPayPaymentPopup',
+        `width=${w},height=${h},top=${top},left=${left},scrollbars=yes,status=no,resizable=yes`
+      )
+    }
+  } catch (e) {
+    alert('Không thể kết nối tới cổng thanh toán VNPAY lúc này. Vui lòng thử lại sau!')
+  }
+}
+
 const isVnPay = (o) => {
   if (!o) return false
   const pt = (o.phuongThucThanhToan || o.ghiChu || '').toUpperCase()
@@ -359,6 +426,7 @@ const onVisibilityChange = () => {
 
 onMounted(() => {
   autoRefreshTimer = setInterval(refreshTrackingSilently, 2500)
+  timerInterval = setInterval(updateCountdown, 1000)
   window.addEventListener('focus', refreshTrackingSilently)
   document.addEventListener('visibilitychange', onVisibilityChange)
   if (route.query.ma || route.query.code || route.query.sdt || route.query.phone) {
@@ -369,6 +437,7 @@ onMounted(() => {
 })
 onUnmounted(() => {
   if (autoRefreshTimer) clearInterval(autoRefreshTimer)
+  if (timerInterval) clearInterval(timerInterval)
   window.removeEventListener('focus', refreshTrackingSilently)
   document.removeEventListener('visibilitychange', onVisibilityChange)
 })
@@ -630,6 +699,21 @@ onUnmounted(() => {
         </div>
 
         <!-- THÔNG TIN VẬN CHUYỂN & GIAO HÀNG ONLINE (GHN) -->
+        <!-- Cảnh báo đếm ngược thanh toán VNPAY (nếu chưa thanh toán) -->
+        <div
+          v-if="isVnPay(order) && order.trangThaiThanhToan !== 1 && order.trangThai === 1 && countdownSeconds > 0"
+          class="timer-warning-box"
+        >
+          <div class="timer-icon">⏰</div>
+          <div class="timer-info-content">
+            <strong>Đơn hàng sẽ tự động hủy sau: <span class="countdown-val">{{ formatTimer(countdownSeconds) }}</span></strong>
+            <p>Vui lòng thanh toán trực tuyến ngay để đơn hàng không bị hệ thống tự động hủy!</p>
+          </div>
+          <button class="btn-pay-now" @click="openPayModal">
+            💳 Thanh toán ngay
+          </button>
+        </div>
+
         <div class="online-shipping-detail-box" v-if="!isPosOrder">
           <div class="shipping-box-header">
             <div class="carrier-brand">
@@ -1511,4 +1595,61 @@ onUnmounted(() => {
   color: #1e293b;
   flex: 1;
 }
+/* Warning timer */
+.timer-warning-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #991b1b;
+  margin-bottom: 20px;
+}
+
+.timer-icon {
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.timer-info-content {
+  flex: 1;
+}
+
+.timer-info-content strong {
+  display: block;
+  font-size: 14px;
+}
+
+.countdown-val {
+  color: #dc2626;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.timer-info-content p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: #b91c1c;
+}
+
+.btn-pay-now {
+  background: #496883;
+  color: #ffffff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 3px 8px rgba(73, 104, 131, 0.25);
+  flex-shrink: 0;
+}
+
+.btn-pay-now:hover {
+  background: #364f66;
+}
+
 </style>

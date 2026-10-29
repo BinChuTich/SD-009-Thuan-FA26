@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
@@ -64,8 +64,46 @@ const loadProductData = async (id) => {
     variants.value = varData
 
     try {
-      const resActive = await api.get('/api/dot-giam-gia/active-products-map')
-      if (resActive.data && resActive.data[id]) {
+      const [resProdMap, resVarMap] = await Promise.allSettled([api.get('/api/dot-giam-gia/active-products-map'), api.get('/api/dot-giam-gia/active-variants-map')])
+      const activeProdMap = (resProdMap.status === 'fulfilled' && resProdMap.value?.data) ? resProdMap.value.data : {}
+      const activeVarMap = (resVarMap.status === 'fulfilled' && resVarMap.value?.data) ? resVarMap.value.data : {}
+      const dot = activeProdMap[id] || activeProdMap[Number(id)] || activeProdMap[String(id)]
+      if (dot && prodData) {
+        prodData.coGiamGia = true
+        prodData.tenDotGiamGia = dot.tenDotGiamGia || prodData.tenDotGiamGia
+        prodData.phanTramGiam = dot.phanTramGiam != null ? dot.phanTramGiam : prodData.phanTramGiam
+        prodData.ngayKetThucDotGiamGia = dot.ngayKetThuc || prodData.ngayKetThucDotGiamGia
+        if (prodData.minGia && (!prodData.minGiaSauGiam || prodData.minGiaSauGiam >= prodData.minGia)) {
+          prodData.minGiaSauGiam = Math.round(prodData.minGia * (100 - (prodData.phanTramGiam || 0)) / 100)
+        }
+      }
+      if (Array.isArray(varData)) {
+        varData.forEach(v => {
+          const vDiscount = activeVarMap[v.id] || activeVarMap[Number(v.id)] || activeVarMap[String(v.id)]
+          const basePrice = Number(v.giaBan || v.gia || 0)
+          if (vDiscount && (vDiscount.giaSauGiam || vDiscount.phanTramGiam)) {
+            v.coGiamGia = true
+            v.giaSauGiam = vDiscount.giaSauGiam ? Number(vDiscount.giaSauGiam) : Math.round(basePrice * (100 - Number(vDiscount.phanTramGiam || 0)) / 100)
+            v.phanTramGiam = Number(vDiscount.phanTramGiam || 0)
+            v.tenDotGiamGia = vDiscount.tenDotGiamGia || (prodData?.tenDotGiamGia || '')
+          } else if (v.coGiamGia && v.giaSauGiam && Number(v.giaSauGiam) < basePrice) {
+            v.coGiamGia = true
+          } else {
+            v.coGiamGia = false
+            v.phanTramGiam = 0
+            v.giaSauGiam = basePrice
+            v.tenDotGiamGia = ''
+          }
+        })
+      }
+      product.value = prodData
+      variants.value = varData
+      if (campaignTimer) clearInterval(campaignTimer)
+      updateCampaignTimer()
+      if (true) {
+        campaignTimer = setInterval(updateCampaignTimer, 1000)
+      }
+      /* old discount
         const dot = resActive.data[id]
         if (prodData) {
           prodData.coGiamGia = true
@@ -74,6 +112,7 @@ const loadProductData = async (id) => {
           prodData.ngayKetThucDotGiamGia = dot.ngayKetThuc
         }
       }
+      */
     } catch (e) {}
 
     // Chuẩn bị ảnh
@@ -161,7 +200,7 @@ const originalPrice = computed(() => {
 
 const hasDiscount = computed(() => {
   if (currentVariant.value) {
-    return !!currentVariant.value.coGiamGia && (originalPrice.value > currentPrice.value)
+    return (!!currentVariant.value.coGiamGia && (originalPrice.value > currentPrice.value)) || (originalPrice.value > currentPrice.value)
   }
   return product.value?.coGiamGia === true || (originalPrice.value > currentPrice.value)
 })
@@ -195,6 +234,11 @@ const updateCampaignTimer = () => {
 }
 
 const discountPercent = computed(() => {
+  if (currentVariant.value) {
+    if (currentVariant.value.coGiamGia && currentVariant.value.phanTramGiam) return Math.round(currentVariant.value.phanTramGiam)
+    if (originalPrice.value > currentPrice.value) return Math.round(((originalPrice.value - currentPrice.value) / originalPrice.value) * 100)
+    return 0
+  }
   if (product.value?.phanTramGiam) return Math.round(product.value.phanTramGiam)
   if (originalPrice.value > currentPrice.value) {
     return Math.round(((originalPrice.value - currentPrice.value) / originalPrice.value) * 100)
@@ -366,6 +410,9 @@ onMounted(() => {
     loadProductData(route.params.id)
   }
 })
+onUnmounted(() => {
+  if (campaignTimer) clearInterval(campaignTimer)
+})
 </script>
 
 <template>
@@ -410,13 +457,13 @@ onMounted(() => {
 
 
             <!-- Banner Đợt Giảm Giá Đang Hoạt Động -->
-            <div class="flash-deal-banner" v-if="product?.coGiamGia && product?.ngayKetThucDotGiamGia && campaignRemainingTime">
+            <div class="flash-deal-banner" v-if="hasDiscount">
               <div class="flash-left">
                 <span class="flash-fire">🔥</span>
-                <span class="flash-camp-name">{{ product.tenDotGiamGia || 'ƯU ĐÃI ĐẶC BIỆT' }}</span>
+                <span class="flash-camp-name">{{ currentVariant?.tenDotGiamGia || product?.tenDotGiamGia || 'ƯU ĐÃI ĐẶC BIỆT' }}</span>
                 <span class="flash-tag" v-if="discountPercent > 0">-{{ discountPercent }}%</span>
               </div>
-              <div class="flash-right">
+              <div class="flash-right" v-if="campaignRemainingTime && campaignRemainingTime !== 'Đã kết thúc'">
                 <span class="flash-clock">⏰</span>
                 <span>Kết thúc trong: <strong>{{ campaignRemainingTime }}</strong></span>
               </div>

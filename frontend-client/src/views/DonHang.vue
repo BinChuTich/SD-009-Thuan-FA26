@@ -102,7 +102,40 @@ const loadItemsForList = async (orderList) => {
 // Đã lược bỏ đánh giá
 
 // Countdown 5 phút tự động hủy cho đơn chưa thanh toán VNPAY
-const countdownSeconds = ref(299)
+const countdownSeconds = ref(0)
+
+const calculateRemainingSeconds = (order) => {
+  if (!order || !order.ngayTao || !isVnPayOrderObj(order) || order.trangThaiThanhToan === 1 || order.trangThai !== 1) {
+    return 0
+  }
+  const createdMs = new Date(order.ngayTao).getTime()
+  if (isNaN(createdMs)) return 0
+  const expiryMs = createdMs + 5 * 60 * 1000 // 5 phút tự động hủy
+  const now = Date.now()
+  return Math.max(0, Math.floor((expiryMs - now) / 1000))
+}
+
+let isCancellingExpired = false
+const updateCountdown = async () => {
+  if (!selectedOrder.value) return
+  const remaining = calculateRemainingSeconds(selectedOrder.value)
+  countdownSeconds.value = remaining
+
+  // Nếu đã quá 5 phút mà đơn vẫn chưa thanh toán (trạng thái 1)
+  if (remaining <= 0 && isVnPayOrder.value && selectedOrder.value.trangThai === 1 && selectedOrder.value.trangThaiThanhToan !== 1) {
+    if (isCancellingExpired) return
+    isCancellingExpired = true
+    try {
+      await api.post(`/api/hoa-don/code/${selectedOrder.value.maHoaDon}/cancel-expired-vnpay`)
+      selectedOrder.value.trangThai = 6
+      await loadOrders()
+    } catch (e) {
+      console.warn('Auto cancel error:', e)
+    } finally {
+      isCancellingExpired = false
+    }
+  }
+}
 let timerInterval = null
 
 // Toast thông báo
@@ -369,6 +402,7 @@ const loadOrders = async () => {
 
 const viewOrderDetail = async (order) => {
   selectedOrder.value = order
+  updateCountdown()
   selectedOrderItems.value = []
   orderLogs.value = []
   window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -553,8 +587,10 @@ onMounted(() => {
   loadOrders()
   autoRefreshTimer = setInterval(refreshCurrentDataSilently, 2500)
   timerInterval = setInterval(() => {
-    if (countdownSeconds.value > 0) {
-      countdownSeconds.value--
+    if (true) {
+      updateCountdown()
+
+
     }
   }, 1000)
 
@@ -1127,7 +1163,7 @@ onUnmounted(() => {
 
             <!-- Cảnh báo đếm ngược thanh toán VNPAY (nếu chưa thanh toán) -->
             <div
-              v-if="isVnPayOrder && selectedOrder.trangThaiThanhToan !== 1 && selectedOrder.trangThai === 1"
+              v-if="isVnPayOrder && selectedOrder.trangThaiThanhToan !== 1 && selectedOrder.trangThai === 1 && countdownSeconds > 0"
               class="timer-warning-box"
             >
               <div class="timer-icon">⏰</div>

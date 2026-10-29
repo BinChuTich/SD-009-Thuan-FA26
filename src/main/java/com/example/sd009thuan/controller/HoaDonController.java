@@ -97,6 +97,21 @@ public class HoaDonController {
     }
 
     // Hủy tất cả hóa đơn chờ của ngày hôm trước khi sang ngày mới
+    // Hủy đơn hàng online VNPAY quá hạn 5 phút chưa thanh toán
+    @PostMapping("/code/{maHoaDon}/cancel-expired-vnpay")
+    public ResponseEntity<?> cancelExpiredVnPayByMa(@PathVariable String maHoaDon) {
+        Optional<HoaDon> opt = hoaDonService.getByMaHoaDon(maHoaDon);
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        HoaDon hd = opt.get();
+        if (hoaDonService.isExpiredVnPayOrder(hd)) {
+            hoaDonService.cancelSingleVnPayOrder(hd, "Hệ thống tự động hủy đơn do quá hạn thanh toán VNPAY (5 phút)");
+            return ResponseEntity.ok(Map.of("cancelled", true, "order", hoaDonService.getByMaHoaDon(maHoaDon).orElse(hd)));
+        }
+        return ResponseEntity.ok(Map.of("cancelled", false, "order", hd));
+    }
+
     @PostMapping("/cancel-expired-waiting")
     public ResponseEntity<Map<String, Object>> cancelExpiredWaiting() {
         List<HoaDon> cancelled = hoaDonService.cancelExpiredWaitingInvoices();
