@@ -2373,7 +2373,7 @@ const formatDate = (dateStr) => {
   padding: 0 1.5rem;
 }
 
-@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
+/* Cart step styling */
 
 /* ======================================================== */
 /* BƯỚC 1: GIAO DIỆN GIỎ HÀNG CHUẨN THIẾT KẾ ẢNH MẪU        */
@@ -2388,17 +2388,18 @@ const formatDate = (dateStr) => {
 }
 
 .cart-fancy-title {
-  font-family: 'Dancing Script', cursive, -apple-system, sans-serif;
-  font-size: 52px;
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 26px;
   font-weight: 700;
-  color: #3f2e23;
+  color: #1e293b;
+  letter-spacing: -0.3px;
   margin: 0 0 6px;
   line-height: 1.15;
 }
 
 .cart-fancy-sub {
   font-size: 14px;
-  color: #78716c;
+  color: #64748b;
   margin: 0;
 }
 
@@ -2417,7 +2418,7 @@ const formatDate = (dateStr) => {
 
 .cart-step-table-card {
   background: #ffffff;
-  border: 1px solid #e7e2de;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.02);
   overflow: hidden;
@@ -2428,11 +2429,11 @@ const formatDate = (dateStr) => {
   grid-template-columns: 2.2fr 1fr 0.9fr 1fr 1.1fr;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #f0ebe6;
-  background: #faf8f5;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
   font-size: 12.5px;
   font-weight: 800;
-  color: #57463a;
+  color: #475569;
   letter-spacing: 0.5px;
 }
 
@@ -2475,7 +2476,7 @@ const formatDate = (dateStr) => {
 .custom-check-box {
   width: 19px;
   height: 19px;
-  border: 2px solid #b5a498;
+  border: 2px solid #cbd5e1;
   border-radius: 4px;
   background: #ffffff;
   display: flex;
@@ -2485,8 +2486,8 @@ const formatDate = (dateStr) => {
 }
 
 .custom-checkbox-label input:checked + .custom-check-box {
-  background: #6d4c41;
-  border-color: #6d4c41;
+  background: #496883;
+  border-color: #496883;
 }
 
 .custom-checkbox-label input:checked + .custom-check-box::after {
@@ -2507,12 +2508,12 @@ const formatDate = (dateStr) => {
   grid-template-columns: 2.2fr 1fr 0.9fr 1fr 1.1fr;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #f5f1ed;
+  border-bottom: 1px solid #f1f5f9;
   transition: background 0.2s;
 }
 
 .cart-item-table-row:hover {
-  background: #fdfbf9;
+  background: #f8fafc;
 }
 
 .cart-item-table-row:last-child {
@@ -2548,7 +2549,7 @@ const formatDate = (dateStr) => {
   margin: 0;
   font-size: 14.5px;
   font-weight: 700;
-  color: #292524;
+  color: #1e293b;
   line-height: 1.35;
 }
 
@@ -2561,16 +2562,16 @@ const formatDate = (dateStr) => {
   display: inline-block;
   padding: 2px 7px;
   font-size: 12px;
-  background: #f5f5f4;
-  color: #44403c;
-  border: 1px solid #e7e5e4;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
   border-radius: 4px;
   font-weight: 600;
 }
 
 .prod-table-stock {
   font-size: 12px;
-  color: #a8a29e;
+  color: #94a3b8;
 }
 
 .price-stack {
@@ -2582,12 +2583,12 @@ const formatDate = (dateStr) => {
 .price-sale {
   font-size: 14.5px;
   font-weight: 700;
-  color: #1c1917;
+  color: #0f172a;
 }
 
 .price-origin {
   font-size: 12px;
-  color: #a8a29e;
+  color: #94a3b8;
   text-decoration: line-through;
 }
 
@@ -2612,7 +2613,7 @@ const formatDate = (dateStr) => {
 .qty-pill-box {
   display: inline-flex;
   align-items: center;
-  border: 1px solid #d6d3d1;
+  border: 1px solid #cbd5e1;
   border-radius: 6px;
   background: #ffffff;
   overflow: hidden;
@@ -2621,11 +2622,11 @@ const formatDate = (dateStr) => {
 .qty-pill-btn {
   width: 28px;
   height: 28px;
-  background: #fbfaf9;
+  background: #f8fafc;
   border: none;
   font-size: 15px;
   font-weight: 600;
-  color: #44403c;
+  color: #475569;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -2634,8 +2635,8 @@ const formatDate = (dateStr) => {
 }
 
 .qty-pill-btn:hover:not(:disabled) {
-  background: #e7e5e4;
-  color: #1c1917;
+  background: #e2e8f0;
+  color: #0f172a;
 }
 
 .qty-pill-btn:disabled {
@@ -2648,7 +2649,7 @@ const formatDate = (dateStr) => {
   text-align: center;
   font-size: 13.5px;
   font-weight: 700;
-  color: #1c1917;
+  color: #0f172a;
 }
 
 .col-cell.col-total {
@@ -2659,13 +2660,13 @@ const formatDate = (dateStr) => {
 .item-line-total {
   font-size: 15px;
   font-weight: 800;
-  color: #8c2b18;
+  color: #c2410c;
 }
 
 .btn-trash-row {
   background: none;
   border: none;
-  color: #a8a29e;
+  color: #94a3b8;
   font-size: 18px;
   cursor: pointer;
   padding: 4px;
@@ -2693,19 +2694,19 @@ const formatDate = (dateStr) => {
   gap: 6px;
   font-size: 13.5px;
   font-weight: 600;
-  color: #78716c;
+  color: #64748b;
   text-decoration: none;
   transition: color 0.15s;
 }
 
 .link-add-more:hover {
-  color: #44403c;
+  color: #475569;
   text-decoration: underline;
 }
 
 .cart-step-summary-card {
   background: #ffffff;
-  border: 1px solid #e7e2de;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.02);
@@ -2717,9 +2718,9 @@ const formatDate = (dateStr) => {
   margin: 0 0 18px;
   font-size: 15px;
   font-weight: 800;
-  color: #443428;
+  color: #0f172a;
   letter-spacing: 0.5px;
-  border-bottom: 1px solid #f0ebe6;
+  border-bottom: 1px solid #e2e8f0;
   padding-bottom: 12px;
 }
 
@@ -2734,16 +2735,16 @@ const formatDate = (dateStr) => {
   justify-content: space-between;
   align-items: center;
   font-size: 14px;
-  color: #57534e;
+  color: #64748b;
 }
 
 .sum-val {
-  color: #1c1917;
+  color: #0f172a;
 }
 
 .sum-card-sep {
   height: 1px;
-  background: #f0ebe6;
+  background: #f1f5f9;
   margin: 4px 0;
 }
 
@@ -2753,19 +2754,19 @@ const formatDate = (dateStr) => {
 
 .sum-total-label {
   font-weight: 700;
-  color: #292524;
+  color: #1e293b;
 }
 
 .sum-total-value {
   font-size: 21px;
   font-weight: 800;
-  color: #8c2b18;
+  color: #c2410c;
 }
 
 .btn-action-proceed {
   width: 100%;
   padding: 15px 20px;
-  background: #6d4c41;
+  background: #496883;
   color: #ffffff;
   border: none;
   border-radius: 6px;
@@ -2775,13 +2776,13 @@ const formatDate = (dateStr) => {
   cursor: pointer;
   margin-top: 10px;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(109, 76, 65, 0.25);
+  box-shadow: 0 4px 12px rgba(73, 104, 131, 0.25);
 }
 
 .btn-action-proceed:hover:not(:disabled) {
-  background: #54382e;
+  background: #34485e;
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(109, 76, 65, 0.35);
+  box-shadow: 0 6px 16px rgba(73, 104, 131, 0.35);
 }
 
 .btn-action-proceed:disabled {
@@ -2819,7 +2820,8 @@ const formatDate = (dateStr) => {
 }
 
 .btn-step-back-cart:hover {
-  color: #3f2e23;
+  color: #1e293b;
+  letter-spacing: -0.3px;
   text-decoration: underline;
 }
 
@@ -2871,22 +2873,22 @@ const formatDate = (dateStr) => {
   .col-cell.col-price::before {
     content: 'Đơn giá:';
     font-size: 13px;
-    color: #78716c;
+    color: #64748b;
   }
   .col-cell.col-discount::before {
     content: 'Giảm giá:';
     font-size: 13px;
-    color: #78716c;
+    color: #64748b;
   }
   .col-cell.col-qty::before {
     content: 'Số lượng:';
     font-size: 13px;
-    color: #78716c;
+    color: #64748b;
   }
   .col-cell.col-total::before {
     content: 'Tổng tiền:';
     font-size: 13px;
-    color: #78716c;
+    color: #64748b;
   }
 }
 
