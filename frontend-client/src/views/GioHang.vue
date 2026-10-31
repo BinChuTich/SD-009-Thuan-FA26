@@ -21,6 +21,7 @@ import ModalDangNhap from '@/components/BocCuc/ModalDangNhap.vue'
 import TheSanPham from '@/components/DungChung/TheSanPham.vue'
 import { currentClientUser, isClientLoggedIn, loginClient } from '@/utils/taiKhoanKhachHang.js'
 import { notifyOrderSuccess, fetchNotifications } from '@/utils/thongBao.js'
+import { calculateGhnShippingFee } from '@/services/ghnService.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -846,43 +847,36 @@ watch(selectedSubtotal, (newSub) => {
 })
 
 // ==========================================
-// 6. TÍNH PHÍ VẬN CHUYỂN GHN & THỜI GIAN GIAO HÀNG
+// 6. TÍNH PHÍ VẬN CHUYỂN GHN & THỜI GIAN GIAO HÀNG (API GHN TỪ BÁN HÀNG TẠI QUẦY)
 // ==========================================
-const calculatedGhnFee = ref(30000)
+const calculatedGhnFee = ref(0)
 const ghnLeadTime = ref('')
+const ghnShippingDesc = ref('')
 const ghnLoading = ref(false)
 
 const updateGhnShipping = async () => {
-  if (!selectedProvince.value) return
+  if (!selectedProvince.value) {
+    calculatedGhnFee.value = 0
+    ghnLeadTime.value = ''
+    ghnShippingDesc.value = ''
+    return
+  }
   ghnLoading.value = true
   try {
-    const feeRes = await api.post('/api/ghn/fee', {
-      toProvinceName: selectedProvince.value,
-      toWardCode: selectedWard.value || '',
-      toWardName: selectedWard.value || '',
-      weight: Math.max(200, activeCheckoutItems.value.length * 200),
+    const res = await calculateGhnShippingFee({
+      provinceName: selectedProvince.value,
+      wardName: selectedWard.value || '',
+      fullAddress: fullDeliveryAddress.value || streetAddress.value || '',
+      weightGram: Math.max(200, activeCheckoutItems.value.length * 200),
       insuranceValue: selectedSubtotal.value
     })
-    const fee = feeRes.data?.fee != null ? feeRes.data.fee : feeRes.data?.total
-    if (fee != null) {
-      calculatedGhnFee.value = Number(fee)
+    if (res && res.fee != null) {
+      calculatedGhnFee.value = Number(res.fee)
+      ghnShippingDesc.value = res.regionDescription || ''
+      ghnLeadTime.value = res.leadTime || (res.regionDescription ? res.regionDescription : 'Dự kiến 2 - 3 ngày')
     }
   } catch (e) {
-    console.warn('GHN fee fallback:', e)
-  }
-
-  try {
-    const ltRes = await api.post('/api/ghn/leadtime', {
-      toProvinceName: selectedProvince.value,
-      toWardCode: selectedWard.value || '',
-      toWardName: selectedWard.value || ''
-    })
-    const lt = ltRes.data?.leadtimeFormatted || ltRes.data?.formattedDate
-    if (lt) {
-      ghnLeadTime.value = lt
-    }
-  } catch (e) {
-    console.warn('GHN leadtime fallback:', e)
+    console.warn('Lỗi tính phí ship GHN:', e)
   } finally {
     ghnLoading.value = false
   }
@@ -916,13 +910,14 @@ async function resetCustomerFormToDefault() {
     streetAddress: ''
   }
 
-  calculatedGhnFee.value = 30000
+  calculatedGhnFee.value = 0
   ghnLeadTime.value = ''
+  ghnShippingDesc.value = ''
 
   await fetchPublicVouchers()
 }
 
-watch([selectedProvince, selectedWard], () => {
+watch([selectedProvince, selectedWard, streetAddress, selectedSubtotal], () => {
   updateGhnShipping()
 })
 
@@ -936,7 +931,7 @@ const hasEnteredAddress = computed(() => {
 const shippingFee = computed(() => {
   if (appliedVoucher.value?.code === 'FREESHIP') return 0
   if (!hasEnteredAddress.value) return null
-  return calculatedGhnFee.value || 30000
+  return calculatedGhnFee.value != null ? calculatedGhnFee.value : 0
 })
 
 const voucherDiscount = computed(() => {
@@ -1835,18 +1830,24 @@ const formatDate = (dateStr) => {
           </div>
 
           <!-- 3. Đơn vị vận chuyển (GHN Express thiết kế siêu gọn nhẹ) -->
-          <div class="section-card-panel shipping-panel-slim mt-3" v-if="false">
+          <div class="section-card-panel shipping-panel-slim mt-3">
             <h3 class="panel-section-title shipping-title-slim">Hình thức vận chuyển</h3>
             <div class="shipping-carrier-compact">
               <div class="scc-left">
                 <input type="radio" checked readonly class="scc-radio" />
                 <img src="/img/ghn-brand-logo.png" alt="GHN Express" class="scc-logo" />
-                <span class="scc-title">Giao Hàng Nhanh (GHN)</span>
+                <div class="scc-info-group">
+                  <span class="scc-title">Giao Hàng Nhanh (GHN Express)</span>
+                  <span v-if="ghnLeadTime" class="scc-leadtime-badge"> • {{ ghnLeadTime }}</span>
+                </div>
               </div>
               <div class="scc-right">
                 <span class="scc-price">
-                  <template v-if="!hasEnteredAddress">
-                    <span class="scc-price-pending">Chưa có địa chỉ</span>
+                  <template v-if="ghnLoading">
+                    <span class="scc-price-pending">Đang tính cước GHN...</span>
+                  </template>
+                  <template v-else-if="!hasEnteredAddress">
+                    <span class="scc-price-pending">Chưa chọn địa chỉ</span>
                   </template>
                   <template v-else-if="shippingFee === 0">
                     MIỄN PHÍ
@@ -2305,7 +2306,7 @@ const formatDate = (dateStr) => {
               </div>
               <div class="cost-row">
                 <span>Phí vận chuyển (GHN):</span>
-                <strong>{{ shippingFee === 0 ? 'MIỄN PHÍ' : ('+ ' + formatCurrency(shippingFee || 20000)) }}</strong>
+                <strong>{{ shippingFee === 0 ? 'MIỄN PHÍ' : ('+ ' + formatCurrency(shippingFee || 0)) }}</strong>
               </div>
               <div class="cost-row total-highlight">
                 <span class="total-label">Tổng thanh toán:</span>
@@ -4652,6 +4653,21 @@ const formatDate = (dateStr) => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+.scc-info-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.scc-leadtime-badge {
+  font-size: 11.5px;
+  color: #059669;
+  font-weight: 700;
+  background: #ecfdf5;
+  padding: 1px 7px;
+  border-radius: 6px;
+  border: 1px solid #d1fae5;
 }
 .scc-radio {
   accent-color: #0f172a;
