@@ -104,9 +104,7 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
-        <p class="hero-quote">
-          "Trải nghiệm phong cách thời trang năng động, thanh lịch với chất liệu 100% Cotton tự nhiên định lượng cao, thoáng mát suốt ngày dài."
-        </p>
+
         <div class="hero-cta-btns">
           <router-link to="/cua-hang" class="btn-hero-primary">Khám Phá Cửa Hàng &rarr;</router-link>
           <a href="#danh-muc-hot" class="btn-hero-outline">Xem Danh Mục Áo</a>
@@ -128,16 +126,10 @@ onUnmounted(() => {
           >
             <img
               :src="slide.image"
-              :alt="slide.title"
+              :alt="slide.title || 'Banner'"
               class="hero-img-cover"
               loading="eager"
             />
-            <div class="slide-overlay-gradient"></div>
-
-            <div class="slide-caption-info">
-              <span class="slide-sub">{{ slide.subtitle }}</span>
-              <h3 class="slide-title">{{ slide.title }}</h3>
-            </div>
           </div>
 
           <button class="slide-arrow prev-arrow" @click.stop="prevSlide" title="Ảnh trước">
@@ -150,14 +142,6 @@ onUnmounted(() => {
               <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
           </button>
-
-          <div class="floating-deal-badge">
-            <span class="deal-icon">🔥</span>
-            <div>
-              <strong>{{ heroSlides[currentSlide].badgeText }}</strong>
-              <span>{{ heroSlides[currentSlide].badgeDesc }}</span>
-            </div>
-          </div>
 
           <div class="slide-dots">
             <button
@@ -208,7 +192,7 @@ onUnmounted(() => {
 }
 
 .hero-brand-heading-block {
-  margin-bottom: 16px;
+  margin-bottom: 28px;
 }
 
 .hero-subheading-lead {
@@ -471,7 +455,8 @@ onUnmounted(() => {
 .slide-dots {
   position: absolute;
   bottom: 16px;
-  right: 24px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   gap: 8px;
   z-index: 3;

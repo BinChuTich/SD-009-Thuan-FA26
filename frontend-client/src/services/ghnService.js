@@ -451,3 +451,4 @@ function cleanVietnameseText(str) {
     .replace(/[^a-z0-9 ]/g, '')
     .trim()
 }
+

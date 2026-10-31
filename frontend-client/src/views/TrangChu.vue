@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/api'
-import { CATEGORIES_CATALOG, getMergedProducts } from '@/utils/danhMucSanPham.js'
+import { CATEGORIES_CATALOG, getMergedProducts, attachSalesCountToProducts } from '@/utils/danhMucSanPham.js'
 
 // Import các component con đã được chia nhỏ theo chuẩn Tiếng Việt
 import BannerSlide from '@/components/TrangChu/BannerSlide.vue'
@@ -63,6 +63,13 @@ const loadHomeData = async () => {
       console.warn('Lỗi lấy active-products-map:', e)
     }
 
+    // Đính kèm dữ liệu lượt mua thực tế
+    try {
+      await attachSalesCountToProducts(merged)
+    } catch (e) {
+      console.warn('Lỗi gắn lượt mua:', e)
+    }
+
     featuredProducts.value = merged
 
     try {
@@ -117,13 +124,15 @@ const loadHomeData = async () => {
 }
 
 const displayedFeaturedProducts = computed(() => {
-  if (selectedCategoryTab.value === 'ALL') {
-    return featuredProducts.value.slice(0, 8)
-  }
-  return featuredProducts.value.filter(p => {
-    if (!p.tenDanhMuc) return false
-    return p.tenDanhMuc.toLowerCase().trim() === selectedCategoryTab.value.toLowerCase().trim()
-  }).slice(0, 8)
+  // Sắp xếp ưu tiên các sản phẩm có lượt mua / đã bán nhiều nhất (Top 5 Best Sellers)
+  const sorted = [...featuredProducts.value].sort((a, b) => {
+    const soldA = Number(a.daBan ?? a.soLuongDaBan ?? 0)
+    const soldB = Number(b.daBan ?? b.soLuongDaBan ?? 0)
+    if (soldB !== soldA) return soldB - soldA
+    return (b.id || 0) - (a.id || 0)
+  })
+
+  return sorted.slice(0, 5)
 })
 
 // Lọc chuẩn xác các sản phẩm đang nằm trong đợt giảm giá HOẠT ĐỘNG từ Admin
@@ -196,12 +205,10 @@ watch(() => route.hash, () => {
     <!-- 2. Danh Mục Sản Phẩm Nổi Bật -->
     <DanhMucNoiBat :categories="categories" />
 
-    <!-- 4. Sản Phẩm Nổi Bật Tuyển Chọn -->
+    <!-- 4. Sản Phẩm Nổi Bật Tuyển Chọn (Top 5 bán chạy nhất) -->
     <SanPhamNoiBat
       :products="displayedFeaturedProducts"
       :loading="loading"
-      :category-tabs="categoryTabs"
-      v-model:selected-category-tab="selectedCategoryTab"
     />
 
     <!-- 5. Sản Phẩm Ưu Đãi Flash Deal (Đồng bộ chuẩn Admin & thời gian kết thúc từng đợt) -->

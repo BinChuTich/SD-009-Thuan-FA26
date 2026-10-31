@@ -36,6 +36,10 @@ const goToDetail = () => {
       <span v-if="product.coGiamGia && product.phanTramGiam > 0" class="discount-badge-red">
         -{{ Math.round(product.phanTramGiam) }}%
       </span>
+      <!-- Tag bán chạy -->
+      <span v-if="(product.daBan || product.soLuongDaBan || 0) > 0" class="best-seller-badge-gold">
+        Bán chạy
+      </span>
       <!-- Nút xem nhanh khi hover -->
       <div class="quick-hover-action">
         <span>Xem chi tiết &rarr;</span>
@@ -43,7 +47,12 @@ const goToDetail = () => {
     </div>
 
     <div class="card-caption">
-      <span class="card-cat-badge">{{ product.tenDanhMuc || 'Áo Phông Nam' }}</span>
+      <div class="card-top-row">
+        <span class="card-cat-badge">{{ product.tenDanhMuc || 'Áo Phông Nam' }}</span>
+        <span class="card-sold-badge">
+          Đã bán {{ product.daBan || product.soLuongDaBan || 0 }}
+        </span>
+      </div>
       <h3 class="product-name" :title="product.tenSanPham">{{ product.tenSanPham }}</h3>
       
       <div class="price-container">
@@ -161,6 +170,34 @@ const goToDetail = () => {
   display: flex;
   flex-direction: column;
   flex: 1;
+}
+
+.best-seller-badge-gold {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #d2a764;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(210, 167, 100, 0.35);
+  z-index: 2;
+}
+
+.card-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.card-sold-badge {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
 }
 
 .card-cat-badge {

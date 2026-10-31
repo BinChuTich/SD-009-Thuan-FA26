@@ -21,9 +21,7 @@
               </div>
             </div>
           </div>
-          <p class="brand-desc">
-            Thương hiệu thời trang áo phông nam cao cấp. Mang đến phong cách trẻ trung, đĩnh đạc và trải nghiệm vải bông Cotton tự nhiên đỉnh cao.
-          </p>
+
           <div class="contact-line">📍 Trụ sở: Tòa nhà FPT Polytechnic, Phố Trịnh Văn Bô, Hà Nội</div>
           <div class="contact-line">📧 Email: <a href="mailto:fftshirt.vn@gmail.com" class="footer-email-link">fftshirt.vn@gmail.com</a></div>
           <div class="contact-line">📞 Hotline CSKH: <strong>1900 6677</strong></div>

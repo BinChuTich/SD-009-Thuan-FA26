@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
 import { addToCart, setCheckoutItems, cartItems, cartCount, NEUTRAL_PRODUCT_PLACEHOLDER, resolveProductImageUrl } from '@/utils/luuTruGioHang.js'
-import { getProductById, MOCK_PRODUCTS_CATALOG } from '@/utils/danhMucSanPham.js'
+import { getProductById, MOCK_PRODUCTS_CATALOG, getProductSalesMap, attachSalesCountToProducts } from '@/utils/danhMucSanPham.js'
 import ThuVienHinhAnh from '@/components/ChiTietSanPham/ThuVienHinhAnh.vue'
 import ThongTinMoTa from '@/components/ChiTietSanPham/ThongTinMoTa.vue'
 import SanPhamLienQuan from '@/components/ChiTietSanPham/SanPhamLienQuan.vue'
@@ -59,6 +59,14 @@ const loadProductData = async (id) => {
         varData = prodData.variants
       }
     }
+
+    try {
+      const salesMap = await getProductSalesMap()
+      if (prodData && prodData.id) {
+        prodData.daBan = salesMap[prodData.id] || 0
+        prodData.soLuongDaBan = salesMap[prodData.id] || 0
+      }
+    } catch (e) {}
 
     product.value = prodData
     variants.value = varData
@@ -154,6 +162,7 @@ const loadProductData = async (id) => {
       })
       const relatedList = resRelated.data?.content || (Array.isArray(resRelated.data) ? resRelated.data : [])
       relatedProducts.value = relatedList.filter(p => p.id != id)
+      try { await attachSalesCountToProducts(relatedProducts.value) } catch (e) {}
     } catch (e) {
       relatedProducts.value = MOCK_PRODUCTS_CATALOG.filter(p => p.id != id).slice(0, 4)
     }
@@ -449,9 +458,9 @@ onUnmounted(() => {
             <h1 class="meta-product-title">{{ product.tenSanPham }}</h1>
 
             <div class="sku-brand-line">
-              <span>Mã SKU: {{ currentVariant?.maSku || 'Vui lòng chọn size/màu' }}</span>
-              <span class="sep">|</span>
               <span>Thương hiệu: <strong>{{ product.tenThuongHieu || 'FF T-Shirt' }}</strong></span>
+              <span class="sep">|</span>
+              <span class="sold-stat-highlight">Đã bán: <strong>{{ product?.daBan || product?.soLuongDaBan || 0 }}</strong></span>
             </div>
 
 
@@ -660,6 +669,11 @@ onUnmounted(() => {
   color: #1e293b;
   margin: 0 0 10px;
   line-height: 1.35;
+}
+
+.sold-stat-highlight strong {
+  color: #b45309;
+  font-weight: 700;
 }
 
 .sku-brand-line {

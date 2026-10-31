@@ -525,17 +525,47 @@ onUnmounted(() => {
                 </div>
                 <div class="popup-menu-divider"></div>
                 <router-link to="/don-hang" class="menu-link" @click="showUserMenu = false">
-                  📦 Đơn hàng của tôi
+                  <span class="menu-icon-wrap menu-icon-order">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                      <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                      <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                  </span>
+                  <span class="menu-text-label">Đơn hàng của tôi</span>
                 </router-link>
                 <router-link to="/tra-cuu" class="menu-link" @click="showUserMenu = false">
-                  🚚 Tra cứu đơn hàng
+                  <span class="menu-icon-wrap menu-icon-track">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="1" y="3" width="15" height="13"></rect>
+                      <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                      <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                      <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    </svg>
+                  </span>
+                  <span class="menu-text-label">Tra cứu đơn hàng</span>
                 </router-link>
                 <router-link to="/gio-hang" class="menu-link" @click="showUserMenu = false">
-                  🛒 Giỏ hàng ({{ cartCount }})
+                  <span class="menu-icon-wrap menu-icon-cart">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="9" cy="21" r="1"></circle>
+                      <circle cx="20" cy="21" r="1"></circle>
+                      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                    </svg>
+                  </span>
+                  <span class="menu-text-label">Giỏ hàng</span>
+                  <span class="menu-cart-badge" v-if="cartCount > 0">{{ cartCount }}</span>
                 </router-link>
                 <div class="popup-menu-divider"></div>
                 <button type="button" class="menu-link menu-logout-btn" @click="handleLogout">
-                  🚪 Đăng xuất
+                  <span class="menu-icon-wrap menu-icon-logout">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                      <polyline points="16 17 21 12 16 7"></polyline>
+                      <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                  </span>
+                  <span class="menu-text-label">Đăng xuất</span>
                 </button>
               </div>
             </template>
@@ -624,12 +654,21 @@ onUnmounted(() => {
             <strong>{{ currentClientUser?.name }}</strong>
             <p>{{ currentClientUser?.phone || currentClientUser?.email }}</p>
             <button type="button" class="mob-btn-action-logout" @click="closeMobileMenu(); handleLogout()">
-              🚪 Đăng xuất
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mob-act-icon">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+              Đăng xuất
             </button>
           </div>
           <div class="mob-user-info" v-else>
             <button type="button" class="mob-btn-action-login" @click="closeMobileMenu(); openLoginModal()">
-              👤 ĐĂNG NHẬP / ĐĂNG KÝ
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mob-act-icon">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              ĐĂNG NHẬP / ĐĂNG KÝ
             </button>
           </div>
           <div class="mob-hotline">
@@ -1440,8 +1479,10 @@ onUnmounted(() => {
 }
 
 .user-popup {
-  width: 220px;
-  padding: 14px;
+  width: 230px;
+  padding: 12px;
+  border-radius: 14px;
+  box-shadow: 0 16px 40px -8px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.05);
 }
 
 .user-summary {
@@ -1449,6 +1490,7 @@ onUnmounted(() => {
   flex-direction: column;
   font-size: 12px;
   color: #333333;
+  padding: 2px 4px 6px;
 }
 
 .user-summary-row {
@@ -1460,8 +1502,9 @@ onUnmounted(() => {
 }
 
 .user-summary strong {
-  font-size: 13px;
-  color: #496883;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 .google-badge-tag {
@@ -1475,29 +1518,85 @@ onUnmounted(() => {
 
 .user-summary span {
   color: #64748b;
-  font-size: 11px;
+  font-size: 11.5px;
 }
 
 .popup-menu-divider {
   height: 1px;
   background-color: #f1f5f9;
-  margin: 10px 0;
+  margin: 6px 0;
 }
 
 .menu-link {
-  display: block;
-  padding: 8px 10px;
-  color: #475569;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  color: #334155;
   text-decoration: none;
   font-size: 13px;
   font-weight: 600;
-  border-radius: 6px;
-  transition: all 0.15s;
+  border-radius: 8px;
+  transition: all 0.15s ease;
 }
 
 .menu-link:hover {
   background-color: #f8fafc;
-  color: #496883;
+  color: #0f172a;
+}
+
+.menu-text-label {
+  flex: 1;
+}
+
+.menu-icon-wrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.menu-link:hover .menu-icon-wrap {
+  transform: scale(1.08);
+}
+
+.menu-icon-wrap svg {
+  width: 15px;
+  height: 15px;
+}
+
+.menu-icon-order {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.menu-icon-track {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.menu-icon-cart {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.menu-icon-logout {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.menu-cart-badge {
+  background: #496883;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 10px;
+  line-height: 1.4;
 }
 
 .menu-logout-btn {
@@ -1512,6 +1611,14 @@ onUnmounted(() => {
 .menu-logout-btn:hover {
   background-color: #fef2f2;
   color: #dc2626;
+}
+
+.mob-act-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 4px;
 }
 
 .btn-header-login {
