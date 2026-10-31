@@ -829,7 +829,19 @@ onUnmounted(() => {
 
         <!-- SẢN PHẨM TRONG ĐƠN -->
         <div class="info-section-box">
-          <h4 class="sec-title">🛍️ SẢN PHẨM TRONG ĐƠN ({{ orderItems.length }})</h4>
+          <div class="sec-title-bar">
+            <div class="sec-title-left">
+              <span class="sec-icon-circle">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"></path>
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <path d="M16 10a4 4 0 0 1-8 0"></path>
+                </svg>
+              </span>
+              <h4 class="sec-title">SẢN PHẨM TRONG ĐƠN</h4>
+            </div>
+            <span class="sec-count-badge">{{ orderItems.length }} sản phẩm</span>
+          </div>
           
           <div v-if="orderItems.length === 0" class="items-loading-box">
             Đang tải thông tin sản phẩm...
@@ -1652,4 +1664,38 @@ onUnmounted(() => {
   background: #364f66;
 }
 
+
+.sec-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.sec-title-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sec-icon-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: #fef3c7;
+  color: #d97706;
+  border: 1px solid #fde68a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.sec-count-badge {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
 </style>

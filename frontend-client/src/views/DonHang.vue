@@ -1181,10 +1181,15 @@ onUnmounted(() => {
               <!-- BẢNG 1: THÔNG TIN NHẬN HÀNG & PHƯƠNG THỨC THANH TOÁN -->
               <div class="panel-box-item">
                 <div class="panel-box-header">
-                  <h4 class="panel-box-title">📍 Thông tin nhận hàng</h4>
-                  <button class="btn-cancel-link" v-if="selectedOrder.trangThai === 1" @click="handleCancelOrder">
-                    🚫 Hủy đơn hàng
-                  </button>
+                  <div class="panel-title-with-icon">
+                    <span class="panel-icon-wrap pin-icon-bg">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                      </svg>
+                    </span>
+                    <h4 class="panel-box-title">Thông tin nhận hàng</h4>
+                  </div>
                 </div>
                 <div class="panel-box-content">
                   <div class="panel-field-row">
@@ -1193,11 +1198,11 @@ onUnmounted(() => {
                   </div>
                   <div class="panel-field-row">
                     <span class="field-label">Số điện thoại:</span>
-                    <span class="field-value">{{ selectedOrder.soDienThoaiKhachHang || selectedOrder.soDienThoaiHienThi || '—' }}</span>
+                    <span class="field-value font-mono">{{ selectedOrder.soDienThoaiKhachHang || selectedOrder.soDienThoaiHienThi || '—' }}</span>
                   </div>
                   <div class="panel-field-row">
                     <span class="field-label">Địa chỉ nhận:</span>
-                    <span class="field-value">{{ selectedOrder.diaChiNhanHang || '—' }}</span>
+                    <span class="field-value addr-val">{{ selectedOrder.diaChiNhanHang || '—' }}</span>
                   </div>
                   <div class="panel-divider"></div>
                   <div class="panel-field-row">
@@ -1219,7 +1224,15 @@ onUnmounted(() => {
               <!-- BẢNG 2: CHI TIẾT TÍNH TIỀN & THÀNH TIỀN -->
               <div class="panel-box-item">
                 <div class="panel-box-header">
-                  <h4 class="panel-box-title">💳 Chi tiết thanh toán</h4>
+                  <div class="panel-title-with-icon">
+                    <span class="panel-icon-wrap card-icon-bg">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                        <line x1="2" y1="10" x2="22" y2="10"></line>
+                      </svg>
+                    </span>
+                    <h4 class="panel-box-title">Chi tiết thanh toán</h4>
+                  </div>
                 </div>
                 <div class="panel-box-content">
                   <div class="calc-field-row">
@@ -1251,32 +1264,22 @@ onUnmounted(() => {
                 </div>
               </div>
             </div>
-            <div class="info-section-box">
-              <div class="sec-title-row old-delivery-info-hide">
-                <h4 class="sec-title">📍 Thông tin nhận hàng</h4>
-                <button class="btn-cancel-link" v-if="selectedOrder.trangThai === 1" @click="handleCancelOrder">
-                  🚫 Hủy đơn hàng
-                </button>
-              </div>
-              <div class="sec-content">
-                <div class="row-text">
-                  <span class="label">Khách hàng:</span>
-                  <strong>{{ selectedOrder.tenKhachHang || selectedOrder.tenKhachHangHienThi || 'Khách hàng' }}</strong>
-                </div>
-                <div class="row-text">
-                  <span class="label">SĐT:</span>
-                  <span>{{ selectedOrder.soDienThoaiKhachHang || selectedOrder.soDienThoaiHienThi || '—' }}</span>
-                </div>
-                <div class="row-text">
-                  <span class="label">Địa chỉ:</span>
-                  <span>{{ selectedOrder.diaChiNhanHang || '—' }}</span>
-                </div>
-              </div>
-            </div>
 
-            <!-- KHỐI SẢN PHẨM TRONG ĐƠN -->
-            <div class="info-section-box">
-              <h4 class="sec-title">🛍️ SẢN PHẨM TRONG ĐƠN ({{ selectedOrderItems.length }})</h4>
+            <!-- KHỐI SẢN PHẨM TRONG ĐƠN (ẢNH 3 - ĐẸP MẮT VỚI ICON VECTOR) -->
+            <div class="info-section-box items-section-box">
+              <div class="sec-title-bar">
+                <div class="sec-title-left">
+                  <span class="sec-icon-circle">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"></path>
+                      <line x1="3" y1="6" x2="21" y2="6"></line>
+                      <path d="M16 10a4 4 0 0 1-8 0"></path>
+                    </svg>
+                  </span>
+                  <h4 class="sec-title">SẢN PHẨM TRONG ĐƠN</h4>
+                </div>
+                <span class="sec-count-badge">{{ selectedOrderItems.length }} sản phẩm</span>
+              </div>
               
               <div v-if="selectedOrderItems.length === 0" class="items-loading-box">
                 Đang tải thông tin sản phẩm...
@@ -1284,33 +1287,70 @@ onUnmounted(() => {
 
               <div v-else class="items-table-list">
                 <div v-for="it in selectedOrderItems" :key="it.id" class="order-product-row">
-                  <img
-                    :src="resolveProductImg(it)"
-                    @error="onImgError"
-                    alt="Sản phẩm"
-                    class="product-thumb"
-                  />
+                  <div class="product-thumb-wrap">
+                    <img
+                      :src="resolveProductImg(it)"
+                      @error="onImgError"
+                      alt="Sản phẩm"
+                      class="product-thumb"
+                    />
+                  </div>
                   <div class="product-info-col">
                     <span class="prod-name">{{ it.tenSanPham || 'Áo thun FF' }}</span>
-                    <span class="prod-meta">Màu: {{ it.tenMauSac || 'Mặc định' }} | Size: {{ it.tenKichCo || 'M' }}</span>
-                    <span class="prod-qty">Số lượng: x{{ it.soLuong }}</span>
+                    <div class="prod-meta-badges">
+                      <span class="meta-tag color-tag" v-if="it.tenMauSac">Màu: {{ it.tenMauSac }}</span>
+                      <span class="meta-tag size-tag" v-if="it.tenKichCo">Size: {{ it.tenKichCo }}</span>
+                      <span class="meta-tag qty-tag">Số lượng: x{{ it.soLuong }}</span>
+                    </div>
                   </div>
                   <div class="product-price-col">
                     <span class="price-val">{{ formatCurrency(it.giaDuocTinh || it.donGia || 0) }}</span>
-                    
+                    <span class="unit-price-sub" v-if="it.soLuong > 1">
+                      {{ formatCurrency((it.giaDuocTinh || it.donGia || 0) / it.soLuong) }}/cái
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Footer hành động của Chi tiết -->
+            <!-- FOOTER HÀNH ĐỘNG CỦA CHI TIẾT (ĐẨY NÚT HỦY XUỐNG DƯỚI & LÀM ĐẸP NÚT TIẾP TỤC MUA SẮM) -->
             <div class="detail-bottom-actions">
-              <button class="btn-back-outline" @click="handleBackToList">
-                ← Quay lại danh sách đơn hàng
-              </button>
-              <router-link to="/cua-hang" class="btn-shop-more">
-                🛍️ Tiếp tục mua sắm
-              </router-link>
+              <div class="bottom-actions-left">
+                <button class="btn-back-outline" @click="handleBackToList">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                  </svg>
+                  <span>Quay lại danh sách đơn hàng</span>
+                </button>
+              </div>
+
+              <div class="bottom-actions-right">
+                <!-- Nút Hủy Đơn Hàng (Đẩy xuống dưới theo yêu cầu - Ảnh 1) -->
+                <button
+                  type="button"
+                  class="btn-cancel-order"
+                  v-if="selectedOrder.trangThai === 1"
+                  @click="handleCancelOrder"
+                  title="Hủy đơn hàng này"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                  </svg>
+                  <span>Hủy đơn hàng</span>
+                </button>
+
+                <!-- Nút Tiếp Tục Mua Sắm (Logo Vector SVG Thời Trang Đẹp Mắt - Ảnh 2) -->
+                <router-link to="/cua-hang" class="btn-shop-more">
+                  <svg class="btn-shop-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"></path>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <path d="M16 10a4 4 0 0 1-8 0"></path>
+                  </svg>
+                  <span>Tiếp tục mua sắm</span>
+                </router-link>
+              </div>
             </div>
           </div>
         
@@ -1993,67 +2033,25 @@ onUnmounted(() => {
   border-radius: 20px;
 }
 
-/* STEPPER TIẾN ĐỘ ĐƠN HÀNG (CỰC KỲ TRỰC QUAN & DỄ HIỂU) */
+/* ========================================================
+   STEPPER TIẾN ĐỘ ĐƠN HÀNG (HIỆN ĐẠI & TINH TẾ - ẢNH 4)
+   ======================================================== */
 .order-stepper-box {
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 24px 28px;
-  border: 1px solid #eef2f6;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.05);
+  margin-bottom: 20px;
 }
 
 .stepper-track {
   display: flex;
   align-items: center;
-  justify-content: flex-start !important;
+  justify-content: flex-start;
   position: relative;
-}
-
-.step-point {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  width: 130px !important;
-  flex-shrink: 0 !important;
-  position: relative;
-  z-index: 2;
-}
-
-.step-line {
-  flex: 1;
-  max-width: 140px !important;
-  min-width: 50px !important;
-  height: 3px;
-  background: #e2e8f0;
-  margin: -24px 8px 0;
-  position: relative;
-  z-index: 1;
-}
-
-.step-point.step-cancelled .step-icon,
-.step-point.step-failed .step-icon {
-  background: #ef4444 !important;
-  border-color: #ef4444 !important;
-  color: #ffffff !important;
-  animation: none !important;
-}
-
-.step-point.step-cancelled .step-name,
-.step-point.step-failed .step-name {
-  color: #dc2626 !important;
-}
-
-.step-line.line-failed,
-.step-line.line-cancelled {
-  background: #fca5a5 !important;
-}
-
-  .unused-stepper {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: relative;
+  overflow-x: auto;
+  padding-bottom: 6px;
 }
 
 .step-point {
@@ -2062,125 +2060,128 @@ onUnmounted(() => {
   align-items: center;
   text-align: center;
   width: 140px;
+  flex-shrink: 0;
   position: relative;
   z-index: 2;
 }
 
 .step-icon {
-  width: 44px;
-  height: 44px;
-  background: #f1f5f9;
-  border: 2px solid #cbd5e1;
+  width: 46px;
+  height: 46px;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
   color: #94a3b8;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
   margin-bottom: 8px;
-  transition: all 0.3s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .step-point.completed .step-icon {
-  background: #496883;
-  border-color: #496883;
+  background: #1e293b;
+  border-color: #1e293b;
   color: #ffffff;
-  box-shadow: 0 4px 10px rgba(73, 104, 131, 0.25);
+  box-shadow: 0 4px 12px rgba(30, 41, 59, 0.22);
 }
 
 .step-point.current .step-icon {
-  background: #d2a764;
-  border-color: #d2a764;
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  border-color: #d97706;
   color: #ffffff;
-  animation: pulseStep 1.8s infinite;
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35);
+  animation: pulseStepModern 2.2s infinite;
 }
 
-@keyframes pulseStep {
-  0% { box-shadow: 0 0 0 0 rgba(210, 167, 100, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(210, 167, 100, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(210, 167, 100, 0); }
+@keyframes pulseStepModern {
+  0% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.45); }
+  70% { box-shadow: 0 0 0 10px rgba(217, 119, 6, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
 }
 
-.step-name {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #64748b;
-}
-
-.step-point.completed .step-name {
-  color: #496883;
-}
-
-.step-sub {
-  font-size: 11px;
-  color: #94a3b8;
-  margin-top: 2px;
+.step-point.step-cancelled .step-icon,
+.step-point.step-failed .step-icon {
+  background: #ef4444 !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+  animation: none !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3) !important;
 }
 
 .step-line {
   flex: 1;
+  max-width: 140px;
+  min-width: 50px;
   height: 3px;
   background: #e2e8f0;
   margin: -24px 8px 0;
   position: relative;
   z-index: 1;
+  border-radius: 999px;
+  transition: all 0.3s ease;
 }
 
 .step-line.active {
-  background: #d2a764;
+  background: #1e293b;
 }
 
-.cancelled-banner-box {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 12px;
-  padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  color: #991b1b;
+.step-line.line-failed,
+.step-line.line-cancelled {
+  background: #fca5a5 !important;
 }
 
-.cancelled-banner-box .c-icon {
-  font-size: 26px;
+.step-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  line-height: 1.35;
 }
 
-.cancelled-banner-box strong {
-  display: block;
-  font-size: 14px;
-  margin-bottom: 2px;
+.step-point.completed .step-name {
+  color: #0f172a;
 }
 
-.cancelled-banner-box p {
-  margin: 0;
-  font-size: 12.5px;
-  color: #b91c1c;
+.step-point.current .step-name {
+  color: #b45309;
 }
 
-/* ======================================================== */
-/* HAI BẢNG SONG SONG TRÊN CÙNG 1 DÒNG                     */
-/* ======================================================== */
-.info-section-box:has(.old-delivery-info-hide) {
-  display: none !important;
+.step-point.step-cancelled .step-name,
+.step-point.step-failed .step-name {
+  color: #dc2626 !important;
 }
 
+.step-sub {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ========================================================
+   HAI BẢNG SONG SONG: THÔNG TIN GIAO NHẬN & CHI TIẾT THANH TOÁN
+   ======================================================== */
 .order-double-panels-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
   align-items: stretch;
-  margin-bottom: 22px;
+  margin-bottom: 20px;
 }
 
 .panel-box-item {
   background: #ffffff;
-  border: 1px solid #eef2f6;
-  border-radius: 12px;
-  padding: 22px 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px 22px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
   display: flex;
   flex-direction: column;
   transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.panel-box-item:hover {
+  border-color: #cbd5e1;
 }
 
 .panel-box-header {
@@ -2189,16 +2190,39 @@ onUnmounted(() => {
   align-items: center;
   margin-bottom: 14px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.panel-title-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-icon-wrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pin-icon-bg {
+  background: #ffe4e6;
+  color: #e11d48;
+}
+
+.card-icon-bg {
+  background: #eff6ff;
+  color: #2563eb;
 }
 
 .panel-box-title {
   margin: 0;
   font-size: 15px;
-  font-weight: 800;
-  color: #496883;
-  letter-spacing: 0.2px;
-  font-family: 'Be Vietnam Pro', sans-serif;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 .panel-box-content {
@@ -2229,36 +2253,38 @@ onUnmounted(() => {
   word-break: break-word;
 }
 
-.field-value.text-dark {
-  font-weight: 700;
-  color: #0f172a;
+.field-value.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.02em;
 }
 
-.panel-divider {
-  height: 1px;
-  background: #f1f5f9;
-  margin: 3px 0;
+.field-value.addr-val {
+  font-weight: 500;
+  line-height: 1.4;
 }
 
 .field-badge-status {
-  padding: 3px 10px;
-  border-radius: 6px;
   font-size: 12px;
   font-weight: 700;
-  display: inline-flex;
-  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
 }
 
-.field-badge-status.badge-green {
+.badge-green {
   background: #ecfdf5;
   color: #059669;
   border: 1px solid #a7f3d0;
 }
 
-.field-badge-status.badge-orange {
-  background: #fff7ed;
-  color: #ea580c;
-  border: 1px solid #fed7aa;
+.badge-orange {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.panel-divider {
+  border-top: 1px dashed #e2e8f0;
+  margin: 4px 0;
 }
 
 .calc-field-row {
@@ -2266,98 +2292,28 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   font-size: 13.5px;
-  color: #64748b;
+  color: #475569;
 }
 
 .calc-label {
+  color: #64748b;
   font-size: 13px;
 }
 
 .calc-val {
-  color: #1e293b;
   font-weight: 600;
-}
-
-.total-calc-row {
-  margin-top: auto;
-  padding-top: 8px;
-}
-
-.total-label-text {
-  font-size: 15px;
-  font-weight: 700;
   color: #1e293b;
 }
 
-.total-number-big {
-  font-size: 20px;
-  font-weight: 800;
-  color: #496883;
-}
-
-@media (max-width: 868px) {
-  .order-double-panels-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-}
-
-/* 2-column Video Summary Box matching step_10456_media_0.png */
-.video-summary-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  padding: 22px 24px;
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid #eef2f6;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
-}
-
-.video-summary-col-left {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.v-line {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.v-label {
-  font-size: 12.5px;
-  color: #64748b;
-}
-
-.v-val {
-  font-size: 14px;
-  color: #1e293b;
-}
-
-.v-val.bold {
-  font-weight: 700;
-}
-
-.video-summary-col-right {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 13px;
-  color: #64748b;
-}
-
-.v-sum-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.calc-field-row.text-green .calc-val {
+  color: #16a34a;
 }
 
 .ship-val {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-weight: 600;
 }
 
 .ghn-mini-logo {
@@ -2365,190 +2321,79 @@ onUnmounted(() => {
   object-fit: contain;
 }
 
-.v-total-row {
-  margin-top: 6px;
-  padding-top: 10px;
-  border-top: 1px solid #eef2f6;
-  font-size: 15px;
-  color: #1e293b;
+.total-calc-row {
+  padding-top: 4px;
 }
 
-.total-big-val {
-  font-size: 19px;
+.total-label-text {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.total-number-big {
+  font-size: 1.25rem;
   font-weight: 800;
-  color: #496883;
+  color: #b45309;
 }
 
-/* History Box matching step_10456_media_0.png */
+/* ========================================================
+   KHỐI SẢN PHẨM TRONG ĐƠN (ẢNH 3 - SANG TRỌNG, HIỆN ĐẠI)
+   ======================================================== */
 .info-section-box {
   background: #ffffff;
-  border-radius: 12px;
-  padding: 22px;
-  border: 1px solid #eef2f6;
+  border-radius: 14px;
+  padding: 22px 24px;
+  border: 1px solid #e2e8f0;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  margin-bottom: 20px;
 }
 
-.sec-title-row {
+.sec-title-bar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.sec-title-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sec-icon-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: #fef3c7;
+  color: #d97706;
+  border: 1px solid #fde68a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sec-title {
-  margin: 0 0 14px;
+  margin: 0;
   font-size: 15px;
   font-weight: 800;
-  color: #496883;
-  letter-spacing: 0.2px;
-  font-family: 'Be Vietnam Pro', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #0f172a;
+  letter-spacing: 0.02em;
 }
 
-.sec-title-row .sec-title {
-  margin-bottom: 0;
-}
-
-.btn-cancel-link {
-  background: transparent;
-  border: none;
-  color: #dc2626;
-  font-size: 12.5px;
+.sec-count-badge {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
+  padding: 3px 10px;
+  border-radius: 999px;
 }
 
-.btn-cancel-link:hover {
-  text-decoration: underline;
-}
-
-.sec-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 13px;
-  color: #334155;
-}
-
-.row-text {
-  display: flex;
-  gap: 8px;
-}
-
-.row-text .label {
-  color: #64748b;
-  min-width: 90px;
-}
-
-.text-green { color: #16a34a; }
-.text-orange { color: #d97706; }
-
-.order-history-timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.history-item-row {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.history-time {
-  color: #64748b;
-  font-size: 12px;
-  min-width: 120px;
-  flex-shrink: 0;
-  font-family: monospace;
-}
-
-.history-actor {
-  font-weight: 700;
-  font-size: 12.5px;
-  flex-shrink: 0;
-}
-
-.actor-admin {
-  color: #dc2626;
-}
-
-.actor-customer {
-  color: #496883;
-}
-
-.history-desc {
-  color: #1e293b;
-  flex: 1;
-}
-
-.history-empty-text {
-  font-size: 13px;
-  color: #94a3b8;
-  padding: 8px 0;
-  font-style: italic;
-}
-
-/* Warning timer */
-.timer-warning-box {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 12px;
-  padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  color: #991b1b;
-}
-
-.timer-icon {
-  font-size: 26px;
-  flex-shrink: 0;
-}
-
-.timer-info-content {
-  flex: 1;
-}
-
-.timer-info-content strong {
-  display: block;
-  font-size: 14px;
-}
-
-.countdown-val {
-  color: #dc2626;
-  font-weight: 800;
-  font-size: 16px;
-}
-
-.timer-info-content p {
-  margin: 3px 0 0;
-  font-size: 12px;
-  color: #b91c1c;
-}
-
-.btn-pay-now {
-  background: #496883;
-  color: #ffffff;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 3px 8px rgba(73, 104, 131, 0.25);
-  flex-shrink: 0;
-}
-
-.btn-pay-now:hover {
-  background: #364f66;
-}
-
-/* Products table in detail */
 .items-table-list {
   display: flex;
   flex-direction: column;
@@ -2559,111 +2404,207 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f1f5f9;
+  padding: 10px 14px;
+  background: #ffffff;
+  border: 1px solid #edf2f7;
+  border-radius: 12px;
+  transition: all 0.18s ease;
 }
 
-.order-product-row:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
+.order-product-row:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.03);
+}
+
+.product-thumb-wrap {
+  width: 54px;
+  height: 54px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .product-thumb {
-  width: 58px;
-  height: 58px;
-  border-radius: 6px;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  flex-shrink: 0;
-  border: 1px solid #e2e8f0;
 }
 
 .product-info-col {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .prod-name {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #1e293b;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.prod-meta, .prod-qty {
-  font-size: 11.5px;
-  color: #64748b;
-}
-
-.product-price-col {
+.prod-meta-badges {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
 }
 
-.price-val {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1e293b;
-}
-
-.btn-review-item {
-  background: #d2a764;
-  color: #ffffff;
-  border: none;
+.meta-tag {
   font-size: 11.5px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-weight: 500;
 }
 
-.btn-review-item:hover {
-  background: #c99a4e;
+.color-tag, .size-tag {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
 }
 
+.qty-tag {
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.product-price-col {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.price-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.unit-price-sub {
+  display: block;
+  font-size: 11.5px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* ========================================================
+   FOOTER HÀNH ĐỘNG CỦA CHI TIẾT (ĐẨY NÚT HỦY XUỐNG DƯỚI & LOGO NÚT TIẾP TỤC)
+   ======================================================== */
 .detail-bottom-actions {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 8px;
+  flex-wrap: wrap;
+}
+
+.bottom-actions-left {
+  display: flex;
+  align-items: center;
+}
+
+.bottom-actions-right {
+  display: flex;
+  align-items: center;
   gap: 12px;
-  margin-top: 10px;
 }
 
 .btn-back-outline {
   background: #ffffff;
-  border: 1.5px solid #496883;
-  color: #496883;
-  padding: 10px 20px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 700;
+  border: 1.5px solid #cbd5e1;
+  color: #475569;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .btn-back-outline:hover {
-  background: #496883;
-  color: #ffffff;
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+  transform: translateY(-1px);
+}
+
+.btn-cancel-order {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  background: #ffffff;
+  border: 1.5px solid #fecaca;
+  color: #dc2626;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.06);
+}
+
+.btn-cancel-order:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+  color: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+}
+
+.btn-cancel-order:active {
+  transform: scale(0.97);
 }
 
 .btn-shop-more {
-  background: #d2a764;
+  height: 42px;
+  padding: 0 22px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
   color: #ffffff;
   text-decoration: none;
-  padding: 10px 22px;
-  border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  transition: all 0.2s;
+  gap: 8px;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.32);
 }
 
 .btn-shop-more:hover {
-  background: #c99a4e;
+  background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(217, 119, 6, 0.42);
+}
+
+.btn-shop-more:active {
+  transform: translateY(0);
+}
+
+.btn-shop-icon {
+  transition: transform 0.2s ease;
+}
+
+.btn-shop-more:hover .btn-shop-icon {
+  transform: translateY(-1px) scale(1.1);
 }
 
 /* Empty & Loading cards */
