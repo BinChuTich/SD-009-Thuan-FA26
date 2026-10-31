@@ -2,7 +2,9 @@ import { ref } from 'vue'
 
 export const dialogState = ref({
   isOpen: false,
-  type: 'info', // 'confirm' | 'info' | 'warning' | 'error' | 'success'
+  type: 'info', // 'confirm' | 'info' | 'warning' | 'error' | 'success' | 'danger'
+  isDanger: false,
+  icon: '',
   title: 'Thông báo',
   message: '',
   confirmText: 'Đồng ý',
@@ -17,13 +19,22 @@ let toastIdCounter = 1
  * Hiển thị Hộp thoại xác nhận In-App (Thay thế hoàn toàn window.confirm)
  */
 export function showAppConfirm(message, title = 'Xác nhận yêu cầu', options = {}) {
+  const isDeleteOrDanger = Boolean(
+    options.isDanger ||
+    options.type === 'danger' ||
+    options.type === 'delete' ||
+    (title && /xóa|hủy|bỏ|delete|remove/i.test(title))
+  )
+
   return new Promise((resolve) => {
     dialogState.value = {
       isOpen: true,
-      type: 'confirm',
+      type: options.type || (isDeleteOrDanger ? 'danger' : 'confirm'),
+      isDanger: isDeleteOrDanger,
+      icon: options.icon || (isDeleteOrDanger ? 'trash' : ''),
       title: title || 'Xác nhận',
       message: message || '',
-      confirmText: options.confirmText || 'Xác nhận',
+      confirmText: options.confirmText || (isDeleteOrDanger ? 'Xác nhận xóa' : 'Xác nhận'),
       cancelText: options.cancelText || 'Hủy bỏ',
       resolve
     }
@@ -38,6 +49,8 @@ export function showAppAlert(message, title = 'Thông báo', type = 'info', opti
     dialogState.value = {
       isOpen: true,
       type: type || 'info',
+      isDanger: type === 'error' || type === 'danger',
+      icon: options.icon || '',
       title: title || 'Thông báo',
       message: message || '',
       confirmText: options.confirmText || 'Đã hiểu',
@@ -80,4 +93,3 @@ if (typeof window !== 'undefined') {
   window.showAppAlert = showAppAlert
   window.showAppConfirm = showAppConfirm
 }
-

@@ -485,18 +485,38 @@ const handleQtyChange = (variantId, delta, currentQty, maxStock) => {
 }
 
 const handleRemove = async (variantId, name = '') => {
-  const ok = await showAppConfirm(`Bạn có chắc muốn xóa sản phẩm ${name ? '"' + name + '"' : ''} khỏi giỏ hàng?`, 'Xóa sản phẩm')
+  const ok = await showAppConfirm(
+    `Bạn có chắc muốn xóa sản phẩm ${name ? '"' + name + '"' : ''} khỏi giỏ hàng?`,
+    'Xóa sản phẩm',
+    {
+      confirmText: 'Xác nhận',
+      cancelText: 'Hủy bỏ',
+      type: 'danger',
+      isDanger: true
+    }
+  )
   if (ok) {
     removeFromCart(variantId)
     selectedItemIds.value = selectedItemIds.value.filter(id => id !== variantId)
+    showAppToast('Đã xóa sản phẩm khỏi giỏ hàng', 'info')
   }
 }
 
 const handleClearCart = async () => {
-  const ok = await showAppConfirm('Bạn có chắc chắn muốn xóa tất cả sản phẩm khỏi giỏ hàng?', 'Dọn sạch giỏ hàng')
+  const ok = await showAppConfirm(
+    'Bạn có chắc chắn muốn xóa tất cả sản phẩm khỏi giỏ hàng?',
+    'Dọn sạch giỏ hàng',
+    {
+      confirmText: 'Xác nhận xóa',
+      cancelText: 'Hủy bỏ',
+      type: 'danger',
+      isDanger: true
+    }
+  )
   if (ok) {
     clearCart()
     selectedItemIds.value = []
+    showAppToast('Đã dọn sạch giỏ hàng', 'info')
   }
 }
 
@@ -2187,211 +2207,109 @@ const formatDate = (dateStr) => {
       @login-success="handleLoginSuccess"
     />
 
-    <!-- POPUP XÁC NHẬN ĐƠN HÀNG TRƯỚC KHI ĐẶT -->
+    <!-- POPUP XÁC NHẬN ĐƠN HÀNG TRƯỚC KHI ĐẶT (FORM CHUẨN THEO ẢNH 3) -->
     <Teleport to="body">
       <div v-if="showConfirmOrderModal" class="client-confirm-order-backdrop" @click.self="showConfirmOrderModal = false">
         <div class="client-confirm-order-card animate-pop">
           <!-- Header Modal -->
           <div class="confirm-modal-header">
-            <div class="confirm-header-left">
-              <div class="confirm-header-badge">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"></path>
-                  <rect x="9" y="3" width="6" height="4" rx="1.5"></rect>
-                  <path d="m9 14 2 2 4-4"></path>
-                </svg>
-              </div>
-              <div class="confirm-header-texts">
-                <h3 class="confirm-modal-title">Xác nhận thông tin đơn hàng</h3>
-                <p class="confirm-modal-sub">Vui lòng kiểm tra lại thông tin nhận hàng và sản phẩm trước khi hoàn tất đặt mua</p>
-              </div>
-            </div>
-            <button class="confirm-close-btn" @click="showConfirmOrderModal = false" title="Đóng modal" aria-label="Đóng">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
+            <h3 class="confirm-modal-title">Xác nhận thông tin đơn hàng</h3>
+            <button class="confirm-close-btn" @click="showConfirmOrderModal = false" title="Đóng modal" aria-label="Đóng">&times;</button>
           </div>
 
           <!-- Body Modal -->
           <div class="confirm-modal-body custom-slim-scroll">
-            <!-- Box 1: Thông tin khách hàng & Giao hàng -->
+            <!-- Khối 1: Thông tin khách hàng & Giao hàng (Ảnh 3) -->
             <div class="confirm-info-box">
-              <div class="confirm-box-header">
-                <div class="box-header-title">
-                  <span class="box-icon pin-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                      <circle cx="12" cy="10" r="3"></circle>
-                    </svg>
-                  </span>
-                  <span>Thông tin người nhận & Giao hàng</span>
-                </div>
-                <span class="ghn-badge">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="1" y="3" width="15" height="13"></rect>
-                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-                    <circle cx="5.5" cy="18.5" r="2.5"></circle>
-                    <circle cx="18.5" cy="18.5" r="2.5"></circle>
-                  </svg>
-                  GHN Express
-                </span>
-              </div>
-
               <div class="confirm-meta-grid">
-                <div class="confirm-meta-card">
-                  <div class="c-meta-top">
-                    <span class="c-label">Họ và tên</span>
-                    <span class="c-user-badge">Người nhận</span>
-                  </div>
-                  <strong class="c-val-highlight">{{ customerName || 'Khách vãng lai' }}</strong>
+                <div class="confirm-meta-col">
+                  <span class="c-lbl">Khách hàng:</span>
+                  <strong class="c-val">{{ customerName || 'Khách vãng lai' }}</strong>
+                </div>
+                <div class="confirm-meta-col">
+                  <span class="c-lbl">Số điện thoại:</span>
+                  <strong class="c-val phone-text">{{ customerPhone || 'Chưa cung cấp' }}</strong>
                 </div>
 
-                <div class="confirm-meta-card">
-                  <div class="c-meta-top">
-                    <span class="c-label">Số điện thoại</span>
-                    <span class="c-phone-badge">Liên hệ</span>
-                  </div>
-                  <strong class="c-val-highlight phone-font">{{ customerPhone || 'Chưa cung cấp' }}</strong>
+                <div class="confirm-meta-col">
+                  <span class="c-lbl">Hình thức nhận:</span>
+                  <strong class="c-val text-delivery">Giao hàng tận nơi</strong>
+                </div>
+                <div class="confirm-meta-col">
+                  <span class="c-lbl">Địa chỉ giao:</span>
+                  <span class="c-val addr-text">{{ fullDeliveryAddress || 'Chưa chọn địa chỉ' }}</span>
                 </div>
 
-                <div class="confirm-meta-item full-row" v-if="customerEmail">
-                  <span class="c-label">Email thông báo:</span>
+                <div class="confirm-meta-col">
+                  <span class="c-lbl">Thanh toán:</span>
+                  <strong class="c-val text-primary-gold">
+                    {{ paymentMethod === 'VNPAY' ? 'Chuyển khoản (VNPay)' : 'Tiền mặt' }}
+                  </strong>
+                </div>
+                <div class="confirm-meta-col" v-if="customerEmail">
+                  <span class="c-lbl">Email:</span>
                   <span class="c-val">{{ customerEmail }}</span>
                 </div>
-
-                <div class="confirm-meta-item full-row">
-                  <span class="c-label">Địa chỉ nhận hàng:</span>
-                  <div class="c-address-val">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="c-addr-icon">
-                      <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"></path>
-                      <circle cx="12" cy="10" r="3"></circle>
-                    </svg>
-                    <span>{{ fullDeliveryAddress || 'Chưa chọn địa chỉ giao nhận' }}</span>
-                  </div>
-                </div>
-
-                <div class="confirm-meta-item full-row">
-                  <span class="c-label">Hình thức thanh toán:</span>
-                  <div class="payment-method-pill" :class="paymentMethod === 'VNPAY' ? 'pill-vnpay' : 'pill-cod'">
-                    <span class="method-dot"></span>
-                    <span class="method-icon-wrap" v-if="paymentMethod === 'VNPAY'">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="2" y="5" width="20" height="14" rx="2"></rect>
-                        <line x1="2" y1="10" x2="22" y2="10"></line>
-                      </svg>
-                    </span>
-                    <span class="method-icon-wrap" v-else>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="1" x2="12" y2="23"></line>
-                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                      </svg>
-                    </span>
-                    <strong>{{ paymentMethod === 'VNPAY' ? 'Cổng thanh toán trực tuyến VNPAY (QR / ATM)' : 'Thanh toán tiền mặt khi nhận hàng (COD)' }}</strong>
-                  </div>
-                </div>
-
-                <div class="confirm-meta-item full-row" v-if="orderNote">
-                  <span class="c-label">Ghi chú giao hàng:</span>
-                  <span class="c-val note-val">"{{ orderNote }}"</span>
+                <div class="confirm-meta-col full-row" v-if="orderNote">
+                  <span class="c-lbl">Ghi chú:</span>
+                  <span class="c-val font-italic">"{{ orderNote }}"</span>
                 </div>
               </div>
             </div>
 
-            <!-- Box 2: Tóm tắt sản phẩm đặt mua -->
-            <div class="confirm-info-box">
-              <div class="confirm-box-header">
-                <div class="box-header-title">
-                  <span class="box-icon bag-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"></path>
-                      <line x1="3" y1="6" x2="21" y2="6"></line>
-                      <path d="M16 10a4 4 0 0 1-8 0"></path>
-                    </svg>
-                  </span>
-                  <span>Sản phẩm đặt mua</span>
-                </div>
-                <span class="items-count-badge">{{ activeCheckoutItems.length }} sản phẩm</span>
-              </div>
-
-              <div class="confirm-items-list custom-slim-scroll">
-                <div v-for="item in activeCheckoutItems" :key="item.variantId" class="confirm-item-row">
-                  <div class="confirm-item-thumb-wrapper">
-                    <img :src="resolveProductImg(item)" :alt="item.productName" class="confirm-item-img" @error="onImgError" />
-                  </div>
-                  <div class="confirm-item-details">
-                    <div class="confirm-item-name" :title="item.productName">{{ item.productName }}</div>
-                    <div class="confirm-item-attr">
-                      <span class="attr-pill color-pill" v-if="item.color || item.colorName">
-                        <span class="attr-pill-dot"></span>
-                        Màu: {{ item.color || item.colorName }}
-                      </span>
-                      <span class="attr-pill size-pill" v-if="item.size || item.sizeName">
-                        Size: {{ item.size || item.sizeName }}
-                      </span>
-                      <span class="attr-qty-pill">x{{ item.quantity }}</span>
-                    </div>
-                  </div>
-                  <div class="confirm-item-price-col">
-                    <div class="confirm-item-price">
+            <!-- Khối 2: Bảng sản phẩm đặt mua (Ảnh 3) -->
+            <div class="confirm-items-table-wrap custom-slim-scroll">
+              <table class="confirm-table">
+                <thead>
+                  <tr>
+                    <th class="col-prod text-left">Sản phẩm</th>
+                    <th class="col-qty text-center">Số lượng</th>
+                    <th class="col-price text-right">Đơn giá</th>
+                    <th class="col-total text-right">Thành tiền</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in activeCheckoutItems" :key="item.variantId">
+                    <td class="col-prod">
+                      <div class="confirm-prod-cell">
+                        <img :src="resolveProductImg(item)" :alt="item.productName" class="confirm-prod-thumb" @error="onImgError" />
+                        <div class="confirm-prod-info">
+                          <div class="confirm-prod-title">{{ item.productName }}</div>
+                          <div class="confirm-prod-sub" v-if="(item.color || item.colorName) || (item.size || item.sizeName)">
+                            {{ item.color || item.colorName }} / Size {{ item.size || item.sizeName }}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="col-qty text-center font-bold">{{ item.quantity }}</td>
+                    <td class="col-price text-right">
+                      {{ formatCurrency(item.discountPrice > 0 ? item.discountPrice : item.price) }}
+                    </td>
+                    <td class="col-total text-right font-bold">
                       {{ formatCurrency((item.discountPrice > 0 ? item.discountPrice : item.price) * item.quantity) }}
-                    </div>
-                    <div class="confirm-item-unit-price" v-if="item.quantity > 1">
-                      {{ formatCurrency(item.discountPrice > 0 ? item.discountPrice : item.price) }}/cái
-                    </div>
-                  </div>
-                </div>
-              </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
-            <!-- Box 3: Tóm tắt chi phí & Tổng tiền -->
-            <div class="confirm-info-box confirm-pricing-box">
-              <div class="confirm-box-header">
-                <div class="box-header-title">
-                  <span class="box-icon receipt-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="4" y="2" width="16" height="20" rx="2"></rect>
-                      <line x1="8" y1="6" x2="16" y2="6"></line>
-                      <line x1="8" y1="10" x2="16" y2="10"></line>
-                      <line x1="8" y1="14" x2="12" y2="14"></line>
-                    </svg>
-                  </span>
-                  <span>Tóm tắt thanh toán</span>
-                </div>
+            <!-- Khối 3: Tóm tắt chi phí (Ảnh 3) -->
+            <div class="confirm-cost-breakdown">
+              <div class="cost-row">
+                <span>Tạm tính ({{ activeCheckoutItems.reduce((acc, it) => acc + it.quantity, 0) }} sản phẩm):</span>
+                <strong>{{ formatCurrency(selectedSubtotal) }}</strong>
               </div>
-
-              <div class="confirm-fee-rows">
-                <div class="confirm-fee-line">
-                  <span class="fee-name">Tổng tiền hàng:</span>
-                  <span class="fee-num">{{ formatCurrency(selectedSubtotal) }}</span>
-                </div>
-                <div class="confirm-fee-line">
-                  <span class="fee-name">Phí ship (vận chuyển):</span>
-                  <span class="fee-num fee-ship" :class="{ 'text-free': shippingFee === 0 }">
-                    {{ shippingFee === 0 ? 'MIỄN PHÍ' : formatCurrency(shippingFee || 30000) }}
-                  </span>
-                </div>
-                <div class="confirm-fee-line text-green" v-if="voucherDiscount > 0">
-                  <span class="fee-name">
-                    Giảm giá voucher (Phiếu {{ appliedVoucher?.code }}):
-                  </span>
-                  <strong class="fee-num discount-num">-{{ formatCurrency(voucherDiscount) }}</strong>
-                </div>
-                <div class="confirm-fee-line text-muted" v-else>
-                  <span class="fee-name">Giảm giá:</span>
-                  <span class="fee-num text-slate-400">0 đ</span>
-                </div>
-
-                <div class="confirm-total-divider"></div>
-
-                <div class="confirm-fee-line confirm-total-line">
-                  <div class="total-label-box">
-                    <span class="total-label">TỔNG THANH TOÁN:</span>
-                    <span class="total-note">(Đã bao gồm VAT & phí ship)</span>
-                  </div>
-                  <strong class="total-value">{{ formatCurrency(finalTotal) }}</strong>
-                </div>
+              <div v-if="voucherDiscount > 0" class="cost-row discount-row">
+                <span>Voucher ({{ appliedVoucher?.code }}):</span>
+                <strong class="text-discount">- {{ formatCurrency(voucherDiscount) }}</strong>
+              </div>
+              <div class="cost-row">
+                <span>Phí vận chuyển (GHN):</span>
+                <strong>{{ shippingFee === 0 ? 'MIỄN PHÍ' : ('+ ' + formatCurrency(shippingFee || 20000)) }}</strong>
+              </div>
+              <div class="cost-row total-highlight">
+                <span class="total-label">Tổng thanh toán:</span>
+                <strong class="total-big-val">{{ formatCurrency(finalTotal) }}</strong>
               </div>
             </div>
           </div>
@@ -2399,26 +2317,11 @@ const formatDate = (dateStr) => {
           <!-- Footer Actions -->
           <div class="confirm-modal-footer">
             <button type="button" class="btn-confirm-cancel" :disabled="submitting" @click="showConfirmOrderModal = false">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
-              <span>Quay lại kiểm tra</span>
+              Hủy bỏ
             </button>
             <button type="button" class="btn-confirm-submit" :disabled="submitting" @click="executePlaceOrder">
-              <span v-if="submitting" class="submitting-state">
-                <svg class="spinner-svg" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
-                  <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"></path>
-                </svg>
-                <span>Đang xử lý đặt hàng...</span>
-              </span>
-              <span v-else class="submit-state">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                <span>Xác nhận đặt hàng</span>
-              </span>
+              <span v-if="submitting">Đang xử lý đặt hàng...</span>
+              <span v-else>Xác nhận đặt hàng</span>
             </button>
           </div>
         </div>
@@ -5314,6 +5217,9 @@ const formatDate = (dateStr) => {
 /* ======================================================== */
 /* MODAL XÁC NHẬN ĐƠN HÀNG (POPUP TRƯỚC KHI ĐẶT) */
 /* ======================================================== */
+/* ========================================================
+   MODAL XÁC NHẬN THÔNG TIN ĐƠN HÀNG (CHUẨN FORM ẢNH 3)
+   ======================================================== */
 .client-confirm-order-backdrop {
   position: fixed;
   inset: 0;
@@ -5329,98 +5235,49 @@ const formatDate = (dateStr) => {
 
 .client-confirm-order-card {
   width: 100%;
-  max-width: 630px;
+  max-width: 680px;
   max-height: 92vh;
   background: #ffffff;
-  border-radius: 20px;
+  border-radius: 14px;
   border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 25px 65px -12px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 25px 65px -12px rgba(15, 23, 42, 0.35);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: modalScaleIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes modalScaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.94) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+  animation: modalScaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .confirm-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 18px 24px;
+  padding: 16px 22px;
   border-bottom: 1px solid #edf2f7;
   background-color: #fafbfc;
 }
 
-.confirm-header-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.confirm-header-badge {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  border: 1px solid #bfdbfe;
-  color: #2563eb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
-}
-
-.confirm-header-texts {
-  display: flex;
-  flex-direction: column;
-}
-
 .confirm-modal-title {
-  font-size: 1.18rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: #0f172a;
   margin: 0;
-  letter-spacing: -0.01em;
-}
-
-.confirm-modal-sub {
-  font-size: 0.82rem;
-  color: #64748b;
-  margin: 3px 0 0 0;
-  line-height: 1.4;
 }
 
 .confirm-close-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  color: #64748b;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #94a3b8;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
 }
 
 .confirm-close-btn:hover {
-  background: #fee2e2;
-  border-color: #fca5a5;
-  color: #ef4444;
-  transform: rotate(90deg);
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 /* Custom Slim Scrollbars */
@@ -5440,484 +5297,236 @@ const formatDate = (dateStr) => {
 }
 
 .confirm-modal-body {
-  padding: 18px 24px;
+  padding: 18px 22px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  max-height: calc(90vh - 145px);
+  max-height: calc(90vh - 135px);
 }
 
+/* Khối 1: Thông tin khách hàng & Giao hàng */
 .confirm-info-box {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
+  border-radius: 10px;
   padding: 14px 18px;
-  transition: border-color 0.2s ease;
-}
-
-.confirm-info-box:hover {
-  border-color: #cbd5e1;
-}
-
-.confirm-box-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px dashed #e2e8f0;
-}
-
-.box-header-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: #1e293b;
-}
-
-.box-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.pin-icon {
-  background: #ffe4e6;
-  color: #e11d48;
-}
-
-.bag-icon {
-  background: #e0f2fe;
-  color: #0284c7;
-}
-
-.receipt-icon {
-  background: #fef3c7;
-  color: #d97706;
-}
-
-.ghn-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  color: #059669;
-  font-size: 0.74rem;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 999px;
-}
-
-.items-count-badge {
-  background: #f1f5f9;
-  color: #475569;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 3px 9px;
-  border-radius: 999px;
-  border: 1px solid #e2e8f0;
 }
 
 .confirm-meta-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px 14px;
+  gap: 12px 18px;
 }
 
-.confirm-meta-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 10px 12px;
+.confirm-meta-col {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
-.c-meta-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.c-user-badge,
-.c-phone-badge {
-  font-size: 0.68rem;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.c-user-badge {
-  background: #f1f5f9;
-  color: #64748b;
-}
-
-.c-phone-badge {
-  background: #f0fdf4;
-  color: #16a34a;
-}
-
-.c-label {
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: #64748b;
-}
-
-.c-val-highlight {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.c-val-highlight.phone-font {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  letter-spacing: 0.02em;
-}
-
-.confirm-meta-item {
-  display: flex;
-  flex-direction: column;
-  font-size: 0.88rem;
-  gap: 3px;
-}
-
-.confirm-meta-item.full-row {
+.confirm-meta-col.full-row {
   grid-column: span 2;
 }
 
-.c-val {
+.confirm-meta-col .c-lbl {
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.confirm-meta-col .c-val {
+  font-size: 0.92rem;
   color: #1e293b;
   word-break: break-word;
 }
 
-.c-address-val {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 9px 12px;
-  font-size: 0.87rem;
+.confirm-meta-col .text-delivery {
+  color: #0369a1;
+  font-weight: 700;
+}
+
+.confirm-meta-col .text-primary-gold {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.confirm-meta-col .phone-text {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.confirm-meta-col .addr-text {
   font-weight: 500;
   color: #1e293b;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
-.c-addr-icon {
-  color: #ef4444;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.payment-method-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  border-radius: 10px;
-  font-size: 0.86rem;
-  width: fit-content;
-}
-
-.payment-method-pill.pill-cod {
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  color: #b45309;
-}
-
-.payment-method-pill.pill-vnpay {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #1d4ed8;
-}
-
-.method-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.method-icon-wrap {
-  display: flex;
-  align-items: center;
-}
-
-.note-val {
+.confirm-meta-col .font-italic {
   font-style: italic;
   color: #475569;
+}
+
+/* Khối 2: Bảng sản phẩm */
+.confirm-items-table-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.confirm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.confirm-table th {
   background: #f1f5f9;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 0.84rem;
+  padding: 10px 14px;
+  font-weight: 600;
+  color: #475569;
+  font-size: 0.82rem;
+  border: none;
 }
 
-.confirm-items-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 175px;
-  overflow-y: auto;
-  padding-right: 4px;
+.confirm-table td {
+  padding: 10px 14px;
+  border-top: 1px solid #e2e8f0;
+  color: #334155;
+  vertical-align: middle;
 }
 
-.confirm-item-row {
+.confirm-prod-cell {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 9px 12px;
-  background: #ffffff;
-  border: 1px solid #edf2f7;
-  border-radius: 10px;
-  transition: all 0.15s ease;
 }
 
-.confirm-item-row:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-}
-
-.confirm-item-thumb-wrapper {
-  width: 46px;
-  height: 46px;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-  background-color: #f8fafc;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.confirm-item-img {
-  width: 100%;
-  height: 100%;
+.confirm-prod-thumb {
+  width: 42px;
+  height: 42px;
   object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
 }
 
-.confirm-item-details {
+.confirm-prod-info {
   flex: 1;
   min-width: 0;
 }
 
-.confirm-item-name {
+.confirm-prod-title {
+  font-weight: 600;
+  color: #0f172a;
   font-size: 0.88rem;
-  font-weight: 600;
-  color: #0f172a;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 3px;
+  line-height: 1.35;
 }
 
-.confirm-item-attr {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+.confirm-prod-sub {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 2px;
 }
 
-.attr-pill {
-  font-size: 0.72rem;
-  padding: 2px 7px;
-  border-radius: 6px;
-  font-weight: 500;
-}
-
-.color-pill {
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  color: #475569;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.attr-pill-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #64748b;
-}
-
-.size-pill {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #334155;
-  font-weight: 600;
-}
-
-.attr-qty-pill {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #2563eb;
-  background: #eff6ff;
-  border: 1px solid #dbeafe;
-  padding: 1px 6px;
-  border-radius: 6px;
-}
-
-.confirm-item-price-col {
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.confirm-item-price {
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.confirm-item-unit-price {
-  font-size: 0.72rem;
-  color: #94a3b8;
-  margin-top: 1px;
-}
-
-.confirm-pricing-box {
-  background: #fcfbf9;
-  border-color: #eedecb;
-}
-
-.confirm-fee-rows {
+/* Khối 3: Tóm tắt chi phí */
+.confirm-cost-breakdown {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: #fafafa;
+  padding: 14px 18px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
 }
 
-.confirm-fee-line {
+.cost-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 0.88rem;
-  color: #334155;
+  color: #4b5563;
 }
 
-.fee-name {
-  color: #475569;
-  font-size: 0.86rem;
-}
-
-.fee-num {
-  font-weight: 600;
-  color: #1e293b;
-}
-
-.fee-ship.text-free {
+.cost-row.discount-row {
   color: #059669;
-  font-weight: 700;
-  background: #ecfdf5;
-  padding: 1px 7px;
-  border-radius: 4px;
-  font-size: 0.78rem;
 }
 
-.discount-num {
+.text-discount {
   color: #16a34a;
+  font-weight: 700;
 }
 
-.confirm-total-divider {
+.cost-row.total-highlight {
   border-top: 1.5px dashed #cbd5e1;
-  margin: 4px 0;
-}
-
-.confirm-total-line {
-  padding-top: 4px;
-}
-
-.total-label-box {
-  display: flex;
-  flex-direction: column;
-}
-
-.confirm-total-line .total-label {
-  font-size: 0.96rem;
-  font-weight: 800;
+  padding-top: 10px;
+  margin-top: 4px;
+  font-size: 1rem;
   color: #0f172a;
-  letter-spacing: 0.02em;
 }
 
-.confirm-total-line .total-note {
-  font-size: 0.72rem;
-  color: #94a3b8;
-  margin-top: 1px;
+.cost-row .total-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
 }
 
-.confirm-total-line .total-value {
-  font-size: 1.35rem;
+.total-big-val {
+  font-size: 1.3rem;
   font-weight: 800;
-  color: #c2410c;
-  letter-spacing: -0.01em;
+  color: #b45309;
 }
 
+/* Footer Modal */
 .confirm-modal-footer {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 12px;
-  padding: 16px 24px;
+  padding: 14px 22px;
   border-top: 1px solid #edf2f7;
   background-color: #fafbfc;
 }
 
 .btn-confirm-cancel {
-  height: 42px;
-  padding: 0 18px;
-  border-radius: 10px;
-  border: 1.5px solid #cbd5e1;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
   background-color: #ffffff;
   color: #475569;
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
 }
 
 .btn-confirm-cancel:hover:not(:disabled) {
   background-color: #f1f5f9;
   color: #0f172a;
   border-color: #94a3b8;
-  transform: translateY(-1px);
 }
 
 .btn-confirm-submit {
-  height: 42px;
+  height: 40px;
   padding: 0 24px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: none;
-  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+  background: #c27836;
   color: #ffffff;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.32);
+  transition: all 0.2s ease;
+  box-shadow: 0 3px 10px rgba(194, 120, 54, 0.3);
 }
 
 .btn-confirm-submit:hover:not(:disabled) {
-  opacity: 0.94;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(234, 88, 12, 0.42);
+  background: #b56e2e;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(194, 120, 54, 0.4);
 }
 
 .btn-confirm-submit:active:not(:disabled) {
@@ -5930,26 +5539,6 @@ const formatDate = (dateStr) => {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
-}
-
-.submitting-state,
-.submit-state {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.spinner-svg {
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* VNPAY WAITING MODAL */
