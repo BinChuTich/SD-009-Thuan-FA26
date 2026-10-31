@@ -1100,7 +1100,7 @@ onUnmounted(() => {
                 <div class="shipping-info-item">
                   <span class="item-label">Trạng thái vận chuyển:</span>
                   <strong class="item-value text-shipping">
-                    {{ selectedOrder.trangThai === 1 ? 'Chờ Shop xác nhận & đóng gói' :
+                    {{ selectedOrder.trangThai === 1 ? 'Chờ xác nhận' :
                        selectedOrder.trangThai === 2 ? 'Shop đã duyệt đơn - Đang chuẩn bị hàng' :
                        selectedOrder.trangThai === 3 ? 'Đang bàn giao shipper GHN' :
                        selectedOrder.trangThai === 4 ? 'Shipper GHN đang trên đường giao tới bạn' :
