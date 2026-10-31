@@ -3,6 +3,8 @@
  * Đồng bộ với bộ nhận diện thương hiệu (#496883 & #d2a764)
  */
 
+import api from '@/api'
+
 export const CATEGORIES_CATALOG = [
   {
     id: 1,
@@ -59,4 +61,98 @@ export function getMergedProducts(apiProducts = []) {
  */
 export function getProductById(id) {
   return null
+}
+
+let cachedSalesMap = null
+let cacheTimestamp = 0
+const CACHE_TTL_MS = 30000 // 30s cache
+
+/**
+ * Lấy bản đồ số lượng đã bán (lượt mua) thực tế theo idSanPham
+ */
+export async function getProductSalesMap(forceRefresh = false) {
+  const now = Date.now()
+  if (!forceRefresh && cachedSalesMap && (now - cacheTimestamp < CACHE_TTL_MS)) {
+    return cachedSalesMap
+  }
+
+  const map = {}
+
+  try {
+    // 1. Thử lấy từ thống kê overview
+    const resThongKe = await api.get('/api/thong-ke/overview', {
+      params: { fromDate: '2020-01-01', toDate: '2030-12-31' }
+    })
+    if (resThongKe.data?.products && Array.isArray(resThongKe.data.products)) {
+      resThongKe.data.products.forEach(p => {
+        if (p.id) {
+          map[p.id] = Number(p.soldCount || 0)
+        }
+      })
+    }
+  } catch (e) {
+    // Fallback qua hóa đơn
+  }
+
+  try {
+    // 2. Lấy thêm tất cả các hóa đơn không bị hủy (trangThai != 6) để tính số lượng bán thời gian thực
+    const resOrders = await api.get('/api/hoa-don')
+    const orders = Array.isArray(resOrders.data) ? resOrders.data : (resOrders.data?.value || [])
+    
+    // Đơn không bị hủy
+    const validOrders = orders.filter(h => h && h.trangThai !== 6 && h.id)
+    
+    // Lấy chi tiết các đơn hợp lệ song song
+    const detailPromises = validOrders.map(h => 
+      api.get(`/api/hoa-don/${h.id}/chi-tiet`)
+        .then(r => Array.isArray(r.data) ? r.data : (r.data?.value || []))
+        .catch(() => [])
+    )
+    const allDetailsList = await Promise.all(detailPromises)
+
+    // Tính tổng số lượng bán thực tế chính xác theo từng sản phẩm
+    const liveMap = {}
+    allDetailsList.flat().forEach(d => {
+      const spId = d?.idChiTietSanPham?.idSanPham?.id || d?.idSanPham
+      const qty = Number(d?.soLuong || 1)
+      if (spId) {
+        liveMap[spId] = (liveMap[spId] || 0) + qty
+      }
+    })
+
+    // Hợp nhất (lấy số lớn nhất giữa liveMap và thống kê để đảm bảo chính xác nhất)
+    Object.keys(liveMap).forEach(id => {
+      map[id] = Math.max(map[id] || 0, liveMap[id])
+    })
+  } catch (e) {
+    console.warn('Lỗi tính lượt bán thực tế:', e)
+  }
+
+  cachedSalesMap = map
+  cacheTimestamp = Date.now()
+  return map
+}
+
+/**
+ * Gắn thêm trường `daBan` và `soLuongDaBan` vào danh sách sản phẩm
+ */
+export async function attachSalesCountToProducts(products) {
+  if (!Array.isArray(products) || products.length === 0) return products
+  try {
+    const salesMap = await getProductSalesMap()
+    products.forEach(p => {
+      if (p && p.id) {
+        p.daBan = salesMap[p.id] || 0
+        p.soLuongDaBan = salesMap[p.id] || 0
+      }
+    })
+  } catch (e) {
+    products.forEach(p => {
+      if (p && p.daBan == null) {
+        p.daBan = 0
+        p.soLuongDaBan = 0
+      }
+    })
+  }
+  return products
 }
