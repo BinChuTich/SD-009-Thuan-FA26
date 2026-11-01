@@ -72,6 +72,32 @@ const loadHomeData = async () => {
 
     featuredProducts.value = merged
 
+    // Cập nhật ảnh danh mục nổi bật bên ngoài bằng chính 1 ảnh bất kỳ của sản phẩm thuộc danh mục đó
+    categories.value = categories.value.map(cat => {
+      const catProducts = merged.filter(p => {
+        if (p.idDanhMuc != null && cat.id != null && Number(p.idDanhMuc) === Number(cat.id)) {
+          return true
+        }
+        const pCatName = (p.tenDanhMuc || '').trim().toLowerCase()
+        const cName = (cat.name || cat.tenDanhMuc || '').trim().toLowerCase()
+        return pCatName && cName && (pCatName === cName || pCatName.includes(cName) || cName.includes(pCatName))
+      })
+
+      let catImg = cat.image
+      if (catProducts.length > 0) {
+        const prodWithImg = catProducts.find(p => p.anhDaiDien || (p.hinhAnhs && p.hinhAnhs.length > 0)) || catProducts[0]
+        if (prodWithImg) {
+          catImg = prodWithImg.anhDaiDien || (prodWithImg.hinhAnhs && prodWithImg.hinhAnhs[0]) || catImg
+        }
+      }
+
+      return {
+        ...cat,
+        image: catImg,
+        count: `${catProducts.length} mẫu`
+      }
+    })
+
     try {
       const resActive = await api.get('/api/dot-giam-gia/active-products')
       activeDiscounts.value = resActive.data || []

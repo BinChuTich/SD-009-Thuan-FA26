@@ -14,7 +14,7 @@ const emit = defineEmits(['update:paymentMethod'])
     <h3 class="card-title">Phương thức thanh toán <span class="star">*</span></h3>
 
     <div class="payment-methods-stack">
-      <!-- COD -->
+      <!-- 1. COD -->
       <label
         class="pay-method-card"
         :class="{ selected: paymentMethod === 'COD' }"
@@ -27,13 +27,49 @@ const emit = defineEmits(['update:paymentMethod'])
           :checked="paymentMethod === 'COD'"
           class="radio-dot"
         />
+        <div class="pay-icon-box cod-icon-box">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="3" width="15" height="13"></rect>
+            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+          </svg>
+        </div>
         <div class="pay-text">
-          <strong>Thanh toán khi nhận hàng (COD)</strong>
-          <p>Khách hàng thanh toán bằng tiền mặt khi shipper giao hàng tới.</p>
+          <div class="title-with-badge">
+            <strong>Thanh toán khi nhận hàng (COD)</strong>
+            <span class="pay-pill-tag">Phổ biến</span>
+          </div>
+          <p>Khách hàng thanh toán tiền mặt trực tiếp cho shipper khi nhận hàng.</p>
         </div>
       </label>
 
-      <!-- VNPAY -->
+      <!-- 2. VIETQR (Napas 247) -->
+      <label
+        class="pay-method-card"
+        :class="{ selected: paymentMethod === 'VIETQR' }"
+        @click="emit('update:paymentMethod', 'VIETQR')"
+      >
+        <input
+          type="radio"
+          name="payMethod"
+          value="VIETQR"
+          :checked="paymentMethod === 'VIETQR'"
+          class="radio-dot"
+        />
+        <div class="pay-icon-box vietqr-icon-box">
+          <span class="vietqr-mini-badge">VietQR</span>
+        </div>
+        <div class="pay-text">
+          <div class="title-with-badge">
+            <strong>Chuyển khoản VietQR (Napas 247)</strong>
+            <span class="pay-pill-tag qr-tag">Khuyên dùng</span>
+          </div>
+          <p>Quét mã QR bằng bất kỳ ứng dụng ngân hàng hoặc ví điện tử (MB, Techcombank, VCB, Momo,...).</p>
+        </div>
+      </label>
+
+      <!-- 3. VNPAY -->
       <label
         class="pay-method-card"
         :class="{ selected: paymentMethod === 'VNPAY' }"
@@ -46,9 +82,14 @@ const emit = defineEmits(['update:paymentMethod'])
           :checked="paymentMethod === 'VNPAY'"
           class="radio-dot"
         />
+        <div class="pay-icon-box vnpay-icon-box">
+          <span class="vnpay-mini-badge">VNPAY</span>
+        </div>
         <div class="pay-text">
-          <strong>Thanh toán qua cổng VNPAY (Chuyển khoản / Quét QR)</strong>
-          <p>Thanh toán bảo mật và tiện lợi qua ứng dụng ngân hàng hoặc cổng VNPAY.</p>
+          <div class="title-with-badge">
+            <strong>Cổng thanh toán trực tuyến VNPAY</strong>
+          </div>
+          <p>Thanh toán bảo mật qua ứng dụng ngân hàng hoặc cổng VNPAY (Thẻ ATM, Internet Banking, QR).</p>
         </div>
       </label>
     </div>
@@ -108,19 +149,81 @@ const emit = defineEmits(['update:paymentMethod'])
 }
 
 .radio-dot {
-  margin-top: 3px;
+  margin-top: 12px;
   cursor: pointer;
   accent-color: #d2a764;
   width: 17px;
   height: 17px;
+  flex-shrink: 0;
+}
+
+.pay-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cod-icon-box {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.vietqr-icon-box {
+  background: #005baa;
+}
+
+.vietqr-mini-badge {
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.vnpay-icon-box {
+  background: #e0f2fe;
+}
+
+.vnpay-mini-badge {
+  color: #0284c7;
+  font-weight: 900;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.pay-text {
+  flex: 1;
+}
+
+.title-with-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
 }
 
 .pay-text strong {
-  display: block;
   font-size: 14.5px;
   font-weight: 700;
   color: #0f172a;
-  margin-bottom: 4px;
+}
+
+.pay-pill-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #64748b;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.pay-pill-tag.qr-tag {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .pay-text p {
