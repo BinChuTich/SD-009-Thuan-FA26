@@ -58,7 +58,8 @@ const routes = [
   },
   {
     path: '/goi-y',
-    redirect: '/cua-hang'
+    name: 'GoiY',
+    component: GoiY
   },
   {
     path: '/lien-he',

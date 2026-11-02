@@ -312,25 +312,36 @@ const loadProductData = async (id) => {
 
 
 
-    // Mặc định chọn biến thể đầu tiên đang kinh doanh và còn hàng
-
+    // Mặc định chọn biến thể: Ưu tiên màu được truyền qua query params (?color=...)
     if (varData.length > 0) {
-
       const activeVars = varData.filter(v => Number(v.trangThai ?? 1) === 1)
+      const targetColorParam = route.query.color || route.query.mauSac
+      let chosenVar = null
 
-      const firstAvailable = activeVars.find(v => (v.soLuongTon || v.soLuong || 0) > 0) || activeVars[0] || varData[0]
-
-      selectedColorId.value = firstAvailable.idMauSac
-
-      selectedSizeId.value = firstAvailable.idKichCo
-
-      if (colorToImgIndex.has(firstAvailable.idMauSac)) {
-        activeImgIndex.value = colorToImgIndex.get(firstAvailable.idMauSac)
-      } else if (firstAvailable.anhDaiDien) {
-        const foundIdx = allImages.value.indexOf(firstAvailable.anhDaiDien)
-        if (foundIdx !== -1) activeImgIndex.value = foundIdx
+      if (targetColorParam) {
+        const normalizedTarget = String(targetColorParam).trim().toLowerCase()
+        const varsForColor = activeVars.filter(v => {
+          const cName = (v.tenMauSac || v.mauSac || '').toLowerCase()
+          return cName.includes(normalizedTarget) || normalizedTarget.includes(cName)
+        })
+        if (varsForColor.length > 0) {
+          chosenVar = varsForColor.find(v => (v.soLuongTon || v.soLuong || 0) > 0) || varsForColor[0]
+        }
       }
 
+      if (!chosenVar) {
+        chosenVar = activeVars.find(v => (v.soLuongTon || v.soLuong || 0) > 0) || activeVars[0] || varData[0]
+      }
+
+      selectedColorId.value = chosenVar.idMauSac
+      selectedSizeId.value = chosenVar.idKichCo
+
+      if (colorToImgIndex.has(chosenVar.idMauSac)) {
+        activeImgIndex.value = colorToImgIndex.get(chosenVar.idMauSac)
+      } else if (chosenVar.anhDaiDien) {
+        const foundIdx = allImages.value.indexOf(chosenVar.anhDaiDien)
+        if (foundIdx !== -1) activeImgIndex.value = foundIdx
+      }
     }
 
 
@@ -559,6 +570,24 @@ const discountPercent = computed(() => {
 
 })
 
+const activeDiscountPercentForGallery = computed(() => {
+  // Chỉ những sản phẩm / biến thể trong đợt giảm giá mới hiện ở ảnh
+  if (currentVariant.value) {
+    if (currentVariant.value.coGiamGia && currentVariant.value.phanTramGiam && currentVariant.value.phanTramGiam > 0) {
+      return Math.round(currentVariant.value.phanTramGiam)
+    }
+    if (originalPrice.value > currentPrice.value && originalPrice.value > 0) {
+      return Math.round(((originalPrice.value - currentPrice.value) / originalPrice.value) * 100)
+    }
+    // Biến thể này không trong đợt giảm giá -> không hiện ở ảnh
+    return 0
+  }
+  if (product.value?.coGiamGia && product.value?.phanTramGiam && product.value.phanTramGiam > 0) {
+    return Math.round(product.value.phanTramGiam)
+  }
+  return 0
+})
+
 
 
 // Danh sách màu sắc và kích cỡ có sẵn
@@ -700,17 +729,12 @@ const closeCartSuccess = () => {
 }
 
 const addedItemInfo = ref({
-
   name: '',
-
   variant: '',
-
   price: 0,
-
   originalPrice: 0,
-
-  image: ''
-
+  image: '',
+  quantity: 1
 })
 
 
@@ -763,30 +787,38 @@ const handleAddToCart = () => {
 
 
 
+  const rawStock = currentVariant.value.soLuongTon != null ? currentVariant.value.soLuongTon : (currentVariant.value.soLuong != null ? currentVariant.value.soLuong : 99)
+  const maxStock = Number(rawStock)
+  const existingInCart = cartItems.value.find(item => item.variantId === currentVariant.value.id)
+  if (existingInCart && existingInCart.quantity >= maxStock) {
+    triggerToast(`Sản phẩm trong giỏ hàng đã đạt giới hạn tồn kho tối đa (${maxStock} sản phẩm)!`)
+    return
+  }
+
   const ok = addToCart(product.value, currentVariant.value, quantity.value)
-
   if (ok) {
-
     const colName = selectedColorName.value || currentVariant.value?.tenMauSac || ''
-
     const sizeName = selectedSizeName.value || currentVariant.value?.tenKichThuoc || ''
 
+    // Lấy số lượng thực tế của biến thể này trong giỏ hàng sau khi ấn thêm
+    const inCart = cartItems.value.find(item => item.variantId === currentVariant.value.id)
+    const currentQtyInCart = inCart ? inCart.quantity : quantity.value
+
     addedItemInfo.value = {
-
       name: product.value?.tenSanPham || 'Sản phẩm',
-
       variant: colName && sizeName ? `${colName} / ${sizeName}` : (colName || sizeName || 'Tiêu chuẩn'),
-
       price: currentPrice.value,
-
       originalPrice: originalPrice.value,
-
-      image: currentVariant.value?.anhDaiDien || activeImage.value || ''
-
+      image: currentVariant.value?.anhDaiDien || activeImage.value || '',
+      quantity: currentQtyInCart
     }
 
+    // Hiển thị modal và kéo dài timer tự đóng khi người dùng ấn thêm liên tục
     showCartSuccessModal.value = true
-
+    if (cartSuccessTimer) clearTimeout(cartSuccessTimer)
+    cartSuccessTimer = setTimeout(() => {
+      showCartSuccessModal.value = false
+    }, 3500)
   }
 
 }
@@ -847,9 +879,50 @@ const activeImage = computed(() => allImages.value[activeImgIndex.value] || '')
 
 
 
+const handleSelectColor = (colorObj) => {
+  if (!colorObj || !colorObj.id) return
+  selectedColorId.value = colorObj.id
+  if (colorObj.name) {
+    router.replace({
+      query: { ...route.query, color: colorObj.name }
+    }).catch(() => {})
+  }
+}
+
 watch(selectedColorId, (newColorId) => {
-  if (newColorId && colorImageIndexMap.value && colorImageIndexMap.value.has(newColorId)) {
-    activeImgIndex.value = colorImageIndexMap.value.get(newColorId)
+  if (newColorId) {
+    if (colorImageIndexMap.value && colorImageIndexMap.value.has(newColorId)) {
+      activeImgIndex.value = colorImageIndexMap.value.get(newColorId)
+    }
+    if (variants.value && variants.value.length) {
+      const cur = variants.value.find(v => v.idMauSac === newColorId && v.idKichCo === selectedSizeId.value)
+      if (!cur || (cur.soLuongTon || cur.soLuong || 0) <= 0) {
+        const varsForColor = variants.value.filter(v => v.idMauSac === newColorId && Number(v.trangThai ?? 1) === 1)
+        const available = varsForColor.find(v => (v.soLuongTon || v.soLuong || 0) > 0) || varsForColor[0]
+        if (available) {
+          selectedSizeId.value = available.idKichCo
+        }
+      }
+    }
+  }
+})
+
+watch(() => route.query.color, (newColor) => {
+  if (newColor && variants.value && variants.value.length) {
+    const normalizedTarget = String(newColor).trim().toLowerCase()
+    const activeVars = variants.value.filter(v => Number(v.trangThai ?? 1) === 1)
+    const varsForColor = activeVars.filter(v => {
+      const cName = (v.tenMauSac || v.mauSac || '').toLowerCase()
+      return cName.includes(normalizedTarget) || normalizedTarget.includes(cName)
+    })
+    if (varsForColor.length > 0) {
+      const chosenVar = varsForColor.find(v => (v.soLuongTon || v.soLuong || 0) > 0) || varsForColor[0]
+      selectedColorId.value = chosenVar.idMauSac
+      selectedSizeId.value = chosenVar.idKichCo
+      if (colorImageIndexMap.value && colorImageIndexMap.value.has(chosenVar.idMauSac)) {
+        activeImgIndex.value = colorImageIndexMap.value.get(chosenVar.idMauSac)
+      }
+    }
   }
 })
 
@@ -954,7 +1027,7 @@ onUnmounted(() => {
 
             :product-name="product.tenSanPham"
 
-            :discount-percent="currentVariant?.phanTramGiam || product?.phanTramGiam || (originalPrice > currentPrice ? Math.round((originalPrice - currentPrice) / originalPrice * 100) : 0)"
+            :discount-percent="activeDiscountPercentForGallery"
 
           />
 
@@ -1064,7 +1137,7 @@ onUnmounted(() => {
 
                     :class="{ selected: selectedColorId === c.id }"
 
-                    @click="selectedColorId = c.id"
+                    @click="handleSelectColor(c)"
 
                   >
 
@@ -1283,19 +1356,15 @@ onUnmounted(() => {
                 <p class="csc-product-variant">{{ addedItemInfo.variant }}</p>
 
                 <div class="csc-product-price-row">
-
-                  <strong class="csc-sale-price">{{ formatCurrency(addedItemInfo.price) }}</strong>
-
-                  <span v-if="addedItemInfo.originalPrice && addedItemInfo.originalPrice > addedItemInfo.price" class="csc-original-price">
-
-                    {{ formatCurrency(addedItemInfo.originalPrice) }}
-
-                  </span>
-
+                  <div class="csc-price-group">
+                    <strong class="csc-sale-price">{{ formatCurrency(addedItemInfo.price) }}</strong>
+                    <span v-if="addedItemInfo.originalPrice && addedItemInfo.originalPrice > addedItemInfo.price" class="csc-original-price">
+                      {{ formatCurrency(addedItemInfo.originalPrice) }}
+                    </span>
+                  </div>
+                  <span class="csc-product-qty">Số lượng: <strong>{{ addedItemInfo.quantity || 1 }}</strong></span>
                 </div>
-
               </div>
-
             </div>
 
 
@@ -2495,15 +2564,33 @@ onUnmounted(() => {
 
 
 .csc-product-price-row {
-
   display: flex;
-
-  align-items: baseline;
-
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  margin-top: 4px;
+}
 
-  margin-top: 2px;
+.csc-price-group {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
 
+.csc-product-qty {
+  font-size: 12.5px;
+  color: #4b5563;
+  background: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.csc-product-qty strong {
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 13px;
 }
 
 

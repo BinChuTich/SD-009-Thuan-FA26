@@ -1025,4 +1025,63 @@ public class EmailService {
             return false;
         }
     }
+    public boolean sendPasswordResetOtpEmail(String toEmail, String fullName, String otpCode) {
+        if (toEmail == null || toEmail.isBlank() || !toEmail.contains("@")) {
+            log.warn("Bỏ qua email xác thực OTP đặt lại mật khẩu vì địa chỉ email không hợp lệ: {}", toEmail);
+            return false;
+        }
+
+        try {
+            if (mailSender == null) {
+                log.info("[EmailService Mock] Gửi mã OTP đặt lại mật khẩu tới '{}' (Tên: {}): Mã OTP: {}", toEmail, fullName, otpCode);
+                return true;
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(senderEmail, "FF T-Shirt");
+            helper.setTo(toEmail.trim());
+            helper.setSubject("[FF T-Shirt] Mã xác thực đặt lại mật khẩu: " + otpCode);
+
+            String safeName = escapeHtml(fullName != null && !fullName.isBlank() ? fullName : "Quý khách");
+            String safeOtp = escapeHtml(otpCode != null ? otpCode : "");
+
+            String html = """
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h2 style="color: #4a3427; margin: 0 0 6px 0; font-size: 24px; font-weight: 700;">FF T-Shirt</h2>
+                        <p style="color: #7b5943; margin: 0; font-size: 15px; font-weight: 600;">Yêu cầu cấp lại mật khẩu</p>
+                    </div>
+
+                    <p style="margin: 0 0 14px 0; font-size: 15px;">Xin chào <strong>%s</strong>,</p>
+                    <p style="margin: 0 0 16px 0; font-size: 14px; color: #555555; line-height: 1.6;">
+                        Chúng tôi nhận được yêu cầu cấp lại mật khẩu cho tài khoản thành viên của bạn tại <strong>FF T-Shirt Store</strong>. 
+                        Dưới đây là mã xác thực (OTP) 6 số để tạo mật khẩu mới:
+                    </p>
+
+                    <div style="text-align: center; margin: 28px 0; background-color: #fdf8f4; border: 2px dashed #7b5943; border-radius: 12px; padding: 20px;">
+                        <span style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #7b5943; font-family: 'Courier New', monospace;">%s</span>
+                        <p style="margin: 8px 0 0 0; font-size: 13px; color: #888;">Mã xác thực có hiệu lực trong vòng <strong>10 phút</strong></p>
+                    </div>
+
+                    <p style="margin: 0 0 12px 0; font-size: 13px; color: #666666; line-height: 1.6;">
+                        ⚠️ <strong>Lưu ý bảo mật:</strong> Tuyệt đối không chia sẻ mã này cho bất kỳ ai. Nếu bạn không gửi yêu cầu này, vui lòng bỏ qua email và mật khẩu của bạn vẫn an toàn.
+                    </p>
+
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
+                    <p style="margin: 0; font-size: 12px; color: #999999; text-align: center;">
+                        Trân trọng cảm ơn quý khách đã đồng hành cùng FF T-Shirt.
+                    </p>
+                </div>
+            """.formatted(safeName, safeOtp);
+
+            helper.setText(html, true);
+            mailSender.send(message);
+            log.info("Đã gửi email mã xác thực OTP đặt lại mật khẩu thành công tới {}", toEmail);
+            return true;
+        } catch (Exception e) {
+            log.error("Không thể gửi email mã xác thực OTP đặt lại mật khẩu tới {}: {}", toEmail, e.getMessage(), e);
+            return false;
+        }
+    }
 }

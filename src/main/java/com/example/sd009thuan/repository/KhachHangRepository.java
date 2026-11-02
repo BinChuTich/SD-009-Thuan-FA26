@@ -24,6 +24,8 @@ public interface KhachHangRepository extends JpaRepository<KhachHang, Long>, Jpa
     Optional<KhachHang> findByMaKhachHangIgnoreCase(String maKhachHang);
     Optional<KhachHang> findByTaiKhoan(String taiKhoan);
     Optional<KhachHang> findByEmail(String email);
+    Optional<KhachHang> findByEmailIgnoreCase(String email);
+    Optional<KhachHang> findByTaiKhoanIgnoreCase(String taiKhoan);
     Optional<KhachHang> findBySoDienThoai(String soDienThoai);
 
     @Query(value = "SELECT kh.id, kh.ma_khach_hang, kh.ten_khach_hang, kh.so_dien_thoai, kh.email, " +

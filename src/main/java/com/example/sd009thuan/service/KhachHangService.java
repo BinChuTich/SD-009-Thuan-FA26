@@ -357,6 +357,25 @@ public class KhachHangService {
     }
 
     
+    @Transactional
+    public void updatePassword(Long customerId, String newPassword) {
+        KhachHang kh = find(customerId);
+        kh.setMatKhau(newPassword);
+        repo.save(kh);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<KhachHang> findByEmailIgnoreCase(String email) {
+        if (email == null || email.isBlank()) return Optional.empty();
+        return repo.findByEmailIgnoreCase(email.trim()).or(() -> repo.findByEmail(email.trim()));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<KhachHang> findByTaiKhoanIgnoreCase(String taiKhoan) {
+        if (taiKhoan == null || taiKhoan.isBlank()) return Optional.empty();
+        return repo.findByTaiKhoanIgnoreCase(taiKhoan.trim()).or(() -> repo.findByTaiKhoan(taiKhoan.trim()));
+    }
+
     @Transactional(readOnly = true)
     public Optional<KhachHang> findByEmail(String email) {
         if (email == null || email.isBlank()) return Optional.empty();

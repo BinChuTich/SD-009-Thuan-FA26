@@ -329,7 +329,38 @@ public class HoaDon {
 
     @JsonProperty("maPhieuGiamGia")
     public String getMaPhieuGiamGia() {
-        return idPhieuGiamGia != null ? idPhieuGiamGia.getMaPhieuGiamGia() : null;
+        if (idPhieuGiamGia != null && idPhieuGiamGia.getMaPhieuGiamGia() != null) {
+            return idPhieuGiamGia.getMaPhieuGiamGia();
+        }
+        if (this.ghiChu != null && this.ghiChu.contains("[VOUCHER: ")) {
+            try {
+                int start = this.ghiChu.indexOf("[VOUCHER: ") + 10;
+                int end = this.ghiChu.indexOf("]", start);
+                if (end > start) {
+                    String part = this.ghiChu.substring(start, end);
+                    if (part.contains(" - ")) {
+                        return part.split(" - ")[0].trim();
+                    }
+                    return part.trim();
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    @JsonProperty("soTienGiamVoucher")
+    public BigDecimal getSoTienGiamVoucher() {
+        if (this.tongTien != null && this.tienSauGiamGia != null) {
+            BigDecimal ship = this.phiVanChuyen != null ? this.phiVanChuyen : BigDecimal.ZERO;
+            BigDecimal subtotalWithShip = this.tongTien.add(ship);
+            if (subtotalWithShip.compareTo(this.tienSauGiamGia) > 0) {
+                return subtotalWithShip.subtract(this.tienSauGiamGia);
+            }
+            if (this.tongTien.compareTo(this.tienSauGiamGia) > 0) {
+                return this.tongTien.subtract(this.tienSauGiamGia);
+            }
+        }
+        return BigDecimal.ZERO;
     }
 
     @JsonProperty("tongTienGiamGia")

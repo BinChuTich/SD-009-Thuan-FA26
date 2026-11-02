@@ -222,9 +222,60 @@ const validateAllRegister = async () => {
 
 // Form cấp lại mật khẩu
 const forgotEmailOrPhone = ref('')
+const verifiedTargetEmail = ref('')
+const maskedEmail = ref('')
 const forgotOtpCode = ref('')
 const forgotNewPassword = ref('')
+const forgotConfirmPassword = ref('')
+const showForgotNewPassword = ref(false)
+const showForgotConfirmPassword = ref(false)
 const isForgotOtpSent = ref(false)
+const otpCountdown = ref(0)
+let otpInterval = null
+
+const startOtpTimer = (seconds = 60) => {
+  if (otpInterval) clearInterval(otpInterval)
+  otpCountdown.value = seconds
+  otpInterval = setInterval(() => {
+    if (otpCountdown.value > 0) {
+      otpCountdown.value--
+    } else {
+      clearInterval(otpInterval)
+      otpInterval = null
+    }
+  }, 1000)
+}
+
+const resetForgotState = () => {
+  forgotEmailOrPhone.value = ''
+  verifiedTargetEmail.value = ''
+  maskedEmail.value = ''
+  forgotOtpCode.value = ''
+  forgotNewPassword.value = ''
+  forgotConfirmPassword.value = ''
+  showForgotNewPassword.value = false
+  showForgotConfirmPassword.value = false
+  isForgotOtpSent.value = false
+  otpCountdown.value = 0
+  if (otpInterval) {
+    clearInterval(otpInterval)
+    otpInterval = null
+  }
+}
+
+const handleChangeTarget = () => {
+  isForgotOtpSent.value = false
+  forgotOtpCode.value = ''
+  forgotNewPassword.value = ''
+  forgotConfirmPassword.value = ''
+  errorMessage.value = ''
+  successMessage.value = ''
+  if (otpInterval) {
+    clearInterval(otpInterval)
+    otpInterval = null
+  }
+  otpCountdown.value = 0
+}
 
 const resetRegisterForm = () => {
   registerForm.value = {
@@ -267,7 +318,7 @@ const closeModal = () => {
   errorMessage.value = ''
   successMessage.value = ''
   currentView.value = 'login'
-  isForgotOtpSent.value = false
+  resetForgotState()
   resetRegisterForm()
   resetLoginForm()
 }
@@ -275,11 +326,12 @@ const closeModal = () => {
 const goToView = (viewName) => {
   currentView.value = viewName === 'google' ? 'login' : viewName
   errorMessage.value = ''
-  successMessage.value = ''
   if (viewName === 'register') {
     resetRegisterForm()
-  } else if (viewName === 'login') {
-    resetLoginForm()
+  } else if (viewName === 'forgot') {
+    if (loginForm.value.phoneOrEmail && !forgotEmailOrPhone.value) {
+      forgotEmailOrPhone.value = loginForm.value.phoneOrEmail.trim()
+    }
   }
 }
 
@@ -311,13 +363,16 @@ const handleLogin = async () => {
       const isPhone = /^[0-9]{9,11}$/.test(identifier)
       const displayName = customer.tenKhachHang || customer.hoVaTen || (isPhone ? `Khách hàng ${identifier.slice(-4)}` : identifier.split('@')[0])
 
+      const initial = (displayName || 'K').trim().charAt(0).toUpperCase()
       const userData = {
         id: customer.id,
         name: displayName,
         phone: customer.soDienThoai || '',
         email: customer.email || '',
         maKhachHang: customer.maKhachHang || '',
-        provider: 'local'
+        provider: 'local',
+        avatarText: initial,
+        avatarBg: '#0f172a'
       }
 
       loginClient(userData)
@@ -411,19 +466,22 @@ const handleSendForgotRequest = async () => {
 
   loading.value = true
   try {
-    if (inputVal.includes('@')) {
-      const res = await api.post('/api/khach-hang/gui-otp', { email: inputVal })
-      if (res.data?.success) {
-        isForgotOtpSent.value = true
-        successMessage.value = `Mã xác thực OTP đã được gửi về email ${inputVal}. Vui lòng kiểm tra hòm thư!`
-      } else {
-        errorMessage.value = res.data?.message || 'Không thể gửi mã xác nhận. Vui lòng thử lại!'
-      }
+    const res = await api.post('/api/khach-hang/quen-mat-khau/gui-otp', {
+      emailOrPhone: inputVal
+    })
+
+    if (res.data?.success) {
+      isForgotOtpSent.value = true
+      verifiedTargetEmail.value = res.data.email || inputVal
+      maskedEmail.value = res.data.maskedEmail || res.data.email || inputVal
+      successMessage.value = res.data.message || `Mã xác thực OTP đã được gửi về email ${maskedEmail.value}. Vui lòng kiểm tra hộp thư!`
+      startOtpTimer(60)
     } else {
-      successMessage.value = `Yêu cầu cấp lại mật khẩu cho số điện thoại ${inputVal} đã được ghi nhận. Vui lòng liên hệ Hotline nếu cần hỗ trợ khẩn cấp!`
+      errorMessage.value = res.data?.message || 'Không thể gửi mã xác nhận. Vui lòng kiểm tra lại thông tin!'
     }
-  } catch (e) {
-    errorMessage.value = 'Không thể gửi yêu cầu cấp lại mật khẩu lúc này. Vui lòng thử lại sau!'
+  } catch (err) {
+    console.error('Lỗi yêu cầu OTP quên mật khẩu:', err)
+    errorMessage.value = err.response?.data?.message || 'Không thể gửi mã OTP. Vui lòng kiểm tra lại thông tin hoặc kết nối mạng!'
   } finally {
     loading.value = false
   }
@@ -432,37 +490,50 @@ const handleSendForgotRequest = async () => {
 // Xử lý xác thực OTP đổi mật khẩu mới
 const handleResetPasswordWithOtp = async () => {
   errorMessage.value = ''
-  const email = forgotEmailOrPhone.value.trim()
+  const email = verifiedTargetEmail.value || forgotEmailOrPhone.value.trim()
   const otp = forgotOtpCode.value.trim()
   const newPass = forgotNewPassword.value.trim()
+  const confirmPass = forgotConfirmPassword.value.trim()
 
-  if (!otp || otp.length < 6) {
-    errorMessage.value = 'Vui lòng nhập đủ 6 chữ số mã OTP!'
+  if (!otp || otp.length !== 6) {
+    errorMessage.value = 'Vui lòng nhập đủ 6 chữ số mã xác thực OTP!'
     return
   }
   if (!newPass || newPass.length < 6) {
-    errorMessage.value = 'Mật khẩu mới phải có ít nhất 6 ký tự!'
+    errorMessage.value = 'Mật khẩu mới phải có tối thiểu 6 ký tự!'
+    return
+  }
+  if (newPass !== confirmPass) {
+    errorMessage.value = 'Mật khẩu xác nhận không trùng khớp với mật khẩu mới!'
     return
   }
 
   loading.value = true
   try {
-    const vRes = await api.post('/api/khach-hang/xac-thuc-otp', { email, otp })
-    if (vRes.data?.valid) {
-      showAppToast('Xác thực thành công! Mật khẩu của bạn đã được cập nhật.', 'success')
-      loginForm.value.phoneOrEmail = email
+    const res = await api.post('/api/khach-hang/quen-mat-khau/dat-lai-mat-khau', {
+      email,
+      otp,
+      matKhauMoi: newPass
+    })
+
+    if (res.data?.success) {
+      showAppToast('🎉 Đặt lại mật khẩu thành công! Mời bạn đăng nhập lại.', 'success')
+      loginForm.value.phoneOrEmail = forgotEmailOrPhone.value.trim() || email
       loginForm.value.password = newPass
       goToView('login')
-      successMessage.value = 'Đã cập nhật mật khẩu mới! Vui lòng đăng nhập lại.'
+      successMessage.value = 'Đặt lại mật khẩu thành công! Vui lòng nhấn Đăng nhập.'
+      resetForgotState()
     } else {
-      errorMessage.value = vRes.data?.message || 'Mã xác thực không chính xác hoặc đã hết hạn!'
+      errorMessage.value = res.data?.message || 'Đặt lại mật khẩu thất bại!'
     }
   } catch (err) {
-    errorMessage.value = err.response?.data?.message || 'Xác thực OTP thất bại!'
+    console.error('Lỗi đổi mật khẩu:', err)
+    errorMessage.value = err.response?.data?.message || 'Xác thực OTP hoặc đặt lại mật khẩu thất bại!'
   } finally {
     loading.value = false
   }
 }
+
 </script>
 
 <template>
@@ -711,6 +782,9 @@ const handleResetPasswordWithOtp = async () => {
       <div v-else-if="currentView === 'forgot'" class="forgot-pwd-wrap">
         <div class="auth-header-clean">
           <h2 class="auth-modal-title">Cấp lại mật khẩu</h2>
+          <p class="auth-modal-subtitle">
+            {{ isForgotOtpSent ? 'Nhập mã OTP và thiết lập mật khẩu mới' : 'Nhập Email hoặc Số điện thoại để nhận mã xác thực' }}
+          </p>
         </div>
 
         <div v-if="errorMessage" class="auth-alert-pill error">
@@ -720,6 +794,7 @@ const handleResetPasswordWithOtp = async () => {
           <span>✅ {{ successMessage }}</span>
         </div>
 
+        <!-- BƯỚC 1: NHẬP EMAIL HOẶC SỐ ĐIỆN THOẠI -->
         <form v-if="!isForgotOtpSent" @submit.prevent="handleSendForgotRequest" class="coolmate-form-body">
           <div class="form-field-group">
             <label class="form-input-label">Email hoặc Số điện thoại <span class="req-star">*</span></label>
@@ -733,56 +808,119 @@ const handleResetPasswordWithOtp = async () => {
                 required
               />
             </div>
-          </div>
-
-          <div class="cloudflare-success-box">
-            <div class="cf-left">
-              <span class="cf-check">✓</span>
-              <strong class="cf-status">Success!</strong>
-            </div>
-            <div class="cf-brand">
-              <span class="cf-logo-name">🔒 CLOUDFLARE</span>
-              <span class="cf-links">Privacy • Help</span>
-            </div>
+            <span class="field-hint-text">Hệ thống sẽ gửi mã xác thực OTP 6 số qua email của tài khoản.</span>
           </div>
 
           <button type="submit" class="btn-pill-submit" :disabled="loading">
-            <span v-if="loading">Đang gửi yêu cầu...</span>
-            <span v-else>Gửi yêu cầu OTP</span>
+            <span v-if="loading">Đang gửi mã OTP...</span>
+            <span v-else>GỬI MÃ XÁC THỰC OTP</span>
           </button>
         </form>
 
+        <!-- BƯỚC 2: NHẬP OTP VÀ MẬT KHẨU MỚI -->
         <form v-else @submit.prevent="handleResetPasswordWithOtp" class="coolmate-form-body">
+          <!-- Hộp thông tin email nhận mã -->
+          <div class="target-account-box">
+            <div class="target-info">
+              <span class="target-label">Mã OTP gửi tới:</span>
+              <strong class="target-value">{{ maskedEmail || verifiedTargetEmail }}</strong>
+            </div>
+            <button type="button" class="btn-change-target" @click="handleChangeTarget">
+              Thay đổi
+            </button>
+          </div>
+
+          <!-- Ô nhập OTP -->
           <div class="form-field-group">
-            <label class="form-input-label">Mã xác thực OTP (6 chữ số) <span class="req-star">*</span></label>
+            <div class="field-label-between">
+              <label class="form-input-label">Mã xác thực OTP (6 chữ số) <span class="req-star">*</span></label>
+              <!-- Nút gửi lại mã -->
+              <span v-if="otpCountdown > 0" class="countdown-hint">
+                Gửi lại mã sau <strong>{{ otpCountdown }}s</strong>
+              </span>
+              <button
+                v-else
+                type="button"
+                class="btn-resend-otp-link"
+                :disabled="loading"
+                @click="handleSendForgotRequest"
+              >
+                Gửi lại mã OTP
+              </button>
+            </div>
             <div class="pill-input-field">
               <input
                 type="text"
                 v-model="forgotOtpCode"
-                placeholder="Nhập mã OTP 6 số..."
+                placeholder="Nhập 6 chữ số OTP..."
                 maxlength="6"
-                class="form-pill-input text-center font-bold"
+                class="form-pill-input otp-code-input"
                 autofocus
                 required
               />
             </div>
           </div>
 
+          <!-- Mật khẩu mới -->
           <div class="form-field-group">
             <label class="form-input-label">Mật khẩu mới <span class="req-star">*</span></label>
-            <div class="pill-input-field">
+            <div class="pill-input-field with-eye-wrap">
               <input
-                type="password"
+                :type="showForgotNewPassword ? 'text' : 'password'"
                 v-model="forgotNewPassword"
                 placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)..."
                 class="form-pill-input"
                 required
               />
+              <button
+                type="button"
+                class="btn-eye-toggle"
+                @click="showForgotNewPassword = !showForgotNewPassword"
+                title="Hiện/Ẩn mật khẩu"
+              >
+                <svg v-if="!showForgotNewPassword" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Xác nhận mật khẩu mới -->
+          <div class="form-field-group">
+            <label class="form-input-label">Xác nhận mật khẩu mới <span class="req-star">*</span></label>
+            <div class="pill-input-field with-eye-wrap">
+              <input
+                :type="showForgotConfirmPassword ? 'text' : 'password'"
+                v-model="forgotConfirmPassword"
+                placeholder="Nhập lại mật khẩu mới..."
+                class="form-pill-input"
+                required
+              />
+              <button
+                type="button"
+                class="btn-eye-toggle"
+                @click="showForgotConfirmPassword = !showForgotConfirmPassword"
+                title="Hiện/Ẩn mật khẩu"
+              >
+                <svg v-if="!showForgotConfirmPassword" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              </button>
             </div>
           </div>
 
           <button type="submit" class="btn-pill-submit" :disabled="loading">
-            <span v-if="loading">Đang cập nhật...</span>
+            <span v-if="loading">Đang cập nhật mật khẩu...</span>
             <span v-else>XÁC NHẬN ĐỔI MẬT KHẨU</span>
           </button>
         </form>
@@ -1154,5 +1292,99 @@ const handleResetPasswordWithOtp = async () => {
 
 .mt-3 {
   margin-top: 14px;
+}
+
+.auth-modal-subtitle {
+  font-size: 13.5px;
+  color: #64748b;
+  margin: 6px 0 0;
+  font-weight: 500;
+}
+
+.field-hint-text {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.target-account-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 4px;
+}
+
+.target-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.target-label {
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+.target-value {
+  font-size: 13.5px;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.btn-change-target {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 4px 6px;
+}
+
+.btn-change-target:hover {
+  color: #1d4ed8;
+}
+
+.field-label-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.countdown-hint {
+  font-size: 12px;
+  color: #ea580c;
+}
+
+.btn-resend-otp-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.btn-resend-otp-link:hover:not(:disabled) {
+  color: #1d4ed8;
+}
+
+.btn-resend-otp-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.otp-code-input {
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: 6px;
+  font-size: 18px;
 }
 </style>

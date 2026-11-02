@@ -1,4 +1,5 @@
 <script setup>
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatCurrency } from '@/utils/dinhDang.js'
 import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
@@ -7,18 +8,85 @@ const props = defineProps({
   product: {
     type: Object,
     required: true
+  },
+  targetColor: {
+    type: String,
+    default: ''
   }
 })
 
 const router = useRouter()
 
+const localColor = ref('')
+
+watch(() => props.targetColor, (newVal) => {
+  localColor.value = newVal || ''
+}, { immediate: true })
+
+const activeColor = computed(() => localColor.value || props.targetColor || '')
+
 const handleImgError = (e) => {
   e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER
 }
 
+const displayImage = computed(() => {
+  const chosen = activeColor.value
+  if (chosen && props.product?.colorImageMap) {
+    const target = chosen.toLowerCase()
+    const matchedKey = Object.keys(props.product.colorImageMap).find(k =>
+      k.toLowerCase().includes(target) || target.includes(k.toLowerCase())
+    )
+    if (matchedKey && props.product.colorImageMap[matchedKey]) {
+      return props.product.colorImageMap[matchedKey]
+    }
+  }
+  return props.product?.anhDaiDien || (props.product?.hinhAnhs && props.product.hinhAnhs[0])
+})
+
+const COLOR_HEX_MAP = {
+  'đen': '#1a1a1a',
+  'trắng': '#ffffff',
+  'xám': '#94a3b8',
+  'ghi': '#94a3b8',
+  'xanh navy': '#1e3a8a',
+  'navy': '#1e3a8a',
+  'xanh': '#2563eb',
+  'đỏ': '#dc2626',
+  'vàng': '#eab308',
+  'be': '#d4b996',
+  'nâu': '#78350f'
+}
+
+const getColorHex = (name) => {
+  const n = (name || '').toLowerCase()
+  for (const [k, v] of Object.entries(COLOR_HEX_MAP)) {
+    if (n.includes(k)) return v
+  }
+  return '#cbd5e1'
+}
+
+const availableColors = computed(() => {
+  const list = props.product?.colors || props.product?.allColors || []
+  if (Array.isArray(list) && list.length > 0) return list
+  if (props.product?.colorImageMap) return Object.keys(props.product.colorImageMap)
+  return []
+})
+
+const selectLocalColor = (color) => {
+  localColor.value = color
+}
+
 const goToDetail = () => {
   if (props.product?.id) {
-    router.push(`/san-pham/${props.product.id}`)
+    const color = activeColor.value || props.product?.targetColor
+    if (color) {
+      router.push({
+        path: `/san-pham/${props.product.id}`,
+        query: { color }
+      })
+    } else {
+      router.push(`/san-pham/${props.product.id}`)
+    }
   }
 }
 </script>
@@ -27,11 +95,15 @@ const goToDetail = () => {
   <div class="the-san-pham-card" @click="goToDetail">
     <div class="card-img-holder">
       <img
-        :src="resolveProductImageUrl(product.anhDaiDien || (product.hinhAnhs && product.hinhAnhs[0]))"
+        :src="resolveProductImageUrl(displayImage)"
         :alt="product.tenSanPham"
         @error="handleImgError"
         loading="lazy"
       />
+      <!-- Tag màu sắc đang hiển thị -->
+      <span v-if="activeColor" class="target-color-pill">
+        🎨 Màu {{ activeColor }}
+      </span>
       <!-- Tag giảm giá -->
       <span v-if="product.coGiamGia && product.phanTramGiam > 0" class="discount-badge-red">
         -{{ Math.round(product.phanTramGiam) }}%
@@ -53,7 +125,26 @@ const goToDetail = () => {
           Đã bán {{ product.daBan || product.soLuongDaBan || 0 }}
         </span>
       </div>
+
       <h3 class="product-name" :title="product.tenSanPham">{{ product.tenSanPham }}</h3>
+
+      <!-- Bảng chọn màu nhanh trên thẻ sản phẩm -->
+      <div v-if="availableColors.length > 1" class="card-color-swatches" @click.stop>
+        <div class="swatches-dots">
+          <span
+            v-for="color in availableColors"
+            :key="color"
+            class="color-dot"
+            :class="{ active: (activeColor || '').toLowerCase() === color.toLowerCase() }"
+            :style="{ backgroundColor: getColorHex(color) }"
+            :title="`Chọn màu ${color}`"
+            @click="selectLocalColor(color)"
+          />
+        </div>
+        <span v-if="activeColor" class="active-color-name">
+          {{ activeColor }}
+        </span>
+      </div>
       
       <div class="price-container">
         <template v-if="product.coGiamGia && product.minGiaSauGiam && product.minGiaSauGiam < product.minGia">
@@ -213,13 +304,53 @@ const goToDetail = () => {
   font-size: 14px;
   font-weight: 700;
   color: #1e293b;
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   line-height: 1.4;
   height: 2.8em;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* CHẤM MÀU TRÊN THẺ */
+.card-color-swatches {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 2px 0;
+}
+
+.swatches-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.color-dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.color-dot:hover {
+  transform: scale(1.25);
+}
+
+.color-dot.active {
+  transform: scale(1.3);
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 3.5px #d2a764;
+}
+
+.active-color-name {
+  font-size: 11.5px;
+  color: #475569;
+  font-weight: 600;
 }
 
 .price-container {
@@ -269,5 +400,20 @@ const goToDetail = () => {
 .material-tag {
   color: #64748b;
 }
-</style>
 
+.target-color-pill {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background: rgba(30, 41, 59, 0.92);
+  color: #fce7c8;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(4px);
+  z-index: 2;
+  border: 1px solid rgba(210, 167, 100, 0.4);
+}
+</style>

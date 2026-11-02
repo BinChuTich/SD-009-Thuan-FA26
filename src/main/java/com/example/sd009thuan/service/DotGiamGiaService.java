@@ -169,19 +169,22 @@ public class DotGiamGiaService {
 
         Instant nowThreshold = Instant.now().minus(java.time.Duration.ofMinutes(5));
         if (currentId == null) {
+            // Khi tạo mới: Giữ nguyên kiểm tra thời gian bắt đầu & kết thúc không được trước hiện tại
             if (dotGiamGia.getNgayBatDau().isBefore(nowThreshold)) {
                 throw new IllegalArgumentException("Thời gian bắt đầu không được trước thời gian hiện tại!");
             }
+            if (dotGiamGia.getNgayKetThuc().isBefore(nowThreshold)) {
+                throw new IllegalArgumentException("Thời gian kết thúc không được trước thời gian hiện tại!");
+            }
         } else {
+            // Khi chỉnh sửa đợt giảm giá: Cho phép sửa thời gian bắt đầu trước thời gian hiện tại.
+            // Nếu người dùng thay đổi ngày kết thúc thì ngày kết thúc mới không được trước thời gian hiện tại.
             DotGiamGia old = dotGiamGiaRepository.findById(currentId).orElse(null);
-            if (old != null && !old.getNgayBatDau().equals(dotGiamGia.getNgayBatDau())) {
-                if (dotGiamGia.getNgayBatDau().isBefore(nowThreshold)) {
-                    throw new IllegalArgumentException("Thời gian bắt đầu không được trước thời gian hiện tại!");
+            if (old != null && old.getNgayKetThuc() != null && !old.getNgayKetThuc().equals(dotGiamGia.getNgayKetThuc())) {
+                if (dotGiamGia.getNgayKetThuc().isBefore(nowThreshold)) {
+                    throw new IllegalArgumentException("Thời gian kết thúc không được trước thời gian hiện tại!");
                 }
             }
-        }
-        if (dotGiamGia.getNgayKetThuc().isBefore(nowThreshold)) {
-            throw new IllegalArgumentException("Thời gian kết thúc không được trước thời gian hiện tại!");
         }
     }
 

@@ -20,7 +20,10 @@ const activeTab = ref('all') // all, pending, shipping, completed, cancelled
 const searchQuery = ref('')
 const showAuthModal = ref(false)
 
-const handleLoginSuccess = () => {
+const handleLoginSuccess = (userData) => {
+  if (userData) {
+    currentClientUser.value = userData
+  }
   showAuthModal.value = false
   loadOrders()
 }
@@ -61,6 +64,12 @@ const getOrderFinalTotal = (o) => {
 
 const getOrderDiscount = (o) => {
   if (!o) return 0
+  if (o.soTienGiamVoucher != null && Number(o.soTienGiamVoucher) > 0) {
+    return Number(o.soTienGiamVoucher)
+  }
+  if (o.giamGia != null && Number(o.giamGia) > 0) {
+    return Number(o.giamGia)
+  }
   if (o.tongTienGiamGia != null && Number(o.tongTienGiamGia) > 0) {
     return Number(o.tongTienGiamGia)
   }
@@ -69,6 +78,58 @@ const getOrderDiscount = (o) => {
   const finalTotal = getOrderFinalTotal(o)
   const diff = subtotal + ship - finalTotal
   return diff > 0 ? diff : 0
+}
+
+const getOrderVoucherInfo = (o) => {
+  if (!o) return null
+  const code = o.maPhieuGiamGia || o.idPhieuGiamGia?.maPhieuGiamGia || null
+  const name = o.tenPhieuGiamGia || o.idPhieuGiamGia?.tenPhieuGiamGia || null
+  const discount = getOrderDiscount(o)
+  if (!code && !name && discount <= 0) return null
+  return {
+    code: code || 'VOUCHER',
+    name: name || code || 'Phiếu giảm giá',
+    discount: discount
+  }
+}
+
+const getItemOriginalPrice = (it) => {
+  if (!it) return 0
+  const regular = Number(it.giaGoc || it.idChiTietSanPham?.giaBan || 0)
+  const unit = Number(it.giaDuocTinh || it.donGia || 0)
+  return regular > unit ? regular : unit
+}
+
+const getItemDiscountPercent = (it) => {
+  if (!it) return 0
+  if (it.phanTramGiam != null && Number(it.phanTramGiam) > 0) {
+    return Number(it.phanTramGiam)
+  }
+  const regular = getItemOriginalPrice(it)
+  const unit = Number(it.giaDuocTinh || it.donGia || 0)
+  if (regular > unit && regular > 0) {
+    return Math.round((regular - unit) / regular * 100)
+  }
+  return 0
+}
+
+const hasItemDiscount = (it) => {
+  return Boolean(it.tenDotGiamGia || getItemDiscountPercent(it) > 0 || getItemOriginalPrice(it) > (it.giaDuocTinh || it.donGia || 0))
+}
+
+const getOrderCampaignDiscount = (o) => {
+  if (!o) return 0
+  const items = (orderItemsMap.value && orderItemsMap.value[o.maHoaDon]) || (selectedOrder.value?.maHoaDon === o.maHoaDon ? (selectedOrderItems.value || []) : [])
+  if (!items || items.length === 0) return 0
+  return items.reduce((sum, it) => {
+    const regular = getItemOriginalPrice(it)
+    const unit = Number(it.giaDuocTinh || it.donGia || 0)
+    const qty = Number(it.soLuong || 1)
+    if (regular > unit) {
+      return sum + (regular - unit) * qty
+    }
+    return sum
+  }, 0)
 }
 
 const orderItemsMap = ref({}) // Cache: { [maHoaDon]: itemsArray }
@@ -385,10 +446,10 @@ const loadOrders = async () => {
       const isOnline = Number(o.loaiDon) === 2 || (o.ghiChu && (o.ghiChu.toLowerCase().includes('website') || o.ghiChu.toLowerCase().includes('online')))
       if (!isOnline) return false
       const orderCustId = o.idKhachHang?.id ?? (typeof o.idKhachHang === 'number' || typeof o.idKhachHang === 'string' ? Number(o.idKhachHang) : null)
-      return Boolean(orderCustId && Number(orderCustId) === Number(uid))
-
-
-
+      const matchId = Boolean(orderCustId && Number(orderCustId) === Number(uid))
+      const matchPhone = Boolean(uPhone && o.soDienThoaiKhachHang && o.soDienThoaiKhachHang.trim() === uPhone)
+      const matchEmail = Boolean(uEmail && o.ghiChu && o.ghiChu.toLowerCase().includes(uEmail))
+      return matchId || matchPhone || matchEmail
     })
 
     orders.value = myOrders
@@ -822,6 +883,13 @@ onUnmounted(() => {
                     <span class="pay-status-pill" :class="o.trangThai === 6 ? 'text-green' : (o.trangThaiThanhToan === 1 ? 'text-green' : 'text-orange')">
                       {{ o.trangThai === 6 ? 'Đã hoàn tiền' : (o.trangThaiThanhToan === 1 ? 'Đã thanh toán' : 'Chưa thanh toán') }}
                     </span>
+                    <span v-if="getOrderVoucherInfo(o)" class="order-card-voucher-chip">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                      </svg>
+                      Voucher: {{ getOrderVoucherInfo(o).code }}
+                    </span>
                   </div>
 
                   <div class="foot-actions-and-total">
@@ -1239,9 +1307,28 @@ onUnmounted(() => {
                     <span class="calc-label">Tổng tiền hàng</span>
                     <span class="calc-val">{{ formatCurrency(getOrderSubtotal(selectedOrder)) }}</span>
                   </div>
-                  <div v-if="getOrderDiscount(selectedOrder) > 0" class="calc-field-row text-green">
-                    <span class="calc-label">Giảm giá [{{ selectedOrder.maPhieuGiamGia || selectedOrder.idPhieuGiamGia?.maPhieuGiamGia || 'VOUCHER' }}]</span>
-                    <span class="calc-val">- {{ formatCurrency(getOrderDiscount(selectedOrder)) }}</span>
+                  <!-- Đợt giảm giá sản phẩm -->
+                  <div v-if="getOrderCampaignDiscount(selectedOrder) > 0" class="calc-field-row text-campaign">
+                    <span class="calc-label inline-flex-label">
+                      <svg class="campaign-tag-svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                      </svg>
+                      Giảm giá theo đợt
+                    </span>
+                    <span class="calc-val text-campaign">- {{ formatCurrency(getOrderCampaignDiscount(selectedOrder)) }}</span>
+                  </div>
+                  <!-- Phiếu giảm giá (Voucher) -->
+                  <div v-if="getOrderDiscount(selectedOrder) > 0 || getOrderVoucherInfo(selectedOrder)" class="calc-field-row text-green">
+                    <span class="calc-label inline-flex-label">
+                      <svg class="voucher-tag-svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                      </svg>
+                      Voucher [{{ selectedOrder.maPhieuGiamGia || selectedOrder.idPhieuGiamGia?.maPhieuGiamGia || 'VOUCHER' }}]
+                      <span v-if="selectedOrder.tenPhieuGiamGia && selectedOrder.tenPhieuGiamGia !== selectedOrder.maPhieuGiamGia" class="voucher-subname">({{ selectedOrder.tenPhieuGiamGia }})</span>
+                    </span>
+                    <span class="calc-val font-bold text-green">- {{ formatCurrency(getOrderDiscount(selectedOrder)) }}</span>
                   </div>
                   <div class="calc-field-row">
                     <template v-if="!isPosOrder(selectedOrder)">
@@ -1301,10 +1388,26 @@ onUnmounted(() => {
                       <span class="meta-tag color-tag" v-if="it.tenMauSac">Màu: {{ it.tenMauSac }}</span>
                       <span class="meta-tag size-tag" v-if="it.tenKichCo">Size: {{ it.tenKichCo }}</span>
                       <span class="meta-tag qty-tag">Số lượng: x{{ it.soLuong }}</span>
+                      <!-- Đợt giảm giá chip -->
+                      <span class="badge-campaign-chip" v-if="it.tenDotGiamGia || (it.ghiChu && !it.ghiChu.startsWith('{')) || hasItemDiscount(it)">
+                        <svg class="campaign-tag-svg" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                          <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                        </svg>
+                        {{ it.tenDotGiamGia || (it.ghiChu && !it.ghiChu.startsWith('{') ? it.ghiChu : '') || 'Đợt giảm giá' }}
+                      </span>
+                      <span class="discount-percent-badge" v-if="getItemDiscountPercent(it) > 0">
+                        -{{ getItemDiscountPercent(it) }}%
+                      </span>
                     </div>
                   </div>
                   <div class="product-price-col">
-                    <span class="price-val">{{ formatCurrency(it.giaDuocTinh || it.donGia || 0) }}</span>
+                    <div class="price-stack">
+                      <span class="price-val">{{ formatCurrency(it.giaDuocTinh || it.donGia || 0) }}</span>
+                      <span class="price-origin" v-if="getItemOriginalPrice(it) > (it.giaDuocTinh || it.donGia || 0)">
+                        {{ formatCurrency(getItemOriginalPrice(it)) }}
+                      </span>
+                    </div>
                     <span class="unit-price-sub" v-if="it.soLuong > 1">
                       {{ formatCurrency((it.giaDuocTinh || it.donGia || 0) / it.soLuong) }}/cái
                     </span>
@@ -3096,4 +3199,76 @@ onUnmounted(() => {
   text-decoration: underline;
 }
 
+
+/* CSS Thẻ Giảm Giá & Voucher trong Đơn Hàng */
+.badge-campaign-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.discount-percent-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  background: #ecfdf5;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.order-card-voucher-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
+.price-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.price-origin {
+  font-size: 12px;
+  color: #94a3b8;
+  text-decoration: line-through;
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+.inline-flex-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.text-campaign {
+  color: #ea580c !important;
+  font-weight: 600;
+}
+
+.voucher-subname {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: normal;
+  margin-left: 4px;
+}
 </style>
