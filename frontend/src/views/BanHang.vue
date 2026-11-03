@@ -12,7 +12,17 @@ import { getProvinces, getWardsByProvince } from '@/services/provincesApi.js'
 
 import { calculateGhnShippingFee } from '@/services/ghnService.js'
 
-import { getCurrentUser } from '@/utils/auth.js'
+import { getCurrentUser } from '@/utils/auth.js'
+import {
+  showMobileScannerModal,
+  mobileScannerUrl,
+  isMobileScannerConnected,
+  openMobileScannerDialog,
+  closeMobileScannerDialog,
+  stopMobileScannerSync,
+  playChimeSound
+} from '@/utils/mobilePosSync.js'
+import { Html5Qrcode } from 'html5-qrcode'
 
 
 
@@ -1539,6 +1549,120 @@ const selectProduct = (prod) => {
 
 
 
+// ==================== QUÉT CAMERA TRỰC TIẾP TRÊN THIẾT BỊ ====================
+const showDirectCameraModal = ref(false)
+let directHtml5QrCode = null
+let directCameras = []
+let directCameraIdx = 0
+const isDirectTorchOn = ref(false)
+const supportsDirectTorch = ref(false)
+let directScanCooldown = null
+let lastDirectScannedCode = ''
+
+const startDirectCameraScan = async () => {
+  if (!currentInvoice.value || !currentInvoice.value.id) {
+    showToast('Vui lòng chọn hoặc tạo hóa đơn chờ trước khi quét!', 'warning')
+    return
+  }
+  showDirectCameraModal.value = true
+  nextTick(async () => {
+    try {
+      if (!directHtml5QrCode) {
+        directHtml5QrCode = new Html5Qrcode("direct-pos-camera-view")
+      }
+      try {
+        directCameras = await Html5Qrcode.getCameras()
+      } catch (e) {
+        directCameras = []
+      }
+      const camConfig = directCameras.length > 0
+        ? (directCameras[directCameraIdx % directCameras.length]?.id || { facingMode: "environment" })
+        : { facingMode: "environment" }
+
+      await directHtml5QrCode.start(
+        camConfig,
+        { fps: 15, qrbox: { width: 260, height: 160 }, aspectRatio: 1.333 },
+        onDirectCodeScanned,
+        () => {}
+      )
+
+      try {
+        const track = directHtml5QrCode.getRunningTrackCameraCapabilities()
+        supportsDirectTorch.value = Boolean(track && track.torchFeature && track.torchFeature().isSupported())
+      } catch (e) {
+        supportsDirectTorch.value = false
+      }
+    } catch (err) {
+      console.error('Lỗi khởi động camera trực tiếp:', err)
+      showToast('Không thể mở camera. Vui lòng cấp quyền máy ảnh!', 'error')
+    }
+  })
+}
+
+const onDirectCodeScanned = (decodedText) => {
+  const code = (decodedText || '').trim()
+  if (!code) return
+  if (code === lastDirectScannedCode && directScanCooldown) return
+
+  lastDirectScannedCode = code
+  if (directScanCooldown) clearTimeout(directScanCooldown)
+  directScanCooldown = setTimeout(() => {
+    lastDirectScannedCode = ''
+  }, 1800)
+
+  barcodeInput.value = code
+  handleBarcodeScan()
+  playChimeSound()
+  if (navigator && navigator.vibrate) navigator.vibrate(80)
+}
+
+const stopDirectCameraScan = async () => {
+  if (directHtml5QrCode) {
+    try {
+      await directHtml5QrCode.stop()
+      directHtml5QrCode.clear()
+    } catch (e) {}
+    directHtml5QrCode = null
+  }
+  showDirectCameraModal.value = false
+}
+
+const switchDirectCamera = async () => {
+  if (directCameras.length < 2) return
+  directCameraIdx++
+  if (directHtml5QrCode) {
+    try {
+      await directHtml5QrCode.stop()
+    } catch (e) {}
+  }
+  await startDirectCameraScan()
+}
+
+const toggleDirectTorch = async () => {
+  if (!directHtml5QrCode) return
+  try {
+    isDirectTorchOn.value = !isDirectTorchOn.value
+    await directHtml5QrCode.applyVideoConstraints({
+      advanced: [{ torch: isDirectTorchOn.value }]
+    })
+  } catch (e) {
+    isDirectTorchOn.value = false
+  }
+}
+
+// Kết nối máy quét điện thoại không dây
+const handleOpenMobileScanner = () => {
+  if (!currentInvoice.value || !currentInvoice.value.id) {
+    showToast('Vui lòng chọn hoặc tạo 1 hóa đơn chờ trước khi kết nối điện thoại!', 'warning')
+    return
+  }
+  openMobileScannerDialog(currentInvoice.value, (scannedCode, eventData) => {
+    barcodeInput.value = scannedCode
+    handleBarcodeScan()
+    showToast(`📱 Điện thoại vừa quét: ${eventData.product?.name || scannedCode}`, 'success')
+  })
+}
+
 // Quét barcode / nhập mã nhanh
 
 const handleBarcodeScan = () => {
@@ -4366,7 +4490,9 @@ const selectPaymentMethod = (method) => {
     if (!currentInvoice.value.isTransferPaid) startPaymentPolling()
     openVietQrModal()
   } else if (method === 'TIEN_MAT') {
-    stopPaymentPolling()
+    stopPaymentPolling()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
     const curPay = currentInvoice.value.customerPay
     if (curPay === null || curPay === undefined || curPay === '' || curPay === 0) {
       currentInvoice.value.customerPay = finalTotal.value > 0 ? finalTotal.value : null
@@ -4377,7 +4503,9 @@ const selectPaymentMethod = (method) => {
       fetchTransferInfoFromApi(currentInvoice.value.transferAmount)
       if (!currentInvoice.value.isTransferPaid) startPaymentPolling()
     } else {
-      stopPaymentPolling()
+      stopPaymentPolling()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
     }
   }
 }
@@ -4708,7 +4836,9 @@ const checkPaymentStatus = async (isManual = true) => {
     if (res?.data?.daThanhToan) {
       currentInvoice.value.isTransferPaid = true
       currentInvoice.value.transferTransactionCode = res.data.maGiaoDich || `TRANS-${code}`
-      stopPaymentPolling()
+      stopPaymentPolling()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
 
       const isKetHopCheck = currentInvoice.value.paymentMethod === 'KET_HOP'
       if (!isKetHopCheck) {
@@ -4717,7 +4847,9 @@ const checkPaymentStatus = async (isManual = true) => {
       }
 
       showToast(`Đã nhận thanh toán chuyển khoản cho hóa đơn ${code}! Đang chuyển sang in hóa đơn...`, 'success')
-      stopPaymentPolling()
+      stopPaymentPolling()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
       showVietQrModal.value = false
       setTimeout(() => {
         handleCheckout()
@@ -4753,7 +4885,9 @@ const confirmTransferPaymentDirect = async () => {
     isConfirmingPayment.value = true
     currentInvoice.value.isTransferPaid = true
     currentInvoice.value.transferTransactionCode = `TRANS-${code}`
-    stopPaymentPolling()
+    stopPaymentPolling()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
 
     if (!isKetHop) {
       currentInvoice.value.paymentMethod = 'CHUYEN_KHOAN'
@@ -4777,7 +4911,9 @@ const confirmTransferPaymentDirect = async () => {
     showToast('Lỗi khi ghi nhận thanh toán: ' + (err.response?.data?.message || err.message), 'warning')
   } finally {
     isConfirmingPayment.value = false
-    stopPaymentPolling()
+    stopPaymentPolling()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
   }
 }
 
@@ -4785,7 +4921,9 @@ const confirmTransferPaymentDirect = async () => {
 
 const startPaymentPolling = () => {
 
-  stopPaymentPolling()
+  stopPaymentPolling()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
 
   // Tắt tự động polling thanh toán
 
@@ -4795,7 +4933,9 @@ const startPaymentPolling = () => {
 
 const _unusedPolling = () => {
 
-  stopPaymentPolling()
+  stopPaymentPolling()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
 
   paymentPollingTimer = setInterval(() => {
 
@@ -4815,7 +4955,9 @@ const _unusedPolling = () => {
 
     } else {
 
-      stopPaymentPolling()
+      stopPaymentPolling()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
 
     }
 
@@ -4849,7 +4991,9 @@ onUnmounted(() => {
 
   }
 
-  stopPaymentPolling()
+  stopPaymentPolling()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
 
 })
 
@@ -4915,7 +5059,9 @@ watch(
 
     () => {
 
-      stopPaymentPolling()
+      stopPaymentPolling()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
 
       if (!currentInvoice.value) return
 
@@ -4972,7 +5118,9 @@ watch(() => currentInvoice.value?.paymentMethod, (newVal) => {
     }
   } else if (newVal === 'TIEN_MAT') {
 
-    stopPaymentPolling()
+    stopPaymentPolling()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
 
     const curPay = currentInvoice.value.customerPay
 
@@ -4994,7 +5142,9 @@ watch(() => currentInvoice.value?.paymentMethod, (newVal) => {
 
     } else {
 
-      stopPaymentPolling()
+      stopPaymentPolling()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
 
     }
 
@@ -5020,7 +5170,9 @@ watch(() => currentInvoice.value?.transferAmount, (newVal) => {
 
     } else {
 
-      stopPaymentPolling()
+      stopPaymentPolling()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
 
     }
 
@@ -5407,7 +5559,9 @@ const handleCheckout = async () => {
 
     const savedCode = res?.data?.maHoaDon || currentInvoice.value.code
 
-    stopPaymentPolling()
+    stopPaymentPolling()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
 
     if (currentInvoice.value.isDelivery) {
 
@@ -5817,6 +5971,17 @@ onMounted(async () => {
 
 
 
+              <!-- Nút Bật Camera quét trực tiếp trên máy POS / Điện thoại -->
+              <button type="button" class="btn-direct-camera-scan" @click="startDirectCameraScan" title="Bật camera máy để quét mã vạch / QR">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.2" fill="none">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                  <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+                <span>Bật Camera quét</span>
+              </button>
+
+
+
               <!-- Nút Chọn sản phẩm từ danh mục -->
 
               <button class="btn-open-select" @click="showProductModal = true">
@@ -7766,6 +7931,92 @@ onMounted(async () => {
 
     </div>
 
+    <!-- ==================== MODAL CAMERA QUÉT TRỰC TIẾP TRÊN THIẾT BỊ ==================== -->
+    <div v-if="showDirectCameraModal" class="pos-modal-backdrop" @click.self="stopDirectCameraScan">
+      <div class="direct-camera-modal-card">
+        <button type="button" class="btn-modal-close" @click="stopDirectCameraScan" title="Đóng">✕</button>
+
+        <div class="dcm-header">
+          <div class="dcm-title-row">
+            <span class="dcm-badge">📷 MÁY POS QUÉT MÃ</span>
+            <span class="dcm-inv-name">HĐ: <strong>{{ currentInvoice.code }}</strong></span>
+          </div>
+          <span class="dcm-subtitle">Hướng camera vào mã vạch Barcode hoặc mã QR trên mác áo</span>
+        </div>
+
+        <div class="dcm-viewport-wrapper">
+          <div id="direct-pos-camera-view" class="dcm-camera-box"></div>
+          
+          <div class="dcm-aim-overlay">
+            <div class="dcm-corner tl"></div>
+            <div class="dcm-corner tr"></div>
+            <div class="dcm-corner bl"></div>
+            <div class="dcm-corner br"></div>
+            <div class="dcm-laser"></div>
+          </div>
+        </div>
+
+        <!-- Toolbar điều khiển camera -->
+        <div class="dcm-toolbar">
+          <button type="button" @click="switchDirectCamera" class="dcm-tool-btn">🔄 Đổi Camera</button>
+          <button type="button" v-if="supportsDirectTorch" @click="toggleDirectTorch" class="dcm-tool-btn">💡 {{ isDirectTorchOn ? 'Tắt đèn' : 'Bật đèn' }}</button>
+          <button type="button" @click="stopDirectCameraScan" class="dcm-tool-btn dcm-btn-done">✓ Hoàn tất</button>
+        </div>
+
+        <!-- Tóm tắt số lượng món đã quét -->
+        <div class="dcm-cart-summary">
+          <span>Giỏ hàng: <strong>{{ currentInvoice.cart.length }} sản phẩm</strong></span>
+          <span class="dcm-total-amount">Tổng: <strong>{{ formatMoney(currentInvoiceTotalAmount) }}</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== MODAL KẾT NỐI MÁY QUÉT ĐIỆN THOẠI KHÔNG DÂY ==================== -->
+    <div v-if="showMobileScannerModal" class="pos-modal-backdrop" @click.self="closeMobileScannerDialog">
+      <div class="mobile-scanner-modal-card">
+        <button type="button" class="btn-modal-close" @click="closeMobileScannerDialog" title="Đóng">✕</button>
+        
+        <div class="msm-header">
+          <div class="msm-icon">📱</div>
+          <div>
+            <h3 class="msm-title">Kết nối Máy quét Điện thoại không dây</h3>
+            <p class="msm-subtitle">Dùng camera điện thoại quét mã QR bên dưới để bắt đầu quét sản phẩm vào <strong>{{ currentInvoice.code }}</strong></p>
+          </div>
+        </div>
+
+        <div class="msm-body">
+          <div class="msm-qr-box">
+            <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(mobileScannerUrl)}`" alt="QR Link" class="msm-qr-img" />
+            <div class="msm-status-row">
+              <span class="status-indicator-dot" :class="{ 'connected': isMobileScannerConnected }"></span>
+              <span class="status-indicator-label">
+                {{ isMobileScannerConnected ? '🟢 Điện thoại đã kết nối! Bạn có thể quét ngay.' : 'Đang chờ điện thoại quét mã...' }}
+              </span>
+            </div>
+          </div>
+
+          <div class="msm-info-box">
+            <div class="msm-step">
+              <span class="step-num">1</span>
+              <span>Đảm bảo <strong>Điện thoại</strong> và <strong>Máy tính</strong> cùng kết nối chung mạng Wi-Fi (LAN).</span>
+            </div>
+            <div class="msm-step">
+              <span class="step-num">2</span>
+              <span>Mở Camera điện thoại hoặc Zalo quét mã QR bên cạnh để mở máy quét.</span>
+            </div>
+            <div class="msm-step">
+              <span class="step-num">3</span>
+              <span>Hướng camera vào tem mã vạch Barcode/QR của áo. Mọi sản phẩm sẽ <strong>tự động nhảy vào hóa đơn máy tính</strong> tức thì!</span>
+            </div>
+            <div class="msm-url-copy-box">
+              <span class="msm-url-text">{{ mobileScannerUrl }}</span>
+              <button type="button" class="btn-copy-url" @click="copyToClipboard(mobileScannerUrl, 'Link máy quét')">Sao chép Link</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ==================== MODAL MÃ VIETQR (KHUNG NGOÀI TO RỘNG 860PX - 2 CỘT CHUYÊN NGHIỆP) ==================== -->
     <div v-if="showVietQrModal" class="pos-modal-backdrop" @click.self="closeVietQrModal">
       <div class="pos-vietqr-standalone-dialog">
@@ -14979,6 +15230,365 @@ onMounted(async () => {
   cursor: pointer;
 }
 .font-mono-amount {
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+@media all {
+/* ==================== RESPONSIVE POS CHO MÀN HÌNH DI ĐỘNG ==================== */
+@media (max-width: 992px) {
+  .pos-grid-container {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .waiting-top-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .cart-header-row {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 10px;
+  }
+  .cart-actions-right {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .barcode-input-wrapper {
+    flex: 1;
+    min-width: 160px;
+  }
+  .btn-open-select, .btn-open-mobile-scanner, .btn-direct-camera-scan {
+    flex-shrink: 0;
+  }
+  .hide-on-mobile {
+    display: none !important;
+  }
+  .cart-table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pos-custom-table {
+    min-width: 650px !important;
+  }
+  .pos-col-left, .pos-col-right {
+    width: 100% !important;
+  }
+}
+
+/* ==================== NÚT & MODAL CAMERA TRỰC TIẾP TRÊN THIẾT BỊ ==================== */
+.btn-direct-camera-scan {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+  white-space: nowrap;
+}
+.btn-direct-camera-scan:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+}
+
+.direct-camera-modal-card {
+  background: #0f172a;
+  color: #fff;
+  width: 92%;
+  max-width: 480px;
+  border-radius: 20px;
+  padding: 20px;
+  position: relative;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+  border: 1px solid #334155;
+  animation: modalScaleIn 0.25s ease-out;
+}
+.dcm-header {
+  margin-bottom: 12px;
+}
+.dcm-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.dcm-badge {
+  background: #10b981;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.dcm-inv-name {
+  font-size: 14px;
+  color: #e2e8f0;
+}
+.dcm-subtitle {
+  font-size: 12px;
+  color: #94a3b8;
+}
+.dcm-viewport-wrapper {
+  position: relative;
+  background: #000;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #334155;
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dcm-camera-box {
+  width: 100% !important;
+  border: none !important;
+}
+:deep(#direct-pos-camera-view video) {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 12px;
+}
+.dcm-aim-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 250px;
+  height: 150px;
+  pointer-events: none;
+}
+.dcm-corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: #38bdf8;
+  border-style: solid;
+}
+.dcm-corner.tl { top: 0; left: 0; border-width: 3px 0 0 3px; border-top-left-radius: 6px; }
+.dcm-corner.tr { top: 0; right: 0; border-width: 3px 3px 0 0; border-top-right-radius: 6px; }
+.dcm-corner.bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; border-bottom-left-radius: 6px; }
+.dcm-corner.br { bottom: 0; right: 0; border-width: 0 3px 3px 0; border-bottom-right-radius: 6px; }
+.dcm-laser {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #ef4444, #f87171, #ef4444, transparent);
+  box-shadow: 0 0 8px #ef4444;
+  animation: laser-scan 1.8s ease-in-out infinite alternate;
+}
+.dcm-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.dcm-tool-btn {
+  flex: 1;
+  background: #1e293b;
+  color: #f1f5f9;
+  border: 1px solid #334155;
+  padding: 10px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+.dcm-btn-done {
+  background: #10b981;
+  color: #fff;
+  border: none;
+}
+.dcm-cart-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #1e293b;
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: #cbd5e1;
+}
+.dcm-total-amount {
+  color: #fbbf24;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* ==================== NÚT & MODAL MÁY QUÉT ĐIỆN THOẠI KHÔNG DÂY ==================== */
+.btn-open-mobile-scanner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+  position: relative;
+  white-space: nowrap;
+}
+.btn-open-mobile-scanner:hover {
+  background: linear-gradient(135deg, #0369a1, #075985);
+  transform: translateY(-1px);
+}
+.pulse-dot-mini {
+  width: 7px;
+  height: 7px;
+  background: #22c55e;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  animation: pulse-green 1.5s infinite;
+}
+
+.mobile-scanner-modal-card {
+  background: #fff;
+  width: 90%;
+  max-width: 660px;
+  border-radius: 20px;
+  padding: 24px 28px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  position: relative;
+  animation: modalScaleIn 0.25s ease-out;
+}
+.msm-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 16px;
+}
+.msm-icon {
+  font-size: 32px;
+  background: #f0f9ff;
+  border-radius: 12px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.msm-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+}
+.msm-subtitle {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+.msm-body {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 24px;
+  align-items: center;
+}
+.msm-qr-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: #f8fafc;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+}
+.msm-qr-img {
+  width: 180px;
+  height: 180px;
+  border-radius: 8px;
+}
+.msm-status-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #475569;
+  text-align: center;
+}
+.status-indicator-dot {
+  width: 8px;
+  height: 8px;
+  background: #f59e0b;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-indicator-dot.connected {
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+}
+.msm-info-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.msm-step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #334155;
+}
+.step-num {
+  background: #0284c7;
+  color: #fff;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.msm-url-copy-box {
+  background: #f1f5f9;
+  border: 1px dashed #cbd5e1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+.msm-url-text {
+  font-size: 11px;
+  color: #0284c7;
+  font-family: monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+/* END_SYNC_CSS */
+.btn-copy-url {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
 }
 </style>
