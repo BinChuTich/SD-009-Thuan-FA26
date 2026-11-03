@@ -110,6 +110,10 @@ public class HoaDonPosDTO {
         private BigDecimal giaDuocTinh;
         @com.fasterxml.jackson.annotation.JsonAlias({"giaDuocTinh", "donGia", "price"})
         private BigDecimal donGia;
+        private String tenDotGiamGia;
+
+        public String getTenDotGiamGia() { return tenDotGiamGia; }
+        public void setTenDotGiamGia(String tenDotGiamGia) { this.tenDotGiamGia = tenDotGiamGia; }
 
         public ItemChiTietDTO() {
         }

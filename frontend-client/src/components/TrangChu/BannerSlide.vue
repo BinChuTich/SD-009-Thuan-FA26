@@ -8,35 +8,40 @@ const heroSlides = [
   {
     id: 1,
     image: '/images/slides/slide_01.jpg',
-    title: 'Bộ Sưu Tập Áo Thun Năng Động',
+    title: 'Thời Trang Áo Phông Đôi & Unisex Năng Động',
     link: '/cua-hang'
   },
   {
     id: 2,
     image: '/images/slides/slide_02.jpg',
-    title: 'Thời Trang Dạo Phố Trẻ Trung',
+    title: 'Áo Thun Nữ Phom Rộng Streetwear Cá Tính',
     link: '/cua-hang'
   },
   {
     id: 3,
     image: '/images/slides/slide_03.jpg',
-    title: 'Áo Polo Nam Smart-Casual',
+    title: 'Áo Phông Nam Basic Cotton Tối Giản',
     link: '/cua-hang'
   },
   {
     id: 4,
     image: '/images/slides/slide_04.jpg',
-    title: 'Polo Nam Trắng Cao Cấp',
+    title: 'Thời Trang Áo Thun Nữ Hàn Quốc Thanh Lịch',
     link: '/cua-hang'
   },
   {
     id: 5,
     image: '/images/slides/slide_05.jpg',
-    title: 'Áo Polo Nam Form Chuẩn',
+    title: 'Áo Thun Nữ Streetwear Cá Tính Hiện Đại',
+    link: '/cua-hang'
+  },
+  {
+    id: 6,
+    image: '/images/slides/slide_06.jpg',
+    title: 'Bộ Sưu Tập Áo Phông Cao Cấp',
     link: '/cua-hang'
   }
 ]
-
 const currentSlide = ref(0)
 let slideTimer = null
 
@@ -79,23 +84,28 @@ onUnmounted(() => {
       <div class="hero-left-col">
         <span class="hero-vintage-tag">✨ BỘ SƯU TẬP 2026</span>
         <div class="hero-brand-heading-block">
-          <h1 class="hero-subheading-lead">Thời Trang Áo Phông Nam</h1>
+          <h1 class="hero-subheading-lead">Thời Trang Áo Phông</h1>
           <div class="hero-logo-box">
             <!-- LOGO THƯƠNG HIỆU: 3 TIA SÁNG + CHỮ FF + T-shirt -->
             <div class="banner-logo-wrapper">
               <div class="banner-sparkles">
+                <span class="sparkle-aura"></span>
                 <span class="ray ray-1"></span>
                 <span class="ray ray-2"></span>
                 <span class="ray ray-3"></span>
               </div>
               <div class="banner-logo-content">
                 <div class="banner-logo-name">
-                  <span class="f-white">F</span>
+                  <span class="f-blue">F</span>
                   <span class="f-gold">F</span>
                 </div>
                 <div class="banner-logo-sub">T-shirt</div>
               </div>
             </div>
+          </div>
+          <!-- DÒNG SLOGAN DƯỚI FF T-SHIRT (NGẮT DÒNG ĐỘC LẬP) -->
+          <div class="hero-slogan-box">
+            <p class="hero-slogan">Chất riêng trong từng sắc áo</p>
           </div>
         </div>
 
@@ -155,6 +165,10 @@ onUnmounted(() => {
 
 <style scoped>
 .brand-hero-banner {
+  position: relative;
+}
+
+.brand-hero-banner {
   background: linear-gradient(135deg, #1e293b 0%, #334e68 50%, #496883 100%);
   color: #ffffff;
   padding: 56px 0 64px;
@@ -195,93 +209,237 @@ onUnmounted(() => {
   line-height: 1.2;
   margin: 0 0 10px;
   color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6), 0 4px 14px rgba(0, 0, 0, 0.45);
+  letter-spacing: -0.5px;
 }
 
 .hero-logo-box {
-  display: inline-block;
-  margin-top: 4px;
+  display: flex;
+  align-items: flex-end;
+  margin-top: 6px;
+  width: 100%;
 }
 
+.hero-slogan-box {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  clear: both;
+}
+
+.hero-slogan {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  line-height: 1.4;
+  display: inline-block;
+  background: linear-gradient(115deg, #94a3b8 0%, #ffffff 25%, #cbd5e1 45%, #ffffff 65%, #94a3b8 85%, #f1f5f9 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: silverGradualBrighten 3.6s ease-in-out infinite;
+}
+
+@keyframes silverGradualBrighten {
+  0% {
+    background-position: 0% 50%;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 2px rgba(255, 255, 255, 0.25));
+    opacity: 0.82;
+  }
+  50% {
+    background-position: 100% 50%;
+    /* Action sang dan len voi hao quang anh bac kim loai lap lanh */
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 10px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 22px rgba(226, 232, 240, 0.85));
+    opacity: 1;
+  }
+  100% {
+    background-position: 200% 50%;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 2px rgba(255, 255, 255, 0.25));
+    opacity: 0.82;
+  }
+}
+
+/* LOGO THUONG HIEU CHUAN: F XANH NAVY + F VANG GOLD + T-SHIRT XANH NAVY + 3 TIA SANG */
 .banner-logo-wrapper {
   position: relative;
   display: inline-flex;
   align-items: flex-end;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Fredoka', -apple-system, sans-serif;
   user-select: none;
 }
 
 .banner-sparkles {
   position: absolute;
-  top: -12px;
-  left: -14px;
-  width: 32px;
-  height: 32px;
+  top: -14px;
+  left: -8px;
+  width: 36px;
+  height: 36px;
+  pointer-events: none;
+}
+
+.banner-sparkles .sparkle-aura {
+  position: absolute;
+  bottom: 2px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 252, 235, 0.95) 0%, rgba(251, 191, 36, 0.8) 45%, rgba(217, 119, 6, 0) 75%);
+  animation: fireworkAuraBanner 2.4s ease-in-out infinite;
   pointer-events: none;
 }
 
 .banner-sparkles .ray {
   position: absolute;
   background-color: #d2a764;
-  border-radius: 3px;
-  box-shadow: 0 0 10px rgba(210, 167, 100, 0.7);
+  border-radius: 99px;
+  transform-origin: center center;
+  animation: fireworkSparkleBanner 2.4s ease-in-out infinite;
 }
 
 .banner-sparkles .ray-1 {
-  width: 4px;
-  height: 13px;
-  top: 0;
-  right: 6px;
-  transform: rotate(10deg);
+  --rot: 12deg;
+  width: 4.8px;
+  height: 14px;
+  top: 1px;
+  right: 8px;
+  transform: rotate(12deg);
+  animation-delay: 0s;
 }
 
 .banner-sparkles .ray-2 {
-  width: 4px;
-  height: 13px;
-  top: 5px;
-  left: 5px;
-  transform: rotate(-45deg);
+  --rot: -42deg;
+  width: 4.8px;
+  height: 14px;
+  top: 6px;
+  left: 6px;
+  transform: rotate(-42deg);
+  animation-delay: 0.35s;
 }
 
 .banner-sparkles .ray-3 {
-  width: 4px;
-  height: 13px;
-  bottom: 0px;
-  left: -3px;
-  transform: rotate(-80deg);
+  --rot: -78deg;
+  width: 4.8px;
+  height: 14px;
+  bottom: 1px;
+  left: 0px;
+  transform: rotate(-78deg);
+  animation-delay: 0.7s;
+}
+
+.banner-logo-wrapper:hover .banner-sparkles .ray {
+  animation-duration: 1.1s;
+}
+
+@keyframes fireworkAuraBanner {
+  0%, 100% {
+    opacity: 0.15;
+    transform: scale(0.75);
+  }
+  35% {
+    opacity: 0.95;
+    transform: scale(1.35);
+    filter: drop-shadow(0 0 6px #f59e0b) drop-shadow(0 0 14px #fbbf24);
+  }
+  65% {
+    opacity: 0.35;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes fireworkSparkleBanner {
+  0%, 100% {
+    opacity: 0.35;
+    transform: rotate(var(--rot, 0deg)) scale(0.88);
+    background-color: #d1a868;
+    box-shadow: 0 0 3px rgba(209, 168, 104, 0.4);
+    filter: drop-shadow(0 0 2px rgba(209, 168, 104, 0.3));
+  }
+  25% {
+    opacity: 0.8;
+    transform: rotate(var(--rot, 0deg)) scale(1.15);
+    background-color: #fde68a;
+    box-shadow: 0 0 8px #f59e0b, 0 0 16px rgba(245, 158, 11, 0.75);
+    filter: drop-shadow(0 0 4px #fbbf24);
+  }
+  45% {
+    opacity: 1;
+    transform: rotate(var(--rot, 0deg)) scale(1.4);
+    background-color: #ffffff;
+    box-shadow: 0 0 8px #ffffff, 0 0 18px #fbbf24, 0 0 32px #f59e0b, 0 0 44px rgba(245, 158, 11, 0.95);
+    filter: drop-shadow(0 0 6px #ffffff) drop-shadow(0 0 12px #fbbf24);
+  }
+  65% {
+    opacity: 0.85;
+    transform: rotate(var(--rot, 0deg)) scale(1.18);
+    background-color: #fcd34d;
+    box-shadow: 0 0 8px #f59e0b, 0 0 16px rgba(210, 167, 100, 0.6);
+    filter: drop-shadow(0 0 4px #f59e0b);
+  }
+  85% {
+    opacity: 0.45;
+    transform: rotate(var(--rot, 0deg)) scale(0.95);
+    background-color: #d1a868;
+    box-shadow: 0 0 3px rgba(209, 168, 104, 0.3);
+  }
 }
 
 .banner-logo-content {
   display: flex;
   align-items: flex-end;
-  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.75)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
 }
 
 .banner-logo-name {
   display: flex;
+  font-family: 'Fredoka', -apple-system, sans-serif;
   font-size: 64px;
   font-weight: 800;
   line-height: 0.82;
-  letter-spacing: -2.5px;
+  letter-spacing: -2px;
 }
 
-.f-white {
-  color: #ffffff;
+/* Chu F Xanh Navy noi bat da tang do bong vien sang phan quang */
+.f-blue {
+  color: #496883;
+  font-weight: 800;
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 3px 6px rgba(0, 0, 0, 0.75),
+    0 6px 16px rgba(0, 0, 0, 0.55),
+    0 0 2px rgba(255, 255, 255, 0.45);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.35));
 }
 
+/* Chu F Vang Gold sang trong noi khoi 3D */
 .f-gold {
   color: #d2a764;
   margin-left: 2px;
+  font-weight: 800;
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.85),
+    0 3px 6px rgba(0, 0, 0, 0.7),
+    0 6px 14px rgba(0, 0, 0, 0.5),
+    0 0 2px rgba(210, 167, 100, 0.8);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.65));
 }
 
+/* Chu T-shirt Xanh Navy chuan Fredoka noi bat ro net */
 .banner-logo-sub {
-  color: #d2a764;
+  font-family: 'Fredoka', -apple-system, sans-serif;
+  color: #496883;
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1;
   margin-left: 10px;
   margin-bottom: 4px;
-  letter-spacing: -0.5px;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  letter-spacing: -0.3px;
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 2px 5px rgba(0, 0, 0, 0.7),
+    0 0 2px rgba(255, 255, 255, 0.35);
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.65));
 }
 
 .hero-quote {

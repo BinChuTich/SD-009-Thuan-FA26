@@ -30,5 +30,6 @@ public class DatHangOnlineDTO {
         private Long idChiTietSanPham;
         private Integer soLuong;
         private BigDecimal donGia;
+        private String tenDotGiamGia;
     }
 }

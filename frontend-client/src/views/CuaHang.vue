@@ -377,7 +377,7 @@ onMounted(async () => {
     <!-- 1. TIÊU ĐỀ BỘ SƯU TẬP -->
     <div class="shop-header-intro">
       <div class="container-client text-center">
-        <h1 class="shop-title-main">Bộ Sưu Tập Áo Phông Nam</h1>
+        <h1 class="shop-title-main">Bộ Sưu Tập Áo Phông</h1>
         <p class="shop-quote-sub">
           "Mang trong mình vẻ đẹp hiện đại, tinh khôi và phong độ. Từng đường kim mũi chỉ là sự chắt chiu tinh hoa của thời trang Việt."
         </p>

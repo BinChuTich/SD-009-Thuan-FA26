@@ -956,6 +956,17 @@ const selectedSubtotal = computed(() => {
 
 })
 
+const checkoutOriginalSubtotal = computed(() => {
+  return activeCheckoutItems.value.reduce((sum, item) => {
+    const p = item.price || item.discountPrice || 0
+    return sum + p * item.quantity
+  }, 0)
+})
+
+const checkoutCampaignDiscount = computed(() => {
+  return Math.max(0, checkoutOriginalSubtotal.value - selectedSubtotal.value)
+})
+
 
 
 const freeshipThreshold = 250000 // Mua từ 250.000đ được Freeship (Ảnh 2)
@@ -1194,345 +1205,211 @@ const isVoucherPersonal = (v) => {
 
 
 
-const fetchPublicVouchers = async () => {
-
-  try {
-
-    const res = await api.get('/api/phieu-giam-gia')
-
-    const list = Array.isArray(res.data) ? res.data : (res.data?.content || [])
-
-    allVouchers.value = list
-
-    const nowTime = Date.now()
-
-    const isValidDate = (d) => d && !isNaN(new Date(d).getTime())
-
-    availableVouchers.value = list.filter(v => {
-
-      // Chỉ fill các mã CÔNG KHAI
-
-      // Nếu là mã cá nhân, chỉ giữ lại nếu khách hàng hiện tại được tặng
-
-      if (isVoucherPersonal(v)) {
-
-        return customerHasAccessToVoucher(v)
-
-      }
-
-      if (v.trangThai != null && Number(v.trangThai) !== 1) return false
-
-      if (v.soLuongSuDung != null && v.soLuongSuDung <= 0) return false
-
-      if (isValidDate(v.ngayBatDau) && new Date(v.ngayBatDau).getTime() > nowTime) return false
-
-      if (isValidDate(v.ngayKetThuc) && new Date(v.ngayKetThuc).getTime() < nowTime) return false
-
-      return true
-
-    })
-
-    // Khách hàng bấm áp dụng thì mới áp dụng mã
-
-  } catch (e) {
-
-    console.warn('Lỗi tải phiếu giảm giá công khai:', e)
-
-  }
-
-}
-
-
-
-const autoApplyBestVoucher = () => {
-
-  return // Đã tắt tự động áp dụng mã, chỉ áp dụng khi khách bấm
-
-  if (selectedSubtotal.value <= 0 || !availableVouchers.value || availableVouchers.value.length === 0) {
-
-    return
-
-  }
-
-
-
-  let bestVoucher = null
-
-  let maxDiscount = 0
-
-
-
-  availableVouchers.value.forEach(v => {
-
-    const minSpend = Number(v.hoaDonToiThieu || 0)
-
-    if (selectedSubtotal.value >= minSpend) {
-
-      const disc = calculateDiscountForVoucher(v, selectedSubtotal.value)
-
-      if (disc > maxDiscount) {
-
-        maxDiscount = disc
-
-        bestVoucher = v
-
-      }
-
-    }
-
-  })
-
-
-
-  if (bestVoucher && maxDiscount > 0) {
-
-    appliedVoucher.value = {
-
-      id: bestVoucher.id,
-
-      code: bestVoucher.maPhieuGiamGia,
-
-      name: bestVoucher.tenPhieuGiamGia,
-
-      discount: maxDiscount,
-
-      minSpend: Number(bestVoucher.hoaDonToiThieu || 0),
-
-      raw: bestVoucher,
-
-      isAuto: true
-
-    }
-
-  } else if (appliedVoucher.value?.isAuto) {
-
-    // Nếu mã tự áp dụng không còn đủ điều kiện thì hủy
-
-    const minSpend = Number(appliedVoucher.value.minSpend || 0)
-
-    if (selectedSubtotal.value < minSpend) {
-
-      appliedVoucher.value = null
-
-    }
-
-  }
-
-}
-
-
-
 const calculateDiscountForVoucher = (voucher, subtotal) => {
-
   if (!voucher || subtotal <= 0) return 0
-
   const minSpend = Number(voucher.hoaDonToiThieu || 0)
-
   if (subtotal < minSpend) return 0
 
-
-
   let disc = 0
-
-  if (Number(voucher.loaiPhieuGiamGia) === 1) {
-
+  if (Number(voucher.loaiPhieuGiamGia) === 1 || String(voucher.loaiPhieuGiamGia) === '%' || String(voucher.loaiPhieuGiamGia) === 'PHAN_TRAM') {
     const percent = Number(voucher.giaTriGiamGia || 0)
-
     disc = Math.round((subtotal * percent) / 100)
-
     const maxDiscount = Number(voucher.giamToiDa || 0)
-
     if (maxDiscount > 0) {
-
       disc = Math.min(disc, maxDiscount)
-
     }
-
   } else {
-
     disc = Number(voucher.giaTriGiamGia || 0)
-
   }
-
   return Math.min(disc, subtotal)
-
 }
 
+const isVoucherActiveAndValid = (v, subtotal = 0) => {
+  if (!v) return false
+  const nowTime = Date.now()
+  const isValidDate = (d) => d && !isNaN(new Date(d).getTime())
 
+  // 1. Phải đang hoạt động (trangThai == 1)
+  if (v.trangThai != null && Number(v.trangThai) !== 1) return false
 
-const personalVouchersCount = computed(() => {
+  // 2. Còn số lượng sử dụng (> 0)
+  if (v.soLuongSuDung != null && Number(v.soLuongSuDung) <= 0) return false
 
-  return availableVouchers.value.filter(v => isVoucherPersonal(v)).length
+  // 3. Trong thời hạn hiệu lực
+  if (isValidDate(v.ngayBatDau) && new Date(v.ngayBatDau).getTime() > nowTime) return false
+  if (isValidDate(v.ngayKetThuc) && new Date(v.ngayKetThuc).getTime() < nowTime) return false
 
-})
+  // 4. Nếu là mã cá nhân, khách phải có quyền truy cập
+  if (isVoucherPersonal(v) && !customerHasAccessToVoucher(v)) return false
 
-
-
-const publicVouchersCount = computed(() => {
-
-  return availableVouchers.value.filter(v => !isVoucherPersonal(v)).length
-
-})
-
-
-
-const hasPersonalVouchers = computed(() => {
-
-  return personalVouchersCount.value > 0
-
-})
-
-
-
-// Tính toán mã giảm giá tốt nhất / phù hợp nhất với đơn hàng hiện tại
-
-const calculatedBestVoucherId = computed(() => {
-
-  if (!availableVouchers.value || availableVouchers.value.length === 0) return null
-
-  const sub = Number(selectedSubtotal.value || 0)
-
-
-
-  // 1. Tìm trong các mã thỏa mãn điều kiện đơn tối thiểu của giỏ hàng hiện tại
-
-  const eligibleVouchers = availableVouchers.value.filter(v => {
-
+  // 5. Kiểm tra giá trị đơn hàng tối thiểu nếu subtotal > 0
+  if (subtotal > 0) {
     const minSpend = Number(v.hoaDonToiThieu || 0)
-
-    return sub <= 0 || sub >= minSpend
-
-  })
-
-
-
-  if (eligibleVouchers.length > 0) {
-
-    const sorted = [...eligibleVouchers].sort((a, b) => {
-
-      if (sub > 0) {
-
-        const discA = calculateDiscountForVoucher(a, sub)
-
-        const discB = calculateDiscountForVoucher(b, sub)
-
-        if (discB !== discA) return discB - discA
-
-      }
-
-      return Number(a.hoaDonToiThieu || 0) - Number(b.hoaDonToiThieu || 0)
-
-    })
-
-    return sorted[0]?.id || null
-
+    if (subtotal < minSpend) return false
   }
 
+  return true
+}
 
+// 1. Danh sách tất cả các voucher ĐỦ ĐIỀU KIỆN cho đơn hàng hiện tại (theo selectedSubtotal)
+// Sắp xếp: Mức giảm thực tế cao nhất (Tốt nhất) -> Đơn tối thiểu thấp hơn -> ID mới hơn
+const eligibleVouchersSorted = computed(() => {
+  const sub = Number(selectedSubtotal.value || 0)
+  if (sub <= 0 || !availableVouchers.value || availableVouchers.value.length === 0) return []
 
-  // 2. Nếu đơn hàng chưa đủ điều kiện cho mã nào, gợi ý mã có mức yêu cầu đơn thấp nhất
+  // CHỈ LẤY CÁC MÃ ĐỦ ĐIỀU KIỆN: hoạt động, còn lượt, trong hạn, khách có quyền VÀ sub >= hoaDonToiThieu!
+  const eligible = availableVouchers.value.filter(v => isVoucherActiveAndValid(v, sub))
 
-  const fallbackSorted = [...availableVouchers.value].sort((a, b) => {
-
-    return Number(a.hoaDonToiThieu || 0) - Number(b.hoaDonToiThieu || 0)
-
+  return [...eligible].sort((a, b) => {
+    const discA = calculateDiscountForVoucher(a, sub)
+    const discB = calculateDiscountForVoucher(b, sub)
+    if (discB !== discA) return discB - discA
+    const minA = Number(a.hoaDonToiThieu || 0)
+    const minB = Number(b.hoaDonToiThieu || 0)
+    if (minA !== minB) return minA - minB
+    return (b.id || 0) - (a.id || 0)
   })
-
-  return fallbackSorted[0]?.id || null
-
 })
 
+// 2. Tra cứu thứ hạng của mã: CHỈ hiển thị chữ "Tốt nhất" cho mã số 1, các mã khác chỉ sắp xếp theo thứ tự
+const getVoucherRankInfo = (voucherId) => {
+  if (!voucherId) return null
+  const list = eligibleVouchersSorted.value
+  const idx = list.findIndex(v => v.id === voucherId)
+  if (idx === 0) {
+    return { rank: 1, text: 'Tốt nhất', badgeClass: 'rank-badge-best' }
+  }
+  // Các mã khác chỉ sắp xếp theo thứ tự, không hiển thị chữ Tốt nhì, Tốt 3...
+  return null
+}
 
+// 3. ID của mã tốt nhất hiện tại
+const bestVoucherId = computed(() => {
+  return eligibleVouchersSorted.value[0]?.id || null
+})
 
-// Đưa phiếu giảm giá tốt nhất lên đầu danh sách
-
+// 4. Danh sách voucher hiển thị theo tab (CHỈ HIỂN THỊ CÁC MÃ ĐỦ ĐIỀU KIỆN)
 const sortedAvailableVouchers = computed(() => {
-
-  if (!availableVouchers.value || availableVouchers.value.length === 0) return []
-
-  const sub = Number(selectedSubtotal.value || 0)
-
-
-
-  let list = [...availableVouchers.value]
+  const list = eligibleVouchersSorted.value
+  if (!list || list.length === 0) return []
 
   if (voucherTab.value === 'PERSONAL') {
-
-    list = list.filter(v => isVoucherPersonal(v))
-
+    return list.filter(v => isVoucherPersonal(v))
   } else if (voucherTab.value === 'PUBLIC') {
+    return list.filter(v => !isVoucherPersonal(v))
+  }
+  return list
+})
 
-    list = list.filter(v => !isVoucherPersonal(v))
+// 5. Đếm số lượng mã đủ điều kiện cho từng tab
+const personalVouchersCount = computed(() => {
+  return eligibleVouchersSorted.value.filter(v => isVoucherPersonal(v)).length
+})
 
+const publicVouchersCount = computed(() => {
+  return eligibleVouchersSorted.value.filter(v => !isVoucherPersonal(v)).length
+})
+
+const hasPersonalVouchers = computed(() => {
+  return availableVouchers.value.some(v => isVoucherPersonal(v))
+})
+
+// 6. Tự động áp dụng mã tốt nhất cho đơn hàng
+const autoApplyBestVoucher = () => {
+  const currentSub = Number(selectedSubtotal.value || 0)
+  if (currentSub <= 0) {
+    appliedVoucher.value = null
+    return
   }
 
+  const eligible = eligibleVouchersSorted.value
+  if (!eligible || eligible.length === 0) {
+    appliedVoucher.value = null
+    return
+  }
 
+  const bestVoucher = eligible[0]
+  const bestDiscount = calculateDiscountForVoucher(bestVoucher, currentSub)
 
-  return list.sort((a, b) => {
-
-    const isPersonalA = isVoucherPersonal(a) ? 1 : 0
-
-    const isPersonalB = isVoucherPersonal(b) ? 1 : 0
-
-
-
-    // Ở tab Tất cả, ưu tiên đưa phiếu cá nhân của khách lên trước
-
-    const bestId = calculatedBestVoucherId.value
-
-    if (a.id === bestId) return -1
-
-    if (b.id === bestId) return 1
-
-    if (false) {
-
-      return isPersonalB - isPersonalA
-
+  // Nếu chưa có mã nào đang áp dụng:
+  if (!appliedVoucher.value) {
+    if (bestDiscount > 0) {
+      appliedVoucher.value = {
+        id: bestVoucher.id,
+        code: bestVoucher.maPhieuGiamGia,
+        name: bestVoucher.tenPhieuGiamGia,
+        discount: bestDiscount,
+        minSpend: Number(bestVoucher.hoaDonToiThieu || 0),
+        raw: bestVoucher,
+        isAuto: true
+      }
     }
+    return
+  }
 
-    // 1. Nếu giỏ hàng có tiền, ưu tiên phiếu đủ điều kiện và mức giảm thực tế cao nhất
+  // Nếu đang có mã áp dụng:
+  const currentId = appliedVoucher.value.id
+  const currentCode = (appliedVoucher.value.code || '').trim().toUpperCase()
+  const currentRaw = eligible.find(v => (currentId && v.id === currentId) || (v.maPhieuGiamGia || '').toUpperCase() === currentCode)
 
-    if (sub > 0) {
-
-      const discA = calculateDiscountForVoucher(a, sub)
-
-      const discB = calculateDiscountForVoucher(b, sub)
-
-      if (discB !== discA) return discB - discA
-
+  // Nếu mã hiện tại KHÔNG CÒN ĐỦ ĐIỀU KIỆN (do bớt sản phẩm, hết hạn, v.v.):
+  if (!currentRaw) {
+    if (bestDiscount > 0) {
+      appliedVoucher.value = {
+        id: bestVoucher.id,
+        code: bestVoucher.maPhieuGiamGia,
+        name: bestVoucher.tenPhieuGiamGia,
+        discount: bestDiscount,
+        minSpend: Number(bestVoucher.hoaDonToiThieu || 0),
+        raw: bestVoucher,
+        isAuto: true
+      }
+    } else {
+      appliedVoucher.value = null
     }
+    return
+  }
 
+  // Nếu mã hiện tại vẫn đủ điều kiện: Cập nhật lại số tiền giảm theo subtotal mới
+  const currentDisc = calculateDiscountForVoucher(currentRaw, currentSub)
+  appliedVoucher.value.discount = currentDisc
+  appliedVoucher.value.raw = currentRaw
+  appliedVoucher.value.minSpend = Number(currentRaw.hoaDonToiThieu || 0)
 
+  // Nếu mã hiện tại là mã do hệ thống tự động chọn (isAuto), và có mã khác tốt hơn -> đổi sang mã tốt nhất
+  if (appliedVoucher.value.isAuto && bestDiscount > currentDisc) {
+    appliedVoucher.value = {
+      id: bestVoucher.id,
+      code: bestVoucher.maPhieuGiamGia,
+      name: bestVoucher.tenPhieuGiamGia,
+      discount: bestDiscount,
+      minSpend: Number(bestVoucher.hoaDonToiThieu || 0),
+      raw: bestVoucher,
+      isAuto: true
+    }
+  }
+}
 
-    // 2. So sánh tiềm năng giảm giá
+const fetchPublicVouchers = async () => {
+  try {
+    const res = await api.get('/api/phieu-giam-gia')
+    const list = Array.isArray(res.data) ? res.data : (res.data?.content || [])
+    allVouchers.value = list
+    // Lọc các mã đang hoạt động hợp lệ chung
+    availableVouchers.value = list.filter(v => isVoucherActiveAndValid(v, 0))
+    // Tự động tìm và áp dụng mã tốt nhất cho giỏ hàng hiện tại
+    autoApplyBestVoucher()
+  } catch (e) {
+    console.warn('Lỗi tải phiếu giảm giá công khai:', e)
+  }
+}
 
-    const valA = Number(a.giaTriGiamGia || 0)
-
-    const valB = Number(b.giaTriGiamGia || 0)
-
-    if (valB !== valA) return valB - valA
-
-
-
-    // 3. Ưu tiên điều kiện đơn tối thiểu nhỏ hơn
-
-    return Number(a.hoaDonToiThieu || 0) - Number(b.hoaDonToiThieu || 0)
-
-  })
-
-})
-
-
-
-const bestVoucherId = computed(() => {
-
-  if (!sortedAvailableVouchers.value || sortedAvailableVouchers.value.length === 0) return null
-
-  return calculatedBestVoucherId.value
-
-})
-
-
+const formatCurrencyShort = (val) => {
+  const num = Number(val || 0)
+  if (num >= 1000000 && num % 1000000 === 0) return `${num / 1000000}tr`
+  if (num >= 1000 && num % 1000 === 0) return `${num / 1000}k`
+  return formatCurrency(num)
+}
 
 const handleApplyVoucher = async (codeToApply) => {
 
@@ -1621,19 +1498,22 @@ const handleApplyVoucher = async (codeToApply) => {
 
 
 const applyCouponDirectly = (voucher) => {
-
   if (appliedVoucher.value?.id === voucher.id) {
-
     // Nếu bấm lại vào mã đang dùng thì hủy áp dụng
-
     appliedVoucher.value = null
-
     return
-
   }
-
-  handleApplyVoucher(voucher.maPhieuGiamGia)
-
+  const currentSub = Number(selectedSubtotal.value || 0)
+  const disc = calculateDiscountForVoucher(voucher, currentSub)
+  appliedVoucher.value = {
+    id: voucher.id,
+    code: voucher.maPhieuGiamGia,
+    name: voucher.tenPhieuGiamGia,
+    discount: disc,
+    minSpend: Number(voucher.hoaDonToiThieu || 0),
+    raw: voucher,
+    isAuto: false // Người dùng chủ động chọn
+  }
 }
 
 
@@ -1690,39 +1570,19 @@ const applySuggestedCode = (code) => {
 
 
 
-// Cập nhật lại số tiền giảm khi tổng tiền hàng thay đổi
-
+// Cập nhật và tự động áp dụng mã tốt nhất khi tổng tiền hàng thay đổi
 watch(selectedSubtotal, (newSub) => {
-
   if (newSub <= 0) {
-
     appliedVoucher.value = null
-
     return
-
   }
-
-  // Tự động tìm và áp dụng phiếu giảm giá có mức giảm tốt nhất
-
-  // Chỉ cập nhật lại số tiền giảm nếu khách ĐÃ ÁP DỤNG mã trước đó
-
-  if (appliedVoucher.value && appliedVoucher.value.raw) {
-
-    const minSpend = Number(appliedVoucher.value.minSpend || 0)
-
-    if (newSub < minSpend) {
-
-      appliedVoucher.value = null
-
-    } else {
-
-      appliedVoucher.value.discount = calculateDiscountForVoucher(appliedVoucher.value.raw, newSub)
-
-    }
-
-  }
-
+  autoApplyBestVoucher()
 })
+
+// Khi danh sách sản phẩm được chọn thay đổi, tự động tính toán lại mã giảm giá tốt nhất
+watch(selectedItemIds, () => {
+  autoApplyBestVoucher()
+}, { deep: true })
 
 
 
@@ -2567,13 +2427,10 @@ const executePlaceOrder = async () => {
       giamGia: disc,
 
       chiTiet: activeCheckoutItems.value.map(i => ({
-
         idChiTietSanPham: i.variantId,
-
         soLuong: i.quantity,
-
-        donGia: i.discountPrice > 0 ? i.discountPrice : i.price
-
+        donGia: i.discountPrice > 0 ? i.discountPrice : i.price,
+        tenDotGiamGia: i.tenDotGiamGia || ''
       }))
 
     }
@@ -3080,9 +2937,16 @@ onMounted(async () => {
 
   loadRecommendedProducts()
 
-  fetchPublicVouchers()
+  await fetchPublicVouchers()
+  autoApplyBestVoucher()
 
-
+  const onWindowFocusVouchers = () => {
+    fetchPublicVouchers()
+  }
+  window.addEventListener('focus', onWindowFocusVouchers)
+  const voucherPollTimer = setInterval(() => {
+    fetchPublicVouchers()
+  }, 10000)
 
   const allData = await loadAdministrativeData()
 
@@ -3398,22 +3262,6 @@ const formatDate = (dateStr) => {
 
                     />
 
-                    <!-- Tag đợt giảm giá ở đầu ảnh -->
-
-                    <span
-
-                      v-if="item.coGiamGia || (item.price > item.discountPrice && item.discountPrice > 0)"
-
-                      class="prod-thumb-discount-tag"
-
-                      :title="item.tenDotGiamGia ? `Đợt giảm giá: ${item.tenDotGiamGia}` : 'Đang giảm giá'"
-
-                    >
-
-                      -{{ item.phanTramGiam || Math.round((item.price - item.discountPrice) / item.price * 100) }}%
-
-                    </span>
-
                   </div>
 
 
@@ -3430,7 +3278,13 @@ const formatDate = (dateStr) => {
 
                       <span class="badge-size-tag" v-if="item.size">Size: {{ item.size }}</span>
 
-                      <span class="badge-campaign-chip" v-if="item.tenDotGiamGia">🏷️ {{ item.tenDotGiamGia }}</span>
+                      <span class="badge-campaign-chip" v-if="item.tenDotGiamGia">
+                      <svg class="campaign-tag-svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                      </svg>
+                      {{ item.tenDotGiamGia }}
+                    </span>
 
                     </div>
 
@@ -3476,7 +3330,11 @@ const formatDate = (dateStr) => {
 
                   >
 
-                    🏷️ {{ Math.round((item.price - item.discountPrice) / item.price * 100) }}%
+                    <svg class="discount-badge-svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                      <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                    </svg>
+                    {{ Math.round((item.price - item.discountPrice) / item.price * 100) }}%
 
                   </span>
 
@@ -4505,184 +4363,101 @@ const formatDate = (dateStr) => {
 
 
             <!-- Badge khi đã áp dụng thành công -->
-
             <div v-if="appliedVoucher" class="applied-voucher-chip">
-
               <div class="av-left">
-
                 <span class="av-ico">🎟️</span>
-
                 <div>
-
-                  <div class="av-code-badge-row" style="display: flex; align-items: center; gap: 6px;">
-
-                    <strong>Mã: {{ appliedVoucher.code }}</strong>
-
-
-
-                    <span class="av-best-badge" v-if="appliedVoucher.id === bestVoucherId">Tốt nhất</span>
-
+                  <div class="av-code-badge-row">
+                    <strong class="av-code-text">Mã: {{ appliedVoucher.code }}</strong>
+                    <span v-if="getVoucherRankInfo(appliedVoucher.id)" class="av-best-badge">Tốt nhất</span>
                   </div>
-
                   <span class="av-disc">Đã giảm -{{ formatCurrency(appliedVoucher.discount) }}</span>
-
                 </div>
-
               </div>
-
               <button type="button" class="btn-remove-v" @click="handleRemoveVoucher" title="Bỏ áp dụng mã">
-
                 ✕
-
               </button>
-
             </div>
 
-
-
-            <!-- Bộ lọc phân loại phiếu: Tất cả | Cá nhân | Công khai -->
-
-            <div v-if="hasPersonalVouchers" class="voucher-filter-tabs">
-
+            <!-- Bộ lọc phân loại phiếu: Tất cả | Dành riêng cho bạn | Toàn sàn -->
+            <div v-if="hasPersonalVouchers && eligibleVouchersSorted.length > 0" class="voucher-filter-tabs">
               <button
-
                 type="button"
-
                 class="btn-v-tab"
-
                 :class="{ active: voucherTab === 'ALL' }"
-
                 @click="voucherTab = 'ALL'"
-
               >
-
-                Tất cả ({{ availableVouchers.length }})
-
+                Tất cả ({{ eligibleVouchersSorted.length }})
               </button>
-
               <button
-
+                v-if="personalVouchersCount > 0"
                 type="button"
-
                 class="btn-v-tab btn-v-tab-personal"
-
                 :class="{ active: voucherTab === 'PERSONAL' }"
-
                 @click="voucherTab = 'PERSONAL'"
-
               >
-
                 Dành riêng cho bạn ({{ personalVouchersCount }})
-
               </button>
-
               <button
-
                 type="button"
-
                 class="btn-v-tab"
-
                 :class="{ active: voucherTab === 'PUBLIC' }"
-
                 @click="voucherTab = 'PUBLIC'"
-
               >
-
                 Toàn sàn ({{ publicVouchersCount }})
-
               </button>
-
             </div>
 
-
-
-            <!-- Danh sách thẻ voucher CÔNG KHAI & CÁ NHÂN từ Admin -->
-
+            <!-- Danh sách thẻ voucher ĐỦ ĐIỀU KIỆN (nhỏ gọn, thanh thoát) -->
             <div v-if="sortedAvailableVouchers.length > 0" class="public-coupons-carousel">
-
               <div
-
                 v-for="v in sortedAvailableVouchers"
-
                 :key="v.id"
-
                 class="coupon-card-ticket"
-
                 :class="{ active: appliedVoucher?.id === v.id }"
-
                 @click="applyCouponDirectly(v)"
-
               >
-
                 <div class="ticket-left">
-
-                  <div style="display: flex; align-items: center; gap: 6px;">
-
-                    <div class="ticket-badge">{{ v.maPhieuGiamGia }}</div>
-
-
-
-                    <span v-if="v.id === bestVoucherId" class="av-best-badge" style="margin-left: 0;">Tốt nhất</span>
-
+                  <div class="ticket-header-line">
+                    <span class="ticket-code">{{ v.maPhieuGiamGia }}</span>
+                    <span v-if="getVoucherRankInfo(v.id)" class="av-best-badge">Tốt nhất</span>
+                    <span v-if="isVoucherPersonal(v)" class="v-personal-tag">Dành riêng</span>
                   </div>
 
                   <div class="ticket-name">
-
                     {{ Number(v.loaiPhieuGiamGia) === 1 ? `Giảm ${v.giaTriGiamGia}%` : `Giảm ${formatCurrency(v.giaTriGiamGia)}` }}
-
                     <span v-if="v.hoaDonToiThieu && Number(v.hoaDonToiThieu) > 0">
-
                       • Đơn từ {{ formatCurrency(v.hoaDonToiThieu) }}
-
                     </span>
-
                   </div>
 
                   <div class="ticket-hsd" v-if="v.ngayKetThuc">
-
                     HSD: {{ formatDate(v.ngayKetThuc) }}
-
                   </div>
-
                 </div>
 
                 <div class="ticket-right">
-
                   <button type="button" class="btn-ticket-use" :class="{ applied: appliedVoucher?.id === v.id }">
-
                     {{ appliedVoucher?.id === v.id ? '✓ Đang dùng' : 'Áp dụng' }}
-
                   </button>
-
                 </div>
-
               </div>
-
             </div>
 
+            <!-- Khi chưa chọn sản phẩm trong giỏ -->
+            <div v-else-if="selectedSubtotal <= 0" class="voucher-empty-notice">
+              <span class="v-empty-icon">🛒</span>
+              <p>Tích chọn sản phẩm để hệ thống tự động tìm và áp dụng mã giảm giá tốt nhất cho bạn.</p>
+            </div>
 
-
-            <!-- Link mã giới thiệu (Ảnh 5) -->
-
-            <div v-if="false" class="referral-code-link-row">
-
-              <a href="javascript:void(0)" class="referral-link" @click="showAppAlert('Tính năng giới thiệu bạn bè nhận ưu đãi sẽ sớm được cập nhật!', 'Mã giới thiệu', 'info')">
-
-                Bạn có mã giới thiệu? &rarr;
-
-              </a>
-
+            <!-- Khi không có mã nào đủ điều kiện -->
+            <div v-else class="voucher-empty-notice">
+              <span class="v-empty-icon">🏷️</span>
+              <p>Chưa có mã giảm giá đủ điều kiện cho đơn hàng <strong>{{ formatCurrency(selectedSubtotal) }}</strong>.</p>
+              <span class="v-empty-hint">💡 Mua thêm sản phẩm để đủ điều kiện áp dụng các ưu đãi giảm giá!</span>
             </div>
 
           </div>
-
-
-
-          
-
-
-
-
 
           <!-- 4. Tóm tắt đơn hàng & Nút Mua ngay (Ảnh 4 & Ảnh 5) -->
 
@@ -4962,20 +4737,6 @@ const formatDate = (dateStr) => {
 
                           <img :src="resolveProductImg(item)" :alt="item.productName" class="confirm-prod-thumb" @error="onImgError" />
 
-                          <!-- Tag đợt giảm giá ở đầu ảnh -->
-
-                          <span
-
-                            v-if="item.coGiamGia || (item.price > item.discountPrice && item.discountPrice > 0)"
-
-                            class="prod-thumb-discount-tag"
-
-                          >
-
-                            -{{ item.phanTramGiam || Math.round((item.price - item.discountPrice) / item.price * 100) }}%
-
-                          </span>
-
                         </div>
 
                         <div class="confirm-prod-info">
@@ -4988,6 +4749,20 @@ const formatDate = (dateStr) => {
 
                           </div>
 
+                          <!-- Hiển thị đợt giảm giá & tag % -->
+                          <div class="confirm-prod-tags" v-if="item.tenDotGiamGia || item.campaignName || (item.discountPrice > 0 && item.price > item.discountPrice)">
+                            <span v-if="item.tenDotGiamGia || item.campaignName" class="badge-campaign-chip">
+                              <svg class="campaign-tag-svg" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                                <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                              </svg>
+                              {{ item.tenDotGiamGia || item.campaignName }}
+                            </span>
+                            <span class="discount-percent-badge" v-if="item.discountPrice > 0 && item.price > item.discountPrice">
+                              -{{ item.phanTramGiam || Math.round((item.price - item.discountPrice) / item.price * 100) }}%
+                            </span>
+                          </div>
+
                         </div>
 
                       </div>
@@ -4998,7 +4773,10 @@ const formatDate = (dateStr) => {
 
                     <td class="col-price text-right">
 
-                      {{ formatCurrency(item.discountPrice > 0 ? item.discountPrice : item.price) }}
+                      <div class="confirm-price-main">{{ formatCurrency(item.discountPrice > 0 ? item.discountPrice : item.price) }}</div>
+                      <div v-if="item.discountPrice > 0 && item.price > item.discountPrice" class="confirm-price-old">
+                        {{ formatCurrency(item.price) }}
+                      </div>
 
                     </td>
 
@@ -5030,9 +4808,28 @@ const formatDate = (dateStr) => {
 
               </div>
 
-              <div v-if="voucherDiscount > 0" class="cost-row discount-row">
+              <!-- Giảm giá theo đợt -->
+              <div v-if="checkoutCampaignDiscount > 0" class="cost-row discount-row campaign-row">
+                <span class="inline-flex-label">
+                  <svg class="campaign-tag-svg" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                  </svg>
+                  Giảm giá theo đợt:
+                </span>
+                <strong class="text-campaign-discount">- {{ formatCurrency(checkoutCampaignDiscount) }}</strong>
+              </div>
 
-                <span>Voucher ({{ appliedVoucher?.code }}):</span>
+              <!-- Voucher giảm giá -->
+              <div v-if="voucherDiscount > 0" class="cost-row discount-row voucher-row">
+
+                <span class="inline-flex-label">
+                  <svg class="voucher-tag-svg" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                  </svg>
+                  Voucher [{{ appliedVoucher?.code }}]:
+                </span>
 
                 <strong class="text-discount">- {{ formatCurrency(voucherDiscount) }}</strong>
 
@@ -8325,228 +8122,207 @@ const formatDate = (dateStr) => {
 
 
 .applied-voucher-chip {
-
   display: flex;
-
   justify-content: space-between;
-
   align-items: center;
-
   background: #f0fdf4;
-
   border: 1px solid #bbf7d0;
-
   padding: 8px 12px;
-
   border-radius: 8px;
-
-  margin-bottom: 12px;
-
+  margin-bottom: 10px;
 }
-
-
 
 .av-left {
-
   display: flex;
-
   align-items: center;
-
   gap: 8px;
-
   font-size: 12.5px;
-
 }
 
+.av-ico {
+  font-size: 18px;
+}
 
+.av-code-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.2;
+}
+
+.av-code-text {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
 
 .av-disc {
-
   display: block;
-
   font-size: 11.5px;
-
   color: #15803d;
-
   font-weight: 700;
-
+  margin-top: 1px;
 }
-
-
 
 .btn-remove-v {
-
   background: none;
-
   border: none;
-
   color: #ef4444;
-
   font-size: 14px;
-
   cursor: pointer;
-
   font-weight: 700;
-
+  padding: 2px 6px;
 }
 
+.btn-remove-v:hover {
+  color: #dc2626;
+}
 
-
-/* CAROUSEL THẺ VOUCHER CÔNG KHAI */
-
+/* CAROUSEL THẺ VOUCHER CÔNG KHAI - GỌN GÀNG, ĐẸP MẮT */
 .public-coupons-carousel {
-
   display: flex;
-
   flex-direction: column;
-
-  gap: 8px;
-
+  gap: 6px;
   max-height: 220px;
-
   overflow-y: auto;
-
   padding-right: 2px;
-
 }
-
-
 
 .coupon-card-ticket {
-
   display: flex;
-
   justify-content: space-between;
-
   align-items: center;
-
   border: 1px dashed #cbd5e1;
-
-  border-radius: 10px;
-
-  padding: 10px 14px;
-
+  border-radius: 8px;
+  padding: 8px 12px;
   background: #fafafa;
-
   cursor: pointer;
-
-  transition: all 0.2s;
-
+  transition: all 0.2s ease;
 }
-
-
 
 .coupon-card-ticket:hover {
-
   background: #f8fafc;
-
   border-color: #d2a764;
-
 }
-
-
 
 .coupon-card-ticket.active {
-
   background: #fffdf5;
-
   border: 1.5px solid #d2a764;
-
 }
-
-
 
 .ticket-left {
-
   display: flex;
-
   flex-direction: column;
-
   gap: 2px;
-
+  min-width: 0;
 }
 
+.ticket-header-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
-
-.ticket-badge {
-
+.ticket-code {
   font-size: 12.5px;
-
   font-weight: 800;
-
   color: #0f172a;
-
   letter-spacing: 0.5px;
-
 }
 
+.av-best-badge {
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid #bbf7d0;
+  line-height: 1.2;
+}
 
+.v-personal-tag {
+  font-size: 10px;
+  font-weight: 700;
+  color: #7c3aed;
+  background: #f3e8ff;
+  border: 1px solid #d8b4fe;
+  padding: 1px 5px;
+  border-radius: 4px;
+  line-height: 1.2;
+}
 
 .ticket-name {
-
-  font-size: 12px;
-
+  font-size: 11.5px;
   color: #475569;
-
   font-weight: 600;
-
+  line-height: 1.3;
 }
-
-
 
 .ticket-hsd {
-
-  font-size: 11px;
-
+  font-size: 10.5px;
   color: #94a3b8;
-
+  line-height: 1.2;
 }
 
-
+.ticket-right {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
 
 .btn-ticket-use {
-
   background: #f1f5f9;
-
   border: 1px solid #cbd5e1;
-
   color: #1e293b;
-
-  font-size: 11.5px;
-
+  font-size: 11px;
   font-weight: 700;
-
-  padding: 5px 12px;
-
+  padding: 4px 10px;
   border-radius: 6px;
-
   cursor: pointer;
-
   transition: all 0.2s;
-
+  white-space: nowrap;
 }
-
-
 
 .btn-ticket-use:hover {
-
   background: #e2e8f0;
-
 }
-
-
 
 .btn-ticket-use.applied {
-
   background: #10b981;
-
   color: #ffffff;
-
   border-color: #10b981;
-
 }
 
+/* Empty notice */
+.voucher-empty-notice {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 12px 10px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
 
+.v-empty-icon {
+  font-size: 20px;
+}
+
+.voucher-empty-notice p {
+  margin: 0;
+  font-size: 12px;
+  color: #475569;
+}
+
+.v-empty-hint {
+  font-size: 11px;
+  color: #0284c7;
+  font-weight: 600;
+}
 
 /* GHN VẬN CHUYỂN */
 
@@ -12794,5 +12570,46 @@ const formatDate = (dateStr) => {
   font-weight: 600;
   margin-top: 2px;
 }
+
+
+.campaign-tag-svg,
+.discount-badge-svg {
+  display: inline-block;
+  vertical-align: -1.5px;
+  flex-shrink: 0;
+}
+
+.confirm-prod-tags {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+}
+.confirm-price-main {
+  font-weight: 600;
+  color: #1e293b;
+}
+.confirm-price-old {
+  font-size: 11px;
+  color: #94a3b8;
+  text-decoration: line-through;
+  margin-top: 2px;
+}
+.text-campaign-discount {
+  color: #ea580c !important;
+  font-weight: 700;
+}
+.inline-flex-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.campaign-tag-svg,
+.voucher-tag-svg {
+  display: inline-block;
+  vertical-align: -1px;
+  flex-shrink: 0;
+}
+
 </style>
 

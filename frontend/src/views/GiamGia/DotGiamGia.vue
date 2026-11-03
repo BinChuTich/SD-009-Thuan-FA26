@@ -376,6 +376,9 @@
                   @change="handleNgayBatDauChange"
                 />
                 <span v-if="errors.ngayBatDau" class="field-error-msg">{{ errors.ngayBatDau }}</span>
+                <div v-else class="field-status-preview">
+                  Trạng thái dự kiến: <b :class="calculatedStatusMeta.class">{{ calculatedStatusMeta.text }}</b>
+                </div>
               </div>
 
               <div class="video-form-group">
@@ -889,7 +892,7 @@ const trangThaiOptions = [
   { value: '', label: 'Tất cả trạng thái' },
   { value: 'ACTIVE', label: 'Đang diễn ra' },
   { value: 'UPCOMING', label: 'Sắp diễn ra' },
-  { value: 'ENDED', label: 'Đã kết thúc' },
+  { value: 'ENDED', label: 'Kết thúc' },
   { value: '0', label: 'Ngừng hoạt động' }
 ]
 
@@ -993,6 +996,11 @@ const refreshMinDateTime = () => {
 }
 
 const minStartDateTime = computed(() => {
+  // Khi chỉnh sửa đợt giảm giá (isEditing === true): cho phép chọn thời gian bắt đầu trước hiện tại
+  if (isEditing.value) {
+    return undefined
+  }
+  // Khi tạo mới: giữ nguyên không cho chọn trước thời gian hiện tại
   return formMinDateTime.value || getCurrentDateTimeString()
 })
 const minStartDate = minStartDateTime
@@ -1001,12 +1009,48 @@ const minStartDate = minStartDateTime
 const minEndDateTime = computed(() => {
   if (formData.value.ngayBatDau) {
     const startMs = new Date(formData.value.ngayBatDau).getTime()
-    const nowMs = getCurrentMinuteFloorMs()
-    if (!isNaN(startMs) && startMs > nowMs) {
-      return formData.value.ngayBatDau
+    if (!isNaN(startMs)) {
+      if (isEditing.value) {
+        return formData.value.ngayBatDau
+      }
+      const nowMs = getCurrentMinuteFloorMs()
+      if (startMs > nowMs) {
+        return formData.value.ngayBatDau
+      }
     }
   }
-  return formMinDateTime.value || getCurrentDateTimeString()
+  return isEditing.value ? undefined : (formMinDateTime.value || getCurrentDateTimeString())
+})
+
+// Tính toán trạng thái dự kiến khi tạo và sửa đợt giảm giá (hiển thị dưới ô Từ ngày)
+const calculatedStatusMeta = computed(() => {
+  if (!formData.value.ngayBatDau) {
+    return { text: 'Chưa xác định', class: 'text-muted' }
+  }
+  const startMs = new Date(formData.value.ngayBatDau).getTime()
+  if (isNaN(startMs)) {
+    return { text: 'Chưa xác định', class: 'text-muted' }
+  }
+  const endMs = formData.value.ngayKetThuc ? new Date(formData.value.ngayKetThuc).getTime() : null
+  const now = currentTime.value || Date.now()
+
+  // 1. Khi thời gian kết thúc đã qua -> Kết thúc
+  if (endMs && !isNaN(endMs) && now >= endMs) {
+    return { text: 'Kết thúc', class: 'text-danger font-bold' }
+  }
+
+  // 2. Khi trạng thái bị tắt / ngừng hoạt động -> Ngừng hoạt động
+  if (formData.value.trangThai === 0) {
+    return { text: 'Ngừng hoạt động', class: 'text-secondary font-bold' }
+  }
+
+  // 3. Khi chưa tới ngày bắt đầu -> Sắp diễn ra
+  if (now < startMs) {
+    return { text: 'Sắp diễn ra', class: 'text-warning font-bold' }
+  }
+
+  // 4. Đang trong thời gian hiệu lực -> Đang diễn ra
+  return { text: 'Đang diễn ra', class: 'text-success font-bold' }
 })
 
 // Hàm tự sinh mã đợt ngẫu nhiên (nút xoay tròn)
@@ -1803,7 +1847,9 @@ const validateNgayBatDauValue = (rawVal, isFromInput = false) => {
   if (isNaN(startMs)) return false
 
   const minMs = getCurrentMinuteFloorMs()
-  if (startMs < minMs) {
+  // Chỉ kiểm tra thời gian bắt đầu không được trước hiện tại khi TẠO MỚI (isEditing === false)
+  // Khi SỬA đợt giảm giá (isEditing === true): cho phép sửa thời gian bắt đầu trước thời gian hiện tại
+  if (!isEditing.value && startMs < minMs) {
     errors.value.ngayBatDau = 'Thời gian bắt đầu không được trước thời gian hiện tại!'
     return false
   }
@@ -1813,8 +1859,10 @@ const validateNgayBatDauValue = (rawVal, isFromInput = false) => {
     if (!isNaN(endMs)) {
       if (endMs <= startMs) {
         errors.value.ngayKetThuc = 'Thời gian kết thúc phải sau thời gian bắt đầu!'
-      } else if (endMs >= minMs) {
-        clearError('ngayKetThuc')
+      } else {
+        if (isEditing.value || endMs >= minMs) {
+          clearError('ngayKetThuc')
+        }
       }
     }
   }
@@ -1844,9 +1892,17 @@ const validateNgayKetThucValue = (rawVal, isFromInput = false) => {
   if (isNaN(endMs)) return false
 
   const minMs = getCurrentMinuteFloorMs()
-  if (endMs < minMs) {
+  if (!isEditing.value && endMs < minMs) {
     errors.value.ngayKetThuc = 'Thời gian kết thúc không được trước thời gian hiện tại!'
     return false
+  }
+
+  if (isEditing.value && originalNgayKetThuc.value) {
+    const origEndMs = new Date(originalNgayKetThuc.value).getTime()
+    if (Math.abs(endMs - origEndMs) > 60000 && endMs < minMs) {
+      errors.value.ngayKetThuc = 'Thời gian kết thúc không được trước thời gian hiện tại!'
+      return false
+    }
   }
 
   if (formData.value.ngayBatDau) {
@@ -1986,9 +2042,9 @@ const getCampaignStatus = (item) => {
   const start = item.ngayBatDau ? new Date(item.ngayBatDau).getTime() : null
   const end = item.ngayKetThuc ? new Date(item.ngayKetThuc).getTime() : null
 
-  // 1. Nếu đã qua ngày kết thúc -> Đã kết thúc
+  // 1. Nếu đã qua ngày kết thúc -> Kết thúc
   if (end && now >= end) {
-    return { code: 'ENDED', text: 'Đã kết thúc', class: 'status-pill-ended' }
+    return { code: 'ENDED', text: 'Kết thúc', class: 'status-pill-ended' }
   }
   // 2. Nếu trạng thái bằng 0 (người dùng tắt) -> Ngừng hoạt động
   if (item.trangThai === 0) {
@@ -4067,6 +4123,31 @@ onUnmounted(() => {
   line-height: 1.3;
   margin-top: 4px;
   display: block;
+}
+.field-status-preview {
+  font-size: 0.82rem;
+  color: #4b5563;
+  margin-top: 5px;
+  line-height: 1.4;
+  display: block;
+}
+.field-status-preview .text-success {
+  color: #16a34a;
+}
+.field-status-preview .text-warning {
+  color: #d97706;
+}
+.field-status-preview .text-danger {
+  color: #dc2626;
+}
+.field-status-preview .text-secondary {
+  color: #475569;
+}
+.field-status-preview .text-muted {
+  color: #94a3b8;
+}
+.field-status-preview .font-bold {
+  font-weight: 700;
 }
 .campaign-ended-banner {
   display: flex;
