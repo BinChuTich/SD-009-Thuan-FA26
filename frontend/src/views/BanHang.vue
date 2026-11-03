@@ -5970,7 +5970,8 @@ function findBestVoucher(customerId, customerName, subtotal) {
 
 
 
-    if (v.soLuongSuDung != null && Number(v.soLuongSuDung) <= 0) return false
+    const qty = v.soLuongSuDung != null ? Number(v.soLuongSuDung) : (v.soLuong != null ? Number(v.soLuong) : null)
+    if (qty !== null && qty <= 0) return false
 
 
 
@@ -6130,6 +6131,15 @@ function autoApplyBestVoucher() {
 
 
 
+  // Nếu hóa đơn hiện tại đang giữ phiếu đã hết số lượng -> tự động gỡ bỏ
+  if (currentInvoice.value?.voucher) {
+    const curV = currentInvoice.value.voucher
+    const curQty = curV.soLuongSuDung != null ? Number(curV.soLuongSuDung) : (curV.soLuong != null ? Number(curV.soLuong) : null)
+    if (curQty !== null && curQty <= 0) {
+      currentInvoice.value.voucher = null
+    }
+  }
+
   const subtotal = totalAmount.value
 
 
@@ -6254,7 +6264,8 @@ function findBestPersonalVoucherForCustomer(customerId, customerName, subtotal) 
 
 
 
-    if (v.soLuongSuDung != null && Number(v.soLuongSuDung) <= 0) return false
+    const qty = v.soLuongSuDung != null ? Number(v.soLuongSuDung) : (v.soLuong != null ? Number(v.soLuong) : null)
+    if (qty !== null && qty <= 0) return false
 
 
 
@@ -6446,7 +6457,12 @@ const fetchVouchers = async () => {
 
 
 
-    availableVouchers.value = list.filter(v => Number(v.trangThai) === 1 || v.trangThai == null)
+    availableVouchers.value = list.filter(v => {
+      const isActive = Number(v.trangThai) === 1 || v.trangThai == null
+      const qty = v.soLuongSuDung != null ? Number(v.soLuongSuDung) : (v.soLuong != null ? Number(v.soLuong) : null)
+      const hasQty = qty == null || qty > 0
+      return isActive && hasQty
+    })
 
 
 
@@ -6471,30 +6487,20 @@ const fetchVouchers = async () => {
 
 
         if (fullV) {
-
-
-
-          if (isVoucherPersonal(fullV) && !isVoucherForCustomer(fullV, inv.customerId, inv.customerName)) {
-
-
-
+          const qty = fullV.soLuongSuDung != null ? Number(fullV.soLuongSuDung) : (fullV.soLuong != null ? Number(fullV.soLuong) : null)
+          if (qty !== null && qty <= 0) {
             inv.voucher = null
-
-
-
+          } else if (isVoucherPersonal(fullV) && !isVoucherForCustomer(fullV, inv.customerId, inv.customerName)) {
+            inv.voucher = null
           } else {
-
-
-
             inv.voucher = fullV
-
-
-
           }
-
-
-
+        } else {
+          inv.voucher = null
         }
+
+
+
 
 
 
@@ -6784,6 +6790,11 @@ const formattedVouchers = computed(() => {
 
   const currentCustName = currentInvoice.value?.customerName
 
+  const validVouchers = availableVouchers.value.filter(v => {
+    const qty = v.soLuongSuDung != null ? Number(v.soLuongSuDung) : (v.soLuong != null ? Number(v.soLuong) : null)
+    return qty === null || qty > 0
+  })
+
 
 
 
@@ -6806,7 +6817,7 @@ const formattedVouchers = computed(() => {
 
 
 
-    availableVouchers.value.forEach(v => {
+    validVouchers.forEach(v => {
 
 
 
@@ -6886,7 +6897,7 @@ const formattedVouchers = computed(() => {
 
 
 
-    availableVouchers.value.forEach(v => {
+    validVouchers.forEach(v => {
 
 
 
@@ -6990,6 +7001,17 @@ const selectedVoucherId = computed({
 
 
 
+    }
+
+    const fQty = found.soLuongSuDung != null ? Number(found.soLuongSuDung) : (found.soLuong != null ? Number(found.soLuong) : null)
+    if (fQty !== null && fQty <= 0) {
+      showToast(`Phiếu "${found.maPhieuGiamGia}" đã hết số lượng sử dụng!`, 'warning')
+      const prev = currentInvoice.value.voucher
+      currentInvoice.value.voucher = null
+      nextTick(() => {
+        currentInvoice.value.voucher = prev
+      })
+      return
     }
 
 
@@ -10450,6 +10472,13 @@ const handleCheckout = async () => {
 
     const v = currentInvoice.value.voucher
 
+    const vQty = v.soLuongSuDung != null ? Number(v.soLuongSuDung) : (v.soLuong != null ? Number(v.soLuong) : null)
+    if (vQty !== null && vQty <= 0) {
+      showToast(`Phiếu giảm giá "${v.maPhieuGiamGia}" đã hết số lượng sử dụng, hệ thống đã tự động gỡ bỏ voucher.`, 'warning')
+      currentInvoice.value.voucher = null
+      return
+    }
+
 
 
     if (isVoucherPersonal(v) && !isVoucherForCustomer(v, currentInvoice.value.customerId, currentInvoice.value.customerName)) {
@@ -11041,6 +11070,8 @@ const handleCheckout = async () => {
 
 
     fetchProductVariants()
+
+    fetchVouchers()
 
 
 

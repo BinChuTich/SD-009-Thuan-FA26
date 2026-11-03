@@ -5462,7 +5462,7 @@ public class HoaDonService {
 
 
 
-        if (pgg.getSoLuongSuDung() != null && pgg.getSoLuongSuDung() <= 0) {
+        if (pgg.getSoLuongSuDung() == null || pgg.getSoLuongSuDung() <= 0) {
 
 
 
@@ -8090,6 +8090,22 @@ public class HoaDonService {
 
 
 
+
+        // Trừ 1 lượt sử dụng của phiếu giảm giá khi bán hàng tại quầy thành công
+        if (saved.getIdPhieuGiamGia() != null) {
+            try {
+                PhieuGiamGia pgg = saved.getIdPhieuGiamGia();
+                int currentQty = pgg.getSoLuongSuDung() != null ? pgg.getSoLuongSuDung() : 0;
+                int newQty = Math.max(0, currentQty - 1);
+                pgg.setSoLuongSuDung(newQty);
+                if (newQty <= 0) {
+                    pgg.setTrangThai(0); // Hết lượt sử dụng -> ngừng hoạt động
+                }
+                phieuGiamGiaRepository.saveAndFlush(pgg);
+            } catch (Exception e) {
+                System.err.println("Lỗi khi cập nhật số lượng phiếu giảm giá POS: " + e.getMessage());
+            }
+        }
         return saved;
 
 
@@ -8952,6 +8968,22 @@ public class HoaDonService {
 
 
 
+
+        // Trừ 1 lượt sử dụng của phiếu giảm giá khi đặt hàng online thành công
+        if (saved.getIdPhieuGiamGia() != null) {
+            try {
+                PhieuGiamGia pgg = saved.getIdPhieuGiamGia();
+                int currentQty = pgg.getSoLuongSuDung() != null ? pgg.getSoLuongSuDung() : 0;
+                int newQty = Math.max(0, currentQty - 1);
+                pgg.setSoLuongSuDung(newQty);
+                if (newQty <= 0) {
+                    pgg.setTrangThai(0);
+                }
+                phieuGiamGiaRepository.saveAndFlush(pgg);
+            } catch (Exception e) {
+                System.err.println("Lỗi khi cập nhật số lượng phiếu giảm giá Online: " + e.getMessage());
+            }
+        }
         return saved;
 
 
