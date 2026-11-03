@@ -6371,7 +6371,11 @@ onMounted(async () => {
                 <div class="shipping-fee-header">
                   <label class="group-label-gray">Phí vận chuyển (VNĐ)</label>
                   <span class="ghn-api-badge cursor-pointer" title="Bấm để tính lại cước qua API Giao Hàng Nhanh" @click="triggerRecalculateShippingFee">
-                    API GHN Express
+                    <svg class="ghn-logo-svg" viewBox="0 0 102 24" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect width="46" height="24" rx="4" fill="#F26522"/>
+                      <text x="23" y="17" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Arial Black', sans-serif" font-weight="900" font-size="13" font-style="italic" text-anchor="middle" letter-spacing="0.5">GHN</text>
+                      <text x="51" y="17" fill="#003366" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-weight="900" font-size="12" font-style="italic" letter-spacing="0.3">Express</text>
+                    </svg>
                   </span>
                 </div>
 
@@ -15174,15 +15178,23 @@ onMounted(async () => {
 .ghn-api-badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  background: #fff7ed;
-  color: #ea580c;
-  border: 1px solid #fed7aa;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.3px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+  user-select: none;
+}
+
+.ghn-api-badge:hover {
+  transform: scale(1.05);
+  opacity: 0.92;
+}
+
+.ghn-logo-svg {
+  display: block;
+  height: 22px;
+  width: auto;
 }
 
 .ghn-dot-pulse {

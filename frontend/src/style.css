@@ -1597,21 +1597,31 @@ td.text-left {
     transform: translateY(-1px) !important;
 }
 
-/* 6. HUY HIỆU TRẠNG THÁI (STATUS BADGES) */
+/* 6. HUY HIỆU TRẠNG THÁI (STATUS BADGES - ĐỒNG BỘ 1 KIỂU PILL CHUẨN) */
 .badge-status,
+.badge-payment,
+.badge-store,
+.badge-online,
 .status-pill {
-    display: inline-block !important;
-    padding: 0.32rem 0.85rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0.26rem 0.72rem !important;
     border-radius: 9999px !important;
-    font-size: 0.78rem !important;
+    font-size: 0.76rem !important;
     font-weight: 600 !important;
     letter-spacing: 0.2px !important;
     white-space: nowrap !important;
+    text-align: center !important;
+    line-height: 1.25 !important;
+    box-sizing: border-box !important;
 }
 
 .status-active,
 .badge-active,
 .badge-paid,
+.payment-paid,
+.status-completed,
 .pill.done {
     background-color: #eaf5ed !important;
     color: #247541 !important;
@@ -1621,6 +1631,8 @@ td.text-left {
 .status-inactive,
 .badge-inactive,
 .badge-cancel,
+.status-cancelled,
+.status-failed,
 .pill.cancel {
     background-color: #f7edeb !important;
     color: #b34a3b !important;
@@ -1630,6 +1642,7 @@ td.text-left {
 .status-pending,
 .badge-pending,
 .badge-unpaid,
+.payment-unpaid,
 .pill.wait {
     background-color: #fef8ec !important;
     color: #b27b18 !important;
@@ -1642,6 +1655,12 @@ td.text-left {
     background-color: #eaf2f6 !important;
     color: #38627d !important;
     border: 1px solid #c5d9e5 !important;
+}
+
+.badge-online {
+    background-color: #eff6ff !important;
+    color: #1d4ed8 !important;
+    border: 1px solid #bfdbfe !important;
 }
 
 /* 7. PHÂN TRANG (PAGINATION) */
