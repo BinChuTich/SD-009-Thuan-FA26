@@ -202,7 +202,7 @@ public class HoaDon {
 
     @JsonProperty("email")
     public String getEmail() {
-        return this.email != null ? this.email : getEmailKhachHang();
+        return (this.email != null && !this.email.trim().isEmpty()) ? this.email.trim() : getEmailKhachHang();
     }
 
     @JsonProperty("maKhachHang")
@@ -211,7 +211,7 @@ public class HoaDon {
     }
 
     public void setEmail(String email) {
-        this.email = email;
+        this.email = (email != null && !email.trim().isEmpty()) ? email.trim() : null;
     }
 
     // Đơn vị vận chuyển (Transient - hỗ trợ lưu kèm ghiChu dạng [ĐVVC: ...])

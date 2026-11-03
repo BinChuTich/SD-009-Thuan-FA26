@@ -8350,7 +8350,7 @@ public class HoaDonService {
 
 
 
-        hoaDon.setEmail(dto.getEmail() != null ? dto.getEmail().trim() : "");
+        hoaDon.setEmail(dto.getEmail() != null && !dto.getEmail().trim().isEmpty() ? dto.getEmail().trim() : null);
 
 
 
@@ -8940,30 +8940,31 @@ public class HoaDonService {
 
 
 
-        // Gửi email xác nhận nếu không phải VNPAY
 
+        // Gửi email xác nhận đặt hàng online ngay lập tức cho khách hàng
+        try {
+            String recipientEmail = null;
+            if (dto.getEmail() != null && !dto.getEmail().trim().isEmpty()) {
+                recipientEmail = dto.getEmail().trim();
+            } else if (saved.getEmailKhachHang() != null && !saved.getEmailKhachHang().trim().isEmpty()) {
+                recipientEmail = saved.getEmailKhachHang().trim();
+            } else if (saved.getEmail() != null && !saved.getEmail().trim().isEmpty()) {
+                recipientEmail = saved.getEmail().trim();
+            }
 
-
-        if (!pt.equalsIgnoreCase("VNPAY") && saved.getEmail() != null && !saved.getEmail().isBlank()) {
-
-
-
-            try {
-
-
-
+            if (recipientEmail != null && recipientEmail.contains("@") && emailService != null) {
+                saved.setEmail(recipientEmail);
                 List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(saved.getId());
-
-
-
-                emailService.sendOrderConfirmationEmail(saved, items, saved.getEmail());
-
-
-
-            } catch (Exception ignored) {}
-
-
-
+                if (items == null || items.isEmpty()) {
+                    items = saved.getChiTietHoaDons() != null ? new java.util.ArrayList<>(saved.getChiTietHoaDons()) : java.util.Collections.emptyList();
+                }
+                System.out.println("==> [createHoaDonOnline] Đang gửi email xác nhận đặt hàng online " + saved.getMaHoaDon() + " tới: " + recipientEmail);
+                emailService.sendOrderConfirmationEmail(saved, items, recipientEmail);
+            } else {
+                System.out.println("==> [createHoaDonOnline] Bỏ qua gửi email: Không có địa chỉ email hợp lệ cho đơn hàng " + saved.getMaHoaDon());
+            }
+        } catch (Exception e) {
+            System.err.println("==> [createHoaDonOnline] Lỗi gửi email xác nhận đặt hàng online: " + e.getMessage());
         }
 
 
