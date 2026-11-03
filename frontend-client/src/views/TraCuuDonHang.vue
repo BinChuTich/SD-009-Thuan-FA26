@@ -348,7 +348,21 @@ const finalTotal = computed(() => {
   return Number(order.value.tienSauGiamGia || order.value.tongTien || 0)
 })
 
-const goodsTotal = computed(() => {
+const campaignDiscount = computed(() => {
+  if (!orderItems.value || orderItems.value.length === 0) return 0
+  let total = 0
+  orderItems.value.forEach(it => {
+    const originPrice = Number(it.idChiTietSanPham?.giaBan || it.giaGoc || 0)
+    const salePrice = Number(it.donGia || it.giaDuocTinh || 0)
+    const qty = Number(it.soLuong || 1)
+    if (originPrice > salePrice && salePrice > 0) {
+      total += (originPrice - salePrice) * qty
+    }
+  })
+  return total
+})
+
+const actualSubtotal = computed(() => {
   if (!order.value) return 0
   if (orderItems.value && orderItems.value.length > 0) {
     return orderItems.value.reduce((sum, it) => sum + (it.thanhTien || ((it.giaDuocTinh || it.donGia || 0) * (it.soLuong || 1))), 0)
@@ -356,12 +370,16 @@ const goodsTotal = computed(() => {
   return Number(order.value.tongTien || 0)
 })
 
+const goodsTotal = computed(() => {
+  return actualSubtotal.value + campaignDiscount.value
+})
+
 const discountAmount = computed(() => {
   if (!order.value) return 0
   if (order.value.tongTienGiamGia && Number(order.value.tongTienGiamGia) > 0) {
     return Number(order.value.tongTienGiamGia)
   }
-  const diff = (goodsTotal.value + shippingFee.value) - finalTotal.value
+  const diff = (actualSubtotal.value + shippingFee.value) - finalTotal.value
   return diff > 0 ? diff : 0
 })
 
@@ -801,8 +819,24 @@ onUnmounted(() => {
                 <span class="calc-label">Tổng tiền hàng</span>
                 <span class="calc-val">{{ formatCurrency(goodsTotal) }}</span>
               </div>
+              <div v-if="campaignDiscount > 0" class="calc-field-row text-green">
+                <span class="calc-label">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                  </svg>
+                  Giảm giá theo đợt
+                </span>
+                <span class="calc-val">- {{ formatCurrency(campaignDiscount) }}</span>
+              </div>
               <div v-if="discountAmount > 0" class="calc-field-row text-green">
-                <span class="calc-label">Giảm giá [{{ order.maPhieuGiamGia || 'VOUCHER' }}]</span>
+                <span class="calc-label">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                  </svg>
+                  Voucher [{{ order.maPhieuGiamGia || order.idPhieuGiamGia?.maPhieuGiamGia || 'VOUCHER' }}]{{ order.idPhieuGiamGia?.tenPhieuGiamGia ? ` (${order.idPhieuGiamGia.tenPhieuGiamGia})` : '' }}
+                </span>
                 <span class="calc-val">- {{ formatCurrency(discountAmount) }}</span>
               </div>
               <div class="calc-field-row">

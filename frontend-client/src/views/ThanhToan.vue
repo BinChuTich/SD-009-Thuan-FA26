@@ -630,13 +630,15 @@ const handleConfirmPlaceOrder = async () => {
 
     const payload = {
       idKhachHang: isClientLoggedIn.value && currentClientUser.value?.id ? currentClientUser.value.id : null,
+      idPhieuGiamGia: appliedVoucher.value?.id || null,
       tenKhachHang: customerName.value.trim(),
       soDienThoai: customerPhone.value.trim(),
       email: customerEmail.value.trim(),
       diaChiNhanHang: fullDeliveryAddress.value,
       ghiChu: orderNote.value.trim(),
       phuongThucThanhToan: paymentMethod.value,
-      tongTien: checkoutAmount,
+      donViVanChuyen: 'Giao Hàng Nhanh (GHN)',
+      tongTien: Math.round(Number(checkoutSubtotal.value)),
       phiVanChuyen: shippingFee.value,
       giamGia: voucherDiscount.value,
       chiTiet: activeCheckoutItems.value.map(i => ({

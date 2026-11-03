@@ -46,6 +46,28 @@ const getOrderSubtotal = (o) => {
   return Number(o.tongTien || 0)
 }
 
+const getOrderCampaignDiscount = (o) => {
+  if (!o) return 0
+  const items = orderItemsMap.value[o.maHoaDon] || []
+  let totalCampaignDiscount = 0
+  items.forEach(it => {
+    const originPrice = Number(it.idChiTietSanPham?.giaBan || it.giaGoc || 0)
+    const salePrice = Number(it.donGia || it.giaDuocTinh || 0)
+    const qty = Number(it.soLuong || 1)
+    if (originPrice > salePrice && salePrice > 0) {
+      totalCampaignDiscount += (originPrice - salePrice) * qty
+    }
+  })
+  return totalCampaignDiscount
+}
+
+const getOrderOriginalSubtotal = (o) => {
+  if (!o) return 0
+  const campDiscount = getOrderCampaignDiscount(o)
+  const actualSubtotal = getOrderSubtotal(o)
+  return actualSubtotal + campDiscount
+}
+
 const getOrderShippingFee = (o) => {
   if (!o || isPosOrder(o)) return 0
   return Number(o.phiShip || o.phiVanChuyen || 0)
@@ -1133,10 +1155,14 @@ onUnmounted(() => {
               <div class="video-summary-col-right">
                 <div class="v-sum-row">
                   <span>Tổng tiền hàng</span>
-                  <span>{{ formatCurrency(getOrderSubtotal(selectedOrder)) }}</span>
+                  <span>{{ formatCurrency(getOrderOriginalSubtotal(selectedOrder)) }}</span>
+                </div>
+                <div v-if="getOrderCampaignDiscount(selectedOrder) > 0" class="v-sum-row text-green">
+                  <span>Giảm giá theo đợt</span>
+                  <span>- {{ formatCurrency(getOrderCampaignDiscount(selectedOrder)) }}</span>
                 </div>
                 <div v-if="getOrderDiscount(selectedOrder) > 0" class="v-sum-row text-green">
-                  <span>Giảm giá [{{ selectedOrder.maPhieuGiamGia || selectedOrder.idPhieuGiamGia?.maPhieuGiamGia || 'VOUCHER' }}]</span>
+                  <span>Voucher [{{ selectedOrder.maPhieuGiamGia || selectedOrder.idPhieuGiamGia?.maPhieuGiamGia || 'VOUCHER' }}]{{ selectedOrder.idPhieuGiamGia?.tenPhieuGiamGia ? ` (${selectedOrder.idPhieuGiamGia.tenPhieuGiamGia})` : '' }}</span>
                   <span>- {{ formatCurrency(getOrderDiscount(selectedOrder)) }}</span>
                 </div>
                 <div class="v-sum-row">
@@ -1237,10 +1263,26 @@ onUnmounted(() => {
                 <div class="panel-box-content">
                   <div class="calc-field-row">
                     <span class="calc-label">Tổng tiền hàng</span>
-                    <span class="calc-val">{{ formatCurrency(getOrderSubtotal(selectedOrder)) }}</span>
+                    <span class="calc-val">{{ formatCurrency(getOrderOriginalSubtotal(selectedOrder)) }}</span>
+                  </div>
+                  <div v-if="getOrderCampaignDiscount(selectedOrder) > 0" class="calc-field-row text-green">
+                    <span class="calc-label">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
+                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                      </svg>
+                      Giảm giá theo đợt
+                    </span>
+                    <span class="calc-val">- {{ formatCurrency(getOrderCampaignDiscount(selectedOrder)) }}</span>
                   </div>
                   <div v-if="getOrderDiscount(selectedOrder) > 0" class="calc-field-row text-green">
-                    <span class="calc-label">Giảm giá [{{ selectedOrder.maPhieuGiamGia || selectedOrder.idPhieuGiamGia?.maPhieuGiamGia || 'VOUCHER' }}]</span>
+                    <span class="calc-label">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
+                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                      </svg>
+                      Voucher [{{ selectedOrder.maPhieuGiamGia || selectedOrder.idPhieuGiamGia?.maPhieuGiamGia || 'VOUCHER' }}]{{ selectedOrder.idPhieuGiamGia?.tenPhieuGiamGia ? ` (${selectedOrder.idPhieuGiamGia.tenPhieuGiamGia})` : '' }}
+                    </span>
                     <span class="calc-val">- {{ formatCurrency(getOrderDiscount(selectedOrder)) }}</span>
                   </div>
                   <div class="calc-field-row">

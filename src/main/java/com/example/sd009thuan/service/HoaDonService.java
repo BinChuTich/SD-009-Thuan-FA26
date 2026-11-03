@@ -4180,7 +4180,15 @@ public class HoaDonService {
 
         hoaDon.setTongTien(tongTien);
 
-        BigDecimal tienSauGiam = tongTien.subtract(giamGia);
+        if (dto.getIdPhieuGiamGia() != null) {
+            phieuGiamGiaRepository.findById(dto.getIdPhieuGiamGia()).ifPresent(hoaDon::setIdPhieuGiamGia);
+        }
+
+        if (dto.getDonViVanChuyen() != null && !dto.getDonViVanChuyen().trim().isEmpty()) {
+            hoaDon.setDonViVanChuyen(dto.getDonViVanChuyen().trim());
+        }
+
+        BigDecimal tienSauGiam = tongTien.subtract(giamGia).add(phiShip);
 
         if (tienSauGiam.compareTo(BigDecimal.ZERO) < 0) tienSauGiam = BigDecimal.ZERO;
 

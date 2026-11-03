@@ -1,6 +1,23 @@
 <script setup>
+import { computed } from 'vue'
 import { formatCurrency } from '@/utils/dinhDang.js'
 import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
+
+const originalSubtotal = computed(() => {
+  return (props.cartItems || []).reduce((sum, item) => {
+    const origin = (item.price != null && item.price > 0) ? item.price : (item.discountPrice || 0)
+    return sum + origin * (item.quantity || 1)
+  }, 0)
+})
+
+const campaignDiscount = computed(() => {
+  return (props.cartItems || []).reduce((sum, item) => {
+    if (item.price && item.discountPrice && item.price > item.discountPrice) {
+      return sum + (item.price - item.discountPrice) * (item.quantity || 1)
+    }
+    return sum
+  }, 0)
+})
 
 const props = defineProps({
   cartItems: {
@@ -136,8 +153,19 @@ const emit = defineEmits([
       <!-- Bảng giá -->
       <div class="price-summary-breakdown">
         <div class="sum-row">
-          <span>Tạm tính:</span>
-          <strong>{{ formatCurrency(cartSubtotal) }}</strong>
+          <span>Tổng tiền hàng:</span>
+          <strong>{{ formatCurrency(originalSubtotal > 0 ? originalSubtotal : cartSubtotal) }}</strong>
+        </div>
+
+        <div v-if="campaignDiscount > 0" class="sum-row text-green">
+          <span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+              <line x1="7" y1="7" x2="7.01" y2="7"></line>
+            </svg>
+            Giảm giá theo đợt:
+          </span>
+          <span class="discount-val">-{{ formatCurrency(campaignDiscount) }}</span>
         </div>
 
         <div class="sum-row">
@@ -148,7 +176,13 @@ const emit = defineEmits([
         </div>
 
         <div v-if="voucherDiscount > 0" class="sum-row">
-          <span>Voucher giảm giá:</span>
+          <span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+              <line x1="7" y1="7" x2="7.01" y2="7"></line>
+            </svg>
+            Voucher [{{ appliedVoucher?.code }}]:
+          </span>
           <span class="discount-val">-{{ formatCurrency(voucherDiscount) }}</span>
         </div>
 
