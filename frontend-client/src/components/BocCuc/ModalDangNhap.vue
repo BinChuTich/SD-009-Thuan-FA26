@@ -220,7 +220,11 @@ const validateAllRegister = async () => {
          !registerErrors.value.agreedPrivacy
 }
 
-// Form cấp lại mật khẩu
+// Quản lý quy trình Quên mật khẩu 3 bước tuần tự:
+// Bước 1: Nhập Email/SĐT -> Nhận mã OTP gửi về mail
+// Bước 2: Nhập đúng mã xác thực OTP 6 số từ mail -> Nhấn Tiếp tục (xác thực OTP)
+// Bước 3: Mới hiển thị giao diện nhập mật khẩu mới & xác nhận mật khẩu mới
+const forgotStep = ref(1) // 1 | 2 | 3
 const forgotEmailOrPhone = ref('')
 const verifiedTargetEmail = ref('')
 const maskedEmail = ref('')
@@ -230,6 +234,7 @@ const forgotConfirmPassword = ref('')
 const showForgotNewPassword = ref(false)
 const showForgotConfirmPassword = ref(false)
 const isForgotOtpSent = ref(false)
+const serverSentOtp = ref('')
 const otpCountdown = ref(0)
 let otpInterval = null
 
@@ -247,6 +252,7 @@ const startOtpTimer = (seconds = 60) => {
 }
 
 const resetForgotState = () => {
+  forgotStep.value = 1
   forgotEmailOrPhone.value = ''
   verifiedTargetEmail.value = ''
   maskedEmail.value = ''
@@ -256,6 +262,7 @@ const resetForgotState = () => {
   showForgotNewPassword.value = false
   showForgotConfirmPassword.value = false
   isForgotOtpSent.value = false
+  serverSentOtp.value = ''
   otpCountdown.value = 0
   if (otpInterval) {
     clearInterval(otpInterval)
@@ -264,7 +271,9 @@ const resetForgotState = () => {
 }
 
 const handleChangeTarget = () => {
+  forgotStep.value = 1
   isForgotOtpSent.value = false
+  serverSentOtp.value = ''
   forgotOtpCode.value = ''
   forgotNewPassword.value = ''
   forgotConfirmPassword.value = ''
@@ -453,7 +462,8 @@ const handleRegister = async () => {
   }
 }
 
-// 3. XỬ LÝ CẤP LẠI MẬT KHẨU
+// 3. XỬ LÝ CẤP LẠI MẬT KHẨU (3 BƯỚC TUẦN TỰ)
+// BƯỚC 1: Gửi mã OTP về email của tài khoản
 const handleSendForgotRequest = async () => {
   errorMessage.value = ''
   successMessage.value = ''
@@ -471,7 +481,9 @@ const handleSendForgotRequest = async () => {
     })
 
     if (res.data?.success) {
+      forgotStep.value = 2
       isForgotOtpSent.value = true
+      serverSentOtp.value = String(res.data.otp || '').trim()
       verifiedTargetEmail.value = res.data.email || inputVal
       maskedEmail.value = res.data.maskedEmail || res.data.email || inputVal
       successMessage.value = res.data.message || `Mã xác thực OTP đã được gửi về email ${maskedEmail.value}. Vui lòng kiểm tra hộp thư!`
@@ -487,7 +499,55 @@ const handleSendForgotRequest = async () => {
   }
 }
 
-// Xử lý xác thực OTP đổi mật khẩu mới
+// BƯỚC 2: Kiểm tra bắt buộc phải trùng khớp đúng mã OTP gửi về mail mới cho tiếp tục
+const handleVerifyForgotOtp = async () => {
+  errorMessage.value = ''
+  successMessage.value = ''
+  const enteredOtp = forgotOtpCode.value.trim()
+
+  if (!enteredOtp) {
+    errorMessage.value = 'Vui lòng nhập mã xác thực OTP!'
+    return
+  }
+  if (enteredOtp.length !== 6 || !/^\d{6}$/.test(enteredOtp)) {
+    errorMessage.value = 'Mã xác thực OTP phải gồm đúng 6 chữ số!'
+    return
+  }
+
+  // Nếu có mã OTP từ phản hồi gửi mã: kiểm tra trùng khớp với mail
+  if (serverSentOtp.value) {
+    if (enteredOtp !== serverSentOtp.value) {
+      errorMessage.value = 'Mã xác thực OTP không chính xác! Vui lòng kiểm tra lại email hoặc nhập lại.'
+      return
+    }
+  } else {
+    // Nếu server không trả về trong payload thì gọi API xác thực
+    loading.value = true
+    try {
+      const email = verifiedTargetEmail.value || forgotEmailOrPhone.value.trim()
+      const res = await api.post('/api/khach-hang/xac-thuc-otp', {
+        email,
+        otp: enteredOtp
+      })
+      if (!res.data?.valid && !res.data?.success) {
+        errorMessage.value = res.data?.message || 'Mã xác thực OTP không chính xác! Vui lòng nhập lại.'
+        return
+      }
+    } catch (err) {
+      errorMessage.value = err.response?.data?.message || 'Mã xác thực OTP không chính xác! Vui lòng nhập lại.'
+      return
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // Bắt buộc trùng mã gửi về mail mới tiếp đến bước tạo mật khẩu mới
+  forgotStep.value = 3
+  errorMessage.value = ''
+  successMessage.value = ''
+}
+
+// BƯỚC 3: Thiết lập mật khẩu mới và hoàn tất đặt lại mật khẩu
 const handleResetPasswordWithOtp = async () => {
   errorMessage.value = ''
   const email = verifiedTargetEmail.value || forgotEmailOrPhone.value.trim()
@@ -496,7 +556,8 @@ const handleResetPasswordWithOtp = async () => {
   const confirmPass = forgotConfirmPassword.value.trim()
 
   if (!otp || otp.length !== 6) {
-    errorMessage.value = 'Vui lòng nhập đủ 6 chữ số mã xác thực OTP!'
+    errorMessage.value = 'Mã OTP không hợp lệ, vui lòng nhập lại mã OTP!'
+    forgotStep.value = 2
     return
   }
   if (!newPass || newPass.length < 6) {
@@ -528,7 +589,11 @@ const handleResetPasswordWithOtp = async () => {
     }
   } catch (err) {
     console.error('Lỗi đổi mật khẩu:', err)
-    errorMessage.value = err.response?.data?.message || 'Xác thực OTP hoặc đặt lại mật khẩu thất bại!'
+    const backendMsg = err.response?.data?.message || 'Xác thực OTP hoặc đặt lại mật khẩu thất bại!'
+    errorMessage.value = backendMsg
+    if (/OTP|xác thực/i.test(backendMsg)) {
+      forgotStep.value = 2
+    }
   } finally {
     loading.value = false
   }
@@ -783,7 +848,9 @@ const handleResetPasswordWithOtp = async () => {
         <div class="auth-header-clean">
           <h2 class="auth-modal-title">Cấp lại mật khẩu</h2>
           <p class="auth-modal-subtitle">
-            {{ isForgotOtpSent ? 'Nhập mã OTP và thiết lập mật khẩu mới' : 'Nhập Email hoặc Số điện thoại để nhận mã xác thực' }}
+            <span v-if="forgotStep === 1">Nhập Email hoặc Số điện thoại để nhận mã xác thực OTP</span>
+            <span v-else-if="forgotStep === 2">Nhập mã OTP gửi về hòm thư để xác thực</span>
+            <span v-else>Thiết lập mật khẩu mới cho tài khoản của bạn</span>
           </p>
         </div>
 
@@ -795,7 +862,7 @@ const handleResetPasswordWithOtp = async () => {
         </div>
 
         <!-- BƯỚC 1: NHẬP EMAIL HOẶC SỐ ĐIỆN THOẠI -->
-        <form v-if="!isForgotOtpSent" @submit.prevent="handleSendForgotRequest" class="coolmate-form-body">
+        <form v-if="forgotStep === 1" @submit.prevent="handleSendForgotRequest" class="coolmate-form-body">
           <div class="form-field-group">
             <label class="form-input-label">Email hoặc Số điện thoại <span class="req-star">*</span></label>
             <div class="pill-input-field">
@@ -817,8 +884,8 @@ const handleResetPasswordWithOtp = async () => {
           </button>
         </form>
 
-        <!-- BƯỚC 2: NHẬP OTP VÀ MẬT KHẨU MỚI -->
-        <form v-else @submit.prevent="handleResetPasswordWithOtp" class="coolmate-form-body">
+        <!-- BƯỚC 2: NHẬP MÃ OTP GỬI VỀ MAIL RỒI MỚI TIẾP TỤC -->
+        <form v-else-if="forgotStep === 2" @submit.prevent="handleVerifyForgotOtp" class="coolmate-form-body">
           <!-- Hộp thông tin email nhận mã -->
           <div class="target-account-box">
             <div class="target-info">
@@ -830,7 +897,7 @@ const handleResetPasswordWithOtp = async () => {
             </button>
           </div>
 
-          <!-- Ô nhập OTP -->
+          <!-- Ô nhập OTP 6 chữ số -->
           <div class="form-field-group">
             <div class="field-label-between">
               <label class="form-input-label">Mã xác thực OTP (6 chữ số) <span class="req-star">*</span></label>
@@ -852,13 +919,34 @@ const handleResetPasswordWithOtp = async () => {
               <input
                 type="text"
                 v-model="forgotOtpCode"
-                placeholder="Nhập 6 chữ số OTP..."
+                placeholder="Nhập OTP"
                 maxlength="6"
                 class="form-pill-input otp-code-input"
+                @input="forgotOtpCode = forgotOtpCode.replace(/\D/g, '').slice(0, 6)"
                 autofocus
                 required
               />
             </div>
+            <span class="field-hint-text">Vui lòng kiểm tra hộp thư đến hoặc hòm thư Spam để lấy mã OTP 6 số.</span>
+          </div>
+
+          <button type="submit" class="btn-pill-submit" :disabled="loading || forgotOtpCode.length !== 6">
+            <span v-if="loading">Đang kiểm tra...</span>
+            <span v-else>TIẾP TỤC &rarr;</span>
+          </button>
+        </form>
+
+        <!-- BƯỚC 3: TẠO MẬT KHẨU MỚI (CHỈ HIỂN THỊ SAU KHI ĐÃ NHẬP OTP XONG) -->
+        <form v-else-if="forgotStep === 3" @submit.prevent="handleResetPasswordWithOtp" class="coolmate-form-body">
+          <!-- Hộp thông tin tài khoản đang đổi mật khẩu -->
+          <div class="target-account-box">
+            <div class="target-info">
+              <span class="target-label">Tài khoản đặt lại mật khẩu:</span>
+              <strong class="target-value">{{ maskedEmail || verifiedTargetEmail }}</strong>
+            </div>
+            <button type="button" class="btn-change-target" @click="handleChangeTarget">
+              Thay đổi
+            </button>
           </div>
 
           <!-- Mật khẩu mới -->
@@ -870,6 +958,7 @@ const handleResetPasswordWithOtp = async () => {
                 v-model="forgotNewPassword"
                 placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)..."
                 class="form-pill-input"
+                autofocus
                 required
               />
               <button
@@ -1387,4 +1476,13 @@ const handleResetPasswordWithOtp = async () => {
   letter-spacing: 6px;
   font-size: 18px;
 }
+
+.otp-code-input::placeholder {
+  letter-spacing: normal !important;
+  font-weight: 500;
+  font-size: 14.5px;
+  color: #94a3b8;
+}
+
+
 </style>

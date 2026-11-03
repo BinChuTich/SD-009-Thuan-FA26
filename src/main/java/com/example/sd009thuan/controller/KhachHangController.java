@@ -275,6 +275,14 @@ public class KhachHangController {
         OtpEntry entry = new OtpEntry(otpCode, System.currentTimeMillis() + 10 * 60 * 1000L);
         forgotOtpCache.put(targetEmail, entry);
         otpCache.put(targetEmail, entry);
+        if (kh.getSoDienThoai() != null && !kh.getSoDienThoai().trim().isEmpty()) {
+            forgotOtpCache.put(kh.getSoDienThoai().trim(), entry);
+            otpCache.put(kh.getSoDienThoai().trim(), entry);
+        }
+        if (!searchKey.equalsIgnoreCase(targetEmail)) {
+            forgotOtpCache.put(searchKey.toLowerCase(), entry);
+            otpCache.put(searchKey.toLowerCase(), entry);
+        }
 
         boolean sent = emailService != null && emailService.sendPasswordResetOtpEmail(targetEmail, kh.getTenKhachHang(), otpCode);
         String masked = maskEmail(targetEmail);
@@ -331,11 +339,13 @@ public class KhachHangController {
                 KhachHang kh = khOpt.get();
                 service.updatePassword(kh.getId(), newPass.trim());
             }
+            forgotOtpCache.remove(email);
+            otpCache.remove(email);
+            return ResponseEntity.ok(Map.of("valid", true, "message", "Đổi mật khẩu thành công!"));
         }
 
-        forgotOtpCache.remove(email);
-        otpCache.remove(email);
-        return ResponseEntity.ok(Map.of("valid", true, "message", "Xác thực mã OTP thành công!"));
+        // Bước 2 chỉ xác thực OTP: Giữ lại OTP trong cache để bước 3 đặt lại mật khẩu mới gọi datLaiMatKhau thành công
+        return ResponseEntity.ok(Map.of("valid", true, "success", true, "message", "Xác thực mã OTP thành công!"));
     }
 
     @PostMapping({"/quen-mat-khau/dat-lai-mat-khau", "/forgot-password/reset"})
@@ -358,6 +368,22 @@ public class KhachHangController {
         OtpEntry entry = forgotOtpCache.get(searchEmail);
         if (entry == null) {
             entry = otpCache.get(searchEmail);
+        }
+        if (entry == null) {
+            Optional<KhachHang> lookupKh = service.findByEmailIgnoreCase(searchEmail)
+                    .or(() -> service.findByEmail(searchEmail))
+                    .or(() -> service.findByPhone(searchEmail));
+            if (lookupKh.isPresent()) {
+                KhachHang k = lookupKh.get();
+                if (k.getEmail() != null) {
+                    entry = forgotOtpCache.get(k.getEmail().trim().toLowerCase());
+                    if (entry == null) entry = otpCache.get(k.getEmail().trim().toLowerCase());
+                }
+                if (entry == null && k.getSoDienThoai() != null) {
+                    entry = forgotOtpCache.get(k.getSoDienThoai().trim());
+                    if (entry == null) entry = otpCache.get(k.getSoDienThoai().trim());
+                }
+            }
         }
 
         if (entry == null) {

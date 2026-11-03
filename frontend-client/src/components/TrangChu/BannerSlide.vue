@@ -103,6 +103,10 @@ onUnmounted(() => {
               </div>
             </div>
           </div>
+          <!-- DÒNG SLOGAN DƯỚI FF T-SHIRT (NGẮT DÒNG ĐỘC LẬP) -->
+          <div class="hero-slogan-box">
+            <p class="hero-slogan">Chất riêng trong từng sắc áo</p>
+          </div>
         </div>
 
         <div class="hero-cta-btns">
@@ -210,8 +214,50 @@ onUnmounted(() => {
 }
 
 .hero-logo-box {
+  display: flex;
+  align-items: flex-end;
+  margin-top: 6px;
+  width: 100%;
+}
+
+.hero-slogan-box {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  clear: both;
+}
+
+.hero-slogan {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  line-height: 1.4;
   display: inline-block;
-  margin-top: 4px;
+  background: linear-gradient(115deg, #94a3b8 0%, #ffffff 25%, #cbd5e1 45%, #ffffff 65%, #94a3b8 85%, #f1f5f9 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: silverGradualBrighten 3.6s ease-in-out infinite;
+}
+
+@keyframes silverGradualBrighten {
+  0% {
+    background-position: 0% 50%;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 2px rgba(255, 255, 255, 0.25));
+    opacity: 0.82;
+  }
+  50% {
+    background-position: 100% 50%;
+    /* Action sang dan len voi hao quang anh bac kim loai lap lanh */
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 10px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 22px rgba(226, 232, 240, 0.85));
+    opacity: 1;
+  }
+  100% {
+    background-position: 200% 50%;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 2px rgba(255, 255, 255, 0.25));
+    opacity: 0.82;
+  }
 }
 
 /* LOGO THUONG HIEU CHUAN: F XANH NAVY + F VANG GOLD + T-SHIRT XANH NAVY + 3 TIA SANG */
