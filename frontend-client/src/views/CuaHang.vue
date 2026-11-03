@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
-import { CATEGORIES_CATALOG, getMergedProducts } from '@/utils/danhMucSanPham.js'
+import { CATEGORIES_CATALOG, getMergedProducts, attachSalesCountToProducts } from '@/utils/danhMucSanPham.js'
 import BoLocSanPham from '@/components/CuaHang/BoLocSanPham.vue'
 import ThanhSapXep from '@/components/CuaHang/ThanhSapXep.vue'
 import TheSanPham from '@/components/DungChung/TheSanPham.vue'
@@ -216,6 +216,10 @@ const loadProducts = async () => {
       })
     })
 
+    try {
+      await attachSalesCountToProducts(mergedList)
+    } catch (e) {}
+
     products.value = mergedList
   } catch (err) {
     console.error('Lỗi tải sản phẩm:', err)
@@ -309,7 +313,14 @@ const filteredProducts = computed(() => {
     }
   }
 
-  if (sortBy.value === 'price-asc') {
+  if (sortBy.value === 'best-seller') {
+    list.sort((a, b) => {
+      const sA = Number(a.daBan ?? a.soLuongDaBan ?? 0)
+      const sB = Number(b.daBan ?? b.soLuongDaBan ?? 0)
+      if (sB !== sA) return sB - sA
+      return (b.id || 0) - (a.id || 0)
+    })
+  } else if (sortBy.value === 'price-asc') {
     list.sort((a, b) => {
       const pA = a.minGiaSauGiam != null && a.coGiamGia ? Number(a.minGiaSauGiam) : Number(a.minGia || 0)
       const pB = b.minGiaSauGiam != null && b.coGiamGia ? Number(b.minGiaSauGiam) : Number(b.minGia || 0)

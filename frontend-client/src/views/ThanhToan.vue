@@ -150,8 +150,12 @@ const fullDeliveryAddress = computed(() => {
 // Danh sách sản phẩm thanh toán (hỗ trợ chọn lọc từ giỏ hàng hoặc mặc định toàn bộ)
 const activeCheckoutItems = computed(() => {
   const custom = getCheckoutItems()
-  if (custom && custom.length > 0) return custom
-  return cartItems.value
+  const rawList = (custom && custom.length > 0) ? custom : cartItems.value
+  return rawList.filter(item => {
+    if (item.trangThai != null && Number(item.trangThai) === 0) return false
+    if (item.productTrangThai != null && Number(item.productTrangThai) === 0) return false
+    return true
+  })
 })
 
 const checkoutSubtotal = computed(() => {
@@ -420,6 +424,30 @@ const qrOrderCode = ref('')
 const qrAmount = ref(0)
 const qrCodeUrl = ref('')
 const momoPayUrl = ref('')
+const vietQrData = ref(null)
+const vietQrChecking = ref(false)
+const copiedField = ref('')
+
+const copyText = (text, fieldName) => {
+  if (!text && text !== 0) return
+  navigator.clipboard.writeText(String(text)).then(() => {
+    copiedField.value = fieldName
+    setTimeout(() => {
+      if (copiedField.value === fieldName) copiedField.value = ''
+    }, 2000)
+  })
+}
+
+const closeVietQrModal = () => {
+  stopPaymentPolling()
+  showVietQrModal.value = false
+  const code = qrOrderCode.value || createdOrder.value?.maHoaDon
+  if (isClientLoggedIn.value && currentClientUser.value?.id) {
+    router.push(code ? `/don-hang?code=${code}` : '/don-hang')
+  } else {
+    router.push(code ? `/tra-cuu?code=${code}` : '/tra-cuu')
+  }
+}
 
 // Quản lý trạng thái chờ thanh toán VNPAY
 const showVnpayWaitingModal = ref(false)
@@ -525,12 +553,33 @@ const startPaymentPolling = (maHoaDon) => {
   }, 3000)
 }
 
-const handleConfirmTransferManual = () => {
-  stopPaymentPolling()
-  stopVnpayTracking()
-  showVietQrModal.value = false
-  showMoMoModal.value = false
-  orderSuccess.value = true
+const handleConfirmTransferManual = async () => {
+  const code = qrOrderCode.value || createdOrder.value?.maHoaDon
+  if (!code) return
+  vietQrChecking.value = true
+  try {
+    const res = await api.get(`/api/payment/check-status/${code}`)
+    if (res.data && res.data.daThanhToan) {
+      stopPaymentPolling()
+      showVietQrModal.value = false
+      orderSuccess.value = true
+      return
+    }
+    await api.post('/api/payment/confirm-transfer', {
+      maHoaDon: code,
+      soTien: qrAmount.value || Number(createdOrder.value?.tienSauGiamGia || 0),
+      ghiChu: 'Khách hàng xác nhận đã chuyển khoản VietQR Napas 247'
+    })
+    stopPaymentPolling()
+    showVietQrModal.value = false
+    orderSuccess.value = true
+  } catch (err) {
+    stopPaymentPolling()
+    showVietQrModal.value = false
+    orderSuccess.value = true
+  } finally {
+    vietQrChecking.value = false
+  }
 }
 
 const handleOpenConfirmModal = () => {
@@ -550,6 +599,15 @@ const handleOpenConfirmModal = () => {
         firstErr.focus()
       }
     }, 100)
+    return
+  }
+
+  const discontinuedItems = activeCheckoutItems.value.filter(i => 
+    (i.trangThai != null && Number(i.trangThai) === 0) || 
+    (i.productTrangThai != null && Number(i.productTrangThai) === 0)
+  )
+  if (discontinuedItems.length > 0) {
+    alert(`Sản phẩm "${discontinuedItems[0].productName}" hiện đã ngừng kinh doanh. Vui lòng quay lại giỏ hàng để xóa/cập nhật!`)
     return
   }
 
@@ -599,7 +657,36 @@ const handleConfirmPlaceOrder = async () => {
     sessionStorage.removeItem('fftshirt_checkout_items')
     sessionStorage.removeItem('fftshirt_checkout_voucher')
 
-    // 1. Cổng VNPAY (Chuyển khoản / Quét QR)
+    // 1. Chuyển khoản VietQR (Napas 247)
+    if (paymentMethod.value === 'VIETQR') {
+      const orderCode = savedOrder.maHoaDon
+      const orderTotal = Math.max(0, Math.round(Number(savedOrder?.tienSauGiamGia || savedOrder?.tongTien || checkoutAmount)))
+      qrOrderCode.value = orderCode
+      qrAmount.value = orderTotal
+
+      try {
+        const tfRes = await api.get('/api/payment/transfer-info', {
+          params: { maHoaDon: orderCode, soTien: orderTotal }
+        })
+        vietQrData.value = tfRes.data
+      } catch (e) {
+        console.warn('Lỗi lấy thông tin VietQR:', e)
+        vietQrData.value = {
+          maHoaDon: orderCode,
+          soTien: orderTotal,
+          nganHang: 'MB Bank (Ngân hàng Quân Đội)',
+          soTaiKhoan: '0988888888',
+          tenChuTaiKhoan: 'FF TSHIRT VIETNAM',
+          noiDungChuyenKhoan: `FFTSHIRT ${orderCode}`,
+          vietQrUrl: `https://img.vietqr.io/image/MB-0988888888-compact2.png?amount=${orderTotal}&addInfo=${encodeURIComponent('FFTSHIRT ' + orderCode)}&accountName=FF%20TSHIRT%20VIETNAM`
+        }
+      }
+      showVietQrModal.value = true
+      startPaymentPolling(orderCode)
+      return
+    }
+
+    // 2. Cổng VNPAY (Chuyển khoản / Quét QR)
     if (paymentMethod.value === 'VNPAY') {
       const vnpAmount = Math.max(1, Math.round(Number(savedOrder?.tienSauGiamGia || savedOrder?.tongTien || checkoutAmount)))
       const vnpPayload = {
@@ -728,7 +815,7 @@ const handleConfirmPlaceOrder = async () => {
                 <div class="sum-row">
                   <span class="sum-label">💳 Phương thức:</span>
                   <span class="sum-val font-semibold">
-                    {{ paymentMethod === 'VNPAY' ? 'Cổng thanh toán VNPAY' : 'Thanh toán khi nhận hàng (COD)' }}
+                    {{ paymentMethod === 'VNPAY' ? 'Cổng thanh toán VNPAY' : (paymentMethod === 'VIETQR' ? 'Chuyển khoản VietQR (Napas 247)' : 'Thanh toán khi nhận hàng (COD)') }}
                   </span>
                 </div>
                 <div class="sum-row sum-total-row">
@@ -899,7 +986,16 @@ const handleConfirmPlaceOrder = async () => {
               <h4 class="csection-title">🛍️ Sản phẩm đặt mua ({{ activeCheckoutItems.length }})</h4>
               <div class="citems-list">
                 <div v-for="item in activeCheckoutItems" :key="item.variantId" class="citem-row">
-                  <img :src="resolveProductImageUrl(item.image)" class="citem-thumb" @error="(e) => e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER" />
+                  <div class="prod-thumb-container">
+                    <img :src="resolveProductImageUrl(item.image)" class="citem-thumb" @error="(e) => e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER" />
+                    <!-- Tag đợt giảm giá ở đầu ảnh -->
+                    <span
+                      v-if="item.coGiamGia || (item.price > item.discountPrice && item.discountPrice > 0)"
+                      class="prod-thumb-discount-tag"
+                    >
+                      -{{ item.phanTramGiam || Math.round((item.price - item.discountPrice) / item.price * 100) }}%
+                    </span>
+                  </div>
                   <div class="citem-info">
                     <div class="citem-name">{{ item.productName }}</div>
                     <div class="citem-meta">{{ item.color }} / Size {{ item.size }} × {{ item.quantity }}</div>
@@ -966,6 +1062,128 @@ const handleConfirmPlaceOrder = async () => {
 
 
   </div>
+    <!-- MODAL THANH TOÁN VIETQR NAPAS 247 -->
+    <Teleport to="body">
+      <div v-if="showVietQrModal" class="vietqr-modal-backdrop animate-fade-in">
+        <div class="vietqr-modal-card animate-pop">
+          <!-- Header -->
+          <div class="vietqr-header">
+            <div class="vietqr-header-left">
+              <span class="vietqr-logo-badge">VietQR</span>
+              <span class="napas-logo-badge">NAPAS 247</span>
+              <span class="vietqr-header-title">Thanh Toán Chuyển Khoản</span>
+            </div>
+            <button class="vietqr-close-x" @click="closeVietQrModal" title="Đóng">&times;</button>
+          </div>
+
+          <!-- Body -->
+          <div class="vietqr-body-grid">
+            <!-- Left: QR Code box -->
+            <div class="vietqr-left-col">
+              <div class="vietqr-frame-box">
+                <img
+                  :src="vietQrData?.vietQrUrl || `https://img.vietqr.io/image/MB-0988888888-compact2.png?amount=${qrAmount}&addInfo=${encodeURIComponent(vietQrData?.noiDungChuyenKhoan || ('FFTSHIRT ' + qrOrderCode))}&accountName=FF%20TSHIRT%20VIETNAM`"
+                  alt="VietQR Napas 247"
+                  class="vietqr-img-tag"
+                />
+              </div>
+              <div class="vietqr-scan-guide">
+                <span class="guide-icon">📷</span>
+                <span class="guide-text">
+                  Quét mã QR bằng ứng dụng <strong>Ngân hàng</strong> hoặc ví <strong>MoMo, ZaloPay, Viettel Money</strong>
+                </span>
+              </div>
+            </div>
+
+            <!-- Right: Account details & status -->
+            <div class="vietqr-right-col">
+              <div class="vietqr-status-bar">
+                <span class="pulse-indicator"></span>
+                <span class="status-text">Hệ thống đang chờ giao dịch chuyển khoản...</span>
+              </div>
+
+              <div class="vietqr-details-table">
+                <div class="vietqr-detail-row">
+                  <span class="d-label">Ngân hàng:</span>
+                  <span class="d-val font-semibold">{{ vietQrData?.nganHang || 'MB Bank (Ngân hàng Quân Đội)' }}</span>
+                </div>
+
+                <div class="vietqr-detail-row">
+                  <span class="d-label">Số tài khoản:</span>
+                  <div class="d-val-with-copy">
+                    <span class="d-val font-mono font-bold">{{ vietQrData?.soTaiKhoan || '0988888888' }}</span>
+                    <button
+                      type="button"
+                      class="btn-copy-chip"
+                      @click="copyText(vietQrData?.soTaiKhoan || '0988888888', 'stk')"
+                    >
+                      {{ copiedField === 'stk' ? '✓ Đã chép' : '📋 Sao chép' }}
+                    </button>
+                  </div>
+                </div>
+
+                <div class="vietqr-detail-row">
+                  <span class="d-label">Chủ tài khoản:</span>
+                  <span class="d-val font-semibold uppercase">{{ vietQrData?.tenChuTaiKhoan || 'FF TSHIRT VIETNAM' }}</span>
+                </div>
+
+                <div class="vietqr-detail-row highlight-amount-row">
+                  <span class="d-label">Số tiền:</span>
+                  <div class="d-val-with-copy">
+                    <span class="d-val price-val">{{ formatCurrency(qrAmount) }}</span>
+                    <button
+                      type="button"
+                      class="btn-copy-chip"
+                      @click="copyText(qrAmount, 'amount')"
+                    >
+                      {{ copiedField === 'amount' ? '✓ Đã chép' : '📋 Sao chép' }}
+                    </button>
+                  </div>
+                </div>
+
+                <div class="vietqr-detail-row highlight-note-row">
+                  <span class="d-label">Nội dung CK:</span>
+                  <div class="d-val-with-copy">
+                    <span class="d-val note-val">{{ vietQrData?.noiDungChuyenKhoan || ('FFTSHIRT ' + qrOrderCode) }}</span>
+                    <button
+                      type="button"
+                      class="btn-copy-chip primary-copy"
+                      @click="copyText(vietQrData?.noiDungChuyenKhoan || ('FFTSHIRT ' + qrOrderCode), 'content')"
+                    >
+                      {{ copiedField === 'content' ? '✓ Đã chép' : '📋 Sao chép' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="vietqr-warning-note">
+                💡 <em>Vui lòng chuyển <strong>đúng nội dung</strong> để hệ thống tự động xác nhận đơn hàng lập tức.</em>
+              </div>
+
+              <div class="vietqr-action-buttons">
+                <button
+                  type="button"
+                  class="btn-confirm-transferred"
+                  :disabled="vietQrChecking"
+                  @click="handleConfirmTransferManual"
+                >
+                  <span v-if="vietQrChecking">⏳ Đang đối soát thanh toán...</span>
+                  <span v-else>✓ Tôi đã chuyển khoản xong</span>
+                </button>
+                <button
+                  type="button"
+                  class="btn-view-order-later"
+                  @click="closeVietQrModal"
+                >
+                  Đóng & Xem chi tiết đơn hàng &rarr;
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- MODAL ĐANG CHỜ THANH TOÁN VNPAY -->
     <Teleport to="body">
       <div v-if="showVnpayWaitingModal" class="vnpay-waiting-modal-backdrop">
@@ -2113,4 +2331,336 @@ const handleConfirmPlaceOrder = async () => {
   color: #1e293b;
 }
 
+
+/* VIETQR MODAL */
+.vietqr-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.vietqr-modal-card {
+  width: 100%;
+  max-width: 680px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.vietqr-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+}
+
+.vietqr-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.vietqr-logo-badge {
+  background: #e11d48;
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 0.85rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.napas-logo-badge {
+  background: #0284c7;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.75rem;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
+.vietqr-header-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.vietqr-close-x {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 1.6rem;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.vietqr-close-x:hover {
+  opacity: 1;
+}
+
+.vietqr-body-grid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 24px;
+  padding: 24px;
+}
+
+@media (max-width: 640px) {
+  .vietqr-body-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 16px;
+  }
+}
+
+.vietqr-left-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.vietqr-frame-box {
+  background: #ffffff;
+  padding: 12px;
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border: 1.5px solid #e2e8f0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.vietqr-img-tag {
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 1;
+  object-fit: contain;
+  display: block;
+}
+
+.vietqr-scan-guide {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  color: #475569;
+  line-height: 1.4;
+  border: 1px dashed #cbd5e1;
+}
+
+.guide-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.vietqr-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.vietqr-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #b45309;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.pulse-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+  animation: qr-pulse 1.5s infinite;
+}
+
+@keyframes qr-pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+.vietqr-details-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #f8fafc;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.vietqr-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.vietqr-detail-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.vietqr-detail-row .d-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.vietqr-detail-row .d-val {
+  color: #1e293b;
+}
+
+.d-val-with-copy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-copy-chip {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  color: #3b82f6;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-copy-chip:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.btn-copy-chip.primary-copy {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #93c5fd;
+}
+
+.highlight-amount-row .price-val {
+  color: #dc2626;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.highlight-note-row .note-val {
+  background: #fef08a;
+  color: #854d0e;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+.vietqr-warning-note {
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.vietqr-action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn-confirm-transferred {
+  width: 100%;
+  height: 42px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+
+.btn-confirm-transferred:hover:not(:disabled) {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.btn-confirm-transferred:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.btn-view-order-later {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 0.84rem;
+  cursor: pointer;
+  padding: 6px;
+  text-decoration: underline;
+  transition: color 0.2s;
+  text-align: center;
+}
+
+.btn-view-order-later:hover {
+  color: #1e293b;
+}
+
+/* THUMBNAIL DISCOUNT TAG */
+.prod-thumb-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.prod-thumb-discount-tag {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1.5px 5.5px;
+  border-radius: 4px;
+  line-height: 1.15;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.45);
+  letter-spacing: -0.2px;
+  z-index: 3;
+  pointer-events: none;
+}
 </style>

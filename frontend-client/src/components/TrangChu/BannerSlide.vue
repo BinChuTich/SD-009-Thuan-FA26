@@ -7,39 +7,33 @@ const router = useRouter()
 const heroSlides = [
   {
     id: 1,
-    image: 'https://images.unsplash.com/photo-1523381294911-8d3cead13475?w=1200&auto=format&fit=crop&q=80',
-    title: 'Áo Phông Nam Basic Cotton',
-    subtitle: '100% Cotton tự nhiên thoáng mát',
-    badgeText: 'Ưu Đãi Thu 2026',
-    badgeDesc: 'Giảm 20% các mẫu tuyển chọn',
+    image: '/images/slides/slide_01.jpg',
+    title: 'Bộ Sưu Tập Áo Thun Năng Động',
     link: '/cua-hang'
   },
   {
     id: 2,
-    image: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=1200&auto=format&fit=crop&q=80',
-    title: 'Áo Polo Nam Smart-Casual',
-    subtitle: 'Dệt Pique mắt chim thoáng khí',
-    badgeText: 'Polo Nam Đẳng Cấp',
-    badgeDesc: 'Chống nhăn & chuẩn form',
-    link: '/cua-hang?danhmuc=Áo Polo Nam'
+    image: '/images/slides/slide_02.jpg',
+    title: 'Thời Trang Dạo Phố Trẻ Trung',
+    link: '/cua-hang'
   },
   {
     id: 3,
-    image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=1200&auto=format&fit=crop&q=80',
-    title: 'Áo Thun Oversize Streetwear',
-    subtitle: 'Phom rộng unisex năng động',
-    badgeText: 'Xu Hướng Giới Trẻ',
-    badgeDesc: 'Cotton dày dặn 250gsm',
-    link: '/cua-hang?danhmuc=Áo Thun Oversize Unisex'
+    image: '/images/slides/slide_03.jpg',
+    title: 'Áo Polo Nam Smart-Casual',
+    link: '/cua-hang'
   },
   {
     id: 4,
-    image: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=1200&auto=format&fit=crop&q=80',
-    title: 'Áo Thun Dry-Fit Thể Thao',
-    subtitle: 'Thoát ẩm & co giãn 4 chiều',
-    badgeText: 'Dry-Fit Performance',
-    badgeDesc: 'Mát lạnh suốt ngày dài',
-    link: '/cua-hang?danhmuc=Áo Thun Thể Thao Dry-Fit'
+    image: '/images/slides/slide_04.jpg',
+    title: 'Polo Nam Trắng Cao Cấp',
+    link: '/cua-hang'
+  },
+  {
+    id: 5,
+    image: '/images/slides/slide_05.jpg',
+    title: 'Áo Polo Nam Form Chuẩn',
+    link: '/cua-hang'
   }
 ]
 
@@ -104,9 +98,7 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
-        <p class="hero-quote">
-          "Trải nghiệm phong cách thời trang năng động, thanh lịch với chất liệu 100% Cotton tự nhiên định lượng cao, thoáng mát suốt ngày dài."
-        </p>
+
         <div class="hero-cta-btns">
           <router-link to="/cua-hang" class="btn-hero-primary">Khám Phá Cửa Hàng &rarr;</router-link>
           <a href="#danh-muc-hot" class="btn-hero-outline">Xem Danh Mục Áo</a>
@@ -128,16 +120,10 @@ onUnmounted(() => {
           >
             <img
               :src="slide.image"
-              :alt="slide.title"
+              :alt="slide.title || 'Banner'"
               class="hero-img-cover"
               loading="eager"
             />
-            <div class="slide-overlay-gradient"></div>
-
-            <div class="slide-caption-info">
-              <span class="slide-sub">{{ slide.subtitle }}</span>
-              <h3 class="slide-title">{{ slide.title }}</h3>
-            </div>
           </div>
 
           <button class="slide-arrow prev-arrow" @click.stop="prevSlide" title="Ảnh trước">
@@ -150,14 +136,6 @@ onUnmounted(() => {
               <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
           </button>
-
-          <div class="floating-deal-badge">
-            <span class="deal-icon">🔥</span>
-            <div>
-              <strong>{{ heroSlides[currentSlide].badgeText }}</strong>
-              <span>{{ heroSlides[currentSlide].badgeDesc }}</span>
-            </div>
-          </div>
 
           <div class="slide-dots">
             <button
@@ -208,7 +186,7 @@ onUnmounted(() => {
 }
 
 .hero-brand-heading-block {
-  margin-bottom: 16px;
+  margin-bottom: 28px;
 }
 
 .hero-subheading-lead {
@@ -382,6 +360,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 20%;
   transition: transform 0.5s ease;
 }
 
@@ -471,7 +450,8 @@ onUnmounted(() => {
 .slide-dots {
   position: absolute;
   bottom: 16px;
-  right: 24px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   gap: 8px;
   z-index: 3;
