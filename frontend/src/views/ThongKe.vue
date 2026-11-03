@@ -244,7 +244,7 @@
         </div>
       </div>
 
-      <!-- 3. Hàng 6 Thẻ chỉ số tổng quan (6 KPI Cards) -->
+      <!-- 3. Hàng 4 Thẻ chỉ số tổng quan (4 KPI Cards) -->
       <div class="kpi-cards-grid">
         <!-- 1. Tổng doanh thu -->
         <div class="kpi-card">
@@ -258,42 +258,45 @@
           <div class="kpi-label">Tổng doanh thu</div>
         </div>
 
-        <!-- 2. Tiền mặt -->
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap pastel-blue">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="6" width="20" height="12" rx="2" />
-              <circle cx="12" cy="12" r="2" />
-              <path d="M6 12h.01M18 12h.01" />
-            </svg>
-          </div>
-          <div class="kpi-value text-dark">{{ formatCurrency(kpiData.cashRevenue) }}</div>
-          <div class="kpi-label">Tiền mặt</div>
-        </div>
 
-        <!-- 3. Chuyển khoản -->
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap pastel-emerald">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="4" width="20" height="16" rx="2" />
-              <line x1="2" y1="10" x2="22" y2="10" />
-            </svg>
-          </div>
-          <div class="kpi-value text-dark">{{ formatCurrency(kpiData.transferRevenue) }}</div>
-          <div class="kpi-label">Chuyển khoản</div>
-        </div>
 
-        <!-- 4. Tổng đơn hàng -->
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap pastel-purple">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="9" cy="21" r="1" />
-              <circle cx="20" cy="21" r="1" />
-              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-            </svg>
+        <!-- 4. Tổng đơn hàng (Có nút Xem bảng & Phân loại Tại quầy / Online) -->
+        <div class="kpi-card kpi-card-clickable" @click="scrollToOrderTable('all')" title="Nhấn để cuộn xuống Bảng danh sách đơn hàng">
+          <div class="kpi-card-top-row">
+            <div class="kpi-icon-wrap pastel-purple">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="9" cy="21" r="1" />
+                <circle cx="20" cy="21" r="1" />
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+              </svg>
+            </div>
+            <span class="kpi-jump-badge">
+              Xem bảng ↓
+            </span>
           </div>
           <div class="kpi-value text-dark">{{ kpiData.totalOrders.toLocaleString('vi-VN') }}</div>
           <div class="kpi-label">Tổng đơn hàng</div>
+          <!-- Phân rã nhanh kênh bán Tại quầy / Online ngay trên Thẻ KPI -->
+          <div class="kpi-card-split-row">
+            <button
+              type="button"
+              class="kpi-split-chip chip-store"
+              @click.stop="scrollToOrderTable('store')"
+              title="Xem đơn Tại quầy trong bảng"
+            >
+              <span class="split-dot store"></span>
+              Tại quầy: <strong>{{ storeOrdersCount }}</strong>
+            </button>
+            <button
+              type="button"
+              class="kpi-split-chip chip-online"
+              @click.stop="scrollToOrderTable('online')"
+              title="Xem đơn Online trong bảng"
+            >
+              <span class="split-dot online"></span>
+              Online: <strong>{{ onlineOrdersCount }}</strong>
+            </button>
+          </div>
         </div>
 
         <!-- 5. Giá trị TB đơn (AOV) -->
@@ -611,6 +614,293 @@
                 <span class="legend-circle-dot dot-orange"></span>
                 <span class="legend-text">Đang xử lý ({{ orderStatusCounts.processing }})</span>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5.5. Khu vực Bảng 'Thống kê đơn hàng' (Danh sách đơn hàng với nút lọc Tại quầy & Online) -->
+      <div class="content-card order-stats-card" id="order-stats-section">
+        <!-- Toolbar tiêu đề & Nút lọc Tại quầy / Online -->
+        <!-- Hàng 1: Tiêu đề bên trái & Cụm nút lọc Kênh bán bên phải -->
+        <div class="order-stats-top-row">
+          <div class="card-title-group">
+            <div class="order-title-icon-wrap">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="9" cy="21" r="1" />
+                <circle cx="20" cy="21" r="1" />
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+              </svg>
+            </div>
+            <div>
+              <div class="order-title-line">
+                <h3 class="card-heading">Danh sách đơn hàng</h3>
+                <span class="badge-total-orders-pill">
+                  {{ filteredOrdersList.length }} / {{ totalOrdersCount }} đơn
+                </span>
+              </div>
+              <div class="card-sub-hint">Chi tiết từng giao dịch và phân loại theo kênh bán</div>
+            </div>
+          </div>
+
+          <!-- CỤM NÚT LỌC KÊNH BÁN: TẤT CẢ / TẠI QUẦY / ONLINE -->
+          <div class="order-channel-segmented-tabs" role="tablist">
+            <button
+              type="button"
+              class="channel-tab-pill"
+              :class="{ active: orderChannelFilter === 'all' }"
+              @click="setOrderChannelFilter('all')"
+              title="Xem tất cả đơn hàng"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+              <span>Tất cả</span>
+              <span class="channel-pill-count">{{ totalOrdersCount }}</span>
+            </button>
+
+            <button
+              type="button"
+              class="channel-tab-pill pill-store"
+              :class="{ active: orderChannelFilter === 'store' }"
+              @click="setOrderChannelFilter('store')"
+              title="Lọc chỉ các đơn bán Tại quầy"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+              <span>Tại quầy</span>
+              <span class="channel-pill-count count-store">{{ storeOrdersCount }}</span>
+            </button>
+
+            <button
+              type="button"
+              class="channel-tab-pill pill-online"
+              :class="{ active: orderChannelFilter === 'online' }"
+              @click="setOrderChannelFilter('online')"
+              title="Lọc chỉ các đơn bán Online"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+              <span>Online</span>
+              <span class="channel-pill-count count-online">{{ onlineOrdersCount }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Hàng 2: Thanh công cụ lọc ngang đẹp mắt -->
+        <div class="order-stats-actions-row">
+          <!-- Ô tìm kiếm -->
+          <div class="input-with-prefix-icon search-order-box">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              v-model="orderTableQuery"
+              placeholder="Tìm mã đơn, khách, SĐT..."
+              class="form-control-minimal with-icon"
+              @input="orderPagination.page = 0"
+            />
+          </div>
+
+          <!-- Combobox lọc Trạng thái đơn -->
+          <div class="select-wrapper-minimal order-filter-select">
+            <select v-model="orderStatusFilter" class="form-control-minimal" @change="orderPagination.page = 0">
+              <option value="">Tất cả trạng thái</option>
+              <option value="5">Đã hoàn thành</option>
+              <option value="1">Chờ xác nhận</option>
+              <option value="2">Đã xác nhận</option>
+              <option value="3">Chờ vận chuyển</option>
+              <option value="4">Vận chuyển</option>
+              <option value="7">Giao hàng thất bại</option>
+              <option value="6">Hủy</option>
+            </select>
+          </div>
+
+          <!-- Combobox lọc Trạng thái thanh toán -->
+          <div class="select-wrapper-minimal order-filter-select">
+            <select v-model="orderPaymentFilter" class="form-control-minimal" @change="orderPagination.page = 0">
+              <option value="">Tất cả thanh toán</option>
+              <option value="1">Đã thanh toán</option>
+              <option value="0">Chưa thanh toán</option>
+            </select>
+          </div>
+
+          <!-- Combobox sắp xếp -->
+          <div class="select-wrapper-minimal order-filter-select">
+            <select v-model="orderSortBy" class="form-control-minimal">
+              <option value="newest">Mới nhất trước</option>
+              <option value="oldest">Cũ nhất trước</option>
+              <option value="highest_val">Giá trị cao nhất</option>
+              <option value="lowest_val">Giá trị thấp nhất</option>
+            </select>
+          </div>
+
+          <!-- Nút Đặt lại -->
+          <button type="button" class="btn-reset-round small" @click="resetOrderTableFilters" title="Đặt lại bộ lọc bảng">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6" />
+              <path d="M1 20v-6h6" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            <span>Đặt lại</span>
+          </button>
+        </div>
+
+        <!-- Cấu trúc Bảng đơn hàng 11 cột -->
+        <div class="table-responsive-clean">
+          <table class="minimal-styled-table">
+            <thead>
+              <tr class="header-brown-beige">
+                <th style="width: 50px; text-align: center">STT</th>
+                <th style="width: 130px">MÃ ĐƠN HÀNG</th>
+                <th style="width: 140px">THỜI GIAN TẠO</th>
+                <th style="min-width: 180px">KHÁCH HÀNG</th>
+                <th style="width: 140px">NHÂN VIÊN</th>
+                <th style="width: 120px; text-align: center">LOẠI ĐƠN</th>
+                <th style="width: 130px; text-align: center">HÌNH THỨC TT</th>
+                <th style="width: 150px; text-align: center">TRẠNG THÁI</th>
+                <th style="width: 140px; text-align: center">THANH TOÁN</th>
+                <th style="width: 140px; text-align: right">THÀNH TIỀN</th>
+                <th style="width: 90px; text-align: center">THAO TÁC</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="paginatedOrders.length === 0">
+                <td colspan="11" style="text-align: center; padding: 2.5rem; color: #8c979d;">
+                  Không có đơn hàng nào phù hợp với bộ lọc hiện tại.
+                </td>
+              </tr>
+              <tr v-for="(ord, index) in paginatedOrders" :key="ord.id || index" class="table-data-row">
+                <td style="text-align: center" class="text-muted-stt">
+                  {{ (orderPagination.page * orderPagination.size) + index + 1 }}
+                </td>
+                <td>
+                  <button type="button" class="order-code-btn" @click="viewInvoiceDetail(ord.maHoaDon)" :title="'Xem chi tiết đơn ' + ord.maHoaDon">
+                    {{ ord.maHoaDon }}
+                  </button>
+                </td>
+                <td>
+                  <div class="order-datetime-cell">
+                    <span class="ord-date">{{ formatOrderDateTime(ord.ngayTao).date }}</span>
+                    <span class="ord-time">{{ formatOrderDateTime(ord.ngayTao).time }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="order-customer-box">
+                    <div class="customer-name font-bold text-dark">{{ ord.tenKhachHang || 'Khách lẻ' }}</div>
+                    <div class="customer-phone" v-if="ord.soDienThoaiKhachHang">{{ ord.soDienThoaiKhachHang }}</div>
+                  </div>
+                </td>
+                <td>
+                  <span class="staff-tag">{{ ord.tenNhanVien || 'Nhân viên' }}</span>
+                </td>
+                <td style="text-align: center">
+                  <span v-if="Number(ord.loaiDon) === 2" class="channel-badge-pill pill-online">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    Online
+                  </span>
+                  <span v-else class="channel-badge-pill pill-store">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    Tại quầy
+                  </span>
+                </td>
+                <td style="text-align: center">
+                  <span class="pay-method-badge" :class="'pay-' + (ord.hinhThucThanhToan || '').toLowerCase()">
+                    {{ ord.hinhThucThanhToan || 'Tiền mặt' }}
+                  </span>
+                </td>
+                <td style="text-align: center">
+                  <span class="order-status-badge" :class="getOrderStatusClass(ord.trangThai)">
+                    <span class="badge-dot"></span>
+                    {{ getOrderStatusText(ord.trangThai) }}
+                  </span>
+                </td>
+                <td style="text-align: center">
+                  <span class="order-payment-badge" :class="Number(ord.trangThaiThanhToan) === 1 ? 'paid' : 'unpaid'">
+                    <span class="badge-dot"></span>
+                    {{ Number(ord.trangThaiThanhToan) === 1 ? 'Đã thanh toán' : 'Chưa thanh toán' }}
+                  </span>
+                </td>
+                <td style="text-align: right" class="font-bold text-dark amount-cell">
+                  {{ formatCurrency(ord.tienSauGiamGia != null ? ord.tienSauGiamGia : ord.tongTien) }}
+                </td>
+                <td style="text-align: center">
+                  <button
+                    type="button"
+                    class="btn-action-view"
+                    @click="viewInvoiceDetail(ord.maHoaDon)"
+                    :title="'Xem chi tiết đơn ' + ord.maHoaDon"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Phân trang Bảng đơn hàng -->
+        <div class="product-table-footer" v-if="filteredOrdersList.length > 0">
+          <div class="footer-left-count">
+            Hiển thị
+            <strong>{{ (orderPagination.page * orderPagination.size) + 1 }}</strong> -
+            <strong>{{ Math.min((orderPagination.page + 1) * orderPagination.size, filteredOrdersList.length) }}</strong>
+            trong tổng số <strong>{{ filteredOrdersList.length }}</strong> đơn hàng
+            <span v-if="orderChannelFilter !== 'all'">
+              (Đang lọc <strong>{{ orderChannelFilter === 'store' ? 'Tại quầy' : 'Online' }}</strong>)
+            </span>
+          </div>
+
+          <div class="footer-center-pagination" v-if="orderTotalPages > 1">
+            <button
+              type="button"
+              class="pg-btn"
+              :disabled="orderPagination.page === 0"
+              @click="goToOrderPage(orderPagination.page - 1)"
+            >
+              ‹
+            </button>
+            <button
+              v-for="pNo in visibleOrderPageNumbers"
+              :key="pNo"
+              type="button"
+              class="pg-btn"
+              :class="{ active: pNo === orderPagination.page }"
+              @click="goToOrderPage(pNo)"
+            >
+              {{ pNo + 1 }}
+            </button>
+            <button
+              type="button"
+              class="pg-btn"
+              :disabled="orderPagination.page >= orderTotalPages - 1"
+              @click="goToOrderPage(orderPagination.page + 1)"
+            >
+              ›
+            </button>
+          </div>
+
+          <div class="footer-right-size">
+            <div class="select-wrapper-minimal size-select">
+              <select v-model.number="orderPagination.size" class="form-control-minimal" @change="orderPagination.page = 0">
+                <option :value="5">Hiển thị 5 bản ghi / trang</option>
+                <option :value="10">Hiển thị 10 bản ghi / trang</option>
+                <option :value="20">Hiển thị 20 bản ghi / trang</option>
+                <option :value="50">Hiển thị 50 bản ghi / trang</option>
+              </select>
             </div>
           </div>
         </div>
@@ -1082,27 +1372,7 @@
           <div class="kpi-label">Tổng doanh thu kỳ</div>
         </div>
 
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap pastel-blue">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="2" y="6" width="20" height="12" rx="2" />
-              <circle cx="12" cy="12" r="2" />
-            </svg>
-          </div>
-          <div class="kpi-value text-dark">{{ formatCurrency(comparisonData.summary?.cashRevenue) }}</div>
-          <div class="kpi-label">Tiền mặt</div>
-        </div>
 
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap pastel-emerald">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="2" y="4" width="20" height="16" rx="2" />
-              <line x1="2" y1="10" x2="22" y2="10" />
-            </svg>
-          </div>
-          <div class="kpi-value text-dark">{{ formatCurrency(comparisonData.summary?.transferRevenue) }}</div>
-          <div class="kpi-label">Chuyển khoản</div>
-        </div>
 
         <div class="kpi-card">
           <div class="kpi-icon-wrap pastel-purple">
@@ -1836,11 +2106,179 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '@/api'
 import * as XLSX from 'xlsx'
 import { showToast } from '@/utils/dialog.js'
 
+const router = useRouter()
+
 const defaultProductImage = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=150&auto=format&fit=crop&q=80'
+
+// ==========================================
+// THỐNG KÊ ĐƠN HÀNG (DANH SÁCH ĐƠN HÀNG VỚI BỘ LỌC TẠI QUẦY & ONLINE)
+// ==========================================
+const allInvoiceStats = ref([])
+const orderChannelFilter = ref('all') // 'all' | 'store' | 'online'
+const orderTableQuery = ref('')
+const orderStatusFilter = ref('')
+const orderPaymentFilter = ref('')
+const orderSortBy = ref('newest')
+const orderPagination = reactive({ page: 0, size: 5 })
+
+const totalOrdersCount = computed(() => allInvoiceStats.value.length)
+const storeOrdersCount = computed(() => allInvoiceStats.value.filter(i => Number(i.loaiDon) === 1).length)
+const onlineOrdersCount = computed(() => allInvoiceStats.value.filter(i => Number(i.loaiDon) === 2).length)
+
+const filteredOrdersList = computed(() => {
+  let list = [...allInvoiceStats.value]
+
+  // 1. Lọc theo Kênh bán: Tại quầy vs Online
+  if (orderChannelFilter.value === 'store') {
+    list = list.filter(item => Number(item.loaiDon) === 1)
+  } else if (orderChannelFilter.value === 'online') {
+    list = list.filter(item => Number(item.loaiDon) === 2)
+  }
+
+  // 2. Lọc theo Trạng thái đơn hàng
+  if (orderStatusFilter.value !== '') {
+    list = list.filter(item => Number(item.trangThai) === Number(orderStatusFilter.value))
+  }
+
+  // 3. Lọc theo Trạng thái thanh toán
+  if (orderPaymentFilter.value !== '') {
+    list = list.filter(item => Number(item.trangThaiThanhToan) === Number(orderPaymentFilter.value))
+  }
+
+  // 4. Tìm kiếm từ khóa (Mã đơn, Khách hàng, SĐT, Nhân viên)
+  const q = orderTableQuery.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter(item => {
+      const ma = String(item.maHoaDon || '').toLowerCase()
+      const kh = String(item.tenKhachHang || '').toLowerCase()
+      const sdt = String(item.soDienThoaiKhachHang || '').toLowerCase()
+      const nv = String(item.tenNhanVien || '').toLowerCase()
+      return ma.includes(q) || kh.includes(q) || sdt.includes(q) || nv.includes(q)
+    })
+  }
+
+  // 5. Sắp xếp
+  list.sort((a, b) => {
+    if (orderSortBy.value === 'newest') {
+      const timeA = a.ngayTao ? new Date(a.ngayTao).getTime() : 0
+      const timeB = b.ngayTao ? new Date(b.ngayTao).getTime() : 0
+      return timeB - timeA
+    } else if (orderSortBy.value === 'oldest') {
+      const timeA = a.ngayTao ? new Date(a.ngayTao).getTime() : 0
+      const timeB = b.ngayTao ? new Date(b.ngayTao).getTime() : 0
+      return timeA - timeB
+    } else if (orderSortBy.value === 'highest_val') {
+      const valA = Number(a.tienSauGiamGia != null ? a.tienSauGiamGia : a.tongTien || 0)
+      const valB = Number(b.tienSauGiamGia != null ? b.tienSauGiamGia : b.tongTien || 0)
+      return valB - valA
+    } else if (orderSortBy.value === 'lowest_val') {
+      const valA = Number(a.tienSauGiamGia != null ? a.tienSauGiamGia : a.tongTien || 0)
+      const valB = Number(b.tienSauGiamGia != null ? b.tienSauGiamGia : b.tongTien || 0)
+      return valA - valB
+    }
+    return 0
+  })
+
+  return list
+})
+
+const orderTotalPages = computed(() => {
+  const total = filteredOrdersList.value.length
+  return Math.ceil(total / orderPagination.size) || 1
+})
+
+const paginatedOrders = computed(() => {
+  const start = orderPagination.page * orderPagination.size
+  return filteredOrdersList.value.slice(start, start + orderPagination.size)
+})
+
+const visibleOrderPageNumbers = computed(() => {
+  const pages = []
+  const maxButtons = 5
+  let start = Math.max(0, orderPagination.page - Math.floor(maxButtons / 2))
+  let end = Math.min(orderTotalPages.value, start + maxButtons)
+  if (end - start < maxButtons) {
+    start = Math.max(0, end - maxButtons)
+  }
+  for (let i = start; i < end; i++) {
+    pages.push(i)
+  }
+  return pages
+})
+
+function goToOrderPage(pageIndex) {
+  if (pageIndex >= 0 && pageIndex < orderTotalPages.value) {
+    orderPagination.page = pageIndex
+  }
+}
+
+function setOrderChannelFilter(channel) {
+  orderChannelFilter.value = channel
+  orderPagination.page = 0
+}
+
+function resetOrderTableFilters() {
+  orderChannelFilter.value = 'all'
+  orderTableQuery.value = ''
+  orderStatusFilter.value = ''
+  orderPaymentFilter.value = ''
+  orderSortBy.value = 'newest'
+  orderPagination.page = 0
+}
+
+function scrollToOrderTable(channel = 'all') {
+  orderChannelFilter.value = channel
+  orderPagination.page = 0
+  const el = document.getElementById('order-stats-section')
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
+
+function viewInvoiceDetail(maHoaDon) {
+  if (!maHoaDon) return
+  router.push(`/hoa-don/${encodeURIComponent(maHoaDon)}`)
+}
+
+function formatOrderDateTime(dt) {
+  if (!dt) return { date: '-', time: '-' }
+  const d = new Date(dt)
+  return {
+    date: d.toLocaleDateString('vi-VN'),
+    time: d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  }
+}
+
+function getOrderStatusText(status) {
+  const map = {
+    1: 'Chờ xác nhận',
+    2: 'Đã xác nhận',
+    3: 'Chờ vận chuyển',
+    4: 'Vận chuyển',
+    5: 'Đã hoàn thành',
+    6: 'Hủy',
+    7: 'Giao hàng thất bại'
+  }
+  return map[Number(status)] || 'Chưa cập nhật'
+}
+
+function getOrderStatusClass(status) {
+  switch (Number(status)) {
+    case 1: return 'status-pending'
+    case 2: return 'status-confirmed'
+    case 3: return 'status-waiting'
+    case 4: return 'status-shipping'
+    case 5: return 'status-completed'
+    case 6: return 'status-cancelled'
+    case 7: return 'status-failed'
+    default: return 'status-default'
+  }
+}
 
 // 0. Quản lý Chế độ xem: 'overview' (Thống kê chính) hoặc 'comparison' (So sánh & Tăng trưởng)
 const viewMode = ref('overview')
@@ -2338,6 +2776,12 @@ async function fetchOverviewData() {
       if (Array.isArray(data.products)) {
         allProductStats.value = data.products
       }
+
+      if (Array.isArray(data.invoices)) {
+        allInvoiceStats.value = data.invoices
+      } else {
+        allInvoiceStats.value = []
+      }
     }
   } catch (err) {
     console.error('Lỗi tải dữ liệu thống kê:', err)
@@ -2421,6 +2865,29 @@ function exportClientExcelFallback() {
         p.stock
       ])
     })
+
+    // Sheet Đơn hàng
+    const orderHeader = ['STT', 'Mã đơn hàng', 'Thời gian tạo', 'Khách hàng', 'Số điện thoại', 'Nhân viên', 'Kênh bán', 'Hình thức TT', 'Trạng thái đơn hàng', 'Trạng thái thanh toán', 'Tổng tiền (đ)', 'Thành tiền (đ)']
+    const orderRows = [orderHeader]
+
+    filteredOrdersList.value.forEach((ord, idx) => {
+      orderRows.push([
+        idx + 1,
+        ord.maHoaDon || '',
+        ord.ngayTao || '',
+        ord.tenKhachHang || 'Khách lẻ',
+        ord.soDienThoaiKhachHang || '',
+        ord.tenNhanVien || '',
+        Number(ord.loaiDon) === 2 ? 'Online' : 'Tại quầy',
+        ord.hinhThucThanhToan || '',
+        getOrderStatusText(ord.trangThai),
+        Number(ord.trangThaiThanhToan) === 1 ? 'Đã thanh toán' : 'Chưa thanh toán',
+        ord.tongTien || 0,
+        ord.tienSauGiamGia != null ? ord.tienSauGiamGia : ord.tongTien || 0
+      ])
+    })
+    const wsOrders = XLSX.utils.aoa_to_sheet(orderRows)
+    XLSX.utils.book_append_sheet(wb, wsOrders, 'DanhSachDonHang')
 
     const wsProducts = XLSX.utils.aoa_to_sheet(productRows)
     XLSX.utils.book_append_sheet(wb, wsProducts, 'ThongKeSanPham')
@@ -3489,7 +3956,7 @@ input.form-control-minimal.with-icon {
 /* 6 KPI Cards */
 .kpi-cards-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -4784,7 +5251,7 @@ input.form-control-minimal.with-icon {
 /* Responsive adjustments */
 @media (max-width: 1280px) {
   .kpi-cards-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -4811,4 +5278,410 @@ input.form-control-minimal.with-icon {
     grid-template-columns: 1fr;
   }
 }
+
+/* ========================================================================= */
+/* CSS CHO BẢNG THỐNG KÊ ĐƠN HÀNG VÀ BỘ LỌC TẠI QUẦY / ONLINE                 */
+/* ========================================================================= */
+.order-stats-card {
+  margin-top: 1.5rem;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e8e2d8;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+.order-stats-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.15rem;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.order-title-icon-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f0ff;
+  color: #7c3aed;
+  flex-shrink: 0;
+  border: 1px solid #ede4fe;
+}
+
+.order-title-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.badge-total-orders-pill {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #6d28d9;
+  background: #ede9fe;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid #ddd6fe;
+}
+
+.card-sub-hint {
+  font-size: 0.8rem;
+  color: #8c979d;
+  margin-top: 2px;
+}
+
+/* Nút lọc segmented tabs Online / Tại quầy */
+.order-channel-segmented-tabs {
+  display: inline-flex;
+  align-items: center;
+  background: #f3ece3;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1.5px solid #ded4c5;
+  gap: 4px;
+}
+
+.channel-tab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 15px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.channel-tab-pill:hover:not(.active) {
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.channel-tab-pill.active {
+  background: #ffffff;
+  color: #1e293b;
+  border-color: #d1c5b4;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.channel-tab-pill.pill-store.active {
+  color: #6b21a8;
+  border-color: #ddd6fe;
+  background: #ffffff;
+}
+
+.channel-tab-pill.pill-online.active {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #ffffff;
+}
+
+.channel-pill-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  border-radius: 999px;
+  background: #dfd4c5;
+  color: #475569;
+}
+
+.channel-tab-pill.active .channel-pill-count {
+  background: #475569;
+  color: #ffffff;
+}
+
+.channel-tab-pill.pill-store.active .channel-pill-count.count-store {
+  background: #7c3aed;
+  color: #ffffff;
+}
+
+.channel-tab-pill.pill-online.active .channel-pill-count.count-online {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+/* Hàng 2: Thanh filter toolbar ngang */
+.order-stats-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: #faf8f5;
+  border: 1px solid #ebe4d8;
+  border-radius: 10px;
+  margin-bottom: 1.15rem;
+}
+
+.search-order-box {
+  flex: 1 1 240px;
+  min-width: 200px;
+  max-width: 320px;
+}
+
+.order-filter-select {
+  flex: 0 0 auto;
+  min-width: 155px;
+}
+
+.order-filter-select select {
+  cursor: pointer;
+}
+
+.order-code-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: monospace;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #8c7355;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.18s;
+}
+
+.order-code-btn:hover {
+  color: #5c452d;
+}
+
+.order-datetime-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ord-date {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.ord-time {
+  font-size: 0.74rem;
+  color: #94a3b8;
+}
+
+.order-customer-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.customer-name {
+  font-size: 0.86rem;
+  color: #1e293b;
+}
+
+.customer-phone {
+  font-size: 0.76rem;
+  color: #8c979d;
+}
+
+.staff-tag {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.channel-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.channel-badge-pill.pill-store {
+  background: #f5f0ff;
+  color: #6b21a8;
+  border: 1px solid #e9d5ff;
+}
+
+.channel-badge-pill.pill-online {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.pay-method-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.order-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.order-payment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.order-payment-badge.paid {
+  background: #eaf8ed;
+  color: #227838;
+  border: 1px solid #bce1c5;
+}
+
+.order-payment-badge.unpaid {
+  background: #fff6eb;
+  color: #b75e11;
+  border: 1px solid #fad3ae;
+}
+
+.badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  background: currentColor;
+}
+
+.amount-cell {
+  font-size: 0.92rem;
+  color: #1e293b;
+}
+
+.kpi-card-clickable {
+  cursor: pointer;
+  transition: all 0.22s ease-in-out;
+}
+
+.kpi-card-clickable:hover {
+  transform: translateY(-2px);
+  border-color: #8c7355 !important;
+  box-shadow: 0 8px 20px rgba(140, 115, 85, 0.12);
+}
+
+.kpi-card-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.kpi-jump-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #7c3aed;
+  background: #f5f3ff;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid #ddd6fe;
+  transition: all 0.18s;
+}
+
+.kpi-card-clickable:hover .kpi-jump-badge {
+  background: #7c3aed;
+  color: #ffffff;
+  border-color: #7c3aed;
+}
+
+.kpi-card-split-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #eedfcb;
+}
+
+.kpi-split-chip {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 0.73rem;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+
+.kpi-split-chip.chip-store {
+  background: #faf5ff;
+  color: #6b21a8;
+  border-color: #f3e8ff;
+}
+
+.kpi-split-chip.chip-store:hover {
+  background: #ede9fe;
+  border-color: #c4b5fd;
+}
+
+.kpi-split-chip.chip-online {
+  background: #eff6ff;
+  color: #1e40af;
+  border-color: #dbeafe;
+}
+
+.kpi-split-chip.chip-online:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.split-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.split-dot.store {
+  background-color: #9333ea;
+}
+
+.split-dot.online {
+  background-color: #2563eb;
+}
+
 </style>

@@ -192,7 +192,17 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
                 staff = h.getNguoiTao();
             }
             dto.setTenNhanVien(staff);
-            dto.setLoaiDon(h.getLoaiDon() != null ? h.getLoaiDon() : 1);
+            int ld = 1;
+            if (Integer.valueOf(2).equals(h.getLoaiDon())) {
+                ld = 2;
+            } else if (h.getGhiChu() != null) {
+                String note = h.getGhiChu().toLowerCase();
+                if (note.contains("online") || note.contains("website") || note.contains("ghn") || note.contains("giao hàng nhanh")) {
+                    ld = 2;
+                }
+            }
+            dto.setLoaiDon(ld);
+            dto.setGhiChu(h.getGhiChu());
             dto.setTongTien(h.getTongTien() != null ? h.getTongTien() : BigDecimal.ZERO);
             dto.setTienSauGiamGia(h.getTienSauGiamGia() != null ? h.getTienSauGiamGia() : dto.getTongTien());
             dto.setTrangThai(h.getTrangThai() != null ? h.getTrangThai() : 1);
@@ -771,6 +781,45 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
                 rowData.createCell(7).setCellValue(p.getRevenue().doubleValue());
                 rowData.createCell(8).setCellValue(p.getStock());
                 pRowIdx++;
+            }
+
+            // Sheet 3: Danh sách đơn hàng
+            Sheet sheet3 = workbook.createSheet("DanhSachDonHang");
+            Row oHeader = sheet3.createRow(0);
+            String[] oColNames = {"STT", "Mã đơn hàng", "Thời gian tạo", "Khách hàng", "Số điện thoại", "Nhân viên", "Kênh bán", "Hình thức TT", "Trạng thái đơn hàng", "Trạng thái thanh toán", "Tổng tiền", "Thành tiền"};
+            for (int i = 0; i < oColNames.length; i++) {
+                Cell c = oHeader.createCell(i);
+                c.setCellValue(oColNames[i]);
+                c.setCellStyle(headerStyle);
+            }
+            int oRowIdx = 1;
+            if (data.getInvoices() != null) {
+                for (ThongKeOverviewDTO.InvoiceStatDTO inv : data.getInvoices()) {
+                    Row rowData = sheet3.createRow(oRowIdx);
+                    rowData.createCell(0).setCellValue(oRowIdx);
+                    rowData.createCell(1).setCellValue(inv.getMaHoaDon() != null ? inv.getMaHoaDon() : "");
+                    rowData.createCell(2).setCellValue(inv.getNgayTao() != null ? inv.getNgayTao().toString() : "");
+                    rowData.createCell(3).setCellValue(inv.getTenKhachHang() != null ? inv.getTenKhachHang() : "Khách lẻ");
+                    rowData.createCell(4).setCellValue(inv.getSoDienThoaiKhachHang() != null ? inv.getSoDienThoaiKhachHang() : "");
+                    rowData.createCell(5).setCellValue(inv.getTenNhanVien() != null ? inv.getTenNhanVien() : "");
+                    rowData.createCell(6).setCellValue(Integer.valueOf(2).equals(inv.getLoaiDon()) ? "Online" : "Tại quầy");
+                    rowData.createCell(7).setCellValue(inv.getHinhThucThanhToan() != null ? inv.getHinhThucThanhToan() : "");
+
+                    String stName = "Chưa xác định";
+                    if (Integer.valueOf(1).equals(inv.getTrangThai())) stName = "Chờ xác nhận";
+                    else if (Integer.valueOf(2).equals(inv.getTrangThai())) stName = "Đã xác nhận";
+                    else if (Integer.valueOf(3).equals(inv.getTrangThai())) stName = "Chờ vận chuyển";
+                    else if (Integer.valueOf(4).equals(inv.getTrangThai())) stName = "Đang giao hàng";
+                    else if (Integer.valueOf(5).equals(inv.getTrangThai())) stName = "Đã hoàn thành";
+                    else if (Integer.valueOf(6).equals(inv.getTrangThai())) stName = "Đã hủy";
+                    else if (Integer.valueOf(7).equals(inv.getTrangThai())) stName = "Giao hàng thất bại";
+                    rowData.createCell(8).setCellValue(stName);
+
+                    rowData.createCell(9).setCellValue(Integer.valueOf(1).equals(inv.getTrangThaiThanhToan()) ? "Đã thanh toán" : "Chưa thanh toán");
+                    rowData.createCell(10).setCellValue(inv.getTongTien() != null ? inv.getTongTien().doubleValue() : 0.0);
+                    rowData.createCell(11).setCellValue(inv.getTienSauGiamGia() != null ? inv.getTienSauGiamGia().doubleValue() : 0.0);
+                    oRowIdx++;
+                }
             }
 
             workbook.write(out);
