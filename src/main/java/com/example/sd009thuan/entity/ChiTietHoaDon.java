@@ -206,4 +206,14 @@ public class ChiTietHoaDon {
         }
         return this.donGia;
     }
+
+    @JsonProperty("phanTramGiam")
+    public Integer getPhanTramGiam() {
+        BigDecimal goc = getGiaBanGoc();
+        if (goc != null && this.donGia != null && goc.compareTo(this.donGia) > 0 && goc.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal diff = goc.subtract(this.donGia);
+            return diff.multiply(BigDecimal.valueOf(100)).divide(goc, 0, java.math.RoundingMode.HALF_UP).intValue();
+        }
+        return 0;
+    }
 }
