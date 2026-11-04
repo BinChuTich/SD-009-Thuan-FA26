@@ -375,6 +375,32 @@ public class HoaDon {
         return BigDecimal.ZERO;
     }
 
+    @JsonProperty("tongTienHangGoc")
+    public BigDecimal getTongTienHangGoc() {
+        if (chiTietHoaDons == null || chiTietHoaDons.isEmpty()) {
+            return this.tongTien != null ? this.tongTien : BigDecimal.ZERO;
+        }
+        BigDecimal total = BigDecimal.ZERO;
+        for (ChiTietHoaDon ct : chiTietHoaDons) {
+            BigDecimal price = (ct.getIdChiTietSanPham() != null && ct.getIdChiTietSanPham().getGiaBan() != null)
+                    ? ct.getIdChiTietSanPham().getGiaBan()
+                    : (ct.getDonGia() != null ? ct.getDonGia() : BigDecimal.ZERO);
+            int qty = ct.getSoLuong() != null ? ct.getSoLuong() : 0;
+            total = total.add(price.multiply(BigDecimal.valueOf(qty)));
+        }
+        return total.compareTo(BigDecimal.ZERO) > 0 ? total : (this.tongTien != null ? this.tongTien : BigDecimal.ZERO);
+    }
+
+    @JsonProperty("tongTienGiamDot")
+    public BigDecimal getTongTienGiamDot() {
+        BigDecimal goc = getTongTienHangGoc();
+        BigDecimal tt = this.tongTien != null ? this.tongTien : BigDecimal.ZERO;
+        if (goc != null && tt != null && goc.compareTo(tt) > 0) {
+            return goc.subtract(tt);
+        }
+        return BigDecimal.ZERO;
+    }
+
     @JsonProperty("trangThaiHienThi")
     public Integer getTrangThaiHienThi() {
         if (Integer.valueOf(6).equals(this.trangThai) && this.ghiChu != null) {

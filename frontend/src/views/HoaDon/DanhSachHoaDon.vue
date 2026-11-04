@@ -226,7 +226,7 @@ const trangThaiDonOptions = [
   { value: '3', label: 'Chờ vận chuyển' },
   { value: '4', label: 'Vận chuyển' },
   { value: '5', label: 'Đã hoàn thành' },
-  { value: '7', label: 'Giao hàng thất bại' },
+  
   { value: '6', label: 'Hủy' }
 ]
 

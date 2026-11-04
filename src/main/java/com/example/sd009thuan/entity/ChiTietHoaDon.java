@@ -198,4 +198,12 @@ public class ChiTietHoaDon {
         }
         return null;
     }
+
+    @JsonProperty("giaBanGoc")
+    public BigDecimal getGiaBanGoc() {
+        if (idChiTietSanPham != null && idChiTietSanPham.getGiaBan() != null) {
+            return idChiTietSanPham.getGiaBan();
+        }
+        return this.donGia;
+    }
 }

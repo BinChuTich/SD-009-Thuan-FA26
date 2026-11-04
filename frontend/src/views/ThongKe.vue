@@ -427,8 +427,7 @@
                 <option value="2">Đã Xác Nhận</option>
                 <option value="3">Chờ Vận Chuyển</option>
                 <option value="4">Vận Chuyển</option>
-                <option value="7">Giao Hàng Thất Bại</option>
-                <option value="6">Hủy</option>
+                                <option value="6">Hủy</option>
               </select>
 
               <select v-model="orderPaymentFilter" class="form-control select-combobox" @change="orderPagination.page = 0">

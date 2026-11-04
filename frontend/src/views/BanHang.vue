@@ -1906,11 +1906,11 @@ const fetchProductVariants = async () => {
 
 
 
-        code: item.idSanPham?.maSanPham || item.maSanPham || item.maChiTietSanPham || `SP00${idx + 1}`,
+        code: item.maSanPham || item.idSanPham?.maSanPham || item.code || '',
 
 
 
-        variantCode: item.maChiTietSanPham || `CTSP0${idx + 1}`,
+        variantCode: item.maChiTietSanPham || item.code || '',
 
 
 
@@ -8116,6 +8116,18 @@ const totalQuantity = computed(() => {
 
 
 
+const totalOriginalAmount = computed(() => {
+  if (!currentInvoice.value) return 0
+  return currentInvoice.value.cart.reduce((sum, item) => {
+    const orig = Number(item.originalPrice || item.giaBan || item.price || 0)
+    return sum + orig * item.quantity
+  }, 0)
+})
+
+const promotionDiscount = computed(() => {
+  return Math.max(0, totalOriginalAmount.value - totalAmount.value)
+})
+
 const totalAmount = computed(() => {
 
 
@@ -11954,7 +11966,8 @@ onMounted(async () => {
 
 
 
-                  <span class="cart-code-badge">{{ item.variantCode || item.code }}</span>
+                  <span class="cart-code-badge" :title="'Mã biến thể CTSP: ' + (item.variantCode || item.code)">{{ item.variantCode || item.code }}</span>
+                  <div v-if="item.code && item.variantCode && item.code !== item.variantCode" class="cart-code-sub" style="font-size: 0.72rem; color: #64748b; margin-top: 2px;" title="Mã sản phẩm">{{ item.code }}</div>
 
 
 
@@ -13201,17 +13214,13 @@ onMounted(async () => {
 
 
           <div class="pos-summary-line">
-
-
-
             <span class="line-label">Tổng tiền hàng ({{ totalQuantity }} SP):</span>
+            <span class="line-value font-bold-dark">{{ formatMoney(totalOriginalAmount > 0 ? totalOriginalAmount : totalAmount) }}</span>
+          </div>
 
-
-
-            <span class="line-value font-bold-dark">{{ formatMoney(totalAmount) }}</span>
-
-
-
+          <div v-if="promotionDiscount > 0" class="pos-summary-line discount-line">
+            <span class="line-label">Đợt giảm giá:</span>
+            <span class="line-value text-discount-bold">- {{ formatMoney(promotionDiscount) }}</span>
           </div>
 
 
@@ -15121,17 +15130,13 @@ onMounted(async () => {
 
 
             <div class="cost-row">
+              <span>Tổng tiền hàng ({{ totalQuantity }} sản phẩm):</span>
+              <strong>{{ formatMoney(totalOriginalAmount > 0 ? totalOriginalAmount : totalAmount) }}</strong>
+            </div>
 
-
-
-              <span>Tạm tính ({{ totalQuantity }} sản phẩm):</span>
-
-
-
-              <strong>{{ formatMoney(totalAmount) }}</strong>
-
-
-
+            <div v-if="promotionDiscount > 0" class="cost-row discount-row">
+              <span>Đợt giảm giá:</span>
+              <strong class="text-discount">- {{ formatMoney(promotionDiscount) }}</strong>
             </div>
 
 

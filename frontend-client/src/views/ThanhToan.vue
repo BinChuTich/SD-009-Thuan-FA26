@@ -158,6 +158,17 @@ const activeCheckoutItems = computed(() => {
   })
 })
 
+const checkoutOriginalSubtotal = computed(() => {
+  return activeCheckoutItems.value.reduce((sum, item) => {
+    const orig = Number(item.originalPrice || item.price || 0)
+    return sum + orig * item.quantity
+  }, 0)
+})
+
+const promotionDiscount = computed(() => {
+  return Math.max(0, checkoutOriginalSubtotal.value - checkoutSubtotal.value)
+})
+
 const checkoutSubtotal = computed(() => {
   return activeCheckoutItems.value.reduce((sum, item) => {
     const p = item.discountPrice != null && item.discountPrice > 0 ? item.discountPrice : item.price
@@ -1000,7 +1011,10 @@ const handleConfirmPlaceOrder = async () => {
                   </div>
                   <div class="citem-info">
                     <div class="citem-name">{{ item.productName }}</div>
-                    <div class="citem-meta">{{ item.color }} / Size {{ item.size }} × {{ item.quantity }}</div>
+                    <div class="citem-meta">
+                      <span v-if="item.variantCode" class="item-variant-code font-mono" style="background:#e0f2fe; color:#0369a1; padding:1px 6px; border-radius:4px; font-size:0.75rem; font-weight:600; margin-right:4px;">[{{ item.variantCode }}]</span>
+                      {{ item.color }} / Size {{ item.size }} × {{ item.quantity }}
+                    </div>
                   </div>
                   <div class="citem-price">
                     {{ formatCurrency((item.discountPrice > 0 ? item.discountPrice : item.price) * item.quantity) }}
@@ -1020,16 +1034,20 @@ const handleConfirmPlaceOrder = async () => {
                   </strong>
                 </div>
                 <div class="cp-row">
-                  <span>Tạm tính:</span>
-                  <span>{{ formatCurrency(checkoutSubtotal) }}</span>
+                  <span>Tổng tiền hàng:</span>
+                  <span>{{ formatCurrency(checkoutOriginalSubtotal > 0 ? checkoutOriginalSubtotal : checkoutSubtotal) }}</span>
+                </div>
+                <div v-if="promotionDiscount > 0" class="cp-row text-success">
+                  <span>Đợt giảm giá:</span>
+                  <span>-{{ formatCurrency(promotionDiscount) }}</span>
+                </div>
+                <div v-if="voucherDiscount > 0" class="cp-row text-success">
+                  <span>Phiếu giảm giá ({{ appliedVoucher?.code }}):</span>
+                  <span>-{{ formatCurrency(voucherDiscount) }}</span>
                 </div>
                 <div class="cp-row">
                   <span>Phí vận chuyển:</span>
                   <span>{{ shippingFee === 0 ? 'MIỄN PHÍ' : formatCurrency(shippingFee) }}</span>
-                </div>
-                <div v-if="voucherDiscount > 0" class="cp-row text-success">
-                  <span>Voucher giảm giá ({{ appliedVoucher?.code }}):</span>
-                  <span>-{{ formatCurrency(voucherDiscount) }}</span>
                 </div>
                 <div class="cp-divider"></div>
                 <div class="cp-row cp-total">
