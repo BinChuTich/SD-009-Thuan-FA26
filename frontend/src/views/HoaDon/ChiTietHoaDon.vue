@@ -773,15 +773,19 @@ const mapInvoiceItem = (item, index) => {
   const productName = getString(product['tenSanPham'], variant['tenSanPham'], raw['tenSanPham'], matchedCatalog['name'], product['ten'], raw['name'], 'Áo Phông Nam Basic Cotton')
   const productCode = getString(product['maSanPham'], variant['maSanPham'], raw['maSanPham'], matchedCatalog['code'], variantCode, `SP00${index + 1}`)
 
+  const exactVariantCode = getString(variant['maChiTietSanPham'], raw['maChiTietSanPham'], '')
+  const exactProductCode = getString(product['maSanPham'], variant['maSanPham'], raw['maSanPham'], '')
+  const origPrice = getNumber(raw['giaBanGoc'], variant['giaBan'], raw['giaBan'], price)
   return {
     id: raw['id'] || (index + 1),
-    code: productCode,
-    variantCode: variantCode || matchedCatalog['variantCode'] || `CTSP0${index + 1}`,
+    code: exactProductCode || exactVariantCode || productCode,
+    variantCode: exactVariantCode || exactProductCode || '',
     name: productName,
     color: colorText,
     colorHex,
     size: sizeText,
     quantity,
+    originalPrice: origPrice,
     price,
     total
   }
@@ -981,8 +985,11 @@ const loadDetail = async (identifier) => {
     invoiceData.value.items = detailList.map(mapInvoiceItem)
 
     // Tính toán tổng tiền
+    const calcOriginalSum = invoiceData.value.items.reduce((sum, it) => sum + (it.originalPrice || it.price) * it.quantity, 0)
     const calcSum = invoiceData.value.items.reduce((sum, it) => sum + it.total, 0)
     const productTotal = calcSum > 0 ? calcSum : getNumber(data['tongTienHang'], data['tienHang'], data['tongTien'], 0)
+    const originalProductTotal = Math.max(calcOriginalSum, productTotal, getNumber(data['tongTienHangGoc'], 0))
+    const promotionDiscount = Math.max(0, originalProductTotal - productTotal, getNumber(data['tongTienGiamDot'], 0))
     const shippingFee = getNumber(data['phiShip'], data['phiVanChuyen'], 0)
 
     let discount = 0
@@ -1023,6 +1030,8 @@ const loadDetail = async (identifier) => {
     }
 
     invoiceData.value.summary = {
+      totalOriginalPrice: originalProductTotal,
+      promotionDiscount,
       totalProductPrice: productTotal,
       shippingFee,
       voucherDiscount: discount,
@@ -1233,17 +1242,6 @@ const visibleSteps = computed(() => {
     ]
   }
 
-  // Đơn giao hàng thất bại (status = 7)
-  if (curStatus === 7) {
-    return [
-      { id: 1, name: pureStore ? 'Hóa đơn chờ' : 'Chờ xác nhận', time: createTime, done: true, active: false, pending: false, icon: 'hourglass' },
-      { id: 2, name: 'Đã xác nhận', done: true, active: false, pending: false, icon: 'check' },
-      { id: 3, name: 'Chờ vận chuyển', done: true, active: false, pending: false, icon: 'box' },
-      { id: 4, name: 'Đang vận chuyển', done: true, active: false, pending: false, icon: 'truck' },
-      { id: 7, name: 'Giao hàng thất bại', time: finishTime, done: false, active: true, pending: false, isFailed: true, icon: 'failed' }
-    ]
-  }
-
   // Đơn tại quầy nhận hàng ngay (không online, không giao hàng): 3 bước gọn nhẹ
   if (pureStore) {
     return [
@@ -1292,8 +1290,6 @@ const nextStatusInfo = computed(() => {
       return { nextStatus: 4, label: 'Giao Vận Chuyển' }
     case 4:
       return { nextStatus: 5, label: 'Hoàn Thành Đơn Hàng' }
-    case 7:
-      return null
     default:
       return null
   }
@@ -1738,7 +1734,6 @@ const statusOptions = [
   { value: 4, label: 'Đang Vận Chuyển' },
   { value: 5, label: 'Hoàn Thành' },
   { value: 6, label: 'Đã Hủy' },
-  { value: 7, label: 'Giao Hàng Thất Bại' }
 ]
 
 // Bộ lọc sản phẩm
@@ -1990,31 +1985,6 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <!-- Banner thông báo khi giao hàng thất bại kèm số lần giao lại -->
-          <div v-if="Number(invoiceData.status) === 7" class="retry-delivery-banner" :class="{ 'banner-limit-reached': isMaxRetriesReached }">
-            <div class="banner-icon">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </svg>
-            </div>
-            <div class="banner-body">
-              <div class="banner-title">
-                <strong>Giao hàng không thành công</strong> &nbsp;•&nbsp;
-                <span class="banner-pill">Đã giao lại {{ deliveryRetryCount }}/3 lần</span>
-              </div>
-              <div class="banner-desc">
-                <template v-if="canRetryDelivery">
-                  Đơn hàng được giao lại tối đa 3 lần (còn lại <strong>{{ 3 - deliveryRetryCount }}</strong> lần giao lại). Bạn có thể chọn <strong>"Giao lại đơn hàng"</strong> hoặc <strong>"Hủy đơn"</strong>.
-                </template>
-                <template v-else>
-                  Đơn hàng đã được giao lại tối đa <strong>3/3 lần</strong> nhưng không thành công. Đơn hàng bắt buộc phải chuyển sang <strong>"Hủy đơn"</strong>.
-                </template>
-              </div>
-            </div>
-          </div>
-
           <!-- Nhóm nút hành động ở góc dưới khung trạng thái -->
           <div class="stepper-footer-actions">
             <div class="left-action-buttons">
@@ -2040,32 +2010,8 @@ onBeforeUnmount(() => {
                 {{ nextStatusInfo.nextStatus === 2 ? (isOnlineDelivery ? '✓ Xác nhận đơn hàng' : '✓ Xác nhận đơn & In hóa đơn') : ('✓ ' + nextStatusInfo.label) }}
               </button>
 
-              <!-- Nút Đánh dấu giao hàng thất bại khi đơn đang vận chuyển -->
-              <button v-if="Number(invoiceData.status) === 4" class="btn-failed-action" type="button" :disabled="updatingStatus" @click="handleFailedDelivery">
-                ✕ Giao hàng thất bại
-              </button>
-
-              <!-- Nút Giao lại đơn hàng khi đơn đã bị đánh dấu thất bại và chưa vượt quá 3 lần -->
-              <button
-                  v-if="Number(invoiceData.status) === 7 && canRetryDelivery"
-                  class="btn-retry-action"
-                  type="button"
-                  :disabled="updatingStatus"
-                  @click="handleRetryDelivery"
-              >
-                ↻ Giao lại đơn hàng (Lần {{ deliveryRetryCount + 1 }}/3)
-              </button>
-
-              <!-- Huy hiệu cảnh báo khi đã giao lại tối đa 3 lần -->
-              <span
-                  v-if="Number(invoiceData.status) === 7 && isMaxRetriesReached"
-                  class="badge-retry-limit-exceeded"
-              >
-                ⚠️ Đã giao lại tối đa 3/3 lần - Bắt buộc hủy đơn
-              </span>
-
-              <!-- Nút Hủy đơn (chỉ hiển thị ở trạng thái Chờ xác nhận (1) và Giao hàng thất bại (7); từ Đã xác nhận (2) trở đi không còn nút hủy) -->
-              <button v-if="Number(invoiceData.status) === 1 || Number(invoiceData.status) === 7" class="btn-cancel-action" type="button" :disabled="updatingStatus" @click="handleCancelQuick">
+              <!-- Nút Hủy đơn (chỉ hiển thị ở trạng thái Chờ xác nhận 1) -->
+              <button v-if="Number(invoiceData.status) === 1" class="btn-cancel-action" type="button" :disabled="updatingStatus" @click="handleCancelQuick">
                 ✕ Hủy đơn
               </button>
             </div>
@@ -2178,12 +2124,11 @@ onBeforeUnmount(() => {
           <div class="summary-body">
             <div class="summary-line">
               <span class="s-label">Tổng tiền hàng</span>
-              <span class="s-val">{{ formatMoney(invoiceData.summary.totalProductPrice) }}</span>
+              <span class="s-val">{{ formatMoney(invoiceData.summary.totalOriginalPrice || invoiceData.summary.totalProductPrice) }}</span>
             </div>
-
-            <div v-if="invoiceData.summary.shippingFee > 0" class="summary-line">
-              <span class="s-label">Phí vận chuyển</span>
-              <span class="s-val">+{{ formatMoney(invoiceData.summary.shippingFee) }}</span>
+            <div v-if="invoiceData.summary.promotionDiscount > 0" class="summary-line summary-discount-row">
+              <span class="s-label">Đợt giảm giá</span>
+              <span class="s-val text-discount">-{{ formatMoney(invoiceData.summary.promotionDiscount) }}</span>
             </div>
 
             <!-- Dòng Giảm giá -->
@@ -2197,6 +2142,11 @@ onBeforeUnmount(() => {
               <span class="s-val" :class="{ 'text-discount': invoiceData.summary.voucherDiscount > 0 }">
                 {{ invoiceData.summary.voucherDiscount > 0 ? '-' : '- ' }}{{ formatMoney(invoiceData.summary.voucherDiscount) }}
               </span>
+            </div>
+
+            <div v-if="invoiceData.summary.shippingFee > 0" class="summary-line">
+              <span class="s-label">Phí vận chuyển</span>
+              <span class="s-val">+{{ formatMoney(invoiceData.summary.shippingFee) }}</span>
             </div>
 
             <div class="summary-divider"></div>
@@ -2641,7 +2591,11 @@ onBeforeUnmount(() => {
         <div class="print-calc-block">
           <div class="calc-row">
             <span>Tổng tiền hàng:</span>
-            <span class="font-bold">{{ formatMoney(invoiceData.summary.totalProductPrice) }}</span>
+            <span class="font-bold">{{ formatMoney(invoiceData.summary.totalOriginalPrice || invoiceData.summary.totalProductPrice) }}</span>
+          </div>
+          <div v-if="invoiceData.summary.promotionDiscount > 0" class="calc-row discount-row">
+            <span>Đợt giảm giá:</span>
+            <span class="font-bold text-discount">-{{ formatMoney(invoiceData.summary.promotionDiscount) }}</span>
           </div>
           <div v-if="invoiceData.summary.voucherDiscount > 0" class="calc-row discount-row">
             <span>Giảm giá ({{ voucherDisplayName || invoiceData.voucher?.code || 'Phiếu giảm giá' }}):</span>

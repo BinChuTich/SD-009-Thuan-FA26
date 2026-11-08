@@ -20,10 +20,7 @@ const activeTab = ref('all') // all, pending, shipping, completed, cancelled
 const searchQuery = ref('')
 const showAuthModal = ref(false)
 
-const handleLoginSuccess = (userData) => {
-  if (userData) {
-    currentClientUser.value = userData
-  }
+const handleLoginSuccess = () => {
   showAuthModal.value = false
   loadOrders()
 }
@@ -49,6 +46,56 @@ const getOrderSubtotal = (o) => {
   return Number(o.tongTien || 0)
 }
 
+const getItemOriginalPrice = (it) => {
+  if (!it) return 0
+  const orig = Number(it.giaBanGoc || it.idChiTietSanPham?.giaBan || it.giaGoc || 0)
+  const current = Number(it.donGia || it.giaDuocTinh || 0)
+  return orig > current ? orig : current
+}
+
+const hasItemDiscount = (it) => {
+  if (!it) return false
+  const orig = Number(it.giaBanGoc || it.idChiTietSanPham?.giaBan || it.giaGoc || 0)
+  const current = Number(it.donGia || it.giaDuocTinh || 0)
+  if (orig > current && current > 0) return true
+  if (it.phanTramGiam && Number(it.phanTramGiam) > 0) return true
+  return false
+}
+
+const getItemDiscountPercent = (it) => {
+  if (it.phanTramGiam && Number(it.phanTramGiam) > 0) return Number(it.phanTramGiam)
+  const orig = getItemOriginalPrice(it)
+  const current = Number(it.donGia || it.giaDuocTinh || 0)
+  if (orig > current && orig > 0) {
+    return Math.round(((orig - current) / orig) * 100)
+  }
+  return 0
+}
+
+const getOrderCampaignDiscount = (o) => {
+  if (!o) return 0
+  const items = (selectedOrder.value && selectedOrder.value.maHoaDon === o.maHoaDon && selectedOrderItems.value.length > 0)
+    ? selectedOrderItems.value
+    : (orderItemsMap.value[o.maHoaDon] || [])
+  let totalCampaignDiscount = 0
+  items.forEach(it => {
+    const originPrice = Number(it.idChiTietSanPham?.giaBan || it.giaGoc || 0)
+    const salePrice = Number(it.donGia || it.giaDuocTinh || 0)
+    const qty = Number(it.soLuong || 1)
+    if (originPrice > salePrice && salePrice > 0) {
+      totalCampaignDiscount += (originPrice - salePrice) * qty
+    }
+  })
+  return totalCampaignDiscount
+}
+
+const getOrderOriginalSubtotal = (o) => {
+  if (!o) return 0
+  const campDiscount = getOrderCampaignDiscount(o)
+  const actualSubtotal = getOrderSubtotal(o)
+  return actualSubtotal + campDiscount
+}
+
 const getOrderShippingFee = (o) => {
   if (!o || isPosOrder(o)) return 0
   return Number(o.phiShip || o.phiVanChuyen || 0)
@@ -64,12 +111,6 @@ const getOrderFinalTotal = (o) => {
 
 const getOrderDiscount = (o) => {
   if (!o) return 0
-  if (o.soTienGiamVoucher != null && Number(o.soTienGiamVoucher) > 0) {
-    return Number(o.soTienGiamVoucher)
-  }
-  if (o.giamGia != null && Number(o.giamGia) > 0) {
-    return Number(o.giamGia)
-  }
   if (o.tongTienGiamGia != null && Number(o.tongTienGiamGia) > 0) {
     return Number(o.tongTienGiamGia)
   }
@@ -80,59 +121,27 @@ const getOrderDiscount = (o) => {
   return diff > 0 ? diff : 0
 }
 
-const getOrderVoucherInfo = (o) => {
-  if (!o) return null
-  const code = o.maPhieuGiamGia || o.idPhieuGiamGia?.maPhieuGiamGia || null
-  const name = o.tenPhieuGiamGia || o.idPhieuGiamGia?.tenPhieuGiamGia || null
-  const discount = getOrderDiscount(o)
-  if (!code && !name && discount <= 0) return null
-  return {
-    code: code || 'VOUCHER',
-    name: name || code || 'Phiếu giảm giá',
-    discount: discount
-  }
-}
-
-const getItemOriginalPrice = (it) => {
-  if (!it) return 0
-  const regular = Number(it.giaGoc || it.idChiTietSanPham?.giaBan || 0)
-  const unit = Number(it.giaDuocTinh || it.donGia || 0)
-  return regular > unit ? regular : unit
-}
-
-const getItemDiscountPercent = (it) => {
-  if (!it) return 0
-  if (it.phanTramGiam != null && Number(it.phanTramGiam) > 0) {
-    return Number(it.phanTramGiam)
-  }
-  const regular = getItemOriginalPrice(it)
-  const unit = Number(it.giaDuocTinh || it.donGia || 0)
-  if (regular > unit && regular > 0) {
-    return Math.round((regular - unit) / regular * 100)
-  }
-  return 0
-}
-
-const hasItemDiscount = (it) => {
-  return Boolean(it.tenDotGiamGia || getItemDiscountPercent(it) > 0 || getItemOriginalPrice(it) > (it.giaDuocTinh || it.donGia || 0))
-}
-
-const getOrderCampaignDiscount = (o) => {
-  if (!o) return 0
-  const items = (orderItemsMap.value && orderItemsMap.value[o.maHoaDon]) || (selectedOrder.value?.maHoaDon === o.maHoaDon ? (selectedOrderItems.value || []) : [])
-  if (!items || items.length === 0) return 0
-  return items.reduce((sum, it) => {
-    const regular = getItemOriginalPrice(it)
-    const unit = Number(it.giaDuocTinh || it.donGia || 0)
-    const qty = Number(it.soLuong || 1)
-    if (regular > unit) {
-      return sum + (regular - unit) * qty
-    }
-    return sum
-  }, 0)
-}
-
 const orderItemsMap = ref({}) // Cache: { [maHoaDon]: itemsArray }
+const expandedOrders = ref({}) // Trạng thái mở rộng danh sách sản phẩm theo mã đơn { [maHoaDon]: boolean }
+
+const toggleExpandOrder = async (orderCode) => {
+  if (!orderCode) return
+  if (!orderItemsMap.value[orderCode] || orderItemsMap.value[orderCode].length === 0) {
+    try {
+      const res = await api.get(`/api/hoa-don/code/${orderCode}/chi-tiet`)
+      orderItemsMap.value[orderCode] = Array.isArray(res.data) ? res.data : []
+    } catch (e) {
+      console.error('Lỗi tải sản phẩm đơn hàng', e)
+    }
+  }
+  expandedOrders.value[orderCode] = !expandedOrders.value[orderCode]
+}
+
+const voucherDisplayName = computed(() => {
+  const o = selectedOrder.value
+  if (!o) return ''
+  return o.idPhieuGiamGia?.tenPhieuGiamGia || o.maPhieuGiamGia || o.idPhieuGiamGia?.maPhieuGiamGia || ''
+})
 
 const resolveProductImg = (it) => {
   const raw = it.anhDaiDien || it.anh || it.hinhAnh || it.idChiTietSanPham?.idSanPham?.anh || it.idChiTietSanPham?.anh
@@ -446,10 +455,10 @@ const loadOrders = async () => {
       const isOnline = Number(o.loaiDon) === 2 || (o.ghiChu && (o.ghiChu.toLowerCase().includes('website') || o.ghiChu.toLowerCase().includes('online')))
       if (!isOnline) return false
       const orderCustId = o.idKhachHang?.id ?? (typeof o.idKhachHang === 'number' || typeof o.idKhachHang === 'string' ? Number(o.idKhachHang) : null)
-      const matchId = Boolean(orderCustId && Number(orderCustId) === Number(uid))
-      const matchPhone = Boolean(uPhone && o.soDienThoaiKhachHang && o.soDienThoaiKhachHang.trim() === uPhone)
-      const matchEmail = Boolean(uEmail && o.ghiChu && o.ghiChu.toLowerCase().includes(uEmail))
-      return matchId || matchPhone || matchEmail
+      return Boolean(orderCustId && Number(orderCustId) === Number(uid))
+
+
+
     })
 
     orders.value = myOrders
@@ -471,6 +480,9 @@ const viewOrderDetail = async (order) => {
   try {
     const res = await api.get(`/api/hoa-don/code/${order.maHoaDon}/chi-tiet`)
     selectedOrderItems.value = Array.isArray(res.data) ? res.data : []
+    if (order.maHoaDon) {
+      orderItemsMap.value[order.maHoaDon] = selectedOrderItems.value
+    }
   } catch (e) {
     console.error('Lỗi tải chi tiết sản phẩm:', e)
   }
@@ -883,13 +895,6 @@ onUnmounted(() => {
                     <span class="pay-status-pill" :class="o.trangThai === 6 ? 'text-green' : (o.trangThaiThanhToan === 1 ? 'text-green' : 'text-orange')">
                       {{ o.trangThai === 6 ? 'Đã hoàn tiền' : (o.trangThaiThanhToan === 1 ? 'Đã thanh toán' : 'Chưa thanh toán') }}
                     </span>
-                    <span v-if="getOrderVoucherInfo(o)" class="order-card-voucher-chip">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
-                      </svg>
-                      Voucher: {{ getOrderVoucherInfo(o).code }}
-                    </span>
                   </div>
 
                   <div class="foot-actions-and-total">
@@ -1201,10 +1206,14 @@ onUnmounted(() => {
               <div class="video-summary-col-right">
                 <div class="v-sum-row">
                   <span>Tổng tiền hàng</span>
-                  <span>{{ formatCurrency(getOrderSubtotal(selectedOrder)) }}</span>
+                  <span>{{ formatCurrency(getOrderOriginalSubtotal(selectedOrder)) }}</span>
+                </div>
+                <div v-if="getOrderCampaignDiscount(selectedOrder) > 0" class="v-sum-row text-green">
+                  <span>Giảm giá theo đợt</span>
+                  <span>- {{ formatCurrency(getOrderCampaignDiscount(selectedOrder)) }}</span>
                 </div>
                 <div v-if="getOrderDiscount(selectedOrder) > 0" class="v-sum-row text-green">
-                  <span>Giảm giá [{{ selectedOrder.maPhieuGiamGia || selectedOrder.idPhieuGiamGia?.maPhieuGiamGia || 'VOUCHER' }}]</span>
+                  <span>Voucher [{{ selectedOrder.maPhieuGiamGia || selectedOrder.idPhieuGiamGia?.maPhieuGiamGia || 'VOUCHER' }}]{{ selectedOrder.idPhieuGiamGia?.tenPhieuGiamGia ? ` (${selectedOrder.idPhieuGiamGia.tenPhieuGiamGia})` : '' }}</span>
                   <span>- {{ formatCurrency(getOrderDiscount(selectedOrder)) }}</span>
                 </div>
                 <div class="v-sum-row">
@@ -1289,9 +1298,9 @@ onUnmounted(() => {
                 </div>
               </div>
 
-              <!-- BẢNG 2: CHI TIẾT TÍNH TIỀN & THÀNH TIỀN -->
-              <div class="panel-box-item">
-                <div class="panel-box-header">
+              <!-- BẢNG 2: TỔNG KẾT THANH TOÁN (GIỮ LẠI PHẦN TỔNG KẾT THANH TOÁN THEO YÊU CẦU) -->
+              <div class="panel-box-item summary-panel-item">
+                <div class="panel-box-header panel-box-header-flex">
                   <div class="panel-title-with-icon">
                     <span class="panel-icon-wrap card-icon-bg">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1299,54 +1308,48 @@ onUnmounted(() => {
                         <line x1="2" y1="10" x2="22" y2="10"></line>
                       </svg>
                     </span>
-                    <h4 class="panel-box-title">Chi tiết thanh toán</h4>
+                    <h4 class="panel-box-title">Tổng kết thanh toán</h4>
                   </div>
+                  <span v-if="getOrderDiscount(selectedOrder) > 0" class="badge-voucher-pill">
+                    ĐÃ DÙNG VOUCHER
+                  </span>
+                  <span v-else class="badge-no-voucher-small">
+                    KHÔNG DÙNG VOUCHER
+                  </span>
                 </div>
                 <div class="panel-box-content">
                   <div class="calc-field-row">
                     <span class="calc-label">Tổng tiền hàng</span>
-                    <span class="calc-val">{{ formatCurrency(getOrderSubtotal(selectedOrder)) }}</span>
+                    <span class="calc-val">{{ formatCurrency(getOrderOriginalSubtotal(selectedOrder)) }}</span>
                   </div>
-                  <!-- Đợt giảm giá sản phẩm -->
-                  <div v-if="getOrderCampaignDiscount(selectedOrder) > 0" class="calc-field-row text-campaign">
-                    <span class="calc-label inline-flex-label">
-                      <svg class="campaign-tag-svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
-                      </svg>
-                      Giảm giá theo đợt
-                    </span>
-                    <span class="calc-val text-campaign">- {{ formatCurrency(getOrderCampaignDiscount(selectedOrder)) }}</span>
+                  <div v-if="getOrderCampaignDiscount(selectedOrder) > 0" class="calc-field-row summary-discount-row">
+                    <span class="calc-label">Đợt giảm giá</span>
+                    <span class="calc-val text-discount">-{{ formatCurrency(getOrderCampaignDiscount(selectedOrder)) }}</span>
                   </div>
-                  <!-- Phiếu giảm giá (Voucher) -->
-                  <div v-if="getOrderDiscount(selectedOrder) > 0 || getOrderVoucherInfo(selectedOrder)" class="calc-field-row text-green">
-                    <span class="calc-label inline-flex-label">
-                      <svg class="voucher-tag-svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
-                      </svg>
-                      Voucher [{{ selectedOrder.maPhieuGiamGia || selectedOrder.idPhieuGiamGia?.maPhieuGiamGia || 'VOUCHER' }}]
-                      <span v-if="selectedOrder.tenPhieuGiamGia && selectedOrder.tenPhieuGiamGia !== selectedOrder.maPhieuGiamGia" class="voucher-subname">({{ selectedOrder.tenPhieuGiamGia }})</span>
-                    </span>
-                    <span class="calc-val font-bold text-green">- {{ formatCurrency(getOrderDiscount(selectedOrder)) }}</span>
-                  </div>
-                  <div class="calc-field-row">
-                    <template v-if="!isPosOrder(selectedOrder)">
-                      <span class="calc-label">Phí vận chuyển ({{ selectedOrder.donViVanChuyen || "GHN" }})</span>
-                      <span class="calc-val ship-val">
-                        <img v-if="(selectedOrder.phiShip || selectedOrder.phiVanChuyen) > 0" src="https://cdn.haitrieu.com/wp-content/uploads/2022/05/Logo-GHN-Orange.png" alt="GHN" class="ghn-mini-logo" />
-                        + {{ getOrderShippingFee(selectedOrder) > 0 ? formatCurrency(getOrderShippingFee(selectedOrder)) : '0 ₫' }}
+
+                  <!-- Dòng Giảm giá -->
+                  <div class="calc-field-row summary-discount-row">
+                    <span class="calc-label discount-label-with-code">
+                      <span>Giảm giá</span>
+                      <span v-if="voucherDisplayName" class="inline-voucher-pill">
+                        {{ voucherDisplayName }}
                       </span>
-                    </template>
-                    <template v-else>
-                      <span class="calc-label">Hình thức nhận</span>
-                      <span class="tag-pos-mini">Mua &amp; nhận tại quầy (0 ₫)</span>
-                    </template>
+                    </span>
+                    <span class="calc-val" :class="{ 'text-discount': getOrderDiscount(selectedOrder) > 0 }">
+                      {{ getOrderDiscount(selectedOrder) > 0 ? '-' : '- ' }}{{ formatCurrency(getOrderDiscount(selectedOrder)) }}
+                    </span>
                   </div>
+
+                  <div v-if="getOrderShippingFee(selectedOrder) > 0" class="calc-field-row">
+                    <span class="calc-label">Phí vận chuyển</span>
+                    <span class="calc-val">+{{ formatCurrency(getOrderShippingFee(selectedOrder)) }}</span>
+                  </div>
+
                   <div class="panel-divider"></div>
+
                   <div class="calc-field-row total-calc-row">
-                    <span class="total-label-text">Thành tiền</span>
-                    <strong class="total-number-big">{{ formatCurrency(getOrderFinalTotal(selectedOrder)) }}</strong>
+                    <span class="total-label-caps">TỔNG TIỀN</span>
+                    <strong class="total-price-blue">{{ formatCurrency(getOrderFinalTotal(selectedOrder)) }}</strong>
                   </div>
                 </div>
               </div>
@@ -1385,32 +1388,32 @@ onUnmounted(() => {
                   <div class="product-info-col">
                     <span class="prod-name">{{ it.tenSanPham || 'Áo thun FF' }}</span>
                     <div class="prod-meta-badges">
+                      <span class="meta-tag code-tag" v-if="it.maChiTietSanPham || it.maSanPham || it.idChiTietSanPham?.maChiTietSanPham">
+                        Mã: {{ it.maChiTietSanPham || it.maSanPham || it.idChiTietSanPham?.maChiTietSanPham }}
+                      </span>
                       <span class="meta-tag color-tag" v-if="it.tenMauSac">Màu: {{ it.tenMauSac }}</span>
                       <span class="meta-tag size-tag" v-if="it.tenKichCo">Size: {{ it.tenKichCo }}</span>
                       <span class="meta-tag qty-tag">Số lượng: x{{ it.soLuong }}</span>
-                      <!-- Đợt giảm giá chip -->
-                      <span class="badge-campaign-chip" v-if="it.tenDotGiamGia || (it.ghiChu && !it.ghiChu.startsWith('{')) || hasItemDiscount(it)">
-                        <svg class="campaign-tag-svg" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                          <line x1="7" y1="7" x2="7.01" y2="7"></line>
-                        </svg>
-                        {{ it.tenDotGiamGia || (it.ghiChu && !it.ghiChu.startsWith('{') ? it.ghiChu : '') || 'Đợt giảm giá' }}
-                      </span>
-                      <span class="discount-percent-badge" v-if="getItemDiscountPercent(it) > 0">
-                        -{{ getItemDiscountPercent(it) }}%
+                      <span class="meta-tag campaign-discount-tag" v-if="hasItemDiscount(it)">
+                        Đợt giảm giá -{{ getItemDiscountPercent(it) }}%
                       </span>
                     </div>
                   </div>
                   <div class="product-price-col">
-                    <div class="price-stack">
-                      <span class="price-val">{{ formatCurrency(it.giaDuocTinh || it.donGia || 0) }}</span>
-                      <span class="price-origin" v-if="getItemOriginalPrice(it) > (it.giaDuocTinh || it.donGia || 0)">
-                        {{ formatCurrency(getItemOriginalPrice(it)) }}
+                    <div class="price-val-row">
+                      <span class="price-val" :class="{ 'price-val-sale': hasItemDiscount(it) }">
+                        {{ formatCurrency(it.giaDuocTinh || it.thanhTien || (it.donGia * it.soLuong) || 0) }}
+                      </span>
+                      <span v-if="hasItemDiscount(it)" class="price-origin-strike">
+                        {{ formatCurrency(getItemOriginalPrice(it) * it.soLuong) }}
                       </span>
                     </div>
-                    <span class="unit-price-sub" v-if="it.soLuong > 1">
-                      {{ formatCurrency((it.giaDuocTinh || it.donGia || 0) / it.soLuong) }}/cái
-                    </span>
+                    <div class="unit-price-sub" v-if="it.soLuong > 1 || hasItemDiscount(it)">
+                      <span>{{ formatCurrency(it.donGia || ((it.giaDuocTinh || it.thanhTien || 0) / it.soLuong)) }}/cái</span>
+                      <span v-if="hasItemDiscount(it)" class="unit-origin-strike">
+                        ({{ formatCurrency(getItemOriginalPrice(it)) }}/cái)
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3200,75 +3203,136 @@ onUnmounted(() => {
 }
 
 
-/* CSS Thẻ Giảm Giá & Voucher trong Đơn Hàng */
-.badge-campaign-chip {
-  display: inline-flex;
+/* CSS bổ sung cho phần Tổng kết thanh toán đồng bộ */
+.panel-box-header-flex {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 3px;
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 4px;
 }
 
-.discount-percent-badge {
+.badge-voucher-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 99px;
+  background: #e6f9ed;
+  color: #1e8343;
+  border: 1px solid #b7ebd0;
+  letter-spacing: 0.4px;
+}
+
+.badge-no-voucher-small {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: #f1f5f9;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+}
+
+.discount-label-with-code {
   display: inline-flex;
   align-items: center;
-  padding: 1px 6px;
-  background: #ecfdf5;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
+  gap: 6px;
+}
+
+.inline-voucher-pill {
+  display: inline-block;
+  background: #fee2e2;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 1px 7px;
   border-radius: 4px;
-  font-size: 11px;
+  line-height: 1.2;
+}
+
+.text-discount {
+  color: #ef4444 !important;
   font-weight: 700;
 }
 
-.order-card-voucher-chip {
+.total-label-caps {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #1e293b;
+  letter-spacing: 0.5px;
+}
+
+.total-price-blue {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #496883;
+}
+
+.meta-tag.code-tag {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  font-weight: 700;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.expanded-items-box {
+  background: #fafafa;
+  border-left: 2px solid #cbd5e1;
+  margin: 6px 0 10px 18px;
+  padding: 6px 12px;
+  border-radius: 0 6px 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sub-expanded-row {
+  border-bottom: 1px dashed #e2e8f0;
+  padding-bottom: 6px;
+}
+
+.sub-expanded-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.meta-tag.campaign-discount-tag {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 4px;
-  margin-left: 8px;
 }
 
-.price-stack {
+.price-val-row {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.price-origin {
-  font-size: 12px;
+.price-val-sale {
+  color: #dc2626 !important;
+  font-weight: 800;
+}
+
+.price-origin-strike {
+  font-size: 0.82rem;
   color: #94a3b8;
   text-decoration: line-through;
   font-weight: 500;
-  margin-top: 1px;
 }
 
-.inline-flex-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.text-campaign {
-  color: #ea580c !important;
-  font-weight: 600;
-}
-
-.voucher-subname {
-  font-size: 11px;
-  color: #64748b;
-  font-weight: normal;
+.unit-origin-strike {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  text-decoration: line-through;
   margin-left: 4px;
 }
 </style>

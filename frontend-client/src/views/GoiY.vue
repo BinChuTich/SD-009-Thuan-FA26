@@ -19,28 +19,30 @@ const filterNeed = ref('all') // 'all' | 'daily' | 'work' | 'style'
 const filterBody = ref('all') // 'all' | 'slim' | 'fit' | 'plus'
 const filterColor = ref('all') // 'all' | 'Đen' | 'Trắng' | 'Xám' | 'Xanh navy' | ...
 
-const DEFAULT_COLOR_ICONS = {
-  'đen': '⚫',
-  'trắng': '⚪',
-  'xám': '🔘',
-  'ghi': '🔘',
-  'xanh navy': '🔵',
-  'navy': '🔵',
-  'xanh': '🔹',
-  'đỏ': '🔴',
-  'vàng': '🟡',
-  'be': '🟤',
-  'nâu': '🟤',
-  'hồng': '🌸',
-  'cam': '🟠'
+const COLOR_HEX_MAP = {
+  'đen': '#18181b',
+  'trắng': '#ffffff',
+  'xám': '#94a3b8',
+  'ghi': '#94a3b8',
+  'xanh navy': '#1e3a8a',
+  'navy': '#1e3a8a',
+  'xanh dương': '#2563eb',
+  'xanh lá': '#16a34a',
+  'xanh': '#0284c7',
+  'đỏ': '#dc2626',
+  'vàng': '#eab308',
+  'be': '#d4b996',
+  'nâu': '#78350f',
+  'hồng': '#ec4899',
+  'cam': '#ea580c'
 }
 
-const getColorIcon = (colorName) => {
+const getColorHex = (colorName) => {
   const c = (colorName || '').trim().toLowerCase()
-  for (const [key, icon] of Object.entries(DEFAULT_COLOR_ICONS)) {
-    if (c.includes(key)) return icon
+  for (const [key, hex] of Object.entries(COLOR_HEX_MAP)) {
+    if (c.includes(key)) return hex
   }
-  return '🎨'
+  return '#cbd5e1'
 }
 
 const colorOptions = computed(() => {
@@ -50,10 +52,15 @@ const colorOptions = computed(() => {
       if (c && typeof c === 'string') set.add(c.trim())
     })
   })
-  return Array.from(set).map(name => ({
-    name,
-    icon: getColorIcon(name)
-  }))
+  return Array.from(set).map(name => {
+    const hex = getColorHex(name)
+    const isLight = hex.toLowerCase() === '#ffffff' || hex.toLowerCase() === '#fafafa' || hex.toLowerCase() === '#f8fafc'
+    return {
+      name,
+      hex,
+      isLight
+    }
+  })
 })
 
 // Tải danh sách áo phông đang kinh doanh (trangThai = 1) từ API
@@ -252,103 +259,139 @@ onMounted(() => {
       <!-- 2. KHỐI TRỢ LÝ GỢI Ý ÁO PHÔNG THEO NHU CẦU & VÓC DÁNG -->
       <section class="smart-finder-card">
         <div class="finder-header">
-          <div class="finder-icon">🎯</div>
-          <div>
-            <h2 class="finder-title">Trợ Lý Gợi Ý</h2>
-            <p class="finder-subtitle">Chọn nhu cầu của bạn để xem mẫu áo vừa vặn và tôn dáng nhất</p>
+          <div class="finder-header-left">
+            <div class="finder-icon-wrap">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+            </div>
+            <div>
+              <h2 class="finder-title">Trợ Lý Gợi Ý</h2>
+              <p class="finder-subtitle">Chọn nhu cầu của bạn để xem mẫu áo vừa vặn và tôn dáng nhất</p>
+            </div>
           </div>
+          <button
+            v-if="filterNeed !== 'all' || filterBody !== 'all' || filterColor !== 'all'"
+            type="button"
+            class="btn-reset-top"
+            @click="resetAllFilters"
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+            </svg>
+            Đặt lại bộ lọc
+          </button>
         </div>
 
-        <div class="finder-grid">
+        <!-- CÁC HÀNG TIÊU CHÍ GỢI Ý ĐƯỢC BỐ TRÍ NGANG TINH TẾ -->
+        <div class="finder-filter-list">
           <!-- 1. Nhu cầu mặc áo -->
-          <div class="finder-col">
-            <span class="col-label">1. NHU CẦU MẶC ÁO:</span>
-            <div class="btn-group-vertical">
+          <div class="finder-filter-row">
+            <div class="filter-label-group">
+              <span class="step-badge">1</span>
+              <span class="filter-label">Nhu cầu mặc:</span>
+            </div>
+            <div class="filter-pill-wrap">
               <button
                 type="button"
-                :class="['finder-btn', { active: filterNeed === 'all' }]"
+                :class="['filter-pill-btn', { active: filterNeed === 'all' }]"
                 @click="filterNeed = 'all'"
               >
-                <span>🔥 Tất cả nhu cầu</span>
+                Tất cả nhu cầu
               </button>
               <button
                 type="button"
-                :class="['finder-btn', { active: filterNeed === 'daily' }]"
+                :class="['filter-pill-btn', { active: filterNeed === 'daily' }]"
                 @click="filterNeed = 'daily'"
               >
-                <span>👕 Mặc hằng ngày & Mát mẻ</span>
+                Mặc hằng ngày & Mát mẻ
               </button>
               <button
                 type="button"
-                :class="['finder-btn', { active: filterNeed === 'work' }]"
+                :class="['filter-pill-btn', { active: filterNeed === 'work' }]"
                 @click="filterNeed = 'work'"
               >
-                <span>👔 Đi làm / Lịch sự (Polo)</span>
+                Đi làm / Lịch sự (Polo)
               </button>
               <button
                 type="button"
-                :class="['finder-btn', { active: filterNeed === 'style' }]"
+                :class="['filter-pill-btn', { active: filterNeed === 'style' }]"
                 @click="filterNeed = 'style'"
               >
-                <span>✨ Trẻ trung & Phong cách</span>
+                Trẻ trung & Phong cách
               </button>
             </div>
           </div>
 
           <!-- 2. Vóc dáng -->
-          <div class="finder-col">
-            <span class="col-label">2. VÓC DÁNG CỦA BẠN:</span>
-            <div class="btn-group-vertical">
+          <div class="finder-filter-row">
+            <div class="filter-label-group">
+              <span class="step-badge">2</span>
+              <span class="filter-label">Vóc dáng của bạn:</span>
+            </div>
+            <div class="filter-pill-wrap">
               <button
                 type="button"
-                :class="['finder-btn', { active: filterBody === 'all' }]"
+                :class="['filter-pill-btn', { active: filterBody === 'all' }]"
                 @click="filterBody = 'all'"
               >
-                <span>👥 Mọi vóc dáng</span>
+                Mọi vóc dáng
               </button>
               <button
                 type="button"
-                :class="['finder-btn', { active: filterBody === 'fit' }]"
+                :class="['filter-pill-btn', { active: filterBody === 'fit' }]"
                 @click="filterBody = 'fit'"
               >
-                <span>🏋️ Cân đối / Chuẩn người</span>
+                Cân đối / Chuẩn người
               </button>
               <button
                 type="button"
-                :class="['finder-btn', { active: filterBody === 'slim' }]"
+                :class="['filter-pill-btn', { active: filterBody === 'slim' }]"
                 @click="filterBody = 'slim'"
               >
-                <span>🏃 Thon gọn / Dáng gầy</span>
+                Thon gọn / Dáng gầy
               </button>
               <button
                 type="button"
-                :class="['finder-btn', { active: filterBody === 'plus' }]"
+                :class="['filter-pill-btn', { active: filterBody === 'plus' }]"
                 @click="filterBody = 'plus'"
               >
-                <span>🐻 Đậm người / Có bụng</span>
+                Đậm người / Có bụng
               </button>
             </div>
           </div>
 
           <!-- 3. Màu sắc -->
-          <div class="finder-col">
-            <span class="col-label">3. MÀU SẮC:</span>
-            <div class="btn-group-vertical">
+          <div class="finder-filter-row">
+            <div class="filter-label-group">
+              <span class="step-badge">3</span>
+              <span class="filter-label">Màu sắc:</span>
+            </div>
+            <div class="filter-pill-wrap">
               <button
                 type="button"
-                :class="['finder-btn', { active: filterColor === 'all' }]"
+                :class="['filter-pill-btn', { active: filterColor === 'all' }]"
                 @click="filterColor = 'all'"
               >
-                <span>🌈 Tất cả màu sắc</span>
+                Tất cả màu sắc
               </button>
               <button
                 v-for="c in colorOptions"
                 :key="c.name"
                 type="button"
-                :class="['finder-btn', { active: filterColor === c.name }]"
+                :class="['filter-pill-btn', 'color-pill-btn', { active: filterColor === c.name }]"
                 @click="filterColor = c.name"
               >
-                <span>{{ c.icon }} Màu {{ c.name }}</span>
+                <span
+                  class="color-dot"
+                  :style="{
+                    backgroundColor: c.hex,
+                    border: c.isLight ? '1px solid #cbd5e1' : '1px solid rgba(0,0,0,0.1)'
+                  }"
+                ></span>
+                <span>{{ c.name }}</span>
               </button>
             </div>
           </div>
@@ -356,18 +399,16 @@ onMounted(() => {
 
         <!-- Hộp tư vấn nhanh -->
         <div class="recommend-tip-box">
-          <div class="tip-icon-bulb">💡</div>
+          <div class="tip-icon-bulb">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#d2a764" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 18h6"></path>
+              <path d="M10 22h4"></path>
+              <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"></path>
+            </svg>
+          </div>
           <div class="tip-text-body">
             <strong>Lời khuyên chọn áo:</strong> {{ recommendationAdvice.tip }}
           </div>
-          <button
-            v-if="filterNeed !== 'all' || filterBody !== 'all' || filterColor !== 'all'"
-            type="button"
-            class="btn-clear-finder"
-            @click="resetAllFilters"
-          >
-            ✕ Đặt lại bộ lọc
-          </button>
         </div>
       </section>
 
@@ -550,13 +591,21 @@ onMounted(() => {
 .finder-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 14px;
-  margin-bottom: 22px;
+  margin-bottom: 20px;
   padding-bottom: 16px;
   border-bottom: 1px solid #f1ece7;
+  flex-wrap: wrap;
 }
 
-.finder-icon {
+.finder-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.finder-icon-wrap {
   width: 44px;
   height: 44px;
   border-radius: 12px;
@@ -565,7 +614,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  color: #996e27;
   flex-shrink: 0;
 }
 
@@ -582,75 +631,145 @@ onMounted(() => {
   margin: 0;
 }
 
-.finder-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-.finder-col {
-  background: #fdfbf9;
-  border: 1px solid #f0eae4;
-  border-radius: 14px;
-  padding: 16px;
-}
-
-.col-label {
-  display: block;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.8px;
+.btn-reset-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   color: #64748b;
-  margin-bottom: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.btn-group-vertical {
+.btn-reset-top:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: #fff5f5;
+}
+
+/* FINDER FILTER ROWS: BỐ TRÍ NGANG TINH TẾ & GỌN GÀNG */
+.finder-filter-list {
   display: flex;
   flex-direction: column;
+  margin-bottom: 18px;
+}
+
+.finder-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f6f2ee;
+}
+
+.finder-filter-row:last-child {
+  border-bottom: none;
+  padding-bottom: 6px;
+}
+
+.filter-label-group {
+  width: 175px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.step-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fbf5ec;
+  border: 1px solid #ecd8ba;
+  color: #996e27;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.filter-label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #2b394a;
+  white-space: nowrap;
+}
+
+.filter-pill-wrap {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
-.finder-btn {
-  display: flex;
+.filter-pill-btn {
+  display: inline-flex;
   align-items: center;
-  padding: 9px 12px;
+  gap: 7px;
+  padding: 7px 15px;
   background: #ffffff;
   border: 1.5px solid #e2e8f0;
-  border-radius: 9px;
+  border-radius: 99px;
   font-size: 13px;
   font-weight: 600;
   color: #475569;
   cursor: pointer;
-  transition: all 0.2s;
-  text-align: left;
+  transition: all 0.2s ease;
+  line-height: 1.3;
 }
 
-.finder-btn:hover {
+.filter-pill-btn:hover {
   border-color: #d2a764;
+  color: #996e27;
   background: #fdfaf5;
 }
 
-.finder-btn.active {
-  border-color: #d2a764;
-  background: #fbf6ec;
-  color: #996e27;
-  font-weight: 700;
-  box-shadow: 0 2px 6px rgba(210, 167, 100, 0.15);
+.filter-pill-btn.active {
+  background: #496883;
+  border-color: #496883;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(73, 104, 131, 0.25);
+}
+
+.filter-pill-btn.active .color-dot {
+  box-shadow: 0 0 0 2px #ffffff;
+}
+
+.color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 .recommend-tip-box {
   background: #f8fafc;
   border: 1.5px dashed #cbd5e1;
   border-radius: 12px;
-  padding: 14px 18px;
+  padding: 12px 18px;
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
 .tip-icon-bulb {
-  font-size: 20px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #fbf5ec;
+  border: 1px solid #ecd8ba;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
@@ -659,25 +778,6 @@ onMounted(() => {
   color: #334155;
   line-height: 1.5;
   flex: 1;
-}
-
-.btn-clear-finder {
-  background: none;
-  border: 1px solid #cbd5e1;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 5px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.btn-clear-finder:hover {
-  border-color: #ef4444;
-  color: #ef4444;
-  background: #fff;
 }
 
 /* 3. TSHIRT CATALOG SECTION */
@@ -811,8 +911,13 @@ onMounted(() => {
   .hero-heading {
     font-size: 26px;
   }
-  .finder-grid {
-    grid-template-columns: 1fr;
+  .finder-filter-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .filter-label-group {
+    width: 100%;
   }
   .products-showcase-grid {
     grid-template-columns: repeat(2, 1fr);

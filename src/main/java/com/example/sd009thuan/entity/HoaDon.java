@@ -202,7 +202,7 @@ public class HoaDon {
 
     @JsonProperty("email")
     public String getEmail() {
-        return this.email != null ? this.email : getEmailKhachHang();
+        return (this.email != null && !this.email.trim().isEmpty()) ? this.email.trim() : getEmailKhachHang();
     }
 
     @JsonProperty("maKhachHang")
@@ -211,7 +211,7 @@ public class HoaDon {
     }
 
     public void setEmail(String email) {
-        this.email = email;
+        this.email = (email != null && !email.trim().isEmpty()) ? email.trim() : null;
     }
 
     // Đơn vị vận chuyển (Transient - hỗ trợ lưu kèm ghiChu dạng [ĐVVC: ...])
@@ -371,6 +371,32 @@ public class HoaDon {
             if (subtotalWithShip.compareTo(this.tienSauGiamGia) > 0) {
                 return subtotalWithShip.subtract(this.tienSauGiamGia);
             }
+        }
+        return BigDecimal.ZERO;
+    }
+
+    @JsonProperty("tongTienHangGoc")
+    public BigDecimal getTongTienHangGoc() {
+        if (chiTietHoaDons == null || chiTietHoaDons.isEmpty()) {
+            return this.tongTien != null ? this.tongTien : BigDecimal.ZERO;
+        }
+        BigDecimal total = BigDecimal.ZERO;
+        for (ChiTietHoaDon ct : chiTietHoaDons) {
+            BigDecimal price = (ct.getIdChiTietSanPham() != null && ct.getIdChiTietSanPham().getGiaBan() != null)
+                    ? ct.getIdChiTietSanPham().getGiaBan()
+                    : (ct.getDonGia() != null ? ct.getDonGia() : BigDecimal.ZERO);
+            int qty = ct.getSoLuong() != null ? ct.getSoLuong() : 0;
+            total = total.add(price.multiply(BigDecimal.valueOf(qty)));
+        }
+        return total.compareTo(BigDecimal.ZERO) > 0 ? total : (this.tongTien != null ? this.tongTien : BigDecimal.ZERO);
+    }
+
+    @JsonProperty("tongTienGiamDot")
+    public BigDecimal getTongTienGiamDot() {
+        BigDecimal goc = getTongTienHangGoc();
+        BigDecimal tt = this.tongTien != null ? this.tongTien : BigDecimal.ZERO;
+        if (goc != null && tt != null && goc.compareTo(tt) > 0) {
+            return goc.subtract(tt);
         }
         return BigDecimal.ZERO;
     }

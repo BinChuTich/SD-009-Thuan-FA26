@@ -181,13 +181,25 @@ const loadProductData = async (id) => {
 
           const basePrice = Number(v.giaBan || v.gia || 0)
 
-          if (vDiscount && (vDiscount.giaSauGiam || vDiscount.phanTramGiam)) {
+          if (vDiscount && (vDiscount.giaSauGiam != null || vDiscount.phanTramGiam || vDiscount.giaTriGiam)) {
 
             v.coGiamGia = true
 
-            v.giaSauGiam = vDiscount.giaSauGiam ? Number(vDiscount.giaSauGiam) : Math.round(basePrice * (100 - Number(vDiscount.phanTramGiam || 0)) / 100)
+            if (vDiscount.giaSauGiam != null) {
 
-            v.phanTramGiam = Number(vDiscount.phanTramGiam || 0)
+              v.giaSauGiam = Number(vDiscount.giaSauGiam)
+
+            } else if (vDiscount.loaiGiamGia === 2 && vDiscount.giaTriGiam) {
+
+              v.giaSauGiam = Math.max(0, basePrice - Number(vDiscount.giaTriGiam))
+
+            } else {
+
+              v.giaSauGiam = Math.round(basePrice * (100 - Number(vDiscount.phanTramGiam || 0)) / 100)
+
+            }
+
+            v.phanTramGiam = (basePrice > 0 && v.giaSauGiam < basePrice) ? Math.round((basePrice - v.giaSauGiam) / basePrice * 100) : Number(vDiscount.phanTramGiam || 0)
 
             v.tenDotGiamGia = vDiscount.tenDotGiamGia || (prodData?.tenDotGiamGia || '')
 

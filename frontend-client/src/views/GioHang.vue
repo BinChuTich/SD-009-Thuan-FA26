@@ -912,6 +912,38 @@ const activeCheckoutItems = computed(() => {
 
 
 
+const originalSubtotal = computed(() => {
+
+  return activeCheckoutItems.value.reduce((sum, item) => {
+
+    const origin = (item.price != null && item.price > 0) ? item.price : (item.discountPrice || 0)
+
+    return sum + origin * item.quantity
+
+  }, 0)
+
+})
+
+
+
+const campaignDiscount = computed(() => {
+
+  return activeCheckoutItems.value.reduce((sum, item) => {
+
+    if (item.price && item.discountPrice && item.price > item.discountPrice) {
+
+      return sum + (item.price - item.discountPrice) * item.quantity
+
+    }
+
+    return sum
+
+  }, 0)
+
+})
+
+
+
 const selectedSubtotal = computed(() => {
 
   return activeCheckoutItems.value.reduce((sum, item) => {
@@ -2384,6 +2416,8 @@ const executePlaceOrder = async () => {
 
       phuongThucThanhToan: paymentMethod.value,
 
+      idPhieuGiamGia: appliedVoucher.value?.id || null,
+
       donViVanChuyen: 'Giao Hàng Nhanh (GHN)',
 
       tongTien: subtotal,
@@ -3430,9 +3464,17 @@ const formatDate = (dateStr) => {
 
               <div class="sum-row-item">
 
-                <span class="sum-label">Tạm tính:</span>
+                <span class="sum-label">Tổng tiền hàng:</span>
 
-                <span class="sum-val font-semibold">{{ formatCurrency(selectedSubtotal) }}</span>
+                <span class="sum-val font-semibold">{{ formatCurrency(originalSubtotal) }}</span>
+
+              </div>
+
+              <div v-if="campaignDiscount > 0" class="sum-row-item text-green">
+
+                <span class="sum-label">Giảm giá theo đợt:</span>
+
+                <span class="sum-val font-semibold text-green">- {{ formatCurrency(campaignDiscount) }}</span>
 
               </div>
 
@@ -4429,9 +4471,23 @@ const formatDate = (dateStr) => {
 
               <div class="t-line">
 
-                <span>Tạm tính ({{ activeCheckoutItems.length }} sản phẩm)</span>
+                <span>Tổng tiền hàng ({{ activeCheckoutItems.length }} sản phẩm)</span>
 
-                <strong>{{ formatCurrency(selectedSubtotal) }}</strong>
+                <strong>{{ formatCurrency(originalSubtotal) }}</strong>
+
+              </div>
+
+              <div v-if="campaignDiscount > 0" class="t-line discount-highlight">
+
+                <span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                  </svg>
+                  Giảm giá theo đợt:
+                </span>
+
+                <strong class="text-green">-{{ formatCurrency(campaignDiscount) }}</strong>
 
               </div>
 

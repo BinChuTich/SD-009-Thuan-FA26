@@ -208,6 +208,12 @@ public class PhieuGiamGiaService {
                     phieu.setTrangThai(0);
                     canCapNhat.add(phieu);
                 }
+            } else if (phieu.getSoLuongSuDung() != null && phieu.getSoLuongSuDung() <= 0) {
+                // Hết số lượng sử dụng -> Bắt buộc ngừng hoạt động (0)
+                if (phieu.getTrangThai() == null || phieu.getTrangThai() != 0) {
+                    phieu.setTrangThai(0);
+                    canCapNhat.add(phieu);
+                }
             } else if (phieu.getTrangThai() != null && phieu.getTrangThai() == 0) {
                 // 2. Nếu người dùng đã chủ động bấm "Ngừng hoạt động" (0) và chưa hết hạn -> GIỮ NGUYÊN trạng thái 0
                 continue;
@@ -251,6 +257,11 @@ public class PhieuGiamGiaService {
         List<PhieuGiamGia> canLuuPhieu = new ArrayList<>();
         for (PhieuGiamGia p : listPhieu) {
             if (p.getNgayKetThuc() != null && now.isAfter(p.getNgayKetThuc())) {
+                if (p.getTrangThai() == null || p.getTrangThai() != 0) {
+                    p.setTrangThai(0);
+                    canLuuPhieu.add(p);
+                }
+            } else if (p.getSoLuongSuDung() != null && p.getSoLuongSuDung() <= 0) {
                 if (p.getTrangThai() == null || p.getTrangThai() != 0) {
                     p.setTrangThai(0);
                     canLuuPhieu.add(p);
@@ -305,6 +316,11 @@ public class PhieuGiamGiaService {
                     phieu.setTrangThai(0);
                     phieuGiamGiaRepository.save(phieu);
                 }
+            } else if (phieu.getSoLuongSuDung() != null && phieu.getSoLuongSuDung() <= 0) {
+                if (phieu.getTrangThai() == null || phieu.getTrangThai() != 0) {
+                    phieu.setTrangThai(0);
+                    phieuGiamGiaRepository.save(phieu);
+                }
             } else if (phieu.getTrangThai() != null && phieu.getTrangThai() == 0) {
                 // Người dùng tắt thủ công -> Giữ nguyên 0
             } else {
@@ -328,6 +344,8 @@ public class PhieuGiamGiaService {
             boolean isDeactivating = false;
             if (phieu.getNgayKetThuc() != null && now.isAfter(phieu.getNgayKetThuc())) {
                 phieu.setTrangThai(0);
+            } else if (phieu.getSoLuongSuDung() != null && phieu.getSoLuongSuDung() <= 0 && (phieu.getTrangThai() == null || phieu.getTrangThai() == 0)) {
+                throw new IllegalArgumentException("Phiếu giảm giá đã hết số lượng sử dụng, không thể kích hoạt lại!");
             } else {
                 // Nếu đang hoạt động (1 hoặc 2) -> Ngừng hoạt động (0)
                 // Nếu đang ngừng hoạt động (0) -> Kích hoạt lại theo thời gian thực (1: Đang diễn ra, hoặc 2: Sắp diễn ra)

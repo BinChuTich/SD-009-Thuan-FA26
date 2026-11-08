@@ -74,7 +74,7 @@ const loadCustomerData = async () => {
     if (customerId) {
       try {
         const res = await api.get(`/api/khach-hang/${customerId}/dia-chi`)
-        const list = Array.isArray(res.data) ? res.data : (res.data?.content || [])
+        const list = Array.isArray(res.data) ? res.data : []
         if (list && list.length > 0) {
           savedAddresses.value = list.map(item => ({
             id: item.id,
@@ -123,25 +123,14 @@ const loadCustomerData = async () => {
   }
 }
 
-let voucherPollTimer = null
-const onWindowFocusVouchers = () => {
-  loadVouchers()
-}
-
 onMounted(() => {
   loadCustomerData()
   loadVouchers()
-  window.addEventListener('focus', onWindowFocusVouchers)
-  voucherPollTimer = setInterval(() => {
-    loadVouchers()
-  }, 10000)
 })
 
 onUnmounted(() => {
   stopPaymentPolling()
   stopVnpayTracking()
-  if (voucherPollTimer) clearInterval(voucherPollTimer)
-  window.removeEventListener('focus', onWindowFocusVouchers)
 })
 
 watch(isClientLoggedIn, () => {
@@ -169,6 +158,17 @@ const activeCheckoutItems = computed(() => {
   })
 })
 
+const checkoutOriginalSubtotal = computed(() => {
+  return activeCheckoutItems.value.reduce((sum, item) => {
+    const orig = Number(item.originalPrice || item.price || 0)
+    return sum + orig * item.quantity
+  }, 0)
+})
+
+const promotionDiscount = computed(() => {
+  return Math.max(0, checkoutOriginalSubtotal.value - checkoutSubtotal.value)
+})
+
 const checkoutSubtotal = computed(() => {
   return activeCheckoutItems.value.reduce((sum, item) => {
     const p = item.discountPrice != null && item.discountPrice > 0 ? item.discountPrice : item.price
@@ -181,103 +181,18 @@ const availableVouchers = ref([])
 const showVoucherModal = ref(false)
 const appliedVoucher = ref(getCheckoutVoucher())
 
-const isVoucherActiveAndValid = (v, subtotal = 0) => {
-  if (!v) return false
-  const now = Date.now()
-  if (v.trangThai != null && Number(v.trangThai) !== 1) return false
-  if (v.soLuongSuDung != null && Number(v.soLuongSuDung) <= 0) return false
-  if (v.ngayBatDau && !isNaN(new Date(v.ngayBatDau).getTime()) && new Date(v.ngayBatDau).getTime() > now) return false
-  if (v.ngayKetThuc && !isNaN(new Date(v.ngayKetThuc).getTime()) && new Date(v.ngayKetThuc).getTime() < now) return false
-  if (subtotal > 0) {
-    const minSpend = Number(v.hoaDonToiThieu || 0)
-    if (subtotal < minSpend) return false
-  }
-  return true
-}
-
-const autoApplyBestVoucher = () => {
-  const currentSub = Number(checkoutSubtotal.value || 0)
-  if (currentSub <= 0 || !availableVouchers.value || availableVouchers.value.length === 0) {
-    appliedVoucher.value = null
-    return
-  }
-
-  const eligibleVouchers = availableVouchers.value.filter(v => isVoucherActiveAndValid(v, currentSub))
-  if (eligibleVouchers.length === 0) {
-    appliedVoucher.value = null
-    return
-  }
-
-  const sortedEligible = [...eligibleVouchers].sort((a, b) => {
-    const discA = calculateVoucherDiscount(a, currentSub)
-    const discB = calculateVoucherDiscount(b, currentSub)
-    if (discB !== discA) return discB - discA
-    const minA = Number(a.hoaDonToiThieu || 0)
-    const minB = Number(b.hoaDonToiThieu || 0)
-    if (minA !== minB) return minA - minB
-    return (b.id || 0) - (a.id || 0)
-  })
-
-  const bestVoucher = sortedEligible[0]
-  const bestDiscount = calculateVoucherDiscount(bestVoucher, currentSub)
-
-  if (appliedVoucher.value) {
-    const currentCode = (appliedVoucher.value.code || appliedVoucher.value.maPhieuGiamGia || '').trim().toUpperCase()
-    const currentRaw = availableVouchers.value.find(v =>
-      (appliedVoucher.value.id && v.id === appliedVoucher.value.id) ||
-      ((v.maPhieuGiamGia || '').trim().toUpperCase() === currentCode)
-    )
-
-    const isCurrentValid = currentRaw && isVoucherActiveAndValid(currentRaw, currentSub)
-
-    if (isCurrentValid) {
-      const currentDisc = calculateVoucherDiscount(currentRaw, currentSub)
-      if (bestDiscount > currentDisc) {
-        selectVoucher(bestVoucher)
-      } else {
-        appliedVoucher.value.discount = currentDisc
-      }
-      return
-    }
-  }
-
-  if (bestVoucher && bestDiscount > 0) {
-    selectVoucher(bestVoucher)
-  } else {
-    appliedVoucher.value = null
-  }
-}
-
-// Danh sách voucher ĐỦ ĐIỀU KIỆN cho đơn hàng (checkoutSubtotal)
-const eligibleVouchersSorted = computed(() => {
-  const sub = Number(checkoutSubtotal.value || 0)
-  if (sub <= 0 || !availableVouchers.value) return []
-  const eligible = availableVouchers.value.filter(v => isVoucherActiveAndValid(v, sub))
-  return [...eligible].sort((a, b) => {
-    const discA = calculateVoucherDiscount(a, sub)
-    const discB = calculateVoucherDiscount(b, sub)
-    if (discB !== discA) return discB - discA
-    const minA = Number(a.hoaDonToiThieu || 0)
-    const minB = Number(b.hoaDonToiThieu || 0)
-    if (minA !== minB) return minA - minB
-    return (b.id || 0) - (a.id || 0)
-  })
-})
-
-const getVoucherRankInfo = (voucherId) => {
-  if (!voucherId) return null
-  const list = eligibleVouchersSorted.value
-  const idx = list.findIndex(v => v.id === voucherId)
-  if (idx === 0) return { rank: 1, text: 'Tốt nhất', badgeClass: 'rank-badge-best' }
-  return null
-}
-
 const loadVouchers = async () => {
   try {
     const res = await api.get('/api/phieu-giam-gia')
     const list = Array.isArray(res.data) ? res.data : []
-    availableVouchers.value = list.filter(v => isVoucherActiveAndValid(v, 0))
-    autoApplyBestVoucher()
+    const now = new Date()
+    availableVouchers.value = list.filter(v => {
+      if (v.trangThai != null && Number(v.trangThai) !== 1) return false
+      if (v.soLuongSuDung != null && Number(v.soLuongSuDung) <= 0) return false
+      if (v.ngayBatDau && new Date(v.ngayBatDau) > now) return false
+      if (v.ngayKetThuc && new Date(v.ngayKetThuc) < now) return false
+      return true
+    })
   } catch (err) {
     console.warn('Lỗi tải danh sách voucher:', err)
   }
@@ -383,10 +298,6 @@ const removeAppliedVoucher = () => {
   appliedVoucher.value = null
   sessionStorage.removeItem('fftshirt_checkout_voucher')
 }
-
-watch(checkoutSubtotal, () => {
-  autoApplyBestVoucher()
-})
 
 // Tính tiền
 const shippingFee = computed(() => {
@@ -737,14 +648,14 @@ const handleConfirmPlaceOrder = async () => {
       diaChiNhanHang: fullDeliveryAddress.value,
       ghiChu: orderNote.value.trim(),
       phuongThucThanhToan: paymentMethod.value,
+      donViVanChuyen: 'Giao Hàng Nhanh (GHN)',
       tongTien: Math.round(Number(checkoutSubtotal.value)),
       phiVanChuyen: shippingFee.value,
       giamGia: voucherDiscount.value,
       chiTiet: activeCheckoutItems.value.map(i => ({
         idChiTietSanPham: i.variantId,
         soLuong: i.quantity,
-        donGia: i.discountPrice > 0 ? i.discountPrice : i.price,
-        tenDotGiamGia: i.tenDotGiamGia || ''
+        donGia: i.discountPrice > 0 ? i.discountPrice : i.price
       }))
     }
 
@@ -1004,36 +915,30 @@ const handleConfirmPlaceOrder = async () => {
           </div>
 
           <div class="vmodal-body">
-            <div v-if="eligibleVouchersSorted.length === 0" class="vmodal-empty">
-              <span>Hiện tại chưa có mã giảm giá nào đủ điều kiện cho đơn hàng này.</span>
+            <div v-if="availableVouchers.length === 0" class="vmodal-empty">
+              <span>Hiện tại chưa có mã giảm giá nào đang áp dụng.</span>
             </div>
 
             <div v-else class="vmodal-list">
               <div
-                v-for="v in eligibleVouchersSorted"
+                v-for="v in availableVouchers"
                 :key="v.id"
                 class="vmodal-item"
                 :class="{
-                  'is-active': appliedVoucher && (appliedVoucher.id === v.id || appliedVoucher.code === v.maPhieuGiamGia)
+                  'is-active': appliedVoucher && (appliedVoucher.id === v.id || appliedVoucher.code === v.maPhieuGiamGia),
+                  'is-disabled': checkoutSubtotal < Number(v.hoaDonToiThieu || 0)
                 }"
               >
                 <div class="vitem-left">
                   <div class="vitem-tag">{{ isPercentVoucher(v) ? '%' : 'VND' }}</div>
                   <div class="vitem-info">
-                    <div class="vitem-code-row" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                    <div class="vitem-code-row">
                       <strong class="vitem-code">{{ v.maPhieuGiamGia }}</strong>
-                      <span
-                        v-if="getVoucherRankInfo(v.id)"
-                        :class="['v-rank-badge', getVoucherRankInfo(v.id).badgeClass]"
-                      >
-                        {{ getVoucherRankInfo(v.id).text }}
-                      </span>
                       <span class="vitem-discount-badge">Giảm {{ formatVoucherDiscountLabel(v) }}</span>
                     </div>
                     <div class="vitem-name">{{ v.tenPhieuGiamGia }}</div>
                     <div class="vitem-condition">
                       Đơn tối thiểu: <strong>{{ formatCurrency(v.hoaDonToiThieu || 0) }}</strong>
-                      • Tiết kiệm: <strong class="text-success">-{{ formatCurrency(calculateVoucherDiscount(v, checkoutSubtotal)) }}</strong>
                     </div>
                   </div>
                 </div>
@@ -1048,13 +953,16 @@ const handleConfirmPlaceOrder = async () => {
                     ✓ Đang dùng
                   </button>
                   <button
-                    v-else
+                    v-else-if="checkoutSubtotal >= Number(v.hoaDonToiThieu || 0)"
                     type="button"
                     class="btn-vitem-apply"
                     @click="selectVoucher(v)"
                   >
                     Áp dụng
                   </button>
+                  <span v-else class="vitem-not-eligible">
+                    Thiếu {{ formatCurrency(Number(v.hoaDonToiThieu || 0) - checkoutSubtotal) }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1103,7 +1011,10 @@ const handleConfirmPlaceOrder = async () => {
                   </div>
                   <div class="citem-info">
                     <div class="citem-name">{{ item.productName }}</div>
-                    <div class="citem-meta">{{ item.color }} / Size {{ item.size }} × {{ item.quantity }}</div>
+                    <div class="citem-meta">
+                      <span v-if="item.variantCode" class="item-variant-code font-mono" style="background:#e0f2fe; color:#0369a1; padding:1px 6px; border-radius:4px; font-size:0.75rem; font-weight:600; margin-right:4px;">[{{ item.variantCode }}]</span>
+                      {{ item.color }} / Size {{ item.size }} × {{ item.quantity }}
+                    </div>
                   </div>
                   <div class="citem-price">
                     {{ formatCurrency((item.discountPrice > 0 ? item.discountPrice : item.price) * item.quantity) }}
@@ -1123,16 +1034,20 @@ const handleConfirmPlaceOrder = async () => {
                   </strong>
                 </div>
                 <div class="cp-row">
-                  <span>Tạm tính:</span>
-                  <span>{{ formatCurrency(checkoutSubtotal) }}</span>
+                  <span>Tổng tiền hàng:</span>
+                  <span>{{ formatCurrency(checkoutOriginalSubtotal > 0 ? checkoutOriginalSubtotal : checkoutSubtotal) }}</span>
+                </div>
+                <div v-if="promotionDiscount > 0" class="cp-row text-success">
+                  <span>Đợt giảm giá:</span>
+                  <span>-{{ formatCurrency(promotionDiscount) }}</span>
+                </div>
+                <div v-if="voucherDiscount > 0" class="cp-row text-success">
+                  <span>Phiếu giảm giá ({{ appliedVoucher?.code }}):</span>
+                  <span>-{{ formatCurrency(voucherDiscount) }}</span>
                 </div>
                 <div class="cp-row">
                   <span>Phí vận chuyển:</span>
                   <span>{{ shippingFee === 0 ? 'MIỄN PHÍ' : formatCurrency(shippingFee) }}</span>
-                </div>
-                <div v-if="voucherDiscount > 0" class="cp-row text-success">
-                  <span>Voucher giảm giá ({{ appliedVoucher?.code }}):</span>
-                  <span>-{{ formatCurrency(voucherDiscount) }}</span>
                 </div>
                 <div class="cp-divider"></div>
                 <div class="cp-row cp-total">
@@ -2768,37 +2683,4 @@ const handleConfirmPlaceOrder = async () => {
   z-index: 3;
   pointer-events: none;
 }
-
-.v-rank-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 12px;
-  line-height: 1.2;
-}
-.rank-badge-best {
-  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-  color: #15803d;
-  border: 1px solid #86efac;
-  font-weight: 800;
-}
-.rank-badge-second {
-  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
-  color: #0369a1;
-  border: 1px solid #7dd3fc;
-}
-.rank-badge-third {
-  background: linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%);
-  color: #c2410c;
-  border: 1px solid #fdba74;
-}
-.rank-badge-other {
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #e2e8f0;
-}
-
 </style>

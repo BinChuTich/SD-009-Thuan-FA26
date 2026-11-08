@@ -348,19 +348,21 @@ const finalTotal = computed(() => {
   return Number(order.value.tienSauGiamGia || order.value.tongTien || 0)
 })
 
-const originalGoodsTotal = computed(() => {
-  if (!order.value) return 0
-  if (orderItems.value && orderItems.value.length > 0) {
-    return orderItems.value.reduce((sum, it) => {
-      const reg = getItemOriginalPrice(it)
-      const qty = Number(it.soLuong || 1)
-      return sum + (reg * qty)
-    }, 0)
-  }
-  return Number(order.value.tongTien || 0) + campaignDiscount.value
+const campaignDiscount = computed(() => {
+  if (!orderItems.value || orderItems.value.length === 0) return 0
+  let total = 0
+  orderItems.value.forEach(it => {
+    const originPrice = Number(it.idChiTietSanPham?.giaBan || it.giaGoc || 0)
+    const salePrice = Number(it.donGia || it.giaDuocTinh || 0)
+    const qty = Number(it.soLuong || 1)
+    if (originPrice > salePrice && salePrice > 0) {
+      total += (originPrice - salePrice) * qty
+    }
+  })
+  return total
 })
 
-const goodsTotal = computed(() => {
+const actualSubtotal = computed(() => {
   if (!order.value) return 0
   if (orderItems.value && orderItems.value.length > 0) {
     return orderItems.value.reduce((sum, it) => sum + (it.thanhTien || ((it.giaDuocTinh || it.donGia || 0) * (it.soLuong || 1))), 0)
@@ -368,60 +370,49 @@ const goodsTotal = computed(() => {
   return Number(order.value.tongTien || 0)
 })
 
-const discountAmount = computed(() => {
-  if (!order.value) return 0
-  if (order.value.soTienGiamVoucher && Number(order.value.soTienGiamVoucher) > 0) {
-    return Number(order.value.soTienGiamVoucher)
-  }
-  if (order.value.giamGia && Number(order.value.giamGia) > 0) {
-    return Number(order.value.giamGia)
-  }
-  if (order.value.tongTienGiamGia && Number(order.value.tongTienGiamGia) > 0) {
-    return Number(order.value.tongTienGiamGia)
-  }
-  const expectedTotal = Number(order.value.tongTien || 0) + Number(order.value.phiVanChuyen || 0)
-  const actualFinal = Number(order.value.tienSauGiamGia || 0)
-  if (expectedTotal > actualFinal && actualFinal > 0) {
-    return expectedTotal - actualFinal
-  }
-  return 0
+const voucherDisplayName = computed(() => {
+  const o = order.value
+  if (!o) return ''
+  return o.idPhieuGiamGia?.tenPhieuGiamGia || o.maPhieuGiamGia || o.idPhieuGiamGia?.maPhieuGiamGia || ''
 })
 
 const getItemOriginalPrice = (it) => {
   if (!it) return 0
-  const regular = Number(it.giaGoc || it.idChiTietSanPham?.giaBan || 0)
-  const unit = Number(it.giaDuocTinh || it.donGia || 0)
-  return regular > unit ? regular : unit
+  const orig = Number(it.giaBanGoc || it.idChiTietSanPham?.giaBan || it.giaGoc || 0)
+  const current = Number(it.donGia || it.giaDuocTinh || 0)
+  return orig > current ? orig : current
+}
+
+const hasItemDiscount = (it) => {
+  if (!it) return false
+  const orig = Number(it.giaBanGoc || it.idChiTietSanPham?.giaBan || it.giaGoc || 0)
+  const current = Number(it.donGia || it.giaDuocTinh || 0)
+  if (orig > current && current > 0) return true
+  if (it.phanTramGiam && Number(it.phanTramGiam) > 0) return true
+  return false
 }
 
 const getItemDiscountPercent = (it) => {
-  if (!it) return 0
-  if (it.phanTramGiam != null && Number(it.phanTramGiam) > 0) {
-    return Number(it.phanTramGiam)
-  }
-  const regular = getItemOriginalPrice(it)
-  const unit = Number(it.giaDuocTinh || it.donGia || 0)
-  if (regular > unit && regular > 0) {
-    return Math.round((regular - unit) / regular * 100)
+  if (it.phanTramGiam && Number(it.phanTramGiam) > 0) return Number(it.phanTramGiam)
+  const orig = getItemOriginalPrice(it)
+  const current = Number(it.donGia || it.giaDuocTinh || 0)
+  if (orig > current && orig > 0) {
+    return Math.round(((orig - current) / orig) * 100)
   }
   return 0
 }
 
-const hasItemDiscount = (it) => {
-  return Boolean(it.tenDotGiamGia || getItemDiscountPercent(it) > 0 || getItemOriginalPrice(it) > (it.giaDuocTinh || it.donGia || 0))
-}
+const goodsTotal = computed(() => {
+  return actualSubtotal.value + campaignDiscount.value
+})
 
-const campaignDiscount = computed(() => {
-  if (!orderItems.value || orderItems.value.length === 0) return 0
-  return orderItems.value.reduce((sum, it) => {
-    const regular = getItemOriginalPrice(it)
-    const unit = Number(it.giaDuocTinh || it.donGia || 0)
-    const qty = Number(it.soLuong || 1)
-    if (regular > unit) {
-      return sum + (regular - unit) * qty
-    }
-    return sum
-  }, 0)
+const discountAmount = computed(() => {
+  if (!order.value) return 0
+  if (order.value.tongTienGiamGia && Number(order.value.tongTienGiamGia) > 0) {
+    return Number(order.value.tongTienGiamGia)
+  }
+  const diff = (actualSubtotal.value + shippingFee.value) - finalTotal.value
+  return diff > 0 ? diff : 0
 })
 
 watch(
@@ -518,25 +509,6 @@ onUnmounted(() => {
     <!-- TIÊU ĐỀ TRANG -->
     <div class="tracking-hero-header">
       <div class="container-client text-center">
-        <!-- LOGO THƯƠNG HIỆU CHUẨN: 3 TIA SÁNG + FF + T-shirt -->
-        <div class="hero-logo-box">
-          <div class="brand-logo-wrapper">
-            <div class="sparkles">
-              <span class="sparkle-aura"></span>
-              <span class="ray ray-1"></span>
-              <span class="ray ray-2"></span>
-              <span class="ray ray-3"></span>
-            </div>
-            <div class="logo-content">
-              <div class="logo-name">
-                <span class="f-blue">F</span>
-                <span class="f-gold">F</span>
-              </div>
-              <div class="logo-sub">T-shirt</div>
-            </div>
-          </div>
-        </div>
-
         <h1 class="tracking-title">Tra Cứu Đơn Hàng</h1>
         <p class="tracking-subtitle">Theo dõi hành trình vận chuyển và thông tin đơn hàng nhanh chóng, chính xác</p>
       </div>
@@ -869,56 +841,50 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- BẢNG 2: CHI TIẾT THANH TOÁN -->
-          <div class="panel-box-item">
-            <div class="panel-box-header">
-              <h4 class="panel-box-title">💳 Chi tiết thanh toán</h4>
+          <!-- BẢNG 2: TỔNG KẾT THANH TOÁN (GIỮ LẠI PHẦN TỔNG KẾT THANH TOÁN THEO YÊU CẦU) -->
+          <div class="panel-box-item summary-panel-item">
+            <div class="panel-box-header panel-box-header-flex">
+              <h4 class="panel-box-title">💳 Tổng kết thanh toán</h4>
+              <span v-if="discountAmount > 0" class="badge-voucher-pill">
+                ĐÃ DÙNG VOUCHER
+              </span>
+              <span v-else class="badge-no-voucher-small">
+                KHÔNG DÙNG VOUCHER
+              </span>
             </div>
             <div class="panel-box-content">
               <div class="calc-field-row">
-                <span class="calc-label">{{ campaignDiscount > 0 ? 'Tổng tiền hàng (giá gốc)' : 'Tổng tiền hàng' }}</span>
-                <span class="calc-val">{{ formatCurrency(campaignDiscount > 0 ? originalGoodsTotal : goodsTotal) }}</span>
+                <span class="calc-label">Tổng tiền hàng</span>
+                <span class="calc-val">{{ formatCurrency(goodsTotal) }}</span>
               </div>
-              <!-- Đợt giảm giá theo sản phẩm -->
-              <div v-if="campaignDiscount > 0" class="calc-field-row text-campaign">
-                <span class="calc-label inline-flex-label">
-                  <svg class="campaign-tag-svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
-                  </svg>
-                  Giảm giá theo đợt
-                </span>
-                <span class="calc-val text-campaign">- {{ formatCurrency(campaignDiscount) }}</span>
+              <div v-if="campaignDiscount > 0" class="calc-field-row summary-discount-row">
+                <span class="calc-label">Đợt giảm giá</span>
+                <span class="calc-val text-discount">-{{ formatCurrency(campaignDiscount) }}</span>
               </div>
-              <!-- Phiếu giảm giá (Voucher) -->
-              <div v-if="discountAmount > 0 || order.maPhieuGiamGia || order.idPhieuGiamGia" class="calc-field-row text-green">
-                <span class="calc-label inline-flex-label">
-                  <svg class="voucher-tag-svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
-                  </svg>
-                  Voucher [{{ order.maPhieuGiamGia || 'VOUCHER' }}]
-                  <span v-if="order.tenPhieuGiamGia && order.tenPhieuGiamGia !== order.maPhieuGiamGia" class="voucher-subname">({{ order.tenPhieuGiamGia }})</span>
-                </span>
-                <span class="calc-val font-bold text-green">- {{ formatCurrency(discountAmount) }}</span>
-              </div>
-              <div class="calc-field-row">
-                <template v-if="!isPosOrder">
-                  <span class="calc-label">Phí vận chuyển ({{ order.donViVanChuyen || "GHN" }})</span>
-                  <span class="calc-val ship-val">
-                    <img v-if="shippingFee > 0" src="https://cdn.haitrieu.com/wp-content/uploads/2022/05/Logo-GHN-Orange.png" alt="GHN" class="ghn-mini-logo" />
-                    + {{ shippingFee > 0 ? formatCurrency(shippingFee) : '0 ₫' }}
+
+              <!-- Dòng Giảm giá -->
+              <div class="calc-field-row summary-discount-row">
+                <span class="calc-label discount-label-with-code">
+                  <span>Giảm giá</span>
+                  <span v-if="voucherDisplayName" class="inline-voucher-pill">
+                    {{ voucherDisplayName }}
                   </span>
-                </template>
-                <template v-else>
-                  <span class="calc-label">Hình thức nhận</span>
-                  <span class="tag-pos-mini">Mua &amp; nhận tại quầy (0 ₫)</span>
-                </template>
+                </span>
+                <span class="calc-val" :class="{ 'text-discount': discountAmount > 0 }">
+                  {{ discountAmount > 0 ? '-' : '- ' }}{{ formatCurrency(discountAmount) }}
+                </span>
               </div>
+
+              <div v-if="shippingFee > 0" class="calc-field-row">
+                <span class="calc-label">Phí vận chuyển</span>
+                <span class="calc-val">+{{ formatCurrency(shippingFee) }}</span>
+              </div>
+
               <div class="panel-divider"></div>
+
               <div class="calc-field-row total-calc-row">
-                <span class="total-label-text">Thành tiền</span>
-                <strong class="total-number-big">{{ formatCurrency(finalTotal) }}</strong>
+                <span class="total-label-caps">TỔNG TIỀN</span>
+                <strong class="total-price-blue">{{ formatCurrency(finalTotal) }}</strong>
               </div>
             </div>
           </div>
@@ -955,26 +921,34 @@ onUnmounted(() => {
               <div class="product-info-col">
                 <span class="prod-name">{{ it.tenSanPham || it.idChiTietSanPham?.idSanPham?.tenSanPham || 'Áo thun FF' }}</span>
                 <div class="prod-meta-badges">
-                  <span class="meta-tag color-tag">Màu: {{ it.tenMauSac || it.idChiTietSanPham?.idMauSac?.tenMauSac || 'Mặc định' }}</span>
-                  <span class="meta-tag size-tag">Size: {{ it.tenKichCo || it.idChiTietSanPham?.idKichCo?.tenKichCo || 'M' }}</span>
-                  <span class="meta-tag qty-tag">Số lượng: x{{ it.soLuong }}</span>
-                  <span class="badge-campaign-chip" v-if="it.tenDotGiamGia || (it.ghiChu && !it.ghiChu.startsWith('{')) || hasItemDiscount(it)">
-                    <svg class="campaign-tag-svg" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                      <line x1="7" y1="7" x2="7.01" y2="7"></line>
-                    </svg>
-                    {{ it.tenDotGiamGia || (it.ghiChu && !it.ghiChu.startsWith('{') ? it.ghiChu : '') || 'Đợt giảm giá' }}
+                  <span class="meta-tag code-tag" v-if="it.maChiTietSanPham || it.maSanPham || it.idChiTietSanPham?.maChiTietSanPham">
+                    Mã: {{ it.maChiTietSanPham || it.maSanPham || it.idChiTietSanPham?.maChiTietSanPham }}
                   </span>
-                  <span class="discount-percent-badge" v-if="getItemDiscountPercent(it) > 0">
-                    -{{ getItemDiscountPercent(it) }}%
+                  <span class="meta-tag color-tag" v-if="it.tenMauSac || it.idChiTietSanPham?.idMauSac?.tenMauSac">
+                    Màu: {{ it.tenMauSac || it.idChiTietSanPham?.idMauSac?.tenMauSac }}
+                  </span>
+                  <span class="meta-tag size-tag" v-if="it.tenKichCo || it.idChiTietSanPham?.idKichCo?.tenKichCo">
+                    Size: {{ it.tenKichCo || it.idChiTietSanPham?.idKichCo?.tenKichCo }}
+                  </span>
+                  <span class="meta-tag qty-tag">Số lượng: x{{ it.soLuong }}</span>
+                  <span class="meta-tag campaign-discount-tag" v-if="hasItemDiscount(it)">
+                    Đợt giảm giá -{{ getItemDiscountPercent(it) }}%
                   </span>
                 </div>
               </div>
               <div class="product-price-col">
-                <div class="price-stack">
-                  <span class="price-val">{{ formatCurrency(it.thanhTien || ((it.giaDuocTinh || it.donGia || 0) * (it.soLuong || 1))) }}</span>
-                  <span class="price-origin" v-if="getItemOriginalPrice(it) > (it.giaDuocTinh || it.donGia || 0)">
+                <div class="price-val-row">
+                  <span class="price-val" :class="{ 'price-val-sale': hasItemDiscount(it) }">
+                    {{ formatCurrency(it.thanhTien || ((it.giaDuocTinh || it.donGia || 0) * (it.soLuong || 1))) }}
+                  </span>
+                  <span v-if="hasItemDiscount(it)" class="price-origin-strike">
                     {{ formatCurrency(getItemOriginalPrice(it) * (it.soLuong || 1)) }}
+                  </span>
+                </div>
+                <div class="unit-price-sub" v-if="it.soLuong > 1 || hasItemDiscount(it)">
+                  <span>{{ formatCurrency(it.donGia || ((it.thanhTien || 0) / (it.soLuong || 1))) }}/cái</span>
+                  <span v-if="hasItemDiscount(it)" class="unit-origin-strike">
+                    ({{ formatCurrency(getItemOriginalPrice(it)) }}/cái)
                   </span>
                 </div>
               </div>
@@ -1022,204 +996,22 @@ onUnmounted(() => {
   text-align: center;
 }
 
-/* Hero Header chuẩn phong cách Liên hệ */
+/* Hero Header */
 .tracking-hero-header {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #2b394a 100%);
-  color: #ffffff;
-  padding: 48px 0 42px;
-  text-align: center;
-  border-bottom: 2px solid #ecd8af;
-  margin-bottom: 28px;
-}
-
-.hero-logo-box {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 14px;
-}
-
-/* LOGO THUONG HIEU CHUAN: F XANH NAVY + F VANG GOLD + T-SHIRT XANH NAVY + 3 TIA SANG */
-.brand-logo-wrapper {
-  position: relative;
-  display: inline-flex;
-  align-items: flex-end;
-  font-family: 'Fredoka', -apple-system, sans-serif;
-  user-select: none;
-}
-
-.sparkles {
-  position: absolute;
-  top: -12px;
-  left: -7px;
-  width: 32px;
-  height: 32px;
-  pointer-events: none;
-}
-
-.sparkles .sparkle-aura {
-  position: absolute;
-  bottom: 2px;
-  right: 6px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 252, 235, 0.95) 0%, rgba(251, 191, 36, 0.8) 45%, rgba(217, 119, 6, 0) 75%);
-  animation: fireworkAuraTracking 2.4s ease-in-out infinite;
-  pointer-events: none;
-}
-
-.sparkles .ray {
-  position: absolute;
-  background-color: #d2a764;
-  border-radius: 99px;
-  transform-origin: center center;
-  animation: fireworkSparkleTracking 2.4s ease-in-out infinite;
-}
-
-.sparkles .ray-1 {
-  --rot: 12deg;
-  width: 4px;
-  height: 12px;
-  top: 1px;
-  right: 6px;
-  transform: rotate(12deg);
-  animation-delay: 0s;
-}
-
-.sparkles .ray-2 {
-  --rot: -42deg;
-  width: 4px;
-  height: 12px;
-  top: 5px;
-  left: 5px;
-  transform: rotate(-42deg);
-  animation-delay: 0.35s;
-}
-
-.sparkles .ray-3 {
-  --rot: -78deg;
-  width: 4px;
-  height: 12px;
-  bottom: 1px;
-  left: 0px;
-  transform: rotate(-78deg);
-  animation-delay: 0.7s;
-}
-
-@keyframes fireworkAuraTracking {
-  0%, 100% {
-    opacity: 0.15;
-    transform: scale(0.75);
-  }
-  35% {
-    opacity: 0.95;
-    transform: scale(1.35);
-    filter: drop-shadow(0 0 5px #f59e0b) drop-shadow(0 0 12px #fbbf24);
-  }
-  65% {
-    opacity: 0.35;
-    transform: scale(0.95);
-  }
-}
-
-@keyframes fireworkSparkleTracking {
-  0%, 100% {
-    opacity: 0.35;
-    transform: rotate(var(--rot, 0deg)) scale(0.88);
-    background-color: #d1a868;
-    box-shadow: 0 0 2px rgba(209, 168, 104, 0.4);
-  }
-  25% {
-    opacity: 0.8;
-    transform: rotate(var(--rot, 0deg)) scale(1.15);
-    background-color: #fde68a;
-    box-shadow: 0 0 8px #f59e0b, 0 0 14px rgba(245, 158, 11, 0.7);
-  }
-  45% {
-    opacity: 1;
-    transform: rotate(var(--rot, 0deg)) scale(1.38);
-    background-color: #ffffff;
-    box-shadow: 0 0 8px #ffffff, 0 0 16px #fbbf24, 0 0 26px #f59e0b;
-    filter: drop-shadow(0 0 5px #ffffff);
-  }
-  65% {
-    opacity: 0.85;
-    transform: rotate(var(--rot, 0deg)) scale(1.18);
-    background-color: #fcd34d;
-    box-shadow: 0 0 8px #f59e0b;
-  }
-  85% {
-    opacity: 0.45;
-    transform: rotate(var(--rot, 0deg)) scale(0.95);
-    background-color: #d1a868;
-  }
-}
-
-.logo-content {
-  display: flex;
-  align-items: flex-end;
-  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.75)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
-}
-
-.logo-name {
-  display: flex;
-  font-family: 'Fredoka', -apple-system, sans-serif;
-  font-size: 48px;
-  font-weight: 800;
-  line-height: 0.85;
-  letter-spacing: -2px;
-}
-
-.f-blue {
-  color: #496883;
-  font-weight: 800;
-  text-shadow: 
-    0 1px 2px rgba(0, 0, 0, 0.9),
-    0 3px 6px rgba(0, 0, 0, 0.75),
-    0 6px 14px rgba(0, 0, 0, 0.55),
-    0 0 2px rgba(255, 255, 255, 0.45);
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.35));
-}
-
-.f-gold {
-  color: #d2a764;
-  margin-left: 2px;
-  font-weight: 800;
-  text-shadow: 
-    0 1px 2px rgba(0, 0, 0, 0.85),
-    0 3px 6px rgba(0, 0, 0, 0.7),
-    0 6px 14px rgba(0, 0, 0, 0.5),
-    0 0 2px rgba(210, 167, 100, 0.8);
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.65));
-}
-
-.logo-sub {
-  font-family: 'Fredoka', -apple-system, sans-serif;
-  color: #496883;
-  font-size: 17px;
-  font-weight: 800;
-  line-height: 1;
-  margin-left: 7px;
-  margin-bottom: 3px;
-  letter-spacing: -0.3px;
-  text-shadow: 
-    0 1px 2px rgba(0, 0, 0, 0.9),
-    0 2px 5px rgba(0, 0, 0, 0.7),
-    0 0 2px rgba(255, 255, 255, 0.35);
-  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.65));
+  margin-bottom: 24px;
 }
 
 .tracking-title {
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 800;
-  color: #ffffff;
-  margin: 0 0 10px;
+  color: #1e293b;
+  margin: 0 0 8px;
   letter-spacing: -0.5px;
 }
 
 .tracking-subtitle {
   font-size: 14px;
-  color: #cbd5e1;
+  color: #64748b;
   margin: 0;
 }
 
@@ -1996,152 +1788,133 @@ onUnmounted(() => {
   border-radius: 999px;
 }
 
-/* CSS Thẻ Giảm Giá & Voucher trong Đơn Hàng */
-.badge-campaign-chip {
-  display: inline-flex;
+/* CSS bổ sung cho phần Tổng kết thanh toán đồng bộ */
+.panel-box-header-flex {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 3px;
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 4px;
 }
 
-.discount-percent-badge {
+.badge-voucher-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 99px;
+  background: #e6f9ed;
+  color: #1e8343;
+  border: 1px solid #b7ebd0;
+  letter-spacing: 0.4px;
+}
+
+.badge-no-voucher-small {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: #f1f5f9;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+}
+
+.discount-label-with-code {
   display: inline-flex;
   align-items: center;
-  padding: 1px 6px;
-  background: #ecfdf5;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
+  gap: 6px;
+}
+
+.inline-voucher-pill {
+  display: inline-block;
+  background: #fee2e2;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 1px 7px;
   border-radius: 4px;
-  font-size: 11px;
+  line-height: 1.2;
+}
+
+.text-discount {
+  color: #ef4444 !important;
   font-weight: 700;
 }
 
-.order-card-voucher-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 4px;
-  margin-left: 8px;
+.total-label-caps {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #1e293b;
+  letter-spacing: 0.5px;
 }
 
-.price-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+.total-price-blue {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #496883;
 }
 
-.price-origin {
-  font-size: 12px;
-  color: #94a3b8;
-  text-decoration: line-through;
-  font-weight: 500;
-  margin-top: 1px;
-}
-
-.inline-flex-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.text-campaign {
-  color: #ea580c !important;
-  font-weight: 600;
-}
-
-.voucher-subname {
-  font-size: 11px;
-  color: #64748b;
-  font-weight: normal;
-  margin-left: 4px;
+.meta-tag.code-tag {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  font-weight: 700;
 }
 
 .prod-meta-badges {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  align-items: center !important;
-  gap: 8px !important;
-  margin-top: 6px !important;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
 }
 
 .meta-tag {
-  font-size: 12px;
-  padding: 3px 9px;
-  border-radius: 6px;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  line-height: 1.3;
-}
-
-.color-tag, .size-tag {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 4px;
   background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  color: #334155;
+  color: #475569;
 }
 
-.qty-tag {
-  background: #eff6ff;
-  border: 1px solid #dbeafe;
-  color: #1d4ed8;
-  font-weight: 600;
-}
-
-.badge-campaign-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.meta-tag.campaign-discount-tag {
   background: #fef2f2;
   color: #dc2626;
   border: 1px solid #fecaca;
-  font-size: 11.5px;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 6px;
-}
-
-.discount-percent-badge {
-  background: #dc2626;
-  color: #ffffff;
-  font-size: 11px;
   font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.campaign-tag-svg,
-.voucher-tag-svg {
-  display: inline-block;
-  vertical-align: -1px;
-  flex-shrink: 0;
-}
-
-.inline-flex-label {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 
-.text-campaign {
-  color: #ea580c !important;
-  font-weight: 600;
+.price-val-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.text-green {
-  color: #16a34a !important;
-  font-weight: 600;
+.price-val-sale {
+  color: #dc2626 !important;
+  font-weight: 800;
 }
 
+.price-origin-strike {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  text-decoration: line-through;
+  font-weight: 500;
+}
+
+.unit-price-sub {
+  font-size: 0.75rem;
+  color: #64748b;
+  text-align: right;
+  margin-top: 2px;
+}
+
+.unit-origin-strike {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  text-decoration: line-through;
+  margin-left: 4px;
+}
 </style>

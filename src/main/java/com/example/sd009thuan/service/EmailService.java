@@ -701,7 +701,7 @@ public class EmailService {
 
                         <!-- Button CTA -->
                         <div style="text-align: center; margin-bottom: 10px;">
-                            <a href="http://localhost:5173/hoa-don/{{maDon}}" style="display: inline-block; background-color: #7b5943; color: #ffffff; text-decoration: none; font-size: 14.5px; font-weight: 600; padding: 12px 36px; border-radius: 24px; box-shadow: 0 2px 8px rgba(123,89,67,0.3);">
+                            <a href="http://localhost:5174/tra-cuu?code={{maDon}}" style="display: inline-block; background-color: #7b5943; color: #ffffff; text-decoration: none; font-size: 14.5px; font-weight: 600; padding: 12px 36px; border-radius: 24px; box-shadow: 0 2px 8px rgba(123,89,67,0.3);">
                                 Xem chi tiết đơn hàng
                             </a>
                         </div>

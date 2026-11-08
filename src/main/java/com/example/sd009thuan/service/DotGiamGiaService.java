@@ -242,6 +242,22 @@ public class DotGiamGiaService {
                 info.put("giamToiDa", ct.getIdDotGiamGia().getGiamToiDa());
                 info.put("ngayBatDau", ct.getIdDotGiamGia().getNgayBatDau());
                 info.put("ngayKetThuc", ct.getIdDotGiamGia().getNgayKetThuc());
+
+                BigDecimal origPrice = ct.getIdChiTietSanPham() != null && ct.getIdChiTietSanPham().getGiaBan() != null
+                        ? ct.getIdChiTietSanPham().getGiaBan() : BigDecimal.ZERO;
+                BigDecimal discAmt = BigDecimal.ZERO;
+                if (Integer.valueOf(2).equals(ct.getIdDotGiamGia().getLoaiGiamGia())) {
+                    discAmt = ct.getIdDotGiamGia().getGiaTriGiam() != null ? ct.getIdDotGiamGia().getGiaTriGiam() : BigDecimal.ZERO;
+                } else if (currentPt.compareTo(BigDecimal.ZERO) > 0) {
+                    discAmt = origPrice.multiply(currentPt).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+                    if (ct.getIdDotGiamGia().getGiamToiDa() != null && ct.getIdDotGiamGia().getGiamToiDa().compareTo(BigDecimal.ZERO) > 0 && discAmt.compareTo(ct.getIdDotGiamGia().getGiamToiDa()) > 0) {
+                        discAmt = ct.getIdDotGiamGia().getGiamToiDa();
+                    }
+                }
+                discAmt = discAmt.min(origPrice);
+                BigDecimal calculatedPriceAfter = origPrice.subtract(discAmt).max(BigDecimal.ZERO);
+                info.put("giaSauGiam", calculatedPriceAfter);
+                info.put("tienGiam", discAmt);
                 map.put(variantId, info);
             }
         }

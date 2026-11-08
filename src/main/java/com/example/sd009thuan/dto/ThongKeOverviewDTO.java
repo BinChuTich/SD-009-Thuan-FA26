@@ -104,6 +104,7 @@ public class ThongKeOverviewDTO {
         private String hinhThucThanhToan;
         private Integer trangThai;
         private Integer trangThaiThanhToan;
+        private String ghiChu;
 
         public InvoiceStatDTO() {}
 
@@ -131,6 +132,8 @@ public class ThongKeOverviewDTO {
         public void setTrangThai(Integer trangThai) { this.trangThai = trangThai; }
         public Integer getTrangThaiThanhToan() { return trangThaiThanhToan; }
         public void setTrangThaiThanhToan(Integer trangThaiThanhToan) { this.trangThaiThanhToan = trangThaiThanhToan; }
+        public String getGhiChu() { return ghiChu; }
+        public void setGhiChu(String ghiChu) { this.ghiChu = ghiChu; }
     }
 
     public void setOldProducts(List<ProductStatDTO> products) {

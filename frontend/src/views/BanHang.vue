@@ -1906,11 +1906,11 @@ const fetchProductVariants = async () => {
 
 
 
-        code: item.idSanPham?.maSanPham || item.maSanPham || item.maChiTietSanPham || `SP00${idx + 1}`,
+        code: item.maSanPham || item.idSanPham?.maSanPham || item.code || '',
 
 
 
-        variantCode: item.maChiTietSanPham || `CTSP0${idx + 1}`,
+        variantCode: item.maChiTietSanPham || item.code || '',
 
 
 
@@ -5970,7 +5970,8 @@ function findBestVoucher(customerId, customerName, subtotal) {
 
 
 
-    if (v.soLuongSuDung != null && Number(v.soLuongSuDung) <= 0) return false
+    const qty = v.soLuongSuDung != null ? Number(v.soLuongSuDung) : (v.soLuong != null ? Number(v.soLuong) : null)
+    if (qty !== null && qty <= 0) return false
 
 
 
@@ -6130,6 +6131,15 @@ function autoApplyBestVoucher() {
 
 
 
+  // Nếu hóa đơn hiện tại đang giữ phiếu đã hết số lượng -> tự động gỡ bỏ
+  if (currentInvoice.value?.voucher) {
+    const curV = currentInvoice.value.voucher
+    const curQty = curV.soLuongSuDung != null ? Number(curV.soLuongSuDung) : (curV.soLuong != null ? Number(curV.soLuong) : null)
+    if (curQty !== null && curQty <= 0) {
+      currentInvoice.value.voucher = null
+    }
+  }
+
   const subtotal = totalAmount.value
 
 
@@ -6254,7 +6264,8 @@ function findBestPersonalVoucherForCustomer(customerId, customerName, subtotal) 
 
 
 
-    if (v.soLuongSuDung != null && Number(v.soLuongSuDung) <= 0) return false
+    const qty = v.soLuongSuDung != null ? Number(v.soLuongSuDung) : (v.soLuong != null ? Number(v.soLuong) : null)
+    if (qty !== null && qty <= 0) return false
 
 
 
@@ -6446,7 +6457,12 @@ const fetchVouchers = async () => {
 
 
 
-    availableVouchers.value = list.filter(v => Number(v.trangThai) === 1 || v.trangThai == null)
+    availableVouchers.value = list.filter(v => {
+      const isActive = Number(v.trangThai) === 1 || v.trangThai == null
+      const qty = v.soLuongSuDung != null ? Number(v.soLuongSuDung) : (v.soLuong != null ? Number(v.soLuong) : null)
+      const hasQty = qty == null || qty > 0
+      return isActive && hasQty
+    })
 
 
 
@@ -6471,30 +6487,20 @@ const fetchVouchers = async () => {
 
 
         if (fullV) {
-
-
-
-          if (isVoucherPersonal(fullV) && !isVoucherForCustomer(fullV, inv.customerId, inv.customerName)) {
-
-
-
+          const qty = fullV.soLuongSuDung != null ? Number(fullV.soLuongSuDung) : (fullV.soLuong != null ? Number(fullV.soLuong) : null)
+          if (qty !== null && qty <= 0) {
             inv.voucher = null
-
-
-
+          } else if (isVoucherPersonal(fullV) && !isVoucherForCustomer(fullV, inv.customerId, inv.customerName)) {
+            inv.voucher = null
           } else {
-
-
-
             inv.voucher = fullV
-
-
-
           }
-
-
-
+        } else {
+          inv.voucher = null
         }
+
+
+
 
 
 
@@ -6784,6 +6790,11 @@ const formattedVouchers = computed(() => {
 
   const currentCustName = currentInvoice.value?.customerName
 
+  const validVouchers = availableVouchers.value.filter(v => {
+    const qty = v.soLuongSuDung != null ? Number(v.soLuongSuDung) : (v.soLuong != null ? Number(v.soLuong) : null)
+    return qty === null || qty > 0
+  })
+
 
 
 
@@ -6806,7 +6817,7 @@ const formattedVouchers = computed(() => {
 
 
 
-    availableVouchers.value.forEach(v => {
+    validVouchers.forEach(v => {
 
 
 
@@ -6886,7 +6897,7 @@ const formattedVouchers = computed(() => {
 
 
 
-    availableVouchers.value.forEach(v => {
+    validVouchers.forEach(v => {
 
 
 
@@ -6990,6 +7001,17 @@ const selectedVoucherId = computed({
 
 
 
+    }
+
+    const fQty = found.soLuongSuDung != null ? Number(found.soLuongSuDung) : (found.soLuong != null ? Number(found.soLuong) : null)
+    if (fQty !== null && fQty <= 0) {
+      showToast(`Phiếu "${found.maPhieuGiamGia}" đã hết số lượng sử dụng!`, 'warning')
+      const prev = currentInvoice.value.voucher
+      currentInvoice.value.voucher = null
+      nextTick(() => {
+        currentInvoice.value.voucher = prev
+      })
+      return
     }
 
 
@@ -8093,6 +8115,18 @@ const totalQuantity = computed(() => {
 
 
 
+
+const totalOriginalAmount = computed(() => {
+  if (!currentInvoice.value) return 0
+  return currentInvoice.value.cart.reduce((sum, item) => {
+    const orig = Number(item.originalPrice || item.giaBan || item.price || 0)
+    return sum + orig * item.quantity
+  }, 0)
+})
+
+const promotionDiscount = computed(() => {
+  return Math.max(0, totalOriginalAmount.value - totalAmount.value)
+})
 
 const totalAmount = computed(() => {
 
@@ -10450,6 +10484,13 @@ const handleCheckout = async () => {
 
     const v = currentInvoice.value.voucher
 
+    const vQty = v.soLuongSuDung != null ? Number(v.soLuongSuDung) : (v.soLuong != null ? Number(v.soLuong) : null)
+    if (vQty !== null && vQty <= 0) {
+      showToast(`Phiếu giảm giá "${v.maPhieuGiamGia}" đã hết số lượng sử dụng, hệ thống đã tự động gỡ bỏ voucher.`, 'warning')
+      currentInvoice.value.voucher = null
+      return
+    }
+
 
 
     if (isVoucherPersonal(v) && !isVoucherForCustomer(v, currentInvoice.value.customerId, currentInvoice.value.customerName)) {
@@ -11041,6 +11082,8 @@ const handleCheckout = async () => {
 
 
     fetchProductVariants()
+
+    fetchVouchers()
 
 
 
@@ -11923,7 +11966,8 @@ onMounted(async () => {
 
 
 
-                  <span class="cart-code-badge">{{ item.variantCode || item.code }}</span>
+                  <span class="cart-code-badge" :title="'Mã biến thể CTSP: ' + (item.variantCode || item.code)">{{ item.variantCode || item.code }}</span>
+                  <div v-if="item.code && item.variantCode && item.code !== item.variantCode" class="cart-code-sub" style="font-size: 0.72rem; color: #64748b; margin-top: 2px;" title="Mã sản phẩm">{{ item.code }}</div>
 
 
 
@@ -12577,7 +12621,15 @@ onMounted(async () => {
 
                   <span class="ghn-api-badge cursor-pointer" title="Bấm để tính lại cước qua API Giao Hàng Nhanh" @click="triggerRecalculateShippingFee">
 
-                    API GHN Express
+                    <svg class="ghn-logo-svg" viewBox="0 0 102 24" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+                      <rect width="46" height="24" rx="4" fill="#F26522"/>
+
+                      <text x="23" y="17" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Arial Black', sans-serif" font-weight="900" font-size="13" font-style="italic" text-anchor="middle" letter-spacing="0.5">GHN</text>
+
+                      <text x="51" y="17" fill="#003366" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-weight="900" font-size="12" font-style="italic" letter-spacing="0.3">Express</text>
+
+                    </svg>
 
                   </span>
 
@@ -13162,17 +13214,13 @@ onMounted(async () => {
 
 
           <div class="pos-summary-line">
-
-
-
             <span class="line-label">Tổng tiền hàng ({{ totalQuantity }} SP):</span>
+            <span class="line-value font-bold-dark">{{ formatMoney(totalOriginalAmount > 0 ? totalOriginalAmount : totalAmount) }}</span>
+          </div>
 
-
-
-            <span class="line-value font-bold-dark">{{ formatMoney(totalAmount) }}</span>
-
-
-
+          <div v-if="promotionDiscount > 0" class="pos-summary-line discount-line">
+            <span class="line-label">Đợt giảm giá:</span>
+            <span class="line-value text-discount-bold">- {{ formatMoney(promotionDiscount) }}</span>
           </div>
 
 
@@ -15082,17 +15130,13 @@ onMounted(async () => {
 
 
             <div class="cost-row">
+              <span>Tổng tiền hàng ({{ totalQuantity }} sản phẩm):</span>
+              <strong>{{ formatMoney(totalOriginalAmount > 0 ? totalOriginalAmount : totalAmount) }}</strong>
+            </div>
 
-
-
-              <span>Tạm tính ({{ totalQuantity }} sản phẩm):</span>
-
-
-
-              <strong>{{ formatMoney(totalAmount) }}</strong>
-
-
-
+            <div v-if="promotionDiscount > 0" class="cost-row discount-row">
+              <span>Đợt giảm giá:</span>
+              <strong class="text-discount">- {{ formatMoney(promotionDiscount) }}</strong>
             </div>
 
 
@@ -15729,7 +15773,11 @@ onMounted(async () => {
           <button type="button" @click="stopDirectCameraScan" class="dcm-tool-btn dcm-btn-done">✓ Hoàn tất</button>
         </div>
 
-
+        <!-- Tóm tắt số lượng món đã quét -->
+        <div class="dcm-cart-summary">
+          <span>Giỏ hàng: <strong>{{ currentInvoice.cart.length }} sản phẩm</strong></span>
+          <span class="dcm-total-amount">Tổng: <strong>{{ formatMoney(currentInvoiceTotalAmount) }}</strong></span>
+        </div>
       </div>
     </div>
 
@@ -30093,23 +30141,39 @@ onMounted(async () => {
 
   align-items: center;
 
-  gap: 5px;
+  background: transparent;
 
-  background: #fff7ed;
+  border: none;
 
-  color: #ea580c;
+  padding: 0;
 
-  border: 1px solid #fed7aa;
+  cursor: pointer;
 
-  padding: 2px 8px;
+  transition: transform 0.18s ease, opacity 0.18s ease;
 
-  border-radius: 9999px;
+  user-select: none;
 
-  font-size: 0.72rem;
+}
 
-  font-weight: 700;
 
-  letter-spacing: 0.3px;
+
+.ghn-api-badge:hover {
+
+  transform: scale(1.05);
+
+  opacity: 0.92;
+
+}
+
+
+
+.ghn-logo-svg {
+
+  display: block;
+
+  height: 22px;
+
+  width: auto;
 
 }
 

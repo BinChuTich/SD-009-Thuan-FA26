@@ -851,7 +851,12 @@ public class HoaDonService {
 
 
     private void attachImagesToChiTiet(List<ChiTietHoaDon> list) {
+
+
+
         if (list == null || list.isEmpty()) return;
+
+
 
         for (ChiTietHoaDon ct : list) {
 
@@ -5457,7 +5462,7 @@ public class HoaDonService {
 
 
 
-        if (pgg.getSoLuongSuDung() != null && pgg.getSoLuongSuDung() <= 0) {
+        if (pgg.getSoLuongSuDung() == null || pgg.getSoLuongSuDung() <= 0) {
 
 
 
@@ -7338,16 +7343,34 @@ public class HoaDonService {
 
 
                 ChiTietHoaDon cthd = new ChiTietHoaDon();
+
+
+
                 cthd.setIdHoaDon(saved);
+
+
+
                 cthd.setIdChiTietSanPham(ctsp);
+
+
+
                 cthd.setMaHoaDonChiTiet(String.format("CTHD%s-%02d-%04d", saved.getMaHoaDon(), itemIndex++, (int)(System.currentTimeMillis() % 10000)));
+
+
+
                 cthd.setDonGia(unitPrice);
+
+
+
                 cthd.setSoLuong(qty);
+
+
+
                 cthd.setThanhTien(lineTotal);
+
+
+
                 cthd.setTrangThai(1);
-                if (item.getTenDotGiamGia() != null && !item.getTenDotGiamGia().trim().isEmpty()) {
-                    cthd.setGhiChu(item.getTenDotGiamGia().trim());
-                }
 
 
 
@@ -8067,6 +8090,22 @@ public class HoaDonService {
 
 
 
+
+        // Trừ 1 lượt sử dụng của phiếu giảm giá khi bán hàng tại quầy thành công
+        if (saved.getIdPhieuGiamGia() != null) {
+            try {
+                PhieuGiamGia pgg = saved.getIdPhieuGiamGia();
+                int currentQty = pgg.getSoLuongSuDung() != null ? pgg.getSoLuongSuDung() : 0;
+                int newQty = Math.max(0, currentQty - 1);
+                pgg.setSoLuongSuDung(newQty);
+                if (newQty <= 0) {
+                    pgg.setTrangThai(0); // Hết lượt sử dụng -> ngừng hoạt động
+                }
+                phieuGiamGiaRepository.saveAndFlush(pgg);
+            } catch (Exception e) {
+                System.err.println("Lỗi khi cập nhật số lượng phiếu giảm giá POS: " + e.getMessage());
+            }
+        }
         return saved;
 
 
@@ -8311,7 +8350,7 @@ public class HoaDonService {
 
 
 
-        hoaDon.setEmail(dto.getEmail() != null ? dto.getEmail().trim() : "");
+        hoaDon.setEmail(dto.getEmail() != null && !dto.getEmail().trim().isEmpty() ? dto.getEmail().trim() : null);
 
 
 
@@ -8324,38 +8363,45 @@ public class HoaDonService {
 
 
         BigDecimal tongTien = dto.getTongTien() != null ? dto.getTongTien() : BigDecimal.ZERO;
+
+
+
         BigDecimal giamGia = dto.getGiamGia() != null ? dto.getGiamGia() : BigDecimal.ZERO;
 
-        // Xử lý phiếu giảm giá online
-        if (dto.getIdPhieuGiamGia() != null) {
-            Map<String, Object> vCheck = validateAndCalculateVoucher(dto.getIdPhieuGiamGia(), dto.getIdKhachHang(), tongTien);
-            if (Boolean.TRUE.equals(vCheck.get("hopLe"))) {
-                Optional<PhieuGiamGia> pggOpt = phieuGiamGiaRepository.findById(dto.getIdPhieuGiamGia());
-                if (pggOpt.isPresent()) {
-                    PhieuGiamGia pgg = pggOpt.get();
-                    hoaDon.setIdPhieuGiamGia(pgg);
-                    BigDecimal correctDiscount = (BigDecimal) vCheck.getOrDefault("giamGia", BigDecimal.ZERO);
-                    if (correctDiscount != null && correctDiscount.compareTo(BigDecimal.ZERO) > 0) {
-                        giamGia = correctDiscount;
-                    }
-                    if (pgg.getSoLuongSuDung() != null && pgg.getSoLuongSuDung() > 0) {
-                        pgg.setSoLuongSuDung(pgg.getSoLuongSuDung() - 1);
-                        if (pgg.getSoLuongSuDung() == 0) {
-                            pgg.setTrangThai(0);
-                        }
-                        phieuGiamGiaRepository.save(pgg);
-                    }
-                }
-            } else {
-                hoaDon.setIdPhieuGiamGia(null);
-                giamGia = BigDecimal.ZERO;
-            }
-        }
+
 
         hoaDon.setPhiVanChuyen(phiShip);
+
+
+
         hoaDon.setTongTien(tongTien);
-        BigDecimal tienSauGiam = tongTien.add(phiShip).subtract(giamGia);
+
+
+
+        if (dto.getIdPhieuGiamGia() != null) {
+
+            phieuGiamGiaRepository.findById(dto.getIdPhieuGiamGia()).ifPresent(hoaDon::setIdPhieuGiamGia);
+
+        }
+
+
+
+        if (dto.getDonViVanChuyen() != null && !dto.getDonViVanChuyen().trim().isEmpty()) {
+
+            hoaDon.setDonViVanChuyen(dto.getDonViVanChuyen().trim());
+
+        }
+
+
+
+        BigDecimal tienSauGiam = tongTien.subtract(giamGia).add(phiShip);
+
+
+
         if (tienSauGiam.compareTo(BigDecimal.ZERO) < 0) tienSauGiam = BigDecimal.ZERO;
+
+
+
         hoaDon.setTienSauGiamGia(tienSauGiam);
 
 
@@ -8639,9 +8685,6 @@ public class HoaDonService {
 
 
                 cthd.setTrangThai(1);
-                if (item.getTenDotGiamGia() != null && !item.getTenDotGiamGia().trim().isEmpty()) {
-                    cthd.setGhiChu(item.getTenDotGiamGia().trim());
-                }
 
 
 
@@ -8897,34 +8940,51 @@ public class HoaDonService {
 
 
 
-        // Gửi email xác nhận nếu không phải VNPAY
 
+        // Gửi email xác nhận đặt hàng online ngay lập tức cho khách hàng
+        try {
+            String recipientEmail = null;
+            if (dto.getEmail() != null && !dto.getEmail().trim().isEmpty()) {
+                recipientEmail = dto.getEmail().trim();
+            } else if (saved.getEmailKhachHang() != null && !saved.getEmailKhachHang().trim().isEmpty()) {
+                recipientEmail = saved.getEmailKhachHang().trim();
+            } else if (saved.getEmail() != null && !saved.getEmail().trim().isEmpty()) {
+                recipientEmail = saved.getEmail().trim();
+            }
 
-
-        if (!pt.equalsIgnoreCase("VNPAY") && saved.getEmail() != null && !saved.getEmail().isBlank()) {
-
-
-
-            try {
-
-
-
+            if (recipientEmail != null && recipientEmail.contains("@") && emailService != null) {
+                saved.setEmail(recipientEmail);
                 List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(saved.getId());
-
-
-
-                emailService.sendOrderConfirmationEmail(saved, items, saved.getEmail());
-
-
-
-            } catch (Exception ignored) {}
-
-
-
+                if (items == null || items.isEmpty()) {
+                    items = saved.getChiTietHoaDons() != null ? new java.util.ArrayList<>(saved.getChiTietHoaDons()) : java.util.Collections.emptyList();
+                }
+                System.out.println("==> [createHoaDonOnline] Đang gửi email xác nhận đặt hàng online " + saved.getMaHoaDon() + " tới: " + recipientEmail);
+                emailService.sendOrderConfirmationEmail(saved, items, recipientEmail);
+            } else {
+                System.out.println("==> [createHoaDonOnline] Bỏ qua gửi email: Không có địa chỉ email hợp lệ cho đơn hàng " + saved.getMaHoaDon());
+            }
+        } catch (Exception e) {
+            System.err.println("==> [createHoaDonOnline] Lỗi gửi email xác nhận đặt hàng online: " + e.getMessage());
         }
 
 
 
+
+        // Trừ 1 lượt sử dụng của phiếu giảm giá khi đặt hàng online thành công
+        if (saved.getIdPhieuGiamGia() != null) {
+            try {
+                PhieuGiamGia pgg = saved.getIdPhieuGiamGia();
+                int currentQty = pgg.getSoLuongSuDung() != null ? pgg.getSoLuongSuDung() : 0;
+                int newQty = Math.max(0, currentQty - 1);
+                pgg.setSoLuongSuDung(newQty);
+                if (newQty <= 0) {
+                    pgg.setTrangThai(0);
+                }
+                phieuGiamGiaRepository.saveAndFlush(pgg);
+            } catch (Exception e) {
+                System.err.println("Lỗi khi cập nhật số lượng phiếu giảm giá Online: " + e.getMessage());
+            }
+        }
         return saved;
 
 
