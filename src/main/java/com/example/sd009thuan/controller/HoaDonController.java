@@ -294,6 +294,11 @@ public class HoaDonController {
                     hoaDonService.updateTrangThai(id, trangThai, ghiChu, email, nhanVienId, nguoiThucHien)
             );
         } catch (Exception e) {
+            if (e instanceof IllegalStateException || (e.getMessage() != null && (e.getMessage().contains("không đủ số lượng") || e.getMessage().contains("hết hàng")))) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "message", e.getMessage()
+                ));
+            }
             try {
                 HoaDon hd = new HoaDon();
                 hd.setTrangThai(trangThai);
@@ -303,7 +308,7 @@ public class HoaDonController {
             } catch (Exception ex) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "message",
-                        e.getMessage() != null ? e.getMessage() : "Cập nhật trạng thái thất bại"
+                        ex.getMessage() != null ? ex.getMessage() : (e.getMessage() != null ? e.getMessage() : "Cập nhật trạng thái thất bại")
                 ));
             }
         }
@@ -377,6 +382,9 @@ public class HoaDonController {
                     )
             );
         } catch (Exception e) {
+            if (e instanceof IllegalStateException || (e.getMessage() != null && (e.getMessage().contains("không đủ số lượng") || e.getMessage().contains("hết hàng")))) {
+                return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+            }
             try {
                 java.util.Optional<HoaDon> opt = hoaDonService.getByMaHoaDon(maHoaDon);
                 if (opt.isPresent()) {
@@ -391,6 +399,16 @@ public class HoaDonController {
                     "message",
                     e.getMessage() != null ? e.getMessage() : "Cập nhật trạng thái thất bại"
                 ));
+        }
+    }
+
+    // Kiểm tra tồn kho các sản phẩm trong đơn hàng (phục vụ xác nhận đơn)
+    @GetMapping("/{id}/check-stock")
+    public ResponseEntity<?> checkStockForOrder(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(hoaDonService.checkStockForOrder(id));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
 

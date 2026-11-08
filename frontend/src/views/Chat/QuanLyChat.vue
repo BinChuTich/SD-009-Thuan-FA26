@@ -20,6 +20,8 @@ const displayMessages = computed(() => {
   return messages.value.filter(m => {
     if (m.nguoiGui === 'AI') return false
     if (m.noiDung && m.noiDung.includes('Xin chào quý khách! Cảm ơn bạn đã ghé thăm FF T-Shirt')) return false
+    // Theo yêu cầu: Các thông báo nhắc nhở đếm ngược/hết thời gian chỉ báo với khách hàng thôi, không hiển thị trên màn hình nhân viên
+    if (m.nguoiGui === 'HE_THONG' && m.noiDung && m.noiDung.includes('Bạn vẫn còn ở đó chứ')) return false
     return true
   })
 })
@@ -523,7 +525,7 @@ watch(() => route.query.id, (newId) => {
               </div>
 
               <div class="row-snippet" v-if="c.tinNhanCuoi">
-                {{ (c.tinNhanCuoi || '').replace(/^Nhân viên\s+/i, '') }}
+                {{ c.tinNhanCuoi.includes('Bạn vẫn còn ở đó chứ') ? 'Đang chờ khách phản hồi...' : (c.tinNhanCuoi || '').replace(/^Nhân viên\s+/i, '') }}
               </div>
 
               <div class="row-bottom">

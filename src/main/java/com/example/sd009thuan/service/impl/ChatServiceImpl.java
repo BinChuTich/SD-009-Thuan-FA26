@@ -218,9 +218,17 @@ public class ChatServiceImpl implements ChatService {
                 conv.setTrangThai(1);
             }
         } else if ("KHACH_HANG".equals(nguoiGui)) {
-            // Khi khách hàng gửi tin nhắn: cập nhật thời gian phản hồi cuối và reset cảnh báo 2 phút
+            // Khi khách hàng gửi tin nhắn: cập nhật thời gian phản hồi cuối và reset các cảnh báo 5p, 10p, 2p
             conv.setThoiGianKhachPhanHoiCuoi(LocalDateTime.now());
+            conv.setDaGuiCanhBao5Phut(false);
+            conv.setDaGuiCanhBao10Phut(false);
             conv.setDaGuiCanhBao2Phut(false);
+
+            // Khi khách phản hồi: tự động xóa các thông báo nhắc nhở timeout cũ
+            List<TinNhanDTO> list = messagesByConv.get(conv.getId());
+            if (list != null) {
+                list.removeIf(m -> "HE_THONG".equals(m.getNguoiGui()) && m.getNoiDung() != null && m.getNoiDung().contains("Bạn vẫn còn ở đó chứ"));
+            }
 
             if (conv.getTrangThai() == null || (conv.getTrangThai() != 1 && conv.getNhanVienId() == null)) {
                 conv.setTrangThai(2); // Đẩy vào Chờ nhận để nhân viên tiếp nhận
@@ -416,7 +424,15 @@ public class ChatServiceImpl implements ChatService {
         conv.setTrangThai(1); // 1 = Đang hoạt động
         conv.setNgayCapNhat(LocalDateTime.now());
         conv.setThoiGianKhachPhanHoiCuoi(LocalDateTime.now());
+        conv.setDaGuiCanhBao5Phut(false);
+        conv.setDaGuiCanhBao10Phut(false);
         conv.setDaGuiCanhBao2Phut(false);
+
+        // Xóa thông báo nhắc nhở cũ nếu có
+        List<TinNhanDTO> existingMsgs = messagesByConv.get(id);
+        if (existingMsgs != null) {
+            existingMsgs.removeIf(m -> "HE_THONG".equals(m.getNguoiGui()) && m.getNoiDung() != null && m.getNoiDung().contains("Bạn vẫn còn ở đó chứ"));
+        }
 
         TinNhanDTO acceptMsg = TinNhanDTO.builder()
                 .id(msgIdSeq.getAndIncrement())
@@ -574,8 +590,9 @@ public class ChatServiceImpl implements ChatService {
     public void kiemTraTuDongDongPhienKhongPhanHoi() {
         LocalDateTime now = LocalDateTime.now();
         for (CuocHoiThoaiDTO conv : conversations.values()) {
-            // Kiểm tra các cuộc trò chuyện đang hoạt động hoặc chờ nhận (trangThai == 1 hoặc 2)
-            if (conv.getTrangThai() != null && (conv.getTrangThai() == 1 || conv.getTrangThai() == 2)) {
+            // THEO YÊU CẦU: Chỉ áp dụng đếm thời gian khi ĐANG CHAT VỚI NHÂN VIÊN (trangThai == 1)
+            // Nếu chưa tiếp nhận (trangThai == 2 hoặc khác) thì CHƯA TÍNH!
+            if (conv.getTrangThai() != null && conv.getTrangThai() == 1) {
                 LocalDateTime lastActive = conv.getThoiGianKhachPhanHoiCuoi();
                 if (lastActive == null) {
                     lastActive = conv.getNgayCapNhat() != null ? conv.getNgayCapNhat() : conv.getNgayTao();
@@ -584,7 +601,43 @@ public class ChatServiceImpl implements ChatService {
 
                 long secondsInactive = Duration.between(lastActive, now).getSeconds();
 
-                // 1. Cảnh báo khi còn khoảng 2 phút (sau 13 phút = 780s không phản hồi)
+                // 1. Sau 5 phút (300s) không phản hồi: Báo còn 10 phút
+                if (secondsInactive >= 5 * 60 && !Boolean.TRUE.equals(conv.getDaGuiCanhBao5Phut())) {
+                    conv.setDaGuiCanhBao5Phut(true);
+
+                    TinNhanDTO warnMsg = TinNhanDTO.builder()
+                            .id(msgIdSeq.getAndIncrement())
+                            .cuocHoiThoaiId(conv.getId())
+                            .nguoiGui("HE_THONG")
+                            .noiDung("Bạn vẫn còn ở đó chứ? Phiên chat sẽ tự động đóng sau 10 phút nữa nếu bạn không phản hồi.")
+                            .daDoc(false)
+                            .ngayTao(now)
+                            .build();
+
+                    messagesByConv.computeIfAbsent(conv.getId(), k -> new CopyOnWriteArrayList<>()).add(warnMsg);
+                    conv.setTinNhanCuoi(warnMsg.getNoiDung());
+                    conv.setThoiGianTinNhanCuoi(warnMsg.getNgayTao());
+                }
+
+                // 2. Sau 10 phút (600s) không phản hồi: Báo còn 5 phút
+                if (secondsInactive >= 10 * 60 && !Boolean.TRUE.equals(conv.getDaGuiCanhBao10Phut())) {
+                    conv.setDaGuiCanhBao10Phut(true);
+
+                    TinNhanDTO warnMsg = TinNhanDTO.builder()
+                            .id(msgIdSeq.getAndIncrement())
+                            .cuocHoiThoaiId(conv.getId())
+                            .nguoiGui("HE_THONG")
+                            .noiDung("Bạn vẫn còn ở đó chứ? Phiên chat sẽ tự động đóng sau 5 phút nữa nếu bạn không phản hồi.")
+                            .daDoc(false)
+                            .ngayTao(now)
+                            .build();
+
+                    messagesByConv.computeIfAbsent(conv.getId(), k -> new CopyOnWriteArrayList<>()).add(warnMsg);
+                    conv.setTinNhanCuoi(warnMsg.getNoiDung());
+                    conv.setThoiGianTinNhanCuoi(warnMsg.getNgayTao());
+                }
+
+                // 3. Sau 13 phút (780s - còn khoảng 2 phút): Cảnh báo 2 phút
                 if (secondsInactive >= 13 * 60 && !Boolean.TRUE.equals(conv.getDaGuiCanhBao2Phut())) {
                     conv.setDaGuiCanhBao2Phut(true);
 
@@ -602,7 +655,7 @@ public class ChatServiceImpl implements ChatService {
                     conv.setThoiGianTinNhanCuoi(warnMsg.getNgayTao());
                 }
 
-                // 2. Tự động đóng phiên sau 15 phút (900s) không phản hồi
+                // 4. Tự động đóng phiên sau 15 phút (900s) không phản hồi
                 if (secondsInactive >= 15 * 60) {
                     conv.setTrangThai(0); // 0 = Đã đóng
                     conv.setNgayCapNhat(now);
@@ -659,7 +712,15 @@ public class ChatServiceImpl implements ChatService {
                 CuocHoiThoaiDTO conv = conversations.get(cuocHoiThoaiId);
                 if (conv != null) {
                     conv.setThoiGianKhachPhanHoiCuoi(LocalDateTime.now());
+                    conv.setDaGuiCanhBao5Phut(false);
+                    conv.setDaGuiCanhBao10Phut(false);
                     conv.setDaGuiCanhBao2Phut(false);
+
+                    // Khi khách bắt đầu soạn tin phản hồi: tự động xóa các thông báo nhắc nhở timeout cũ
+                    List<TinNhanDTO> list = messagesByConv.get(cuocHoiThoaiId);
+                    if (list != null) {
+                        list.removeIf(m -> "HE_THONG".equals(m.getNguoiGui()) && m.getNoiDung() != null && m.getNoiDung().contains("Bạn vẫn còn ở đó chứ"));
+                    }
                 }
             } else {
                 khachTypingTimes.remove(cuocHoiThoaiId);

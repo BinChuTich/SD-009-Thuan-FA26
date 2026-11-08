@@ -700,6 +700,8 @@ const increaseQty = () => {
 
     quantity.value++
 
+  } else {
+    triggerToast(`Số lượng tồn kho tối đa là ${currentStock.value}`)
   }
 
 }
@@ -722,6 +724,39 @@ const decreaseQty = () => {
 
   }
 
+}
+
+const handleQtyInput = (event) => {
+  if (currentStock.value <= 0) {
+    quantity.value = 0
+    return
+  }
+  const raw = event.target.value
+  if (raw === '' || raw === null) return
+  let val = parseInt(raw, 10)
+  if (isNaN(val) || val < 1) val = 1
+  if (val > currentStock.value) {
+    val = currentStock.value
+    event.target.value = currentStock.value
+    triggerToast(`Số lượng tồn kho tối đa là ${currentStock.value}`)
+  }
+  quantity.value = val
+}
+
+const handleQtyBlur = (event) => {
+  if (currentStock.value <= 0) {
+    quantity.value = 0
+    event.target.value = 0
+    return
+  }
+  let val = parseInt(event.target.value, 10)
+  if (isNaN(val) || val < 1) val = 1
+  if (val > currentStock.value) {
+    val = currentStock.value
+    triggerToast(`Số lượng tồn kho tối đa là ${currentStock.value}`)
+  }
+  event.target.value = val
+  quantity.value = val
 }
 
 
@@ -1209,7 +1244,18 @@ onUnmounted(() => {
 
                   <button class="step-btn" :disabled="currentStock <= 0 || quantity <= 1" @click="decreaseQty">-</button>
 
-                  <span class="qty-display">{{ currentStock <= 0 ? 0 : quantity }}</span>
+                  <input
+                    type="number"
+                    class="qty-input"
+                    :value="currentStock <= 0 ? 0 : quantity"
+                    min="1"
+                    :max="currentStock > 0 ? currentStock : 1"
+                    :disabled="currentStock <= 0 || isCurrentVariantDiscontinued"
+                    @input="handleQtyInput"
+                    @change="handleQtyBlur"
+                    @blur="handleQtyBlur"
+                    @keydown.enter="$event.target.blur()"
+                  />
 
                   <button class="step-btn" :disabled="currentStock <= 0 || quantity >= currentStock" @click="increaseQty">+</button>
 
@@ -1914,6 +1960,36 @@ onUnmounted(() => {
 }
 
 
+
+.qty-input {
+  width: 48px;
+  height: 36px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 14px;
+  color: #0f172a;
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 0;
+  -moz-appearance: textfield;
+}
+
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.qty-input:focus {
+  background: #f8fafc;
+}
+
+.qty-input:disabled {
+  background: transparent;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
 
 .qty-display {
 

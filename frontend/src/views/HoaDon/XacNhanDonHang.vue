@@ -10,6 +10,7 @@ const loading = ref(false)
 const saving = ref(false)
 const paying = ref(false)
 const errorMessage = ref('')
+const isOrderOutOfStock = ref(false)
 
 const loadHoaDon = async () => {
   try {
@@ -21,6 +22,20 @@ const loadHoaDon = async () => {
       res = res.data
     }
     hoaDon.value = res
+    if (res && Number(res.trangThai) === 1 && res.id) {
+      try {
+        const stockRes = await api.get(`/api/hoa-don/${res.id}/check-stock`)
+        if (stockRes && stockRes.data && stockRes.data.duHang === false) {
+          isOrderOutOfStock.value = true
+        } else {
+          isOrderOutOfStock.value = false
+        }
+      } catch (e) {
+        console.warn('Lỗi kiểm tra tồn kho:', e)
+      }
+    } else {
+      isOrderOutOfStock.value = false
+    }
   } catch (error) {
     console.error('Lỗi tải hóa đơn:', error)
     errorMessage.value = 'Không thể tải thông tin hóa đơn.'
@@ -167,6 +182,10 @@ const xacNhanDon = () => {
   if (!status) return
 
   const isConfirming = status === 2
+  if (isConfirming && isOrderOutOfStock.value) {
+    showToast('Không thể xác nhận đơn hàng vì sản phẩm trong kho không đủ hoặc đã hết hàng!', 'warning')
+    return
+  }
   const existingEmail = (hoaDon.value.emailKhachHang || hoaDon.value.idKhachHang?.email || hoaDon.value.email || '').trim()
 
   openConfirmModal({
@@ -399,6 +418,12 @@ onMounted(() => {
         </div>
       </div>
 
+      <!-- Cảnh báo hết hàng khi ở bước Chờ xác nhận -->
+      <div v-if="nextStatus === 2 && isOrderOutOfStock" class="stock-warning-banner" style="background: #fff1f2; border: 1px solid #fda4af; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; color: #9f1239; font-size: 13.5px; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 18px;">⚠️</span>
+        <div><strong>Không thể xác nhận:</strong> Đơn hàng có sản phẩm không đủ tồn kho hoặc đã hết hàng trong kho.</div>
+      </div>
+
       <!-- NÚT THAO TÁC CUỐI TRANG -->
       <div class="action-buttons">
         <button class="btn-cancel" @click="quayLai" :disabled="saving || paying">
@@ -408,8 +433,10 @@ onMounted(() => {
         <button
             v-if="nextStatus"
             class="btn-confirm"
+            :class="{ 'btn-disabled': nextStatus === 2 && isOrderOutOfStock }"
             @click="xacNhanDon"
-            :disabled="saving || paying"
+            :disabled="saving || paying || (nextStatus === 2 && isOrderOutOfStock)"
+            :title="(nextStatus === 2 && isOrderOutOfStock) ? 'Không thể xác nhận vì sản phẩm trong kho không đủ hoặc đã hết hàng!' : ''"
         >
           {{ saving ? 'Đang xử lý...' : actionText }}
         </button>
@@ -787,6 +814,15 @@ onMounted(() => {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.btn-confirm.btn-disabled {
+  background-color: #cbd5e1 !important;
+  color: #64748b !important;
+  border-color: #cbd5e1 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  opacity: 0.65;
 }
 
 .btn-confirm:hover {

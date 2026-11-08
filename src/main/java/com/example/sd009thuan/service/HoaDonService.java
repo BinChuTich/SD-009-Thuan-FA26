@@ -3025,8 +3025,14 @@ public class HoaDonService {
 
 
         if (hoaDonMoi.getTrangThai() != null) {
-
-
+            Integer oldStatusInUpdate = hoaDonCu.getTrangThai();
+            if (Integer.valueOf(2).equals(hoaDonMoi.getTrangThai()) && (oldStatusInUpdate == null || Integer.valueOf(1).equals(oldStatusInUpdate))) {
+                checkStockAndDeductForConfirmation(hoaDonCu);
+            }
+            if ((Integer.valueOf(6).equals(hoaDonMoi.getTrangThai()) || Integer.valueOf(7).equals(hoaDonMoi.getTrangThai()))
+                    && oldStatusInUpdate != null && oldStatusInUpdate >= 2 && oldStatusInUpdate != 6) {
+                refundStockForCancellation(hoaDonCu);
+            }
 
             if (Integer.valueOf(7).equals(hoaDonMoi.getTrangThai())) {
 
@@ -3669,18 +3675,10 @@ public class HoaDonService {
 
 
         HoaDon hoaDon = hoaDonRepository.findById(id)
-
-
-
                 .orElseThrow(() -> new RuntimeException(
-
-
-
                         "Không tìm thấy hóa đơn có ID: " + id
-
-
-
                 ));
+        Integer oldTrangThai = hoaDon.getTrangThai();
 
 
 
@@ -3931,9 +3929,9 @@ public class HoaDonService {
 
 
         } else {
-
-
-
+            if (Integer.valueOf(2).equals(trangThai) && (oldTrangThai == null || Integer.valueOf(1).equals(oldTrangThai))) {
+                checkStockAndDeductForConfirmation(hoaDon);
+            }
             hoaDon.setTrangThai(trangThai);
 
 
@@ -3970,11 +3968,8 @@ public class HoaDonService {
 
 
 
-        // Nếu trạng thái là ĐÃ HỦY (6) và trước đó chưa hủy -> Hoàn lại tồn kho cho các biến thể
-
-
-
-        if (Integer.valueOf(6).equals(trangThai)) {
+        // Nếu trạng thái là ĐÃ HỦY (6) và trước đó đã xác nhận (trạng thái >= 2 và != 6) -> Hoàn lại tồn kho cho các biến thể
+        if (Integer.valueOf(6).equals(trangThai) && oldTrangThai != null && oldTrangThai >= 2 && oldTrangThai != 6) {
 
 
 
@@ -8702,25 +8697,8 @@ public class HoaDonService {
 
                 chiTietHoaDonRepository.save(cthd);
 
-
-
-                // Trừ tồn kho
-
-
-
-                if (ctsp.getSoLuong() != null) {
-
-
-
-                    ctsp.setSoLuong(Math.max(0, ctsp.getSoLuong() - qty));
-
-
-
-                    chiTietSanPhamRepository.save(ctsp);
-
-
-
-                }
+                // THEO YÊU CẦU: Không trừ tồn kho khi tạo đơn hàng online (trạng thái Chờ xác nhận).
+                // Số lượng tồn kho sẽ chỉ được trừ khi nhân viên duyệt xác nhận đơn hàng tại màn Admin (chuyển sang trạng thái 2).
 
 
 
@@ -8993,4 +8971,99 @@ public class HoaDonService {
 
 
 
+
+    public Map<String, Object> checkStockForOrder(Long idHoaDon) {
+        Map<String, Object> result = new HashMap<>();
+        List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(idHoaDon);
+        boolean duHang = true;
+        List<Map<String, Object>> itemList = new ArrayList<>();
+
+        if (items != null) {
+            for (ChiTietHoaDon cthd : items) {
+                if (cthd.getIdChiTietSanPham() == null) continue;
+                ChiTietSanPham ctsp = chiTietSanPhamRepository.findById(cthd.getIdChiTietSanPham().getId()).orElse(null);
+                if (ctsp == null) continue;
+
+                int available = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
+                int needed = cthd.getSoLuong() != null ? cthd.getSoLuong() : 1;
+                boolean hetHang = (available < needed) || (available <= 0);
+                if (hetHang) {
+                    duHang = false;
+                }
+
+                Map<String, Object> itMap = new HashMap<>();
+                itMap.put("chiTietId", cthd.getId());
+                itMap.put("variantId", ctsp.getId());
+                itMap.put("tenSanPham", ctsp.getIdSanPham() != null ? ctsp.getIdSanPham().getTenSanPham() : "");
+                itMap.put("maSanPham", ctsp.getIdSanPham() != null ? ctsp.getIdSanPham().getMaSanPham() : "");
+                itMap.put("tenMauSac", ctsp.getIdMauSac() != null ? ctsp.getIdMauSac().getTenMauSac() : "");
+                itMap.put("tenKichCo", ctsp.getIdKichCo() != null ? ctsp.getIdKichCo().getTenKichCo() : "");
+                itMap.put("soLuongDat", needed);
+                itMap.put("soLuongTon", available);
+                itMap.put("hetHang", hetHang);
+                itemList.add(itMap);
+            }
+        }
+
+        result.put("duHang", duHang);
+        result.put("items", itemList);
+        return result;
+    }
+
+    @Transactional
+    public void checkStockAndDeductForConfirmation(HoaDon hoaDon) {
+        if (hoaDon == null || hoaDon.getId() == null) return;
+        List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(hoaDon.getId());
+        if (items == null || items.isEmpty()) return;
+
+        // 1. Kiểm tra tồn kho của tất cả các sản phẩm trong đơn xem có đủ không
+        for (ChiTietHoaDon cthd : items) {
+            if (cthd.getIdChiTietSanPham() == null || cthd.getIdChiTietSanPham().getId() == null) continue;
+            ChiTietSanPham ctsp = chiTietSanPhamRepository.findById(cthd.getIdChiTietSanPham().getId()).orElse(null);
+            if (ctsp == null) continue;
+
+            int available = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
+            int needed = cthd.getSoLuong() != null ? cthd.getSoLuong() : 1;
+
+            if (available < needed || available <= 0) {
+                String spName = (ctsp.getIdSanPham() != null && ctsp.getIdSanPham().getTenSanPham() != null)
+                        ? ctsp.getIdSanPham().getTenSanPham() : "Sản phẩm";
+                String color = (ctsp.getIdMauSac() != null && ctsp.getIdMauSac().getTenMauSac() != null)
+                        ? ctsp.getIdMauSac().getTenMauSac() : "";
+                String size = (ctsp.getIdKichCo() != null && ctsp.getIdKichCo().getTenKichCo() != null)
+                        ? ctsp.getIdKichCo().getTenKichCo() : "";
+                String variantDesc = (!color.isEmpty() || !size.isEmpty()) ? " (" + color + " - " + size + ")" : "";
+
+                throw new IllegalStateException("Sản phẩm '" + spName + "'" + variantDesc
+                        + " hiện không đủ số lượng trong kho (chỉ còn " + available + ", đơn cần " + needed + ")! Không thể xác nhận đơn hàng.");
+            }
+        }
+
+        // 2. Tất cả sản phẩm đều đủ hàng -> Trừ số lượng tồn kho tại màn admin
+        for (ChiTietHoaDon cthd : items) {
+            if (cthd.getIdChiTietSanPham() == null || cthd.getIdChiTietSanPham().getId() == null) continue;
+            ChiTietSanPham ctsp = chiTietSanPhamRepository.findById(cthd.getIdChiTietSanPham().getId()).orElse(null);
+            if (ctsp == null) continue;
+
+            int needed = cthd.getSoLuong() != null ? cthd.getSoLuong() : 1;
+            int currentStock = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
+            ctsp.setSoLuong(Math.max(0, currentStock - needed));
+            chiTietSanPhamRepository.save(ctsp);
+        }
+    }
+
+    @Transactional
+    public void refundStockForCancellation(HoaDon hoaDon) {
+        if (hoaDon == null || hoaDon.getId() == null) return;
+        List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(hoaDon.getId());
+        if (items == null || items.isEmpty()) return;
+        for (ChiTietHoaDon cthd : items) {
+            if (cthd.getIdChiTietSanPham() == null || cthd.getIdChiTietSanPham().getId() == null || cthd.getSoLuong() == null) continue;
+            ChiTietSanPham ctsp = chiTietSanPhamRepository.findById(cthd.getIdChiTietSanPham().getId()).orElse(null);
+            if (ctsp == null) continue;
+            int cur = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
+            ctsp.setSoLuong(cur + cthd.getSoLuong());
+            chiTietSanPhamRepository.save(ctsp);
+        }
+    }
 }

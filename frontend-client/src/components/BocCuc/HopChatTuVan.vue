@@ -25,6 +25,8 @@ let pollTimer = null
 let inactiveTimer = null
 let countdownInterval = null
 const lastUserActivityTime = ref(Date.now())
+const warned5Min = ref(false)
+const warned10Min = ref(false)
 const warned2Min = ref(false)
 const showCountdownBanner = ref(false)
 const remainingCountdownSec = ref(120)
@@ -86,6 +88,8 @@ const dismissCountdownBanner = () => {
 
 const updateActivity = () => {
   lastUserActivityTime.value = Date.now()
+  warned5Min.value = false
+  warned10Min.value = false
   warned2Min.value = false
   showCountdownBanner.value = false
   remainingCountdownSec.value = 120
@@ -93,6 +97,8 @@ const updateActivity = () => {
     clearInterval(countdownInterval)
     countdownInterval = null
   }
+  // Khi khách phản hồi: tự động xóa các thông báo nhắc nhở cũ (Bạn vẫn còn ở đó chứ...)
+  messages.value = messages.value.filter(m => !m.isWarning && !(m.text && m.text.includes('Bạn vẫn còn ở đó chứ')))
 }
 
 const handleAutoCloseDueToInactivity = async () => {
@@ -501,11 +507,18 @@ const pollNewMessages = async () => {
             conversationStatus.value = 1
             if (m.tenNhanVien) assignedStaffName.value = m.tenNhanVien
           }
-          if (isWarning && !warned2Min.value && conversationStatus.value !== 0) {
-            warned2Min.value = true
-            showCountdownBanner.value = true
-            remainingCountdownSec.value = 120
-            startCountdown()
+          if (isWarning) {
+            // Khi khách đã phản hồi gần đây (< 5 phút), không thêm các thông báo nhắc nhở cũ
+            const elapsedSec = Math.floor((Date.now() - lastUserActivityTime.value) / 1000)
+            if (elapsedSec < 5 * 60) {
+              return
+            }
+            if (!warned2Min.value && conversationStatus.value !== 0 && m.noiDung && m.noiDung.includes('2 phút nữa')) {
+              warned2Min.value = true
+              showCountdownBanner.value = true
+              remainingCountdownSec.value = 120
+              startCountdown()
+            }
           }
 
           if (isClose) {
@@ -743,6 +756,7 @@ Dưới đây là các sản phẩm đang áp dụng giảm giá trực tiếp t
 
 const handleActionClick = (action) => {
   if (!action) return
+  updateActivity()
 
   if (action.type === 'size') {
     messages.value.push({
@@ -779,6 +793,7 @@ const handleActionClick = (action) => {
 // Xử lý khi khách bấm các chip gợi ý nhanh (Sản phẩm bán chạy, Giảm giá, Tư vấn size, Gặp nhân viên)
 const handleChipClick = (chip) => {
   if (!chip) return
+  updateActivity()
 
   if (chip.type === 'bestseller') {
     messages.value.push({
@@ -834,6 +849,7 @@ const viewProductDetail = (p) => {
 
 // Gửi tin nhắn thực tế tới nhân viên qua API Backend
 const sendMessageText = async (txt) => {
+  updateActivity()
   const tempId = Date.now()
   messages.value.push({
     id: tempId,
@@ -1029,6 +1045,7 @@ const handleSend = async () => {
   const txt = inputMessage.value.trim()
   if (!txt) return
   inputMessage.value = ''
+  updateActivity()
 
   // 1. Đang chat với nhân viên (trangThai === 1)
   if (isClientLoggedIn.value && conversationStatus.value === 1) {
@@ -1158,27 +1175,63 @@ onMounted(() => {
 
   // Kiểm tra thời gian không phản hồi để cảnh báo 2 phút và tự động đóng phiên
   inactiveTimer = setInterval(() => {
-    if (!isOpen.value || conversationStatus.value === 0) return
+    // Theo yêu cầu: Chỉ tính khi ĐANG CHAT VỚI NHÂN VIÊN (conversationStatus === 1). Chưa tiếp nhận thì CHƯA TÍNH!
+    if (!isOpen.value || conversationStatus.value !== 1) return
     const elapsedSec = Math.floor((Date.now() - lastUserActivityTime.value) / 1000)
 
-    // 1. Cảnh báo trước 2 phút (sau 13 phút = 780s không phản hồi)
+    // 1. Cảnh báo sau 5 phút không phản hồi (còn 10 phút)
+    if (elapsedSec >= 5 * 60 && !warned5Min.value) {
+      warned5Min.value = true
+      const exists = messages.value.some(m => m.text && m.text.includes('10 phút nữa'))
+      if (!exists) {
+        messages.value.push({
+          id: 'sys-warn-5-' + Date.now(),
+          sender: 'system',
+          text: 'Bạn vẫn còn ở đó chứ? Phiên chat sẽ tự động đóng sau 10 phút nữa nếu bạn không phản hồi.',
+          isSystem: true,
+          isWarning: true
+        })
+        scrollToBottom()
+      }
+    }
+
+    // 2. Cảnh báo sau 10 phút không phản hồi (còn 5 phút)
+    if (elapsedSec >= 10 * 60 && !warned10Min.value) {
+      warned10Min.value = true
+      const exists = messages.value.some(m => m.text && m.text.includes('5 phút nữa'))
+      if (!exists) {
+        messages.value.push({
+          id: 'sys-warn-10-' + Date.now(),
+          sender: 'system',
+          text: 'Bạn vẫn còn ở đó chứ? Phiên chat sẽ tự động đóng sau 5 phút nữa nếu bạn không phản hồi.',
+          isSystem: true,
+          isWarning: true
+        })
+        scrollToBottom()
+      }
+    }
+
+    // 3. Cảnh báo trước 2 phút (sau 13 phút = 780s không phản hồi)
     if (elapsedSec >= 13 * 60 && !warned2Min.value) {
       warned2Min.value = true
       showCountdownBanner.value = true
       remainingCountdownSec.value = Math.max(0, 15 * 60 - elapsedSec)
       startCountdown()
 
-      messages.value.push({
-        id: 'sys-warn-' + Date.now(),
-        sender: 'system',
-        text: 'Bạn vẫn còn ở đó chứ? Nếu bạn không phản hồi trong 2 phút nữa, phiên chat này sẽ tự động đóng.',
-        isSystem: true,
-        isWarning: true
-      })
-      scrollToBottom()
+      const exists = messages.value.some(m => m.text && m.text.includes('2 phút nữa'))
+      if (!exists) {
+        messages.value.push({
+          id: 'sys-warn-2-' + Date.now(),
+          sender: 'system',
+          text: 'Bạn vẫn còn ở đó chứ? Nếu bạn không phản hồi trong 2 phút nữa, phiên chat này sẽ tự động đóng.',
+          isSystem: true,
+          isWarning: true
+        })
+        scrollToBottom()
+      }
     }
 
-    // 2. Tự động đóng phiên sau 15 phút (900s) không phản hồi
+    // 4. Tự động đóng phiên sau 15 phút (900s) không phản hồi
     if (elapsedSec >= 15 * 60) {
       handleAutoCloseDueToInactivity()
     }

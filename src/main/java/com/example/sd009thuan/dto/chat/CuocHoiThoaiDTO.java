@@ -23,6 +23,8 @@ public class CuocHoiThoaiDTO {
     private LocalDateTime thoiGianTinNhanCuoi;
     private Long soTinChuaDoc;
     private LocalDateTime thoiGianKhachPhanHoiCuoi;
+    private Boolean daGuiCanhBao5Phut;
+    private Boolean daGuiCanhBao10Phut;
     private Boolean daGuiCanhBao2Phut;
     private DanhGiaCuocHoiThoaiDTO danhGia;
     private Boolean khachDangNhap;

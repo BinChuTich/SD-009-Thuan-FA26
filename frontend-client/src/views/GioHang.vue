@@ -1007,10 +1007,39 @@ const handleQtyChange = (variantId, delta, currentQty, maxStock) => {
 
   }
 
-  if (limit > 0 && newQty > limit) return
+  if (limit > 0 && newQty > limit) {
+    showAppToast(`Số lượng tồn kho tối đa là ${limit}`, 'warning')
+    return
+  }
 
   updateCartQuantity(variantId, newQty)
 
+}
+
+const handleQtyInput = (variantId, event, maxStock) => {
+  const raw = event.target.value
+  if (raw === '' || raw === null) return
+  let val = parseInt(raw, 10)
+  if (isNaN(val) || val < 1) val = 1
+  const limit = maxStock != null ? Number(maxStock) : 99
+  if (limit > 0 && val > limit) {
+    val = limit
+    event.target.value = limit
+    showAppToast(`Số lượng tồn kho tối đa là ${limit}`, 'warning')
+  }
+  updateCartQuantity(variantId, val)
+}
+
+const handleQtyBlur = (variantId, event, maxStock) => {
+  let val = parseInt(event.target.value, 10)
+  const limit = maxStock != null ? Number(maxStock) : 99
+  if (isNaN(val) || val < 1) val = 1
+  if (limit > 0 && val > limit) {
+    val = limit
+    showAppToast(`Số lượng tồn kho tối đa là ${limit}`, 'warning')
+  }
+  event.target.value = val
+  updateCartQuantity(variantId, val)
 }
 
 
@@ -3362,7 +3391,18 @@ const formatDate = (dateStr) => {
 
                     >−</button>
 
-                    <span class="qty-pill-val">{{ item.quantity }}</span>
+                    <input
+                      type="number"
+                      class="qty-pill-input"
+                      :value="item.quantity"
+                      min="1"
+                      :max="item.maxStock != null ? item.maxStock : 99"
+                      :disabled="item.isDiscontinued"
+                      @input="handleQtyInput(item.variantId, $event, item.maxStock)"
+                      @change="handleQtyBlur(item.variantId, $event, item.maxStock)"
+                      @blur="handleQtyBlur(item.variantId, $event, item.maxStock)"
+                      @keydown.enter="$event.target.blur()"
+                    />
 
                     <button
 
@@ -6176,6 +6216,30 @@ const formatDate = (dateStr) => {
 }
 
 
+
+.qty-pill-input {
+  width: 44px;
+  height: 28px;
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 0;
+  -moz-appearance: textfield;
+}
+
+.qty-pill-input::-webkit-outer-spin-button,
+.qty-pill-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.qty-pill-input:focus {
+  background: #f1f5f9;
+}
 
 .qty-pill-val {
 
