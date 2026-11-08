@@ -10,6 +10,7 @@ CREATE DATABASE FF_Tshirt;
 GO
 USE FF_Tshirt;
 GO
+
 CREATE TABLE xuat_xu (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     ma_xuat_xu VARCHAR(50) UNIQUE,
@@ -18,6 +19,7 @@ CREATE TABLE xuat_xu (
     CONSTRAINT CK_xuat_xu_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE chat_lieu (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     ma_chat_lieu VARCHAR(50) UNIQUE,
@@ -26,6 +28,7 @@ CREATE TABLE chat_lieu (
     CONSTRAINT CK_chat_lieu_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE thuong_hieu (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     ma_thuong_hieu VARCHAR(50) UNIQUE,
@@ -34,6 +37,7 @@ CREATE TABLE thuong_hieu (
     CONSTRAINT CK_thuong_hieu_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE danh_muc (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     ma_danh_muc VARCHAR(50) UNIQUE,
@@ -42,6 +46,7 @@ CREATE TABLE danh_muc (
     CONSTRAINT CK_danh_muc_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE co_ao (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     ma_co_ao VARCHAR(50) UNIQUE,
@@ -50,6 +55,7 @@ CREATE TABLE co_ao (
     CONSTRAINT CK_co_ao_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE tay_ao (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     ma_tay_ao VARCHAR(50) UNIQUE,
@@ -58,6 +64,7 @@ CREATE TABLE tay_ao (
     CONSTRAINT CK_tay_ao_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE hoa_tiet (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     ma_hoa_tiet VARCHAR(50) UNIQUE,
@@ -66,6 +73,7 @@ CREATE TABLE hoa_tiet (
     CONSTRAINT CK_hoa_tiet_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE kich_co (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     ma_kich_co VARCHAR(50) UNIQUE,
@@ -74,6 +82,7 @@ CREATE TABLE kich_co (
     CONSTRAINT CK_kich_co_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE mau_sac (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     ma_mau_sac VARCHAR(50) UNIQUE,
@@ -83,6 +92,7 @@ CREATE TABLE mau_sac (
     CONSTRAINT CK_mau_sac_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE san_pham (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     id_xuat_xu BIGINT NULL,
@@ -111,6 +121,7 @@ CREATE TABLE san_pham (
     CONSTRAINT CK_san_pham_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE hinh_anh (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     id_san_pham BIGINT NOT NULL,
@@ -121,6 +132,7 @@ CREATE TABLE hinh_anh (
     CONSTRAINT CK_hinh_anh_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE chi_tiet_san_pham (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     id_san_pham BIGINT NOT NULL,
@@ -143,6 +155,7 @@ CREATE TABLE chi_tiet_san_pham (
     CONSTRAINT CK_ctsp_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE dot_giam_gia (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     ma_dot_giam_gia VARCHAR(50) UNIQUE,
@@ -156,6 +169,7 @@ CREATE TABLE dot_giam_gia (
     CONSTRAINT CK_dot_giam_gia_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE chi_tiet_dot_giam_gia (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     id_dot_giam_gia BIGINT NOT NULL,
@@ -169,6 +183,7 @@ CREATE TABLE chi_tiet_dot_giam_gia (
     CONSTRAINT CK_ctdgg_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE vai_tro (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     ma_vai_tro VARCHAR(50) UNIQUE,
@@ -178,6 +193,7 @@ CREATE TABLE vai_tro (
     CONSTRAINT CK_vai_tro_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE nhan_vien (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     id_vai_tro BIGINT NOT NULL,
@@ -204,7 +220,7 @@ CREATE TABLE nhan_vien (
 GO
 
 -- =============================================
--- CÁC BẢNG MỚI THÊM THEO ERD: CA LÀM, LỊCH LÀM VIỆC, GIAO CA (ĐÃ CẬP NHẬT)
+-- CA LÀM, LỊCH LÀM VIỆC, GIAO CA
 -- =============================================
 CREATE TABLE ca_lam (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -217,6 +233,7 @@ CREATE TABLE ca_lam (
     CONSTRAINT CK_ca_lam_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE lich_lam_viec (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     id_ca_lam BIGINT NOT NULL,
@@ -229,6 +246,7 @@ CREATE TABLE lich_lam_viec (
     CONSTRAINT CK_llv_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE giao_ca (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     id_nhan_vien_giao BIGINT NOT NULL,
@@ -272,6 +290,7 @@ CREATE TABLE phieu_giam_gia (
     CONSTRAINT CK_pgg_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE khach_hang (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     ma_khach_hang VARCHAR(50) UNIQUE,
@@ -290,6 +309,7 @@ CREATE TABLE khach_hang (
     CONSTRAINT CK_khach_hang_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE dia_chi_khach_hang (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     id_khach_hang BIGINT NOT NULL,
@@ -307,6 +327,7 @@ CREATE TABLE dia_chi_khach_hang (
     CONSTRAINT CK_dia_chi_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE khach_hang_phieu_giam_gia (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     id_khach_hang BIGINT NOT NULL,
@@ -318,11 +339,63 @@ CREATE TABLE khach_hang_phieu_giam_gia (
     CONSTRAINT CK_kh_pgg_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
+-- =============================================
+-- CUỘC HỘI THOẠI & TIN NHẮN
+-- =============================================
+CREATE TABLE cuoc_hoi_thoai (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    khach_hang_id BIGINT NULL,
+    nhan_vien_id BIGINT NULL,
+    ten_khach_hang NVARCHAR(255),
+    so_dien_thoai VARCHAR(20),
+    trang_thai INT NOT NULL DEFAULT 1,
+    ngay_tao DATETIME2 NOT NULL DEFAULT GETDATE(),
+    ngay_cap_nhat DATETIME2 NULL,
+    CONSTRAINT FK_cht_khach_hang FOREIGN KEY (khach_hang_id) REFERENCES khach_hang(id),
+    CONSTRAINT FK_cht_nhan_vien FOREIGN KEY (nhan_vien_id) REFERENCES nhan_vien(id),
+    CONSTRAINT CK_cht_trang_thai CHECK (trang_thai IN (0,1))
+);
+GO
+
+CREATE TABLE tin_nhan (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    cuoc_hoi_thoai_id BIGINT NOT NULL,
+    nhan_vien_id BIGINT NULL,
+    nguoi_gui NVARCHAR(100),
+    noi_dung NVARCHAR(MAX) NOT NULL,
+    ngay_tao DATETIME2 NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT FK_tn_cuoc_hoi_thoai FOREIGN KEY (cuoc_hoi_thoai_id) REFERENCES cuoc_hoi_thoai(id),
+    CONSTRAINT FK_tn_nhan_vien FOREIGN KEY (nhan_vien_id) REFERENCES nhan_vien(id)
+);
+GO
+
+-- =============================================
+-- BẢNG MỚI BỔ SUNG: ĐÁNH GIÁ CUỘC HỘI THOẠI (danh_gia_cuoc_hoi_thoai)
+-- =============================================
+CREATE TABLE danh_gia_cuoc_hoi_thoai (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    ma_danh_gia VARCHAR(50) UNIQUE,
+    id_cuoc_hoi_thoai BIGINT NOT NULL,
+    id_khach_hang BIGINT NOT NULL,
+    id_nhan_vien BIGINT NULL,
+    diem_danh_gia INT NOT NULL,
+    noi_dung_danh_gia NVARCHAR(MAX),
+    trang_thai INT NOT NULL DEFAULT 1,
+    ngay_tao DATETIME2 NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT FK_dgcht_cuoc_hoi_thoai FOREIGN KEY (id_cuoc_hoi_thoai) REFERENCES cuoc_hoi_thoai(id),
+    CONSTRAINT FK_dgcht_khach_hang FOREIGN KEY (id_khach_hang) REFERENCES khach_hang(id),
+    CONSTRAINT FK_dgcht_nhan_vien FOREIGN KEY (id_nhan_vien) REFERENCES nhan_vien(id),
+    CONSTRAINT CK_dgcht_diem CHECK (diem_danh_gia BETWEEN 1 AND 5),
+    CONSTRAINT CK_dgcht_trang_thai CHECK (trang_thai IN (0,1))
+);
+GO
+
 CREATE TABLE hoa_don (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     id_nhan_vien BIGINT NULL,
     id_khach_hang BIGINT NULL,
-    id_giao_ca BIGINT NULL, -- Thêm theo ERD mới
+    id_giao_ca BIGINT NULL,
     id_phieu_giam_gia BIGINT NULL,
     ma_hoa_don VARCHAR(50) UNIQUE,
     loai_don INT NOT NULL,
@@ -351,6 +424,7 @@ CREATE TABLE hoa_don (
     CONSTRAINT CK_hoa_don_trang_thai_thanh_toan CHECK (trang_thai_thanh_toan IN (0,1,2))
 );
 GO
+
 CREATE TABLE chi_tiet_hoa_don (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     id_hoa_don BIGINT NOT NULL,
@@ -369,6 +443,7 @@ CREATE TABLE chi_tiet_hoa_don (
     CONSTRAINT CK_cthd_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE lich_su_hoa_don (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     id_hoa_don BIGINT NOT NULL,
@@ -380,6 +455,7 @@ CREATE TABLE lich_su_hoa_don (
     CONSTRAINT FK_lich_su_hoa_don FOREIGN KEY (id_hoa_don) REFERENCES hoa_don(id)
 );
 GO
+
 CREATE TABLE phuong_thuc_thanh_toan (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     ten_phuong_thuc NVARCHAR(100) NOT NULL,
@@ -387,6 +463,7 @@ CREATE TABLE phuong_thuc_thanh_toan (
     CONSTRAINT CK_pttt_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE hinh_thuc_thanh_toan (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     id_hoa_don BIGINT NOT NULL,
@@ -401,6 +478,7 @@ CREATE TABLE hinh_thuc_thanh_toan (
     CONSTRAINT CK_httt_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
 CREATE TABLE lich_su_thanh_toan (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     id_hoa_don BIGINT NOT NULL,
@@ -414,112 +492,101 @@ CREATE TABLE lich_su_thanh_toan (
     CONSTRAINT CK_lstt_trang_thai CHECK (trang_thai IN (0,1))
 );
 GO
+
+-- =============================================
+-- INDEXES
+-- =============================================
 CREATE INDEX IX_san_pham_xuat_xu ON san_pham(id_xuat_xu);
-GO
 CREATE INDEX IX_san_pham_chat_lieu ON san_pham(id_chat_lieu);
-GO
 CREATE INDEX IX_san_pham_thuong_hieu ON san_pham(id_thuong_hieu);
-GO
 CREATE INDEX IX_san_pham_danh_muc ON san_pham(id_danh_muc);
-GO
 CREATE INDEX IX_san_pham_co_ao ON san_pham(id_co_ao);
-GO
 CREATE INDEX IX_san_pham_tay_ao ON san_pham(id_tay_ao);
-GO
 CREATE INDEX IX_san_pham_hoa_tiet ON san_pham(id_hoa_tiet);
-GO
 CREATE INDEX IX_hinh_anh_san_pham ON hinh_anh(id_san_pham);
-GO
 CREATE INDEX IX_ctsp_san_pham ON chi_tiet_san_pham(id_san_pham);
-GO
 CREATE INDEX IX_ctsp_kich_co ON chi_tiet_san_pham(id_kich_co);
-GO
 CREATE INDEX IX_ctsp_mau_sac ON chi_tiet_san_pham(id_mau_sac);
-GO
 CREATE INDEX IX_ctdgg_dot_giam_gia ON chi_tiet_dot_giam_gia(id_dot_giam_gia);
-GO
 CREATE INDEX IX_ctdgg_ctsp ON chi_tiet_dot_giam_gia(id_chi_tiet_san_pham);
-GO
 CREATE INDEX IX_dia_chi_khach_hang ON dia_chi_khach_hang(id_khach_hang);
-GO
 CREATE INDEX IX_kh_pgg_khach_hang ON khach_hang_phieu_giam_gia(id_khach_hang);
-GO
 CREATE INDEX IX_kh_pgg_phieu ON khach_hang_phieu_giam_gia(id_phieu_giam_gia);
-GO
 CREATE INDEX IX_llv_ca_lam ON lich_lam_viec(id_ca_lam);
-GO
 CREATE INDEX IX_llv_nhan_vien ON lich_lam_viec(id_nhan_vien);
-GO
 CREATE INDEX IX_gc_nv_giao ON giao_ca(id_nhan_vien_giao);
-GO
 CREATE INDEX IX_gc_nv_nhan ON giao_ca(id_nhan_vien_nhan);
-GO
 CREATE INDEX IX_gc_lich_lam_viec ON giao_ca(id_lich_lam_viec);
-GO
+CREATE INDEX IX_cht_khach_hang ON cuoc_hoi_thoai(khach_hang_id);
+CREATE INDEX IX_cht_nhan_vien ON cuoc_hoi_thoai(nhan_vien_id);
+CREATE INDEX IX_tn_cuoc_hoi_thoai ON tin_nhan(cuoc_hoi_thoai_id);
+CREATE INDEX IX_tn_nhan_vien ON tin_nhan(nhan_vien_id);
+CREATE INDEX IX_dgcht_cuoc_hoi_thoai ON danh_gia_cuoc_hoi_thoai(id_cuoc_hoi_thoai);
+CREATE INDEX IX_dgcht_khach_hang ON danh_gia_cuoc_hoi_thoai(id_khach_hang);
+CREATE INDEX IX_dgcht_nhan_vien ON danh_gia_cuoc_hoi_thoai(id_nhan_vien);
 CREATE INDEX IX_hoa_don_khach_hang ON hoa_don(id_khach_hang);
-GO
 CREATE INDEX IX_hoa_don_nhan_vien ON hoa_don(id_nhan_vien);
-GO
 CREATE INDEX IX_hoa_don_giao_ca ON hoa_don(id_giao_ca);
-GO
 CREATE INDEX IX_hoa_don_phieu_giam_gia ON hoa_don(id_phieu_giam_gia);
-GO
 CREATE INDEX IX_hoa_don_trang_thai ON hoa_don(trang_thai);
-GO
 CREATE INDEX IX_hoa_don_trang_thai_thanh_toan ON hoa_don(trang_thai_thanh_toan);
-GO
 CREATE INDEX IX_hoa_don_ngay_tao ON hoa_don(ngay_tao);
-GO
 CREATE INDEX IX_cthd_hoa_don ON chi_tiet_hoa_don(id_hoa_don);
-GO
 CREATE INDEX IX_cthd_ctsp ON chi_tiet_hoa_don(id_chi_tiet_san_pham);
-GO
 CREATE INDEX IX_lich_su_hoa_don_hoa_don ON lich_su_hoa_don(id_hoa_don);
-GO
 CREATE INDEX IX_httt_hoa_don ON hinh_thuc_thanh_toan(id_hoa_don);
-GO
 CREATE INDEX IX_httt_phuong_thuc ON hinh_thuc_thanh_toan(id_phuong_thuc);
-GO
 CREATE INDEX IX_lstt_hoa_don ON lich_su_thanh_toan(id_hoa_don);
 GO
+
+-- =============================================
+-- INSERT DỮ LIỆU MẪU
+-- =============================================
 INSERT INTO xuat_xu (ma_xuat_xu, ten_xuat_xu) VALUES
 ('XX01', N'Việt Nam'),
 ('XX02', N'Thái Lan'),
 ('XX03', N'Trung Quốc'),
 ('XX04', N'Hàn Quốc');
 GO
+
 INSERT INTO chat_lieu (ma_chat_lieu, ten_chat_lieu) VALUES
 ('CL01', N'Cotton 100%'),
 ('CL02', N'Cá sấu'),
 ('CL03', N'Cotton Compact'),
 ('CL04', N'Polyester');
 GO
+
 INSERT INTO thuong_hieu (ma_thuong_hieu, ten_thuong_hieu) VALUES
 ('TH01', N'FF Shirt'),
 ('TH02', N'Local Brand'),
 ('TH03', N'Basic Wear');
 GO
+
 INSERT INTO danh_muc (ma_danh_muc, ten_danh_muc) VALUES
 ('DM01', N'Áo phông nam'),
 ('DM02', N'Áo phông nữ'),
 ('DM03', N'Áo phông unisex'),
 ('DM04', N'Áo polo');
 GO
+
 INSERT INTO co_ao (ma_co_ao, ten_co_ao) VALUES
 ('CA01', N'Cổ tròn'),
 ('CA02', N'Cổ tim'),
 ('CA03', N'Cổ bẻ (Polo)');
 GO
+
 INSERT INTO tay_ao (ma_tay_ao, ten_tay_ao) VALUES
 ('TA01', N'Tay ngắn'),
 ('TA02', N'Tay dài'),
 ('TA03', N'Tay lỡ');
 GO
+
 INSERT INTO hoa_tiet (ma_hoa_tiet, ten_hoa_tiet) VALUES
 ('HT01', N'Trơn'),
 ('HT02', N'In hình mặt trước'),
 ('HT03', N'Kẻ sọc ngang');
 GO
+
 INSERT INTO kich_co (ma_kich_co, ten_kich_co) VALUES
 ('KC01', N'S'),
 ('KC02', N'M'),
@@ -527,6 +594,7 @@ INSERT INTO kich_co (ma_kich_co, ten_kich_co) VALUES
 ('KC04', N'XL'),
 ('KC05', N'XXL');
 GO
+
 INSERT INTO mau_sac (ma_mau_sac, ten_mau_sac, ma_hex) VALUES
 ('MS01', N'Đen', '#000000'),
 ('MS02', N'Trắng', '#FFFFFF'),
@@ -534,42 +602,46 @@ INSERT INTO mau_sac (ma_mau_sac, ten_mau_sac, ma_hex) VALUES
 ('MS04', N'Đỏ', '#FF0000'),
 ('MS05', N'Xanh navy', '#000080');
 GO
+
 INSERT INTO vai_tro (ma_vai_tro, ten_vai_tro, mo_ta) VALUES
 ('ADMIN', N'Quản trị viên', N'Toàn quyền hệ thống'),
 ('QL', N'Quản lý', N'Quản lý cửa hàng và kho hàng'),
 ('NV', N'Nhân viên', N'Nhân viên bán hàng tại quầy');
 GO
+
 INSERT INTO phuong_thuc_thanh_toan (ten_phuong_thuc) VALUES
 (N'Tiền mặt'),
 (N'Chuyển khoản ngân hàng'),
 (N'Quét mã QR'),
 (N'Thẻ ATM / VISA');
 GO
+
 INSERT INTO dot_giam_gia (ma_dot_giam_gia, ten_dot_giam_gia, phan_tram_giam, ngay_bat_dau, ngay_ket_thuc) VALUES
 ('DGG01', N'Chương trình Giảm giá Mùa hè', 10.00, '2026-06-01 00:00:00', '2026-08-31 23:59:59'),
 ('DGG02', N'Khuyến mãi Khai trương Store', 20.00, '2026-09-01 00:00:00', '2026-09-15 23:59:59');
 GO
+
 INSERT INTO phieu_giam_gia (ma_phieu_giam_gia, ten_phieu_giam_gia, loai_phieu_giam_gia, gia_tri_giam_gia, giam_toi_da, hoa_don_toi_thieu, so_luong_su_dung, ngay_bat_dau, ngay_ket_thuc) VALUES
 ('PGG01', N'Voucher Giảm 50k', 2, 50000.00, 50000.00, 200000.00, 100, '2026-01-01 00:00:00', '2026-12-31 23:59:59'),
 ('PGG02', N'Voucher Giảm 15% cho khách mới', 1, 15.00, 100000.00, 300000.00, 50, '2026-01-01 00:00:00', '2026-12-31 23:59:59');
 GO
+
 INSERT INTO nhan_vien (id_vai_tro, ma_nhan_vien, ten_tai_khoan, ten_nhan_vien, mat_khau, email, so_dien_thoai, gioi_tinh, ngay_sinh, que_quan, phuong, dia_chi_cu_the, nguoi_tao) VALUES
 (1, 'NV001', 'admin', N'Nguyễn Văn Admin', '123456', 'admin@ffshirt.com', '0900000001', 1, '1995-05-10', N'Hà Nội', N'Phường Cống Vị', N'Số 123 Đường Đội Cấn', N'System'),
 (2, 'NV002', 'quanly01', N'Trần Thị Quản Lý', '123456', 'quanly@ffshirt.com', '0900000002', 0, '1998-08-20', N'Hà Nội', N'Phường Hàng Bông', N'Số 45 Phố Hàng Bông', N'admin'),
 (3, 'NV003', 'nvbanhang', N'Lê Văn Bán Hàng', '123456', 'nhanvien@ffshirt.com', '0900000003', 1, '2001-02-15', N'Bắc Ninh', N'Phường Tiền An', N'Số 12 Đường Ngô Gia Tự', N'admin');
 GO
 
--- =============================================
--- DỮ LIỆU MẪU CHO CÁC BẢNG MỚI (CA LÀM, LỊCH LÀM VIỆC, GIAO CA)
--- =============================================
 INSERT INTO ca_lam (ma_ca, ten_ca, gio_bat_dau, gio_ket_thuc, mo_ta) VALUES
 ('CA01', N'Ca sáng', '08:00:00', '15:00:00', N'Ca làm việc buổi sáng'),
 ('CA02', N'Ca tối', '15:00:00', '22:00:00', N'Ca làm việc buổi tối');
 GO
+
 INSERT INTO lich_lam_viec (id_ca_lam, id_nhan_vien, ngay, trang_thai) VALUES
 (1, 3, '2026-10-20', 1),
 (2, 2, '2026-10-20', 1);
 GO
+
 INSERT INTO giao_ca (id_nhan_vien_giao, id_nhan_vien_nhan, id_lich_lam_viec, ma_giao_ca, thoi_gian_nhan_ca, thoi_gian_ket_ca, tien_mat_dau_ca, tien_mat_thu_trong_ca, tien_chi_trong_ca, tien_thuc_te_kiem_duoc, tien_chenh_lech, ghi_chu, trang_thai) VALUES
 (3, 2, 1, 'GC001', '2026-10-20 08:00:00', '2026-10-20 15:00:00', 500000.00, 348000.00, 0.00, 848000.00, 0.00, N'Giao ca sáng đủ tiền', 0),
 (2, NULL, 2, 'GC002', '2026-10-20 15:00:00', NULL, 848000.00, 0.00, 0.00, 0.00, 0.00, N'Đang trong ca tối', 1);
@@ -580,28 +652,51 @@ INSERT INTO khach_hang (ma_khach_hang, tai_khoan, ten_khach_hang, email, mat_kha
 ('KH002','khachhang02',N'Trần Thị Bình','binh@gmail.com','123456','0922222222','2004-08-15',0,1,N'Admin'),
 ('KH003','khachhang03',N'Lê Văn Cường','cuong@gmail.com','123456','0933333333','2002-12-20',1,1,N'Admin');
 GO
+
 INSERT INTO dia_chi_khach_hang (id_khach_hang, ma_dia_chi, ten_dia_chi, thanh_pho, huyen, phuong, dia_chi_cu_the, ten_nguoi_nhan, so_dien_thoai_nhan, mac_dinh, trang_thai) VALUES
 (1, 'DC001', N'Nhà riêng', N'Hà Nội', N'Cầu Giấy', N'Phường Dịch Vọng', N'Số 15 Ngõ 86 Cầu Giấy', N'Nguyễn Văn An', '0911111111', 1, 1),
 (2, 'DC002', N'Cơ quan', N'Hà Nội', N'Nam Từ Liêm', N'Phường Mễ Trì', N'Tầng 5 Tòa nhà Sông Đà', N'Trần Thị Bình', '0922222222', 1, 1),
 (3, 'DC003', N'Nhà riêng', N'Hà Nội', N'Đống Đa', N'Phường Láng Hạ', N'Số 20 Đường Láng', N'Lê Văn Cường', '0933333333', 1, 1);
 GO
+
 INSERT INTO khach_hang_phieu_giam_gia (id_khach_hang, id_phieu_giam_gia) VALUES
 (1, 1),
 (1, 2),
 (2, 1),
 (3, 2);
 GO
+
+INSERT INTO cuoc_hoi_thoai (khach_hang_id, nhan_vien_id, ten_khach_hang, so_dien_thoai, trang_thai) VALUES
+(1, 3, N'Nguyễn Văn An', '0911111111', 1),
+(2, 2, N'Trần Thị Bình', '0922222222', 1);
+GO
+
+INSERT INTO tin_nhan (cuoc_hoi_thoai_id, nhan_vien_id, nguoi_gui, noi_dung) VALUES
+(1, NULL, N'KHACH_HANG', N'Shop ơi mẫu áo phông Basic màu đen còn size M không ạ?'),
+(1, 3, N'NHAN_VIEN', N'Dạ chào bạn, mẫu SP001 màu đen size M bên mình hiện vẫn còn hàng ạ!'),
+(2, NULL, N'KHACH_HANG', N'Cho mình hỏi đơn hàng HD002 giao đến đâu rồi shop?'),
+(2, 2, N'NHAN_VIEN', N'Dạ đơn hàng của chị đã được giao thành công rồi ạ.');
+GO
+
+-- Dữ liệu mẫu cho bảng đánh giá cuộc hội thoại
+INSERT INTO danh_gia_cuoc_hoi_thoai (ma_danh_gia, id_cuoc_hoi_thoai, id_khach_hang, id_nhan_vien, diem_danh_gia, noi_dung_danh_gia, trang_thai) VALUES
+('DG001', 1, 1, 3, 5, N'Nhân viên tư vấn rất nhiệt tình, nhanh chóng giải đáp thắc mắc về size áo!', 1),
+('DG002', 2, 2, 2, 4, N'Shop hỗ trợ kiểm tra đơn hàng nhanh, thái độ tốt.', 1);
+GO
+
 INSERT INTO san_pham (id_xuat_xu, id_chat_lieu, id_thuong_hieu, id_danh_muc, id_co_ao, id_tay_ao, id_hoa_tiet, ma_san_pham, ten_san_pham, mo_ta, nguoi_tao) VALUES
 (1, 1, 1, 1, 1, 1, 1, 'SP001', N'Áo Phông Nam Basic Cotton Cổ Tròn', N'Áo phông nam chất liệu 100% cotton thoáng mát, thấm hút mồ hôi tốt', N'admin'),
 (1, 3, 1, 4, 3, 1, 1, 'SP002', N'Áo Polo Nam Cổ Bẻ Cao Cấp', N'Áo Polo phong cách lịch lãm, chất liệu cotton compact co giãn 4 chiều', N'admin'),
 (2, 1, 2, 3, 1, 3, 2, 'SP003', N'Áo Phông Unisex In Hình Graphic', N'Áo phông unisex form rộng tay lỡ in hình độc đáo', N'admin');
 GO
+
 INSERT INTO hinh_anh (id_san_pham, ten_anh, duong_dan) VALUES
 (1, N'Ảnh mặt trước SP001', '/images/products/sp01_front.jpg'),
 (1, N'Ảnh mặt sau SP001', '/images/products/sp01_back.jpg'),
 (2, N'Ảnh mặt trước SP002', '/images/products/sp02_front.jpg'),
 (3, N'Ảnh mặt trước SP003', '/images/products/sp03_front.jpg');
 GO
+
 INSERT INTO chi_tiet_san_pham (id_san_pham, id_kich_co, id_mau_sac, ma_chi_tiet_san_pham, so_luong, gia_ban, nguoi_tao) VALUES
 (1, 1, 1, 'CTSP01', 50, 199000.00, N'admin'),
 (1, 2, 1, 'CTSP02', 100, 199000.00, N'admin'),
@@ -610,31 +705,37 @@ INSERT INTO chi_tiet_san_pham (id_san_pham, id_kich_co, id_mau_sac, ma_chi_tiet_
 (2, 3, 5, 'CTSP05', 40, 299000.00, N'admin'),
 (3, 3, 2, 'CTSP06', 70, 250000.00, N'admin');
 GO
+
 INSERT INTO chi_tiet_dot_giam_gia (id_dot_giam_gia, id_chi_tiet_san_pham, phan_tram_giam_bien_the) VALUES
 (1, 1, 10.00),
 (1, 2, 10.00),
 (1, 3, 10.00),
 (2, 4, 20.00);
 GO
+
 INSERT INTO hoa_don (id_nhan_vien, id_khach_hang, id_giao_ca, id_phieu_giam_gia, ma_hoa_don, loai_don, phi_van_chuyen, tong_tien, tien_sau_giam_gia, ten_khach_hang, so_dien_thoai_khach_hang, dia_chi_nhan_hang, trang_thai, trang_thai_thanh_toan, ghi_chu, nguoi_tao) VALUES
 (3, 1, 1, 1, 'HD001', 1, 0.00, 398000.00, 348000.00, N'Nguyễn Văn An', '0911111111', N'Số 15 Ngõ 86 Cầu Giấy, Phường Dịch Vọng, Cầu Giấy, Hà Nội', 5, 1, N'Khách thanh toán đủ tại quầy', N'nvbanhang'),
 (2, 2, 2, 2, 'HD002', 2, 30000.00, 299000.00, 284150.00, N'Trần Thị Bình', '0922222222', N'Tầng 5 Tòa nhà Sông Đà, Phường Mễ Trì, Nam Từ Liêm, Hà Nội', 5, 1, N'Đơn hàng giao thành công', N'khachhang02');
 GO
+
 INSERT INTO chi_tiet_hoa_don (id_hoa_don, id_chi_tiet_san_pham, ma_hoa_don_chi_tiet, don_gia, so_luong, thanh_tien, ghi_chu) VALUES
 (1, 1, 'CTHD01', 199000.00, 1, 199000.00, N'Sản phẩm 1'),
 (1, 2, 'CTHD02', 199000.00, 1, 199000.00, N'Sản phẩm 2'),
 (2, 4, 'CTHD03', 299000.00, 1, 299000.00, N'Đơn online Polo');
 GO
+
 INSERT INTO lich_su_hoa_don (id_hoa_don, trang_thai, ghi_chu, nguoi_thuc_hien, vai_tro_nguoi_thuc_hien) VALUES
 (1, 1, N'Tạo mới hóa đơn tại quầy', N'Lê Văn Bán Hàng', N'Nhân viên'),
 (1, 5, N'Hoàn thành thanh toán hóa đơn', N'Lê Văn Bán Hàng', N'Nhân viên'),
 (2, 1, N'Khách hàng đặt hàng Online', N'Trần Thị Bình', N'Khách hàng'),
 (2, 5, N'Giao hàng thành công', N'Trần Thị Quản Lý', N'Quản lý');
 GO
+
 INSERT INTO hinh_thuc_thanh_toan (id_hoa_don, id_phuong_thuc, so_tien, ma_giao_dich) VALUES
 (1, 1, 348000.00, 'CASH_HD001'),
 (2, 2, 284150.00, 'BANK_TRANS_HD002_98765');
 GO
+
 INSERT INTO lich_su_thanh_toan (id_hoa_don, so_tien, ma_giao_dich, mo_ta) VALUES
 (1, 348000.00, 'CASH_HD001', N'Thanh toán tiền mặt thành công tại quầy'),
 (2, 284150.00, 'BANK_TRANS_HD002_98765', N'Thanh toán chuyển khoản qua ngân hàng');
@@ -642,7 +743,11 @@ GO
 
 ALTER TABLE dot_giam_gia ADD mo_ta NVARCHAR(MAX);
 ALTER TABLE phieu_giam_gia ADD mo_ta NVARCHAR(MAX);
+GO
 
+-- =============================================
+-- KIỂM TRA TỔNG SỐ LƯỢNG BẢNG
+-- =============================================
 SELECT 'xuat_xu' AS ten_bang, COUNT(*) AS so_luong FROM xuat_xu
 UNION ALL SELECT 'chat_lieu', COUNT(*) FROM chat_lieu
 UNION ALL SELECT 'thuong_hieu', COUNT(*) FROM thuong_hieu
@@ -661,6 +766,9 @@ UNION ALL SELECT 'phieu_giam_gia', COUNT(*) FROM phieu_giam_gia
 UNION ALL SELECT 'khach_hang', COUNT(*) FROM khach_hang
 UNION ALL SELECT 'dia_chi_khach_hang', COUNT(*) FROM dia_chi_khach_hang
 UNION ALL SELECT 'khach_hang_phieu_giam_gia', COUNT(*) FROM khach_hang_phieu_giam_gia
+UNION ALL SELECT 'cuoc_hoi_thoai', COUNT(*) FROM cuoc_hoi_thoai
+UNION ALL SELECT 'tin_nhan', COUNT(*) FROM tin_nhan
+UNION ALL SELECT 'danh_gia_cuoc_hoi_thoai', COUNT(*) FROM danh_gia_cuoc_hoi_thoai
 UNION ALL SELECT 'san_pham', COUNT(*) FROM san_pham
 UNION ALL SELECT 'hinh_anh', COUNT(*) FROM hinh_anh
 UNION ALL SELECT 'chi_tiet_san_pham', COUNT(*) FROM chi_tiet_san_pham

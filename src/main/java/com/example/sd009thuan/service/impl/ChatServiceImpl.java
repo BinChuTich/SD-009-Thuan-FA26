@@ -9,9 +9,11 @@ import com.example.sd009thuan.service.ChatService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -34,8 +36,12 @@ public class ChatServiceImpl implements ChatService {
     // In-memory thread-safe storage (HOÀN TOÀN KHÔNG SỬA VÀO DATABASE GỐC)
     private final Map<Long, CuocHoiThoaiDTO> conversations = new ConcurrentHashMap<>();
     private final Map<Long, List<TinNhanDTO>> messagesByConv = new ConcurrentHashMap<>();
+    private final Map<Long, DanhGiaCuocHoiThoaiDTO> ratingsByConv = new ConcurrentHashMap<>();
+    private final Map<Long, LocalDateTime> khachTypingTimes = new ConcurrentHashMap<>();
+    private final Map<Long, LocalDateTime> nhanVienTypingTimes = new ConcurrentHashMap<>();
     private final AtomicLong convIdSeq = new AtomicLong(1);
     private final AtomicLong msgIdSeq = new AtomicLong(1);
+    private final AtomicLong ratingIdSeq = new AtomicLong(1);
 
     @Override
     public CuocHoiThoaiDTO khoiTaoHoacLayCuocHoiThoai(KhoiTaoChatRequest req) {
@@ -101,6 +107,8 @@ public class ChatServiceImpl implements ChatService {
                 .trangThai(2) // 2 = Chờ nhận (chờ nhân viên tiếp nhận)
                 .ngayTao(LocalDateTime.now())
                 .ngayCapNhat(LocalDateTime.now())
+                .thoiGianKhachPhanHoiCuoi(LocalDateTime.now())
+                .daGuiCanhBao2Phut(false)
                 .soTinChuaDoc(0L)
                 .build();
 
@@ -210,6 +218,10 @@ public class ChatServiceImpl implements ChatService {
                 conv.setTrangThai(1);
             }
         } else if ("KHACH_HANG".equals(nguoiGui)) {
+            // Khi khách hàng gửi tin nhắn: cập nhật thời gian phản hồi cuối và reset cảnh báo 2 phút
+            conv.setThoiGianKhachPhanHoiCuoi(LocalDateTime.now());
+            conv.setDaGuiCanhBao2Phut(false);
+
             if (conv.getTrangThai() == null || (conv.getTrangThai() != 1 && conv.getNhanVienId() == null)) {
                 conv.setTrangThai(2); // Đẩy vào Chờ nhận để nhân viên tiếp nhận
             }
@@ -230,6 +242,12 @@ public class ChatServiceImpl implements ChatService {
         conv.setNgayCapNhat(LocalDateTime.now());
         conv.setTinNhanCuoi(tn.getNoiDung());
         conv.setThoiGianTinNhanCuoi(tn.getNgayTao());
+
+        if ("KHACH_HANG".equals(nguoiGui)) {
+            khachTypingTimes.remove(conv.getId());
+        } else {
+            nhanVienTypingTimes.remove(conv.getId());
+        }
 
         return tn;
     }
@@ -267,18 +285,12 @@ public class ChatServiceImpl implements ChatService {
                 .collect(Collectors.toList());
 
         // Đếm tin chưa đọc từ khách hàng
-        long countUnread = messagesByConv.values().stream()
-                .flatMap(Collection::stream)
-                .filter(m -> "KHACH_HANG".equals(m.getNguoiGui()) && !Boolean.TRUE.equals(m.getDaDoc()))
-                .count();
-
-        // Chỉ tính các cuộc hội thoại khách yêu cầu gặp nhân viên tư vấn
         long totalChatNotifications = waitingConvs.size();
 
         // Đơn hàng mới từ cơ sở dữ liệu gốc (Trạng thái 1 = Chờ xác nhận)
         long countNewOrders = 0;
         try {
-        countNewOrders = hoaDonRepository.countByTrangThaiAndLoaiDon(1, 2);
+            countNewOrders = hoaDonRepository.countByTrangThaiAndLoaiDon(1, 2);
         } catch (Exception e) {}
 
         List<HoaDon> recentOrders = new ArrayList<>();
@@ -337,50 +349,6 @@ public class ChatServiceImpl implements ChatService {
             }
         }
 
-        // 3. Thêm các tin nhắn chat mới từ khách hàng
-        // Chỉ hiển thị yêu cầu gặp nhân viên tư vấn, không hiển thị mọi tin nhắn thường
-        List<TinNhanDTO> latestClientMsgs = Collections.emptyList();
-        if (false) messagesByConv.values().stream()
-                .flatMap(Collection::stream)
-                .filter(m -> "KHACH_HANG".equals(m.getNguoiGui()))
-                .sorted((a, b) -> b.getNgayTao().compareTo(a.getNgayTao()))
-                .limit(6)
-                .collect(Collectors.toList());
-
-        for (TinNhanDTO t : latestClientMsgs) {
-            boolean alreadyWaiting = waitingConvs.stream().anyMatch(w -> w.getId().equals(t.getCuocHoiThoaiId()));
-            if (alreadyWaiting) continue;
-
-            CuocHoiThoaiDTO c = conversations.get(t.getCuocHoiThoaiId());
-            String name = (c != null && c.getTenKhachHang() != null) ? c.getTenKhachHang() : "Khách hàng";
-            String timeStr = t.getNgayTao() != null ? t.getNgayTao().format(TIME_FORMATTER) : "";
-            items.add(ThongBaoAdminDTO.ThongBaoItemDTO.builder()
-                    .id(t.getId())
-                    .loai("CHAT")
-                    .tieuDe("Tin nhắn mới từ " + name)
-                    .noiDung(t.getNoiDung())
-                    .thoiGian(timeStr)
-                    .daDoc(Boolean.TRUE.equals(t.getDaDoc()))
-                    .cuocHoiThoaiId(t.getCuocHoiThoaiId())
-                    .lienKet("/tin-nhan?id=" + t.getCuocHoiThoaiId())
-                    .build());
-        }
-
-        List<ThongBaoAdminDTO.TinNhanThongBaoDTO> dtoList = Collections.emptyList();
-        if (false) latestClientMsgs.stream().map(t -> {
-            CuocHoiThoaiDTO c = conversations.get(t.getCuocHoiThoaiId());
-            String name = (c != null && c.getTenKhachHang() != null) ? c.getTenKhachHang() : "Khách hàng";
-            String timeStr = t.getNgayTao() != null ? t.getNgayTao().format(TIME_FORMATTER) : "";
-            return ThongBaoAdminDTO.TinNhanThongBaoDTO.builder()
-                    .tinNhanId(t.getId())
-                    .cuocHoiThoaiId(t.getCuocHoiThoaiId())
-                    .tenKhachHang(name)
-                    .noiDung(t.getNoiDung())
-                    .thoiGian(timeStr)
-                    .daDoc(Boolean.TRUE.equals(t.getDaDoc()))
-                    .build();
-        }).collect(Collectors.toList());
-
         long actualOrderNotifs = items.stream().filter(i -> "DON_HANG".equals(i.getLoai())).count();
         long totalCount = totalChatNotifications + actualOrderNotifs;
 
@@ -389,7 +357,7 @@ public class ChatServiceImpl implements ChatService {
                 .soTinChuaDoc(totalChatNotifications)
                 .soDonHangMoi(actualOrderNotifs)
                 .danhSachThongBao(items)
-                .danhSachMoi(dtoList)
+                .danhSachMoi(Collections.emptyList())
                 .build();
     }
 
@@ -447,6 +415,8 @@ public class ChatServiceImpl implements ChatService {
 
         conv.setTrangThai(1); // 1 = Đang hoạt động
         conv.setNgayCapNhat(LocalDateTime.now());
+        conv.setThoiGianKhachPhanHoiCuoi(LocalDateTime.now());
+        conv.setDaGuiCanhBao2Phut(false);
 
         TinNhanDTO acceptMsg = TinNhanDTO.builder()
                 .id(msgIdSeq.getAndIncrement())
@@ -474,8 +444,6 @@ public class ChatServiceImpl implements ChatService {
         }
 
         // Nếu cuộc hội thoại này ĐÃ ĐÓNG (trangThai == 0):
-        // Giữ nguyên phiên cũ ở tab ĐÃ ĐÓNG cùng toàn bộ tin nhắn cũ!
-        // Tạo phiên mới và đẩy vào tab CHỜ NHẬN (trangThai = 2) để nhân viên tiếp nhận
         if (conv.getTrangThai() != null && conv.getTrangThai() == 0) {
             KhoiTaoChatRequest newReq = new KhoiTaoChatRequest();
             newReq.setKhachHangId(conv.getKhachHangId());
@@ -488,7 +456,6 @@ public class ChatServiceImpl implements ChatService {
         }
 
         // Nếu cuộc hội thoại ĐÃ ĐƯỢC TIẾP NHẬN (trangThai == 1 và có nhân viên):
-        // Tuyệt đối KHÔNG chuyển ngược về trạng thái 2 (Chờ nhận), giữ nguyên phiên làm việc với nhân viên đó!
         if (conv.getTrangThai() != null && conv.getTrangThai() == 1 && conv.getNhanVienId() != null) {
             return enrichDTO(conv);
         }
@@ -508,12 +475,153 @@ public class ChatServiceImpl implements ChatService {
         if (id == null) return;
         conversations.remove(id);
         messagesByConv.remove(id);
+        ratingsByConv.remove(id);
     }
 
     @Override
     public void xoaTatCaCuocHoiThoai() {
         conversations.clear();
         messagesByConv.clear();
+        ratingsByConv.clear();
+    }
+
+    @Override
+    public DanhGiaCuocHoiThoaiDTO guiDanhGia(Long cuocHoiThoaiId, DanhGiaCuocHoiThoaiDTO dto) {
+        if (cuocHoiThoaiId == null) {
+            throw new IllegalArgumentException("ID cuộc hội thoại không hợp lệ");
+        }
+        CuocHoiThoaiDTO conv = conversations.get(cuocHoiThoaiId);
+        if (conv == null) {
+            throw new IllegalArgumentException("Không tìm thấy cuộc hội thoại ID: " + cuocHoiThoaiId);
+        }
+
+        int score = 5;
+        if (dto != null && dto.getDiemDanhGia() != null) {
+            score = Math.max(1, Math.min(5, dto.getDiemDanhGia()));
+        }
+
+        String comment = (dto != null && dto.getNoiDungDanhGia() != null) ? dto.getNoiDungDanhGia().trim() : "";
+        long newRatingId = ratingIdSeq.getAndIncrement();
+        String code = String.format("DG%03d", newRatingId);
+
+        Long khId = (dto != null && dto.getKhachHangId() != null) ? dto.getKhachHangId() : conv.getKhachHangId();
+        String khName = (dto != null && dto.getTenKhachHang() != null && !dto.getTenKhachHang().trim().isEmpty())
+                ? dto.getTenKhachHang().trim()
+                : conv.getTenKhachHang();
+
+        Long nvId = (dto != null && dto.getNhanVienId() != null) ? dto.getNhanVienId() : conv.getNhanVienId();
+        String nvName = (dto != null && dto.getTenNhanVien() != null && !dto.getTenNhanVien().trim().isEmpty())
+                ? dto.getTenNhanVien().trim()
+                : conv.getTenNhanVien();
+
+        DanhGiaCuocHoiThoaiDTO savedRating = DanhGiaCuocHoiThoaiDTO.builder()
+                .id(newRatingId)
+                .maDanhGia(code)
+                .cuocHoiThoaiId(cuocHoiThoaiId)
+                .khachHangId(khId)
+                .tenKhachHang(khName)
+                .nhanVienId(nvId)
+                .tenNhanVien(nvName)
+                .diemDanhGia(score)
+                .noiDungDanhGia(comment)
+                .trangThai(1)
+                .ngayTao(LocalDateTime.now())
+                .build();
+
+        ratingsByConv.put(cuocHoiThoaiId, savedRating);
+        conv.setDanhGia(savedRating);
+
+        // Lưu vào lịch sử chat dưới dạng tin nhắn đặc biệt
+        StringBuilder sb = new StringBuilder();
+        sb.append("⭐ Đánh giá: ").append(score).append(" sao");
+        if (!comment.isEmpty()) {
+            sb.append(" • \"").append(comment).append("\"");
+        }
+
+        TinNhanDTO ratingMsg = TinNhanDTO.builder()
+                .id(msgIdSeq.getAndIncrement())
+                .cuocHoiThoaiId(cuocHoiThoaiId)
+                .nhanVienId(nvId)
+                .tenNhanVien(nvName)
+                .nguoiGui("DANH_GIA")
+                .noiDung(sb.toString())
+                .daDoc(true)
+                .ngayTao(LocalDateTime.now())
+                .danhGia(savedRating)
+                .build();
+
+        messagesByConv.computeIfAbsent(cuocHoiThoaiId, k -> new CopyOnWriteArrayList<>()).add(ratingMsg);
+        conv.setTinNhanCuoi(ratingMsg.getNoiDung());
+        conv.setThoiGianTinNhanCuoi(ratingMsg.getNgayTao());
+
+        return savedRating;
+    }
+
+    @Override
+    public DanhGiaCuocHoiThoaiDTO layDanhGia(Long cuocHoiThoaiId) {
+        if (cuocHoiThoaiId == null) return null;
+        return ratingsByConv.get(cuocHoiThoaiId);
+    }
+
+    /**
+     * TỰ ĐỘNG ĐÓNG PHIÊN VÀ CẢNH BÁO KHI KHÁCH HÀNG KHÔNG PHẢN HỒI:
+     * - Sau 13 phút (780 giây) không phản hồi: Hiện cảnh báo:
+     *   "Bạn vẫn còn ở đó chứ? Nếu bạn không phản hồi trong 2 phút nữa, phiên chat này sẽ tự động đóng."
+     * - Sau 15 phút (900 giây) không phản hồi: Tự động đóng phiên và hiện thông báo:
+     *   "Vì bạn không phản hồi, phiên chat này đã được tự động đóng. Nếu cần hỗ trợ thêm, xin vui lòng bắt đầu một cuộc hội thoại mới. Xin cảm ơn."
+     */
+    @Scheduled(fixedDelay = 5000)
+    public void kiemTraTuDongDongPhienKhongPhanHoi() {
+        LocalDateTime now = LocalDateTime.now();
+        for (CuocHoiThoaiDTO conv : conversations.values()) {
+            // Kiểm tra các cuộc trò chuyện đang hoạt động hoặc chờ nhận (trangThai == 1 hoặc 2)
+            if (conv.getTrangThai() != null && (conv.getTrangThai() == 1 || conv.getTrangThai() == 2)) {
+                LocalDateTime lastActive = conv.getThoiGianKhachPhanHoiCuoi();
+                if (lastActive == null) {
+                    lastActive = conv.getNgayCapNhat() != null ? conv.getNgayCapNhat() : conv.getNgayTao();
+                }
+                if (lastActive == null) continue;
+
+                long secondsInactive = Duration.between(lastActive, now).getSeconds();
+
+                // 1. Cảnh báo khi còn khoảng 2 phút (sau 13 phút = 780s không phản hồi)
+                if (secondsInactive >= 13 * 60 && !Boolean.TRUE.equals(conv.getDaGuiCanhBao2Phut())) {
+                    conv.setDaGuiCanhBao2Phut(true);
+
+                    TinNhanDTO warnMsg = TinNhanDTO.builder()
+                            .id(msgIdSeq.getAndIncrement())
+                            .cuocHoiThoaiId(conv.getId())
+                            .nguoiGui("HE_THONG")
+                            .noiDung("Bạn vẫn còn ở đó chứ? Nếu bạn không phản hồi trong 2 phút nữa, phiên chat này sẽ tự động đóng.")
+                            .daDoc(false)
+                            .ngayTao(now)
+                            .build();
+
+                    messagesByConv.computeIfAbsent(conv.getId(), k -> new CopyOnWriteArrayList<>()).add(warnMsg);
+                    conv.setTinNhanCuoi(warnMsg.getNoiDung());
+                    conv.setThoiGianTinNhanCuoi(warnMsg.getNgayTao());
+                }
+
+                // 2. Tự động đóng phiên sau 15 phút (900s) không phản hồi
+                if (secondsInactive >= 15 * 60) {
+                    conv.setTrangThai(0); // 0 = Đã đóng
+                    conv.setNgayCapNhat(now);
+
+                    TinNhanDTO autoCloseMsg = TinNhanDTO.builder()
+                            .id(msgIdSeq.getAndIncrement())
+                            .cuocHoiThoaiId(conv.getId())
+                            .nguoiGui("HE_THONG")
+                            .noiDung("Vì bạn không phản hồi, phiên chat này đã được tự động đóng. Nếu cần hỗ trợ thêm, xin vui lòng bắt đầu một cuộc hội thoại mới. Xin cảm ơn.")
+                            .daDoc(true)
+                            .ngayTao(now)
+                            .build();
+
+                    messagesByConv.computeIfAbsent(conv.getId(), k -> new CopyOnWriteArrayList<>()).add(autoCloseMsg);
+                    conv.setTinNhanCuoi(autoCloseMsg.getNoiDung());
+                    conv.setThoiGianTinNhanCuoi(autoCloseMsg.getNgayTao());
+                }
+            }
+        }
     }
 
     private CuocHoiThoaiDTO enrichDTO(CuocHoiThoaiDTO c) {
@@ -528,6 +636,40 @@ public class ChatServiceImpl implements ChatService {
                 .filter(m -> "KHACH_HANG".equals(m.getNguoiGui()) && !Boolean.TRUE.equals(m.getDaDoc()))
                 .count();
         c.setSoTinChuaDoc(unread);
+        c.setDanhGia(ratingsByConv.get(c.getId()));
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime khachTime = khachTypingTimes.get(c.getId());
+        boolean khachTyping = khachTime != null && Duration.between(khachTime, now).getSeconds() <= 5;
+        c.setKhachDangNhap(khachTyping);
+
+        LocalDateTime nvTime = nhanVienTypingTimes.get(c.getId());
+        boolean nvTyping = nvTime != null && Duration.between(nvTime, now).getSeconds() <= 5;
+        c.setNhanVienDangNhap(nvTyping);
+
         return c;
+    }
+
+    @Override
+    public void capNhatDangNhap(Long cuocHoiThoaiId, String nguoiGui, Boolean isTyping) {
+        if (cuocHoiThoaiId == null) return;
+        if ("KHACH_HANG".equalsIgnoreCase(nguoiGui)) {
+            if (Boolean.TRUE.equals(isTyping)) {
+                khachTypingTimes.put(cuocHoiThoaiId, LocalDateTime.now());
+                CuocHoiThoaiDTO conv = conversations.get(cuocHoiThoaiId);
+                if (conv != null) {
+                    conv.setThoiGianKhachPhanHoiCuoi(LocalDateTime.now());
+                    conv.setDaGuiCanhBao2Phut(false);
+                }
+            } else {
+                khachTypingTimes.remove(cuocHoiThoaiId);
+            }
+        } else {
+            if (Boolean.TRUE.equals(isTyping)) {
+                nhanVienTypingTimes.put(cuocHoiThoaiId, LocalDateTime.now());
+            } else {
+                nhanVienTypingTimes.remove(cuocHoiThoaiId);
+            }
+        }
     }
 }

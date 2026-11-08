@@ -18,4 +18,5 @@ public class TinNhanDTO {
     private String noiDung;
     private Boolean daDoc;
     private LocalDateTime ngayTao;
+    private DanhGiaCuocHoiThoaiDTO danhGia;
 }

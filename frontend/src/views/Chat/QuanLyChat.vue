@@ -24,11 +24,44 @@ const displayMessages = computed(() => {
   })
 })
 
+const getRatingLabel = (score) => {
+  switch (score) {
+    case 1: return 'Rất không hài lòng'
+    case 2: return 'Chưa hài lòng'
+    case 3: return 'Bình thường'
+    case 4: return 'Hài lòng'
+    case 5: return 'Rất hài lòng'
+    default: return 'Rất hài lòng'
+  }
+}
+
 const inputReply = ref('')
 const loadingList = ref(false)
 const loadingChat = ref(false)
 const sending = ref(false)
 const chatScrollRef = ref(null)
+const customerIsTyping = ref(false)
+let staffTypingTimeout = null
+let lastStaffTypingPing = 0
+
+const onStaffInput = () => {
+  if (!activeId.value || activeConv.value?.trangThai !== 1) return
+  const now = Date.now()
+  if (now - lastStaffTypingPing > 2000) {
+    lastStaffTypingPing = now
+    api.post(`/api/chat/cuoc-hoi-thoai/${activeId.value}/dang-nhap?nguoiGui=NHAN_VIEN&isTyping=true`).catch(() => {})
+  }
+  if (staffTypingTimeout) clearTimeout(staffTypingTimeout)
+  staffTypingTimeout = setTimeout(() => {
+    api.post(`/api/chat/cuoc-hoi-thoai/${activeId.value}/dang-nhap?nguoiGui=NHAN_VIEN&isTyping=false`).catch(() => {})
+  }, 3500)
+}
+
+const onStaffBlur = () => {
+  if (!activeId.value || activeConv.value?.trangThai !== 1) return
+  if (staffTypingTimeout) clearTimeout(staffTypingTimeout)
+  api.post(`/api/chat/cuoc-hoi-thoai/${activeId.value}/dang-nhap?nguoiGui=NHAN_VIEN&isTyping=false`).catch(() => {})
+}
 
 // 2 Tabs theo chuẩn video tham khảo: 'ACTIVE' (Đang hoạt động) và 'CLOSED' (Lịch sử chat)
 const activeTab = ref('ACTIVE')
@@ -188,6 +221,14 @@ const pollActiveMessages = async () => {
       }
       scrollToBottom()
     }
+
+    // Kiểm tra trạng thái khách hàng đang gõ (Zalo style)
+    try {
+      const convRes = await api.get(`/api/chat/cuoc-hoi-thoai/${activeId.value}`)
+      if (convRes.data) {
+        customerIsTyping.value = !!convRes.data.khachDangNhap
+      }
+    } catch (err) {}
   } catch (e) {}
 }
 
@@ -224,6 +265,8 @@ const sendReply = async () => {
     if (res.data && res.data.id) {
       messages.value.push(res.data)
       inputReply.value = ''
+      if (staffTypingTimeout) clearTimeout(staffTypingTimeout)
+      api.post(`/api/chat/cuoc-hoi-thoai/${activeId.value}/dang-nhap?nguoiGui=NHAN_VIEN&isTyping=false`).catch(() => {})
       scrollToBottom()
 
       // Tự động chuyển trạng thái active nếu đang ở chờ nhận
@@ -499,7 +542,11 @@ watch(() => route.query.id, (newId) => {
                   :class="{ 'is-me': c.nhanVienId && String(c.nhanVienId) === String(currentUser?.id) }"
                   :title="`Người phụ trách: ${c.tenNhanVien}`"
                 >
-                  👤 {{ (c.nhanVienId && String(c.nhanVienId) === String(currentUser?.id)) ? 'Bạn' : c.tenNhanVien }}
+                  {{ (c.nhanVienId && String(c.nhanVienId) === String(currentUser?.id)) ? 'Bạn' : c.tenNhanVien }}
+                </span>
+
+                <span v-if="c.danhGia" class="rating-badge-pill" title="Đánh giá của khách hàng">
+                  ⭐ {{ c.danhGia.diemDanhGia }}★
                 </span>
 
                 <span v-if="(c.soTinChuaDoc || 0) > 0" class="unread-pill">
@@ -531,6 +578,14 @@ watch(() => route.query.id, (newId) => {
                   >
                     <span class="dot-online"></span>
                     {{ (activeConv.nhanVienId && String(activeConv.nhanVienId) === String(currentUser?.id)) ? 'Bạn đang phụ trách' : `Phụ trách: ${activeConv.tenNhanVien}` }}
+                  </span>
+
+                  <span
+                    v-if="activeConv.danhGia"
+                    class="header-rating-badge"
+                    title="Khách hàng đã đánh giá dịch vụ"
+                  >
+                    ⭐ {{ activeConv.danhGia.diemDanhGia }}/5★ ({{ getRatingLabel(activeConv.danhGia.diemDanhGia) }})
                   </span>
                 </div>
               </div>
@@ -587,12 +642,48 @@ watch(() => route.query.id, (newId) => {
                 'from-customer': msg.nguoiGui === 'KHACH_HANG',
                 'from-system': msg.nguoiGui === 'HE_THONG',
                 'from-staff': msg.nguoiGui === 'NHAN_VIEN' || msg.nguoiGui === 'ADMIN',
-                'from-colleague': isColleague(msg)
+                'from-colleague': isColleague(msg),
+                'from-rating': msg.nguoiGui === 'DANH_GIA' || !!msg.danhGia
               }"
             >
-              <!-- Thông báo hệ thống (tiếp nhận / đóng phiên / chuyển yêu cầu) -->
-              <div v-if="msg.nguoiGui === 'HE_THONG'" class="system-event-notice">
-                <span class="system-event-badge">{{ (msg.noiDung || '').replace(/^Nhân viên\s+/i, '') }}</span>
+              <!-- Thẻ Đánh giá cuộc trò chuyện từ khách hàng -->
+              <div v-if="msg.nguoiGui === 'DANH_GIA' || msg.danhGia" class="rating-history-card">
+                <div class="rh-header">
+                  <span class="rh-star-badge">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="#d2a764">
+                    <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+                  </svg>
+                </span>
+                  <span class="rh-title">ĐÁNH GIÁ CHẤT LƯỢNG HỖ TRỢ</span>
+                  <span class="rh-time">{{ formatCardTime(msg.ngayTao) }}</span>
+                </div>
+                <div class="rh-stars-row">
+                  <span
+                    v-for="s in 5"
+                    :key="s"
+                    class="rh-star-icon"
+                    :class="{ filled: s <= ((msg.danhGia && msg.danhGia.diemDanhGia) || 5) }"
+                  >★</span>
+                  <span class="rh-score-num">{{ (msg.danhGia && msg.danhGia.diemDanhGia) || 5 }}/5 Sao</span>
+                  <span class="rh-rating-label">({{ getRatingLabel((msg.danhGia && msg.danhGia.diemDanhGia) || 5) }})</span>
+                </div>
+                <div v-if="msg.danhGia && msg.danhGia.noiDungDanhGia" class="rh-comment-box">
+                  <strong>Khách nhận xét:</strong> "{{ msg.danhGia.noiDungDanhGia }}"
+                </div>
+                <div class="rh-footer-meta">
+                  <span>Khách hàng: <strong>{{ (msg.danhGia && msg.danhGia.tenKhachHang) || activeConv?.tenKhachHang || 'Khách trực tuyến' }}</strong></span>
+                  <span v-if="msg.danhGia && msg.danhGia.tenNhanVien" class="rh-staff-meta"> • Phụ trách: <strong>{{ msg.danhGia.tenNhanVien }}</strong></span>
+                </div>
+              </div>
+
+              <!-- Thông báo hệ thống (tiếp nhận / đóng phiên / chuyển yêu cầu / cảnh báo timeout) -->
+              <div v-else-if="msg.nguoiGui === 'HE_THONG'" class="system-event-notice">
+                <span
+                  class="system-event-badge"
+                  :class="{ 'timeout-warning-badge': msg.noiDung && msg.noiDung.includes('Bạn vẫn còn ở đó chứ') }"
+                >
+                  {{ (msg.noiDung || '').replace(/^Nhân viên\s+/i, '') }}
+                </span>
               </div>
 
               <!-- Tin nhắn trao đổi giữa Khách và Nhân viên -->
@@ -612,6 +703,18 @@ watch(() => route.query.id, (newId) => {
                   <div class="bubble-text-content">{{ msg.noiDung }}</div>
                 </div>
               </template>
+            </div>
+
+            <!-- Trạng thái khách hàng đang soạn tin (Zalo style) -->
+            <div v-if="customerIsTyping && activeConv.trangThai === 1" class="zalo-typing-row">
+              <div class="zalo-typing-content">
+                <span class="zalo-typing-label">{{ activeConv.tenKhachHang || 'Khách hàng' }} đang soạn tin...</span>
+                <div class="zalo-typing-bubble">
+                  <span class="z-dot"></span>
+                  <span class="z-dot"></span>
+                  <span class="z-dot"></span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -658,6 +761,9 @@ watch(() => route.query.id, (newId) => {
                 class="chat-text-input"
                 :placeholder="activeConv.trangThai === 2 ? 'Hãy tiếp nhận phiên chat trước...' : 'Nhập nội dung phản hồi khách hàng...'"
                 :disabled="activeConv.trangThai === 2"
+                @input="onStaffInput"
+                @focus="onStaffInput"
+                @blur="onStaffBlur"
                 @keydown="handleKeydown"
               />
               <button
@@ -1497,4 +1603,219 @@ watch(() => route.query.id, (newId) => {
   color: #ffffff !important;
 }
 
+
+/* Badge Đánh giá ở danh sách trái */
+.rating-badge-pill {
+  font-size: 11px;
+  font-weight: 700;
+  color: #496883;
+  background: #fbf7ee;
+  border: 1px solid #ebd9c0;
+  border-radius: 12px;
+  padding: 1px 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Badge Đánh giá ở Header phải */
+.header-rating-badge {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #496883;
+  background: #fbf7ee;
+  border: 1.5px solid #d2a764;
+  border-radius: 12px;
+  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Cảnh báo Timeout 2 phút trong luồng chat */
+.timeout-warning-badge {
+  background: #fbf7ee !important;
+  color: #496883 !important;
+  border: 1.5px solid #d2a764 !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 8px rgba(73, 104, 131, 0.12) !important;
+  animation: pulseWarning 2s infinite ease-in-out;
+}
+
+@keyframes pulseWarning {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+/* Thẻ Đánh giá trong lịch sử chat của Admin - Màu xanh dương #496883 và be #d2a764 như Logo */
+.rating-history-card {
+  width: 100%;
+  max-width: 440px;
+  margin: 10px auto;
+  background: linear-gradient(135deg, #ffffff 0%, #fdfbf7 50%, #fbf6ec 100%);
+  border: 1.5px solid #d2a764;
+  border-radius: 14px;
+  padding: 14px 18px;
+  box-shadow: 0 4px 16px rgba(73, 104, 131, 0.08), 0 2px 6px rgba(210, 167, 100, 0.12);
+  box-sizing: border-box;
+}
+
+.rh-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.rh-star-badge {
+  color: #d2a764;
+  display: inline-flex;
+  align-items: center;
+}
+
+.rh-title {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #496883;
+  letter-spacing: 0.5px;
+  flex: 1;
+}
+
+.rh-time {
+  font-size: 11.5px;
+  color: #7a8e9e;
+  font-weight: 500;
+}
+
+.rh-stars-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.rh-star-icon {
+  font-size: 20px;
+  color: #ded5c7;
+  line-height: 1;
+}
+
+.rh-star-icon.filled {
+  color: #d2a764;
+}
+
+.rh-score-num {
+  font-size: 13px;
+  font-weight: 800;
+  color: #496883;
+  margin-left: 8px;
+}
+
+.rh-rating-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #b8863b;
+  margin-left: 4px;
+}
+
+.rh-comment-box {
+  background: #ffffff;
+  border: 1px solid #edd9c0;
+  border-left: 3.5px solid #496883;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  color: #2b3a4a;
+  margin-bottom: 9px;
+  word-break: break-word;
+  box-shadow: 0 1px 3px rgba(73, 104, 131, 0.04);
+}
+
+.rh-comment-box strong {
+  color: #496883;
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+.rh-footer-meta {
+  font-size: 11.5px;
+  color: #64748b;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rh-footer-meta strong {
+  color: #496883;
+}
+
+/* Trạng thái đang gõ kiểu Zalo */
+.zalo-typing-row {
+  display: flex;
+  align-items: flex-start;
+  margin: 6px 0 10px 0;
+  animation: fadeInTyping 0.25s ease-out;
+}
+
+@keyframes fadeInTyping {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.zalo-typing-content {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.zalo-typing-label {
+  font-size: 11px;
+  color: #64748b;
+  font-style: italic;
+  padding-left: 2px;
+}
+
+.zalo-typing-bubble {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 8px 14px;
+  border-radius: 14px;
+  border-bottom-left-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.zalo-typing-bubble .z-dot {
+  width: 6px;
+  height: 6px;
+  background: #496883;
+  border-radius: 50%;
+  animation: zaloDotBounce 1.4s infinite ease-in-out both;
+}
+
+.zalo-typing-bubble .z-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.zalo-typing-bubble .z-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.zalo-typing-bubble .z-dot:nth-child(3) {
+  animation-delay: 0s;
+}
+
+@keyframes zaloDotBounce {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
 </style>

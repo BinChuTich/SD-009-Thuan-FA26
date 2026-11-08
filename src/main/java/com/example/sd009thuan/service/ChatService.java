@@ -30,5 +30,10 @@ public interface ChatService {
     void xoaCuocHoiThoai(Long id);
 
     void xoaTatCaCuocHoiThoai();
-}
 
+    DanhGiaCuocHoiThoaiDTO guiDanhGia(Long cuocHoiThoaiId, DanhGiaCuocHoiThoaiDTO dto);
+
+    DanhGiaCuocHoiThoaiDTO layDanhGia(Long cuocHoiThoaiId);
+
+    void capNhatDangNhap(Long cuocHoiThoaiId, String nguoiGui, Boolean isTyping);
+}

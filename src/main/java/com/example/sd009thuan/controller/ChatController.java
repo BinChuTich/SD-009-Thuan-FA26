@@ -162,5 +162,48 @@ public class ChatController {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
+
+    // Gửi đánh giá cho cuộc hội thoại
+    @PostMapping("/cuoc-hoi-thoai/{id}/danh-gia")
+    public ResponseEntity<?> guiDanhGia(
+            @PathVariable Long id,
+            @RequestBody DanhGiaCuocHoiThoaiDTO dto
+    ) {
+        try {
+            DanhGiaCuocHoiThoaiDTO result = chatService.guiDanhGia(id, dto);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    // Lấy thông tin đánh giá của cuộc hội thoại
+    @GetMapping("/cuoc-hoi-thoai/{id}/danh-gia")
+    public ResponseEntity<?> layDanhGia(@PathVariable Long id) {
+        try {
+            DanhGiaCuocHoiThoaiDTO result = chatService.layDanhGia(id);
+            if (result == null) {
+                return ResponseEntity.ok(Map.of("hasRating", false));
+            }
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    // Cập nhật trạng thái đang gõ/soạn tin nhắn (Zalo style)
+    @PostMapping("/cuoc-hoi-thoai/{id}/dang-nhap")
+    public ResponseEntity<?> capNhatDangNhap(
+            @PathVariable Long id,
+            @RequestParam String nguoiGui,
+            @RequestParam(defaultValue = "true") Boolean isTyping
+    ) {
+        try {
+            chatService.capNhatDangNhap(id, nguoiGui, isTyping);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
 }
 

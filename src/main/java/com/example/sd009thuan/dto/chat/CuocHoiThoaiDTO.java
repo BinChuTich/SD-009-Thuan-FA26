@@ -22,4 +22,9 @@ public class CuocHoiThoaiDTO {
     private String tinNhanCuoi;
     private LocalDateTime thoiGianTinNhanCuoi;
     private Long soTinChuaDoc;
+    private LocalDateTime thoiGianKhachPhanHoiCuoi;
+    private Boolean daGuiCanhBao2Phut;
+    private DanhGiaCuocHoiThoaiDTO danhGia;
+    private Boolean khachDangNhap;
+    private Boolean nhanVienDangNhap;
 }
