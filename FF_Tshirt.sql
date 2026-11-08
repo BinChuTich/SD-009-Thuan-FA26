@@ -616,9 +616,9 @@ INSERT INTO phuong_thuc_thanh_toan (ten_phuong_thuc) VALUES
 (N'Thẻ ATM / VISA');
 GO
 
-INSERT INTO dot_giam_gia (ma_dot_giam_gia, ten_dot_giam_gia, phan_tram_giam, ngay_bat_dau, ngay_ket_thuc) VALUES
-('DGG01', N'Chương trình Giảm giá Mùa hè', 10.00, '2026-06-01 00:00:00', '2026-08-31 23:59:59'),
-('DGG02', N'Khuyến mãi Khai trương Store', 20.00, '2026-09-01 00:00:00', '2026-09-15 23:59:59');
+INSERT INTO dot_giam_gia (ma_dot_giam_gia, ten_dot_giam_gia, phan_tram_giam, ngay_bat_dau, ngay_ket_thuc, trang_thai) VALUES
+('DGG01', N'Chương trình Giảm giá Mùa hè', 10.00, '2026-10-01 00:00:00', '2027-12-31 23:59:59', 1),
+('DGG02', N'Khuyến mãi Khai trương Store', 20.00, '2026-10-01 00:00:00', '2027-12-31 23:59:59', 1);
 GO
 
 INSERT INTO phieu_giam_gia (ma_phieu_giam_gia, ten_phieu_giam_gia, loai_phieu_giam_gia, gia_tri_giam_gia, giam_toi_da, hoa_don_toi_thieu, so_luong_su_dung, ngay_bat_dau, ngay_ket_thuc) VALUES

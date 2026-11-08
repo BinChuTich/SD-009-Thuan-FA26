@@ -45,20 +45,22 @@ let staffTypingTimeout = null
 let lastStaffTypingPing = 0
 
 const onStaffInput = () => {
-  if (!activeId.value || activeConv.value?.trangThai !== 1) return
+  if (!activeId.value || activeConv.value?.trangThai === 0) return
   const now = Date.now()
-  if (now - lastStaffTypingPing > 2000) {
+  if (now - lastStaffTypingPing > 1200) {
     lastStaffTypingPing = now
     api.post(`/api/chat/cuoc-hoi-thoai/${activeId.value}/dang-nhap?nguoiGui=NHAN_VIEN&isTyping=true`).catch(() => {})
   }
   if (staffTypingTimeout) clearTimeout(staffTypingTimeout)
   staffTypingTimeout = setTimeout(() => {
-    api.post(`/api/chat/cuoc-hoi-thoai/${activeId.value}/dang-nhap?nguoiGui=NHAN_VIEN&isTyping=false`).catch(() => {})
+    if (activeId.value) {
+      api.post(`/api/chat/cuoc-hoi-thoai/${activeId.value}/dang-nhap?nguoiGui=NHAN_VIEN&isTyping=false`).catch(() => {})
+    }
   }, 3500)
 }
 
 const onStaffBlur = () => {
-  if (!activeId.value || activeConv.value?.trangThai !== 1) return
+  if (!activeId.value || activeConv.value?.trangThai === 0) return
   if (staffTypingTimeout) clearTimeout(staffTypingTimeout)
   api.post(`/api/chat/cuoc-hoi-thoai/${activeId.value}/dang-nhap?nguoiGui=NHAN_VIEN&isTyping=false`).catch(() => {})
 }
@@ -410,7 +412,7 @@ const switchTab = (tab) => {
 onMounted(() => {
   loadConversations()
   listTimer = setInterval(() => loadConversations(true), 3500)
-  msgTimer = setInterval(pollActiveMessages, 2000)
+  msgTimer = setInterval(pollActiveMessages, 1200)
 })
 
 onUnmounted(() => {
@@ -706,7 +708,7 @@ watch(() => route.query.id, (newId) => {
             </div>
 
             <!-- Trạng thái khách hàng đang soạn tin (Zalo style) -->
-            <div v-if="customerIsTyping && activeConv.trangThai === 1" class="zalo-typing-row">
+            <div v-if="customerIsTyping" class="zalo-typing-row">
               <div class="zalo-typing-content">
                 <span class="zalo-typing-label">{{ activeConv.tenKhachHang || 'Khách hàng' }} đang soạn tin...</span>
                 <div class="zalo-typing-bubble">

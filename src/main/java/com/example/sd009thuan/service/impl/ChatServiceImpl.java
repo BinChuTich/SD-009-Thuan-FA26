@@ -640,11 +640,11 @@ public class ChatServiceImpl implements ChatService {
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime khachTime = khachTypingTimes.get(c.getId());
-        boolean khachTyping = khachTime != null && Duration.between(khachTime, now).getSeconds() <= 5;
+        boolean khachTyping = khachTime != null && Math.abs(Duration.between(khachTime, now).getSeconds()) <= 6;
         c.setKhachDangNhap(khachTyping);
 
         LocalDateTime nvTime = nhanVienTypingTimes.get(c.getId());
-        boolean nvTyping = nvTime != null && Duration.between(nvTime, now).getSeconds() <= 5;
+        boolean nvTyping = nvTime != null && Math.abs(Duration.between(nvTime, now).getSeconds()) <= 6;
         c.setNhanVienDangNhap(nvTyping);
 
         return c;

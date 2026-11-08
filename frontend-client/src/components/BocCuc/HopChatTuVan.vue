@@ -32,22 +32,27 @@ const staffIsTyping = ref(false)
 let clientTypingTimeout = null
 let lastClientTypingPing = 0
 
-const onClientInput = () => {
+const onClientInput = async () => {
   updateActivity()
-  if (!conversationId.value || conversationStatus.value !== 1) return
+  if (!conversationId.value && isClientLoggedIn.value) {
+    await initOrLoadConversation()
+  }
+  if (!conversationId.value || conversationStatus.value === 0) return
   const now = Date.now()
-  if (now - lastClientTypingPing > 2000) {
+  if (now - lastClientTypingPing > 1200) {
     lastClientTypingPing = now
     api.post(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/dang-nhap?nguoiGui=KHACH_HANG&isTyping=true`).catch(() => {})
   }
   if (clientTypingTimeout) clearTimeout(clientTypingTimeout)
   clientTypingTimeout = setTimeout(() => {
-    api.post(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/dang-nhap?nguoiGui=KHACH_HANG&isTyping=false`).catch(() => {})
+    if (conversationId.value) {
+      api.post(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/dang-nhap?nguoiGui=KHACH_HANG&isTyping=false`).catch(() => {})
+    }
   }, 3500)
 }
 
 const onClientBlur = () => {
-  if (!conversationId.value || conversationStatus.value !== 1) return
+  if (!conversationId.value || conversationStatus.value === 0) return
   if (clientTypingTimeout) clearTimeout(clientTypingTimeout)
   api.post(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/dang-nhap?nguoiGui=KHACH_HANG&isTyping=false`).catch(() => {})
 }
@@ -179,32 +184,48 @@ const CHAT_STORAGE_KEY = 'fftshirt_client_chat_conv_id'
 // Tải danh sách sản phẩm và các đợt giảm giá đang hoạt động
 const loadFeaturedProducts = async () => {
   try {
-    // 1. Tải danh sách các đợt giảm giá đang hoạt động
+    // 1. Tải bản đồ sản phẩm -> đợt giảm giá trực tiếp từ backend
+    let productsMap = {}
+    try {
+      const mapRes = await api.get('/api/dot-giam-gia/active-products-map')
+      productsMap = mapRes.data || {}
+    } catch (me) {}
+
+    // 2. Tải danh sách các đợt giảm giá đang hoạt động
+    let activeCampaigns = []
     try {
       const campRes = await api.get('/api/dot-giam-gia/active')
-      activeDiscountCampaigns.value = campRes.data || []
+      activeCampaigns = campRes.data || []
+      activeDiscountCampaigns.value = activeCampaigns
     } catch (ce) {
       console.warn('Lỗi tải đợt giảm giá active:', ce)
     }
 
-    // 2. Tải danh sách sản phẩm từ backend
+    // 3. Tải danh sách sản phẩm từ backend
     const res = await api.get('/api/san-pham?page=0&size=50')
     const list = res.data?.content || res.data || []
     featuredProducts.value = list
 
     // Lọc các sản phẩm đang có đợt giảm giá thực tế đang hoạt động
     discountProducts.value = list.filter(p => {
+      const hasMap = !!productsMap[String(p.id)]
       const hasDiscountFlag = p.coGiamGia === true || (p.phanTramGiam && Number(p.phanTramGiam) > 0)
       const hasDiscountPrice = p.minGiaSauGiam && p.minGia && Number(p.minGiaSauGiam) < Number(p.minGia)
-      return hasDiscountFlag || hasDiscountPrice
+      return hasMap || hasDiscountFlag || hasDiscountPrice
     }).map(p => {
-      let campaignName = p.tenDotGiamGia
-      if (!campaignName && activeDiscountCampaigns.value.length > 0) {
-        campaignName = activeDiscountCampaigns.value[0].tenDotGiamGia
+      const dgg = productsMap[String(p.id)]
+      const campaignName = p.tenDotGiamGia || dgg?.tenDotGiamGia || (activeCampaigns.length > 0 ? activeCampaigns[0].tenDotGiamGia : 'Chương trình Giảm giá Đặc biệt')
+      const pct = p.phanTramGiam || dgg?.phanTramGiam || (p.minGia && p.minGiaSauGiam ? Math.round(((p.minGia - p.minGiaSauGiam) / p.minGia) * 100) : 20)
+      let minSauGiam = p.minGiaSauGiam
+      if (!minSauGiam && p.minGia && pct) {
+        minSauGiam = Math.round(p.minGia * (100 - pct) / 100)
       }
       return {
         ...p,
-        tenDotGiamGia: campaignName || 'Chương trình Giảm giá Đặc biệt'
+        coGiamGia: true,
+        tenDotGiamGia: campaignName,
+        phanTramGiam: pct,
+        minGiaSauGiam: minSauGiam || p.minGia
       }
     })
   } catch (e) {
@@ -303,15 +324,14 @@ const scrollToBottom = () => {
   })
 }
 
-// Nạp lại cuộc hội thoại kết nối với nhân viên (chỉ khi khách hàng đã có phiên chat dở trước đó)
+// Nạp lại cuộc hội thoại kết nối với nhân viên
 const initOrLoadConversation = async () => {
   if (!isClientLoggedIn.value) return
   const savedId = localStorage.getItem(CHAT_STORAGE_KEY)
-  if (!savedId) return
 
   try {
     const payload = {
-      cuocHoiThoaiId: Number(savedId),
+      cuocHoiThoaiId: savedId ? Number(savedId) : null,
       khachHangId: currentClientUser.value?.id || null,
       tenKhachHang: currentClientUser.value?.name || null,
       soDienThoai: currentClientUser.value?.phone || null
@@ -428,8 +448,8 @@ const pollNewMessages = async () => {
       try {
         const convRes = await api.get(`/api/chat/cuoc-hoi-thoai/${conversationId.value}`)
         if (convRes.data) {
-          if (conversationStatus.value === 2 && convRes.data.trangThai === 1) {
-            conversationStatus.value = 1
+          if (convRes.data.trangThai !== undefined && convRes.data.trangThai !== null) {
+            conversationStatus.value = convRes.data.trangThai
             if (convRes.data.tenNhanVien) {
               assignedStaffName.value = convRes.data.tenNhanVien
             }
@@ -695,9 +715,7 @@ const goToFullTracking = (code) => {
 // Hiển thị danh sách sản phẩm đợt giảm giá
 const showPromoProducts = async () => {
   updateActivity()
-  if (discountProducts.value.length === 0) {
-    await loadFeaturedProducts()
-  }
+  await loadFeaturedProducts()
 
   const activePromoList = discountProducts.value.filter(p =>
     p.coGiamGia === true || (p.minGiaSauGiam && p.minGia && Number(p.minGiaSauGiam) < Number(p.minGia))
@@ -1133,7 +1151,10 @@ onMounted(() => {
   if (savedId) {
     conversationId.value = Number(savedId)
   }
-  pollTimer = setInterval(pollNewMessages, 3000)
+  if (isClientLoggedIn.value) {
+    initOrLoadConversation()
+  }
+  pollTimer = setInterval(pollNewMessages, 1200)
 
   // Kiểm tra thời gian không phản hồi để cảnh báo 2 phút và tự động đóng phiên
   inactiveTimer = setInterval(() => {
@@ -1472,9 +1493,9 @@ watch(() => currentClientUser.value, async (newVal) => {
         </div>
 
         <!-- Trạng thái đang gõ (AI Bot hoặc Chuyên viên tư vấn kiểu Zalo) -->
-        <div v-if="isTyping || (staffIsTyping && conversationStatus === 1)" class="message-row bot zalo-typing-row">
+        <div v-if="isTyping || staffIsTyping" class="message-row bot zalo-typing-row">
           <div class="sender-header-tag">
-            <span>{{ (staffIsTyping && conversationStatus === 1) ? (assignedStaffName || 'Chuyên viên tư vấn') : 'Tư vấn FF T-Shirt' }} đang soạn tin...</span>
+            <span>{{ staffIsTyping ? (assignedStaffName || 'Chuyên viên tư vấn') : 'Tư vấn FF T-Shirt' }} đang soạn tin...</span>
           </div>
           <div class="zalo-typing-bubble">
             <span class="z-dot"></span>
@@ -1930,13 +1951,13 @@ watch(() => currentClientUser.value, async (newVal) => {
 }
 
 .card-cur-price {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
-  color: #2563eb;
+  color: #dc2626;
 }
 
 .card-old-price {
-  font-size: 10px;
+  font-size: 11px;
   color: #94a3b8;
   text-decoration: line-through;
 }
