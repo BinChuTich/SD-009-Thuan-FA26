@@ -254,6 +254,12 @@
           title="Nhấn để xem hoặc ẩn danh sách đơn hàng Doanh thu thực tế"
         >
           <div class="kpi-card-header-flex">
+            <div class="kpi-icon-wrap pastel-green">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                <polyline points="17 6 23 6 23 12" />
+              </svg>
+            </div>
             <div class="kpi-order-action-pill pill-green" :class="{ 'is-open': selectedKpiType === 'actual_revenue' }">
               <span>{{ selectedKpiType === 'actual_revenue' ? 'Đang mở' : 'Chi tiết' }}</span>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="pill-arrow" :class="{ 'arrow-up': selectedKpiType === 'actual_revenue' }">
@@ -273,6 +279,12 @@
           title="Nhấn để xem hoặc ẩn danh sách đơn hàng Doanh thu dự kiến"
         >
           <div class="kpi-card-header-flex">
+            <div class="kpi-icon-wrap pastel-amber">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </div>
             <div class="kpi-order-action-pill pill-amber" :class="{ 'is-open': selectedKpiType === 'expected_revenue' }">
               <span>{{ selectedKpiType === 'expected_revenue' ? 'Đang mở' : 'Chi tiết' }}</span>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="pill-arrow" :class="{ 'arrow-up': selectedKpiType === 'expected_revenue' }">
@@ -292,6 +304,12 @@
           title="Nhấn để xem hoặc ẩn danh sách đơn hàng theo Tiền mặt & Chuyển khoản"
         >
           <div class="kpi-card-header-flex">
+            <div class="kpi-icon-wrap pastel-blue">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="5" width="20" height="14" rx="2" />
+                <line x1="2" y1="10" x2="22" y2="10" />
+              </svg>
+            </div>
             <div class="kpi-order-action-pill pill-blue" :class="{ 'is-open': selectedKpiType === 'payment' }">
               <span>{{ selectedKpiType === 'payment' ? 'Đang mở' : 'Chi tiết' }}</span>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="pill-arrow" :class="{ 'arrow-up': selectedKpiType === 'payment' }">
@@ -320,6 +338,13 @@
           title="Nhấn để xem hoặc ẩn danh sách tất cả đơn hàng"
         >
           <div class="kpi-card-header-flex">
+            <div class="kpi-icon-wrap pastel-purple">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="9" cy="21" r="1" />
+                <circle cx="20" cy="21" r="1" />
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+              </svg>
+            </div>
             <div class="kpi-order-action-pill pill-purple" :class="{ 'is-open': selectedKpiType === 'total_orders' }">
               <span>{{ selectedKpiType === 'total_orders' ? 'Đang mở' : 'Chi tiết' }}</span>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="pill-arrow" :class="{ 'arrow-up': selectedKpiType === 'total_orders' }">
@@ -339,6 +364,13 @@
           title="Nhấn để xem hoặc ẩn danh sách sản phẩm đã bán"
         >
           <div class="kpi-card-header-flex">
+            <div class="kpi-icon-wrap pastel-orange">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
+              </svg>
+            </div>
             <div class="kpi-order-action-pill pill-orange" :class="{ 'is-open': selectedKpiType === 'products' }">
               <span>{{ selectedKpiType === 'products' ? 'Đang mở' : 'Chi tiết' }}</span>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="pill-arrow" :class="{ 'arrow-up': selectedKpiType === 'products' }">
@@ -6157,9 +6189,8 @@ input.form-control-minimal.with-icon {
 .kpi-card-header-flex {
   display: flex;
   align-items: flex-start;
-  justify-content: flex-end;
+  justify-content: space-between;
   width: 100%;
-  margin-bottom: 0.65rem;
 }
 
 .kpi-order-action-pill {
