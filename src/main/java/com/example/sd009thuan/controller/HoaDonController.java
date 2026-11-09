@@ -398,7 +398,7 @@ public class HoaDonController {
             return ResponseEntity.badRequest().body(Map.of(
                     "message",
                     e.getMessage() != null ? e.getMessage() : "Cập nhật trạng thái thất bại"
-                ));
+            ));
         }
     }
 
@@ -525,7 +525,7 @@ public class HoaDonController {
         for (HoaDon hd : allRecent) {
             if (notifList.size() >= 25) break;
             boolean isOnline = Integer.valueOf(2).equals(hd.getLoaiDon())
-                    || (hd.getGhiChu() != null && hd.getGhiChu().toLowerCase().contains("website"));
+                               || (hd.getGhiChu() != null && hd.getGhiChu().toLowerCase().contains("website"));
             if (isOnline) {
                 boolean daDoc = readNotificationCodes.contains(hd.getMaHoaDon()) || (hd.getTrangThai() != null && hd.getTrangThai() > 1);
                 if (!daDoc) {

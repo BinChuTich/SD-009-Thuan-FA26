@@ -402,7 +402,7 @@ const currentVariant = computed(() => {
 
   return variants.value.find(
 
-    v => v.idMauSac === selectedColorId.value && v.idKichCo === selectedSizeId.value
+      v => v.idMauSac === selectedColorId.value && v.idKichCo === selectedSizeId.value
 
   ) || null
 
@@ -444,9 +444,9 @@ const currentStock = computed(() => {
 
   return currentVariant.value.soLuongTon != null
 
-    ? currentVariant.value.soLuongTon
+      ? currentVariant.value.soLuongTon
 
-    : (currentVariant.value.soLuong || 0)
+      : (currentVariant.value.soLuong || 0)
 
 })
 
@@ -642,7 +642,7 @@ const availableSizes = computed(() => {
 
       const matchVariant = variants.value.find(
 
-        item => item.idKichCo === v.idKichCo && item.idMauSac === selectedColorId.value
+          item => item.idKichCo === v.idKichCo && item.idMauSac === selectedColorId.value
 
       )
 
@@ -1068,13 +1068,13 @@ onUnmounted(() => {
 
           <ThuVienHinhAnh
 
-            :images="allImages"
+              :images="allImages"
 
-            v-model:active-index="activeImgIndex"
+              v-model:active-index="activeImgIndex"
 
-            :product-name="product.tenSanPham"
+              :product-name="product.tenSanPham"
 
-            :discount-percent="activeDiscountPercentForGallery"
+              :discount-percent="activeDiscountPercentForGallery"
 
           />
 
@@ -1176,15 +1176,15 @@ onUnmounted(() => {
 
                   <button
 
-                    v-for="c in availableColors"
+                      v-for="c in availableColors"
 
-                    :key="c.id"
+                      :key="c.id"
 
-                    class="option-pill"
+                      class="option-pill"
 
-                    :class="{ selected: selectedColorId === c.id }"
+                      :class="{ selected: selectedColorId === c.id }"
 
-                    @click="handleSelectColor(c)"
+                      @click="handleSelectColor(c)"
 
                   >
 
@@ -1206,13 +1206,13 @@ onUnmounted(() => {
 
                   <button
 
-                    v-for="s in availableSizes"
+                      v-for="s in availableSizes"
 
-                    :key="s.id"
+                      :key="s.id"
 
-                    class="option-pill"
+                      class="option-pill"
 
-                    :class="{
+                      :class="{
 
                       selected: selectedSizeId === s.id,
 
@@ -1220,9 +1220,9 @@ onUnmounted(() => {
 
                     }"
 
-                    :disabled="s.stock <= 0"
+                      :disabled="s.stock <= 0"
 
-                    @click="selectedSizeId = s.id"
+                      @click="selectedSizeId = s.id"
 
                   >
 
@@ -1245,16 +1245,16 @@ onUnmounted(() => {
                   <button class="step-btn" :disabled="currentStock <= 0 || quantity <= 1" @click="decreaseQty">-</button>
 
                   <input
-                    type="number"
-                    class="qty-input"
-                    :value="currentStock <= 0 ? 0 : quantity"
-                    min="1"
-                    :max="currentStock > 0 ? currentStock : 1"
-                    :disabled="currentStock <= 0 || isCurrentVariantDiscontinued"
-                    @input="handleQtyInput"
-                    @change="handleQtyBlur"
-                    @blur="handleQtyBlur"
-                    @keydown.enter="$event.target.blur()"
+                      type="number"
+                      class="qty-input"
+                      :value="currentStock <= 0 ? 0 : quantity"
+                      min="1"
+                      :max="currentStock > 0 ? currentStock : 1"
+                      :disabled="currentStock <= 0 || isCurrentVariantDiscontinued"
+                      @input="handleQtyInput"
+                      @change="handleQtyBlur"
+                      @blur="handleQtyBlur"
+                      @keydown.enter="$event.target.blur()"
                   />
 
                   <button class="step-btn" :disabled="currentStock <= 0 || quantity >= currentStock" @click="increaseQty">+</button>
@@ -1273,19 +1273,19 @@ onUnmounted(() => {
 
 
 
-                        <!-- Nút Thao tác: Thêm vào giỏ hàng cao cấp chuẩn thương hiệu -->
+            <!-- Nút Thao tác: Thêm vào giỏ hàng cao cấp chuẩn thương hiệu -->
 
             <div class="action-buttons-single">
 
               <button
 
-                class="btn-add-to-cart-primary"
+                  class="btn-add-to-cart-primary"
 
-                :disabled="isCurrentVariantDiscontinued || currentStock <= 0"
+                  :disabled="isCurrentVariantDiscontinued || currentStock <= 0"
 
-                :class="{ 'btn-discontinued': isCurrentVariantDiscontinued }"
+                  :class="{ 'btn-discontinued': isCurrentVariantDiscontinued }"
 
-                @click="handleAddToCart"
+                  @click="handleAddToCart"
 
               >
 
@@ -1333,7 +1333,7 @@ onUnmounted(() => {
 
     </div>
 
-  
+
 
     <!-- ======================================================== -->
 
@@ -1347,13 +1347,13 @@ onUnmounted(() => {
 
         <div
 
-          v-if="showCartSuccessModal"
+            v-if="showCartSuccessModal"
 
-          class="csc-backdrop"
+            class="csc-backdrop"
 
-          @mouseenter="clearTimeout(cartSuccessTimer)"
+            @mouseenter="clearTimeout(cartSuccessTimer)"
 
-          @mouseleave="cartSuccessTimer = setTimeout(() => { showCartSuccessModal = false }, 2500)"
+            @mouseleave="cartSuccessTimer = setTimeout(() => { showCartSuccessModal = false }, 2500)"
 
         >
 
@@ -1383,11 +1383,11 @@ onUnmounted(() => {
 
                 <img
 
-                  :src="addedItemInfo.image || activeImage"
+                    :src="addedItemInfo.image || activeImage"
 
-                  :alt="addedItemInfo.name"
+                    :alt="addedItemInfo.name"
 
-                  class="csc-thumb-img"
+                    class="csc-thumb-img"
 
                 />
 
@@ -1395,9 +1395,9 @@ onUnmounted(() => {
 
                 <span
 
-                  v-if="addedItemInfo.originalPrice && addedItemInfo.originalPrice > addedItemInfo.price"
+                    v-if="addedItemInfo.originalPrice && addedItemInfo.originalPrice > addedItemInfo.price"
 
-                  class="csc-thumb-discount-tag"
+                    class="csc-thumb-discount-tag"
 
                 >
 

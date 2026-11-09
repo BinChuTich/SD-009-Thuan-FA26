@@ -460,10 +460,10 @@ watch(() => route.query.id, (newId) => {
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
           <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Tìm khách hàng, SĐT..."
-            class="search-input"
+              v-model="searchQuery"
+              type="text"
+              placeholder="Tìm khách hàng, SĐT..."
+              class="search-input"
           />
           <button v-if="searchQuery" @click="searchQuery = ''" class="btn-clear-search">✕</button>
         </div>
@@ -471,17 +471,17 @@ watch(() => route.query.id, (newId) => {
         <!-- 2 Tabs chuẩn Video: Đang hoạt động | Lịch sử chat -->
         <div class="tabs-header-bar">
           <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'ACTIVE' }"
-            @click="switchTab('ACTIVE')"
+              class="tab-btn"
+              :class="{ active: activeTab === 'ACTIVE' }"
+              @click="switchTab('ACTIVE')"
           >
             Đang hoạt động
             <span v-if="waitingCount > 0" class="badge-waiting-count" title="Số khách đang chờ nhân viên">{{ waitingCount }}</span>
           </button>
           <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'CLOSED' }"
-            @click="switchTab('CLOSED')"
+              class="tab-btn"
+              :class="{ active: activeTab === 'CLOSED' }"
+              @click="switchTab('CLOSED')"
           >
             Lịch sử chat
             <span v-if="closedCount > 0" class="badge-count">{{ closedCount }}</span>
@@ -500,11 +500,11 @@ watch(() => route.query.id, (newId) => {
           </div>
 
           <div
-            v-for="c in filteredConversations"
-            :key="c.id"
-            class="conv-item-card"
-            :class="{ selected: activeId === c.id }"
-            @click="selectConversation(c)"
+              v-for="c in filteredConversations"
+              :key="c.id"
+              class="conv-item-card"
+              :class="{ selected: activeId === c.id }"
+              @click="selectConversation(c)"
           >
             <div class="avatar-col">
               <div class="avatar-circle" :class="{ 'avatar-waiting': c.trangThai === 2 }">
@@ -541,10 +541,10 @@ watch(() => route.query.id, (newId) => {
 
                 <!-- Phân biệt ai đang phụ trách cuộc trò chuyện -->
                 <span
-                  v-if="c.trangThai === 1 && c.tenNhanVien"
-                  class="staff-handling-pill"
-                  :class="{ 'is-me': c.nhanVienId && String(c.nhanVienId) === String(currentUser?.id) }"
-                  :title="`Người phụ trách: ${c.tenNhanVien}`"
+                    v-if="c.trangThai === 1 && c.tenNhanVien"
+                    class="staff-handling-pill"
+                    :class="{ 'is-me': c.nhanVienId && String(c.nhanVienId) === String(currentUser?.id) }"
+                    :title="`Người phụ trách: ${c.tenNhanVien}`"
                 >
                   {{ (c.nhanVienId && String(c.nhanVienId) === String(currentUser?.id)) ? 'Bạn' : c.tenNhanVien }}
                 </span>
@@ -576,18 +576,18 @@ watch(() => route.query.id, (newId) => {
                 <div class="header-sub-info">
                   <span class="header-phone">{{ activeConv.soDienThoai || 'Khách hàng trực tuyến' }}</span>
                   <span
-                    v-if="activeConv.trangThai === 1 && activeConv.tenNhanVien"
-                    class="assigned-staff-badge"
-                    :class="{ 'is-me': activeConv.nhanVienId && String(activeConv.nhanVienId) === String(currentUser?.id) }"
+                      v-if="activeConv.trangThai === 1 && activeConv.tenNhanVien"
+                      class="assigned-staff-badge"
+                      :class="{ 'is-me': activeConv.nhanVienId && String(activeConv.nhanVienId) === String(currentUser?.id) }"
                   >
                     <span class="dot-online"></span>
                     {{ (activeConv.nhanVienId && String(activeConv.nhanVienId) === String(currentUser?.id)) ? 'Bạn đang phụ trách' : `Phụ trách: ${activeConv.tenNhanVien}` }}
                   </span>
 
                   <span
-                    v-if="activeConv.danhGia"
-                    class="header-rating-badge"
-                    title="Khách hàng đã đánh giá dịch vụ"
+                      v-if="activeConv.danhGia"
+                      class="header-rating-badge"
+                      title="Khách hàng đã đánh giá dịch vụ"
                   >
                     ⭐ {{ activeConv.danhGia.diemDanhGia }}/5★ ({{ getRatingLabel(activeConv.danhGia.diemDanhGia) }})
                   </span>
@@ -598,10 +598,10 @@ watch(() => route.query.id, (newId) => {
             <div class="header-actions">
               <!-- Nút Tiếp nhận (khi trạng thái là Chờ hỗ trợ: 2) -->
               <button
-                v-if="activeConv.trangThai === 2"
-                type="button"
-                class="btn-accept-action"
-                @click="acceptConversation"
+                  v-if="activeConv.trangThai === 2"
+                  type="button"
+                  class="btn-accept-action"
+                  @click="acceptConversation"
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="20 6 9 17 4 12"></polyline>
@@ -611,11 +611,11 @@ watch(() => route.query.id, (newId) => {
 
               <!-- Nút Đóng phiên chat (khi trạng thái đang hoạt động: 1) -->
               <button
-                v-else-if="activeConv.trangThai === 1"
-                type="button"
-                class="btn-close-session"
-                @click="closeConversation"
-                title="Đóng phiên tư vấn"
+                  v-else-if="activeConv.trangThai === 1"
+                  type="button"
+                  class="btn-close-session"
+                  @click="closeConversation"
+                  title="Đóng phiên tư vấn"
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -639,10 +639,10 @@ watch(() => route.query.id, (newId) => {
             </div>
 
             <div
-              v-for="msg in displayMessages"
-              :key="msg.id"
-              class="message-group-row"
-              :class="{
+                v-for="msg in displayMessages"
+                :key="msg.id"
+                class="message-group-row"
+                :class="{
                 'from-customer': msg.nguoiGui === 'KHACH_HANG',
                 'from-system': msg.nguoiGui === 'HE_THONG',
                 'from-staff': msg.nguoiGui === 'NHAN_VIEN' || msg.nguoiGui === 'ADMIN',
@@ -663,10 +663,10 @@ watch(() => route.query.id, (newId) => {
                 </div>
                 <div class="rh-stars-row">
                   <span
-                    v-for="s in 5"
-                    :key="s"
-                    class="rh-star-icon"
-                    :class="{ filled: s <= ((msg.danhGia && msg.danhGia.diemDanhGia) || 5) }"
+                      v-for="s in 5"
+                      :key="s"
+                      class="rh-star-icon"
+                      :class="{ filled: s <= ((msg.danhGia && msg.danhGia.diemDanhGia) || 5) }"
                   >★</span>
                   <span class="rh-score-num">{{ (msg.danhGia && msg.danhGia.diemDanhGia) || 5 }}/5 Sao</span>
                   <span class="rh-rating-label">({{ getRatingLabel((msg.danhGia && msg.danhGia.diemDanhGia) || 5) }})</span>
@@ -683,8 +683,8 @@ watch(() => route.query.id, (newId) => {
               <!-- Thông báo hệ thống (tiếp nhận / đóng phiên / chuyển yêu cầu / cảnh báo timeout) -->
               <div v-else-if="msg.nguoiGui === 'HE_THONG'" class="system-event-notice">
                 <span
-                  class="system-event-badge"
-                  :class="{ 'timeout-warning-badge': msg.noiDung && msg.noiDung.includes('Bạn vẫn còn ở đó chứ') }"
+                    class="system-event-badge"
+                    :class="{ 'timeout-warning-badge': msg.noiDung && msg.noiDung.includes('Bạn vẫn còn ở đó chứ') }"
                 >
                   {{ (msg.noiDung || '').replace(/^Nhân viên\s+/i, '') }}
                 </span>
@@ -731,8 +731,8 @@ watch(() => route.query.id, (newId) => {
 
             <!-- Thanh thông báo khi đồng nghiệp đang phụ trách phiên này -->
             <div
-              v-else-if="activeConv.trangThai === 1 && activeConv.nhanVienId && String(activeConv.nhanVienId) !== String(currentUser?.id)"
-              class="colleague-handling-bar"
+                v-else-if="activeConv.trangThai === 1 && activeConv.nhanVienId && String(activeConv.nhanVienId) !== String(currentUser?.id)"
+                class="colleague-handling-bar"
             >
               <div class="chb-left">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -743,10 +743,10 @@ watch(() => route.query.id, (newId) => {
                 <span><strong>{{ activeConv.tenNhanVien }}</strong> đang phụ trách phiên tư vấn này.</span>
               </div>
               <button
-                type="button"
-                class="btn-takeover"
-                @click="takeoverConversation"
-                title="Bấm để nhận quyền phụ trách khách hàng này"
+                  type="button"
+                  class="btn-takeover"
+                  @click="takeoverConversation"
+                  title="Bấm để nhận quyền phụ trách khách hàng này"
               >
                 Nhận phụ trách
               </button>
@@ -760,22 +760,22 @@ watch(() => route.query.id, (newId) => {
             <!-- Khung nhập tin nhắn phản hồi khách -->
             <div v-else class="rounded-input-pill-wrapper">
               <input
-                v-model="inputReply"
-                type="text"
-                class="chat-text-input"
-                :placeholder="activeConv.trangThai === 2 ? 'Hãy tiếp nhận phiên chat trước...' : 'Nhập nội dung phản hồi khách hàng...'"
-                :disabled="activeConv.trangThai === 2"
-                @input="onStaffInput"
-                @focus="onStaffInput"
-                @blur="onStaffBlur"
-                @keydown="handleKeydown"
+                  v-model="inputReply"
+                  type="text"
+                  class="chat-text-input"
+                  :placeholder="activeConv.trangThai === 2 ? 'Hãy tiếp nhận phiên chat trước...' : 'Nhập nội dung phản hồi khách hàng...'"
+                  :disabled="activeConv.trangThai === 2"
+                  @input="onStaffInput"
+                  @focus="onStaffInput"
+                  @blur="onStaffBlur"
+                  @keydown="handleKeydown"
               />
               <button
-                type="button"
-                class="btn-send-airplane"
-                :disabled="!inputReply.trim() || sending || activeConv.trangThai === 2"
-                @click="sendReply"
-                title="Gửi phản hồi"
+                  type="button"
+                  class="btn-send-airplane"
+                  :disabled="!inputReply.trim() || sending || activeConv.trangThai === 2"
+                  @click="sendReply"
+                  title="Gửi phản hồi"
               >
                 Gửi
               </button>
@@ -853,46 +853,46 @@ watch(() => route.query.id, (newId) => {
 }
 
 .old-breadcrumb-unused {
-.page-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #64748b;
-  padding: 2px 4px;
-}
+  .page-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #64748b;
+    padding: 2px 4px;
+  }
 
-.crumb-parent {
-  color: #496883;
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.15s;
-}
+  .crumb-parent {
+    color: #496883;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.15s;
+  }
 
-.crumb-parent:hover {
-  color: #364f66;
-}
+  .crumb-parent:hover {
+    color: #364f66;
+  }
 
-.crumb-separator {
-  color: #cbd5e1;
-}
+  .crumb-separator {
+    color: #cbd5e1;
+  }
 
-.crumb-current {
-  color: #1e293b;
-  font-weight: 600;
-}
+  .crumb-current {
+    color: #1e293b;
+    font-weight: 600;
+  }
 
-/* Khối Workspace 2 cột */
-.chat-workspace-card {
-  display: flex;
-  flex: 1;
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
-  min-height: 0;
-}
+  /* Khối Workspace 2 cột */
+  .chat-workspace-card {
+    display: flex;
+    flex: 1;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    min-height: 0;
+  }
 
 }
 

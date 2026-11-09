@@ -330,8 +330,8 @@ public class ChatServiceImpl implements ChatService {
                 if (hd.getTrangThai() != null && hd.getTrangThai() == 1) {
                     BigDecimal tong = hd.getTienSauGiamGia() != null ? hd.getTienSauGiamGia() : (hd.getTongTien() != null ? hd.getTongTien() : BigDecimal.ZERO);
                     boolean isPosDraft = "Bán tại quầy".equalsIgnoreCase(hd.getDiaChiNhanHang())
-                            || (hd.getGhiChu() != null && (hd.getGhiChu().toLowerCase().contains("quầy") || hd.getGhiChu().toLowerCase().contains("pos")))
-                            || (tong.compareTo(BigDecimal.ZERO) <= 0 && "Khách lẻ".equalsIgnoreCase(hd.getTenKhachHang()));
+                                         || (hd.getGhiChu() != null && (hd.getGhiChu().toLowerCase().contains("quầy") || hd.getGhiChu().toLowerCase().contains("pos")))
+                                         || (tong.compareTo(BigDecimal.ZERO) <= 0 && "Khách lẻ".equalsIgnoreCase(hd.getTenKhachHang()));
                     if (isPosDraft) continue;
                     String name = (hd.getTenKhachHang() != null && !hd.getTenKhachHang().trim().isEmpty())
                             ? hd.getTenKhachHang()
@@ -413,7 +413,7 @@ public class ChatServiceImpl implements ChatService {
             }
         }
         if ((conv.getTenNhanVien() == null || conv.getTenNhanVien().equals("chuyên viên tư vấn"))
-                && tenNhanVien != null && !tenNhanVien.trim().isEmpty()) {
+            && tenNhanVien != null && !tenNhanVien.trim().isEmpty()) {
             staffName = tenNhanVien.trim();
             if (nhanVienId != null) {
                 conv.setNhanVienId(nhanVienId);

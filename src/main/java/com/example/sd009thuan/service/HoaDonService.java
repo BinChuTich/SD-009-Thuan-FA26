@@ -352,11 +352,11 @@ public class HoaDonService {
 
 
 
-                    || (hoaDon.getNguoiTao() != null && !hoaDon.getNguoiTao().isBlank())
+                                                                        || (hoaDon.getNguoiTao() != null && !hoaDon.getNguoiTao().isBlank())
 
 
 
-                    || (hoaDon.getGhiChu() != null && (hoaDon.getGhiChu().toLowerCase().contains("pos") || hoaDon.getGhiChu().toLowerCase().contains("quầy")));
+                                                                        || (hoaDon.getGhiChu() != null && (hoaDon.getGhiChu().toLowerCase().contains("pos") || hoaDon.getGhiChu().toLowerCase().contains("quầy")));
 
 
 
@@ -518,7 +518,7 @@ public class HoaDonService {
 
 
 
-                                    || (pgg.getLoaiPhieuGiamGia() == null && pgg.getGiaTriGiamGia().compareTo(BigDecimal.valueOf(100)) <= 0);
+                                                || (pgg.getLoaiPhieuGiamGia() == null && pgg.getGiaTriGiamGia().compareTo(BigDecimal.valueOf(100)) <= 0);
 
 
 
@@ -642,7 +642,7 @@ public class HoaDonService {
 
 
 
-                && Integer.valueOf(1).equals(h.getTrangThai());
+                               && Integer.valueOf(1).equals(h.getTrangThai());
 
 
 
@@ -2020,23 +2020,23 @@ public class HoaDonService {
 
 
 
-            hd.setIdNhanVien(nv);
+                hd.setIdNhanVien(nv);
 
 
 
-            if (nv.getTenNhanVien() != null && !nv.getTenNhanVien().isEmpty()) {
+                if (nv.getTenNhanVien() != null && !nv.getTenNhanVien().isEmpty()) {
 
 
 
-                hd.setNguoiTao(nv.getTenNhanVien());
+                    hd.setNguoiTao(nv.getTenNhanVien());
 
 
 
-            }
+                }
 
 
 
-        });
+            });
 
 
 
@@ -2684,11 +2684,11 @@ public class HoaDonService {
 
 
 
-            hoaDon.setNgayTao(Instant.now());
+                hoaDon.setNgayTao(Instant.now());
 
 
 
-        }
+            }
 
 
 
@@ -3030,7 +3030,7 @@ public class HoaDonService {
                 checkStockAndDeductForConfirmation(hoaDonCu);
             }
             if ((Integer.valueOf(6).equals(hoaDonMoi.getTrangThai()) || Integer.valueOf(7).equals(hoaDonMoi.getTrangThai()))
-                    && oldStatusInUpdate != null && oldStatusInUpdate >= 2 && oldStatusInUpdate != 6) {
+                && oldStatusInUpdate != null && oldStatusInUpdate >= 2 && oldStatusInUpdate != 6) {
                 refundStockForCancellation(hoaDonCu);
             }
 
@@ -3114,11 +3114,11 @@ public class HoaDonService {
 
 
 
-                        && (hoaDonCu.getPhiVanChuyen() == null || hoaDonCu.getPhiVanChuyen().compareTo(BigDecimal.ZERO) == 0)
+                                       && (hoaDonCu.getPhiVanChuyen() == null || hoaDonCu.getPhiVanChuyen().compareTo(BigDecimal.ZERO) == 0)
 
 
 
-                        && (hoaDonCu.getDiaChiNhanHang() == null || hoaDonCu.getDiaChiNhanHang().trim().isEmpty() || hoaDonCu.getDiaChiNhanHang().equalsIgnoreCase("Bán tại quầy"));
+                                       && (hoaDonCu.getDiaChiNhanHang() == null || hoaDonCu.getDiaChiNhanHang().trim().isEmpty() || hoaDonCu.getDiaChiNhanHang().equalsIgnoreCase("Bán tại quầy"));
 
 
 
@@ -3768,11 +3768,11 @@ public class HoaDonService {
 
 
 
-                    || (hoaDon.getGhiChu() != null && hoaDon.getGhiChu().toLowerCase().contains("giao hàng thất bại"))
+                                    || (hoaDon.getGhiChu() != null && hoaDon.getGhiChu().toLowerCase().contains("giao hàng thất bại"))
 
 
 
-                    || (ghiChu != null && ghiChu.toLowerCase().contains("giao lại"));
+                                    || (ghiChu != null && ghiChu.toLowerCase().contains("giao lại"));
 
 
 
@@ -3979,43 +3979,43 @@ public class HoaDonService {
 
                 String noteLower = hoaDon.getGhiChu() != null ? hoaDon.getGhiChu().toLowerCase() : "";
 
-            if (noteLower.contains("website") || noteLower.contains("online")) {
+                if (noteLower.contains("website") || noteLower.contains("online")) {
 
-                if (!Integer.valueOf(2).equals(hoaDon.getLoaiDon())) {
+                    if (!Integer.valueOf(2).equals(hoaDon.getLoaiDon())) {
 
-                    hoaDon.setLoaiDon(2);
+                        hoaDon.setLoaiDon(2);
 
-                    try { hoaDonRepository.save(hoaDon); } catch (Exception ignored) {}
+                        try { hoaDonRepository.save(hoaDon); } catch (Exception ignored) {}
 
-                }
-
-            }
-
-            if (false && hoaDon.getIdKhachHang() == null && hoaDon.getSoDienThoaiKhachHang() != null && !hoaDon.getSoDienThoaiKhachHang().trim().isEmpty()) {
-
-                khachHangRepository.findBySoDienThoai(hoaDon.getSoDienThoaiKhachHang().trim()).ifPresent(kh -> {
-
-                    hoaDon.setIdKhachHang(kh);
-
-                    try { hoaDonRepository.save(hoaDon); } catch (Exception ignored) {}
-
-                });
-
-            }
-
-            if (hoaDon.getEmail() == null || hoaDon.getEmail().trim().isEmpty()) {
-
-                String e = hoaDon.getEmailKhachHang();
-
-                if (e != null && !e.trim().isEmpty()) {
-
-                    hoaDon.setEmail(e.trim());
+                    }
 
                 }
 
-            }
+                if (false && hoaDon.getIdKhachHang() == null && hoaDon.getSoDienThoaiKhachHang() != null && !hoaDon.getSoDienThoaiKhachHang().trim().isEmpty()) {
 
-            List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(hoaDon.getId());
+                    khachHangRepository.findBySoDienThoai(hoaDon.getSoDienThoaiKhachHang().trim()).ifPresent(kh -> {
+
+                        hoaDon.setIdKhachHang(kh);
+
+                        try { hoaDonRepository.save(hoaDon); } catch (Exception ignored) {}
+
+                    });
+
+                }
+
+                if (hoaDon.getEmail() == null || hoaDon.getEmail().trim().isEmpty()) {
+
+                    String e = hoaDon.getEmailKhachHang();
+
+                    if (e != null && !e.trim().isEmpty()) {
+
+                        hoaDon.setEmail(e.trim());
+
+                    }
+
+                }
+
+                List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(hoaDon.getId());
 
 
 
@@ -4637,11 +4637,11 @@ public class HoaDonService {
 
 
 
-                    && (hoaDon.getPhiVanChuyen() == null || hoaDon.getPhiVanChuyen().compareTo(BigDecimal.ZERO) == 0)
+                                   && (hoaDon.getPhiVanChuyen() == null || hoaDon.getPhiVanChuyen().compareTo(BigDecimal.ZERO) == 0)
 
 
 
-                    && (hoaDon.getDiaChiNhanHang() == null || hoaDon.getDiaChiNhanHang().trim().isEmpty() || hoaDon.getDiaChiNhanHang().equalsIgnoreCase("Bán tại quầy"));
+                                   && (hoaDon.getDiaChiNhanHang() == null || hoaDon.getDiaChiNhanHang().trim().isEmpty() || hoaDon.getDiaChiNhanHang().equalsIgnoreCase("Bán tại quầy"));
 
 
 
@@ -4885,15 +4885,15 @@ public class HoaDonService {
 
 
 
-                        || Integer.valueOf(1).equals(hoaDon.getTrangThai())
+                                             || Integer.valueOf(1).equals(hoaDon.getTrangThai())
 
 
 
-                        || hoaDon.getTrangThaiThanhToan() == null
+                                             || hoaDon.getTrangThaiThanhToan() == null
 
 
 
-                        || Integer.valueOf(0).equals(hoaDon.getTrangThaiThanhToan());
+                                             || Integer.valueOf(0).equals(hoaDon.getTrangThaiThanhToan());
 
 
 
@@ -6809,7 +6809,7 @@ public class HoaDonService {
 
 
 
-                || (dto.getDiaChiNhanHang() != null && !dto.getDiaChiNhanHang().trim().isEmpty() && !dto.getDiaChiNhanHang().trim().equalsIgnoreCase("Bán tại quầy"));
+                             || (dto.getDiaChiNhanHang() != null && !dto.getDiaChiNhanHang().trim().isEmpty() && !dto.getDiaChiNhanHang().trim().equalsIgnoreCase("Bán tại quầy"));
 
 
 
@@ -7317,11 +7317,11 @@ public class HoaDonService {
 
 
 
-                                    ? currentRealPrice
+                            ? currentRealPrice
 
 
 
-                                    : (ctsp.getGiaBan() != null ? ctsp.getGiaBan() : BigDecimal.ZERO));
+                            : (ctsp.getGiaBan() != null ? ctsp.getGiaBan() : BigDecimal.ZERO));
 
 
 
@@ -9035,7 +9035,7 @@ public class HoaDonService {
                 String variantDesc = (!color.isEmpty() || !size.isEmpty()) ? " (" + color + " - " + size + ")" : "";
 
                 throw new IllegalStateException("Sản phẩm '" + spName + "'" + variantDesc
-                        + " hiện không đủ số lượng trong kho (chỉ còn " + available + ", đơn cần " + needed + ")! Không thể xác nhận đơn hàng.");
+                                                + " hiện không đủ số lượng trong kho (chỉ còn " + available + ", đơn cần " + needed + ")! Không thể xác nhận đơn hàng.");
             }
         }
 

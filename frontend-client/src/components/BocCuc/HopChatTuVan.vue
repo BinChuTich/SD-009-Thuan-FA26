@@ -284,8 +284,8 @@ const createWelcomeMessage = () => {
     id: 'welcome-0',
     sender: 'bot',
     text: isClientLoggedIn.value
-      ? `Xin chào ${currentClientUser.value?.name || 'quý khách'}! FF T-Shirt có thể hỗ trợ gì cho bạn hôm nay ạ?`
-      : 'Xin chào bạn! FF T-Shirt có thể hỗ trợ tư vấn chọn size, sản phẩm hoặc ưu đãi nào cho bạn hôm nay ạ?',
+        ? `Xin chào ${currentClientUser.value?.name || 'quý khách'}! FF T-Shirt có thể hỗ trợ gì cho bạn hôm nay ạ?`
+        : 'Xin chào bạn! FF T-Shirt có thể hỗ trợ tư vấn chọn size, sản phẩm hoặc ưu đãi nào cho bạn hôm nay ạ?',
     time: 'Vừa xong',
     actions: welcomeActions.value
   }
@@ -410,13 +410,13 @@ const loadMessages = async () => {
 
       const welcome = messages.value.find(m => m.id === 'welcome-0') || createWelcomeMessage()
       const waitingSysMsg = conversationStatus.value === 2
-        ? [{
+          ? [{
             id: 'sys-transfer',
             sender: 'system',
             text: 'Yêu cầu hỗ trợ trực tiếp đã được gửi. Vui lòng chờ nhân viên tiếp nhận cuộc trò chuyện.',
             isSystem: true
           }]
-        : []
+          : []
       messages.value = [welcome, ...waitingSysMsg, ...dbMsgs]
       scrollToBottom()
 
@@ -430,13 +430,13 @@ const loadMessages = async () => {
     } else {
       const welcome = messages.value.find(m => m.id === 'welcome-0') || createWelcomeMessage()
       const waitingSysMsg = conversationStatus.value === 2
-        ? [{
+          ? [{
             id: 'sys-transfer',
             sender: 'system',
             text: 'Yêu cầu hỗ trợ trực tiếp đã được gửi. Vui lòng chờ nhân viên tiếp nhận cuộc trò chuyện.',
             isSystem: true
           }]
-        : []
+          : []
       messages.value = [welcome, ...waitingSysMsg]
       scrollToBottom()
     }
@@ -477,8 +477,8 @@ const pollNewMessages = async () => {
     }
 
     const numericIds = messages.value
-      .map(m => typeof m.id === 'number' ? m.id : 0)
-      .filter(n => n > 0)
+        .map(m => typeof m.id === 'number' ? m.id : 0)
+        .filter(n => n > 0)
     const lastId = numericIds.length > 0 ? Math.max(...numericIds) : 0
 
     const res = await api.get(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/tin-nhan?lastId=${lastId}`)
@@ -731,7 +731,7 @@ const showPromoProducts = async () => {
   await loadFeaturedProducts()
 
   const activePromoList = discountProducts.value.filter(p =>
-    p.coGiamGia === true || (p.minGiaSauGiam && p.minGia && Number(p.minGiaSauGiam) < Number(p.minGia))
+      p.coGiamGia === true || (p.minGiaSauGiam && p.minGia && Number(p.minGiaSauGiam) < Number(p.minGia))
   )
 
   if (activePromoList.length > 0) {
@@ -741,15 +741,15 @@ const showPromoProducts = async () => {
     const campaign = campaignNames.length > 0 ? campaignNames.join(', ') : 'Đợt Giảm Giá Đang Hoạt Động'
 
     showBotReply(
-      `Dạ, FF T-Shirt đang diễn ra chương trình **${campaign}** với mức ưu đãi lên đến **${maxPct > 0 ? maxPct + '%' : 'hấp dẫn'}**! 🔥
+        `Dạ, FF T-Shirt đang diễn ra chương trình **${campaign}** với mức ưu đãi lên đến **${maxPct > 0 ? maxPct + '%' : 'hấp dẫn'}**! 🔥
 
 Dưới đây là các sản phẩm đang áp dụng giảm giá trực tiếp trong đợt này dành cho bạn: 👇`,
-      list
+        list
     )
   } else {
     showBotReply(
-      `Dạ hiện tại các chương trình đợt giảm giá vừa kết thúc hoặc đang chuẩn bị cập nhật đợt mới.\n\nFF T-Shirt xin gợi ý các sản phẩm đang có giá tốt nhất tại cửa hàng dưới đây nhé! 👇`,
-      featuredProducts.value.slice(0, 4)
+        `Dạ hiện tại các chương trình đợt giảm giá vừa kết thúc hoặc đang chuẩn bị cập nhật đợt mới.\n\nFF T-Shirt xin gợi ý các sản phẩm đang có giá tốt nhất tại cửa hàng dưới đây nhé! 👇`,
+        featuredProducts.value.slice(0, 4)
     )
   }
 }
@@ -767,7 +767,7 @@ const handleActionClick = (action) => {
     })
     scrollToBottom()
     showBotReply(
-      'Dạ, bạn gửi giúp shop Chiều cao và Cân nặng (Ví dụ: 1m70 - 65kg) để shop chọn size chuẩn và vừa vặn nhất cho bạn nhé! 📏'
+        'Dạ, bạn gửi giúp shop Chiều cao và Cân nặng (Ví dụ: 1m70 - 65kg) để shop chọn size chuẩn và vừa vặn nhất cho bạn nhé! 📏'
     )
   } else if (action.type === 'track') {
     triggerOrderLookupPrompt()
@@ -804,8 +804,8 @@ const handleChipClick = (chip) => {
     })
     scrollToBottom()
     showBotReply(
-      'Dựa trên các đơn hàng đã hoàn thành, đây là những mẫu áo thun & polo có lượng bán tốt nhất tại FF T-Shirt. Bạn có thể chọn trực tiếp một sản phẩm để xem chi tiết:',
-      featuredProducts.value.slice(0, 4)
+        'Dựa trên các đơn hàng đã hoàn thành, đây là những mẫu áo thun & polo có lượng bán tốt nhất tại FF T-Shirt. Bạn có thể chọn trực tiếp một sản phẩm để xem chi tiết:',
+        featuredProducts.value.slice(0, 4)
     )
   } else if (chip.type === 'promo') {
     messages.value.push({
@@ -825,7 +825,7 @@ const handleChipClick = (chip) => {
     })
     scrollToBottom()
     showBotReply(
-      'Dạ, bạn gửi giúp shop Chiều cao và Cân nặng (Ví dụ: 1m70 - 65kg) để shop chọn size chuẩn và vừa vặn nhất cho bạn nhé! 📏'
+        'Dạ, bạn gửi giúp shop Chiều cao và Cân nặng (Ví dụ: 1m70 - 65kg) để shop chọn size chuẩn và vừa vặn nhất cho bạn nhé! 📏'
     )
   } else if (chip.type === 'agent') {
     if (!isClientLoggedIn.value) {
@@ -1260,10 +1260,10 @@ watch(() => currentClientUser.value, async (newVal) => {
   <div class="chat-widget-root">
     <!-- NÚT BONG BÓNG CHAT NỔI (Khi đóng: 'Tư vấn' | Khi mở: 'Đóng') - Chuẩn màu cũ #496883 -->
     <button
-      class="chat-floating-btn"
-      :class="{ 'is-open': isOpen }"
-      @click="toggleChat"
-      title="Hỗ trợ trực tuyến"
+        class="chat-floating-btn"
+        :class="{ 'is-open': isOpen }"
+        @click="toggleChat"
+        title="Hỗ trợ trực tuyến"
     >
       <template v-if="!isOpen">
         <!-- Icon Chat -->
@@ -1301,8 +1301,8 @@ watch(() => currentClientUser.value, async (newVal) => {
       <!-- Thanh đếm ngược cảnh báo 2 phút sắp tự động đóng phiên -->
       <transition name="slide-down">
         <div
-          v-if="showCountdownBanner && conversationStatus !== 0"
-          class="countdown-warning-banner"
+            v-if="showCountdownBanner && conversationStatus !== 0"
+            class="countdown-warning-banner"
         >
           <div class="cwb-left">
             <span class="cwb-icon">⏳</span>
@@ -1312,10 +1312,10 @@ watch(() => currentClientUser.value, async (newVal) => {
             </div>
           </div>
           <button
-            type="button"
-            class="btn-cwb-dismiss"
-            @click="dismissCountdownBanner"
-            title="Ẩn thanh đếm ngược"
+              type="button"
+              class="btn-cwb-dismiss"
+              @click="dismissCountdownBanner"
+              title="Ẩn thanh đếm ngược"
           >
             Đã hiểu
           </button>
@@ -1326,16 +1326,16 @@ watch(() => currentClientUser.value, async (newVal) => {
       <div class="chat-body" ref="chatBodyRef">
         <!-- Vòng lặp tin nhắn -->
         <div
-          v-for="msg in messages"
-          :key="msg.id"
-          class="message-row"
-          :class="[msg.sender, { 'is-system-row': msg.isSystem }]"
+            v-for="msg in messages"
+            :key="msg.id"
+            class="message-row"
+            :class="[msg.sender, { 'is-system-row': msg.isSystem }]"
         >
           <!-- Thông báo hệ thống nhẹ nhàng ở giữa màn hình (chuẩn video & ảnh 3) -->
           <div
-            v-if="msg.isSystem"
-            class="system-event-bubble"
-            :class="{ 'warning-timeout-bubble': msg.isWarning || (msg.text && msg.text.includes('Bạn vẫn còn ở đó chứ')) }"
+              v-if="msg.isSystem"
+              class="system-event-bubble"
+              :class="{ 'warning-timeout-bubble': msg.isWarning || (msg.text && msg.text.includes('Bạn vẫn còn ở đó chứ')) }"
           >
             {{ msg.text }}
           </div>
@@ -1353,10 +1353,10 @@ watch(() => currentClientUser.value, async (newVal) => {
             </div>
             <div class="rb-stars-row">
               <span
-                v-for="s in 5"
-                :key="s"
-                class="rb-star-icon"
-                :class="{ filled: s <= (msg.ratingData?.diemDanhGia || 5) }"
+                  v-for="s in 5"
+                  :key="s"
+                  class="rb-star-icon"
+                  :class="{ filled: s <= (msg.ratingData?.diemDanhGia || 5) }"
               >★</span>
               <span class="rb-score-num">{{ msg.ratingData?.diemDanhGia || 5 }}/5 Sao</span>
             </div>
@@ -1391,17 +1391,17 @@ watch(() => currentClientUser.value, async (newVal) => {
               <div v-if="msg.isOrderLookup" class="order-lookup-inline-box">
                 <div class="lookup-input-group">
                   <input
-                    v-model="orderSearchCode"
-                    type="text"
-                    placeholder="Nhập mã đơn (Ví dụ: HD001)..."
-                    class="lookup-text-input"
-                    @keydown.enter.prevent="doOrderLookup(orderSearchCode)"
+                      v-model="orderSearchCode"
+                      type="text"
+                      placeholder="Nhập mã đơn (Ví dụ: HD001)..."
+                      class="lookup-text-input"
+                      @keydown.enter.prevent="doOrderLookup(orderSearchCode)"
                   />
                   <button
-                    type="button"
-                    class="btn-lookup-submit"
-                    :disabled="isSearchingOrder || !orderSearchCode.trim()"
-                    @click="doOrderLookup(orderSearchCode)"
+                      type="button"
+                      class="btn-lookup-submit"
+                      :disabled="isSearchingOrder || !orderSearchCode.trim()"
+                      @click="doOrderLookup(orderSearchCode)"
                   >
                     <span v-if="isSearchingOrder">Đang tìm...</span>
                     <span v-else>Tra cứu</span>
@@ -1424,10 +1424,10 @@ watch(() => currentClientUser.value, async (newVal) => {
                 <!-- Thanh tiến trình hành trình (Timeline Delivery Steps) -->
                 <div class="otc-timeline-wrapper">
                   <div
-                    v-for="(step, sIdx) in msg.trackingData.steps"
-                    :key="sIdx"
-                    class="otc-step-item"
-                    :class="{
+                      v-for="(step, sIdx) in msg.trackingData.steps"
+                      :key="sIdx"
+                      class="otc-step-item"
+                      :class="{
                       'is-completed': step.completed,
                       'is-current': step.current,
                       'is-cancelled': step.isCancelled,
@@ -1468,9 +1468,9 @@ watch(() => currentClientUser.value, async (newVal) => {
 
                 <!-- Nút liên kết xem chi tiết trên trang Tra cứu -->
                 <button
-                  type="button"
-                  class="otc-btn-view-full"
-                  @click="goToFullTracking(msg.trackingData.maHoaDon)"
+                    type="button"
+                    class="otc-btn-view-full"
+                    @click="goToFullTracking(msg.trackingData.maHoaDon)"
                 >
                   Xem chi tiết đơn hàng trên Web &rarr;
                 </button>
@@ -1481,22 +1481,22 @@ watch(() => currentClientUser.value, async (newVal) => {
                 <div v-for="p in msg.products" :key="p.id" class="product-mini-card">
                   <div class="card-img-wrap">
                     <img
-                      :src="p.anhDaiDien || '/placeholder-shirt.png'"
-                      :alt="p.tenSanPham"
-                      class="product-thumb"
-                      @error="(e) => e.target.src = 'https://placehold.co/200x200?text=FF+T-Shirt'"
+                        :src="p.anhDaiDien || '/placeholder-shirt.png'"
+                        :alt="p.tenSanPham"
+                        class="product-thumb"
+                        @error="(e) => e.target.src = 'https://placehold.co/200x200?text=FF+T-Shirt'"
                     />
                     <!-- Tag % giảm giá -->
                     <span
-                      v-if="p.coGiamGia || (p.phanTramGiam && Number(p.phanTramGiam) > 0) || (p.minGiaSauGiam && p.minGia && Number(p.minGiaSauGiam) < Number(p.minGia))"
-                      class="card-discount-tag"
+                        v-if="p.coGiamGia || (p.phanTramGiam && Number(p.phanTramGiam) > 0) || (p.minGiaSauGiam && p.minGia && Number(p.minGiaSauGiam) < Number(p.minGia))"
+                        class="card-discount-tag"
                     >
                       -{{ Math.round(p.phanTramGiam || ((p.minGia - p.minGiaSauGiam) / p.minGia * 100) || 20) }}%
                     </span>
                   </div>
                   <div class="card-info">
                     <div class="card-brand">{{ p.tenThuongHieu || 'FF T-SHIRT' }}</div>
-                    
+
                     <!-- Tên đợt giảm giá đang hoạt động -->
                     <div v-if="p.tenDotGiamGia" class="card-campaign-badge" :title="p.tenDotGiamGia">
                       🏷️ {{ p.tenDotGiamGia }}
@@ -1512,8 +1512,8 @@ watch(() => currentClientUser.value, async (newVal) => {
                       </span>
                       <!-- Giá gốc (gạch ngang) -->
                       <span
-                        v-if="p.coGiamGia || (p.minGiaSauGiam && p.minGia && Number(p.minGiaSauGiam) < Number(p.minGia))"
-                        class="card-old-price"
+                          v-if="p.coGiamGia || (p.minGiaSauGiam && p.minGia && Number(p.minGiaSauGiam) < Number(p.minGia))"
+                          class="card-old-price"
                       >
                         {{ formatCurrency(p.minGia || 250000) }}
                       </span>
@@ -1529,15 +1529,15 @@ watch(() => currentClientUser.value, async (newVal) => {
 
             <!-- Các nút hành động nhanh dạng dọc dưới tin nhắn (chuẩn Ảnh 2, không có đổi trả) -->
             <div
-              v-if="msg.actions && msg.actions.length > 0 && conversationStatus !== 2 && conversationStatus !== 0"
-              class="actions-vertical-list"
+                v-if="msg.actions && msg.actions.length > 0 && conversationStatus !== 2 && conversationStatus !== 0"
+                class="actions-vertical-list"
             >
               <button
-                v-for="(act, idx) in msg.actions"
-                :key="idx"
-                type="button"
-                class="action-item-pill"
-                @click="handleActionClick(act)"
+                  v-for="(act, idx) in msg.actions"
+                  :key="idx"
+                  type="button"
+                  class="action-item-pill"
+                  @click="handleActionClick(act)"
               >
                 {{ act.text }}
               </button>
@@ -1575,15 +1575,15 @@ watch(() => currentClientUser.value, async (newVal) => {
           <div class="rf-stars-picker">
             <div class="rf-stars-buttons">
               <button
-                v-for="s in 5"
-                :key="s"
-                type="button"
-                class="rf-star-btn"
-                :class="{ active: s <= (hoverScore || ratingScore) }"
-                @mouseenter="hoverScore = s"
-                @mouseleave="hoverScore = 0"
-                @click="ratingScore = s"
-                :title="s + ' sao'"
+                  v-for="s in 5"
+                  :key="s"
+                  type="button"
+                  class="rf-star-btn"
+                  :class="{ active: s <= (hoverScore || ratingScore) }"
+                  @mouseenter="hoverScore = s"
+                  @mouseleave="hoverScore = 0"
+                  @click="ratingScore = s"
+                  :title="s + ' sao'"
               >★</button>
             </div>
             <span class="rf-star-label">{{ getRatingLabel(hoverScore || ratingScore) }}</span>
@@ -1592,19 +1592,19 @@ watch(() => currentClientUser.value, async (newVal) => {
           <!-- Nhập nhận xét -->
           <div class="rf-input-box">
             <textarea
-              v-model="ratingComment"
-              rows="2"
-              class="rf-textarea"
-              placeholder="Nhập cảm nhận của bạn (tùy chọn)..."
+                v-model="ratingComment"
+                rows="2"
+                class="rf-textarea"
+                placeholder="Nhập cảm nhận của bạn (tùy chọn)..."
             ></textarea>
           </div>
 
           <!-- Nút gửi đánh giá -->
           <button
-            type="button"
-            class="rf-submit-btn"
-            :disabled="isSubmittingRating"
-            @click="submitRating"
+              type="button"
+              class="rf-submit-btn"
+              :disabled="isSubmittingRating"
+              @click="submitRating"
           >
             <span v-if="isSubmittingRating">Đang gửi đánh giá...</span>
             <span v-else>Gửi đánh giá</span>
@@ -1637,19 +1637,19 @@ watch(() => currentClientUser.value, async (newVal) => {
         <!-- Khi phiên đang hoạt động hoặc chờ nhận: Form nhập tin nhắn -->
         <form v-else @submit.prevent="handleSend" class="input-form">
           <input
-            v-model="inputMessage"
-            type="text"
-            :placeholder="conversationStatus === 2 ? 'Đang chờ nhân viên tiếp nhận cuộc trò chuyện...' : 'Nhập câu hỏi về sản phẩm, size hoặc khuyến mãi...'"
-            class="chat-input"
-            :disabled="conversationStatus === 2"
-            @input="onClientInput"
-            @focus="onClientInput"
-            @blur="onClientBlur"
+              v-model="inputMessage"
+              type="text"
+              :placeholder="conversationStatus === 2 ? 'Đang chờ nhân viên tiếp nhận cuộc trò chuyện...' : 'Nhập câu hỏi về sản phẩm, size hoặc khuyến mãi...'"
+              class="chat-input"
+              :disabled="conversationStatus === 2"
+              @input="onClientInput"
+              @focus="onClientInput"
+              @blur="onClientBlur"
           />
           <button
-            type="submit"
-            class="btn-send"
-            :disabled="!inputMessage.trim() || conversationStatus === 2"
+              type="submit"
+              class="btn-send"
+              :disabled="!inputMessage.trim() || conversationStatus === 2"
           >
             Gửi
           </button>
@@ -1659,9 +1659,9 @@ watch(() => currentClientUser.value, async (newVal) => {
 
     <!-- Modal Đăng nhập khi khách chưa đăng nhập bấm Gặp nhân viên -->
     <ModalDangNhap
-      v-if="showLoginModal"
-      @close="showLoginModal = false"
-      @login-success="onLoginSuccess"
+        v-if="showLoginModal"
+        @close="showLoginModal = false"
+        @login-success="onLoginSuccess"
     />
   </div>
 </template>

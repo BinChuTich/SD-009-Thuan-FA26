@@ -69,9 +69,9 @@ const checkOrderStock = async (id) => {
       if (res.data.items && Array.isArray(res.data.items)) {
         res.data.items.forEach(stockItem => {
           const item = (invoiceData.value.items || []).find(it =>
-            (it.id && it.id === stockItem.idChiTietHoaDon) ||
-            (it.idChiTietSanPham && it.idChiTietSanPham === stockItem.idChiTietSanPham) ||
-            (it.variantCode && stockItem.maChiTietSanPham && it.variantCode === stockItem.maChiTietSanPham)
+              (it.id && it.id === stockItem.idChiTietHoaDon) ||
+              (it.idChiTietSanPham && it.idChiTietSanPham === stockItem.idChiTietSanPham) ||
+              (it.variantCode && stockItem.maChiTietSanPham && it.variantCode === stockItem.maChiTietSanPham)
           )
           if (item) {
             item.soLuongTon = stockItem.soLuongTon
@@ -554,15 +554,15 @@ const isDeliveryOrder = computed(() => {
 
   return isOnline
 
-    || receiveType.includes('giao hàng')
+      || receiveType.includes('giao hàng')
 
-    || receiveType.includes('tận nơi')
+      || receiveType.includes('tận nơi')
 
-    || (address !== '' && address !== '—' && address !== 'Bán tại quầy' && !address.toLowerCase().includes('tại quầy'))
+      || (address !== '' && address !== '—' && address !== 'Bán tại quầy' && !address.toLowerCase().includes('tại quầy'))
 
-    || (carrier !== '' && carrier !== '—' && carrier.toLowerCase() !== 'tại quầy')
+      || (carrier !== '' && carrier !== '—' && carrier.toLowerCase() !== 'tại quầy')
 
-    || shippingFee > 0
+      || shippingFee > 0
 
 })
 
@@ -580,25 +580,25 @@ const displayLoaiDon = computed(() => {
 })
 // old removed
 
-  /* const empCode = String(invoiceData.value.employee?.code || '').toUpperCase()
+/* const empCode = String(invoiceData.value.employee?.code || '').toUpperCase()
 
-  const empName = String(invoiceData.value.employee?.name || '')
+const empName = String(invoiceData.value.employee?.name || '')
 
-  const note = String(invoiceData.value.delivery?.note || '').toLowerCase()
+const note = String(invoiceData.value.delivery?.note || '').toLowerCase()
 
-  const loaiDon = Number(invoiceData.value.delivery?.loaiDon || invoiceData.value.loaiDon || 0)
+const loaiDon = Number(invoiceData.value.delivery?.loaiDon || invoiceData.value.loaiDon || 0)
 
 
 
-  const isStaff = empCode.startsWith('NV') || (empName && empName !== 'Đơn Online' && empName !== '---' && !empName.toLowerCase().includes('khách') && !empName.toLowerCase().includes('website')) || note.includes('pos') || note.includes('tại quầy')
+const isStaff = empCode.startsWith('NV') || (empName && empName !== 'Đơn Online' && empName !== '---' && !empName.toLowerCase().includes('khách') && !empName.toLowerCase().includes('website')) || note.includes('pos') || note.includes('tại quầy')
 
-  if (isStaff || loaiDon === 1) {
+if (isStaff || loaiDon === 1) {
 
-    return 'Tại quầy'
+  return 'Tại quầy'
 
-  }
+}
 
-  return 'Online' */ const _unused_end = () => ({
+return 'Online' */ const _unused_end = () => ({
 
 })
 
@@ -1689,11 +1689,11 @@ const loadDetail = async (identifier) => {
     const rawCustomerCode = getString(khachHangObj['maKhachHang'], data['maKhachHang'], customerCatalog['code'], '')
 
     let extractedEmail = getString(
-      data['email'],
-      data['emailKhachHang'],
-      khachHangObj['email'],
-      data['customerEmail'],
-      customerCatalog['email']
+        data['email'],
+        data['emailKhachHang'],
+        khachHangObj['email'],
+        data['customerEmail'],
+        customerCatalog['email']
     )
     if ((!extractedEmail || extractedEmail === '---' || extractedEmail === '—') && data['ghiChu']) {
       const emailTagMatch = String(data['ghiChu']).match(/\[EMAIL:\s*([^\]]+)\]/i)
@@ -1750,13 +1750,13 @@ const loadDetail = async (identifier) => {
     } else {
       employeeName = nhanVienObj['tenNhanVien']
 
-        || (data['nguoiTao'] && !data['nguoiTao'].includes('Nhân viên bán hàng') ? data['nguoiTao'] : null)
+          || (data['nguoiTao'] && !data['nguoiTao'].includes('Nhân viên bán hàng') ? data['nguoiTao'] : null)
 
-        || employeeCatalog['name']
+          || employeeCatalog['name']
 
-        || authStaffName
+          || authStaffName
 
-        || (Number(data['loaiDon']) === 1 ? (authStaffName || 'Nhân viên bán hàng') : '—')
+          || (Number(data['loaiDon']) === 1 ? (authStaffName || 'Nhân viên bán hàng') : '—')
       employeeCode = nhanVienObj['maNhanVien'] || employeeCatalog['code'] || (String(data['nguoiTao'] || '').toUpperCase().startsWith('NV') ? data['nguoiTao'] : '—')
     }
 
@@ -3301,7 +3301,7 @@ const handleConfirmPaymentAndPrint = () => {
       const currentAuth = getCurrentUser()
 
       const authStaffName = currentAuth?.tenNhanVien || currentAuth?.tenTaiKhoan || 'Nhân viên bán hàng'
-  const authStaffId = currentAuth?.id || null
+      const authStaffId = currentAuth?.id || null
 
       try {
 
@@ -4081,7 +4081,7 @@ onBeforeUnmount(() => {
 
               <div class="info-list-row">
 
-</div><div v-if="false">
+              </div><div v-if="false">
 
                 <span class="info-row-val" :class="{ 'text-muted': invoiceData.customer.name === 'Khách lẻ' }">
 
@@ -4089,7 +4089,7 @@ onBeforeUnmount(() => {
 
                 </span>
 
-              </div>
+            </div>
 
               <div class="info-list-row">
 

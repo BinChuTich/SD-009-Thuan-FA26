@@ -132,17 +132,17 @@ const confirmModal = ref({
 })
 
 const openConfirmModal = ({
-  title = 'Xác Nhận Thao Tác',
-  message = '',
-  subText = '',
-  confirmText = 'Đồng ý',
-  cancelText = 'Hủy bỏ',
-  type = 'primary',
-  showEmailInput = false,
-  sendEmail = true,
-  customerEmail = '',
-  onConfirm = null
-}) => {
+                            title = 'Xác Nhận Thao Tác',
+                            message = '',
+                            subText = '',
+                            confirmText = 'Đồng ý',
+                            cancelText = 'Hủy bỏ',
+                            type = 'primary',
+                            showEmailInput = false,
+                            sendEmail = true,
+                            customerEmail = '',
+                            onConfirm = null
+                          }) => {
   confirmModal.value = {
     show: true,
     title,
@@ -191,11 +191,11 @@ const xacNhanDon = () => {
   openConfirmModal({
     title: isConfirming ? 'Xác Nhận Đơn Hàng' : 'Xác Nhận Trạng Thái Đơn Hàng',
     message: isConfirming
-      ? `Bạn có chắc muốn xác nhận đơn hàng "${hoaDon.value.maHoaDon}" không?`
-      : `Bạn có chắc muốn chuyển đơn hàng sang "${getStatusText(status)}"?`,
+        ? `Bạn có chắc muốn xác nhận đơn hàng "${hoaDon.value.maHoaDon}" không?`
+        : `Bạn có chắc muốn chuyển đơn hàng sang "${getStatusText(status)}"?`,
     subText: isConfirming
-      ? 'Hệ thống sẽ cập nhật trạng thái đơn sang "Đã xác nhận" và gửi email thông báo chi tiết cho khách hàng.'
-      : 'Thao tác này sẽ lưu trạng thái mới vào cơ sở dữ liệu.',
+        ? 'Hệ thống sẽ cập nhật trạng thái đơn sang "Đã xác nhận" và gửi email thông báo chi tiết cho khách hàng.'
+        : 'Thao tác này sẽ lưu trạng thái mới vào cơ sở dữ liệu.',
     confirmText: isConfirming ? 'Xác nhận đơn' : 'Đồng ý',
     cancelText: 'Hủy bỏ',
     type: 'primary',
@@ -206,8 +206,8 @@ const xacNhanDon = () => {
       try {
         saving.value = true
         const emailToSend = (confirmModal.value.showEmailInput && confirmModal.value.sendEmail && confirmModal.value.customerEmail)
-          ? confirmModal.value.customerEmail.trim()
-          : undefined
+            ? confirmModal.value.customerEmail.trim()
+            : undefined
         const emailQuery = emailToSend ? `&email=${encodeURIComponent(emailToSend)}` : ''
         await api.put(`/api/hoa-don/${hoaDon.value.id}/trang-thai?trangThai=${status}${emailQuery}`, {
           trangThai: status,
@@ -489,11 +489,11 @@ onMounted(() => {
               <div v-if="confirmModal.sendEmail" class="email-input-subgroup">
                 <label class="modal-label">Địa chỉ email nhận thông báo <span class="text-danger">*</span></label>
                 <input
-                  type="email"
-                  v-model="confirmModal.customerEmail"
-                  placeholder="Nhập email khách hàng (VD: khachhang@gmail.com)..."
-                  class="modal-input-field"
-                  maxlength="100"
+                    type="email"
+                    v-model="confirmModal.customerEmail"
+                    placeholder="Nhập email khách hàng (VD: khachhang@gmail.com)..."
+                    class="modal-input-field"
+                    maxlength="100"
                 />
                 <p class="email-guide-text">Hệ thống sẽ tự động gửi email chi tiết đơn hàng cho khách hàng qua địa chỉ email này.</p>
               </div>
@@ -513,9 +513,9 @@ onMounted(() => {
             >
               {{ (saving || paying) ? 'Đang xử lý...' : (
                 confirmModal.showEmailInput && confirmModal.sendEmail && confirmModal.customerEmail
-                  ? '✓ Xác nhận & Gửi mail'
-                  : confirmModal.confirmText
-              ) }}
+                    ? '✓ Xác nhận & Gửi mail'
+                    : confirmModal.confirmText
+            ) }}
             </button>
           </div>
         </div>
