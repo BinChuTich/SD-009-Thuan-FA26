@@ -145,6 +145,8 @@ public class ThongKeOverviewDTO {
     // ==========================================
     public static class KpiDTO {
         private BigDecimal totalRevenue;
+        private BigDecimal expectedRevenue;
+        private long expectedOrders;
         private BigDecimal cashRevenue;
         private BigDecimal transferRevenue;
         private long totalOrders;
@@ -157,6 +159,8 @@ public class ThongKeOverviewDTO {
         public KpiDTO() {
             super();
             this.totalRevenue = BigDecimal.ZERO;
+            this.expectedRevenue = BigDecimal.ZERO;
+            this.expectedOrders = 0;
             this.cashRevenue = BigDecimal.ZERO;
             this.transferRevenue = BigDecimal.ZERO;
             this.totalOrders = 0;
@@ -171,6 +175,8 @@ public class ThongKeOverviewDTO {
                       long totalOrders, BigDecimal aov, long totalItemsSold) {
             super();
             this.totalRevenue = totalRevenue != null ? totalRevenue : BigDecimal.ZERO;
+            this.expectedRevenue = BigDecimal.ZERO;
+            this.expectedOrders = 0;
             this.cashRevenue = cashRevenue != null ? cashRevenue : BigDecimal.ZERO;
             this.transferRevenue = transferRevenue != null ? transferRevenue : BigDecimal.ZERO;
             this.totalOrders = totalOrders;
@@ -211,6 +217,30 @@ public class ThongKeOverviewDTO {
 
         public void setTotalRevenue(BigDecimal totalRevenue) {
             this.totalRevenue = totalRevenue;
+        }
+
+        public BigDecimal getActualRevenue() {
+            return totalRevenue != null ? totalRevenue : BigDecimal.ZERO;
+        }
+
+        public void setActualRevenue(BigDecimal actualRevenue) {
+            this.totalRevenue = actualRevenue;
+        }
+
+        public BigDecimal getExpectedRevenue() {
+            return expectedRevenue != null ? expectedRevenue : BigDecimal.ZERO;
+        }
+
+        public void setExpectedRevenue(BigDecimal expectedRevenue) {
+            this.expectedRevenue = expectedRevenue;
+        }
+
+        public long getExpectedOrders() {
+            return expectedOrders;
+        }
+
+        public void setExpectedOrders(long expectedOrders) {
+            this.expectedOrders = expectedOrders;
         }
 
         public BigDecimal getCashRevenue() {

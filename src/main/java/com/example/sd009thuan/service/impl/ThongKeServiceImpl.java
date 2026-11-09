@@ -105,7 +105,7 @@ public class ThongKeServiceImpl implements ThongKeService {
         // 2. Tính toán Donut Trạng thái đơn hàng (Đã hủy, Hoàn thành, Đang xử lý)
         OrderStatusDonutDTO orderStatusDonut = buildOrderStatusDonut(allInvoices);
 
-        // 3. Lọc các hóa đơn hợp lệ ghi nhận doanh thu: Hoàn thành (5) hoặc Đã thanh toán (trangThaiThanhToan = 1) và Không bị hủy (trangThai != 6)
+        // 3. Lọc các hóa đơn hợp lệ ghi nhận doanh thu thực tế: Hoàn thành (5) hoặc Đã thanh toán (trangThaiThanhToan = 1) và Không bị hủy (trangThai != 6)
         List<HoaDon> validInvoices = allInvoices.stream()
                 .filter(h -> (Integer.valueOf(5).equals(h.getTrangThai()) || Integer.valueOf(1).equals(h.getTrangThaiThanhToan()))
                         && !Integer.valueOf(6).equals(h.getTrangThai()))
@@ -113,9 +113,21 @@ public class ThongKeServiceImpl implements ThongKeService {
 
         List<Long> validInvoiceIds = validInvoices.stream().map(HoaDon::getId).toList();
 
-        // 4. Lấy chi tiết hóa đơn và hình thức thanh toán của các hóa đơn hợp lệ
+        // 3b. Lọc các hóa đơn dự kiến: Đang xử lý (chờ xác nhận, đã xác nhận, chờ vận chuyển, đang giao: 1..4) và chưa thanh toán
+        List<HoaDon> expectedInvoices = allInvoices.stream()
+                .filter(h -> !Integer.valueOf(5).equals(h.getTrangThai())
+                        && !Integer.valueOf(6).equals(h.getTrangThai())
+                        && (h.getTrangThaiThanhToan() == null || !Integer.valueOf(1).equals(h.getTrangThaiThanhToan())))
+                .toList();
+
+        List<Long> expectedInvoiceIds = expectedInvoices.stream().map(HoaDon::getId).toList();
+
+        // 4. Lấy chi tiết hóa đơn và hình thức thanh toán của các hóa đơn hợp lệ và hóa đơn dự kiến
         List<ChiTietHoaDon> validDetails = validInvoiceIds.isEmpty() ? Collections.emptyList()
                 : chiTietHoaDonRepository.findByHoaDonIds(validInvoiceIds);
+
+        List<ChiTietHoaDon> expectedDetails = expectedInvoiceIds.isEmpty() ? Collections.emptyList()
+                : chiTietHoaDonRepository.findByHoaDonIds(expectedInvoiceIds);
 
         List<HinhThucThanhToan> validPayments = validInvoiceIds.isEmpty() ? Collections.emptyList()
                 : hinhThucThanhToanRepository.findByHoaDonIds(validInvoiceIds);
@@ -126,9 +138,10 @@ public class ThongKeServiceImpl implements ThongKeService {
 
         // Lọc theo Thương hiệu & Tìm sản phẩm nếu có
         List<ChiTietHoaDon> filteredDetails = filterDetails(validDetails, brandId, productKeyword);
+        List<ChiTietHoaDon> filteredExpectedDetails = filterDetails(expectedDetails, brandId, productKeyword);
 
-        // 5. Tính toán 6 Thẻ KPI tổng quan
-        KpiDTO kpi = calculateKpis(validInvoices, filteredDetails, paymentsByInvoice, brandId, productKeyword);
+        // 5. Tính toán các Thẻ KPI tổng quan
+        KpiDTO kpi = calculateKpis(validInvoices, filteredDetails, paymentsByInvoice, brandId, productKeyword, expectedInvoices, filteredExpectedDetails);
         kpi.setTotalOrders(allInvoices.size());
         kpi.setCompletedOrders(orderStatusDonut.getCompleted());
         kpi.setCancelledOrders(orderStatusDonut.getCancelled());
@@ -301,6 +314,17 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
             Map<Long, List<HinhThucThanhToan>> paymentsByInvoice,
             Long brandId,
             String productKeyword) {
+        return calculateKpis(validInvoices, filteredDetails, paymentsByInvoice, brandId, productKeyword, Collections.emptyList(), Collections.emptyList());
+    }
+
+    private KpiDTO calculateKpis(
+            List<HoaDon> validInvoices,
+            List<ChiTietHoaDon> filteredDetails,
+            Map<Long, List<HinhThucThanhToan>> paymentsByInvoice,
+            Long brandId,
+            String productKeyword,
+            List<HoaDon> expectedInvoices,
+            List<ChiTietHoaDon> filteredExpectedDetails) {
 
         BigDecimal totalRevenue = BigDecimal.ZERO;
         BigDecimal cashRevenue = BigDecimal.ZERO;
@@ -376,12 +400,41 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
             }
         }
 
+        // Tính doanh thu dự kiến (Expected Revenue) từ các đơn hàng chờ xác nhận, đã xác nhận, đang giao chưa thanh toán
+        BigDecimal expectedRevenue = BigDecimal.ZERO;
+        long expectedOrders = 0;
+        if (isFiltered) {
+            if (filteredExpectedDetails != null && !filteredExpectedDetails.isEmpty()) {
+                Set<Long> expInvolved = new HashSet<>();
+                for (ChiTietHoaDon d : filteredExpectedDetails) {
+                    BigDecimal tt = d.getThanhTien() != null ? d.getThanhTien() : BigDecimal.ZERO;
+                    expectedRevenue = expectedRevenue.add(tt);
+                    if (d.getIdHoaDon() != null && d.getIdHoaDon().getId() != null) {
+                        expInvolved.add(d.getIdHoaDon().getId());
+                    }
+                }
+                expectedOrders = expInvolved.size();
+            }
+        } else {
+            if (expectedInvoices != null && !expectedInvoices.isEmpty()) {
+                for (HoaDon hd : expectedInvoices) {
+                    BigDecimal amt = hd.getTienSauGiamGia() != null && hd.getTienSauGiamGia().compareTo(BigDecimal.ZERO) > 0
+                            ? hd.getTienSauGiamGia() : (hd.getTongTien() != null ? hd.getTongTien() : BigDecimal.ZERO);
+                    expectedRevenue = expectedRevenue.add(amt);
+                }
+                expectedOrders = expectedInvoices.size();
+            }
+        }
+
         long totalOrders = involvedInvoiceIds.size();
         BigDecimal aov = totalOrders > 0
                 ? totalRevenue.divide(BigDecimal.valueOf(totalOrders), 0, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
-        return new KpiDTO(totalRevenue, cashRevenue, transferRevenue, totalOrders, aov, totalItemsSold);
+        KpiDTO kpi = new KpiDTO(totalRevenue, cashRevenue, transferRevenue, totalOrders, aov, totalItemsSold);
+        kpi.setExpectedRevenue(expectedRevenue);
+        kpi.setExpectedOrders(expectedOrders);
+        return kpi;
     }
 
     private List<BarChartItemDTO> buildBarChart(
@@ -751,9 +804,10 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
             kpiHeader.createCell(0).setCellValue("CHỈ SỐ TỔNG QUAN (KPIS)");
             kpiHeader.createCell(1).setCellValue("GIÁ TRỊ");
 
-            sheet1.createRow(r++).createCell(0).setCellValue("Tổng doanh thu: " + data.getKpi().getTotalRevenue());
-            sheet1.createRow(r++).createCell(0).setCellValue("Tiền mặt: " + data.getKpi().getCashRevenue());
-            sheet1.createRow(r++).createCell(0).setCellValue("Chuyển khoản: " + data.getKpi().getTransferRevenue());
+            sheet1.createRow(r++).createCell(0).setCellValue("Doanh thu thực tế: " + data.getKpi().getTotalRevenue());
+            sheet1.createRow(r++).createCell(0).setCellValue("Doanh thu dự kiến: " + data.getKpi().getExpectedRevenue());
+            sheet1.createRow(r++).createCell(0).setCellValue("Tiền mặt (Thực thu): " + data.getKpi().getCashRevenue());
+            sheet1.createRow(r++).createCell(0).setCellValue("Chuyển khoản (Thực thu): " + data.getKpi().getTransferRevenue());
             sheet1.createRow(r++).createCell(0).setCellValue("Tổng đơn hàng: " + data.getKpi().getTotalOrders());
             sheet1.createRow(r++).createCell(0).setCellValue("Giá trị TB đơn (AOV): " + data.getKpi().getAov());
             sheet1.createRow(r++).createCell(0).setCellValue("Sản phẩm đã bán: " + data.getKpi().getTotalItemsSold());
