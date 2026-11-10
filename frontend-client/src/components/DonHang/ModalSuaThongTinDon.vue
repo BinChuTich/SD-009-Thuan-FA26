@@ -4,7 +4,8 @@ import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
 import { loadAdministrativeData, getWardsForProvince } from '@/utils/diaGioiHanhChinh.js'
 import { calculateGhnShippingFee } from '@/services/ghnService.js'
-import { showAppAlert, showAppConfirm } from '@/utils/thongBaoDialog.js'
+import { showAppAlert, showAppConfirm, showAppToast } from '@/utils/thongBaoDialog.js'
+import { currentClientUser, isClientLoggedIn } from '@/utils/taiKhoanKhachHang.js'
 
 const props = defineProps({
   modelValue: {
@@ -19,26 +20,47 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'updated'])
 
-// Form fields
-const tenNguoiNhan = ref('')
-const soDienThoaiNhan = ref('')
-const selectedProvince = ref('')
-const selectedWard = ref('')
-const streetAddress = ref('')
-const ghiChu = ref('')
+// Danh sách địa chỉ đã lưu
+const savedAddresses = ref([])
+const loadingAddresses = ref(false)
+const selectedAddressId = ref(null)
 
-// Dropdowns data
+// Form thêm / sửa địa chỉ
+const showAddressForm = ref(false)
+const editingAddressId = ref(null)
+const savingAddress = ref(false)
+const addrForm = ref({
+  tenNguoiNhan: '',
+  soDienThoaiNhan: '',
+  thanhPho: '',
+  huyen: '',
+  phuong: '',
+  diaChiCuThe: '',
+  macDinh: false
+})
+
+// Dữ liệu hành chính
 const provincesList = ref([])
-const wardsList = ref([])
+const addrWardsList = ref([])
 
-// Shipping calculation state
+// Trạng thái tính phí ship & cập nhật đơn
 const loadingShipping = ref(false)
 const calculatedFee = ref(null)
 const shippingMessage = ref('')
 const submitting = ref(false)
-const formErrors = ref({})
+const ghiChuMoi = ref('')
 
-// Initial original values from order
+// Tên khách hàng hiển thị ở tiêu đề modal
+const customerDisplayName = computed(() => {
+  return props.order?.tenKhachHang || currentClientUser.value?.name || 'Khách hàng'
+})
+
+// ID khách hàng liên kết với đơn
+const customerId = computed(() => {
+  return props.order?.idKhachHang?.id || props.order?.idKhachHang || currentClientUser.value?.id || null
+})
+
+// Phí ship ban đầu của đơn
 const originalShippingFee = computed(() => {
   return Number(props.order?.phiVanChuyen || props.order?.phiShip || 0)
 })
@@ -63,22 +85,19 @@ const newCodTotal = computed(() => {
   return merchandiseSubtotal.value + ship
 })
 
-// Kiểm tra tính hợp lệ cước phí theo hình thức thanh toán
+// Kiểm tra điều kiện cước phí hợp lệ
 const isFeeAllowed = computed(() => {
   if (!isPaidOrder.value) {
-    // Đơn COD: Địa chỉ nào cũng hợp lệ
-    return true
+    return true // Đơn COD: đổi địa chỉ bất kỳ, cước tự cập nhật
   }
-  // Đơn đã thanh toán: Cước mới phải <= Cước ban đầu
   if (calculatedFee.value === null) return true
+  // Đơn đã thanh toán: cước mới phải <= cước cũ
   return calculatedFee.value <= originalShippingFee.value
 })
 
-// Kiểm tra xem đã thay đổi thông tin so với ban đầu chưa
-const isAddressChanged = computed(() => {
-  const currentFull = [streetAddress.value, selectedWard.value, selectedProvince.value].filter(Boolean).join(', ').trim().toLowerCase()
-  const oldFull = (props.order?.diaChiNhanHang || '').trim().toLowerCase()
-  return currentFull !== oldFull
+// Địa chỉ hiện đang được chọn
+const selectedAddress = computed(() => {
+  return savedAddresses.value.find(a => a.id === selectedAddressId.value) || null
 })
 
 // Tải danh sách tỉnh thành
@@ -91,104 +110,98 @@ onMounted(async () => {
   }
 })
 
-// Phân tích và điền sẵn thông tin ban đầu của đơn hàng
-const initFormFromOrder = async () => {
-  if (!props.order) return
-
-  tenNguoiNhan.value = props.order.tenKhachHang || props.order.tenKhachHangHienThi || ''
-  soDienThoaiNhan.value = props.order.soDienThoaiKhachHang || props.order.soDienThoaiHienThi || ''
-  ghiChu.value = ''
-  formErrors.value = {}
-
-  // Reset tính phí
-  calculatedFee.value = originalShippingFee.value
-  shippingMessage.value = ''
-
-  const rawAddress = (props.order.diaChiNhanHang || '').trim()
-  if (!rawAddress) {
-    selectedProvince.value = ''
-    selectedWard.value = ''
-    streetAddress.value = ''
-    wardsList.value = []
-    return
-  }
-
-  // Tách địa chỉ để thử match với Tỉnh/Thành và Phường/Xã
-  const parts = rawAddress.split(',').map(s => s.trim()).filter(Boolean)
-  if (parts.length >= 3) {
-    const provPart = parts[parts.length - 1]
-    const wardPart = parts[parts.length - 2]
-    const streetPart = parts.slice(0, parts.length - 2).join(', ')
-
-    // Tìm tỉnh trong danh sách
-    const matchedProv = provincesList.value.find(p => {
-      const pName = (p.name || '').toLowerCase()
-      const partLower = provPart.toLowerCase()
-      return pName.includes(partLower) || partLower.includes(pName)
-    })
-
-    if (matchedProv) {
-      selectedProvince.value = matchedProv.name
-      wardsList.value = await getWardsForProvince(matchedProv.name)
-      const matchedWard = wardsList.value.find(w => {
-        const wName = (w.name || w || '').toLowerCase()
-        const wardLower = wardPart.toLowerCase()
-        return wName.includes(wardLower) || wardLower.includes(wName)
-      })
-      if (matchedWard) {
-        selectedWard.value = matchedWard.name || matchedWard
-      } else {
-        selectedWard.value = ''
-      }
-      streetAddress.value = streetPart
-    } else {
-      selectedProvince.value = ''
-      selectedWard.value = ''
-      streetAddress.value = rawAddress
-    }
-  } else {
-    streetAddress.value = rawAddress
-  }
-}
-
 // Watch khi modal mở ra
-watch(() => props.modelValue, (isOpen) => {
+watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
-    initFormFromOrder()
+    showAddressForm.value = false
+    editingAddressId.value = null
+    ghiChuMoi.value = ''
+    await loadCustomerAddresses()
   }
 })
 
-// Khi thay đổi Tỉnh / Thành phố
-const handleProvinceChange = async () => {
-  selectedWard.value = ''
-  wardsList.value = []
-  calculatedFee.value = null
-  shippingMessage.value = ''
-  if (selectedProvince.value) {
-    wardsList.value = await getWardsForProvince(selectedProvince.value)
+// Tải danh sách địa chỉ khách hàng
+const loadCustomerAddresses = async () => {
+  loadingAddresses.value = true
+  try {
+    let list = []
+    const cId = customerId.value
+    if (cId) {
+      const res = await api.get(`/api/khach-hang/${cId}/dia-chi`)
+      list = Array.isArray(res.data) ? res.data : []
+    }
+
+    // Nếu khách hàng chưa có địa chỉ lưu nào hoặc là khách vãng lai, tạo địa chỉ mẫu từ đơn hiện tại
+    if (list.length === 0 && props.order) {
+      const parsed = parseOrderAddress(props.order.diaChiNhanHang || '')
+      list.push({
+        id: 'order_curr',
+        maDiaChi: 'Đơn hàng',
+        tenNguoiNhan: props.order.tenKhachHang || '',
+        soDienThoaiNhan: props.order.soDienThoaiKhachHang || '',
+        diaChiCuThe: parsed.street,
+        phuong: parsed.ward,
+        thanhPho: parsed.province,
+        huyen: '',
+        macDinh: true
+      })
+    }
+
+    savedAddresses.value = list
+
+    // Mặc định chọn địa chỉ đầu tiên hoặc địa chỉ khớp với đơn hàng
+    if (list.length > 0) {
+      const matched = list.find(a => {
+        const fullA = [a.diaChiCuThe, a.phuong, a.thanhPho].filter(Boolean).join(', ').toLowerCase()
+        const orderA = (props.order?.diaChiNhanHang || '').toLowerCase()
+        return orderA.includes(a.diaChiCuThe?.toLowerCase() || '---') || fullA === orderA
+      }) || list.find(a => a.macDinh) || list[0]
+
+      if (matched) {
+        await selectAddressForOrder(matched)
+      }
+    }
+  } catch (err) {
+    console.warn('Lỗi tải danh sách địa chỉ:', err)
+  } finally {
+    loadingAddresses.value = false
   }
-  updateShippingFee()
 }
 
-// Khi thay đổi Phường / Xã
-const handleWardChange = () => {
-  updateShippingFee()
+// Phân tích chuỗi địa chỉ
+const parseOrderAddress = (rawAddress) => {
+  const parts = rawAddress.split(',').map(s => s.trim()).filter(Boolean)
+  if (parts.length >= 3) {
+    return {
+      province: parts[parts.length - 1],
+      ward: parts[parts.length - 2],
+      street: parts.slice(0, parts.length - 2).join(', ')
+    }
+  }
+  return { province: '', ward: '', street: rawAddress }
 }
 
-// Tính phí vận chuyển thực tế qua GHN
-const updateShippingFee = async () => {
-  if (!selectedProvince.value) {
-    calculatedFee.value = null
+// Chọn một địa chỉ trong danh sách
+const selectAddressForOrder = async (addr) => {
+  if (!addr) return
+  selectedAddressId.value = addr.id
+  await updateShippingForAddress(addr)
+}
+
+// Tính phí GHN cho địa chỉ được chọn
+const updateShippingForAddress = async (addr) => {
+  if (!addr || !addr.thanhPho) {
+    calculatedFee.value = originalShippingFee.value
     shippingMessage.value = ''
     return
   }
 
   loadingShipping.value = true
   try {
-    const fullAddr = [streetAddress.value, selectedWard.value, selectedProvince.value].filter(Boolean).join(', ')
+    const fullAddr = [addr.diaChiCuThe, addr.phuong, addr.thanhPho].filter(Boolean).join(', ')
     const res = await calculateGhnShippingFee({
-      provinceName: selectedProvince.value,
-      wardName: selectedWard.value || '',
+      provinceName: addr.thanhPho,
+      wardName: addr.phuong || '',
       fullAddress: fullAddr,
       weightGram: 300,
       insuranceValue: merchandiseSubtotal.value
@@ -201,40 +214,170 @@ const updateShippingFee = async () => {
       calculatedFee.value = originalShippingFee.value
     }
   } catch (err) {
-    console.error('Lỗi tính cước GHN:', err)
+    console.warn('Lỗi tính cước GHN:', err)
     calculatedFee.value = originalShippingFee.value
   } finally {
     loadingShipping.value = false
   }
 }
 
-// Validate form
-const validateForm = () => {
-  const errs = {}
-  if (!tenNguoiNhan.value.trim()) {
-    errs.tenNguoiNhan = 'Vui lòng nhập tên người nhận hàng'
+// Mở form thêm địa chỉ mới
+const openAddAddressForm = () => {
+  editingAddressId.value = null
+  addrForm.value = {
+    tenNguoiNhan: customerDisplayName.value !== 'Khách hàng' ? customerDisplayName.value : (props.order?.tenKhachHang || ''),
+    soDienThoaiNhan: props.order?.soDienThoaiKhachHang || currentClientUser.value?.phone || '',
+    thanhPho: '',
+    huyen: '',
+    phuong: '',
+    diaChiCuThe: '',
+    macDinh: savedAddresses.value.length === 0
   }
-  const phone = soDienThoaiNhan.value.trim()
+  addrWardsList.value = []
+  showAddressForm.value = true
+}
+
+// Mở form chỉnh sửa địa chỉ
+const openEditAddressForm = async (addr) => {
+  editingAddressId.value = addr.id
+  addrForm.value = {
+    tenNguoiNhan: addr.tenNguoiNhan || customerDisplayName.value || '',
+    soDienThoaiNhan: addr.soDienThoaiNhan || props.order?.soDienThoaiKhachHang || '',
+    thanhPho: addr.thanhPho || '',
+    huyen: addr.huyen || '',
+    phuong: addr.phuong || '',
+    diaChiCuThe: addr.diaChiCuThe || '',
+    macDinh: !!addr.macDinh
+  }
+  if (addr.thanhPho) {
+    addrWardsList.value = await getWardsForProvince(addr.thanhPho)
+  } else {
+    addrWardsList.value = []
+  }
+  showAddressForm.value = true
+}
+
+// Hủy form thêm/sửa
+const cancelAddressForm = () => {
+  showAddressForm.value = false
+  editingAddressId.value = null
+}
+
+// Khi thay đổi tỉnh thành trong form
+const onAddrProvinceChange = async () => {
+  addrForm.value.phuong = ''
+  addrWardsList.value = []
+  if (addrForm.value.thanhPho) {
+    addrWardsList.value = await getWardsForProvince(addrForm.value.thanhPho)
+  }
+}
+
+// Lưu địa chỉ (Thêm hoặc Sửa)
+const saveAddress = async () => {
+  if (!addrForm.value.tenNguoiNhan || !addrForm.value.tenNguoiNhan.trim()) {
+    return showAppAlert('Vui lòng nhập tên người nhận hàng!', 'Thiếu thông tin', 'warning')
+  }
+  const phone = (addrForm.value.soDienThoaiNhan || '').trim()
   if (!phone) {
-    errs.soDienThoaiNhan = 'Vui lòng nhập số điện thoại'
+    return showAppAlert('Vui lòng nhập số điện thoại nhận hàng!', 'Thiếu thông tin', 'warning')
   } else if (!/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(phone.replace(/\s+/g, ''))) {
-    errs.soDienThoaiNhan = 'Số điện thoại không đúng định dạng (10 số)'
+    return showAppAlert('Số điện thoại không đúng định dạng (10 số)!', 'Sai định dạng', 'warning')
+  }
+  if (!addrForm.value.thanhPho || !addrForm.value.thanhPho.trim()) {
+    return showAppAlert('Vui lòng chọn Tỉnh / Thành phố!', 'Thiếu thông tin', 'warning')
+  }
+  if (!addrForm.value.phuong || !addrForm.value.phuong.trim()) {
+    return showAppAlert('Vui lòng chọn Phường / Xã!', 'Thiếu thông tin', 'warning')
+  }
+  if (!addrForm.value.diaChiCuThe || !addrForm.value.diaChiCuThe.trim()) {
+    return showAppAlert('Vui lòng nhập địa chỉ cụ thể (số nhà, ngõ, tên đường...)!', 'Thiếu thông tin', 'warning')
   }
 
-  if (!selectedProvince.value) {
-    errs.selectedProvince = 'Vui lòng chọn Tỉnh / Thành phố'
+  savingAddress.value = true
+  try {
+    const payload = {
+      tenNguoiNhan: addrForm.value.tenNguoiNhan.trim(),
+      soDienThoaiNhan: phone,
+      thanhPho: addrForm.value.thanhPho.trim(),
+      huyen: addrForm.value.huyen ? addrForm.value.huyen.trim() : '',
+      phuong: addrForm.value.phuong.trim(),
+      diaChiCuThe: addrForm.value.diaChiCuThe.trim(),
+      macDinh: addrForm.value.macDinh
+    }
+
+    const cId = customerId.value
+    let saved = null
+
+    if (cId) {
+      if (editingAddressId.value && editingAddressId.value !== 'order_curr') {
+        const res = await api.put(`/api/khach-hang/${cId}/dia-chi/${editingAddressId.value}`, payload)
+        saved = res.data
+        showAppToast('Cập nhật địa chỉ thành công!', 'success')
+      } else {
+        const res = await api.post(`/api/khach-hang/${cId}/dia-chi`, payload)
+        saved = res.data
+        showAppToast('Thêm địa chỉ mới thành công!', 'success')
+      }
+      showAddressForm.value = false
+      await loadCustomerAddresses()
+      if (saved) {
+        await selectAddressForOrder(saved)
+      }
+    } else {
+      // Khách vãng lai
+      const localItem = {
+        id: 'local_' + Date.now(),
+        maDiaChi: 'DC_' + Math.floor(Math.random() * 10000),
+        ...payload
+      }
+      savedAddresses.value.unshift(localItem)
+      showAddressForm.value = false
+      showAppToast('Đã thêm địa chỉ giao hàng!', 'success')
+      await selectAddressForOrder(localItem)
+    }
+  } catch (err) {
+    console.error('Lỗi lưu địa chỉ:', err)
+    showAppAlert(err?.response?.data?.message || 'Không thể lưu địa chỉ.', 'Lỗi lưu địa chỉ', 'error')
+  } finally {
+    savingAddress.value = false
   }
-  if (!streetAddress.value.trim()) {
-    errs.streetAddress = 'Vui lòng nhập số nhà, tên đường'
+}
+
+// Đặt làm mặc định
+const setAsDefault = async (addressId) => {
+  const cId = customerId.value
+  if (!cId || addressId === 'order_curr') return
+  try {
+    await api.put(`/api/khach-hang/${cId}/dia-chi/${addressId}/mac-dinh`)
+    showAppToast('Đã đặt làm địa chỉ mặc định!', 'success')
+    await loadCustomerAddresses()
+  } catch (err) {
+    showAppAlert(err?.response?.data?.message || 'Không thể đặt địa chỉ mặc định.', 'Lỗi', 'error')
+  }
+}
+
+// Xóa địa chỉ
+const deleteAddress = async (addressId) => {
+  const confirmed = await showAppConfirm('Bạn có chắc chắn muốn xóa địa chỉ này khỏi danh sách không?', 'Xác nhận xóa địa chỉ')
+  if (!confirmed) return
+
+  const cId = customerId.value
+  if (!cId || addressId === 'order_curr') {
+    savedAddresses.value = savedAddresses.value.filter(a => a.id !== addressId)
+    if (selectedAddressId.value === addressId && savedAddresses.value.length > 0) {
+      await selectAddressForOrder(savedAddresses.value[0])
+    }
+    showAppToast('Đã xóa địa chỉ thành công!', 'success')
+    return
   }
 
-  // Kiểm tra cước phí cho đơn đã thanh toán
-  if (isPaidOrder.value && calculatedFee.value !== null && calculatedFee.value > originalShippingFee.value) {
-    errs.fee = `Phí ship địa chỉ mới (${formatCurrency(calculatedFee.value)}) vượt quá phí đã trả (${formatCurrency(originalShippingFee.value)}).`
+  try {
+    await api.delete(`/api/khach-hang/${cId}/dia-chi/${addressId}`)
+    showAppToast('Đã xóa địa chỉ thành công!', 'success')
+    await loadCustomerAddresses()
+  } catch (err) {
+    showAppAlert(err?.response?.data?.message || 'Không thể xóa địa chỉ này.', 'Lỗi', 'error')
   }
-
-  formErrors.value = errs
-  return Object.keys(errs).length === 0
 }
 
 // Đóng modal
@@ -242,39 +385,62 @@ const handleClose = () => {
   emit('update:modelValue', false)
 }
 
-// Submit cập nhật thông tin
-const handleSubmit = async () => {
-  if (!validateForm()) return
+// Submit cập nhật đơn hàng sang địa chỉ đã chọn
+const handleConfirmOrderUpdate = async () => {
+  if (!selectedAddress.value) {
+    return showAppAlert('Vui lòng chọn 1 địa chỉ để giao hàng!', 'Chưa chọn địa chỉ', 'warning')
+  }
+
+  // Kiểm tra cước phí cho đơn đã thanh toán
+  if (isPaidOrder.value && calculatedFee.value !== null && calculatedFee.value > originalShippingFee.value) {
+    return showAppAlert(
+      `Phí ship địa chỉ mới (${formatCurrency(calculatedFee.value)}) lớn hơn phí ship ban đầu (${formatCurrency(originalShippingFee.value)}).\n\nĐơn hàng đã thanh toán trước (chuyển khoản / VNPAY) chỉ có thể đổi sang địa chỉ có cước bằng hoặc thấp hơn!`,
+      'Không thể đổi địa chỉ',
+      'error'
+    )
+  }
 
   // Cảnh báo chỉ được sửa 1 lần duy nhất
-  const confirmMsg = `Lưu ý quan trọng: Quý khách chỉ có thể thay đổi thông tin nhận hàng DUY NHẤT 1 LẦN cho đơn hàng này.\n\nBạn có chắc chắn thông tin mới đã hoàn toàn chính xác?`
+  const confirmMsg = `Lưu ý quan trọng: Quý khách chỉ có thể thay đổi thông tin nhận hàng DUY NHẤT 1 LẦN cho đơn hàng này.\n\nBạn có chắc chắn muốn đổi sang địa chỉ này không?`
   const ok = await showAppConfirm(confirmMsg, 'Xác nhận đổi thông tin nhận hàng')
   if (!ok) return
 
   submitting.value = true
   try {
+    const addr = selectedAddress.value
     const fullAddress = [
-      streetAddress.value.trim(),
-      selectedWard.value ? selectedWard.value.trim() : '',
-      selectedProvince.value ? selectedProvince.value.trim() : ''
+      addr.diaChiCuThe ? addr.diaChiCuThe.trim() : '',
+      addr.phuong ? addr.phuong.trim() : '',
+      addr.thanhPho ? addr.thanhPho.trim() : ''
     ].filter(Boolean).join(', ')
 
     const payload = {
-      tenNguoiNhan: tenNguoiNhan.value.trim(),
-      soDienThoaiNhan: soDienThoaiNhan.value.trim(),
+      tenNguoiNhan: (addr.tenNguoiNhan || customerDisplayName.value).trim(),
+      soDienThoaiNhan: (addr.soDienThoaiNhan || props.order?.soDienThoaiKhachHang || '').trim(),
       diaChiNhanHang: fullAddress,
-      ghiChu: ghiChu.value.trim(),
+      ghiChu: ghiChuMoi.value ? ghiChuMoi.value.trim() : '',
       phiVanChuyenMoi: calculatedFee.value != null ? calculatedFee.value : originalShippingFee.value
     }
 
-    const res = await api.put(`/api/hoa-don/code/${props.order.maHoaDon}/khach-sua-thong-tin`, payload)
+    const orderId = props.order?.id
+    const orderCode = props.order?.maHoaDon
 
-    await showAppAlert('Cập nhật thông tin nhận đơn thành công!', 'Thành công', 'success')
+    let res = null
+    if (orderCode) {
+      res = await api.put(`/api/hoa-don/code/${orderCode}/khach-sua-thong-tin`, payload)
+    } else if (orderId) {
+      res = await api.put(`/api/hoa-don/${orderId}/khach-sua-thong-tin`, payload)
+    } else {
+      throw new Error('Không xác định được mã đơn hàng!')
+    }
+
+    showAppToast('Thay đổi thông tin nhận hàng thành công!', 'success')
     emit('updated', res.data)
     handleClose()
   } catch (err) {
-    const msg = err.response?.data?.message || err.message || 'Không thể cập nhật thông tin nhận hàng vào lúc này!'
-    await showAppAlert(msg, 'Không thể cập nhật', 'error')
+    console.error('Lỗi cập nhật thông tin đơn hàng:', err)
+    const msg = err?.response?.data?.message || err?.message || 'Không thể cập nhật thông tin đơn hàng.'
+    showAppAlert(msg, 'Lỗi cập nhật', 'error')
   } finally {
     submitting.value = false
   }
@@ -282,613 +448,886 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <div v-if="modelValue" class="modal-edit-addr-backdrop" @click.self="handleClose">
-    <div class="modal-edit-addr-dialog">
-      <!-- HEADER -->
-      <div class="modal-header">
-        <div class="header-left">
-          <div class="header-icon-wrap">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-          </div>
-          <div>
-            <h3 class="modal-title">Thay đổi thông tin nhận hàng</h3>
-            <span class="modal-subtitle">Đơn hàng #{{ order?.maHoaDon }} • Chỉ được sửa 1 lần duy nhất</span>
-          </div>
-        </div>
-        <button type="button" class="btn-close-modal" @click="handleClose" title="Đóng">✕</button>
+  <div v-if="modelValue" class="client-addr-modal-backdrop" @click.self="handleClose">
+    <div class="client-addr-modal-card animate-pop">
+      <!-- HEADER CHUẨN THEO ẢNH MẪU 2 -->
+      <div class="client-addr-modal-header">
+        <h3 class="client-addr-modal-title">
+          Quản lý địa chỉ: {{ customerDisplayName }}
+        </h3>
+        <button class="client-addr-close-btn" @click="handleClose" title="Đóng">&times;</button>
       </div>
 
       <!-- BODY -->
-      <div class="modal-body">
-        <!-- BANNER CẢNH BÁO 1 LẦN DUY NHẤT -->
-        <div class="alert-notice-box">
-          <span class="alert-icon">ℹ️</span>
-          <div class="alert-text">
-            <strong>Chính sách đổi địa chỉ:</strong>
-            Quý khách chỉ được phép chỉnh sửa thông tin nhận hàng <strong>1 lần duy nhất</strong> khi đơn hàng đang ở trạng thái <em>Chờ xác nhận</em>.
+      <div class="client-addr-modal-body">
+        <!-- Banner lưu ý chính sách sửa 1 lần duy nhất -->
+        <div class="addr-policy-banner">
+          <div class="banner-icon-box">ℹ️</div>
+          <div class="banner-content-text">
+            <strong>Chính sách đổi địa chỉ:</strong> Quý khách chỉ được phép chỉnh sửa thông tin nhận hàng <strong>1 lần duy nhất</strong> khi đơn hàng đang ở trạng thái <em>Chờ xác nhận</em>.
           </div>
         </div>
 
-        <!-- THÔNG TIN THANH TOÁN & RÀNG BUỘC PHÍ SHIP -->
-        <div class="payment-policy-card" :class="isPaidOrder ? 'paid-card' : 'cod-card'">
-          <div class="policy-header">
-            <span class="policy-badge" :class="isPaidOrder ? 'badge-paid' : 'badge-cod'">
-              {{ isPaidOrder ? 'ĐÃ THANH TOÁN (VNPAY / CK)' : 'THANH TOÁN KHI NHẬN HÀNG (COD)' }}
-            </span>
-            <span class="orig-fee">
-              Phí ship ban đầu: <strong>{{ formatCurrency(originalShippingFee) }}</strong>
-            </span>
-          </div>
-
-          <div class="policy-desc" v-if="isPaidOrder">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
-            <span>
-              Vì quý khách đã thanh toán đơn hàng trước đó, <strong>phí ship của địa chỉ mới không được vượt quá {{ formatCurrency(originalShippingFee) }}</strong>.
-            </span>
-          </div>
-
-          <div class="policy-desc" v-else>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 6L9 17l-5-5"></path>
-            </svg>
-            <span>
-              Đơn hàng thanh toán khi nhận hàng: Quý khách có thể đổi đến bất kỳ địa chỉ nào. Cước vận chuyển và tổng tiền thu COD sẽ tự động cập nhật lại.
-            </span>
-          </div>
+        <!-- Thanh tác vụ trên: Tổng cộng X địa chỉ + Nút Thêm địa chỉ mới -->
+        <div class="addr-top-actions-bar">
+          <span class="addr-total-count">
+            Tổng cộng: {{ savedAddresses.length }} địa chỉ
+          </span>
+          <button
+            v-if="!showAddressForm"
+            type="button"
+            class="btn-primary-addr-sm"
+            @click="openAddAddressForm"
+          >
+            + Thêm địa chỉ mới
+          </button>
         </div>
 
-        <!-- FORM NHẬP LIỆU -->
-        <form @submit.prevent="handleSubmit" class="edit-form-grid">
-          <!-- HỌ TÊN & SỐ ĐIỆN THOẠI -->
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Tên người nhận hàng <span class="required">*</span></label>
+        <!-- FORM THÊM / SỬA ĐỊA CHỈ (CÓ THÊM THÔNG TIN NGƯỜI NHẬN) -->
+        <div v-if="showAddressForm" class="addr-inline-form-box">
+          <h4 class="addr-form-box-title">
+            {{ editingAddressId ? 'Chỉnh sửa địa chỉ' : 'Thêm địa chỉ mới' }}
+          </h4>
+          <div class="addr-form-grid-2">
+            <!-- Thêm thông tin người nhận: Tên & SĐT -->
+            <div class="addr-form-field">
+              <label>Tên người nhận hàng <span class="req-star">*</span></label>
               <input
+                v-model="addrForm.tenNguoiNhan"
                 type="text"
-                v-model="tenNguoiNhan"
-                class="form-control"
-                :class="{ 'has-error': formErrors.tenNguoiNhan }"
-                placeholder="Ví dụ: Nguyễn Văn A"
+                placeholder="Họ và tên người nhận"
+                class="addr-form-input"
               />
-              <span v-if="formErrors.tenNguoiNhan" class="error-msg">{{ formErrors.tenNguoiNhan }}</span>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">Số điện thoại nhận hàng <span class="required">*</span></label>
+            <div class="addr-form-field">
+              <label>Số điện thoại nhận hàng <span class="req-star">*</span></label>
               <input
-                type="tel"
-                v-model="soDienThoaiNhan"
-                class="form-control"
-                :class="{ 'has-error': formErrors.soDienThoaiNhan }"
-                placeholder="Ví dụ: 0912345678"
+                v-model="addrForm.soDienThoaiNhan"
+                type="text"
+                placeholder="Ví dụ: 0966580403"
+                class="addr-form-input"
               />
-              <span v-if="formErrors.soDienThoaiNhan" class="error-msg">{{ formErrors.soDienThoaiNhan }}</span>
             </div>
-          </div>
 
-          <!-- TỈNH THÀNH & PHƯỜNG XÃ -->
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Tỉnh / Thành phố <span class="required">*</span></label>
+            <div class="addr-form-field">
+              <label>Tỉnh / Thành phố <span class="req-star">*</span></label>
               <select
-                v-model="selectedProvince"
-                @change="handleProvinceChange"
-                class="form-select"
-                :class="{ 'has-error': formErrors.selectedProvince }"
+                v-model="addrForm.thanhPho"
+                @change="onAddrProvinceChange"
+                class="addr-form-select"
               >
                 <option value="" disabled>-- Chọn Tỉnh / Thành phố --</option>
                 <option v-for="p in provincesList" :key="p.name || p" :value="p.name || p">
                   {{ p.name || p }}
                 </option>
               </select>
-              <span v-if="formErrors.selectedProvince" class="error-msg">{{ formErrors.selectedProvince }}</span>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">Phường / Xã</label>
+            <div class="addr-form-field">
+              <label>Phường / Xã <span class="req-star">*</span></label>
               <select
-                v-model="selectedWard"
-                @change="handleWardChange"
-                class="form-select"
-                :disabled="!selectedProvince || wardsList.length === 0"
+                v-model="addrForm.phuong"
+                :disabled="!addrForm.thanhPho"
+                class="addr-form-select"
               >
-                <option value="">-- Chọn Phường / Xã --</option>
-                <option v-for="w in wardsList" :key="w.name || w" :value="w.name || w">
+                <option value="" disabled>-- Chọn Phường / Xã --</option>
+                <option v-for="w in addrWardsList" :key="w.name || w" :value="w.name || w">
                   {{ w.name || w }}
                 </option>
               </select>
             </div>
+
+            <div class="addr-form-field full-width">
+              <label>Địa chỉ cụ thể (Số nhà, tên đường, thôn xóm) <span class="req-star">*</span></label>
+              <input
+                v-model="addrForm.diaChiCuThe"
+                type="text"
+                placeholder="Số nhà, ngõ, tên đường..."
+                class="addr-form-input"
+              />
+            </div>
+
+            <div class="addr-form-field full-width">
+              <label class="addr-checkbox-label">
+                <input type="checkbox" v-model="addrForm.macDinh" />
+                <span>Đặt làm địa chỉ mặc định</span>
+              </label>
+            </div>
           </div>
 
-          <!-- ĐỊA CHỈ CHI TIẾT -->
-          <div class="form-group">
-            <label class="form-label">Số nhà, tên đường, thôn xóm <span class="required">*</span></label>
-            <input
-              type="text"
-              v-model="streetAddress"
-              @blur="updateShippingFee"
-              class="form-control"
-              :class="{ 'has-error': formErrors.streetAddress }"
-              placeholder="Ví dụ: Số 25 ngõ 180 đường Cầu Giấy"
-            />
-            <span v-if="formErrors.streetAddress" class="error-msg">{{ formErrors.streetAddress }}</span>
+          <div class="addr-form-button-row">
+            <button type="button" class="btn-cancel-addr" @click="cancelAddressForm">
+              Hủy
+            </button>
+            <button type="button" class="btn-save-addr" :disabled="savingAddress" @click="saveAddress">
+              {{ savingAddress ? 'Đang lưu...' : 'Lưu địa chỉ' }}
+            </button>
           </div>
+        </div>
 
-          <!-- GHI CHÚ GIAO HÀNG -->
-          <div class="form-group">
-            <label class="form-label">Ghi chú giao hàng mới (Tùy chọn)</label>
-            <input
-              type="text"
-              v-model="ghiChu"
-              class="form-control"
-              placeholder="Ví dụ: Giao giờ hành chính, gọi trước khi đến..."
-            />
+        <!-- DANH SÁCH ĐỊA CHỈ DẠNG THẺ (ĐÚNG THEO ẢNH MẪU 2) -->
+        <div class="addr-items-scroll-list">
+          <div v-if="loadingAddresses" class="addr-empty-state">
+            Đang tải danh sách địa chỉ...
           </div>
-
-          <!-- KHỐI TÍNH CƯỚC SHIP THỰC TẾ & KẾT QUẢ -->
-          <div class="shipping-fee-result-card" :class="isFeeAllowed ? 'fee-valid' : 'fee-invalid'">
-            <div class="fee-row">
-              <div class="fee-title-group">
-                <span class="carrier-icon">🚚</span>
-                <div>
-                  <strong>Cước phí vận chuyển GHN địa chỉ mới:</strong>
-                  <div class="fee-sub">{{ shippingMessage || 'Ước tính theo dịch vụ chuyển phát Giao Hàng Nhanh' }}</div>
-                </div>
-              </div>
-              <div class="fee-number-group">
-                <span v-if="loadingShipping" class="loading-spin">Đang tính...</span>
-                <span v-else class="fee-highlight" :class="{ 'fee-danger': !isFeeAllowed }">
-                  {{ calculatedFee != null ? formatCurrency(calculatedFee) : '—' }}
+          <div v-else-if="!savedAddresses.length && !showAddressForm" class="addr-empty-state">
+            Chưa có địa chỉ nào. Nhấn "+ Thêm địa chỉ mới" để tạo.
+          </div>
+          <div
+            v-for="addr in savedAddresses"
+            :key="addr.id"
+            class="addr-item-card"
+            :class="{
+              'is-default': addr.macDinh,
+              'is-active-choice': selectedAddressId === addr.id
+            }"
+            @click="selectAddressForOrder(addr)"
+          >
+            <div class="addr-card-main-col">
+              <div class="addr-card-header-row">
+                <span v-if="addr.macDinh" class="addr-default-badge">Mặc định</span>
+                <span class="addr-code-tag">{{ addr.maDiaChi || 'DC' }}</span>
+                <span v-if="selectedAddressId === addr.id" class="addr-active-choice-badge">
+                  ✓ Đang chọn nhận hàng
                 </span>
               </div>
+
+              <!-- Thông tin người nhận -->
+              <div class="addr-card-recipient-text">
+                <strong class="recipient-name">{{ addr.tenNguoiNhan || customerDisplayName }}</strong>
+                <span class="recipient-phone"> • {{ addr.soDienThoaiNhan || props.order?.soDienThoaiKhachHang || '—' }}</span>
+              </div>
+
+              <!-- Chuỗi địa chỉ -->
+              <div class="addr-card-address-text">
+                <strong>{{ addr.diaChiCuThe }}</strong>, {{ [addr.phuong, addr.huyen, addr.thanhPho].filter(Boolean).join(', ') }}
+              </div>
             </div>
 
-            <!-- Cảnh báo nếu phí mới vượt mức đối với đơn đã thanh toán -->
-            <div v-if="isPaidOrder && !isFeeAllowed" class="fee-error-banner">
-              ⚠️ <strong>Không được phép:</strong> Phí ship mới ({{ formatCurrency(calculatedFee) }}) cao hơn cước ban đầu ({{ formatCurrency(originalShippingFee) }}). Vui lòng chọn địa chỉ trong phạm vi cước phí đã thanh toán!
-            </div>
+            <!-- Các nút hành động bên phải -->
+            <div class="addr-card-btn-actions" @click.stop>
+              <button
+                type="button"
+                class="btn-text-act btn-select-addr"
+                :class="{ 'btn-selected-highlight': selectedAddressId === addr.id }"
+                @click="selectAddressForOrder(addr)"
+              >
+                {{ selectedAddressId === addr.id ? 'Đang chọn' : 'Giao đến đây' }}
+              </button>
 
-            <!-- Thông báo đối với đơn COD -->
-            <div v-else-if="!isPaidOrder && calculatedFee != null" class="fee-cod-info">
-              💵 <strong>Tổng tiền cần thanh toán khi nhận hàng (COD):</strong>
-              <span class="cod-final-highlight">{{ formatCurrency(newCodTotal) }}</span>
-            </div>
+              <button
+                v-if="!addr.macDinh && addr.id !== 'order_curr'"
+                type="button"
+                class="btn-text-act btn-set-default"
+                @click="setAsDefault(addr.id)"
+              >
+                Đặt làm mặc định
+              </button>
 
-            <!-- Thông báo thành công cho đơn đã thanh toán -->
-            <div v-else-if="isPaidOrder && isFeeAllowed && calculatedFee != null" class="fee-success-banner">
-              ✓ Cước phí hợp lệ (Không phát sinh thêm chi phí thanh toán).
+              <button
+                type="button"
+                class="btn-text-act btn-edit-addr"
+                @click="openEditAddressForm(addr)"
+              >
+                Sửa
+              </button>
+
+              <button
+                v-if="!addr.macDinh && addr.id !== 'order_curr'"
+                type="button"
+                class="btn-text-act btn-del-addr"
+                @click="deleteAddress(addr.id)"
+              >
+                Xóa
+              </button>
             </div>
           </div>
-        </form>
-      </div>
+        </div>
 
-      <!-- FOOTER ACTIONS -->
-      <div class="modal-footer">
-        <button type="button" class="btn-cancel" @click="handleClose" :disabled="submitting">
-          Hủy bỏ
-        </button>
-        <button
-          type="button"
-          class="btn-confirm-save"
-          :disabled="submitting || loadingShipping || !isFeeAllowed"
-          @click="handleSubmit"
-        >
-          <span v-if="submitting">Đang lưu...</span>
-          <span v-else>Xác nhận cập nhật</span>
-        </button>
+        <!-- KHU VỰC TÍNH PHÍ SHIP & TỔNG TIỀN THEO ĐỊA CHỈ ĐANG CHỌN (ẢNH MẪU 1) -->
+        <div v-if="selectedAddress" class="addr-order-calc-section">
+          <!-- Banner phân biệt COD vs ĐÃ THANH TOÁN -->
+          <div v-if="!isPaidOrder" class="payment-mode-banner cod-mode">
+            <div class="pmb-top-row">
+              <span class="pmb-badge cod-badge">THANH TOÁN KHI NHẬN HÀNG (COD)</span>
+              <span class="pmb-orig-ship">Phí ship ban đầu: <strong>{{ formatCurrency(originalShippingFee) }}</strong></span>
+            </div>
+            <p class="pmb-desc">
+              ✓ Đơn hàng thanh toán khi nhận hàng: Quý khách có thể đổi đến bất kỳ địa chỉ nào. Cước vận chuyển và tổng tiền thu COD sẽ tự động cập nhật lại.
+            </p>
+          </div>
+
+          <div v-else class="payment-mode-banner paid-mode">
+            <div class="pmb-top-row">
+              <span class="pmb-badge paid-badge">ĐÃ THANH TOÁN TRƯỚC</span>
+              <span class="pmb-orig-ship">Phí ship đã trả: <strong>{{ formatCurrency(originalShippingFee) }}</strong></span>
+            </div>
+            <p class="pmb-desc">
+              ℹ️ Đơn hàng đã thanh toán: Cước phí địa chỉ mới phải <strong>bằng hoặc thấp hơn</strong> cước ban đầu ({{ formatCurrency(originalShippingFee) }}).
+            </p>
+          </div>
+
+          <!-- Chi tiết cước GHN & Tổng COD -->
+          <div class="shipping-fee-preview-box" :class="{ 'fee-warning-box': !isFeeAllowed }">
+            <div class="sfp-row">
+              <div class="sfp-left">
+                <span class="ghn-icon">🚚</span>
+                <div>
+                  <div class="sfp-title">Cước phí vận chuyển GHN địa chỉ mới:</div>
+                  <div class="sfp-sub">{{ loadingShipping ? 'Đang tính cước...' : shippingMessage }}</div>
+                </div>
+              </div>
+              <div class="sfp-price" :class="{ 'text-red': !isFeeAllowed }">
+                {{ loadingShipping ? '...' : formatCurrency(calculatedFee != null ? calculatedFee : originalShippingFee) }}
+              </div>
+            </div>
+
+            <!-- Tổng COD nếu là đơn COD -->
+            <div v-if="!isPaidOrder" class="cod-final-row">
+              <span class="cod-label">💵 Tổng tiền cần thanh toán khi nhận hàng (COD):</span>
+              <strong class="cod-val">{{ formatCurrency(newCodTotal) }}</strong>
+            </div>
+
+            <!-- Cảnh báo nếu đơn đã thanh toán bị vượt cước -->
+            <div v-if="!isFeeAllowed" class="fee-error-alert">
+              ⚠️ Không thể áp dụng địa chỉ này! Cước phí mới ({{ formatCurrency(calculatedFee) }}) vượt quá cước đã thanh toán ({{ formatCurrency(originalShippingFee) }}). Vui lòng chọn địa chỉ có khoảng cách tương đương hoặc gần hơn.
+            </div>
+          </div>
+
+          <!-- Ô ghi chú bổ sung khi giao hàng -->
+          <div class="order-edit-note-field">
+            <label>Ghi chú giao hàng mới (Tùy chọn):</label>
+            <input
+              v-model="ghiChuMoi"
+              type="text"
+              placeholder="Ví dụ: Giao giờ hành chính, gọi trước khi đến..."
+              class="addr-form-input note-input"
+            />
+          </div>
+
+          <!-- Nút xác nhận đổi đơn hàng -->
+          <div class="order-confirm-actions-row">
+            <button type="button" class="btn-cancel-addr" @click="handleClose">
+              Hủy bỏ
+            </button>
+            <button
+              type="button"
+              class="btn-confirm-order-addr"
+              :disabled="submitting || loadingShipping || !isFeeAllowed"
+              @click="handleConfirmOrderUpdate"
+            >
+              {{ submitting ? 'Đang cập nhật...' : 'Xác nhận cập nhật' }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.modal-edit-addr-backdrop {
+/* Modal backdrop & card */
+.client-addr-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 9999;
-  background: rgba(15, 23, 42, 0.65);
+  z-index: 999999;
+  background-color: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: 16px;
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-.modal-edit-addr-dialog {
+.client-addr-modal-card {
+  width: 100%;
+  max-width: 680px;
+  max-height: 92vh;
   background: #ffffff;
   border-radius: 16px;
-  width: 100%;
-  max-width: 620px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
-  max-height: 92vh;
   overflow: hidden;
-  animation: modalPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: modalScaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes modalPopIn {
+@keyframes modalScaleIn {
   from {
     opacity: 0;
-    transform: scale(0.96) translateY(10px);
+    transform: scale(0.96);
   }
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: scale(1);
   }
 }
 
-/* HEADER */
-.modal-header {
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #f1f5f9;
+/* Header */
+.client-addr-modal-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  background: #fafbfc;
-}
-
-.header-left {
-  display: flex;
   align-items: center;
-  gap: 0.75rem;
+  padding: 18px 24px;
+  border-bottom: 1px solid #f1ece4;
+  background-color: #fcfbf9;
 }
 
-.header-icon-wrap {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: #eff6ff;
-  color: #2563eb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal-title {
-  margin: 0;
-  font-size: 1.15rem;
+.client-addr-modal-title {
+  font-size: 1.18rem;
   font-weight: 700;
-  color: #0f172a;
+  color: #1e3a5f;
+  margin: 0;
 }
 
-.modal-subtitle {
-  font-size: 0.825rem;
-  color: #64748b;
-}
-
-.btn-close-modal {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+.client-addr-close-btn {
+  background: none;
   border: none;
-  background: #f1f5f9;
-  color: #64748b;
+  font-size: 1.7rem;
+  line-height: 1;
+  color: #94a3b8;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-  transition: all 0.15s;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
 }
 
-.btn-close-modal:hover {
-  background: #e2e8f0;
+.client-addr-close-btn:hover {
   color: #0f172a;
+  background: #f1f5f9;
 }
 
-/* BODY */
-.modal-body {
-  padding: 1.25rem 1.5rem;
+/* Body */
+.client-addr-modal-body {
+  padding: 20px 24px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 1.15rem;
+  gap: 16px;
 }
 
-/* NOTICE BOX */
-.alert-notice-box {
-  background: #fffbeb;
-  border: 1px solid #fde68a;
+/* Policy banner */
+.addr-policy-banner {
+  background: #fefce8;
+  border: 1px solid #fef08a;
   border-radius: 10px;
-  padding: 0.75rem 1rem;
+  padding: 12px 14px;
   display: flex;
   align-items: flex-start;
-  gap: 0.65rem;
-  font-size: 0.85rem;
-  color: #92400e;
+  gap: 10px;
+  color: #854d0e;
+  font-size: 0.88rem;
   line-height: 1.45;
 }
 
-.alert-notice-box .alert-icon {
+.banner-icon-box {
   font-size: 1.1rem;
 }
 
-/* PAYMENT POLICY CARD */
-.payment-policy-card {
+/* Top bar: total & add button */
+.addr-top-actions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.addr-total-count {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.btn-primary-addr-sm {
+  background: #2b3a4a;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary-addr-sm:hover {
+  background: #1e293b;
+}
+
+/* Box form thêm / sửa địa chỉ */
+.addr-inline-form-box {
+  background-color: #fdfbf7;
+  border: 1px solid #eedecb;
   border-radius: 12px;
-  padding: 0.85rem 1.1rem;
-  border: 1px solid transparent;
+  padding: 18px;
+}
+
+.addr-form-box-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #2c445a;
+  margin: 0 0 14px 0;
+}
+
+.addr-form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.addr-form-field {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
 }
 
-.payment-policy-card.paid-card {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
+.addr-form-field.full-width {
+  grid-column: span 2;
 }
 
-.payment-policy-card.cod-card {
-  background: #eff6ff;
-  border-color: #bfdbfe;
+.addr-form-field label {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 6px;
 }
 
-.policy-header {
+.req-star {
+  color: #ef4444;
+}
+
+.addr-form-select,
+.addr-form-input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 0.92rem;
+  color: #0f172a;
+  background-color: #ffffff;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.addr-form-select:focus,
+.addr-form-input:focus {
+  border-color: #2563eb;
+}
+
+.addr-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.addr-checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+}
+
+.addr-form-button-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.btn-cancel-addr {
+  height: 38px;
+  padding: 0 18px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel-addr:hover {
+  background-color: #f1f5f9;
+}
+
+.btn-save-addr {
+  height: 38px;
+  padding: 0 20px;
+  border-radius: 8px;
+  border: none;
+  background-color: #2b3a4a;
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-save-addr:hover {
+  background-color: #1e293b;
+}
+
+.btn-save-addr:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Danh sách địa chỉ dạng thẻ */
+.addr-items-scroll-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.addr-empty-state {
+  text-align: center;
+  padding: 24px 16px;
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
+.addr-item-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background-color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.addr-item-card:hover {
+  border-color: #93c5fd;
+  background-color: #fafcff;
+}
+
+.addr-item-card.is-default {
+  background-color: #f8fafc;
+}
+
+.addr-item-card.is-active-choice {
+  border: 2px solid #2563eb !important;
+  background-color: #f0f7ff !important;
+}
+
+.addr-card-main-col {
+  flex: 1;
+}
+
+.addr-card-header-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
-.policy-badge {
+.addr-default-badge {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+  border-radius: 4px;
   font-size: 0.72rem;
   font-weight: 700;
-  padding: 0.25rem 0.6rem;
+  padding: 2px 7px;
+}
+
+.addr-code-tag {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.addr-active-choice-badge {
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+}
+
+.addr-card-recipient-text {
+  font-size: 0.9rem;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.recipient-name {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.recipient-phone {
+  color: #475569;
+  font-weight: 500;
+}
+
+.addr-card-address-text {
+  font-size: 0.9rem;
+  color: #334155;
+  line-height: 1.45;
+}
+
+/* Nút hành động bên phải thẻ */
+.addr-card-btn-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-text-act {
+  background: none;
+  border: none;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.btn-select-addr {
+  background-color: #eff6ff;
+  color: #2563eb;
+}
+
+.btn-select-addr:hover {
+  background-color: #dbeafe;
+}
+
+.btn-selected-highlight {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.btn-set-default {
+  color: #475569;
+}
+
+.btn-set-default:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.btn-edit-addr {
+  color: #475569;
+}
+
+.btn-edit-addr:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.btn-del-addr {
+  color: #ef4444;
+}
+
+.btn-del-addr:hover {
+  background-color: #fef2f2;
+}
+
+/* Panel tính cước & tổng thanh toán khi đã chọn địa chỉ */
+.addr-order-calc-section {
+  border-top: 1px dashed #cbd5e1;
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.payment-mode-banner {
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.payment-mode-banner.cod-mode {
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.payment-mode-banner.paid-mode {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.pmb-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.pmb-badge {
+  font-size: 0.76rem;
+  font-weight: 800;
+  padding: 3px 8px;
   border-radius: 6px;
   letter-spacing: 0.5px;
 }
 
-.badge-paid {
-  background: #16a34a;
+.cod-badge {
+  background-color: #2563eb;
   color: #ffffff;
 }
 
-.badge-cod {
-  background: #2563eb;
+.paid-badge {
+  background-color: #16a34a;
   color: #ffffff;
 }
 
-.orig-fee {
-  font-size: 0.825rem;
+.pmb-orig-ship {
+  font-size: 0.88rem;
   color: #475569;
 }
 
-.orig-fee strong {
-  color: #0f172a;
-}
-
-.policy-desc {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  font-size: 0.825rem;
+.pmb-desc {
+  font-size: 0.84rem;
   color: #334155;
+  margin: 0;
   line-height: 1.4;
 }
 
-.policy-desc svg {
-  flex-shrink: 0;
-  margin-top: 2px;
-  color: #16a34a;
-}
-
-/* FORM GRID */
-.edit-form-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 0.95rem;
-}
-
-.form-row-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.85rem;
-}
-
-@media (max-width: 540px) {
-  .form-row-2 {
-    grid-template-columns: 1fr;
-  }
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.form-label {
-  font-size: 0.825rem;
-  font-weight: 600;
-  color: #334155;
-}
-
-.required {
-  color: #ef4444;
-}
-
-.form-control,
-.form-select {
-  height: 42px;
-  padding: 0 0.85rem;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 9px;
-  font-size: 0.875rem;
-  color: #0f172a;
-  background: #ffffff;
-  transition: all 0.15s;
-  outline: none;
-}
-
-.form-control:focus,
-.form-select:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-}
-
-.form-control.has-error,
-.form-select.has-error {
-  border-color: #ef4444;
-  background: #fef2f2;
-}
-
-.error-msg {
-  font-size: 0.75rem;
-  color: #ef4444;
-  margin-top: 0.15rem;
-}
-
-/* SHIPPING FEE RESULT CARD */
-.shipping-fee-result-card {
+.shipping-fee-preview-box {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 0.95rem 1.15rem;
-  border: 1.5px solid #e2e8f0;
-  background: #f8fafc;
+  padding: 14px 18px;
+}
+
+.fee-warning-box {
+  background-color: #fff1f2;
+  border-color: #fecdd3;
+}
+
+.sfp-row {
   display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  transition: all 0.2s;
-}
-
-.shipping-fee-result-card.fee-valid {
-  border-color: #cbd5e1;
-}
-
-.shipping-fee-result-card.fee-invalid {
-  border-color: #fca5a5;
-  background: #fff5f5;
-}
-
-.fee-row {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  align-items: center;
 }
 
-.fee-title-group {
+.sfp-left {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 10px;
 }
 
-.carrier-icon {
-  font-size: 1.35rem;
+.ghn-icon {
+  font-size: 1.5rem;
 }
 
-.fee-title-group strong {
-  font-size: 0.875rem;
+.sfp-title {
+  font-size: 0.92rem;
+  font-weight: 700;
   color: #1e293b;
 }
 
-.fee-sub {
-  font-size: 0.75rem;
+.sfp-sub {
+  font-size: 0.8rem;
   color: #64748b;
 }
 
-.fee-highlight {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #2563eb;
-}
-
-.fee-highlight.fee-danger {
-  color: #dc2626;
-}
-
-.fee-error-banner {
-  background: #fee2e2;
-  color: #b91c1c;
-  border-radius: 8px;
-  padding: 0.65rem 0.85rem;
-  font-size: 0.825rem;
-  line-height: 1.4;
-}
-
-.fee-cod-info {
-  background: #eff6ff;
-  border: 1px dashed #93c5fd;
-  color: #1e40af;
-  border-radius: 8px;
-  padding: 0.65rem 0.85rem;
-  font-size: 0.825rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.cod-final-highlight {
-  font-size: 1rem;
+.sfp-price {
+  font-size: 1.15rem;
   font-weight: 800;
   color: #2563eb;
 }
 
-.fee-success-banner {
-  color: #15803d;
-  font-size: 0.8rem;
-  font-weight: 600;
+.text-red {
+  color: #dc2626 !important;
 }
 
-/* FOOTER */
-.modal-footer {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid #f1f5f9;
-  background: #fafbfc;
+.cod-final-row {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: flex-end;
-  gap: 0.75rem;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #cbd5e1;
 }
 
-.btn-cancel {
-  padding: 0.65rem 1.25rem;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
+.cod-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e3a5f;
+}
+
+.cod-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #1e40af;
+}
+
+.fee-error-alert {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background-color: #fee2e2;
+  color: #b91c1c;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.order-edit-note-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.order-edit-note-field label {
+  font-size: 0.85rem;
+  font-weight: 600;
   color: #475569;
-  border-radius: 9px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
 }
 
-.btn-cancel:hover:not(:disabled) {
-  background: #f1f5f9;
-  color: #0f172a;
+.note-input {
+  font-size: 0.88rem;
 }
 
-.btn-confirm-save {
-  padding: 0.65rem 1.45rem;
+.order-confirm-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.btn-confirm-order-addr {
+  height: 42px;
+  padding: 0 24px;
+  border-radius: 8px;
   border: none;
-  background: #2563eb;
+  background-color: #2563eb;
   color: #ffffff;
-  border-radius: 9px;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s;
-  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);
 }
 
-.btn-confirm-save:hover:not(:disabled) {
-  background: #1d4ed8;
-  transform: translateY(-1px);
+.btn-confirm-order-addr:hover:not(:disabled) {
+  background-color: #1d4ed8;
 }
 
-.btn-confirm-save:disabled {
-  opacity: 0.55;
+.btn-confirm-order-addr:disabled {
+  background-color: #94a3b8;
   cursor: not-allowed;
-  transform: none;
+  box-shadow: none;
 }
 </style>

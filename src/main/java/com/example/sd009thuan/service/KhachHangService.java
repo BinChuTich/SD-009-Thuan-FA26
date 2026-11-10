@@ -186,6 +186,12 @@ public class KhachHangService {
         addr.setHuyen(dto.huyen() != null ? dto.huyen().trim() : "");
         addr.setPhuong(dto.phuong().trim());
         addr.setDiaChiCuThe(dto.diaChiCuThe().trim());
+        if (dto.tenNguoiNhan() != null && !dto.tenNguoiNhan().trim().isEmpty()) {
+            addr.setTenNguoiNhan(dto.tenNguoiNhan().trim());
+        }
+        if (dto.soDienThoaiNhan() != null && !dto.soDienThoaiNhan().trim().isEmpty()) {
+            addr.setSoDienThoaiNhan(dto.soDienThoaiNhan().trim());
+        }
         addr.setMacDinh(setAsDefault);
         addr.setTrangThai(1);
         return toAddressDto(addressRepo.save(addr));
@@ -214,6 +220,12 @@ public class KhachHangService {
         addr.setHuyen(dto.huyen() != null ? dto.huyen().trim() : "");
         addr.setPhuong(dto.phuong().trim());
         addr.setDiaChiCuThe(dto.diaChiCuThe().trim());
+        if (dto.tenNguoiNhan() != null) {
+            addr.setTenNguoiNhan(dto.tenNguoiNhan().trim());
+        }
+        if (dto.soDienThoaiNhan() != null) {
+            addr.setSoDienThoaiNhan(dto.soDienThoaiNhan().trim());
+        }
         return toAddressDto(addressRepo.save(addr));
     }
 
@@ -261,7 +273,9 @@ public class KhachHangService {
                 a.getPhuong(),
                 a.getDiaChiCuThe(),
                 a.getMacDinh(),
-                a.getTrangThai()
+                a.getTrangThai(),
+                a.getSoDienThoaiNhan(),
+                a.getTenNguoiNhan()
         );
     }
 
