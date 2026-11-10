@@ -105,10 +105,11 @@ public class ThongKeServiceImpl implements ThongKeService {
         // 2. Tính toán Donut Trạng thái đơn hàng (Đã hủy, Hoàn thành, Đang xử lý)
         OrderStatusDonutDTO orderStatusDonut = buildOrderStatusDonut(allInvoices);
 
-        // 3. Lọc các hóa đơn hợp lệ ghi nhận doanh thu: Hoàn thành (5) hoặc Đã thanh toán (trangThaiThanhToan = 1) và Không bị hủy (trangThai != 6)
+        // 3. Lọc các hóa đơn hợp lệ ghi nhận doanh thu và lượt bán:
+        // ĐƠN HÀNG PHẢI ĐÃ ĐƯỢC XÁC NHẬN HOẶC HOÀN THÀNH (trangThai từ 2 đến 5).
+        // Tuyệt đối không tính các đơn chưa xác nhận (trangThai == 1), đơn hủy (6), hoặc thất bại (7)!
         List<HoaDon> validInvoices = allInvoices.stream()
-                .filter(h -> (Integer.valueOf(5).equals(h.getTrangThai()) || Integer.valueOf(1).equals(h.getTrangThaiThanhToan()))
-                        && !Integer.valueOf(6).equals(h.getTrangThai()))
+                .filter(h -> h.getTrangThai() != null && h.getTrangThai() >= 2 && h.getTrangThai() <= 5)
                 .toList();
 
         List<Long> validInvoiceIds = validInvoices.stream().map(HoaDon::getId).toList();
@@ -571,16 +572,14 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
         Instant cEnd = currEnd.atTime(LocalTime.MAX).atZone(zone).toInstant();
         List<HoaDon> currInvoices = hoaDonRepository.findByNgayTaoBetween(cStart, cEnd).stream()
                 .filter(h -> !isWaitingInvoice(h))
-                .filter(h -> (Integer.valueOf(5).equals(h.getTrangThai()) || Integer.valueOf(1).equals(h.getTrangThaiThanhToan()))
-                        && !Integer.valueOf(6).equals(h.getTrangThai()))
+                .filter(h -> h.getTrangThai() != null && h.getTrangThai() >= 2 && h.getTrangThai() <= 5)
                 .toList();
 
         Instant pStart = prevStart.atStartOfDay(zone).toInstant();
         Instant pEnd = prevEnd.atTime(LocalTime.MAX).atZone(zone).toInstant();
         List<HoaDon> prevInvoices = hoaDonRepository.findByNgayTaoBetween(pStart, pEnd).stream()
                 .filter(h -> !isWaitingInvoice(h))
-                .filter(h -> (Integer.valueOf(5).equals(h.getTrangThai()) || Integer.valueOf(1).equals(h.getTrangThaiThanhToan()))
-                        && !Integer.valueOf(6).equals(h.getTrangThai()))
+                .filter(h -> h.getTrangThai() != null && h.getTrangThai() >= 2 && h.getTrangThai() <= 5)
                 .toList();
 
         BigDecimal currRevenue = BigDecimal.ZERO;
@@ -955,8 +954,7 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
             Instant toInstant = def.end.atTime(LocalTime.MAX).atZone(zone).toInstant();
 
             List<HoaDon> invoices = hoaDonRepository.findByNgayTaoBetween(fromInstant, toInstant).stream()
-                    .filter(h -> (Integer.valueOf(5).equals(h.getTrangThai()) || Integer.valueOf(1).equals(h.getTrangThaiThanhToan()))
-                            && !Integer.valueOf(6).equals(h.getTrangThai()))
+                    .filter(h -> h.getTrangThai() != null && h.getTrangThai() >= 2 && h.getTrangThai() <= 5)
                     .toList();
 
             List<Long> invIds = invoices.stream().map(HoaDon::getId).toList();

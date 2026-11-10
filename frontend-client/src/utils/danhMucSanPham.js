@@ -103,6 +103,11 @@ const CACHE_TTL_MS = 30000 // 30s cache
 
  */
 
+export function clearSalesMapCache() {
+  cachedSalesMap = null
+  cacheTimestamp = 0
+}
+
 export async function getProductSalesMap(forceRefresh = false) {
 
   const now = Date.now()
@@ -152,69 +157,46 @@ export async function getProductSalesMap(forceRefresh = false) {
 
 
   try {
-
-    // 2. Lấy thêm tất cả các hóa đơn không bị hủy (trangThai != 6) để tính số lượng bán thời gian thực
-
+    // 2. Lấy thêm tất cả các hóa đơn ĐÃ XÁC NHẬN (trangThai >= 2 và <= 5) để tính số lượng bán thời gian thực
     const resOrders = await api.get('/api/hoa-don')
-
     const orders = Array.isArray(resOrders.data) ? resOrders.data : (resOrders.data?.value || [])
-
     
-
-    // Đơn không bị hủy
-
-    const validOrders = orders.filter(h => h && h.trangThai !== 6 && h.id)
-
+    // Đơn đã được xác nhận (trangThai >= 2 và <= 5).
+    // Đơn chưa xác nhận (trangThai == 1), đơn hủy (6), đơn thất bại (7) TUYỆT ĐỐI KHÔNG TÍNH vào lượt bán!
+    const validOrders = orders.filter(h => h && h.id && Number(h.trangThai) >= 2 && Number(h.trangThai) <= 5)
     
-
     // Lấy chi tiết các đơn hợp lệ song song
-
     const detailPromises = validOrders.map(h => 
-
       api.get(`/api/hoa-don/${h.id}/chi-tiet`)
-
         .then(r => Array.isArray(r.data) ? r.data : (r.data?.value || []))
-
         .catch(() => [])
-
     )
-
     const allDetailsList = await Promise.all(detailPromises)
 
-
-
     // Tính tổng số lượng bán thực tế chính xác theo từng sản phẩm
-
     const liveMap = {}
-
     allDetailsList.flat().forEach(d => {
-
       const spId = d?.idChiTietSanPham?.idSanPham?.id || d?.idSanPham
-
       const qty = Number(d?.soLuong || 1)
-
       if (spId) {
-
         liveMap[spId] = (liveMap[spId] || 0) + qty
-
       }
-
     })
 
-
-
-    // Hợp nhất (lấy số lớn nhất giữa liveMap và thống kê để đảm bảo chính xác nhất)
-
+    // Đồng bộ chuẩn: Ghi đè bằng số lượng thực tế từ các đơn đã xác nhận
     Object.keys(liveMap).forEach(id => {
-
-      map[id] = Math.max(map[id] || 0, liveMap[id])
-
+      map[id] = liveMap[id]
     })
-
+    // Các sản phẩm không có đơn đã xác nhận thì lượt bán là 0
+    if (resThongKe?.data?.products && Array.isArray(resThongKe.data.products)) {
+      resThongKe.data.products.forEach(p => {
+        if (p.id && !liveMap[p.id]) {
+          map[p.id] = 0
+        }
+      })
+    }
   } catch (e) {
-
     console.warn('Lỗi tính lượt bán thực tế:', e)
-
   }
 
 

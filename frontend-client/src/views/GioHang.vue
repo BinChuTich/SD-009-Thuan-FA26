@@ -30,7 +30,7 @@ import {
 
 } from '@/utils/luuTruGioHang.js'
 
-import { getMergedProducts } from '@/utils/danhMucSanPham.js'
+import { getMergedProducts, clearSalesMapCache } from '@/utils/danhMucSanPham.js'
 
 import { showAppConfirm, showAppAlert, showAppToast } from '@/utils/thongBaoDialog.js'
 
@@ -2471,6 +2471,7 @@ const executePlaceOrder = async () => {
     const savedOrder = res.data
 
     createdOrder.value = savedOrder
+    clearSalesMapCache()
 
 
 

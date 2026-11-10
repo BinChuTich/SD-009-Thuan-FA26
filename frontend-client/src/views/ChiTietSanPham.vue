@@ -125,7 +125,7 @@ const loadProductData = async (id) => {
 
     try {
 
-      const salesMap = await getProductSalesMap()
+      const salesMap = await getProductSalesMap(true)
 
       if (prodData && prodData.id) {
 
