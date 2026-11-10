@@ -3,6 +3,7 @@ package com.example.sd009thuan.service;
 
 
 import com.example.sd009thuan.dto.DatHangOnlineDTO;
+import com.example.sd009thuan.dto.KhachSuaDonDTO;
 
 
 
@@ -9065,5 +9066,117 @@ public class HoaDonService {
             ctsp.setSoLuong(cur + cthd.getSoLuong());
             chiTietSanPhamRepository.save(ctsp);
         }
+    }
+
+    @Transactional
+    public HoaDon khachSuaThongTinDonHang(String maHoaDon, KhachSuaDonDTO dto) {
+        if (dto == null) {
+            throw new IllegalArgumentException("Dữ liệu cập nhật không hợp lệ!");
+        }
+
+        HoaDon hoaDon = hoaDonRepository.findByMaHoaDon(maHoaDon)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng với mã: " + maHoaDon));
+
+        // 1. Kiểm tra loại đơn: Phải là đơn Online
+        boolean isOnline = Integer.valueOf(2).equals(hoaDon.getLoaiDon()) 
+                || (hoaDon.getGhiChu() != null && hoaDon.getGhiChu().toLowerCase().contains("online"));
+        if (!isOnline) {
+            throw new IllegalStateException("Chỉ áp dụng sửa thông tin cho đơn hàng đặt online!");
+        }
+
+        // 2. Kiểm tra trạng thái: Phải ở trạng thái Chờ xác nhận (1)
+        if (!Integer.valueOf(1).equals(hoaDon.getTrangThai())) {
+            throw new IllegalStateException("Đơn hàng đã được nhân viên tiếp nhận hoặc đã chuyển trạng thái, không thể chỉnh sửa nữa!");
+        }
+
+        // 3. Kiểm tra số lần sửa: Chỉ được sửa 1 lần duy nhất
+        if (hoaDon.getSoLanSuaThongTin() != null && hoaDon.getSoLanSuaThongTin() >= 1) {
+            throw new IllegalStateException("Đơn hàng chỉ được phép chỉnh sửa thông tin nhận hàng 1 lần duy nhất!");
+        }
+
+        // Lưu lại thông tin cũ để ghi log lịch sử
+        String tenCu = hoaDon.getTenKhachHangHienThi();
+        String sdtCu = hoaDon.getSoDienThoaiHienThi();
+        String diaChiCu = hoaDon.getDiaChiNhanHang();
+        BigDecimal phiShipCu = hoaDon.getPhiVanChuyen() != null ? hoaDon.getPhiVanChuyen() : BigDecimal.ZERO;
+        BigDecimal phiShipMoi = dto.getPhiVanChuyenMoi() != null ? dto.getPhiVanChuyenMoi() : phiShipCu;
+
+        // 4. Kiểm tra phương thức thanh toán
+        boolean daThanhToan = Integer.valueOf(1).equals(hoaDon.getTrangThaiThanhToan());
+        
+        if (daThanhToan) {
+            // Đơn đã chuyển khoản / VNPAY: Phí ship mới không được cao hơn phí ship ban đầu
+            if (phiShipMoi.compareTo(phiShipCu) > 0) {
+                java.text.NumberFormat nf = java.text.NumberFormat.getInstance(new java.util.Locale("vi", "VN"));
+                throw new IllegalArgumentException("Đơn hàng đã thanh toán trước. Phí ship địa chỉ mới (" 
+                        + nf.format(phiShipMoi) + " đ) cao hơn phí ship đã thanh toán (" 
+                        + nf.format(phiShipCu) + " đ). Quý khách không thể đổi sang địa chỉ này!");
+            }
+        } else {
+            // Đơn COD (chưa thanh toán): Cập nhật phí ship mới và tính lại tổng tiền thu COD
+            BigDecimal tienHangSauVoucher = hoaDon.getTienSauGiamGia() != null ? hoaDon.getTienSauGiamGia().subtract(phiShipCu) : hoaDon.getTongTien();
+            if (tienHangSauVoucher == null || tienHangSauVoucher.compareTo(BigDecimal.ZERO) < 0) {
+                tienHangSauVoucher = BigDecimal.ZERO;
+            }
+            hoaDon.setPhiVanChuyen(phiShipMoi);
+            hoaDon.setTienSauGiamGia(tienHangSauVoucher.add(phiShipMoi));
+        }
+
+        // 5. Cập nhật thông tin nhận hàng
+        if (dto.getTenNguoiNhan() != null && !dto.getTenNguoiNhan().trim().isEmpty()) {
+            hoaDon.setTenKhachHang(dto.getTenNguoiNhan().trim());
+        }
+        if (dto.getSoDienThoaiNhan() != null && !dto.getSoDienThoaiNhan().trim().isEmpty()) {
+            hoaDon.setSoDienThoaiKhachHang(dto.getSoDienThoaiNhan().trim());
+        }
+        if (dto.getDiaChiNhanHang() != null && !dto.getDiaChiNhanHang().trim().isEmpty()) {
+            hoaDon.setDiaChiNhanHang(dto.getDiaChiNhanHang().trim());
+        }
+
+        // 6. Đánh dấu đã sửa thông tin 1 lần
+        hoaDon.setSoLanSuaThongTin(1);
+        String note = hoaDon.getGhiChu() != null ? hoaDon.getGhiChu() : "";
+        if (!note.contains("[DA_SUA_THONG_TIN]")) {
+            note = "[DA_SUA_THONG_TIN] " + note;
+        }
+        if (dto.getGhiChu() != null && !dto.getGhiChu().trim().isEmpty()) {
+            note += " [Ghi chú mới: " + dto.getGhiChu().trim() + "]";
+        }
+        hoaDon.setGhiChu(note);
+        hoaDon.setNgayCapNhat(Instant.now());
+        hoaDon.setNguoiCapNhat("Khách hàng online");
+
+        HoaDon saved = hoaDonRepository.save(hoaDon);
+
+        // 7. Ghi lịch sử đơn hàng (Audit Log)
+        try {
+            LichSuHoaDon log = new LichSuHoaDon();
+            log.setIdHoaDon(saved);
+            log.setTrangThai(saved.getTrangThai()); // 1
+            log.setThoiGian(Instant.now());
+            log.setNguoiThucHien("Khách hàng online");
+            log.setVaiTroNguoiThucHien("Khách hàng");
+            
+            StringBuilder sb = new StringBuilder();
+            sb.append("Khách hàng cập nhật thông tin nhận đơn (1 lần duy nhất): ");
+            if (dto.getTenNguoiNhan() != null && !dto.getTenNguoiNhan().equals(tenCu)) {
+                sb.append("Tên: '").append(tenCu).append("' -> '").append(dto.getTenNguoiNhan()).append("'; ");
+            }
+            if (dto.getSoDienThoaiNhan() != null && !dto.getSoDienThoaiNhan().equals(sdtCu)) {
+                sb.append("SĐT: '").append(sdtCu).append("' -> '").append(dto.getSoDienThoaiNhan()).append("'; ");
+            }
+            sb.append("Địa chỉ: '").append(diaChiCu != null ? diaChiCu : "").append("' -> '").append(saved.getDiaChiNhanHang()).append("'. ");
+            if (!daThanhToan && phiShipCu.compareTo(phiShipMoi) != 0) {
+                sb.append("Phí ship: ").append(phiShipCu).append(" đ -> ").append(phiShipMoi).append(" đ (Cập nhật tiền COD).");
+            } else if (daThanhToan) {
+                sb.append("Đơn đã thanh toán trước (Phí ship ban đầu: ").append(phiShipCu).append(" đ, Phí ship địa chỉ mới: ").append(phiShipMoi).append(" đ).");
+            }
+            log.setGhiChu(sb.toString());
+            lichSuHoaDonRepository.save(log);
+        } catch (Exception e) {
+            System.err.println("Lỗi lưu lịch sử hóa đơn khi khách sửa thông tin: " + e.getMessage());
+        }
+
+        return saved;
     }
 }

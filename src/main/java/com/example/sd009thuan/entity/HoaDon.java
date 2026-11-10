@@ -267,6 +267,25 @@ public class HoaDon {
         this.maVanDon = maVanDon;
     }
 
+    // Số lần khách hàng online sửa thông tin nhận đơn (tối đa 1 lần)
+    @Transient
+    private Integer soLanSuaThongTin;
+
+    @JsonProperty("soLanSuaThongTin")
+    public Integer getSoLanSuaThongTin() {
+        if (this.soLanSuaThongTin != null) {
+            return this.soLanSuaThongTin;
+        }
+        if (this.ghiChu != null && this.ghiChu.contains("[DA_SUA_THONG_TIN]")) {
+            return 1;
+        }
+        return 0;
+    }
+
+    public void setSoLanSuaThongTin(Integer soLanSuaThongTin) {
+        this.soLanSuaThongTin = soLanSuaThongTin;
+    }
+
     // Chi tiết hóa đơn
     @JsonIgnore
     @OneToMany(mappedBy = "idHoaDon", cascade = CascadeType.ALL, orphanRemoval = true)

@@ -4,6 +4,8 @@ import { useRoute } from 'vue-router'
 import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
 import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
+import ModalSuaThongTinDon from '@/components/DonHang/ModalSuaThongTinDon.vue'
+import { showAppAlert } from '@/utils/thongBaoDialog.js'
 
 const route = useRoute()
 
@@ -15,6 +17,31 @@ const orderItems = ref([])
 const orderLogs = ref([])
 const errorMsg = ref('')
 const showSuccessToast = ref(false)
+const showEditAddressModal = ref(false)
+
+const openEditAddressModal = () => {
+  if (!order.value) return
+  if (order.value.trangThai !== 1) {
+    showAppAlert('Đơn hàng đã được tiếp nhận xử lý, không thể thay đổi thông tin nữa!', 'Thông báo', 'warning')
+    return
+  }
+  if (order.value.soLanSuaThongTin >= 1) {
+    showAppAlert('Đơn hàng này đã được thay đổi thông tin nhận hàng 1 lần trước đó!', 'Thông báo', 'warning')
+    return
+  }
+  showEditAddressModal.value = true
+}
+
+const handleOrderInfoUpdated = (updatedOrder) => {
+  if (updatedOrder && order.value) {
+    Object.assign(order.value, updatedOrder)
+  }
+  if (order.value && order.value.maHoaDon) {
+    loadOrderDetails(order.value.maHoaDon)
+    loadOrderLogs(order.value.maHoaDon)
+  }
+  triggerSuccess()
+}
 
 const triggerSuccess = () => {
   showSuccessToast.value = true
@@ -810,6 +837,22 @@ onUnmounted(() => {
           <div class="panel-box-item">
             <div class="panel-box-header">
               <h4 class="panel-box-title">📍 Thông tin nhận hàng</h4>
+              <button
+                type="button"
+                class="btn-edit-inline-chip"
+                v-if="order.trangThai === 1 && (!order.soLanSuaThongTin || order.soLanSuaThongTin < 1)"
+                @click="openEditAddressModal"
+                title="Thay đổi thông tin nhận hàng (Chỉ được sửa 1 lần)"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+                <span>Thay đổi</span>
+              </button>
+              <span v-else-if="order.soLanSuaThongTin >= 1" class="badge-edited-chip">
+                ✓ Đã sửa (1/1)
+              </span>
             </div>
             <div class="panel-box-content">
               <div class="panel-field-row">
@@ -961,9 +1004,54 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
+
+  <!-- Modal Sửa thông tin nhận hàng (1 lần duy nhất) -->
+  <ModalSuaThongTinDon
+    v-model="showEditAddressModal"
+    :order="order"
+    @updated="handleOrderInfoUpdated"
+  />
 </template>
 
 <style scoped>
+.shipping-item-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.btn-edit-inline-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #2563eb;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-edit-inline-chip:hover {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+}
+
+.badge-edited-chip {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+}
 .tracking-page-wrap {
   background-color: #f8fafc;
   min-height: 85vh;

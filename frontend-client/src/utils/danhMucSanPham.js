@@ -153,17 +153,20 @@ export async function getProductSalesMap(forceRefresh = false) {
 
   try {
 
-    // 2. Lấy thêm tất cả các hóa đơn không bị hủy (trangThai != 6) để tính số lượng bán thời gian thực
-
+    // 2. Lấy thêm tất cả các hóa đơn đã được xác nhận (trangThai >= 2) để tính số lượng bán thời gian thực
+    // TUYỆT ĐỐI KHÔNG TÍNH: Đơn chờ xác nhận (trangThai === 1) và Đơn đã hủy (trangThai === 6)
     const resOrders = await api.get('/api/hoa-don')
 
     const orders = Array.isArray(resOrders.data) ? resOrders.data : (resOrders.data?.value || [])
 
     
 
-    // Đơn không bị hủy
-
-    const validOrders = orders.filter(h => h && h.trangThai !== 6 && h.id)
+    // Đơn hợp lệ đã bán: Chỉ tính khi nhân viên đã xác nhận đơn trở lên (trangThai >= 2)
+    const validOrders = orders.filter(h => {
+      if (!h || !h.id) return false
+      const st = Number(h.trangThai)
+      return st >= 2 && st !== 6
+    })
 
     
 

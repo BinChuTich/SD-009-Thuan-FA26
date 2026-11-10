@@ -6,6 +6,7 @@ import { formatCurrency, formatDateTime } from '@/utils/dinhDang.js'
 import { showAppConfirm, showAppAlert } from '@/utils/thongBaoDialog.js'
 import { currentClientUser, isClientLoggedIn } from '@/utils/taiKhoanKhachHang.js'
 import ModalDangNhap from '@/components/BocCuc/ModalDangNhap.vue'
+import ModalSuaThongTinDon from '@/components/DonHang/ModalSuaThongTinDon.vue'
 import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
 
 const router = useRouter()
@@ -19,6 +20,30 @@ const orderLogs = ref([])
 const activeTab = ref('all') // all, pending, shipping, completed, cancelled
 const searchQuery = ref('')
 const showAuthModal = ref(false)
+const showEditAddressModal = ref(false)
+
+const openEditAddressModal = () => {
+  if (!selectedOrder.value) return
+  if (selectedOrder.value.trangThai !== 1) {
+    showAppAlert('Đơn hàng đã được tiếp nhận xử lý, không thể thay đổi thông tin nữa!', 'Thông báo', 'warning')
+    return
+  }
+  if (selectedOrder.value.soLanSuaThongTin >= 1) {
+    showAppAlert('Đơn hàng này đã được thay đổi thông tin nhận hàng 1 lần trước đó!', 'Thông báo', 'warning')
+    return
+  }
+  showEditAddressModal.value = true
+}
+
+const handleOrderInfoUpdated = (updatedOrder) => {
+  if (updatedOrder && selectedOrder.value) {
+    Object.assign(selectedOrder.value, updatedOrder)
+  }
+  loadOrders()
+  if (selectedOrder.value && selectedOrder.value.maHoaDon) {
+    viewOrderDetail(selectedOrder.value)
+  }
+}
 
 const handleLoginSuccess = () => {
   showAuthModal.value = false
@@ -1257,7 +1282,7 @@ onUnmounted(() => {
             <div class="order-double-panels-grid">
               <!-- BẢNG 1: THÔNG TIN NHẬN HÀNG & PHƯƠNG THỨC THANH TOÁN -->
               <div class="panel-box-item">
-                <div class="panel-box-header">
+                <div class="panel-box-header panel-box-header-flex">
                   <div class="panel-title-with-icon">
                     <span class="panel-icon-wrap pin-icon-bg">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1267,6 +1292,22 @@ onUnmounted(() => {
                     </span>
                     <h4 class="panel-box-title">Thông tin nhận hàng</h4>
                   </div>
+                  <button
+                    type="button"
+                    class="btn-edit-inline-chip"
+                    v-if="selectedOrder.trangThai === 1 && (!selectedOrder.soLanSuaThongTin || selectedOrder.soLanSuaThongTin < 1)"
+                    @click="openEditAddressModal"
+                    title="Thay đổi thông tin nhận hàng (Chỉ được sửa 1 lần)"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                    <span>Thay đổi</span>
+                  </button>
+                  <span v-else-if="selectedOrder.soLanSuaThongTin >= 1" class="badge-edited-chip">
+                    ✓ Đã sửa (1/1)
+                  </span>
                 </div>
                 <div class="panel-box-content">
                   <div class="panel-field-row">
@@ -1432,6 +1473,21 @@ onUnmounted(() => {
               </div>
 
               <div class="bottom-actions-right">
+                <!-- Nút Sửa Thông Tin Nhận Hàng -->
+                <button
+                  type="button"
+                  class="btn-edit-order-info"
+                  v-if="selectedOrder.trangThai === 1 && (!selectedOrder.soLanSuaThongTin || selectedOrder.soLanSuaThongTin < 1)"
+                  @click="openEditAddressModal"
+                  title="Thay đổi thông tin nhận hàng (Chỉ được sửa 1 lần duy nhất)"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                  <span>Sửa thông tin nhận đơn</span>
+                </button>
+
                 <!-- Nút Hủy Đơn Hàng (Đẩy xuống dưới theo yêu cầu - Ảnh 1) -->
                 <button
                   type="button"
@@ -1469,6 +1525,13 @@ onUnmounted(() => {
     <ModalDangNhap
       v-model="showAuthModal"
       @login-success="handleLoginSuccess"
+    />
+
+    <!-- Modal Sửa thông tin nhận hàng (Chỉ được sửa 1 lần duy nhất) -->
+    <ModalSuaThongTinDon
+      v-model="showEditAddressModal"
+      :order="selectedOrder"
+      @updated="handleOrderInfoUpdated"
     />
   </template>
 
@@ -2665,6 +2728,74 @@ onUnmounted(() => {
   gap: 8px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 1px 3px rgba(220, 38, 38, 0.06);
+}
+
+.btn-edit-order-info {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  background: #eff6ff;
+  border: 1.5px solid #bfdbfe;
+  color: #2563eb;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08);
+}
+
+.btn-edit-order-info:hover {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
+}
+
+.btn-edit-order-info:active {
+  transform: scale(0.97);
+}
+
+.shipping-item-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.btn-edit-inline-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #2563eb;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-edit-inline-chip:hover {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+}
+
+.badge-edited-chip {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .btn-cancel-order:hover {
