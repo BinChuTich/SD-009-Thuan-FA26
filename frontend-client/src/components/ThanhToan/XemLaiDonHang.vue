@@ -157,9 +157,9 @@ const emit = defineEmits([
           <strong>{{ formatCurrency(originalSubtotal > 0 ? originalSubtotal : cartSubtotal) }}</strong>
         </div>
 
-        <div v-if="campaignDiscount > 0" class="sum-row text-green">
+        <div v-if="campaignDiscount > 0" class="sum-row text-discount">
           <span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
               <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
               <line x1="7" y1="7" x2="7.01" y2="7"></line>
             </svg>
@@ -168,22 +168,22 @@ const emit = defineEmits([
           <span class="discount-val">-{{ formatCurrency(campaignDiscount) }}</span>
         </div>
 
+        <div v-if="voucherDiscount > 0" class="sum-row">
+          <span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+              <line x1="7" y1="7" x2="7.01" y2="7"></line>
+            </svg>
+            Giảm giá [{{ appliedVoucher?.code }}]:
+          </span>
+          <span class="discount-val">-{{ formatCurrency(voucherDiscount) }}</span>
+        </div>
+
         <div class="sum-row">
           <span>Phí vận chuyển:</span>
           <span class="ship-val">
             {{ shippingFee === 0 ? 'MIỄN PHÍ' : formatCurrency(shippingFee) }}
           </span>
-        </div>
-
-        <div v-if="voucherDiscount > 0" class="sum-row">
-          <span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
-              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-              <line x1="7" y1="7" x2="7.01" y2="7"></line>
-            </svg>
-            Voucher [{{ appliedVoucher?.code }}]:
-          </span>
-          <span class="discount-val">-{{ formatCurrency(voucherDiscount) }}</span>
         </div>
 
         <div class="divider"></div>
@@ -363,7 +363,7 @@ const emit = defineEmits([
 }
 
 .discount-val {
-  color: #16a34a;
+  color: #ef4444 !important;
   font-weight: 700;
 }
 

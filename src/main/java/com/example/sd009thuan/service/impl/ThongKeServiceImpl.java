@@ -228,24 +228,43 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
             dto.setTrangThaiThanhToan(h.getTrangThaiThanhToan() != null ? h.getTrangThaiThanhToan() : 0);
 
             List<HinhThucThanhToan> pays = paymentsByInvoice != null ? paymentsByInvoice.get(h.getId()) : null;
+            String note = h.getGhiChu() != null ? h.getGhiChu().toLowerCase() : "";
+            boolean isOnlineOrder = Integer.valueOf(2).equals(h.getLoaiDon())
+                    || note.contains("online") || note.contains("website") || note.contains("ghn") || note.contains("giao hàng nhanh");
+            boolean isTransferOrder = note.contains("chuyển khoản") || note.contains("vnpay") || note.contains("vietqr") || note.contains("chuyen khoan");
+            boolean isCodOrder = note.contains("cod") || note.contains("nhận hàng") || note.contains("thanh toán khi nhận hàng")
+                    || (isOnlineOrder && !isTransferOrder && !note.contains("kết hợp"));
+
             if (pays != null && !pays.isEmpty()) {
                 boolean hasCash = pays.stream().anyMatch(p -> {
                     String pt = p.getIdPhuongThuc() != null ? p.getIdPhuongThuc().getTenPhuongThuc().toLowerCase() : "";
-                    return pt.contains("tiền mặt") || pt.contains("tien mat");
+                    return pt.contains("tiền mặt") || pt.contains("tien mat") || pt.contains("cash");
                 });
                 boolean hasTransfer = pays.stream().anyMatch(p -> {
                     String pt = p.getIdPhuongThuc() != null ? p.getIdPhuongThuc().getTenPhuongThuc().toLowerCase() : "";
-                    return pt.contains("chuyển khoản") || pt.contains("ngân hàng") || pt.contains("vnpay");
+                    return pt.contains("chuyển khoản") || pt.contains("ngân hàng") || pt.contains("vnpay") || pt.contains("qr") || pt.contains("vietqr");
                 });
                 if (hasCash && hasTransfer) {
                     dto.setHinhThucThanhToan("Kết hợp");
-                } else if (hasTransfer) {
+                } else if (note.contains("kết hợp") || note.contains("ket_hop")) {
+                    dto.setHinhThucThanhToan("Kết hợp");
+                } else if (hasTransfer || isTransferOrder) {
                     dto.setHinhThucThanhToan("Chuyển khoản");
+                } else if (isCodOrder) {
+                    dto.setHinhThucThanhToan("Thanh toán khi nhận hàng (COD)");
                 } else {
                     dto.setHinhThucThanhToan("Tiền mặt");
                 }
             } else {
-                dto.setHinhThucThanhToan(Integer.valueOf(1).equals(h.getLoaiDon()) ? "Tiền mặt" : "Chuyển khoản");
+                if (note.contains("kết hợp") || note.contains("ket_hop")) {
+                    dto.setHinhThucThanhToan("Kết hợp");
+                } else if (isTransferOrder) {
+                    dto.setHinhThucThanhToan("Chuyển khoản");
+                } else if (isCodOrder) {
+                    dto.setHinhThucThanhToan("Thanh toán khi nhận hàng (COD)");
+                } else {
+                    dto.setHinhThucThanhToan(Integer.valueOf(1).equals(h.getLoaiDon()) ? "Tiền mặt" : "Thanh toán khi nhận hàng (COD)");
+                }
             }
             list.add(dto);
         }
@@ -379,24 +398,56 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
             for (HoaDon hd : validInvoices) {
                 involvedInvoiceIds.add(hd.getId());
                 List<HinhThucThanhToan> pts = paymentsByInvoice.get(hd.getId());
+                String note = hd.getGhiChu() != null ? hd.getGhiChu().toLowerCase() : "";
+                BigDecimal amt = hd.getTienSauGiamGia() != null && hd.getTienSauGiamGia().compareTo(BigDecimal.ZERO) > 0
+                        ? hd.getTienSauGiamGia() : (hd.getTongTien() != null ? hd.getTongTien() : BigDecimal.ZERO);
+
                 if (pts != null && !pts.isEmpty()) {
-                    for (HinhThucThanhToan p : pts) {
-                        BigDecimal st = p.getSoTien() != null ? p.getSoTien() : BigDecimal.ZERO;
+                    boolean hasTransferInPts = pts.stream().anyMatch(p -> {
                         String ptName = (p.getIdPhuongThuc() != null && p.getIdPhuongThuc().getTenPhuongThuc() != null)
                                 ? p.getIdPhuongThuc().getTenPhuongThuc().toLowerCase() : "";
-                        if (ptName.contains("tiền mặt") || ptName.contains("cash")) {
-                            cashRevenue = cashRevenue.add(st);
+                        return !ptName.contains("tiền mặt") && !ptName.contains("cash") && !ptName.contains("tien mat");
+                    });
+
+                    if (!hasTransferInPts && (note.contains("chuyển khoản") || note.contains("vnpay") || note.contains("vietqr") || note.contains("chuyen khoan"))) {
+                        if (note.contains("kết hợp") || note.contains("ket_hop")) {
+                            java.util.regex.Matcher mCash = java.util.regex.Pattern.compile("tiền mặt\\s*[:\\s]?\\s*([0-9.,]+)", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(note);
+                            java.util.regex.Matcher mCk = java.util.regex.Pattern.compile("chuyển khoản\\s*[:\\s]?\\s*([0-9.,]+)", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(note);
+                            BigDecimal cVal = BigDecimal.ZERO;
+                            BigDecimal tVal = BigDecimal.ZERO;
+                            if (mCash.find()) {
+                                try { cVal = new BigDecimal(mCash.group(1).replaceAll("[^0-9]", "")); } catch (Exception ignored) {}
+                            }
+                            if (mCk.find()) {
+                                try { tVal = new BigDecimal(mCk.group(1).replaceAll("[^0-9]", "")); } catch (Exception ignored) {}
+                            }
+                            if (cVal.compareTo(BigDecimal.ZERO) > 0 || tVal.compareTo(BigDecimal.ZERO) > 0) {
+                                cashRevenue = cashRevenue.add(cVal);
+                                transferRevenue = transferRevenue.add(tVal);
+                            } else {
+                                transferRevenue = transferRevenue.add(amt);
+                            }
                         } else {
-                            transferRevenue = transferRevenue.add(st);
+                            transferRevenue = transferRevenue.add(amt);
+                        }
+                    } else {
+                        for (HinhThucThanhToan p : pts) {
+                            BigDecimal st = p.getSoTien() != null ? p.getSoTien() : BigDecimal.ZERO;
+                            String ptName = (p.getIdPhuongThuc() != null && p.getIdPhuongThuc().getTenPhuongThuc() != null)
+                                    ? p.getIdPhuongThuc().getTenPhuongThuc().toLowerCase() : "";
+                            if (ptName.contains("tiền mặt") || ptName.contains("cash") || ptName.contains("tien mat")) {
+                                cashRevenue = cashRevenue.add(st);
+                            } else {
+                                transferRevenue = transferRevenue.add(st);
+                            }
                         }
                     }
                 } else {
-                    BigDecimal amt = hd.getTienSauGiamGia() != null && hd.getTienSauGiamGia().compareTo(BigDecimal.ZERO) > 0
-                            ? hd.getTienSauGiamGia() : (hd.getTongTien() != null ? hd.getTongTien() : BigDecimal.ZERO);
-                    if (Integer.valueOf(1).equals(hd.getLoaiDon())) {
-                        cashRevenue = cashRevenue.add(amt);
-                    } else {
+                    boolean isTransferOrder = note.contains("chuyển khoản") || note.contains("vnpay") || note.contains("vietqr") || note.contains("chuyen khoan");
+                    if (isTransferOrder) {
                         transferRevenue = transferRevenue.add(amt);
+                    } else {
+                        cashRevenue = cashRevenue.add(amt);
                     }
                 }
             }

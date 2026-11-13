@@ -1037,11 +1037,11 @@ const handleConfirmPlaceOrder = async () => {
                   <span>Tổng tiền hàng:</span>
                   <span>{{ formatCurrency(checkoutOriginalSubtotal > 0 ? checkoutOriginalSubtotal : checkoutSubtotal) }}</span>
                 </div>
-                <div v-if="promotionDiscount > 0" class="cp-row text-success">
+                <div v-if="promotionDiscount > 0" class="cp-row text-discount">
                   <span>Đợt giảm giá:</span>
                   <span>-{{ formatCurrency(promotionDiscount) }}</span>
                 </div>
-                <div v-if="voucherDiscount > 0" class="cp-row text-success">
+                <div v-if="voucherDiscount > 0" class="cp-row text-discount">
                   <span>Phiếu giảm giá ({{ appliedVoucher?.code }}):</span>
                   <span>-{{ formatCurrency(voucherDiscount) }}</span>
                 </div>
@@ -2682,5 +2682,10 @@ const handleConfirmPlaceOrder = async () => {
   letter-spacing: -0.2px;
   z-index: 3;
   pointer-events: none;
+}
+
+.text-discount {
+  color: #ef4444 !important;
+  font-weight: 700;
 }
 </style>

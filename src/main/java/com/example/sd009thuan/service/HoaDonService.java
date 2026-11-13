@@ -7519,281 +7519,105 @@ public class HoaDonService {
 
 
         String ptName = dto.getPhuongThucThanhToan() != null && !dto.getPhuongThucThanhToan().trim().isEmpty()
-
-
-
                 ? dto.getPhuongThucThanhToan().trim() : "Tiền mặt";
 
-
-
         try {
-
-
-
             List<HinhThucThanhToan> oldHttt = hinhThucThanhToanRepository.findByIdHoaDon_Id(saved.getId());
-
-
-
             if (oldHttt != null && !oldHttt.isEmpty()) {
-
-
-
                 if (saved.getHinhThucThanhToan() != null) {
-
-
-
                     saved.getHinhThucThanhToan().clear();
-
-
-
                 }
-
-
-
                 hinhThucThanhToanRepository.deleteAll(oldHttt);
-
-
-
                 hinhThucThanhToanRepository.flush();
-
-
-
             }
-
-
 
             List<PhuongThucThanhToan> allPts = phuongThucThanhToanRepository.findAll();
+            PhuongThucThanhToan ptTienMat = null;
+            PhuongThucThanhToan ptChuyenKhoan = null;
 
-
-
-            if (ptName.equalsIgnoreCase("Kết hợp") || ptName.equalsIgnoreCase("KET_HOP")) {
-
-
-
-                PhuongThucThanhToan ptTienMat = null;
-
-
-
-                PhuongThucThanhToan ptChuyenKhoan = null;
-
-
-
-                for (PhuongThucThanhToan p : allPts) {
-
-
-
-                    if (p.getTenPhuongThuc() != null) {
-
-
-
-                        String t = p.getTenPhuongThuc().toLowerCase();
-
-
-
-                        if (t.contains("tiền mặt") || t.contains("tien mat")) ptTienMat = p;
-
-
-
-                        if (t.contains("chuyển khoản") || t.contains("ngân hàng") || t.contains("chuyen khoan")) ptChuyenKhoan = p;
-
-
-
+            for (PhuongThucThanhToan p : allPts) {
+                if (p.getTenPhuongThuc() != null) {
+                    String t = p.getTenPhuongThuc().toLowerCase();
+                    if (ptTienMat == null && (t.contains("tiền mặt") || t.contains("tien mat") || t.contains("cash"))) {
+                        ptTienMat = p;
                     }
-
-
-
-                }
-
-
-
-                if (ptTienMat == null && !allPts.isEmpty()) ptTienMat = allPts.get(0);
-
-
-
-                if (ptChuyenKhoan == null && allPts.size() > 1) ptChuyenKhoan = allPts.get(1);
-
-
-
-                else if (ptChuyenKhoan == null && !allPts.isEmpty()) ptChuyenKhoan = allPts.get(0);
-
-
-
-                BigDecimal tienMatVal = dto.getTienMat() != null ? dto.getTienMat() : BigDecimal.ZERO;
-
-
-
-                BigDecimal tienCkVal = dto.getTienChuyenKhoan() != null ? dto.getTienChuyenKhoan() : BigDecimal.ZERO;
-
-
-
-                if (ptTienMat != null && tienMatVal.compareTo(BigDecimal.ZERO) > 0) {
-
-
-
-                    HinhThucThanhToan htttCash = new HinhThucThanhToan();
-
-
-
-                    htttCash.setIdHoaDon(saved);
-
-
-
-                    htttCash.setIdPhuongThuc(ptTienMat);
-
-
-
-                    htttCash.setSoTien(tienMatVal);
-
-
-
-                    htttCash.setMaGiaoDich("CASH-" + System.currentTimeMillis());
-
-
-
-                    htttCash.setThoiGian(Instant.now());
-
-
-
-                    htttCash.setTrangThai(1);
-
-
-
-                    hinhThucThanhToanRepository.save(htttCash);
-
-
-
-                }
-
-
-
-                if (ptChuyenKhoan != null && tienCkVal.compareTo(BigDecimal.ZERO) > 0) {
-
-
-
-                    HinhThucThanhToan htttCk = new HinhThucThanhToan();
-
-
-
-                    htttCk.setIdHoaDon(saved);
-
-
-
-                    htttCk.setIdPhuongThuc(ptChuyenKhoan);
-
-
-
-                    htttCk.setSoTien(tienCkVal);
-
-
-
-                    htttCk.setMaGiaoDich("TRANS-" + System.currentTimeMillis());
-
-
-
-                    htttCk.setThoiGian(Instant.now());
-
-
-
-                    htttCk.setTrangThai(1);
-
-
-
-                    hinhThucThanhToanRepository.save(htttCk);
-
-
-
-                }
-
-
-
-            } else {
-
-
-
-                PhuongThucThanhToan matchedPt = null;
-
-
-
-                for (PhuongThucThanhToan p : allPts) {
-
-
-
-                    if (p.getTenPhuongThuc() != null && (p.getTenPhuongThuc().equalsIgnoreCase(ptName) || (ptName.toLowerCase().contains("chuyển khoản") && (p.getTenPhuongThuc().toLowerCase().contains("chuyển khoản") || p.getTenPhuongThuc().toLowerCase().contains("ngân hàng"))))) {
-
-
-
-                        matchedPt = p;
-
-
-
-                        break;
-
-
-
+                    if (ptChuyenKhoan == null && (t.contains("chuyển khoản") || t.contains("ngân hàng") || t.contains("chuyen khoan") || t.contains("qr"))) {
+                        ptChuyenKhoan = p;
                     }
-
-
-
                 }
-
-
-
-                if (matchedPt == null && !allPts.isEmpty()) {
-
-
-
-                    matchedPt = allPts.get(0);
-
-
-
-                }
-
-
-
-                if (matchedPt != null) {
-
-
-
-                    HinhThucThanhToan httt = new HinhThucThanhToan();
-
-
-
-                    httt.setIdHoaDon(saved);
-
-
-
-                    httt.setIdPhuongThuc(matchedPt);
-
-
-
-                    httt.setSoTien(saved.getTienSauGiamGia() != null ? saved.getTienSauGiamGia() : saved.getTongTien());
-
-
-
-                    httt.setMaGiaoDich("POS-" + System.currentTimeMillis());
-
-
-
-                    httt.setThoiGian(Instant.now());
-
-
-
-                    httt.setTrangThai(1);
-
-
-
-                    hinhThucThanhToanRepository.save(httt);
-
-
-
-                }
-
-
-
             }
 
+            if (ptTienMat == null && !allPts.isEmpty()) ptTienMat = allPts.get(0);
+            if (ptChuyenKhoan == null && allPts.size() > 1) {
+                ptChuyenKhoan = allPts.get(1);
+            } else if (ptChuyenKhoan == null && !allPts.isEmpty()) {
+                ptChuyenKhoan = allPts.get(0);
+            }
 
+            BigDecimal tienMatVal = dto.getTienMat() != null ? dto.getTienMat() : BigDecimal.ZERO;
+            BigDecimal tienCkVal = dto.getTienChuyenKhoan() != null ? dto.getTienChuyenKhoan() : BigDecimal.ZERO;
+            BigDecimal tongThanhToanDon = saved.getTienSauGiamGia() != null ? saved.getTienSauGiamGia()
+                    : (saved.getTongTien() != null ? saved.getTongTien() : BigDecimal.ZERO);
 
+            String ptLower = ptName.toLowerCase();
+            boolean isCombined = ptLower.contains("kết hợp") || ptLower.contains("ket_hop") || ptLower.contains("ket hop")
+                    || (tienMatVal.compareTo(BigDecimal.ZERO) > 0 && tienCkVal.compareTo(BigDecimal.ZERO) > 0);
+
+            boolean isTransfer = !isCombined && (ptLower.contains("chuyển khoản") || ptLower.contains("chuyen khoan")
+                    || ptLower.contains("chuyen_khoan") || ptLower.contains("vietqr")
+                    || ptLower.contains("qr") || ptLower.contains("vnpay")
+                    || ptLower.contains("ngân hàng") || ptLower.contains("ngan hang")
+                    || ptLower.contains("bank") || ptLower.contains("momo")
+                    || (tienCkVal.compareTo(BigDecimal.ZERO) > 0 && tienMatVal.compareTo(BigDecimal.ZERO) == 0));
+
+            if (isCombined) {
+                if (ptTienMat != null && tienMatVal.compareTo(BigDecimal.ZERO) > 0) {
+                    HinhThucThanhToan htttCash = new HinhThucThanhToan();
+                    htttCash.setIdHoaDon(saved);
+                    htttCash.setIdPhuongThuc(ptTienMat);
+                    htttCash.setSoTien(tienMatVal);
+                    htttCash.setMaGiaoDich("CASH-" + System.currentTimeMillis());
+                    htttCash.setThoiGian(Instant.now());
+                    htttCash.setTrangThai(1);
+                    hinhThucThanhToanRepository.save(htttCash);
+                }
+
+                if (ptChuyenKhoan != null && tienCkVal.compareTo(BigDecimal.ZERO) > 0) {
+                    HinhThucThanhToan htttCk = new HinhThucThanhToan();
+                    htttCk.setIdHoaDon(saved);
+                    htttCk.setIdPhuongThuc(ptChuyenKhoan);
+                    htttCk.setSoTien(tienCkVal);
+                    htttCk.setMaGiaoDich("TRANS-" + System.currentTimeMillis());
+                    htttCk.setThoiGian(Instant.now());
+                    htttCk.setTrangThai(1);
+                    hinhThucThanhToanRepository.save(htttCk);
+                }
+            } else if (isTransfer) {
+                PhuongThucThanhToan chosenPt = ptChuyenKhoan != null ? ptChuyenKhoan : ptTienMat;
+                BigDecimal amount = tienCkVal.compareTo(BigDecimal.ZERO) > 0 ? tienCkVal : tongThanhToanDon;
+                HinhThucThanhToan httt = new HinhThucThanhToan();
+                httt.setIdHoaDon(saved);
+                httt.setIdPhuongThuc(chosenPt);
+                httt.setSoTien(amount);
+                httt.setMaGiaoDich("TRANS-" + System.currentTimeMillis());
+                httt.setThoiGian(Instant.now());
+                httt.setTrangThai(1);
+                hinhThucThanhToanRepository.save(httt);
+            } else {
+                PhuongThucThanhToan chosenPt = ptTienMat;
+                BigDecimal amount = tienMatVal.compareTo(BigDecimal.ZERO) > 0 ? tienMatVal : tongThanhToanDon;
+                if (amount.compareTo(tongThanhToanDon) > 0 && tongThanhToanDon.compareTo(BigDecimal.ZERO) > 0) {
+                    amount = tongThanhToanDon;
+                }
+                HinhThucThanhToan httt = new HinhThucThanhToan();
+                httt.setIdHoaDon(saved);
+                httt.setIdPhuongThuc(chosenPt);
+                httt.setSoTien(amount);
+                httt.setMaGiaoDich("CASH-" + System.currentTimeMillis());
+                httt.setThoiGian(Instant.now());
+                httt.setTrangThai(1);
+                hinhThucThanhToanRepository.save(httt);
+            }
         } catch (Exception ignored) {}
 
 
@@ -8844,37 +8668,25 @@ public class HoaDonService {
 
 
                 for (PhuongThucThanhToan p : allPts) {
-
-
-
-                    if (p.getTenPhuongThuc() != null && p.getTenPhuongThuc().equalsIgnoreCase(pt)) {
-
-
-
-                        matchedPt = p;
-
-
-
-                        break;
-
-
-
+                    if (p.getTenPhuongThuc() != null) {
+                        String t = p.getTenPhuongThuc().toLowerCase();
+                        if ((pt.equalsIgnoreCase("VIETQR") || pt.equalsIgnoreCase("CHUYEN_KHOAN") || pt.equalsIgnoreCase("Chuyển khoản"))
+                                && (t.contains("chuyển khoản") || t.contains("ngân hàng") || t.contains("qr"))) {
+                            matchedPt = p;
+                            break;
+                        } else if (p.getTenPhuongThuc().equalsIgnoreCase(pt)) {
+                            matchedPt = p;
+                            break;
+                        }
                     }
-
-
-
                 }
 
-
-
                 if (matchedPt == null && !allPts.isEmpty()) {
-
-
-
-                    matchedPt = allPts.get(0);
-
-
-
+                    if (pt.equalsIgnoreCase("VIETQR") || pt.equalsIgnoreCase("CHUYEN_KHOAN") || pt.equalsIgnoreCase("Chuyển khoản")) {
+                        matchedPt = allPts.size() > 1 ? allPts.get(1) : allPts.get(0);
+                    } else {
+                        matchedPt = allPts.get(0);
+                    }
                 }
 
 

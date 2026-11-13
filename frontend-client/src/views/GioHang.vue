@@ -3510,11 +3510,11 @@ const formatDate = (dateStr) => {
 
               </div>
 
-              <div v-if="campaignDiscount > 0" class="sum-row-item text-green">
+              <div v-if="campaignDiscount > 0" class="sum-row-item text-discount">
 
                 <span class="sum-label">Giảm giá theo đợt:</span>
 
-                <span class="sum-val font-semibold text-green">- {{ formatCurrency(campaignDiscount) }}</span>
+                <span class="sum-val font-semibold text-discount">- {{ formatCurrency(campaignDiscount) }}</span>
 
               </div>
 
@@ -4510,71 +4510,48 @@ const formatDate = (dateStr) => {
               <div class="totals-lines">
 
                 <div class="t-line">
-
-                  <span>Tổng tiền hàng ({{ activeCheckoutItems.length }} sản phẩm)</span>
-
+                  <span>Tổng tiền hàng ({{ activeCheckoutItems.reduce((acc, it) => acc + (it.quantity || 1), 0) }} sản phẩm)</span>
                   <strong>{{ formatCurrency(originalSubtotal) }}</strong>
-
                 </div>
 
                 <div v-if="campaignDiscount > 0" class="t-line discount-highlight">
-
-                <span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
-                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
-                  </svg>
-                  Giảm giá theo đợt:
-                </span>
-
-                  <strong class="text-green">-{{ formatCurrency(campaignDiscount) }}</strong>
-
+                  <span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="campaign-tag-svg" style="margin-right: 4px; vertical-align: middle;">
+                      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                      <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                    </svg>
+                    Giảm giá theo đợt:
+                  </span>
+                  <strong class="text-discount">-{{ formatCurrency(campaignDiscount) }}</strong>
                 </div>
-
-
-
-                <div class="t-line ghn-ship-line">
-
-                <span class="ghn-ship-label">
-
-                  Phí vận chuyển
-
-                  <img src="/img/ghn-brand-logo.png" alt="GHN" class="ghn-inline-brand-logo" />
-
-                </span>
-
-                  <span class="ship-cost">
-
-                  <template v-if="!hasEnteredAddress">
-
-                    <span class="text-muted" style="font-size: 13px; font-weight: 500; font-style: italic;">Chưa chọn địa chỉ</span>
-
-                  </template>
-
-                  <template v-else-if="shippingFee === 0">
-
-                    MIỄN PHÍ
-
-                  </template>
-
-                  <template v-else>
-
-                    {{ formatCurrency(shippingFee) }}
-
-                  </template>
-
-                </span>
-
-                </div>
-
-
 
                 <div v-if="voucherDiscount > 0" class="t-line discount-highlight">
+                  <span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="voucher-tag-svg" style="margin-right: 4px; vertical-align: middle;">
+                      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                      <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                    </svg>
+                    Giảm giá [{{ appliedVoucher?.code }}]:
+                  </span>
+                  <strong class="text-discount">-{{ formatCurrency(voucherDiscount) }}</strong>
+                </div>
 
-                  <span>Giảm giá [{{ appliedVoucher?.code }}]:</span>
-
-                  <strong class="text-green">-{{ formatCurrency(voucherDiscount) }}</strong>
-
+                <div class="t-line ghn-ship-line">
+                  <span class="ghn-ship-label">
+                    Phí vận chuyển
+                    <img src="/img/ghn-brand-logo.png" alt="GHN" class="ghn-inline-brand-logo" />
+                  </span>
+                  <span class="ship-cost">
+                    <template v-if="!hasEnteredAddress">
+                      <span class="text-muted" style="font-size: 13px; font-weight: 500; font-style: italic;">Chưa chọn địa chỉ</span>
+                    </template>
+                    <template v-else-if="shippingFee === 0">
+                      MIỄN PHÍ
+                    </template>
+                    <template v-else>
+                      {{ formatCurrency(shippingFee) }}
+                    </template>
+                  </span>
                 </div>
 
 
@@ -4842,33 +4819,33 @@ const formatDate = (dateStr) => {
 
               <div class="cost-row">
 
-                <span>Tạm tính ({{ activeCheckoutItems.reduce((acc, it) => acc + it.quantity, 0) }} sản phẩm):</span>
+                <span>Tổng tiền hàng ({{ activeCheckoutItems.reduce((acc, it) => acc + (it.quantity || 1), 0) }} sản phẩm):</span>
 
-                <strong>{{ formatCurrency(selectedSubtotal) }}</strong>
+                <strong>{{ formatCurrency(originalSubtotal > 0 ? originalSubtotal : checkoutOriginalSubtotal) }}</strong>
 
               </div>
 
               <!-- Giảm giá theo đợt -->
-              <div v-if="checkoutCampaignDiscount > 0" class="cost-row discount-row campaign-row">
+              <div v-if="(campaignDiscount > 0 || checkoutCampaignDiscount > 0)" class="cost-row discount-row campaign-row">
                 <span class="inline-flex-label">
-                  <svg class="campaign-tag-svg" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="campaign-tag-svg" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
                     <line x1="7" y1="7" x2="7.01" y2="7"></line>
                   </svg>
                   Giảm giá theo đợt:
                 </span>
-                <strong class="text-campaign-discount">- {{ formatCurrency(checkoutCampaignDiscount) }}</strong>
+                <strong class="text-discount">- {{ formatCurrency(campaignDiscount > 0 ? campaignDiscount : checkoutCampaignDiscount) }}</strong>
               </div>
 
               <!-- Voucher giảm giá -->
               <div v-if="voucherDiscount > 0" class="cost-row discount-row voucher-row">
 
                 <span class="inline-flex-label">
-                  <svg class="voucher-tag-svg" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="voucher-tag-svg" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
                     <line x1="7" y1="7" x2="7.01" y2="7"></line>
                   </svg>
-                  Voucher [{{ appliedVoucher?.code }}]:
+                  Giảm giá [{{ appliedVoucher?.code }}]:
                 </span>
 
                 <strong class="text-discount">- {{ formatCurrency(voucherDiscount) }}</strong>
@@ -11499,19 +11476,17 @@ const formatDate = (dateStr) => {
 
 
 .cost-row.discount-row {
-
-  color: #059669;
-
+  color: #374151;
 }
 
-
+.cost-row.discount-row .campaign-tag-svg,
+.cost-row.discount-row .voucher-tag-svg {
+  color: #ef4444;
+}
 
 .text-discount {
-
-  color: #16a34a;
-
+  color: #ef4444 !important;
   font-weight: 700;
-
 }
 
 
@@ -12660,7 +12635,7 @@ const formatDate = (dateStr) => {
   margin-top: 2px;
 }
 .text-campaign-discount {
-  color: #ea580c !important;
+  color: #ef4444 !important;
   font-weight: 700;
 }
 .inline-flex-label {

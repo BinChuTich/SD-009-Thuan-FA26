@@ -870,7 +870,7 @@ onUnmounted(() => {
               <div class="panel-divider"></div>
               <div class="panel-field-row">
                 <span class="field-label">Phương thức:</span>
-                <strong class="field-value text-dark">{{ order.phuongThucThanhToan || (isVnPay(order) ? 'Cổng thanh toán VNPAY' : 'Tiền mặt') }}</strong>
+                <strong class="field-value text-dark">{{ order.phuongThucThanhToan || (isVnPay(order) ? 'Cổng thanh toán VNPAY' : 'Thanh toán khi nhận hàng (COD)') }}</strong>
               </div>
               <div class="panel-field-row">
                 <span class="field-label">Trạng thái:</span>
@@ -986,12 +986,6 @@ onUnmounted(() => {
                   </span>
                   <span v-if="hasItemDiscount(it)" class="price-origin-strike">
                     {{ formatCurrency(getItemOriginalPrice(it) * (it.soLuong || 1)) }}
-                  </span>
-                </div>
-                <div class="unit-price-sub" v-if="it.soLuong > 1 || hasItemDiscount(it)">
-                  <span>{{ formatCurrency(it.donGia || ((it.thanhTien || 0) / (it.soLuong || 1))) }}/cái</span>
-                  <span v-if="hasItemDiscount(it)" class="unit-origin-strike">
-                    ({{ formatCurrency(getItemOriginalPrice(it)) }}/cái)
                   </span>
                 </div>
               </div>

@@ -516,7 +516,9 @@
                 >
                   <option value="">Tất cả phương thức</option>
                   <option value="cash">Tiền mặt</option>
+                  <option value="cod">Thanh toán khi nhận hàng (COD)</option>
                   <option value="transfer">Chuyển khoản / VNPAY</option>
+                  <option value="combined">Kết hợp (Tiền mặt + CK)</option>
                 </select>
 
                 <select v-model="orderSortBy" class="form-control select-combobox">
@@ -585,7 +587,7 @@
                       </span>
                     </td>
                     <td class="td-payment-method">
-                      <span class="payment-method-text">{{ ord.hinhThucThanhToan || (Number(ord.loaiDon) === 1 ? 'Tiền mặt' : 'Chuyển khoản') }}</span>
+                      <span class="payment-method-text">{{ ord.hinhThucThanhToan || (Number(ord.loaiDon) === 1 ? 'Tiền mặt' : 'Thanh toán khi nhận hàng (COD)') }}</span>
                     </td>
                     <td class="td-status">
                       <div class="status-cell-wrap">
@@ -2434,7 +2436,7 @@ const currentKpiOrdersBaseList = computed(() => {
       const pt = Number(item.trangThaiThanhToan)
       const isValid = (st === 5 || pt === 1) && st !== 6
       const method = String(item.hinhThucThanhToan || '').toLowerCase()
-      const isCash = method.includes('tiền mặt') || method.includes('kết hợp') || (!method && Number(item.loaiDon) === 1)
+      const isCash = method.includes('tiền mặt') || method.includes('kết hợp') || method.includes('cod') || method.includes('nhận hàng') || (!method && Number(item.loaiDon) === 1)
       return isValid && isCash
     })
   } else if (selectedKpiType.value === 'transfer') {
@@ -2443,7 +2445,7 @@ const currentKpiOrdersBaseList = computed(() => {
       const pt = Number(item.trangThaiThanhToan)
       const isValid = (st === 5 || pt === 1) && st !== 6
       const method = String(item.hinhThucThanhToan || '').toLowerCase()
-      const isTransfer = method.includes('chuyển khoản') || method.includes('kết hợp') || method.includes('vnpay') || (!method && Number(item.loaiDon) === 2)
+      const isTransfer = (method.includes('chuyển khoản') || method.includes('kết hợp') || method.includes('vnpay') || method.includes('qr')) && !method.includes('cod') && !method.includes('nhận hàng')
       return isValid && isTransfer
     })
   }
@@ -2478,17 +2480,27 @@ const filteredOrdersList = computed(() => {
     list = list.filter(item => Number(item.trangThaiThanhToan) === Number(orderPaymentFilter.value))
   }
 
-  // 3b. Lọc theo Phương thức thanh toán (Tiền mặt / Chuyển khoản) khi xem thẻ payment
+  // 3b. Lọc theo Phương thức thanh toán (Tiền mặt / Chuyển khoản / COD / Kết hợp) khi xem thẻ payment
   if (selectedKpiType.value === 'payment' && orderMethodFilter.value) {
     if (orderMethodFilter.value === 'cash') {
       list = list.filter(item => {
         const method = String(item.hinhThucThanhToan || '').toLowerCase()
-        return method.includes('tiền mặt') || method.includes('kết hợp') || (!method && Number(item.loaiDon) === 1)
+        return (method.includes('tiền mặt') && !method.includes('cod') && !method.includes('nhận hàng')) || (!method && Number(item.loaiDon) === 1)
+      })
+    } else if (orderMethodFilter.value === 'cod') {
+      list = list.filter(item => {
+        const method = String(item.hinhThucThanhToan || '').toLowerCase()
+        return method.includes('cod') || method.includes('nhận hàng') || (!method && Number(item.loaiDon) === 2)
       })
     } else if (orderMethodFilter.value === 'transfer') {
       list = list.filter(item => {
         const method = String(item.hinhThucThanhToan || '').toLowerCase()
-        return method.includes('chuyển khoản') || method.includes('kết hợp') || method.includes('vnpay') || (!method && Number(item.loaiDon) === 2)
+        return (method.includes('chuyển khoản') || method.includes('vnpay') || method.includes('qr')) && !method.includes('cod') && !method.includes('nhận hàng')
+      })
+    } else if (orderMethodFilter.value === 'combined') {
+      list = list.filter(item => {
+        const method = String(item.hinhThucThanhToan || '').toLowerCase()
+        return method.includes('kết hợp')
       })
     }
   }

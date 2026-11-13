@@ -2055,7 +2055,7 @@ const loadDetail = async (identifier) => {
 
     const isPaid = paymentStatus === true || Number(paymentStatus) === 1
 
-    const defaultMethod = Number(data['loaiDon']) === 1 ? 'Tiền mặt' : 'Chuyển khoản ngân hàng'
+    const defaultMethod = Number(data['loaiDon']) === 1 ? 'Tiền mặt' : 'Thanh toán khi nhận hàng (COD)'
 
     const transCode = data['maGiaoDich'] || data['transactionCode'] || ''
 
@@ -2106,79 +2106,42 @@ const loadDetail = async (identifier) => {
 
 
         const hasCash = targetList.some(p => {
-
           const m = (p.method || '').toLowerCase()
-
-          return m.includes('tiền mặt') || m.includes('tien mat')
-
+          return m.includes('tiền mặt') || m.includes('tien mat') || m.includes('cash')
         })
-
         const hasTransfer = targetList.some(p => {
-
           const m = (p.method || '').toLowerCase()
-
-          return m.includes('chuyển khoản') || m.includes('ngân hàng') || m.includes('chuyen khoan') || m.includes('vnpay')
-
-        })
-
-
-
-        const transferFull = targetList.some(p => {
-
-          const m = (p.method || '').toLowerCase()
-
-          const isCk = m.includes('chuyển khoản') || m.includes('ngân hàng') || m.includes('chuyen khoan') || m.includes('vnpay')
-
-          return isCk && (Number(p.amount) >= totalPayment * 0.95 || (targetList.length >= 2 && Number(p.amount) === Number(targetList[0].amount)))
-
+          return m.includes('chuyển khoản') || m.includes('ngân hàng') || m.includes('chuyen khoan') || m.includes('vnpay') || m.includes('qr') || m.includes('vietqr')
         })
 
         const noteStr = String(data['ghiChu'] || data['note'] || '').toLowerCase()
-
-        const isExplicitCombinedNote = noteStr.includes('thanh toán kết hợp')
-
+        const isExplicitCombinedNote = noteStr.includes('thanh toán kết hợp') || noteStr.includes('kết hợp') || noteStr.includes('ket_hop')
         const rawPt = String(data['phuongThucThanhToan'] || data['hinhThucThanhToan'] || '').toLowerCase()
 
-
-
-        if (transferFull && !isExplicitCombinedNote && !rawPt.includes('kết hợp')) {
-
-          paymentMethodResolved = 'Chuyển khoản'
-
-        } else if (hasCash && hasTransfer && (isExplicitCombinedNote || rawPt.includes('kết hợp'))) {
-
+        if ((hasCash && hasTransfer) || isExplicitCombinedNote || rawPt.includes('kết hợp') || rawPt.includes('ket_hop')) {
           paymentMethodResolved = 'Kết hợp'
-
-        }
-
-
-
-        else if (hasTransfer) {
-
+        } else if (hasTransfer || rawPt.includes('chuyển khoản') || rawPt.includes('vietqr') || rawPt.includes('ngân hàng') || noteStr.includes('chuyển khoản') || noteStr.includes('vietqr')) {
           paymentMethodResolved = 'Chuyển khoản'
-
-        } else if (hasCash) {
-
-          paymentMethodResolved = 'Tiền mặt'
-
+        } else if (noteStr.includes('cod') || rawPt.includes('cod') || rawPt.includes('nhận hàng')) {
+          paymentMethodResolved = 'Thanh toán khi nhận hàng (COD)'
+        } else if (hasCash || rawPt.includes('tiền mặt')) {
+          paymentMethodResolved = (Number(data['loaiDon']) === 2) ? 'Thanh toán khi nhận hàng (COD)' : 'Tiền mặt'
         } else if (targetList.length > 0) {
-
-          { paymentMethodResolved = targetList[0].method || 'Chuyển khoản'
-
-          }
-
-
-
-
-
+          paymentMethodResolved = targetList[0].method || ((Number(data['loaiDon']) === 2) ? 'Thanh toán khi nhận hàng (COD)' : 'Tiền mặt')
         }
-
       }
-
     } catch (e) {
-
       console.warn('Không tải được danh sách thanh toán chi tiết:', e)
+    }
 
+    const noteStrFallback = String(data['ghiChu'] || data['note'] || '').toLowerCase()
+    const rawPtFallback = String(data['phuongThucThanhToan'] || data['hinhThucThanhToan'] || '').toLowerCase()
+    if (noteStrFallback.includes('thanh toán kết hợp') || noteStrFallback.includes('kết hợp') || noteStrFallback.includes('ket_hop') || rawPtFallback.includes('kết hợp') || rawPtFallback.includes('ket_hop')) {
+      paymentMethodResolved = 'Kết hợp'
+    } else if (noteStrFallback.includes('chuyển khoản') || noteStrFallback.includes('vietqr') || rawPtFallback.includes('chuyển khoản') || rawPtFallback.includes('vietqr')) {
+      paymentMethodResolved = 'Chuyển khoản'
+    } else if (noteStrFallback.includes('cod') || noteStrFallback.includes('nhận hàng') || rawPtFallback.includes('cod') || rawPtFallback.includes('nhận hàng')) {
+      paymentMethodResolved = 'Thanh toán khi nhận hàng (COD)'
     }
 
 

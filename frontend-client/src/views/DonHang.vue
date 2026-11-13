@@ -1449,12 +1449,6 @@ onUnmounted(() => {
                         {{ formatCurrency(getItemOriginalPrice(it) * it.soLuong) }}
                       </span>
                     </div>
-                    <div class="unit-price-sub" v-if="it.soLuong > 1 || hasItemDiscount(it)">
-                      <span>{{ formatCurrency(it.donGia || ((it.giaDuocTinh || it.thanhTien || 0) / it.soLuong)) }}/cái</span>
-                      <span v-if="hasItemDiscount(it)" class="unit-origin-strike">
-                        ({{ formatCurrency(getItemOriginalPrice(it)) }}/cái)
-                      </span>
-                    </div>
                   </div>
                 </div>
               </div>

@@ -10714,85 +10714,26 @@ const handleCheckout = async () => {
 
 
     const transferVal = isKetHop
-
-
-
         ? Number(currentInvoice.value.transferAmount || 0)
-
-
-
-        : (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN' ? finalTotal.value : 0)
-
-
-
-
-
-
+        : (currentInvoice.value.paymentMethod === 'CHUYEN_KHOAN' || currentInvoice.value.paymentMethod === 'VIETQR' ? finalTotal.value : 0)
 
     let resolvedPaymentMethod = 'Tiền mặt'
-
-
-
     const method = currentInvoice.value.paymentMethod
 
-
-
     if (method === 'VIETQR' || method === 'CHUYEN_KHOAN') {
-
-
-
-      resolvedPaymentMethod = 'VietQR'
-
-
-
+      resolvedPaymentMethod = 'Chuyển khoản'
     } else if (method === 'MOMO') {
-
-
-
       resolvedPaymentMethod = 'MoMo'
-
-
-
     } else if (method === 'VNPAY') {
-
-
-
       resolvedPaymentMethod = 'VNPAY'
-
-
-
     } else if (isKetHop) {
-
-
-
       if (cashVal > 0 && transferVal > 0) {
-
-
-
         resolvedPaymentMethod = 'Kết hợp'
-
-
-
       } else if (transferVal > 0) {
-
-
-
-        resolvedPaymentMethod = 'VietQR'
-
-
-
+        resolvedPaymentMethod = 'Chuyển khoản'
       } else {
-
-
-
         resolvedPaymentMethod = 'Tiền mặt'
-
-
-
       }
-
-
-
     }
 
 
@@ -10905,9 +10846,7 @@ const handleCheckout = async () => {
 
 
 
-      tienMat: resolvedPaymentMethod.includes('Chuyển khoản') ? 0 : cashVal,
-
-
+      tienMat: (resolvedPaymentMethod === 'Chuyển khoản' || resolvedPaymentMethod === 'VietQR') ? 0 : cashVal,
 
       tienChuyenKhoan: resolvedPaymentMethod === 'Tiền mặt' ? 0 : transferVal,
 

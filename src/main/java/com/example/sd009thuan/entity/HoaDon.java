@@ -513,21 +513,61 @@ public class HoaDon {
     public String getPhuongThucThanhToan() {
         if (this.ghiChu != null) {
             String upper = this.ghiChu.toUpperCase();
+            if (upper.contains("KẾT HỢP") || upper.contains("KET_HOP")) {
+                return "Kết hợp";
+            }
             if (upper.contains("VNPAY")) {
                 return "Cổng thanh toán VNPAY";
             }
-            if (upper.contains("COD")) {
+            if (upper.contains("VIETQR")) {
+                return "Chuyển khoản VietQR";
+            }
+            if (upper.contains("COD") || upper.contains("NHẬN HÀNG") || upper.contains("THANH TOÁN KHI NHẬN HÀNG")) {
                 return "Thanh toán khi nhận hàng (COD)";
             }
         }
         if (this.hinhThucThanhToan != null && !this.hinhThucThanhToan.isEmpty()) {
+            boolean hasCash = false;
+            boolean hasTransfer = false;
+            for (HinhThucThanhToan httt : this.hinhThucThanhToan) {
+                if (httt.getIdPhuongThuc() != null && httt.getIdPhuongThuc().getTenPhuongThuc() != null) {
+                    String pt = httt.getIdPhuongThuc().getTenPhuongThuc().toLowerCase();
+                    if (pt.contains("tiền mặt") || pt.contains("tien mat") || pt.contains("cash")) {
+                        hasCash = true;
+                    }
+                    if (pt.contains("chuyển khoản") || pt.contains("ngân hàng") || pt.contains("qr") || pt.contains("vnpay")) {
+                        hasTransfer = true;
+                    }
+                }
+            }
+            if (hasCash && hasTransfer) {
+                return "Kết hợp";
+            }
+            if (hasTransfer) {
+                return "Chuyển khoản";
+            }
+            if (hasCash) {
+                if (Integer.valueOf(2).equals(this.loaiDon)) {
+                    return "Thanh toán khi nhận hàng (COD)";
+                }
+                return "Tiền mặt";
+            }
             for (HinhThucThanhToan httt : this.hinhThucThanhToan) {
                 if (httt.getIdPhuongThuc() != null && httt.getIdPhuongThuc().getTenPhuongThuc() != null) {
                     return httt.getIdPhuongThuc().getTenPhuongThuc();
                 }
             }
         }
-        return "Thanh toán khi nhận hàng (COD)";
+        if (this.ghiChu != null) {
+            String lower = this.ghiChu.toLowerCase();
+            if (lower.contains("chuyển khoản") || lower.contains("vietqr") || lower.contains("chuyen khoan")) {
+                return "Chuyển khoản";
+            }
+            if (lower.contains("cod") || lower.contains("nhận hàng")) {
+                return "Thanh toán khi nhận hàng (COD)";
+            }
+        }
+        return Integer.valueOf(1).equals(this.loaiDon) ? "Tiền mặt" : "Thanh toán khi nhận hàng (COD)";
     }
 
     @JsonProperty("isVnPay")
