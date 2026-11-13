@@ -186,6 +186,7 @@ const submitRating = async () => {
 }
 
 const CHAT_STORAGE_KEY = 'fftshirt_client_chat_conv_id'
+const STAFF_REQUESTED_STORAGE_KEY = 'fftshirt_client_staff_requested'
 
 // Tải danh sách sản phẩm và các đợt giảm giá đang hoạt động
 const loadFeaturedProducts = async () => {
@@ -334,16 +335,19 @@ const scrollToBottom = () => {
 const initOrLoadConversation = async () => {
   if (!isClientLoggedIn.value) return
   const savedId = localStorage.getItem(CHAT_STORAGE_KEY)
+  const hasRequestedStaff = localStorage.getItem(STAFF_REQUESTED_STORAGE_KEY) === 'true'
+
+  // Chỉ khôi phục phiên mà khách đã chủ động yêu cầu hỗ trợ trước đó.
+  // Không gọi API khởi tạo ở đây vì backend sẽ tạo một phiên "Chờ nhận",
+  // khiến yêu cầu gặp nhân viên bị gửi ngay khi khách vừa mở trang.
+  if (!savedId || !hasRequestedStaff) {
+    localStorage.removeItem(CHAT_STORAGE_KEY)
+    localStorage.removeItem(STAFF_REQUESTED_STORAGE_KEY)
+    return
+  }
 
   try {
-    const payload = {
-      cuocHoiThoaiId: savedId ? Number(savedId) : null,
-      khachHangId: currentClientUser.value?.id || null,
-      tenKhachHang: currentClientUser.value?.name || null,
-      soDienThoai: currentClientUser.value?.phone || null
-    }
-
-    const res = await api.post('/api/chat/khoi-tao', payload)
+    const res = await api.get(`/api/chat/cuoc-hoi-thoai/${Number(savedId)}`)
     if (res.data && res.data.id) {
       if (res.data.trangThai === 0) {
         conversationId.value = res.data.id
@@ -362,7 +366,14 @@ const initOrLoadConversation = async () => {
       await checkExistingRating(res.data.id)
     }
   } catch (e) {
-    console.warn('Lỗi kết nối chat server:', e)
+    // ID có thể đã hết hiệu lực khi backend khởi động lại. Xóa ID cũ và
+    // giữ widget ở chế độ bot; phiên nhân viên chỉ được tạo khi khách bấm nút.
+    conversationId.value = null
+    conversationStatus.value = null
+    assignedStaffName.value = null
+    localStorage.removeItem(CHAT_STORAGE_KEY)
+    localStorage.removeItem(STAFF_REQUESTED_STORAGE_KEY)
+    console.warn('Không thể khôi phục phiên chat cũ:', e)
   }
 }
 
@@ -580,6 +591,7 @@ const resetToNewSession = () => {
   ratingScore.value = 5
   ratingComment.value = ''
   localStorage.removeItem(CHAT_STORAGE_KEY)
+  localStorage.removeItem(STAFF_REQUESTED_STORAGE_KEY)
   messages.value = [createWelcomeMessage()]
   inputMessage.value = ''
   scrollToBottom()
@@ -1140,6 +1152,7 @@ const requestStaffSupport = async () => {
       conversationId.value = res.data.id
       conversationStatus.value = res.data.trangThai || 2
       localStorage.setItem(CHAT_STORAGE_KEY, String(res.data.id))
+      localStorage.setItem(STAFF_REQUESTED_STORAGE_KEY, 'true')
       await api.put(`/api/chat/cuoc-hoi-thoai/${res.data.id}/yeu-cau-ho-tro`).catch(() => {})
     }
   } catch (e) {
@@ -1153,6 +1166,7 @@ const refreshChatOnLogin = async () => {
   conversationStatus.value = null
   assignedStaffName.value = null
   localStorage.removeItem(CHAT_STORAGE_KEY)
+  localStorage.removeItem(STAFF_REQUESTED_STORAGE_KEY)
   messages.value = [createWelcomeMessage()]
 }
 
@@ -1165,11 +1179,16 @@ const onLoginSuccess = async () => {
 onMounted(() => {
   loadFeaturedProducts()
   const savedId = localStorage.getItem(CHAT_STORAGE_KEY)
+  const hasRequestedStaff = localStorage.getItem(STAFF_REQUESTED_STORAGE_KEY) === 'true'
   if (savedId) {
     conversationId.value = Number(savedId)
   }
-  if (isClientLoggedIn.value) {
+  if (isClientLoggedIn.value && savedId && hasRequestedStaff) {
     initOrLoadConversation()
+  } else if (savedId) {
+    conversationId.value = null
+    localStorage.removeItem(CHAT_STORAGE_KEY)
+    localStorage.removeItem(STAFF_REQUESTED_STORAGE_KEY)
   }
   pollTimer = setInterval(pollNewMessages, 1200)
 
