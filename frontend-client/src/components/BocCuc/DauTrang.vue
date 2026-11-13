@@ -12,6 +12,7 @@ import {
 } from '@/utils/thongBao.js'
 import { currentClientUser, isClientLoggedIn, logoutClient } from '@/utils/taiKhoanKhachHang.js'
 import ModalDangNhap from '@/components/BocCuc/ModalDangNhap.vue'
+import { showAppToast } from '@/utils/thongBaoDialog.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -93,7 +94,6 @@ const openLoginModal = () => {
 }
 
 const handleLoginSuccess = (userData) => {
-  showToast(`Xin chào ${userData.name}! Đăng nhập thành công.`)
   fetchNotifications()
 }
 
@@ -102,7 +102,7 @@ const handleLogout = () => {
   clearNotifications()
   showNoti.value = false
   showUserMenu.value = false
-  showToast('Đã đăng xuất tài khoản!')
+  showAppToast('Đã đăng xuất tài khoản!', 'success')
 }
 
 const toggleUserMenu = () => {

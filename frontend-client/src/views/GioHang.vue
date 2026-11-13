@@ -3858,7 +3858,7 @@ const formatDate = (dateStr) => {
 
                 <span v-if="savedAddresses.length > 0" class="abt-info">
 
-                  <span class="abt-dot">✓</span> Địa chỉ đang chọn: <strong>{{ savedAddresses.find(a => a.id === selectedAddressId)?.diaChiCuThe || streetAddress || 'Mặc định' }}</strong>
+                  <span class="abt-dot">✓</span> Địa chỉ đang chọn: <strong>{{ fullDeliveryAddress }}</strong>
 
                 </span>
 
@@ -4243,6 +4243,13 @@ const formatDate = (dateStr) => {
                           {{ formatCurrency((item.discountPrice > 0 ? item.discountPrice : item.price) * item.quantity) }}
 
                         </strong>
+
+                        <span
+                            v-if="item.discountPrice > 0 && item.price > item.discountPrice"
+                            class="price-original-checkout"
+                        >
+                          {{ formatCurrency(item.price * item.quantity) }}
+                        </span>
 
                       </div>
 
@@ -7949,6 +7956,32 @@ const formatDate = (dateStr) => {
   font-weight: 800;
 
   color: #0f172a;
+
+}
+
+.item-price-val {
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: flex-end;
+
+  line-height: 1.2;
+
+}
+
+.price-original-checkout {
+
+  margin-top: 4px;
+
+  font-size: 12px;
+
+  font-weight: 500;
+
+  color: #94a3b8;
+
+  text-decoration: line-through;
 
 }
 

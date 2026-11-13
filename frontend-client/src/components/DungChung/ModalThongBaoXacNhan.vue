@@ -353,7 +353,7 @@ const messageParts = computed(() => {
 /* TOASTS */
 .toasts-container {
   position: fixed;
-  top: 24px;
+  top: 84px;
   right: 24px;
   z-index: 1000000;
   display: flex;
