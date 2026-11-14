@@ -104,7 +104,7 @@ const showToast = (message, type = 'success') => {
 
 
 
-  }, 2800)
+  }, type === 'warning' ? 4500 : 2800)
 
 
 
@@ -572,6 +572,7 @@ const loadWaitingInvoices = async () => {
 
 
 
+        const cartSnapMap = getCartLineSnapshots()
         const aggregatedMap = new Map()
 
         for (const ct of items) {
@@ -588,19 +589,24 @@ const loadWaitingInvoices = async () => {
 
           if (!vid) continue
 
-          const origPrice = ctsp.giaBan != null ? Number(ctsp.giaBan) : (ct.donGia != null ? Number(ct.donGia) : 0)
+          const curPrice = ct.donGia != null ? Number(ct.donGia) : (ctsp.giaBan != null ? Number(ctsp.giaBan) : 0)
+          const snapKey = `${inv.id}_${vid}_${curPrice}`
+          const savedSnap = cartSnapMap[snapKey] || null
 
-          const curPrice = ct.donGia != null ? Number(ct.donGia) : origPrice
-
-          const hasDiscount = origPrice > curPrice
+          const origPrice = savedSnap && savedSnap.originalPrice != null ? Number(savedSnap.originalPrice) : curPrice
+          const hasDiscount = savedSnap ? Boolean(savedSnap.hasDiscount) : false
+          const discountText = savedSnap ? String(savedSnap.discountText || '') : ''
+          const discountCampaignName = savedSnap ? String(savedSnap.discountCampaignName || '') : ''
 
           const qty = ct.soLuong || 1
 
+          const itemKey = `${vid}_${curPrice}`
 
 
-          if (aggregatedMap.has(vid)) {
 
-            const ex = aggregatedMap.get(vid)
+          if (aggregatedMap.has(itemKey)) {
+
+            const ex = aggregatedMap.get(itemKey)
 
             ex.quantity += qty
 
@@ -608,7 +614,9 @@ const loadWaitingInvoices = async () => {
 
           } else {
 
-            aggregatedMap.set(vid, {
+            aggregatedMap.set(itemKey, {
+
+              cartKey: itemKey,
 
               id: vid,
 
@@ -634,7 +642,11 @@ const loadWaitingInvoices = async () => {
 
               hasDiscount: hasDiscount,
 
-              discountText: hasDiscount ? ('-' + formatShortMoney(origPrice - curPrice)) : '',
+              discountText: discountText,
+
+              discountCampaignName: discountCampaignName,
+
+              snapshotLocked: Boolean(savedSnap),
 
               quantity: qty,
 
@@ -649,6 +661,20 @@ const loadWaitingInvoices = async () => {
         }
 
         cartItems = Array.from(aggregatedMap.values())
+
+        // Nếu trong giỏ có nhiều dòng cùng 1 biến thể nhưng khác đơn giá, đánh dấu cảnh báo trên dòng thêm sau
+        const firstPriceByVariant = new Map()
+        for (const ci of cartItems) {
+          if (!firstPriceByVariant.has(ci.id)) {
+            firstPriceByVariant.set(ci.id, ci.price)
+          } else {
+            const oldP = firstPriceByVariant.get(ci.id)
+            if (Number(ci.price) !== Number(oldP)) {
+              ci.isModifiedPriceWarning = true
+              ci.previousCartPrice = Number(oldP)
+            }
+          }
+        }
 
 
 
@@ -1534,600 +1560,312 @@ const refreshAvailableStock = () => {
 
 
 
-// Bổ sung đầy đủ thông tin (tên, màu, size, ảnh) cho các sản phẩm trong giỏ từ productList
+// Lưu vết thông tin dòng giỏ hàng (giá & đợt giảm giá tại thời điểm thêm) để không bị tự động thay đổi khi sửa giá/đợt giảm giá
+const getCartLineSnapshots = () => {
+  try {
+    const raw = sessionStorage.getItem('pos_cart_line_snapshots')
+    return raw ? (JSON.parse(raw) || {}) : {}
+  } catch (e) {
+    return {}
+  }
+}
 
-
-
-const enrichCartItemsWithProductList = () => {
-
-
-
-  if (!Array.isArray(productList.value) || productList.value.length === 0) return
-
-
-
-  if (!Array.isArray(waitingInvoices.value)) return
-
-
-
-  for (const inv of waitingInvoices.value) {
-
-
-
-    if (!Array.isArray(inv.cart)) continue
-
-
-
-    for (const item of inv.cart) {
-
-
-
-      const p = findProduct(item)
-
-
-
-      if (p) {
-
-
-
-        if (!item.name || item.name === 'Áo phông' || item.name === 'Áo Phông Cao Cấp') {
-
-
-
-          item.name = p.name
-
-
-
+const saveCartLineSnapshots = () => {
+  try {
+    const map = getCartLineSnapshots()
+    if (Array.isArray(waitingInvoices.value)) {
+      for (const inv of waitingInvoices.value) {
+        if (!inv?.id || !Array.isArray(inv.cart)) continue
+        for (const item of inv.cart) {
+          if (item.id == null || item.price == null) continue
+          const k = `${inv.id}_${item.id}_${Number(item.price)}`
+          map[k] = {
+            price: Number(item.price),
+            originalPrice: Number(item.originalPrice || item.price),
+            hasDiscount: Boolean(item.hasDiscount),
+            discountText: String(item.discountText || ''),
+            discountCampaignName: String(item.discountCampaignName || '')
+          }
         }
+      }
+    }
+    sessionStorage.setItem('pos_cart_line_snapshots', JSON.stringify(map))
+  } catch (e) {}
+}
 
+const isVariantSnapshotChanged = (oldSnap, newSnap) => {
+  if (!oldSnap || !newSnap) return false
+  return (
+    Number(oldSnap.price) !== Number(newSnap.price) ||
+    Number(oldSnap.originalPrice || oldSnap.price) !== Number(newSnap.originalPrice || newSnap.price) ||
+    Boolean(oldSnap.hasDiscount) !== Boolean(newSnap.hasDiscount) ||
+    String(oldSnap.discountText || '') !== String(newSnap.discountText || '') ||
+    String(oldSnap.discountCampaignName || '') !== String(newSnap.discountCampaignName || '')
+  )
+}
 
+const isDiscountSnapshotChanged = (oldSnap, newSnap) => {
+  if (!oldSnap || !newSnap) return false
+  return (
+    Boolean(oldSnap.hasDiscount) !== Boolean(newSnap.hasDiscount) ||
+    String(oldSnap.discountText || '') !== String(newSnap.discountText || '') ||
+    String(oldSnap.discountCampaignName || '') !== String(newSnap.discountCampaignName || '')
+  )
+}
 
+const formatDiscountSnapLabel = (snap) => {
+  if (!snap || !snap.hasDiscount) return 'Không có KM'
+  const camp = snap.discountCampaignName ? `${snap.discountCampaignName} ` : ''
+  const txt = snap.discountText ? `(${snap.discountText})` : '(Đang giảm giá)'
+  return `${camp}${txt}`.trim()
+}
+
+// Bổ sung đầy đủ thông tin (tên, màu, size, ảnh) cho các sản phẩm trong giỏ từ productList (KHÔNG tự động ghi đè giá hay đợt giảm giá của sản phẩm đã thêm trong giỏ)
+const enrichCartItemsWithProductList = () => {
+  if (!Array.isArray(productList.value) || productList.value.length === 0) return
+  if (!Array.isArray(waitingInvoices.value)) return
+  for (const inv of waitingInvoices.value) {
+    if (!Array.isArray(inv.cart)) continue
+    for (const item of inv.cart) {
+      const p = findProduct(item)
+      if (p) {
+        if (!item.name || item.name === 'Áo phông' || item.name === 'Áo Phông Cao Cấp') {
+          item.name = p.name
+        }
         if (!item.color || item.color === 'Mặc định') item.color = p.color
-
-
-
         if (!item.colorHex && p.colorHex) item.colorHex = p.colorHex
-
-
-
         if (!item.size || item.size === 'Freesize') item.size = p.size
-
-
-
         if (!item.image || item.image.includes('default_tshirt')) item.image = p.image
 
+        if (item.price == null || Number(item.price) <= 0) {
+          item.price = p.price
+          item.originalPrice = p.originalPrice || p.price
+          item.hasDiscount = Boolean(p.hasDiscount)
+          item.discountText = p.discountText || ''
+          item.discountCampaignName = p.discountCampaignName || ''
+          item.snapshotLocked = true
+        } else if (!item.snapshotLocked) {
+          // Lần đầu đồng bộ dòng giỏ hàng từ CSDL (khi chưa có snapshot khóa):
+          if (Number(item.price) === Number(p.price)) {
+            item.originalPrice = p.originalPrice || p.price
+            item.hasDiscount = Boolean(p.hasDiscount)
+            item.discountText = p.discountText || ''
+            item.discountCampaignName = p.discountCampaignName || ''
+          }
+          item.snapshotLocked = true
+        }
 
-
-        item.originalPrice = p.originalPrice || p.price
-
-        item.price = p.price
-
-        item.hasDiscount = Boolean(p.hasDiscount)
-
-        item.discountText = p.discountText || ''
-
-        item.discountCampaignName = p.discountCampaignName || ''
-
-
-
+        if (isVariantSnapshotChanged(item, p)) {
+          item.priceChangedInSystem = true
+          item.latestSystemPrice = Number(p.price)
+        }
       }
-
-
-
     }
-
-
-
   }
-
-
-
+  saveCartLineSnapshots()
 }
 
+// Lưu vết giá & đợt giảm giá sản phẩm trong phiên làm việc để phát hiện sản phẩm đã sửa giá hoặc thay đổi đợt giảm giá
+const getSessionPriceMaps = () => {
+  let known = {}
+  let modified = {}
+  try {
+    const rawKnown = sessionStorage.getItem('pos_known_variant_snapshots')
+    if (rawKnown) known = JSON.parse(rawKnown) || {}
+    const rawMod = sessionStorage.getItem('pos_modified_variant_snapshots')
+    if (rawMod) modified = JSON.parse(rawMod) || {}
+  } catch (e) {}
+  return { known, modified }
+}
 
-
-
-
-
+const saveSessionPriceMaps = (known, modified) => {
+  try {
+    sessionStorage.setItem('pos_known_variant_snapshots', JSON.stringify(known))
+    sessionStorage.setItem('pos_modified_variant_snapshots', JSON.stringify(modified))
+  } catch (e) {}
+}
 
 // Gọi API lấy toàn bộ biến thể sản phẩm đang bán kèm đợt giảm giá (HOÀN TOÀN TỪ CSDL)
-
-
-
 const fetchProductVariants = async () => {
-
-
-
   try {
-
-
-
     isLoadingProducts.value = true
-
-
-
     const [resVariants, resActiveVariantsMap] = await Promise.allSettled([
-
-
-
       api.get('/api/chi-tiet-san-pham/filter', {
-
-
-
         params: { trangThai: 1, size: 500 }
-
-
-
       }),
-
-
-
       api.get('/api/dot-giam-gia/active-variants-map')
-
-
-
     ])
 
-
-
-
-
-
-
     const content = (resVariants.status === 'fulfilled' && (resVariants.value.data?.content || (Array.isArray(resVariants.value.data) ? resVariants.value.data : []))) || []
-
-
-
     const activeMap = (resActiveVariantsMap.status === 'fulfilled' && resActiveVariantsMap.value.data && typeof resActiveVariantsMap.value.data === 'object')
-
-
-
       ? resActiveVariantsMap.value.data
-
-
-
       : {}
 
-
-
-
-
-
-
-    productList.value = content.map((item, idx) => {
-
-
-
-      const origPrice = item.giaBan != null ? Number(item.giaBan) : 0
-
-
-
-      let salePrice = origPrice
-
-
-
-      let hasDiscount = false
-
-
-
-      let discountText = ''
-
-
-
-      let discountCampaignName = ''
-
-
-
-
-
-
-
-      // 1. Kiểm tra thông tin giảm giá từ DTO backend (ChiTietSanPhamResponse)
-
-
-
-      if (item.coGiamGia && item.giaSauGiam != null && Number(item.giaSauGiam) < origPrice) {
-
-
-
-        hasDiscount = true
-
-
-
-        salePrice = Number(item.giaSauGiam)
-
-
-
-        discountCampaignName = item.tenDotGiamGia || ''
-
-
-
-        if (item.phanTramGiam != null && Number(item.phanTramGiam) > 0) {
-
-
-
-          const pt = Number(item.phanTramGiam)
-
-
-
-          discountText = `-${pt % 1 === 0 ? pt : pt.toFixed(0)}%`
-
-
-
-        } else {
-
-
-
-          discountText = `-${formatShortMoney(origPrice - salePrice)}`
-
-
-
-        }
-
-
-
-      }
-
-
-
-
-
-
-
-      // 2. Bổ sung/đồng bộ tức thì từ activeVariantsMap (nếu có đợt giảm giá mới nhất)
-
-
-
-      const dggInfo = activeMap[item.id]
-
-
-
-      if (dggInfo) {
-
-
-
-        let computedSalePrice = origPrice
-
-
-
-        let computedText = ''
-
-
-
-        const loai = Number(dggInfo.loaiGiamGia)
-
-
-
-        if (loai === 2) {
-
-
-
-          // Giảm theo số tiền (VNĐ)
-
-
-
-          const cashVal = Number(dggInfo.giaTriGiam || 0)
-
-
-
-          computedSalePrice = Math.max(0, origPrice - cashVal)
-
-
-
-          computedText = `-${formatShortMoney(cashVal)}`
-
-
-
-        } else {
-
-
-
-          // Giảm theo %
-
-
-
-          const pt = Number(dggInfo.phanTramGiam || 0)
-
-
-
-          let discountAmt = (origPrice * pt) / 100
-
-
-
-          if (dggInfo.giamToiDa && Number(dggInfo.giamToiDa) > 0 && discountAmt > Number(dggInfo.giamToiDa)) {
-
-
-
-            discountAmt = Number(dggInfo.giamToiDa)
-
-
-
+    const { known: knownSnapshots, modified: modifiedSnapshots } = getSessionPriceMaps()
+
+    // Ghi nhận thêm các mức giá & đợt giảm giá cũ đang có sẵn trong các hóa đơn chờ
+    if (Array.isArray(waitingInvoices.value)) {
+      for (const inv of waitingInvoices.value) {
+        if (!Array.isArray(inv.cart)) continue
+        for (const cItem of inv.cart) {
+          if (cItem.id != null && cItem.price != null && Number(cItem.price) > 0 && knownSnapshots[cItem.id] == null) {
+            knownSnapshots[cItem.id] = {
+              price: Number(cItem.price),
+              originalPrice: Number(cItem.originalPrice || cItem.price),
+              hasDiscount: Boolean(cItem.hasDiscount),
+              discountText: String(cItem.discountText || ''),
+              discountCampaignName: String(cItem.discountCampaignName || '')
+            }
           }
-
-
-
-          computedSalePrice = Math.max(0, origPrice - discountAmt)
-
-
-
-          computedText = `-${pt % 1 === 0 ? pt : pt.toFixed(0)}%`
-
-
-
         }
-
-
-
-
-
-
-
-        if (computedSalePrice < salePrice || (!hasDiscount && computedSalePrice < origPrice)) {
-
-
-
-          salePrice = computedSalePrice
-
-
-
-          hasDiscount = true
-
-
-
-          discountText = computedText
-
-
-
-          discountCampaignName = dggInfo.tenDotGiamGia || discountCampaignName
-
-
-
-        }
-
-
-
       }
-
-
-
-
-
-
-
-      return {
-
-
-
-        id: item.id,
-
-
-
-        sanPhamId: item.idSanPham?.id || item.idSanPham || item.id,
-
-
-
-        code: item.maSanPham || item.idSanPham?.maSanPham || item.code || '',
-
-
-
-        variantCode: item.maChiTietSanPham || item.code || '',
-
-
-
-        name: item.idSanPham?.tenSanPham || item.tenSanPham || 'Áo Phông Cao Cấp',
-
-
-
-        color: item.idMauSac?.tenMau || item.idMauSac?.tenMauSac || item.tenMauSac || 'Mặc định',
-
-
-
-        colorHex: item.idMauSac?.maHex || item.maHex || '',
-
-
-
-        size: item.idKichCo?.tenKichCo || item.tenKichCo || 'Freesize',
-
-
-
-        dbStock: item.soLuong != null ? Number(item.soLuong) : 0,
-
-
-
-        stock: Math.max(0, (item.soLuong != null ? Number(item.soLuong) : 0) - getUnsyncedQuantityForVariant(item.id, item.maChiTietSanPham)),
-
-
-
-        originalPrice: origPrice,
-
-
-
-        price: hasDiscount ? salePrice : origPrice,
-
-
-
-        hasDiscount: hasDiscount,
-
-
-
-        discountText: discountText,
-
-
-
-        discountCampaignName: discountCampaignName,
-
-
-
-        image: item.anhDaiDien || ''
-
-
-
-      }
-
-
-
-    })
-
-
-
-    enrichCartItemsWithProductList()
-
-
-
-  } catch (e) {
-
-
-
-    console.error('Không tải được danh sách CTSP từ CSDL:', e)
-
-
-
-    productList.value = []
-
-
-
-  } finally {
-
-
-
-    isLoadingProducts.value = false
-
-
-
-  }
-
-
-
-}
-
-
-
-
-
-
-
-// Tự động đồng bộ giỏ hàng hóa đơn chờ với CSDL (debounced)
-
-
-
-let syncCartTimer = null
-
-
-
-const syncCurrentCartToDb = () => {
-
-
-
-  clearTimeout(syncCartTimer)
-
-
-
-  if (!currentInvoice.value || !currentInvoice.value.id) return
-
-
-
-  syncCartTimer = setTimeout(async () => {
-
-
-
-    try {
-
-
-
-      const aggregatedSyncMap = new Map()
-
-      for (const item of currentInvoice.value.cart) {
-
-        const vid = Number(item.id)
-
-        if (!vid) continue
-
-        const q = Number(item.quantity || 1)
-
-        if (aggregatedSyncMap.has(vid)) {
-
-          aggregatedSyncMap.get(vid).soLuong += q
-
-        } else {
-
-          aggregatedSyncMap.set(vid, {
-
-            idChiTietSanPham: vid,
-
-            sanPhamId: vid,
-
-            soLuong: q,
-
-            donGia: item.price,
-
-            giaDuocTinh: item.price
-
-          })
-
-        }
-
-      }
-
-      const itemsPayload = Array.from(aggregatedSyncMap.values())
-
-
-
-      await api.post(`/api/hoa-don/${currentInvoice.value.id}/sync-cart`, itemsPayload)
-
-
-
-      if (currentInvoice.value && Array.isArray(currentInvoice.value.cart)) {
-
-
-
-        for (const it of currentInvoice.value.cart) {
-
-
-
-          const p = findProduct(it)
-
-
-
-          if (p) {
-
-
-
-            p.dbStock = p.stock
-
-
-
-          }
-
-
-
-          it.syncedQuantity = it.quantity
-
-
-
-        }
-
-
-
-      }
-
-
-
-    } catch (err) {
-
-
-
-      console.warn('Đồng bộ giỏ hàng với CSDL:', err)
-
-
-
     }
 
+    productList.value = content.map((item, idx) => {
+      const origPrice = item.giaBan != null ? Number(item.giaBan) : 0
+      let salePrice = origPrice
+      let hasDiscount = false
+      let discountText = ''
+      let discountCampaignName = ''
 
+      // 1. Kiểm tra thông tin giảm giá từ DTO backend (ChiTietSanPhamResponse)
+      if (item.coGiamGia && item.giaSauGiam != null && Number(item.giaSauGiam) < origPrice) {
+        hasDiscount = true
+        salePrice = Number(item.giaSauGiam)
+        discountCampaignName = item.tenDotGiamGia || ''
+        if (item.phanTramGiam != null && Number(item.phanTramGiam) > 0) {
+          const pt = Number(item.phanTramGiam)
+          discountText = `-${pt % 1 === 0 ? pt : pt.toFixed(0)}%`
+        } else {
+          discountText = `-${formatShortMoney(origPrice - salePrice)}`
+        }
+      }
 
+      // 2. Bổ sung/đồng bộ tức thì từ activeVariantsMap (nếu có đợt giảm giá mới nhất)
+      const dggInfo = activeMap[item.id]
+      if (dggInfo) {
+        let computedSalePrice = origPrice
+        let computedText = ''
+        const loai = Number(dggInfo.loaiGiamGia)
+        if (loai === 2) {
+          // Giảm theo số tiền (VNĐ)
+          const cashVal = Number(dggInfo.giaTriGiam || 0)
+          computedSalePrice = Math.max(0, origPrice - cashVal)
+          computedText = `-${formatShortMoney(cashVal)}`
+        } else {
+          // Giảm theo %
+          const pt = Number(dggInfo.phanTramGiam || 0)
+          let discountAmt = (origPrice * pt) / 100
+          if (dggInfo.giamToiDa && Number(dggInfo.giamToiDa) > 0 && discountAmt > Number(dggInfo.giamToiDa)) {
+            discountAmt = Number(dggInfo.giamToiDa)
+          }
+          computedSalePrice = Math.max(0, origPrice - discountAmt)
+          computedText = `-${pt % 1 === 0 ? pt : pt.toFixed(0)}%`
+        }
+
+        if (computedSalePrice < salePrice || (!hasDiscount && computedSalePrice < origPrice)) {
+          salePrice = computedSalePrice
+          hasDiscount = true
+          discountText = computedText
+          discountCampaignName = dggInfo.tenDotGiamGia || discountCampaignName
+        }
+      }
+
+      const finalPrice = hasDiscount ? salePrice : origPrice
+      const currentSnap = {
+        price: Number(finalPrice),
+        originalPrice: Number(origPrice),
+        hasDiscount: Boolean(hasDiscount),
+        discountText: String(discountText || ''),
+        discountCampaignName: String(discountCampaignName || '')
+      }
+
+      const prevKnown = knownSnapshots[item.id]
+      if (prevKnown != null && isVariantSnapshotChanged(prevKnown, currentSnap)) {
+        modifiedSnapshots[item.id] = prevKnown
+      }
+      knownSnapshots[item.id] = currentSnap
+
+      const prevSessionSnap = modifiedSnapshots[item.id] != null && isVariantSnapshotChanged(modifiedSnapshots[item.id], currentSnap)
+        ? modifiedSnapshots[item.id]
+        : null
+
+      return {
+        id: item.id,
+        sanPhamId: item.idSanPham?.id || item.idSanPham || item.id,
+        code: item.maSanPham || item.idSanPham?.maSanPham || item.code || '',
+        variantCode: item.maChiTietSanPham || item.code || '',
+        name: item.idSanPham?.tenSanPham || item.tenSanPham || 'Áo Phông Cao Cấp',
+        color: item.idMauSac?.tenMau || item.idMauSac?.tenMauSac || item.tenMauSac || 'Mặc định',
+        colorHex: item.idMauSac?.maHex || item.maHex || '',
+        size: item.idKichCo?.tenKichCo || item.tenKichCo || 'Freesize',
+        dbStock: item.soLuong != null ? Number(item.soLuong) : 0,
+        stock: Math.max(0, (item.soLuong != null ? Number(item.soLuong) : 0) - getUnsyncedQuantityForVariant(item.id, item.maChiTietSanPham)),
+        originalPrice: origPrice,
+        price: finalPrice,
+        hasDiscount: hasDiscount,
+        discountText: discountText,
+        discountCampaignName: discountCampaignName,
+        priceModifiedInSession: prevSessionSnap != null,
+        discountModifiedInSession: Boolean(prevSessionSnap && isDiscountSnapshotChanged(prevSessionSnap, currentSnap)),
+        previousSessionPrice: prevSessionSnap ? Number(prevSessionSnap.price) : null,
+        previousSessionSnapshot: prevSessionSnap,
+        image: item.anhDaiDien || ''
+      }
+    })
+
+    saveSessionPriceMaps(knownSnapshots, modifiedSnapshots)
+    enrichCartItemsWithProductList()
+  } catch (e) {
+    console.error('Không tải được danh sách CTSP từ CSDL:', e)
+    productList.value = []
+  } finally {
+    isLoadingProducts.value = false
+  }
+}
+
+// Tự động đồng bộ giỏ hàng hóa đơn chờ với CSDL (debounced)
+let syncCartTimer = null
+const syncCurrentCartToDb = () => {
+  clearTimeout(syncCartTimer)
+  if (!currentInvoice.value || !currentInvoice.value.id) return
+  syncCartTimer = setTimeout(async () => {
+    try {
+      const aggregatedSyncMap = new Map()
+      for (const item of currentInvoice.value.cart) {
+        const vid = Number(item.id)
+        if (!vid) continue
+        const q = Number(item.quantity || 1)
+        const uPrice = Number(item.price || 0)
+        const syncKey = `${vid}_${uPrice}`
+        if (aggregatedSyncMap.has(syncKey)) {
+          aggregatedSyncMap.get(syncKey).soLuong += q
+        } else {
+          aggregatedSyncMap.set(syncKey, {
+            idChiTietSanPham: vid,
+            sanPhamId: vid,
+            soLuong: q,
+            donGia: uPrice,
+            giaDuocTinh: uPrice
+          })
+        }
+      }
+      const itemsPayload = Array.from(aggregatedSyncMap.values())
+
+      await api.post(`/api/hoa-don/${currentInvoice.value.id}/sync-cart`, itemsPayload)
+      if (currentInvoice.value && Array.isArray(currentInvoice.value.cart)) {
+        for (const it of currentInvoice.value.cart) {
+          const p = findProduct(it)
+          if (p) {
+            p.dbStock = p.stock
+          }
+          it.syncedQuantity = it.quantity
+        }
+      }
+    } catch (err) {
+      console.warn('Đồng bộ giỏ hàng với CSDL:', err)
+    }
   }, 400)
-
-
-
 }
 
 
@@ -2923,164 +2661,148 @@ const findProduct = (item) => {
 
 
 const getMaxStockForItem = (item) => {
-
-
-
   const p = findProduct(item)
-
-
-
-  const currentSynced = Number(item?.syncedQuantity || 0)
-
-
-
-  const dbStock = p ? Number(p.dbStock ?? p.stock ?? 0) : 0
-
-
-
-  return Math.max(1, dbStock + currentSynced)
-
-
-
+  return Math.max(1, Number(item?.quantity || 1) + (p ? Math.max(0, Number(p.stock || 0)) : 0))
 }
-
-
-
-
-
-
 
 const getRemainingStock = (item) => {
-
-
-
   const p = findProduct(item)
-
-
-
   return p ? Math.max(0, p.stock) : 0
-
-
-
 }
 
-
-
-
-
-
-
-const selectProduct = (prod) => {
-
+const selectProduct = (prod, qtyToAdd = 1) => {
   const p = findProduct(prod) || prod
-
+  const addQty = Math.max(1, Number(qtyToAdd || 1))
   const available = Number(p.stock ?? prod.stock ?? 0)
-
   if (available <= 0) {
-
     showToast('Sản phẩm đã hết hàng trong kho!', 'warning')
-
     return
-
   }
-
-
+  if (available < addQty) {
+    showToast(`Trong kho chỉ còn thêm tối đa ${available} sản phẩm!`, 'warning')
+    return
+  }
 
   const targetId = p.id ?? prod.id
-
   const targetVCode = p.variantCode || prod.variantCode
-
   const origPrice = Number(p.originalPrice || p.giaBan || prod.originalPrice || prod.giaBan || p.price || prod.price || 0)
-
   const salePrice = Number(p.price ?? prod.price ?? origPrice)
-
   const hasDiscount = Boolean(p.hasDiscount || (origPrice > salePrice && salePrice > 0))
-
   const discountText = p.discountText || prod.discountText || (hasDiscount ? ('-' + formatShortMoney(origPrice - salePrice)) : '')
-
   const discountCampaignName = p.discountCampaignName || prod.discountCampaignName || ''
 
-
-
-  const exist = currentInvoice.value.cart.find(i => 
-
-    (targetId != null && Number(i.id) === Number(targetId)) ||
-
-    (targetVCode && i.variantCode && i.variantCode.toLowerCase() === targetVCode.toLowerCase())
-
-  )
-
-
-
-  if (exist) {
-
-    if (available < 1) {
-
-      showToast('Trong kho không còn đủ sản phẩm để thêm tiếp!', 'warning')
-
-      return
-
-    }
-
-    exist.quantity++
-
-    exist.price = salePrice
-
-    exist.originalPrice = origPrice
-
-    exist.hasDiscount = hasDiscount
-
-    exist.discountText = discountText
-
-    exist.discountCampaignName = discountCampaignName
-
-  } else {
-
-    currentInvoice.value.cart.push({
-
-      ...p,
-
-      id: targetId,
-
-      variantCode: targetVCode,
-
-      quantity: 1,
-
-      syncedQuantity: 0,
-
-      price: salePrice,
-
-      originalPrice: origPrice,
-
-      hasDiscount: hasDiscount,
-
-      discountText: discountText,
-
-      discountCampaignName: discountCampaignName
-
-    })
-
+  const newSnap = {
+    price: salePrice,
+    originalPrice: origPrice,
+    hasDiscount: hasDiscount,
+    discountText: String(discountText || ''),
+    discountCampaignName: String(discountCampaignName || '')
   }
 
+  const sameVariantItems = currentInvoice.value.cart.filter(i =>
+    (targetId != null && Number(i.id) === Number(targetId)) ||
+    (targetVCode && i.variantCode && i.variantCode.toLowerCase() === targetVCode.toLowerCase())
+  )
 
+  const exactMatchItem = sameVariantItems.find(i => !isVariantSnapshotChanged(i, newSnap))
+  const diffCartItem = sameVariantItems.find(i => isVariantSnapshotChanged(i, newSnap))
 
+  const isModified = Boolean(
+    diffCartItem ||
+    (p.priceModifiedInSession && p.previousSessionSnapshot && isVariantSnapshotChanged(p.previousSessionSnapshot, newSnap))
+  )
 
+  const oldSnapRef = diffCartItem
+    ? {
+        price: Number(diffCartItem.price),
+        originalPrice: Number(diffCartItem.originalPrice || diffCartItem.price),
+        hasDiscount: Boolean(diffCartItem.hasDiscount),
+        discountText: String(diffCartItem.discountText || ''),
+        discountCampaignName: String(diffCartItem.discountCampaignName || '')
+      }
+    : (p.previousSessionSnapshot || null)
 
+  const oldPriceRef = oldSnapRef ? Number(oldSnapRef.price) : null
+  const isDiscountChanged = oldSnapRef ? isDiscountSnapshotChanged(oldSnapRef, newSnap) : false
 
+  if (diffCartItem) {
+    diffCartItem.priceChangedInSystem = true
+    diffCartItem.latestSystemPrice = salePrice
+  }
 
+  const lineCartKey = `${targetId}_${salePrice}_${hasDiscount ? (discountCampaignName + '_' + discountText) : 'nodisc'}`
+
+  if (exactMatchItem) {
+    exactMatchItem.quantity += addQty
+    exactMatchItem.originalPrice = origPrice
+    exactMatchItem.hasDiscount = hasDiscount
+    exactMatchItem.discountText = discountText
+    exactMatchItem.discountCampaignName = discountCampaignName
+    exactMatchItem.snapshotLocked = true
+    if (isModified) {
+      exactMatchItem.isModifiedPriceWarning = true
+      exactMatchItem.previousCartPrice = oldPriceRef
+    }
+  } else {
+    currentInvoice.value.cart.push({
+      ...p,
+      id: targetId,
+      cartKey: lineCartKey,
+      variantCode: targetVCode,
+      quantity: addQty,
+      syncedQuantity: 0,
+      price: salePrice,
+      originalPrice: origPrice,
+      hasDiscount: hasDiscount,
+      discountText: discountText,
+      discountCampaignName: discountCampaignName,
+      snapshotLocked: true,
+      isModifiedPriceWarning: isModified,
+      previousCartPrice: oldPriceRef
+    })
+  }
+
+  saveCartLineSnapshots()
   refreshAvailableStock()
-
-
-
   syncCurrentCartToDb()
 
+  if (isModified) {
+    activePriceWarningItems.value = [{
+      id: targetId,
+      code: targetVCode || p.code || prod.code || '',
+      name: p.name || prod.name || 'Sản phẩm',
+      color: p.color || prod.color || 'Mặc định',
+      size: p.size || prod.size || 'Freesize',
+      quantity: exactMatchItem ? exactMatchItem.quantity : addQty,
+      oldPrice: Number(oldPriceRef != null ? oldPriceRef : salePrice),
+      newPrice: Number(salePrice),
+      diff: Number(salePrice) - Number(oldPriceRef != null ? oldPriceRef : salePrice),
+      isDiscountChanged: isDiscountChanged,
+      oldDiscountLabel: formatDiscountSnapLabel(oldSnapRef),
+      newDiscountLabel: formatDiscountSnapLabel(newSnap),
+      hasOldInCart: Boolean(diffCartItem)
+    }]
+    showItemPriceWarningModal.value = true
 
-
-  showToast(`Đã thêm "${p.name || prod.name} (${p.color || prod.color} - ${p.size || prod.size})" vào giỏ hàng!`)
-
-
-
+    const reasonLabel = isDiscountChanged ? 'đã thay đổi đợt giảm giá' : 'đã sửa giá'
+    if (diffCartItem) {
+      showToast(
+        `Cảnh báo: Sản phẩm "${p.name || prod.name} (${p.color || prod.color} - ${p.size || prod.size})" ${reasonLabel} từ ${formatMoney(oldPriceRef)} thành ${formatMoney(salePrice)}! Sản phẩm đã thêm trong giỏ giữ nguyên mức cũ.`,
+        'warning'
+      )
+    } else {
+      showToast(
+        `Cảnh báo: Sản phẩm "${p.name || prod.name} (${p.color || prod.color} - ${p.size || prod.size})" ${reasonLabel} từ ${formatMoney(oldPriceRef)} thành ${formatMoney(salePrice)}!`,
+        'warning'
+      )
+    }
+  } else {
+    showToast(`Đã thêm "${p.name || prod.name} (${p.color || prod.color} - ${p.size || prod.size})" vào giỏ hàng!`)
+  }
 }
+
+const showItemPriceWarningModal = ref(false)
+const activePriceWarningItems = ref([])
 
 
 
@@ -3271,257 +2993,82 @@ const handleBarcodeScan = () => {
 
 
 const updateQuantity = (item, delta) => {
-
-
-
   const p = findProduct(item)
-
-
-
   if (delta > 0) {
-
-
-
     if (p && p.stock < delta) {
-
-
-
       showToast(`Trong kho chỉ còn thêm tối đa ${p.stock} sản phẩm!`, 'warning')
-
-
-
       return
-
-
-
     }
-
-
-
+    if (p && isVariantSnapshotChanged(item, p)) {
+      selectProduct(p, delta)
+      return
+    }
     item.quantity += delta
-
-
-
     refreshAvailableStock()
-
-
-
     syncCurrentCartToDb()
-
-
-
   } else if (delta < 0) {
-
-
-
     const absDelta = Math.abs(delta)
-
-
-
     if (item.quantity <= absDelta) {
-
-
-
       removeFromCart(item)
-
-
-
       return
-
-
-
     }
-
-
-
     item.quantity -= absDelta
-
-
-
     refreshAvailableStock()
-
-
-
     syncCurrentCartToDb()
-
-
-
   }
-
-
-
 }
-
-
-
-
-
-
 
 const handleQuantityInput = (item, event) => {
-
-
-
   const p = findProduct(item)
-
-
-
-  const currentSynced = Number(item?.syncedQuantity || 0)
-
-
-
-  const dbStock = p ? Number(p.dbStock ?? p.stock ?? 0) : 0
-
-
-
-  const maxAvailable = Math.max(1, dbStock + currentSynced)
-
-
-
-
-
-
+  const maxAvailable = getMaxStockForItem(item)
 
   let raw = event.target.value
-
-
-
   if (raw === '') {
-
-
-
     if (event.type === 'change' || event.type === 'blur') {
-
-
-
       event.target.value = item.quantity
-
-
-
     }
-
-
-
     return
-
-
-
   }
-
-
-
-
-
-
 
   let val = parseInt(raw, 10)
-
-
-
   if (isNaN(val) || val <= 0) {
-
-
-
     val = 1
-
-
-
     event.target.value = 1
-
-
-
   }
-
-
-
-
-
-
 
   if (val > maxAvailable) {
-
-
-
     showToast(`Trong kho chỉ còn tối đa ${maxAvailable} sản phẩm!`, 'warning')
-
-
-
     val = maxAvailable
-
-
-
     event.target.value = maxAvailable
-
-
-
   }
 
-
-
-
-
-
+  if (val > item.quantity && p && isVariantSnapshotChanged(item, p)) {
+    const diffQty = val - item.quantity
+    event.target.value = item.quantity
+    selectProduct(p, diffQty)
+    return
+  }
 
   if (val !== item.quantity) {
-
-
-
     item.quantity = val
-
-
-
     refreshAvailableStock()
-
-
-
     syncCurrentCartToDb()
-
-
-
   }
-
-
-
   event.target.value = item.quantity
-
-
-
 }
 
-
-
-
-
-
-
 const removeFromCart = (item) => {
-
-
-
-  currentInvoice.value.cart = currentInvoice.value.cart.filter(i => 
-
-
-
-    !((item?.id != null && Number(i.id) === Number(item.id)) || (item?.variantCode && i.variantCode && item.variantCode === i.variantCode))
-
-
-
-  )
-
-
-
+  currentInvoice.value.cart = currentInvoice.value.cart.filter(i => {
+    if (i === item) return false
+    if (item?.cartKey && i?.cartKey) return i.cartKey !== item.cartKey
+    const sameVariant = (item?.id != null && Number(i.id) === Number(item.id)) ||
+      (item?.variantCode && i.variantCode && item.variantCode === i.variantCode)
+    return !(sameVariant && !isVariantSnapshotChanged(i, item))
+  })
+  saveCartLineSnapshots()
   refreshAvailableStock()
-
-
-
   syncCurrentCartToDb()
-
-
-
   showToast('Đã xóa sản phẩm khỏi giỏ hàng!')
-
-
-
 }
 
 
@@ -7930,42 +7477,13 @@ const openOrderConfirmModal = async () => {
 
 
 
-    // Case 1 & 4: Đổi giá sản phẩm hoặc Đợt giảm giá thay đổi
-
-
-
+    // Case 1 & 4: Giữ nguyên giá sản phẩm đã thêm trong giỏ hàng, không tự động cập nhật sang giá mới khi thanh toán
     if (checkData.thayDoiGia === true) {
-
-
-
       priceChangeData.value = {
-
-
-
         tongTienCu: checkData.tongTienCu,
-
-
-
         tongTienMoi: checkData.tongTienMoi,
-
-
-
         items: checkData.danhSachThayDoiGia || []
-
-
-
       }
-
-
-
-      showPriceChangeModal.value = true
-
-
-
-      return
-
-
-
     }
 
 
@@ -10830,70 +10348,41 @@ const handleCheckout = async () => {
 
 
 
-      chapNhanGiaMoi: Boolean(currentInvoice.value.chapNhanGiaMoi),
-
-
+      chapNhanGiaMoi: currentInvoice.value.chapNhanGiaMoi === true ? true : null,
 
       trangThai: currentInvoice.value.isDelivery ? 2 : 5,
 
-
-
       trangThaiThanhToan: 1,
 
-
-
       phuongThucThanhToan: resolvedPaymentMethod,
-
-
 
       tienMat: (resolvedPaymentMethod === 'Chuyển khoản' || resolvedPaymentMethod === 'VietQR') ? 0 : cashVal,
 
       tienChuyenKhoan: resolvedPaymentMethod === 'Tiền mặt' ? 0 : transferVal,
 
-
-
       ghiChu: (currentInvoice.value.note?.trim() || (currentInvoice.value.isDelivery ? 'Đơn giao hàng từ POS' : 'Thanh toán tại quầy')) + noteExtra,
 
-
-
       chiTietList: (() => {
-
         const aggregatedCartMap = new Map()
-
         for (const item of currentInvoice.value.cart) {
-
           const vid = Number(item.id)
-
           if (!vid) continue
-
           const q = Number(item.quantity || 1)
-
-          if (aggregatedCartMap.has(vid)) {
-
-            aggregatedCartMap.get(vid).soLuong += q
-
+          const uPrice = Number(item.price || 0)
+          const cartKey = `${vid}_${uPrice}`
+          if (aggregatedCartMap.has(cartKey)) {
+            aggregatedCartMap.get(cartKey).soLuong += q
           } else {
-
-            aggregatedCartMap.set(vid, {
-
+            aggregatedCartMap.set(cartKey, {
               sanPhamId: vid,
-
               idChiTietSanPham: vid,
-
               soLuong: q,
-
-              giaDuocTinh: item.price,
-
-              donGia: item.price
-
+              giaDuocTinh: uPrice,
+              donGia: uPrice
             })
-
           }
-
         }
-
         return Array.from(aggregatedCartMap.values())
-
       })()
 
 
@@ -11315,21 +10804,10 @@ const checkNewDayTransition = async () => {
 
 
 const onTabVisibilityChange = () => {
-
-
-
   if (document.visibilityState === 'visible') {
-
-
-
     checkNewDayTransition()
-
-
-
+    fetchProductVariants()
   }
-
-
-
 }
 
 
@@ -11676,19 +11154,11 @@ onMounted(async () => {
 
           <div class="cart-head-bar">
 
-
-
             <div class="cart-title-wrap">
-
-
 
               <span class="cart-title-text">Giỏ hàng</span>
 
-
-
               <span class="cart-count-badge">{{ totalQuantity }} sản phẩm</span>
-
-
 
             </div>
 
@@ -11893,54 +11363,30 @@ onMounted(async () => {
 
 
 
-              <tr v-else v-for="(item, idx) in currentInvoice.cart" :key="item.id">
-
-
+              <tr v-else v-for="(item, idx) in currentInvoice.cart" :key="item.cartKey || (item.id + '_' + item.price + '_' + idx)">
 
                 <td class="text-center font-bold text-muted">{{ idx + 1 }}</td>
 
-
-
                 <td class="text-center">
-
-
 
                   <span class="cart-code-badge" :title="'Mã biến thể CTSP: ' + (item.variantCode || item.code)">{{ item.variantCode || item.code }}</span>
                   <div v-if="item.code && item.variantCode && item.code !== item.variantCode" class="cart-code-sub" style="font-size: 0.72rem; color: #64748b; margin-top: 2px;" title="Mã sản phẩm">{{ item.code }}</div>
 
-
-
                 </td>
-
-
 
                 <td class="text-left font-600">
 
-
-
                   <div class="cart-product-name-wrap">
-
-
 
                     <span class="cart-product-title" :title="item.name || getCartItemName(item)">{{ item.name || getCartItemName(item) }}</span>
 
-
-
                     <span v-if="item.hasDiscount && (item.discountText || item.discountCampaignName)" class="cart-discount-badge" :title="item.discountCampaignName">
-
-
 
                       {{ item.discountText || item.discountCampaignName }}
 
-
-
                     </span>
 
-
-
                   </div>
-
-
 
                 </td>
 
@@ -12115,41 +11561,14 @@ onMounted(async () => {
 
 
                 <td class="text-center">
-
-
-
                   <button class="btn-trash-row" @click="removeFromCart(item)" title="Xóa khỏi giỏ hàng">
-
-
-
                     <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="trash-icon-svg">
-
-
-
                       <polyline points="3 6 5 6 21 6"></polyline>
-
-
-
                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-
-
-
                       <line x1="10" y1="11" x2="10" y2="17"></line>
-
-
-
                       <line x1="14" y1="11" x2="14" y2="17"></line>
-
-
-
                     </svg>
-
-
-
                   </button>
-
-
-
                 </td>
 
 
@@ -14329,29 +13748,14 @@ onMounted(async () => {
 
 
                   <!-- Tên sản phẩm -->
-
-
-
                   <td class="td-name">
-
-
-
                     <div class="name-main">{{ p.name }}</div>
-
-
-
                     <div v-if="p.hasDiscount && p.discountCampaignName" class="campaign-pill" :title="p.discountCampaignName">
-
-
-
                       {{ p.discountCampaignName }}
-
-
-
                     </div>
-
-
-
+                    <div v-if="p.priceModifiedInSession" class="modal-price-modified-pill">
+                      ⚠️ {{ p.discountModifiedInSession ? 'Đợt giảm giá đã thay đổi' : 'Đã sửa giá' }} <template v-if="p.previousSessionPrice != null">(Giá cũ: {{ formatMoney(p.previousSessionPrice) }})</template>
+                    </div>
                   </td>
 
 
@@ -14985,13 +14389,7 @@ onMounted(async () => {
 
 
               <tbody>
-
-
-
-                <tr v-for="item in currentInvoice.cart" :key="item.id">
-
-
-
+                <tr v-for="(item, idx) in currentInvoice.cart" :key="item.cartKey || (item.id + '_' + item.price + '_' + idx)">
                   <td class="col-prod-name">
 
 
@@ -15203,6 +14601,84 @@ onMounted(async () => {
 
 
 
+
+    <!-- Popup Thông báo Warning tự động hiển thị khi thêm sản phẩm đã sửa giá hoặc thay đổi đợt giảm giá -->
+    <div v-if="showItemPriceWarningModal" class="pos-modal-backdrop" style="z-index: 10050;" @click.self="showItemPriceWarningModal = false">
+      <div class="pos-modal-card confirm-order-modal price-change-modal">
+        <div class="modal-top">
+          <div class="modal-title-group">
+            <h3 class="modal-title-text" style="color: #b45309;">
+              {{ activePriceWarningItems[0]?.isDiscountChanged ? '⚠️ Cảnh báo: Đợt giảm giá của sản phẩm đã thay đổi' : '⚠️ Cảnh báo: Sản phẩm đã thay đổi giá' }}
+            </h3>
+            <span class="modal-badge-count">Mã HĐ: {{ currentInvoice.code }}</span>
+          </div>
+          <button class="btn-modal-close" @click="showItemPriceWarningModal = false">✕</button>
+        </div>
+
+        <div class="confirm-modal-body">
+          <div class="price-change-warning-box">
+            <strong>Thông báo:</strong>
+            <span v-if="activePriceWarningItems[0]?.isDiscountChanged">
+              Đợt giảm giá (khuyến mãi) áp dụng cho sản phẩm bạn vừa thêm đã thay đổi trên hệ thống.
+            </span>
+            <span v-else>
+              Sản phẩm bạn vừa thêm đã được thay đổi giá trên hệ thống.
+            </span>
+            <br />
+            • Sản phẩm đã thêm trước đó trong giỏ hàng <strong>giữ nguyên đơn giá và đợt giảm giá cũ</strong> (không tự động thay đổi).
+            <br />
+            • Sản phẩm vừa thêm mới vào giỏ hàng được áp dụng theo <strong>{{ activePriceWarningItems[0]?.isDiscountChanged ? 'đợt giảm giá & đơn giá mới' : 'đơn giá mới' }}</strong> dưới đây:
+          </div>
+
+          <div class="confirm-items-table-wrap">
+            <table class="confirm-table">
+              <thead>
+                <tr>
+                  <th>Sản phẩm</th>
+                  <th class="text-center">Phân loại</th>
+                  <th v-if="activePriceWarningItems[0]?.isDiscountChanged" class="text-center">Đợt giảm giá (Cũ → Mới)</th>
+                  <th class="text-center">Số lượng</th>
+                  <th class="text-right">Đơn giá cũ</th>
+                  <th class="text-right">Đơn giá mới</th>
+                  <th class="text-right">Chênh lệch</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(w, wIdx) in activePriceWarningItems" :key="w.id + '_' + wIdx">
+                  <td class="col-prod-name">
+                    <strong>{{ w.name }}</strong>
+                    <div style="font-size: 0.75rem; color: #64748b;">Mã: {{ w.code }}</div>
+                  </td>
+                  <td class="text-center">{{ w.color }} / {{ w.size }}</td>
+                  <td v-if="w.isDiscountChanged" class="text-center" style="font-size: 0.78rem;">
+                    <span style="color: #64748b; text-decoration: line-through;">{{ w.oldDiscountLabel }}</span>
+                    <span style="margin: 0 4px; color: #94a3b8;">→</span>
+                    <strong style="color: #b45309;">{{ w.newDiscountLabel }}</strong>
+                  </td>
+                  <td class="text-center font-bold">{{ w.quantity }}</td>
+                  <td class="text-right" style="color: #64748b; text-decoration: line-through;">{{ formatMoney(w.oldPrice) }}</td>
+                  <td class="text-right font-bold" style="color: #b45309;">{{ formatMoney(w.newPrice) }}</td>
+                  <td class="text-right font-bold" :style="{ color: w.diff > 0 ? '#b91c1c' : '#15803d' }">
+                    {{ w.diff > 0 ? '+' : '' }}{{ formatMoney(w.diff) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="modal-actions-bottom" style="justify-content: flex-end;">
+          <button
+            type="button"
+            class="btn-submit-modal"
+            style="background-color: #b45309;"
+            @click="showItemPriceWarningModal = false"
+          >
+            Đã hiểu
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Modal Cảnh báo Đổi giá sản phẩm & Khuyến mãi (Case 1 & 4) -->
 
@@ -18103,49 +17579,127 @@ onMounted(async () => {
 
 
 .cart-discount-badge {
-
-
-
   display: inline-flex;
-
-
-
   align-items: center;
-
-
-
   font-size: 0.70rem;
-
-
-
   font-weight: 700;
-
-
-
   padding: 1px 5px;
-
-
-
   border-radius: 4px;
-
-
-
   background-color: #fef2f2;
-
-
-
   color: #dc2626;
-
-
-
   border: 1px solid #fecaca;
-
-
-
   white-space: nowrap;
+}
 
+.btn-cart-header-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background-color: #fffbeb;
+  color: #b45309;
+  border: 1px solid #f59e0b;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 1px 2px rgba(245, 158, 11, 0.15);
+}
 
+.btn-cart-header-warning:hover {
+  background-color: #fef3c7;
+  border-color: #d97706;
+  color: #92400e;
+  transform: translateY(-1px);
+}
 
+.btn-cart-price-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background-color: #fffbeb;
+  color: #b45309;
+  border: 1px solid #f59e0b;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 1px 2px rgba(245, 158, 11, 0.14);
+}
+
+.btn-cart-price-warning:hover {
+  background-color: #fef3c7;
+  border-color: #d97706;
+  color: #92400e;
+  transform: translateY(-1px);
+}
+
+.btn-cart-old-price-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 0.71rem;
+  font-weight: 600;
+  background-color: #f8fafc;
+  color: #475569;
+  border: 1px dashed #94a3b8;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.btn-cart-old-price-locked:hover {
+  background-color: #f1f5f9;
+  color: #1e293b;
+  border-color: #64748b;
+}
+
+.cart-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-warning-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background-color: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fcd34d;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.btn-warning-row:hover {
+  background-color: #fef3c7;
+  color: #b45309;
+  border-color: #f59e0b;
+  transform: translateY(-1px);
+}
+
+.modal-price-modified-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.71rem;
+  font-weight: 600;
+  background-color: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
 }
 
 

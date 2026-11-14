@@ -2397,7 +2397,7 @@ public class HoaDonService {
 
 
 
-        // 4. Tạo chi tiết hóa đơn mới
+        // 4. Tạo chi tiết hóa đơn mới (Gộp các item có cùng variantId VÀ cùng đơn giá; giữ nguyên các dòng khác đơn giá)
 
 
 
@@ -2409,15 +2409,11 @@ public class HoaDonService {
 
 
 
-            // Gộp các item có cùng variantId để tránh bị nhân đôi chi tiết
+            Map<String, Integer> mergedQtyMap = new LinkedHashMap<>();
 
+            Map<String, Long> keyToVariantIdMap = new HashMap<>();
 
-
-            Map<Long, Integer> mergedQtyMap = new LinkedHashMap<>();
-
-
-
-            Map<Long, BigDecimal> priceMap = new HashMap<>();
+            Map<String, BigDecimal> priceMap = new HashMap<>();
 
 
 
@@ -2435,17 +2431,25 @@ public class HoaDonService {
 
                 int q = it.getSoLuong() != null ? Math.max(1, it.getSoLuong()) : 1;
 
+                BigDecimal resolvedP = (it.getResolvedPrice() != null && it.getResolvedPrice().compareTo(BigDecimal.ZERO) > 0)
+                        ? it.getResolvedPrice()
+                        : BigDecimal.ZERO;
 
-
-                mergedQtyMap.put(vid, mergedQtyMap.getOrDefault(vid, 0) + q);
-
-
-
-                if (it.getResolvedPrice() != null && it.getResolvedPrice().compareTo(BigDecimal.ZERO) > 0) {
+                String mergeKey = vid + "_" + resolvedP.stripTrailingZeros().toPlainString();
 
 
 
-                    priceMap.put(vid, it.getResolvedPrice());
+                mergedQtyMap.put(mergeKey, mergedQtyMap.getOrDefault(mergeKey, 0) + q);
+
+                keyToVariantIdMap.put(mergeKey, vid);
+
+
+
+                if (resolvedP.compareTo(BigDecimal.ZERO) > 0) {
+
+
+
+                    priceMap.put(mergeKey, resolvedP);
 
 
 
@@ -2461,15 +2465,19 @@ public class HoaDonService {
 
 
 
-            for (Map.Entry<Long, Integer> entry : mergedQtyMap.entrySet()) {
+            for (Map.Entry<String, Integer> entry : mergedQtyMap.entrySet()) {
 
 
 
-                Long variantId = entry.getKey();
+                String mergeKey = entry.getKey();
+
+                Long variantId = keyToVariantIdMap.get(mergeKey);
 
 
 
                 int qty = entry.getValue();
+
+                if (variantId == null) continue;
 
 
 
@@ -2485,7 +2493,7 @@ public class HoaDonService {
 
 
 
-                BigDecimal unitPrice = priceMap.get(variantId);
+                BigDecimal unitPrice = priceMap.get(mergeKey);
 
 
 
@@ -7164,6 +7172,15 @@ public class HoaDonService {
 
             BigDecimal calculatedTotal = BigDecimal.ZERO;
 
+            // Tính tổng số lượng yêu cầu cho từng biến thể (hỗ trợ trường hợp cùng 1 biến thể có nhiều dòng khác đơn giá)
+            Map<Long, Integer> totalRequestedByVariant = new HashMap<>();
+            for (HoaDonPosDTO.ItemChiTietDTO reqItem : dto.getChiTietList()) {
+                Long vid = reqItem.getResolvedVariantId();
+                if (vid == null) continue;
+                int rq = reqItem.getSoLuong() != null ? Math.max(1, reqItem.getSoLuong()) : 1;
+                totalRequestedByVariant.put(vid, totalRequestedByVariant.getOrDefault(vid, 0) + rq);
+            }
+
 
 
             for (HoaDonPosDTO.ItemChiTietDTO item : dto.getChiTietList()) {
@@ -7188,56 +7205,32 @@ public class HoaDonService {
 
                 ChiTietSanPham ctsp = ctspOpt.get();
 
-
-
-                int previouslyDeducted = alreadyDeductedMap.getOrDefault(variantId, 0);
-
-
-
-                int currentAvailable = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
-
-
-
-                int totalAvailableForCheckout = currentAvailable + previouslyDeducted;
-
-
-
                 int qty = item.getSoLuong() != null ? Math.max(1, item.getSoLuong()) : 1;
 
+                if (!processedVariants.contains(variantId)) {
+                    int previouslyDeducted = alreadyDeductedMap.getOrDefault(variantId, 0);
+                    int currentAvailable = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
+                    int totalAvailableForCheckout = currentAvailable + previouslyDeducted;
+                    int totalVariantQty = totalRequestedByVariant.getOrDefault(variantId, qty);
+                    int diff = totalVariantQty - previouslyDeducted;
 
+                    if (totalAvailableForCheckout <= 0) {
+                        String spName = ctsp.getIdSanPham() != null ? ctsp.getIdSanPham().getTenSanPham() : "Sản phẩm";
+                        throw new IllegalArgumentException("Sản phẩm '" + spName + "' hiện đã hết hàng trong kho!");
+                    }
 
-                int diff = qty - previouslyDeducted;
+                    if (diff > 0 && currentAvailable < diff) {
+                        String spName = ctsp.getIdSanPham() != null ? ctsp.getIdSanPham().getTenSanPham() : "Sản phẩm";
+                        throw new IllegalArgumentException("Sản phẩm '" + spName + "' không đủ số lượng trong kho (chỉ còn thêm tối đa " + currentAvailable + ")!");
+                    }
 
-
-
-                if (totalAvailableForCheckout <= 0) {
-
-
-
-                    String spName = ctsp.getIdSanPham() != null ? ctsp.getIdSanPham().getTenSanPham() : "Sản phẩm";
-
-
-
-                    throw new IllegalArgumentException("Sản phẩm '" + spName + "' hiện đã hết hàng trong kho!");
-
-
-
-                }
-
-
-
-                if (diff > 0 && currentAvailable < diff) {
-
-
-
-                    String spName = ctsp.getIdSanPham() != null ? ctsp.getIdSanPham().getTenSanPham() : "Sản phẩm";
-
-
-
-                    throw new IllegalArgumentException("Sản phẩm '" + spName + "' không đủ số lượng trong kho (chỉ còn thêm tối đa " + currentAvailable + ")!");
-
-
-
+                    if (ctsp.getSoLuong() != null) {
+                        if (diff != 0) {
+                            ctsp.setSoLuong(Math.max(0, ctsp.getSoLuong() - diff));
+                        }
+                        chiTietSanPhamRepository.save(ctsp);
+                    }
+                    processedVariants.add(variantId);
                 }
 
 
@@ -7274,7 +7267,7 @@ public class HoaDonService {
 
 
 
-                    if (!Boolean.TRUE.equals(dto.getChapNhanGiaMoi())) {
+                    if (Boolean.FALSE.equals(dto.getChapNhanGiaMoi())) {
 
 
 
@@ -7298,7 +7291,7 @@ public class HoaDonService {
 
 
 
-                    unitPrice = currentRealPrice;
+                    unitPrice = Boolean.TRUE.equals(dto.getChapNhanGiaMoi()) ? currentRealPrice : cartUnitPrice;
 
 
 
@@ -7383,34 +7376,6 @@ public class HoaDonService {
 
 
                 chiTietHoaDonRepository.save(cthd);
-
-
-
-                processedVariants.add(variantId);
-
-
-
-                if (ctsp.getSoLuong() != null) {
-
-
-
-                    if (diff != 0) {
-
-
-
-                        ctsp.setSoLuong(Math.max(0, ctsp.getSoLuong() - diff));
-
-
-
-                    }
-
-
-
-                    chiTietSanPhamRepository.save(ctsp);
-
-
-
-                }
 
 
 
