@@ -26,6 +26,7 @@ public class HoaDonPosDTO {
     @com.fasterxml.jackson.annotation.JsonAlias({"items", "danhSachSanPham", "chiTietHoaDon"})
     private List<ItemChiTietDTO> chiTietList;
     private Boolean chapNhanGiaMoi;
+    private Boolean chapNhanVoucherMoi;
 
     public HoaDonPosDTO() {
     }
@@ -89,6 +90,9 @@ public class HoaDonPosDTO {
 
     public Boolean getChapNhanGiaMoi() { return chapNhanGiaMoi; }
     public void setChapNhanGiaMoi(Boolean chapNhanGiaMoi) { this.chapNhanGiaMoi = chapNhanGiaMoi; }
+
+    public Boolean getChapNhanVoucherMoi() { return chapNhanVoucherMoi; }
+    public void setChapNhanVoucherMoi(Boolean chapNhanVoucherMoi) { this.chapNhanVoucherMoi = chapNhanVoucherMoi; }
 
     public List<ItemChiTietDTO> getChiTietList() { return chiTietList; }
     public void setChiTietList(List<ItemChiTietDTO> chiTietList) { this.chiTietList = chiTietList; }

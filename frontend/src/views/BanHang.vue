@@ -552,6 +552,7 @@ const loadWaitingInvoices = async () => {
 
 
 
+    const invoiceVoucherSnapMap = getInvoiceVoucherSnapshots()
     const loadedTabs = await Promise.all(list.map(async (inv) => {
 
 
@@ -590,12 +591,18 @@ const loadWaitingInvoices = async () => {
           if (!vid) continue
 
           const curPrice = ct.donGia != null ? Number(ct.donGia) : (ctsp.giaBan != null ? Number(ctsp.giaBan) : 0)
+          const listGiaBan = ctsp.giaBan != null ? Number(ctsp.giaBan) : curPrice
           const snapKey = `${inv.id}_${vid}_${curPrice}`
           const savedSnap = cartSnapMap[snapKey] || null
+          const inferredDiscount = !savedSnap && listGiaBan > curPrice
 
-          const origPrice = savedSnap && savedSnap.originalPrice != null ? Number(savedSnap.originalPrice) : curPrice
-          const hasDiscount = savedSnap ? Boolean(savedSnap.hasDiscount) : false
-          const discountText = savedSnap ? String(savedSnap.discountText || '') : ''
+          const origPrice = savedSnap && savedSnap.originalPrice != null
+            ? Number(savedSnap.originalPrice)
+            : (inferredDiscount ? listGiaBan : curPrice)
+          const hasDiscount = savedSnap ? Boolean(savedSnap.hasDiscount) : inferredDiscount
+          const discountText = savedSnap
+            ? String(savedSnap.discountText || '')
+            : (inferredDiscount ? `-${formatShortMoney(listGiaBan - curPrice)}` : '')
           const discountCampaignName = savedSnap ? String(savedSnap.discountCampaignName || '') : ''
 
           const qty = ct.soLuong || 1
@@ -646,7 +653,7 @@ const loadWaitingInvoices = async () => {
 
               discountCampaignName: discountCampaignName,
 
-              snapshotLocked: Boolean(savedSnap),
+              snapshotLocked: Boolean(savedSnap || inferredDiscount),
 
               quantity: qty,
 
@@ -744,7 +751,11 @@ const loadWaitingInvoices = async () => {
 
 
 
-        voucher: inv.idPhieuGiamGia || null,
+        voucher: invoiceVoucherSnapMap[inv.id]?.voucher
+          ? { ...invoiceVoucherSnapMap[inv.id].voucher, voucherSnapshotLocked: true }
+          : (inv.idPhieuGiamGia ? { ...inv.idPhieuGiamGia, voucherSnapshotLocked: true } : null),
+        chapNhanVoucherMoi: invoiceVoucherSnapMap[inv.id]?.chapNhanVoucherMoi ?? null,
+        rejectedVoucherKey: invoiceVoucherSnapMap[inv.id]?.rejectedVoucherKey || null,
 
 
 
@@ -1005,6 +1016,8 @@ const addWaitingInvoice = async () => {
 
 
         voucher: null,
+        chapNhanVoucherMoi: null,
+        rejectedVoucherKey: null,
 
 
 
@@ -1563,7 +1576,7 @@ const refreshAvailableStock = () => {
 // Lưu vết thông tin dòng giỏ hàng (giá & đợt giảm giá tại thời điểm thêm) để không bị tự động thay đổi khi sửa giá/đợt giảm giá
 const getCartLineSnapshots = () => {
   try {
-    const raw = sessionStorage.getItem('pos_cart_line_snapshots')
+    const raw = localStorage.getItem('pos_cart_line_snapshots') || sessionStorage.getItem('pos_cart_line_snapshots')
     return raw ? (JSON.parse(raw) || {}) : {}
   } catch (e) {
     return {}
@@ -1574,6 +1587,17 @@ const saveCartLineSnapshots = () => {
   try {
     const map = getCartLineSnapshots()
     if (Array.isArray(waitingInvoices.value)) {
+      const activeInvPrefixes = new Set(
+        waitingInvoices.value.filter(inv => inv?.id).map(inv => `${inv.id}_`)
+      )
+      for (const existingKey of Object.keys(map)) {
+        const matchedPrefix = Array.from(activeInvPrefixes).find(prefix => existingKey.startsWith(prefix))
+        if (matchedPrefix) {
+          delete map[existingKey]
+        } else if (activeInvPrefixes.size > 0) {
+          delete map[existingKey]
+        }
+      }
       for (const inv of waitingInvoices.value) {
         if (!inv?.id || !Array.isArray(inv.cart)) continue
         for (const item of inv.cart) {
@@ -1589,7 +1613,7 @@ const saveCartLineSnapshots = () => {
         }
       }
     }
-    sessionStorage.setItem('pos_cart_line_snapshots', JSON.stringify(map))
+    localStorage.setItem('pos_cart_line_snapshots', JSON.stringify(map))
   } catch (e) {}
 }
 
@@ -1606,11 +1630,17 @@ const isVariantSnapshotChanged = (oldSnap, newSnap) => {
 
 const isDiscountSnapshotChanged = (oldSnap, newSnap) => {
   if (!oldSnap || !newSnap) return false
-  return (
+  const metaChanged = (
     Boolean(oldSnap.hasDiscount) !== Boolean(newSnap.hasDiscount) ||
     String(oldSnap.discountText || '') !== String(newSnap.discountText || '') ||
     String(oldSnap.discountCampaignName || '') !== String(newSnap.discountCampaignName || '')
   )
+  const discountPriceChangedOnly = (
+    (Boolean(oldSnap.hasDiscount) || Boolean(newSnap.hasDiscount)) &&
+    Number(oldSnap.originalPrice || oldSnap.price) === Number(newSnap.originalPrice || newSnap.price) &&
+    Number(oldSnap.price) !== Number(newSnap.price)
+  )
+  return metaChanged || discountPriceChangedOnly
 }
 
 const formatDiscountSnapLabel = (snap) => {
@@ -1670,9 +1700,9 @@ const getSessionPriceMaps = () => {
   let known = {}
   let modified = {}
   try {
-    const rawKnown = sessionStorage.getItem('pos_known_variant_snapshots')
+    const rawKnown = localStorage.getItem('pos_known_variant_snapshots') || sessionStorage.getItem('pos_known_variant_snapshots')
     if (rawKnown) known = JSON.parse(rawKnown) || {}
-    const rawMod = sessionStorage.getItem('pos_modified_variant_snapshots')
+    const rawMod = localStorage.getItem('pos_modified_variant_snapshots') || sessionStorage.getItem('pos_modified_variant_snapshots')
     if (rawMod) modified = JSON.parse(rawMod) || {}
   } catch (e) {}
   return { known, modified }
@@ -1680,15 +1710,15 @@ const getSessionPriceMaps = () => {
 
 const saveSessionPriceMaps = (known, modified) => {
   try {
-    sessionStorage.setItem('pos_known_variant_snapshots', JSON.stringify(known))
-    sessionStorage.setItem('pos_modified_variant_snapshots', JSON.stringify(modified))
+    localStorage.setItem('pos_known_variant_snapshots', JSON.stringify(known))
+    localStorage.setItem('pos_modified_variant_snapshots', JSON.stringify(modified))
   } catch (e) {}
 }
 
 // Gọi API lấy toàn bộ biến thể sản phẩm đang bán kèm đợt giảm giá (HOÀN TOÀN TỪ CSDL)
-const fetchProductVariants = async () => {
+const fetchProductVariants = async (silent = false) => {
   try {
-    isLoadingProducts.value = true
+    if (!silent) isLoadingProducts.value = true
     const [resVariants, resActiveVariantsMap] = await Promise.allSettled([
       api.get('/api/chi-tiet-san-pham/filter', {
         params: { trangThai: 1, size: 500 }
@@ -1818,9 +1848,9 @@ const fetchProductVariants = async () => {
     enrichCartItemsWithProductList()
   } catch (e) {
     console.error('Không tải được danh sách CTSP từ CSDL:', e)
-    productList.value = []
+    if (!silent) productList.value = []
   } finally {
-    isLoadingProducts.value = false
+    if (!silent) isLoadingProducts.value = false
   }
 }
 
@@ -2670,7 +2700,7 @@ const getRemainingStock = (item) => {
   return p ? Math.max(0, p.stock) : 0
 }
 
-const selectProduct = (prod, qtyToAdd = 1) => {
+const selectProduct = (prod, qtyToAdd = 1, sourceCartItem = null) => {
   const p = findProduct(prod) || prod
   const addQty = Math.max(1, Number(qtyToAdd || 1))
   const available = Number(p.stock ?? prod.stock ?? 0)
@@ -2705,9 +2735,12 @@ const selectProduct = (prod, qtyToAdd = 1) => {
   )
 
   const exactMatchItem = sameVariantItems.find(i => !isVariantSnapshotChanged(i, newSnap))
-  const diffCartItem = sameVariantItems.find(i => isVariantSnapshotChanged(i, newSnap))
+  const diffCartItem = (sourceCartItem && isVariantSnapshotChanged(sourceCartItem, newSnap))
+    ? sourceCartItem
+    : sameVariantItems.find(i => isVariantSnapshotChanged(i, newSnap))
 
-  const isModified = Boolean(
+  const alreadyHasNewInCart = Boolean(!sourceCartItem && exactMatchItem)
+  const isModified = !alreadyHasNewInCart && Boolean(
     diffCartItem ||
     (p.priceModifiedInSession && p.previousSessionSnapshot && isVariantSnapshotChanged(p.previousSessionSnapshot, newSnap))
   )
@@ -2731,6 +2764,46 @@ const selectProduct = (prod, qtyToAdd = 1) => {
   }
 
   const lineCartKey = `${targetId}_${salePrice}_${hasDiscount ? (discountCampaignName + '_' + discountText) : 'nodisc'}`
+
+  // Nếu thay đổi Đợt giảm giá: mở Popup để người dùng chọn "Áp dụng" hoặc "Hủy"
+  if (isModified && isDiscountChanged) {
+    pendingDiscountWarningContext.value = {
+      p,
+      prod,
+      targetId,
+      targetVCode,
+      addQty,
+      origPrice,
+      salePrice,
+      hasDiscount,
+      discountText,
+      discountCampaignName,
+      newSnap,
+      oldSnapRef,
+      oldPriceRef,
+      lineCartKey,
+      exactMatchItem,
+      diffCartItem,
+      sourceCartItem
+    }
+    activePriceWarningItems.value = [{
+      id: targetId,
+      code: targetVCode || p.code || prod.code || '',
+      name: p.name || prod.name || 'Sản phẩm',
+      color: p.color || prod.color || 'Mặc định',
+      size: p.size || prod.size || 'Freesize',
+      quantity: addQty,
+      oldPrice: Number(oldPriceRef != null ? oldPriceRef : salePrice),
+      newPrice: Number(salePrice),
+      diff: Number(salePrice) - Number(oldPriceRef != null ? oldPriceRef : salePrice),
+      isDiscountChanged: true,
+      oldDiscountLabel: formatDiscountSnapLabel(oldSnapRef),
+      newDiscountLabel: formatDiscountSnapLabel(newSnap),
+      hasOldInCart: Boolean(diffCartItem)
+    }]
+    showItemPriceWarningModal.value = true
+    return
+  }
 
   if (exactMatchItem) {
     exactMatchItem.quantity += addQty
@@ -2757,6 +2830,10 @@ const selectProduct = (prod, qtyToAdd = 1) => {
       discountText: discountText,
       discountCampaignName: discountCampaignName,
       snapshotLocked: true,
+      priceModifiedInSession: false,
+      discountModifiedInSession: false,
+      previousSessionPrice: null,
+      previousSessionSnapshot: null,
       isModifiedPriceWarning: isModified,
       previousCartPrice: oldPriceRef
     })
@@ -2777,25 +2854,12 @@ const selectProduct = (prod, qtyToAdd = 1) => {
       oldPrice: Number(oldPriceRef != null ? oldPriceRef : salePrice),
       newPrice: Number(salePrice),
       diff: Number(salePrice) - Number(oldPriceRef != null ? oldPriceRef : salePrice),
-      isDiscountChanged: isDiscountChanged,
+      isDiscountChanged: false,
       oldDiscountLabel: formatDiscountSnapLabel(oldSnapRef),
       newDiscountLabel: formatDiscountSnapLabel(newSnap),
       hasOldInCart: Boolean(diffCartItem)
     }]
     showItemPriceWarningModal.value = true
-
-    const reasonLabel = isDiscountChanged ? 'đã thay đổi đợt giảm giá' : 'đã sửa giá'
-    if (diffCartItem) {
-      showToast(
-        `Cảnh báo: Sản phẩm "${p.name || prod.name} (${p.color || prod.color} - ${p.size || prod.size})" ${reasonLabel} từ ${formatMoney(oldPriceRef)} thành ${formatMoney(salePrice)}! Sản phẩm đã thêm trong giỏ giữ nguyên mức cũ.`,
-        'warning'
-      )
-    } else {
-      showToast(
-        `Cảnh báo: Sản phẩm "${p.name || prod.name} (${p.color || prod.color} - ${p.size || prod.size})" ${reasonLabel} từ ${formatMoney(oldPriceRef)} thành ${formatMoney(salePrice)}!`,
-        'warning'
-      )
-    }
   } else {
     showToast(`Đã thêm "${p.name || prod.name} (${p.color || prod.color} - ${p.size || prod.size})" vào giỏ hàng!`)
   }
@@ -2803,6 +2867,153 @@ const selectProduct = (prod, qtyToAdd = 1) => {
 
 const showItemPriceWarningModal = ref(false)
 const activePriceWarningItems = ref([])
+const pendingDiscountWarningContext = ref(null)
+
+const dismissItemPriceWarningModal = () => {
+  pendingDiscountWarningContext.value = null
+  showItemPriceWarningModal.value = false
+  flushDeferredVoucherCheck()
+}
+
+const applyDiscountWarningModal = () => {
+  const ctx = pendingDiscountWarningContext.value
+  if (ctx && currentInvoice.value && Array.isArray(currentInvoice.value.cart)) {
+    const {
+      p, prod, targetId, targetVCode, addQty, origPrice, salePrice,
+      hasDiscount, discountText, discountCampaignName, oldPriceRef, lineCartKey, newSnap
+    } = ctx
+
+    const liveP = findProduct(p) || p
+    const avail = Number(liveP?.stock ?? 0)
+    if (avail < addQty) {
+      showToast(`Trong kho chỉ còn thêm tối đa ${avail} sản phẩm!`, 'warning')
+      pendingDiscountWarningContext.value = null
+      showItemPriceWarningModal.value = false
+      return
+    }
+
+    const sameVariantItems = currentInvoice.value.cart.filter(i =>
+      (targetId != null && Number(i.id) === Number(targetId)) ||
+      (targetVCode && i.variantCode && i.variantCode.toLowerCase() === targetVCode.toLowerCase())
+    )
+    const exactMatch = sameVariantItems.find(i => !isVariantSnapshotChanged(i, newSnap))
+
+    if (exactMatch) {
+      exactMatch.quantity += addQty
+      exactMatch.originalPrice = origPrice
+      exactMatch.hasDiscount = hasDiscount
+      exactMatch.discountText = discountText
+      exactMatch.discountCampaignName = discountCampaignName
+      exactMatch.snapshotLocked = true
+      exactMatch.isModifiedPriceWarning = true
+      exactMatch.previousCartPrice = oldPriceRef
+    } else {
+      currentInvoice.value.cart.push({
+        ...p,
+        id: targetId,
+        cartKey: lineCartKey,
+        variantCode: targetVCode,
+        quantity: addQty,
+        syncedQuantity: 0,
+        price: salePrice,
+        originalPrice: origPrice,
+        hasDiscount: hasDiscount,
+        discountText: discountText,
+        discountCampaignName: discountCampaignName,
+        snapshotLocked: true,
+        priceModifiedInSession: false,
+        discountModifiedInSession: false,
+        previousSessionPrice: null,
+        previousSessionSnapshot: null,
+        isModifiedPriceWarning: true,
+        previousCartPrice: oldPriceRef
+      })
+    }
+
+    // Cập nhật lại snapshot phiên để ghi nhận đã áp dụng đợt giảm giá mới
+    if (p && targetId != null) {
+      p.priceModifiedInSession = false
+      p.discountModifiedInSession = false
+      p.previousSessionPrice = null
+      p.previousSessionSnapshot = null
+      const { known, modified } = getSessionPriceMaps()
+      known[targetId] = newSnap
+      delete modified[targetId]
+      saveSessionPriceMaps(known, modified)
+    }
+
+    saveCartLineSnapshots()
+    refreshAvailableStock()
+    syncCurrentCartToDb()
+    showToast(`Đã áp dụng ${hasDiscount ? formatDiscountSnapLabel(newSnap) : 'giá mới'} cho "${p.name || prod?.name || 'sản phẩm'}"!`)
+  }
+  pendingDiscountWarningContext.value = null
+  showItemPriceWarningModal.value = false
+  flushDeferredVoucherCheck()
+}
+
+const cancelDiscountWarningModal = () => {
+  const ctx = pendingDiscountWarningContext.value
+  if (ctx && currentInvoice.value && Array.isArray(currentInvoice.value.cart) && ctx.oldSnapRef) {
+    // Khi bấm "Hủy": không áp dụng đợt giảm giá mới mà vẫn thêm vào giỏ theo đợt trước đó
+    const { p, prod, targetId, targetVCode, addQty, oldSnapRef, sourceCartItem } = ctx
+    const liveP = findProduct(p) || p
+    const avail = Number(liveP?.stock ?? 0)
+    if (avail < addQty) {
+      showToast(`Trong kho chỉ còn thêm tối đa ${avail} sản phẩm!`, 'warning')
+      pendingDiscountWarningContext.value = null
+      showItemPriceWarningModal.value = false
+      return
+    }
+
+    const oldSalePrice = Number(oldSnapRef.price)
+    const oldOrigPrice = Number(oldSnapRef.originalPrice || oldSalePrice)
+    const oldHasDiscount = Boolean(oldSnapRef.hasDiscount)
+    const oldDiscountText = String(oldSnapRef.discountText || '')
+    const oldCampaignName = String(oldSnapRef.discountCampaignName || '')
+    const oldCartKey = `${targetId}_${oldSalePrice}_${oldHasDiscount ? (oldCampaignName + '_' + oldDiscountText) : 'nodisc'}`
+
+    const sameVariantItems = currentInvoice.value.cart.filter(i =>
+      (targetId != null && Number(i.id) === Number(targetId)) ||
+      (targetVCode && i.variantCode && i.variantCode.toLowerCase() === targetVCode.toLowerCase())
+    )
+    const oldMatch = (sourceCartItem && currentInvoice.value.cart.includes(sourceCartItem) && !isVariantSnapshotChanged(sourceCartItem, oldSnapRef))
+      ? sourceCartItem
+      : sameVariantItems.find(i => !isVariantSnapshotChanged(i, oldSnapRef))
+
+    if (oldMatch) {
+      oldMatch.quantity += addQty
+      oldMatch.snapshotLocked = true
+    } else {
+      currentInvoice.value.cart.push({
+        ...p,
+        id: targetId,
+        cartKey: oldCartKey,
+        variantCode: targetVCode,
+        quantity: addQty,
+        syncedQuantity: 0,
+        price: oldSalePrice,
+        originalPrice: oldOrigPrice,
+        hasDiscount: oldHasDiscount,
+        discountText: oldDiscountText,
+        discountCampaignName: oldCampaignName,
+        snapshotLocked: true,
+        priceModifiedInSession: false,
+        discountModifiedInSession: false,
+        previousSessionPrice: null,
+        previousSessionSnapshot: null
+      })
+    }
+
+    saveCartLineSnapshots()
+    refreshAvailableStock()
+    syncCurrentCartToDb()
+    showToast(`Không áp dụng đợt mới, đã thêm "${p.name || prod?.name || 'sản phẩm'}" vào giỏ theo ${oldHasDiscount ? formatDiscountSnapLabel(oldSnapRef) : 'đợt/mức giá trước đó'}!`)
+  }
+  pendingDiscountWarningContext.value = null
+  showItemPriceWarningModal.value = false
+  flushDeferredVoucherCheck()
+}
 
 
 
@@ -3000,7 +3211,7 @@ const updateQuantity = (item, delta) => {
       return
     }
     if (p && isVariantSnapshotChanged(item, p)) {
-      selectProduct(p, delta)
+      selectProduct(p, delta, item)
       return
     }
     item.quantity += delta
@@ -3045,7 +3256,7 @@ const handleQuantityInput = (item, event) => {
   if (val > item.quantity && p && isVariantSnapshotChanged(item, p)) {
     const diffQty = val - item.quantity
     event.target.value = item.quantity
-    selectProduct(p, diffQty)
+    selectProduct(p, diffQty, item)
     return
   }
 
@@ -5294,6 +5505,396 @@ const submitQuickAddCustomer = async () => {
 
 
 const availableVouchers = ref([])
+const allSystemVouchers = ref([])
+const hasLoadedVouchersOnce = ref(false)
+const showVoucherWarningModal = ref(false)
+const voucherWarningData = ref(null)
+const pendingVoucherWarningContext = ref(null)
+let deferredVoucherCheckAfterPriceModal = false
+
+const getInvoiceVoucherSnapshots = () => {
+  try {
+    const raw = localStorage.getItem('pos_invoice_voucher_snapshots')
+    return raw ? (JSON.parse(raw) || {}) : {}
+  } catch (e) {
+    return {}
+  }
+}
+
+const cloneVoucherSnapshot = (v) => {
+  if (!v) return null
+  const copy = { ...v }
+  delete copy.voucherModifiedInSession
+  delete copy.voucherNewlyAddedInSession
+  delete copy.previousSessionVoucher
+  delete copy.voucherChangedInSystem
+  delete copy.latestSystemVoucher
+  copy.voucherSnapshotLocked = true
+  return copy
+}
+
+const saveInvoiceVoucherSnapshots = () => {
+  try {
+    const map = getInvoiceVoucherSnapshots()
+    if (Array.isArray(waitingInvoices.value)) {
+      const activeIds = new Set(waitingInvoices.value.filter(inv => inv?.id).map(inv => String(inv.id)))
+      for (const k of Object.keys(map)) {
+        if (activeIds.size > 0 && !activeIds.has(String(k))) {
+          delete map[k]
+        }
+      }
+      for (const inv of waitingInvoices.value) {
+        if (!inv?.id) continue
+        if (inv.voucher || inv.rejectedVoucherKey || inv.chapNhanVoucherMoi != null) {
+          map[inv.id] = {
+            voucher: cloneVoucherSnapshot(inv.voucher),
+            chapNhanVoucherMoi: inv.chapNhanVoucherMoi ?? null,
+            rejectedVoucherKey: inv.rejectedVoucherKey || null
+          }
+        } else {
+          delete map[inv.id]
+        }
+      }
+    }
+    localStorage.setItem('pos_invoice_voucher_snapshots', JSON.stringify(map))
+  } catch (e) {}
+}
+
+const removeInvoiceVoucherSnapshot = (invoiceId) => {
+  if (!invoiceId) return
+  try {
+    const map = getInvoiceVoucherSnapshots()
+    delete map[invoiceId]
+    localStorage.setItem('pos_invoice_voucher_snapshots', JSON.stringify(map))
+  } catch (e) {}
+}
+
+const getSessionVoucherMaps = () => {
+  let known = {}
+  let modified = {}
+  let newlyAdded = {}
+  try {
+    const rawK = localStorage.getItem('pos_known_voucher_snapshots')
+    if (rawK) known = JSON.parse(rawK) || {}
+    const rawM = localStorage.getItem('pos_modified_voucher_snapshots')
+    if (rawM) modified = JSON.parse(rawM) || {}
+    const rawN = localStorage.getItem('pos_new_voucher_ids')
+    if (rawN) newlyAdded = JSON.parse(rawN) || {}
+  } catch (e) {}
+  return { known, modified, newlyAdded }
+}
+
+const saveSessionVoucherMaps = (known, modified, newlyAdded) => {
+  try {
+    localStorage.setItem('pos_known_voucher_snapshots', JSON.stringify(known))
+    localStorage.setItem('pos_modified_voucher_snapshots', JSON.stringify(modified))
+    localStorage.setItem('pos_new_voucher_ids', JSON.stringify(newlyAdded))
+  } catch (e) {}
+}
+
+const getVoucherQtyValue = (v) => {
+  if (!v) return null
+  if (v.soLuongSuDung != null) return Number(v.soLuongSuDung)
+  if (v.soLuong != null) return Number(v.soLuong)
+  return null
+}
+
+const isVoucherCurrentlyUsable = (v) => {
+  if (!v) return false
+  if (v.trangThai != null && Number(v.trangThai) !== 1) return false
+  const qty = getVoucherQtyValue(v)
+  if (qty !== null && qty <= 0) return false
+  const now = new Date()
+  if (v.ngayBatDau && new Date(v.ngayBatDau) > now) return false
+  if (v.ngayKetThuc && new Date(v.ngayKetThuc) < now) return false
+  return true
+}
+
+const isVoucherSnapshotChanged = (oldV, newV) => {
+  if (!oldV && !newV) return false
+  if (!oldV || !newV) return true
+  const oldQty = getVoucherQtyValue(oldV)
+  const newQty = getVoucherQtyValue(newV)
+  const oldHasQty = oldQty === null || oldQty > 0
+  const newHasQty = newQty === null || newQty > 0
+  return (
+    String(oldV.id ?? '') !== String(newV.id ?? '') ||
+    String(oldV.maPhieuGiamGia || '') !== String(newV.maPhieuGiamGia || '') ||
+    String(oldV.tenPhieuGiamGia || '') !== String(newV.tenPhieuGiamGia || '') ||
+    isPercentVoucher(oldV) !== isPercentVoucher(newV) ||
+    Number(oldV.loaiPhieuGiamGia ?? 0) !== Number(newV.loaiPhieuGiamGia ?? 0) ||
+    Number(oldV.giaTriGiamGia || 0) !== Number(newV.giaTriGiamGia || 0) ||
+    Number(oldV.giamToiDa || 0) !== Number(newV.giamToiDa || 0) ||
+    Number(oldV.hoaDonToiThieu || 0) !== Number(newV.hoaDonToiThieu || 0) ||
+    isVoucherPersonal(oldV) !== isVoucherPersonal(newV) ||
+    Number(oldV.trangThai ?? 1) !== Number(newV.trangThai ?? 1) ||
+    String(oldV.ngayBatDau || '') !== String(newV.ngayBatDau || '') ||
+    String(oldV.ngayKetThuc || '') !== String(newV.ngayKetThuc || '') ||
+    oldHasQty !== newHasQty
+  )
+}
+
+const buildVoucherDecisionKey = (oldV, newV) => {
+  const part = (v) => {
+    if (!v) return 'NONE'
+    const qty = getVoucherQtyValue(v)
+    const hasQty = qty === null || qty > 0 ? 1 : 0
+    return [
+      v.id ?? '',
+      v.maPhieuGiamGia || '',
+      isPercentVoucher(v) ? 1 : 0,
+      Number(v.loaiPhieuGiamGia ?? 0),
+      Number(v.giaTriGiamGia || 0),
+      Number(v.giamToiDa || 0),
+      Number(v.hoaDonToiThieu || 0),
+      Number(v.trangThai ?? 1),
+      String(v.ngayKetThuc || ''),
+      hasQty
+    ].join('|')
+  }
+  return `${part(oldV)}=>${part(newV)}`
+}
+
+const computeInvoiceSubtotal = (inv) => {
+  if (!inv || !Array.isArray(inv.cart)) return 0
+  return inv.cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1), 0)
+}
+
+const findFallbackBestVoucherFromSnapshots = (snapshotsMap, excludeId, customerId, customerName, subtotal) => {
+  if (subtotal <= 0 || !snapshotsMap) return null
+  const list = Object.values(snapshotsMap).filter(v => {
+    if (!v || v.__deleted) return false
+    if (excludeId != null && String(v.id) === String(excludeId)) return false
+    if (!isVoucherCurrentlyUsable(v)) return false
+    if (isVoucherPersonal(v) && (!customerId || !isVoucherForCustomer(v, customerId, customerName))) return false
+    if (v.hoaDonToiThieu && Number(subtotal) < Number(v.hoaDonToiThieu)) return false
+    return calculateDiscountAmount(v, subtotal) > 0
+  })
+  if (list.length === 0) return null
+  list.sort((a, b) => calculateDiscountAmount(b, subtotal) - calculateDiscountAmount(a, subtotal))
+  return list[0]
+}
+
+const detectPendingVoucherChange = (inv) => {
+  if (!inv) return null
+  const subtotal = computeInvoiceSubtotal(inv)
+  if (subtotal <= 0) return null
+  if (!hasLoadedVouchersOnce.value) return null
+
+  const custId = inv.customerId
+  const custName = inv.customerName
+  const bestNow = findBestVoucher(custId, custName, subtotal)
+  const curV = inv.voucher
+  const { known, modified, newlyAdded } = getSessionVoucherMaps()
+
+  if (curV) {
+    const liveV = allSystemVouchers.value.find(v => String(v.id) === String(curV.id)) || null
+    const personalInvalid = Boolean(liveV && isVoucherPersonal(liveV) && !isVoucherForCustomer(liveV, custId, custName))
+    const curChangedOnSystem = Boolean(
+      !liveV ||
+      !isVoucherCurrentlyUsable(liveV) ||
+      isVoucherSnapshotChanged(curV, liveV) ||
+      personalInvalid
+    )
+
+    if (curChangedOnSystem) {
+      const targetNewVoucher = bestNow || null
+      const decisionKey = buildVoucherDecisionKey(curV, targetNewVoucher)
+      if (inv.rejectedVoucherKey === decisionKey) {
+        return null
+      }
+      let reason = `Mã "${curV.maPhieuGiamGia}" đã thay đổi thông tin hoặc điều kiện áp dụng`
+      if (!liveV) {
+        reason = `Mã "${curV.maPhieuGiamGia}" đã bị xóa khỏi hệ thống`
+      } else if (!isVoucherCurrentlyUsable(liveV)) {
+        reason = `Mã "${curV.maPhieuGiamGia}" đã ngưng hoạt động, hết hạn hoặc hết lượt sử dụng`
+      }
+      return {
+        needsPrompt: true,
+        reason,
+        oldVoucher: curV,
+        newVoucher: targetNewVoucher,
+        oldDiscount: calculateDiscountAmount(curV, subtotal),
+        newDiscount: targetNewVoucher ? calculateDiscountAmount(targetNewVoucher, subtotal) : 0,
+        decisionKey
+      }
+    }
+
+    // Mã cũ không đổi trên hệ thống, kiểm tra xem có mã mới/vừa sửa tốt hơn không
+    if (bestNow && String(bestNow.id) !== String(curV.id)) {
+      const decisionKey = buildVoucherDecisionKey(curV, bestNow)
+      if (inv.rejectedVoucherKey === decisionKey) {
+        return null
+      }
+      const isSystemVoucherChange = Boolean(
+        modified[bestNow.id] ||
+        newlyAdded[bestNow.id] ||
+        bestNow.voucherModifiedInSession ||
+        bestNow.voucherNewlyAddedInSession
+      )
+      if (isSystemVoucherChange) {
+        return {
+          needsPrompt: true,
+          reason: newlyAdded[bestNow.id]
+            ? `Có mã giảm giá mới "${bestNow.maPhieuGiamGia}" ưu đãi hơn cho đơn hàng`
+            : `Mã giảm giá "${bestNow.maPhieuGiamGia}" vừa được cập nhật và ưu đãi hơn mã đang áp dụng`,
+          oldVoucher: curV,
+          newVoucher: bestNow,
+          oldDiscount: calculateDiscountAmount(curV, subtotal),
+          newDiscount: calculateDiscountAmount(bestNow, subtotal),
+          decisionKey
+        }
+      }
+      return { autoUpgrade: true, newVoucher: bestNow }
+    }
+
+    // Nếu người dùng tự giảm giỏ hàng xuống dưới điều kiện tối thiểu của mã chưa đổi
+    if (curV.hoaDonToiThieu && subtotal < Number(curV.hoaDonToiThieu)) {
+      return { autoUpgrade: true, newVoucher: bestNow || null }
+    }
+
+    return null
+  }
+
+  // Trường hợp đơn hàng chưa áp dụng mã (curV == null) nhưng hệ thống có bestNow
+  if (bestNow) {
+    const prevSessionV = bestNow.previousSessionVoucher || modified[bestNow.id] || null
+    const wasModified = Boolean(prevSessionV && isVoucherSnapshotChanged(prevSessionV, bestNow))
+    const wasNewlyAdded = Boolean(newlyAdded[bestNow.id] || bestNow.voucherNewlyAddedInSession)
+
+    if (wasModified || wasNewlyAdded) {
+      let oldVoucherForCancel = null
+      if (wasModified && prevSessionV && !prevSessionV.__deleted && isVoucherCurrentlyUsable(prevSessionV)) {
+        const eligibleForCust = !isVoucherPersonal(prevSessionV) || (custId && isVoucherForCustomer(prevSessionV, custId, custName))
+        if (eligibleForCust && calculateDiscountAmount(prevSessionV, subtotal) > 0) {
+          oldVoucherForCancel = prevSessionV
+        }
+      }
+      if (!oldVoucherForCancel) {
+        oldVoucherForCancel = findFallbackBestVoucherFromSnapshots(known, bestNow.id, custId, custName, subtotal)
+      }
+      const decisionKey = buildVoucherDecisionKey(oldVoucherForCancel, bestNow)
+      if (inv.rejectedVoucherKey === decisionKey) {
+        if (oldVoucherForCancel) {
+          return { autoUpgrade: true, newVoucher: oldVoucherForCancel }
+        }
+        return null
+      }
+      return {
+        needsPrompt: true,
+        reason: wasModified
+          ? `Mã giảm giá "${bestNow.maPhieuGiamGia}" vừa được điều chỉnh trên hệ thống`
+          : `Có mã giảm giá mới "${bestNow.maPhieuGiamGia}" vừa được thêm/kích hoạt`,
+        oldVoucher: oldVoucherForCancel,
+        newVoucher: bestNow,
+        oldDiscount: oldVoucherForCancel ? calculateDiscountAmount(oldVoucherForCancel, subtotal) : 0,
+        newDiscount: calculateDiscountAmount(bestNow, subtotal),
+        decisionKey
+      }
+    }
+
+    return { autoUpgrade: true, newVoucher: bestNow }
+  }
+
+  return null
+}
+
+const openVoucherWarningModal = (checkResult, resumeCheckout = false) => {
+  if (!checkResult || !currentInvoice.value) return
+  pendingVoucherWarningContext.value = {
+    invoiceId: currentInvoice.value.id,
+    oldVoucher: checkResult.oldVoucher ? cloneVoucherSnapshot(checkResult.oldVoucher) : null,
+    newVoucher: checkResult.newVoucher ? cloneVoucherSnapshot(checkResult.newVoucher) : null,
+    oldDiscount: Number(checkResult.oldDiscount || 0),
+    newDiscount: Number(checkResult.newDiscount || 0),
+    decisionKey: checkResult.decisionKey,
+    resumeCheckout
+  }
+  voucherWarningData.value = {
+    reason: checkResult.reason,
+    oldVoucher: checkResult.oldVoucher,
+    newVoucher: checkResult.newVoucher,
+    oldDiscount: Number(checkResult.oldDiscount || 0),
+    newDiscount: Number(checkResult.newDiscount || 0),
+    diffDiscount: Number(checkResult.newDiscount || 0) - Number(checkResult.oldDiscount || 0)
+  }
+  showVoucherWarningModal.value = true
+}
+
+const dismissVoucherWarningModal = () => {
+  pendingVoucherWarningContext.value = null
+  voucherWarningData.value = null
+  showVoucherWarningModal.value = false
+}
+
+const applyVoucherWarningModal = async () => {
+  const ctx = pendingVoucherWarningContext.value
+  const shouldResume = Boolean(ctx?.resumeCheckout)
+  if (ctx && currentInvoice.value && currentInvoice.value.id === ctx.invoiceId) {
+    currentInvoice.value.voucher = ctx.newVoucher ? cloneVoucherSnapshot(ctx.newVoucher) : null
+    currentInvoice.value.chapNhanVoucherMoi = true
+    currentInvoice.value.rejectedVoucherKey = null
+
+    const { known, modified, newlyAdded } = getSessionVoucherMaps()
+    if (ctx.newVoucher?.id != null) {
+      known[ctx.newVoucher.id] = cloneVoucherSnapshot(ctx.newVoucher)
+      delete modified[ctx.newVoucher.id]
+      delete newlyAdded[ctx.newVoucher.id]
+    }
+    if (ctx.oldVoucher?.id != null && (!ctx.newVoucher || String(ctx.oldVoucher.id) !== String(ctx.newVoucher.id))) {
+      delete modified[ctx.oldVoucher.id]
+    }
+    saveSessionVoucherMaps(known, modified, newlyAdded)
+    saveInvoiceVoucherSnapshots()
+
+    showToast(
+      ctx.newVoucher
+        ? `Đã áp dụng mã "${ctx.newVoucher.maPhieuGiamGia}" (-${formatMoney(ctx.newDiscount)})!`
+        : 'Đã cập nhật lại phiếu giảm giá theo hệ thống!'
+    )
+  }
+  pendingVoucherWarningContext.value = null
+  voucherWarningData.value = null
+  showVoucherWarningModal.value = false
+
+  if (shouldResume) {
+    await proceedToOrderConfirmModal()
+  }
+}
+
+const cancelVoucherWarningModal = async () => {
+  const ctx = pendingVoucherWarningContext.value
+  const shouldResume = Boolean(ctx?.resumeCheckout)
+  if (ctx && currentInvoice.value && currentInvoice.value.id === ctx.invoiceId) {
+    // Khi bấm "Hủy": không áp dụng mã mới mà giữ/áp dụng theo mã trước đó
+    currentInvoice.value.voucher = ctx.oldVoucher ? cloneVoucherSnapshot(ctx.oldVoucher) : null
+    currentInvoice.value.chapNhanVoucherMoi = false
+    currentInvoice.value.rejectedVoucherKey = ctx.decisionKey
+    saveInvoiceVoucherSnapshots()
+
+    showToast(
+      ctx.oldVoucher
+        ? `Không áp dụng mã mới, giữ nguyên mã "${ctx.oldVoucher.maPhieuGiamGia}" (-${formatMoney(ctx.oldDiscount)})!`
+        : 'Không áp dụng mã giảm giá mới cho đơn hàng!'
+    )
+  }
+  pendingVoucherWarningContext.value = null
+  voucherWarningData.value = null
+  showVoucherWarningModal.value = false
+
+  if (shouldResume) {
+    await proceedToOrderConfirmModal()
+  }
+}
+
+const flushDeferredVoucherCheck = () => {
+  if (deferredVoucherCheckAfterPriceModal) {
+    deferredVoucherCheckAfterPriceModal = false
+    nextTick(() => {
+      autoApplyBestVoucher(true)
+    })
+  }
+}
 
 
 
@@ -5670,91 +6271,42 @@ function findBestVoucher(customerId, customerName, subtotal) {
 
 
 
-function autoApplyBestVoucher() {
-
-
-
+function autoApplyBestVoucher(fromUserAction = false) {
   if (!currentInvoice.value) return
-
-
-
-  // Nếu hóa đơn hiện tại đang giữ phiếu đã hết số lượng -> tự động gỡ bỏ
-  if (currentInvoice.value?.voucher) {
-    const curV = currentInvoice.value.voucher
-    const curQty = curV.soLuongSuDung != null ? Number(curV.soLuongSuDung) : (curV.soLuong != null ? Number(curV.soLuong) : null)
-    if (curQty !== null && curQty <= 0) {
-      currentInvoice.value.voucher = null
-    }
-  }
+  if (showVoucherWarningModal.value) return
 
   const subtotal = totalAmount.value
-
-
-
-  const custId = currentInvoice.value.customerId
-
-
-
-  const custName = currentInvoice.value.customerName
-
-
-
-
-
-
-
   if (subtotal <= 0) {
-
-
-
     currentInvoice.value.voucher = null
-
-
-
+    currentInvoice.value.chapNhanVoucherMoi = null
+    currentInvoice.value.rejectedVoucherKey = null
+    saveInvoiceVoucherSnapshots()
     return
-
-
-
   }
 
+  // Nếu hóa đơn chưa khóa snapshot mã và mã cũ bị mất hiệu lực khách hàng -> đã có watcher customer xử lý riêng
+  const change = detectPendingVoucherChange(currentInvoice.value)
+  if (!change) {
+    saveInvoiceVoucherSnapshots()
+    return
+  }
 
+  if (change.autoUpgrade) {
+    currentInvoice.value.voucher = change.newVoucher ? cloneVoucherSnapshot(change.newVoucher) : null
+    currentInvoice.value.chapNhanVoucherMoi = null
+    saveInvoiceVoucherSnapshots()
+    return
+  }
 
-
-
-
-
-  const best = findBestVoucher(custId, custName, subtotal)
-
-
-
-  if (best) {
-
-
-
-    if (!currentInvoice.value.voucher || currentInvoice.value.voucher.id !== best.id) {
-
-
-
-      currentInvoice.value.voucher = best
-
-
-
+  if (change.needsPrompt) {
+    // Đơn hàng hiện tại giữ nguyên mã/mức giảm cũ; chỉ hiện popup hỏi Áp dụng / Hủy khi người dùng thao tác
+    if (!fromUserAction) return
+    if (showItemPriceWarningModal.value) {
+      deferredVoucherCheckAfterPriceModal = true
+      return
     }
-
-
-
-  } else {
-
-
-
-    currentInvoice.value.voucher = null
-
-
-
+    openVoucherWarningModal(change, false)
   }
-
-
-
 }
 
 
@@ -5913,168 +6465,96 @@ function findBestPersonalVoucherForCustomer(customerId, customerName, subtotal) 
 
 
 function autoApplyBestPersonalVoucher(silent = false) {
-
-
-
   if (!currentInvoice.value) return
-
-
-
   const custId = currentInvoice.value.customerId
-
-
-
   if (!custId) return
 
-
-
-
-
-
-
   const subtotal = totalAmount.value
-
-
-
   const bestVoucher = findBestPersonalVoucherForCustomer(custId, currentInvoice.value.customerName, subtotal)
 
-
-
-
-
-
-
   if (bestVoucher) {
-
-
-
-    if (!currentInvoice.value.voucher || currentInvoice.value.voucher.id !== bestVoucher.id) {
-
-
-
-      currentInvoice.value.voucher = bestVoucher
-
-
-
-      const discount = calculateDiscountAmount(bestVoucher, subtotal)
-
-
-
-      if (!silent) {
-
-
-
-        showToast(`Tự động áp dụng phiếu cá nhân "${bestVoucher.maPhieuGiamGia}" (-${formatMoney(discount)})!`)
-
-
-
-      }
-
-
-
+    const check = detectPendingVoucherChange(currentInvoice.value)
+    if (check && check.needsPrompt) {
+      openVoucherWarningModal(check, false)
+      return
     }
-
-
-
+    if (!currentInvoice.value.voucher || currentInvoice.value.voucher.id !== bestVoucher.id) {
+      currentInvoice.value.voucher = cloneVoucherSnapshot(bestVoucher)
+      saveInvoiceVoucherSnapshots()
+      const discount = calculateDiscountAmount(bestVoucher, subtotal)
+      if (!silent) {
+        showToast(`Tự động áp dụng phiếu cá nhân "${bestVoucher.maPhieuGiamGia}" (-${formatMoney(discount)})!`)
+      }
+    }
   }
-
-
-
 }
 
-
-
-
-
-
-
-const fetchVouchers = async () => {
-
-
-
+const fetchVouchers = async (silent = false) => {
   try {
-
-
-
     const res = await api.get('/api/phieu-giam-gia')
-
-
-
     const list = Array.isArray(res.data) ? res.data : (res.data?.content || [])
+    allSystemVouchers.value = list
 
+    const { known, modified, newlyAdded } = getSessionVoucherMaps()
+    const hadBaseline = Object.keys(known).length > 0
+    const seenIds = new Set()
 
-
-    availableVouchers.value = list.filter(v => {
-      const isActive = Number(v.trangThai) === 1 || v.trangThai == null
-      const qty = v.soLuongSuDung != null ? Number(v.soLuongSuDung) : (v.soLuong != null ? Number(v.soLuong) : null)
-      const hasQty = qty == null || qty > 0
-      return isActive && hasQty
-    })
-
-
-
-
-
-
-
-    // Đồng bộ lại object voucher đầy đủ cho các tab hóa đơn nếu đã có voucher
-
-
-
-    waitingInvoices.value.forEach(inv => {
-
-
-
-      if (inv.voucher && inv.voucher.id) {
-
-
-
-        const fullV = availableVouchers.value.find(v => v.id === inv.voucher.id)
-
-
-
-        if (fullV) {
-          const qty = fullV.soLuongSuDung != null ? Number(fullV.soLuongSuDung) : (fullV.soLuong != null ? Number(fullV.soLuong) : null)
-          if (qty !== null && qty <= 0) {
-            inv.voucher = null
-          } else if (isVoucherPersonal(fullV) && !isVoucherForCustomer(fullV, inv.customerId, inv.customerName)) {
-            inv.voucher = null
-          } else {
-            inv.voucher = fullV
-          }
-        } else {
-          inv.voucher = null
-        }
-
-
-
-
-
-
+    for (const v of list) {
+      if (v?.id == null) continue
+      seenIds.add(String(v.id))
+      const curSnap = cloneVoucherSnapshot(v)
+      const prevKnown = known[v.id]
+      if (prevKnown && isVoucherSnapshotChanged(prevKnown, curSnap)) {
+        modified[v.id] = prevKnown
+        delete newlyAdded[v.id]
+      } else if (!prevKnown && hadBaseline) {
+        newlyAdded[v.id] = true
       }
+      known[v.id] = curSnap
+    }
 
+    if (hadBaseline) {
+      for (const kId of Object.keys(known)) {
+        if (!seenIds.has(String(kId))) {
+          modified[kId] = { ...known[kId], __deleted: true }
+          delete known[kId]
+        }
+      }
+    }
 
+    saveSessionVoucherMaps(known, modified, newlyAdded)
+    hasLoadedVouchersOnce.value = true
 
+    availableVouchers.value = list
+      .filter(v => {
+        const isActive = Number(v.trangThai) === 1 || v.trangThai == null
+        const qty = v.soLuongSuDung != null ? Number(v.soLuongSuDung) : (v.soLuong != null ? Number(v.soLuong) : null)
+        const hasQty = qty == null || qty > 0
+        return isActive && hasQty
+      })
+      .map(v => ({
+        ...v,
+        voucherModifiedInSession: Boolean(modified[v.id] && isVoucherSnapshotChanged(modified[v.id], v)),
+        voucherNewlyAddedInSession: Boolean(newlyAdded[v.id]),
+        previousSessionVoucher: (modified[v.id] && isVoucherSnapshotChanged(modified[v.id], v)) ? modified[v.id] : null
+      }))
+
+    // Giữ nguyên snapshot mã giảm giá đang gắn trên các hóa đơn chờ (KHÔNG tự động ghi đè hoặc gỡ bỏ)
+    waitingInvoices.value.forEach(inv => {
+      if (inv.voucher && inv.voucher.id) {
+        if (!inv.voucher.voucherSnapshotLocked) {
+          const fullV = list.find(v => String(v.id) === String(inv.voucher.id))
+          inv.voucher = fullV ? cloneVoucherSnapshot(fullV) : cloneVoucherSnapshot(inv.voucher)
+        }
+      }
     })
-
-
-
+    saveInvoiceVoucherSnapshots()
   } catch (e) {
-
-
-
     console.warn('Không tải được phiếu giảm giá từ API:', e)
-
-
-
-    availableVouchers.value = []
-
-
-
+    if (!silent && !hasLoadedVouchersOnce.value) {
+      availableVouchers.value = []
+    }
   }
-
-
-
 }
 
 
@@ -7289,6 +7769,18 @@ const openOrderConfirmModal = async () => {
 
 
 
+  // Bổ sung kiểm tra thay đổi Mã giảm giá (Voucher) trước khi mở modal xác nhận đơn hàng
+  await fetchVouchers(true)
+  const pendingVoucherCheck = detectPendingVoucherChange(currentInvoice.value)
+  if (pendingVoucherCheck && pendingVoucherCheck.needsPrompt) {
+    openVoucherWarningModal(pendingVoucherCheck, true)
+    return
+  }
+
+  await proceedToOrderConfirmModal()
+}
+
+const proceedToOrderConfirmModal = async () => {
   // Gọi API backend kiểm tra toàn diện 4 case khó: đổi giá, sửa voucher, chuyển quyền NV, đợt giảm giá thay đổi
 
 
@@ -7437,38 +7929,15 @@ const openOrderConfirmModal = async () => {
 
 
 
-    // Case 2: Sửa voucher / Hết hạn / Đổi điều kiện
-
-
-
-    if (currentInvoice.value.voucher) {
-
-
-
+    // Case 2: Không tự động ghi đè hoặc gỡ mã giảm giá đã chốt trên đơn POS nếu thu ngân giữ mã trước đó
+    if (currentInvoice.value.voucher && currentInvoice.value.chapNhanVoucherMoi === true) {
       if (checkData.voucherHopLe === false) {
-
         showToast(checkData.voucherLyDo || checkData.lyDoVoucher || 'Voucher không còn hợp lệ và đã bị gỡ khỏi đơn hàng!', 'warning')
-
         currentInvoice.value.voucher = null
-
         currentInvoice.value.voucherDiscount = 0
-
-      } else if (checkData.thayDoiVoucher === true) {
-
-
-
-        showToast(`Mức giảm voucher đã được cập nhật lại thành: ${formatMoney(checkData.soTienGiamMoi)}đ!`, 'info')
-
-
-
+      } else if (checkData.thayDoiVoucher === true && checkData.thayDoiGia !== true) {
         currentInvoice.value.voucherDiscount = checkData.soTienGiamMoi
-
-
-
       }
-
-
-
     }
 
 
@@ -9390,6 +9859,10 @@ onUnmounted(() => {
 
   }
 
+  if (typeof onWindowFocus === 'function') {
+    window.removeEventListener('focus', onWindowFocus)
+  }
+
 
 
   stopPaymentPolling()
@@ -9877,53 +10350,22 @@ watch(
 
 
 watch(
-
-
-
   [
-
-
-
     totalAmount,
-
-
-
     () => currentInvoice.value?.customerId,
-
-
-
     () => currentInvoice.value?.customerName,
-
-
-
     () => currentInvoice.value?.id,
-
-
-
     availableVouchers
-
-
-
   ],
-
-
-
-  () => {
-
-
-
-    autoApplyBestVoucher()
-
-
-
+  ([newTotal, newCustId, newCustName, newInvId], prevVals = []) => {
+    const [oldTotal, oldCustId, oldCustName, oldInvId] = prevVals
+    const isSameInvoiceUserAction =
+      oldInvId !== undefined &&
+      newInvId === oldInvId &&
+      (newTotal !== oldTotal || newCustId !== oldCustId || newCustName !== oldCustName)
+    autoApplyBestVoucher(isSameInvoiceUserAction)
   },
-
-
-
   { immediate: true }
-
-
-
 )
 
 
@@ -10003,7 +10445,7 @@ const handleCheckout = async () => {
     const v = currentInvoice.value.voucher
 
     const vQty = v.soLuongSuDung != null ? Number(v.soLuongSuDung) : (v.soLuong != null ? Number(v.soLuong) : null)
-    if (vQty !== null && vQty <= 0) {
+    if (!v.voucherSnapshotLocked && vQty !== null && vQty <= 0) {
       showToast(`Phiếu giảm giá "${v.maPhieuGiamGia}" đã hết số lượng sử dụng, hệ thống đã tự động gỡ bỏ voucher.`, 'warning')
       currentInvoice.value.voucher = null
       return
@@ -10350,6 +10792,8 @@ const handleCheckout = async () => {
 
       chapNhanGiaMoi: currentInvoice.value.chapNhanGiaMoi === true ? true : null,
 
+      chapNhanVoucherMoi: currentInvoice.value.chapNhanVoucherMoi === true ? true : null,
+
       trangThai: currentInvoice.value.isDelivery ? 2 : 5,
 
       trangThaiThanhToan: 1,
@@ -10471,7 +10915,7 @@ const handleCheckout = async () => {
 
     const completedId = currentInvoice.value.id
 
-
+    removeInvoiceVoucherSnapshot(completedId)
 
     waitingInvoices.value = waitingInvoices.value.filter(inv => inv.id !== completedId)
 
@@ -10806,9 +11250,25 @@ const checkNewDayTransition = async () => {
 const onTabVisibilityChange = () => {
   if (document.visibilityState === 'visible') {
     checkNewDayTransition()
-    fetchProductVariants()
+    if (!showItemPriceWarningModal.value && !showVoucherWarningModal.value) {
+      fetchProductVariants(true)
+      fetchVouchers(true)
+    }
   }
 }
+
+const onWindowFocus = () => {
+  if (!showItemPriceWarningModal.value && !showVoucherWarningModal.value) {
+    fetchProductVariants(true)
+    fetchVouchers(true)
+  }
+}
+
+watch(showProductModal, (isOpen) => {
+  if (isOpen && !showItemPriceWarningModal.value && !showVoucherWarningModal.value) {
+    fetchProductVariants(true)
+  }
+})
 
 
 
@@ -10820,11 +11280,18 @@ onMounted(async () => {
 
 
 
-  dayCheckTimer = setInterval(checkNewDayTransition, 30000)
+  dayCheckTimer = setInterval(() => {
+    checkNewDayTransition()
+    if (document.visibilityState === 'visible' && !showItemPriceWarningModal.value && !showVoucherWarningModal.value) {
+      fetchProductVariants(true)
+      fetchVouchers(true)
+    }
+  }, 30000)
 
 
 
   document.addEventListener('visibilitychange', onTabVisibilityChange)
+  window.addEventListener('focus', onWindowFocus)
 
 
 
@@ -13753,9 +14220,6 @@ onMounted(async () => {
                     <div v-if="p.hasDiscount && p.discountCampaignName" class="campaign-pill" :title="p.discountCampaignName">
                       {{ p.discountCampaignName }}
                     </div>
-                    <div v-if="p.priceModifiedInSession" class="modal-price-modified-pill">
-                      ⚠️ {{ p.discountModifiedInSession ? 'Đợt giảm giá đã thay đổi' : 'Đã sửa giá' }} <template v-if="p.previousSessionPrice != null">(Giá cũ: {{ formatMoney(p.previousSessionPrice) }})</template>
-                    </div>
                   </td>
 
 
@@ -14603,7 +15067,7 @@ onMounted(async () => {
 
 
     <!-- Popup Thông báo Warning tự động hiển thị khi thêm sản phẩm đã sửa giá hoặc thay đổi đợt giảm giá -->
-    <div v-if="showItemPriceWarningModal" class="pos-modal-backdrop" style="z-index: 10050;" @click.self="showItemPriceWarningModal = false">
+    <div v-if="showItemPriceWarningModal" class="pos-modal-backdrop" style="z-index: 10050;" @click.self="dismissItemPriceWarningModal">
       <div class="pos-modal-card confirm-order-modal price-change-modal">
         <div class="modal-top">
           <div class="modal-title-group">
@@ -14612,7 +15076,7 @@ onMounted(async () => {
             </h3>
             <span class="modal-badge-count">Mã HĐ: {{ currentInvoice.code }}</span>
           </div>
-          <button class="btn-modal-close" @click="showItemPriceWarningModal = false">✕</button>
+          <button class="btn-modal-close" @click="dismissItemPriceWarningModal">✕</button>
         </div>
 
         <div class="confirm-modal-body">
@@ -14627,7 +15091,12 @@ onMounted(async () => {
             <br />
             • Sản phẩm đã thêm trước đó trong giỏ hàng <strong>giữ nguyên đơn giá và đợt giảm giá cũ</strong> (không tự động thay đổi).
             <br />
-            • Sản phẩm vừa thêm mới vào giỏ hàng được áp dụng theo <strong>{{ activePriceWarningItems[0]?.isDiscountChanged ? 'đợt giảm giá & đơn giá mới' : 'đơn giá mới' }}</strong> dưới đây:
+            <span v-if="activePriceWarningItems[0]?.isDiscountChanged">
+              • Bấm <strong>Áp dụng</strong> để thêm sản phẩm theo đợt giảm giá mới, hoặc bấm <strong>Hủy</strong> để không áp dụng đợt mới và vẫn thêm vào giỏ theo đợt trước đó:
+            </span>
+            <span v-else>
+              • Sản phẩm vừa thêm mới vào giỏ hàng được áp dụng theo <strong>đơn giá mới</strong> dưới đây:
+            </span>
           </div>
 
           <div class="confirm-items-table-wrap">
@@ -14667,14 +15136,124 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div class="modal-actions-bottom" style="justify-content: flex-end;">
+        <div class="modal-actions-bottom" style="justify-content: flex-end; gap: 10px;">
+          <template v-if="activePriceWarningItems[0]?.isDiscountChanged">
+            <button
+              type="button"
+              class="btn-cancel-modal"
+              @click="cancelDiscountWarningModal"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              class="btn-submit-modal"
+              style="background-color: #b45309;"
+              @click="applyDiscountWarningModal"
+            >
+              Áp dụng
+            </button>
+          </template>
+          <button
+            v-else
+            type="button"
+            class="btn-submit-modal"
+            style="background-color: #b45309;"
+            @click="dismissItemPriceWarningModal"
+          >
+            Đã hiểu
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Popup Thông báo Warning tự động hiển thị khi Mã giảm giá (Voucher) thay đổi trên hệ thống -->
+    <div v-if="showVoucherWarningModal && voucherWarningData" class="pos-modal-backdrop" style="z-index: 10055;" @click.self="dismissVoucherWarningModal">
+      <div class="pos-modal-card confirm-order-modal price-change-modal">
+        <div class="modal-top">
+          <div class="modal-title-group">
+            <h3 class="modal-title-text" style="color: #b45309;">
+              ⚠️ Cảnh báo: Mã giảm giá (Voucher) đã thay đổi
+            </h3>
+            <span class="modal-badge-count">Mã HĐ: {{ currentInvoice.code }}</span>
+          </div>
+          <button class="btn-modal-close" @click="dismissVoucherWarningModal">✕</button>
+        </div>
+
+        <div class="confirm-modal-body">
+          <div class="price-change-warning-box">
+            <strong>Thông báo:</strong> {{ voucherWarningData.reason || 'Mã giảm giá (phiếu giảm giá) áp dụng cho đơn hàng đã thay đổi trên hệ thống.' }}
+            <br />
+            • Đơn hàng hiện tại <strong>giữ nguyên mã và mức giảm trước đó</strong> (không tự động thay đổi).
+            <br />
+            • Bấm <strong>Áp dụng</strong> để cập nhật theo mã giảm giá mới, hoặc bấm <strong>Hủy</strong> để không áp dụng mã mới và vẫn giữ/áp dụng theo mã trước đó:
+          </div>
+
+          <div class="confirm-items-table-wrap">
+            <table class="confirm-table">
+              <thead>
+                <tr>
+                  <th>Mã trước đó</th>
+                  <th>Mã mới</th>
+                  <th class="text-right">Giảm cũ</th>
+                  <th class="text-right">Giảm mới</th>
+                  <th class="text-right">Chênh lệch</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <template v-if="voucherWarningData.oldVoucher">
+                      <strong style="color: #64748b; text-decoration: line-through;">{{ voucherWarningData.oldVoucher.maPhieuGiamGia }}</strong>
+                      <div style="font-size: 0.76rem; color: #64748b;">
+                        {{ formatVoucherDiscountLabel(voucherWarningData.oldVoucher) }}
+                        <span v-if="formatVoucherDisplayName(voucherWarningData.oldVoucher)">• {{ formatVoucherDisplayName(voucherWarningData.oldVoucher) }}</span>
+                      </div>
+                      <div style="font-size: 0.72rem; color: #94a3b8;">{{ formatVoucherCondition(voucherWarningData.oldVoucher) }}</div>
+                    </template>
+                    <span v-else style="color: #64748b;">Chưa áp dụng mã</span>
+                  </td>
+                  <td>
+                    <template v-if="voucherWarningData.newVoucher">
+                      <strong style="color: #b45309;">{{ voucherWarningData.newVoucher.maPhieuGiamGia }}</strong>
+                      <div style="font-size: 0.76rem; color: #b45309; font-weight: 600;">
+                        {{ formatVoucherDiscountLabel(voucherWarningData.newVoucher) }}
+                        <span v-if="formatVoucherDisplayName(voucherWarningData.newVoucher)">• {{ formatVoucherDisplayName(voucherWarningData.newVoucher) }}</span>
+                      </div>
+                      <div style="font-size: 0.72rem; color: #78350f;">{{ formatVoucherCondition(voucherWarningData.newVoucher) }}</div>
+                    </template>
+                    <span v-else style="color: #b91c1c; font-weight: 600;">Không còn hiệu lực / Gỡ mã</span>
+                  </td>
+                  <td class="text-right" style="color: #64748b; text-decoration: line-through;">
+                    -{{ formatMoney(voucherWarningData.oldDiscount) }}
+                  </td>
+                  <td class="text-right font-bold" style="color: #b45309;">
+                    -{{ formatMoney(voucherWarningData.newDiscount) }}
+                  </td>
+                  <td class="text-right font-bold" :style="{ color: voucherWarningData.diffDiscount >= 0 ? '#15803d' : '#b91c1c' }">
+                    {{ voucherWarningData.diffDiscount >= 0 ? '+' : '' }}{{ formatMoney(voucherWarningData.diffDiscount) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="modal-actions-bottom" style="justify-content: flex-end; gap: 10px;">
+          <button
+            type="button"
+            class="btn-cancel-modal"
+            @click="cancelVoucherWarningModal"
+          >
+            Hủy
+          </button>
           <button
             type="button"
             class="btn-submit-modal"
             style="background-color: #b45309;"
-            @click="showItemPriceWarningModal = false"
+            @click="applyVoucherWarningModal"
           >
-            Đã hiểu
+            Áp dụng
           </button>
         </div>
       </div>

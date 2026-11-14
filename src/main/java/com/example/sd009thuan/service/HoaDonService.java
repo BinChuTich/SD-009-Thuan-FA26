@@ -6950,62 +6950,33 @@ public class HoaDonService {
 
 
 
-        // 5. Phiếu giảm giá (Case 2: Kiểm tra tính hợp lệ và tự động tính lại số tiền giảm chuẩn)
-
-
-
+        // 5. Phiếu giảm giá (Giữ nguyên mã/mức giảm đã chốt trên POS nếu chưa bấm áp dụng mã mới)
         if (dto.getIdPhieuGiamGia() != null) {
-
-
-
-            Map<String, Object> vCheck = validateAndCalculateVoucher(dto.getIdPhieuGiamGia(), dto.getIdKhachHang(), dto.getTongTien() != null ? dto.getTongTien() : BigDecimal.ZERO);
-
-
-
-            if (!Boolean.TRUE.equals(vCheck.get("hopLe"))) {
-
-
-
-                hoaDon.setIdPhieuGiamGia(null);
-
-
-
-                dto.setIdPhieuGiamGia(null);
-
-
-
-                dto.setTongTienGiamGia(BigDecimal.ZERO);
-
-
-
+            if (Boolean.TRUE.equals(dto.getChapNhanVoucherMoi()) || dto.getTongTienGiamGia() == null) {
+                Map<String, Object> vCheck = validateAndCalculateVoucher(dto.getIdPhieuGiamGia(), dto.getIdKhachHang(), dto.getTongTien() != null ? dto.getTongTien() : BigDecimal.ZERO);
+                if (!Boolean.TRUE.equals(vCheck.get("hopLe"))) {
+                    hoaDon.setIdPhieuGiamGia(null);
+                    dto.setIdPhieuGiamGia(null);
+                    dto.setTongTienGiamGia(BigDecimal.ZERO);
+                } else {
+                    phieuGiamGiaRepository.findById(dto.getIdPhieuGiamGia()).ifPresent(hoaDon::setIdPhieuGiamGia);
+                    BigDecimal correctDiscount = (BigDecimal) vCheck.getOrDefault("giamGia", BigDecimal.ZERO);
+                    dto.setTongTienGiamGia(correctDiscount);
+                }
             } else {
-
-
-
                 phieuGiamGiaRepository.findById(dto.getIdPhieuGiamGia()).ifPresent(hoaDon::setIdPhieuGiamGia);
-
-
-
-                BigDecimal correctDiscount = (BigDecimal) vCheck.getOrDefault("giamGia", BigDecimal.ZERO);
-
-
-
-                dto.setTongTienGiamGia(correctDiscount);
-
-
-
+                BigDecimal lockedDiscount = dto.getTongTienGiamGia();
+                if (lockedDiscount.compareTo(BigDecimal.ZERO) < 0) {
+                    lockedDiscount = BigDecimal.ZERO;
+                }
+                BigDecimal orderTotal = dto.getTongTien() != null ? dto.getTongTien() : BigDecimal.ZERO;
+                if (orderTotal.compareTo(BigDecimal.ZERO) > 0 && lockedDiscount.compareTo(orderTotal) > 0) {
+                    lockedDiscount = orderTotal;
+                }
+                dto.setTongTienGiamGia(lockedDiscount);
             }
-
-
-
         } else {
-
-
-
             hoaDon.setIdPhieuGiamGia(null);
-
-
-
         }
 
 
