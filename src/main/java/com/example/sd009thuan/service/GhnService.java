@@ -1,5 +1,7 @@
 package com.example.sd009thuan.service;
 
+import com.example.sd009thuan.dto.ShippingConfigDTO;
+import com.example.sd009thuan.dto.ShippingRuleDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,6 +35,11 @@ public class GhnService {
     private String fromWardCode;
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ShippingConfigService shippingConfigService;
+
+    public GhnService(ShippingConfigService shippingConfigService) {
+        this.shippingConfigService = shippingConfigService;
+    }
 
     private HttpHeaders createHeaders() {
         HttpHeaders headers = new HttpHeaders();
@@ -100,28 +107,266 @@ public class GhnService {
     }
 
     /**
-     * Tính cước phí vận chuyển GHN theo địa chỉ nhận
+     * Tính cước phí vận chuyển theo cấu hình cửa hàng & GHN API
      */
     public Map<String, Object> calculateShippingFee(Integer toDistrictId, String toWardCode, Integer weight, Integer insuranceValue) {
         return calculateShippingFee(null, toDistrictId, toWardCode, weight, insuranceValue);
     }
 
     public Map<String, Object> calculateShippingFee(String toProvinceName, Integer toDistrictId, String toWardCode, Integer weight, Integer insuranceValue) {
-        int finalWeight = (weight != null && weight > 0) ? weight : 250; // mặc định áo thun ~250g
+        return calculateShippingFee(toProvinceName, null, null, null, toDistrictId, toWardCode, weight, insuranceValue, null, null);
+    }
+
+    public Map<String, Object> calculateShippingFee(
+            String toProvinceName,
+            String districtName,
+            String wardName,
+            String fullAddress,
+            Integer toDistrictId,
+            String toWardCode,
+            Integer weight,
+            Integer insuranceValue,
+            Long orderSubtotal,
+            String channel
+    ) {
+        return calculateShippingFee(
+                toProvinceName,
+                districtName,
+                wardName,
+                fullAddress,
+                toDistrictId,
+                toWardCode,
+                weight,
+                insuranceValue,
+                orderSubtotal,
+                channel,
+                null
+        );
+    }
+
+    public Map<String, Object> calculateShippingFee(
+            String toProvinceName,
+            String districtName,
+            String wardName,
+            String fullAddress,
+            Integer toDistrictId,
+            String toWardCode,
+            Integer weight,
+            Integer insuranceValue,
+            Long orderSubtotal,
+            String channel,
+            Double distanceKm
+    ) {
+        ShippingConfigDTO config = shippingConfigService != null ? shippingConfigService.getConfig() : new ShippingConfigDTO();
+        return calculateShippingFeeWithConfig(
+                config,
+                toProvinceName,
+                districtName,
+                wardName,
+                fullAddress,
+                toDistrictId,
+                toWardCode,
+                weight,
+                insuranceValue,
+                orderSubtotal,
+                channel,
+                distanceKm
+        );
+    }
+
+    public Map<String, Object> calculateShippingFeeWithConfig(
+            ShippingConfigDTO config,
+            String toProvinceName,
+            String districtName,
+            String wardName,
+            String fullAddress,
+            Integer toDistrictId,
+            String toWardCode,
+            Integer weight,
+            Integer insuranceValue,
+            Long orderSubtotal,
+            String channel
+    ) {
+        return calculateShippingFeeWithConfig(
+                config,
+                toProvinceName,
+                districtName,
+                wardName,
+                fullAddress,
+                toDistrictId,
+                toWardCode,
+                weight,
+                insuranceValue,
+                orderSubtotal,
+                channel,
+                null
+        );
+    }
+
+    public Map<String, Object> calculateShippingFeeWithConfig(
+            ShippingConfigDTO config,
+            String toProvinceName,
+            String districtName,
+            String wardName,
+            String fullAddress,
+            Integer toDistrictId,
+            String toWardCode,
+            Integer weight,
+            Integer insuranceValue,
+            Long orderSubtotal,
+            String channel,
+            Double distanceKm
+    ) {
+        ShippingConfigDTO cfg = config != null
+                ? config
+                : (shippingConfigService != null ? shippingConfigService.getConfig() : new ShippingConfigDTO());
+
+        Map<String, Object> regional = shippingConfigService != null
+                ? shippingConfigService.evaluateRegionalFee(cfg, toProvinceName, districtName, wardName, fullAddress)
+                : Map.of(
+                        "fee", 35000L,
+                        "regionCode", "NATIONWIDE",
+                        "regionDescription", "Toàn quốc (3-4 ngày)",
+                        "leadTime", "Dự kiến 3 - 4 ngày",
+                        "source", "REGIONAL_POLICY"
+                );
+
+        long baseFee = ((Number) regional.getOrDefault("fee", 0L)).longValue();
+        String regionCode = String.valueOf(regional.getOrDefault("regionCode", "NONE"));
+        String regionDescription = String.valueOf(regional.getOrDefault("regionDescription", ""));
+        String leadTime = String.valueOf(regional.getOrDefault("leadTime", ""));
+        String source = String.valueOf(regional.getOrDefault("source", "REGIONAL_POLICY"));
+
+        if ("NONE".equals(regionCode) && toDistrictId != null) {
+            if (toDistrictId.equals(fromDistrictId)) {
+                baseFee = cfg.getPhiNoiThanhHaNoi() != null ? cfg.getPhiNoiThanhHaNoi() : 20000L;
+                regionCode = "HANOI_INNER";
+                regionDescription = "Nội thành Hà Nội (Giao nhanh giá rẻ)";
+            } else if (toDistrictId >= 1440 && toDistrictId <= 1460) {
+                baseFee = cfg.getPhiNgoaiThanhHaNoi() != null ? cfg.getPhiNgoaiThanhHaNoi() : 30000L;
+                regionCode = "HANOI_OUTER";
+                regionDescription = "Ngoại thành Hà Nội (Tiêu chuẩn 1 ngày)";
+            } else {
+                baseFee = cfg.getPhiMacDinhToanQuoc() != null ? cfg.getPhiMacDinhToanQuoc() : 45000L;
+                regionCode = "NATIONWIDE";
+                regionDescription = "Toàn quốc (3-4 ngày)";
+            }
+            source = "REGIONAL_POLICY";
+        }
+
+        Long effectiveSubtotal = orderSubtotal != null
+                ? orderSubtotal
+                : (insuranceValue != null ? insuranceValue.longValue() : 0L);
+
+        double resolvedDistanceKm = distanceKm != null && distanceKm >= 0
+                ? distanceKm
+                : (shippingConfigService != null
+                        ? shippingConfigService.estimateDistanceKm(toProvinceName, districtName, wardName, fullAddress)
+                        : 0.0);
+
+        // 1. Kiểm tra danh sách cấu hình phí vận chuyển theo bậc (Giá trị hóa đơn + Khoảng cách Km)
+        ShippingRuleDTO matchedRule = (!"NONE".equals(regionCode) || distanceKm != null) && shippingConfigService != null
+                ? shippingConfigService.findMatchingRule(cfg, effectiveSubtotal, resolvedDistanceKm)
+                : null;
+
+        if (matchedRule != null) {
+            boolean isFreeRule = "MIEN_PHI".equalsIgnoreCase(matchedRule.getHinhThucTinhPhi());
+            long ruleFee = isFreeRule ? 0L : (matchedRule.getPhiVanChuyen() != null ? matchedRule.getPhiVanChuyen() : 0L);
+            String ruleDesc = String.format(
+                    "Theo cấu hình: Đơn %,dđ - %,dđ | %s - %s Km (%s)",
+                    matchedRule.getGiaTriTu() != null ? matchedRule.getGiaTriTu() : 0L,
+                    matchedRule.getGiaTriDen() != null ? matchedRule.getGiaTriDen() : 0L,
+                    formatKm(matchedRule.getKhoangCachTu()),
+                    formatKm(matchedRule.getKhoangCachDen()),
+                    isFreeRule ? "Miễn phí" : "Tính phí"
+            );
+
+            Map<String, Object> ruleResult = new LinkedHashMap<>();
+            ruleResult.put("success", true);
+            ruleResult.put("fee", ruleFee);
+            ruleResult.put("total", ruleFee);
+            ruleResult.put("originalFee", baseFee > 0 ? baseFee : ruleFee);
+            ruleResult.put("freeshipApplied", isFreeRule || ruleFee == 0L);
+            ruleResult.put("matchedRuleId", matchedRule.getId());
+            ruleResult.put("distanceKm", resolvedDistanceKm);
+            ruleResult.put("apDungMienPhiShip", Boolean.TRUE.equals(cfg.getApDungMienPhiShip()));
+            ruleResult.put("nguongMienPhiShip", cfg.getNguongMienPhiShip());
+            ruleResult.put("cheDoTinhPhi", cfg.getCheDoTinhPhi());
+            ruleResult.put("regionCode", regionCode);
+            ruleResult.put("description", ruleDesc);
+            ruleResult.put("regionDescription", ruleDesc);
+            ruleResult.put("leadTime", leadTime);
+            ruleResult.put("carrier", "Giao Hàng Nhanh (GHN)");
+            ruleResult.put("serviceName", "Giao Hàng Nhanh (GHN)");
+            ruleResult.put("source", "SHIPPING_RULE");
+            return ruleResult;
+        }
+
+        boolean ghnMode = "GHN_PRIORITY".equalsIgnoreCase(cfg.getCheDoTinhPhi());
+        if (ghnMode && !"NONE".equals(regionCode)) {
+            Integer ghnFee = tryCallGhnFeeApi(toProvinceName, toDistrictId, toWardCode, weight, insuranceValue);
+            if (ghnFee != null && ghnFee >= 0) {
+                baseFee = ghnFee.longValue();
+                source = "GHN_ONLINE_API";
+                regionDescription = "Cước thực tế Giao Hàng Nhanh (GHN API)";
+            }
+        }
+
+        boolean freeshipApplied = !"NONE".equals(regionCode)
+                && shippingConfigService != null
+                && shippingConfigService.isFreeshipEligible(cfg, effectiveSubtotal, channel);
+
+        long finalFee = freeshipApplied ? 0L : baseFee;
+        if (freeshipApplied) {
+            source = "FREESHIP_POLICY";
+            long threshold = cfg.getNguongMienPhiShip() != null ? cfg.getNguongMienPhiShip() : 0L;
+            regionDescription = String.format("Miễn phí vận chuyển (Đơn đạt ngưỡng từ %,dđ)", threshold);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("success", true);
+        result.put("fee", finalFee);
+        result.put("total", finalFee);
+        result.put("originalFee", baseFee);
+        result.put("freeshipApplied", freeshipApplied);
+        result.put("distanceKm", resolvedDistanceKm);
+        result.put("apDungMienPhiShip", Boolean.TRUE.equals(cfg.getApDungMienPhiShip()));
+        result.put("nguongMienPhiShip", cfg.getNguongMienPhiShip());
+        result.put("cheDoTinhPhi", cfg.getCheDoTinhPhi());
+        result.put("regionCode", regionCode);
+        result.put("description", regionDescription);
+        result.put("regionDescription", regionDescription);
+        result.put("leadTime", leadTime);
+        result.put("carrier", "Giao Hàng Nhanh (GHN)");
+        result.put("serviceName", "Giao Hàng Nhanh (GHN)");
+        result.put("source", source);
+        return result;
+    }
+
+    private String formatKm(Double val) {
+        if (val == null) return "0";
+        if (val == Math.rint(val)) {
+            return String.valueOf(val.longValue());
+        }
+        return String.valueOf(val);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Integer tryCallGhnFeeApi(String toProvinceName, Integer toDistrictId, String toWardCode, Integer weight, Integer insuranceValue) {
+        int finalWeight = (weight != null && weight > 0) ? weight : 250;
         int finalInsurance = (insuranceValue != null && insuranceValue > 0) ? Math.min(insuranceValue, 5000000) : 100000;
 
-        // Tự động map quận huyện chuẩn nếu chỉ có tên tỉnh thành
         Integer resolvedDistrictId = toDistrictId;
         if (resolvedDistrictId == null && toProvinceName != null) {
             String pLower = toProvinceName.toLowerCase();
             if (pLower.contains("hà nội") || pLower.contains("ha noi")) {
-                resolvedDistrictId = 1444; // Quận Đống Đa / Ba Đình
+                resolvedDistrictId = 1444;
             } else if (pLower.contains("hồ chí minh") || pLower.contains("ho chi minh") || pLower.contains("sài gòn")) {
-                resolvedDistrictId = 1442; // Quận 1 HCM
+                resolvedDistrictId = 1442;
             } else if (pLower.contains("đà nẵng") || pLower.contains("da nang")) {
-                resolvedDistrictId = 1530; // Hải Châu
+                resolvedDistrictId = 1530;
             } else {
-                resolvedDistrictId = 1482; // Liên tỉnh
+                resolvedDistrictId = 1482;
             }
         }
 
@@ -133,7 +378,7 @@ public class GhnService {
             if (toWardCode != null && !toWardCode.isBlank()) {
                 req.put("to_ward_code", toWardCode);
             }
-            req.put("service_type_id", 2); // 2: Chuẩn
+            req.put("service_type_id", 2);
             req.put("weight", finalWeight);
             req.put("length", 15);
             req.put("width", 15);
@@ -145,52 +390,13 @@ public class GhnService {
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map<String, Object> data = (Map<String, Object>) response.getBody().get("data");
                 if (data != null && data.get("total") != null) {
-                    Number fee = (Number) data.get("total");
-                    return Map.of(
-                            "success", true,
-                            "fee", fee.intValue(),
-                            "total", fee.intValue(),
-                            "carrier", "Giao Hàng Nhanh (GHN)",
-                            "serviceName", "Giao Hàng Nhanh (GHN)",
-                            "source", "GHN_ONLINE_API"
-                    );
+                    return ((Number) data.get("total")).intValue();
                 }
             }
         } catch (Exception e) {
-            log.info("==> [GHN API Fee] Không thể gọi GHN trực tiếp ({}). Tính phí theo khoảng cách địa phương.", e.getMessage());
+            log.info("==> [GHN API Fee] Không thể gọi GHN trực tiếp ({}). Chuyển về bảng phí khu vực đã cấu hình.", e.getMessage());
         }
-
-        // Dự phòng thông minh chuẩn xác theo vùng miền
-        int calculatedFee = 30000;
-        if (toProvinceName != null && !toProvinceName.isBlank()) {
-            String pLower = toProvinceName.toLowerCase();
-            if (pLower.contains("hà nội") || pLower.contains("ha noi")) {
-                calculatedFee = (resolvedDistrictId != null && resolvedDistrictId.equals(fromDistrictId)) ? 22000 : 26000;
-            } else if (pLower.contains("hồ chí minh") || pLower.contains("ho chi minh") || pLower.contains("sài gòn")) {
-                calculatedFee = 30000;
-            } else if (pLower.contains("đà nẵng") || pLower.contains("da nang") || pLower.contains("hải phòng") || pLower.contains("cần thơ")) {
-                calculatedFee = 28000;
-            } else {
-                calculatedFee = 35000;
-            }
-        } else if (resolvedDistrictId != null) {
-            if (resolvedDistrictId.equals(fromDistrictId)) {
-                calculatedFee = 22000;
-            } else if (resolvedDistrictId >= 1440 && resolvedDistrictId <= 1460) {
-                calculatedFee = 26000;
-            } else {
-                calculatedFee = 35000;
-            }
-        }
-
-        return Map.of(
-                "success", true,
-                "fee", calculatedFee,
-                "total", calculatedFee,
-                "carrier", "Giao Hàng Nhanh (GHN)",
-                "serviceName", "Giao Hàng Nhanh (GHN)",
-                "source", "GHN_ESTIMATED"
-        );
+        return null;
     }
 
     /**

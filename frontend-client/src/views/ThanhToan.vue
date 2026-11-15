@@ -14,6 +14,7 @@ import {
 } from '@/utils/luuTruGioHang.js'
 import { formatCurrency } from '@/utils/dinhDang.js'
 import { currentClientUser, isClientLoggedIn } from '@/utils/taiKhoanKhachHang.js'
+import { getShippingConfig, calculateGhnShippingFee, invalidateShippingConfigCache } from '@/services/ghnService.js'
 import SoDiaChiGiaoHang from '@/components/ThanhToan/SoDiaChiGiaoHang.vue'
 import PhuongThucThanhToan from '@/components/ThanhToan/PhuongThucThanhToan.vue'
 import XemLaiDonHang from '@/components/ThanhToan/XemLaiDonHang.vue'
@@ -123,12 +124,18 @@ const loadCustomerData = async () => {
   }
 }
 
-onMounted(() => {
-  loadCustomerData()
+onMounted(async () => {
+  window.addEventListener('shipping-config-updated', handleShippingConfigUpdated)
+  window.addEventListener('focus', handleShippingConfigUpdated)
+  await refreshCheckoutShippingConfig()
+  await loadCustomerData()
   loadVouchers()
+  await updateCheckoutShippingFee()
 })
 
 onUnmounted(() => {
+  window.removeEventListener('shipping-config-updated', handleShippingConfigUpdated)
+  window.removeEventListener('focus', handleShippingConfigUpdated)
   stopPaymentPolling()
   stopVnpayTracking()
 })
@@ -299,10 +306,69 @@ const removeAppliedVoucher = () => {
   sessionStorage.removeItem('fftshirt_checkout_voucher')
 }
 
+const calculatedShippingFee = ref(null)
+const shippingConfigState = ref({
+  apDungMienPhiShip: true,
+  nguongMienPhiShip: 500000,
+  apDungFreeshipOnline: true,
+  phiNgoaiThanhHaNoi: 30000
+})
+const shippingDescText = ref('')
+
+const refreshCheckoutShippingConfig = async () => {
+  try {
+    shippingConfigState.value = await getShippingConfig({ forceRefresh: true })
+  } catch (e) {}
+}
+
+const updateCheckoutShippingFee = async () => {
+  if (!selectedProvince.value && !streetAddress.value) {
+    calculatedShippingFee.value = null
+    shippingDescText.value = ''
+    return
+  }
+  try {
+    const res = await calculateGhnShippingFee({
+      provinceName: selectedProvince.value,
+      districtName: selectedDistrict.value,
+      wardName: selectedWard.value,
+      fullAddress: fullDeliveryAddress.value,
+      weightGram: Math.max(250, activeCheckoutItems.value.length * 250),
+      insuranceValue: checkoutSubtotal.value,
+      orderSubtotal: checkoutSubtotal.value,
+      channel: 'ONLINE'
+    })
+    if (res && res.fee != null) {
+      calculatedShippingFee.value = Number(res.fee)
+      shippingDescText.value = res.regionDescription || ''
+    }
+  } catch (e) {}
+}
+
+const handleShippingConfigUpdated = async () => {
+  invalidateShippingConfigCache()
+  await refreshCheckoutShippingConfig()
+  await updateCheckoutShippingFee()
+}
+
+watch([selectedProvince, selectedDistrict, selectedWard, streetAddress, checkoutSubtotal], () => {
+  updateCheckoutShippingFee()
+})
+
 // Tính tiền
 const shippingFee = computed(() => {
-  if (checkoutSubtotal.value >= 499000 || checkoutSubtotal.value === 0 || appliedVoucher.value?.code === 'FREESHIP') return 0
-  return 30000
+  if (checkoutSubtotal.value === 0 || appliedVoucher.value?.code === 'FREESHIP') return 0
+  if (calculatedShippingFee.value != null) return calculatedShippingFee.value
+  const cfg = shippingConfigState.value
+  if (
+    cfg &&
+    cfg.apDungMienPhiShip !== false &&
+    cfg.apDungFreeshipOnline !== false &&
+    checkoutSubtotal.value >= Number(cfg.nguongMienPhiShip ?? 500000)
+  ) {
+    return 0
+  }
+  return Number(cfg?.phiNgoaiThanhHaNoi ?? 30000)
 })
 
 const finalTotal = computed(() => {

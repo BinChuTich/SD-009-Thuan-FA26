@@ -18,6 +18,113 @@ export const GHN_CONFIG = {
 let provincesCache = null
 const districtsCache = new Map()
 const wardsCache = new Map()
+let shippingConfigCache = null
+let shippingConfigLoadedAt = 0
+
+export const DEFAULT_SHIPPING_CONFIG = {
+  cheDoTinhPhi: 'REGION_TABLE',
+  phiNoiThanhHaNoi: 20000,
+  phiNgoaiThanhHaNoi: 30000,
+  phiMienBac: 35000,
+  phiMienTrung: 40000,
+  phiMienNam: 45000,
+  phiMacDinhToanQuoc: 45000,
+  apDungMienPhiShip: true,
+  nguongMienPhiShip: 500000,
+  apDungFreeshipPos: true,
+  apDungFreeshipOnline: true,
+  danhSachCauHinh: [
+    { id: 1, giaTriTu: 0, giaTriDen: 100000, khoangCachTu: 0, khoangCachDen: 1, hinhThucTinhPhi: 'TINH_PHI', phiVanChuyen: 10000, trangThai: 1 },
+    { id: 2, giaTriTu: 0, giaTriDen: 500000, khoangCachTu: 1, khoangCachDen: 10, hinhThucTinhPhi: 'TINH_PHI', phiVanChuyen: 20000, trangThai: 1 },
+    { id: 3, giaTriTu: 500000, giaTriDen: 50000000, khoangCachTu: 0, khoangCachDen: 50, hinhThucTinhPhi: 'MIEN_PHI', phiVanChuyen: 0, trangThai: 1 }
+  ]
+}
+
+export function estimateDistanceKm(provinceName = '', districtName = '', wardName = '', fullAddress = '') {
+  const p = cleanVietnameseText(provinceName)
+  const d = cleanVietnameseText(districtName)
+  const w = cleanVietnameseText(wardName)
+  const f = cleanVietnameseText(fullAddress)
+  const combined = `${p} ${d} ${w} ${f}`.trim()
+  if (!combined) return 0
+
+  const nearShop = ['my dinh', 'me tri', 'phu do', 'cau dien', 'tay mo', 'dai mo', 'trung van', 'nam tu liem']
+  const outerHanoi = [
+    'dong anh', 'gia lam', 'soc son', 'ba vi', 'chuong my', 'dan phuong',
+    'hoai duc', 'me linh', 'my duc', 'phu xuyen', 'phuc tho', 'quoc oai',
+    'thach that', 'thanh oai', 'thuong tin', 'ung hoa', 'son tay'
+  ]
+  const northProvinces = [
+    'bac ninh', 'hung yen', 'hai phong', 'hai duong', 'quang ninh', 'ha nam',
+    'nam dinh', 'ninh binh', 'thai binh', 'vinh phuc', 'phu tho', 'thai nguyen',
+    'bac giang', 'lang son', 'hoa binh', 'tuyen quang', 'yen bai', 'lao cai',
+    'cao bang', 'bac kan', 'ha giang', 'son la', 'dien bien', 'lai chau'
+  ]
+  const centralProvinces = [
+    'thanh hoa', 'nghe an', 'ha tinh', 'quang binh', 'quang tri', 'thua thien hue',
+    'hue', 'da nang', 'quang nam', 'quang ngai', 'binh dinh', 'phu yen',
+    'khanh hoa', 'ninh thuan', 'binh thuan', 'kon tum', 'gia lai', 'dak lak',
+    'dak nong', 'lam dong'
+  ]
+
+  if (p.includes('ha noi') || p.includes('hanoi') || combined.includes('ha noi') || combined.includes('hanoi')) {
+    if (nearShop.some(k => combined.includes(k))) return 0.8
+    return outerHanoi.some(dist => combined.includes(dist)) ? 18 : 5
+  }
+  if (northProvinces.some(prov => combined.includes(prov))) return 80
+  if (centralProvinces.some(prov => combined.includes(prov))) return 500
+  return 1200
+}
+
+function findMatchingShippingRule(cfg, orderSubtotal, distanceKm) {
+  const rules = Array.isArray(cfg?.danhSachCauHinh) ? cfg.danhSachCauHinh : []
+  const sub = Number.isFinite(Number(orderSubtotal)) && Number(orderSubtotal) >= 0 ? Number(orderSubtotal) : 0
+  const dist = Number.isFinite(Number(distanceKm)) && Number(distanceKm) >= 0 ? Number(distanceKm) : 0
+  for (const r of rules) {
+    if (!r || Number(r.trangThai) === 0) continue
+    const minV = Number(r.giaTriTu ?? 0)
+    const maxV = Number(r.giaTriDen ?? Number.MAX_SAFE_INTEGER)
+    const minKm = Number(r.khoangCachTu ?? 0)
+    const maxKm = Number(r.khoangCachDen ?? Number.MAX_SAFE_INTEGER)
+    if (sub >= minV && sub <= maxV && dist >= minKm && dist <= maxKm) {
+      return r
+    }
+  }
+  return null
+}
+
+export function invalidateShippingConfigCache() {
+  shippingConfigCache = null
+  shippingConfigLoadedAt = 0
+}
+
+export async function getShippingConfig({ forceRefresh = false } = {}) {
+  const now = Date.now()
+  if (!forceRefresh && shippingConfigCache && (now - shippingConfigLoadedAt) < 10000) {
+    return shippingConfigCache
+  }
+  try {
+    const res = await api.get('/api/cau-hinh-phi-ship')
+    if (res.data) {
+      shippingConfigCache = { ...DEFAULT_SHIPPING_CONFIG, ...res.data }
+      shippingConfigLoadedAt = now
+      return shippingConfigCache
+    }
+  } catch (e) {
+    // Fallback to cached or default
+  }
+  return shippingConfigCache || { ...DEFAULT_SHIPPING_CONFIG }
+}
+
+function isFreeshipQualified(cfg, orderSubtotal, channel = 'ONLINE') {
+  if (!cfg || cfg.apDungMienPhiShip === false) return false
+  const sub = Number(orderSubtotal)
+  if (!Number.isFinite(sub) || sub <= 0) return false
+  const threshold = Number(cfg.nguongMienPhiShip ?? 500000)
+  if (sub < threshold) return false
+  const ch = String(channel || 'ONLINE').toUpperCase()
+  return ch === 'POS' ? cfg.apDungFreeshipPos !== false : cfg.apDungFreeshipOnline !== false
+}
 
 // Danh sách 63 Tỉnh/Thành phố chuẩn kèm mã GHN ProvinceID
 const DEFAULT_VN_PROVINCES = [
@@ -272,6 +379,9 @@ export async function getGhnWards(districtId) {
 /**
  * 4. TÍNH PHÍ VẬN CHUYỂN: Tích hợp API GHN & Chính sách khu vực (Chuẩn POS Bán Hàng Tại Quầy)
  */
+/**
+ * 4. TÍNH PHÍ VẬN CHUYỂN: Tích hợp Cấu hình cửa hàng, API GHN & Chính sách khu vực
+ */
 export async function calculateGhnShippingFee({
   toDistrictId,
   toWardCode,
@@ -280,18 +390,22 @@ export async function calculateGhnShippingFee({
   wardName = '',
   fullAddress = '',
   weightGram = 500,
-  insuranceValue = 0
+  insuranceValue = 0,
+  orderSubtotal = null,
+  channel = 'ONLINE',
+  distanceKm = null
 }) {
   const cleanP = cleanVietnameseText(provinceName)
   const cleanD = cleanVietnameseText(districtName)
   const cleanW = cleanVietnameseText(wardName)
   const cleanFull = cleanVietnameseText(fullAddress)
-  const combined = `${cleanP} ${cleanD} ${cleanW} ${cleanFull}`.trim()
 
-  // Không có địa chỉ cụ thể -> không tính phí mặc định (tránh gán cứng phí 35.000 / 45.000)
+  // Không có địa chỉ cụ thể -> không tính phí mặc định
   if (!cleanP && !cleanFull && !toDistrictId) {
     return {
       fee: 0,
+      originalFee: 0,
+      freeshipApplied: false,
       source: 'NONE',
       regionDescription: 'Chưa chọn địa chỉ giao hàng',
       leadTime: '',
@@ -299,47 +413,41 @@ export async function calculateGhnShippingFee({
     }
   }
 
-  // 1. NỘI THÀNH HÀ NỘI: Áp dụng giá ship ưu đãi rẻ hơn các khu vực khác (20.000 VNĐ)
-  if (cleanP.includes('ha noi') || cleanP.includes('hanoi') || combined.includes('ha noi') || combined.includes('hanoi')) {
-    const outer = [
-      'dong anh', 'gia lam', 'soc son', 'ba vi', 'chuong my', 'dan phuong', 
-      'hoai duc', 'me linh', 'my duc', 'phu xuyen', 'phuc tho', 'quoc oai', 
-      'thach that', 'thanh oai', 'thuong tin', 'ung hoa', 'son tay'
-    ]
-    const isOuter = outer.some(dist => combined.includes(dist))
-    return {
-      fee: isOuter ? 30000 : 20000,
-      source: 'REGIONAL_POLICY',
-      regionDescription: isOuter ? 'Ngoại thành Hà Nội (Tiêu chuẩn 1 ngày)' : 'Nội thành Hà Nội (Giao nhanh giá rẻ)',
-      leadTime: isOuter ? 'Tiêu chuẩn 1 ngày' : 'Giao nhanh 1 ngày'
-    }
-  }
+  const effectiveSubtotal = orderSubtotal != null ? Number(orderSubtotal) : Number(insuranceValue || 0)
+  const cfg = await getShippingConfig()
 
-  // 2. Thử gọi qua Backend proxy /api/ghn/calculate-fee nếu có
+  // 1. Gọi Backend /api/ghn/calculate-fee để áp dụng đúng bảng phí + Freeship cấu hình
   try {
     const res = await api.post('/api/ghn/calculate-fee', {
       toDistrictId: toDistrictId ? Number(toDistrictId) : null,
       toWardCode: toWardCode ? String(toWardCode) : '',
       provinceName: provinceName || '',
       districtName: districtName || '',
+      wardName: wardName || '',
+      fullAddress: fullAddress || '',
       weight: weightGram,
-      insuranceValue: insuranceValue || 0
+      insuranceValue: insuranceValue || 0,
+      orderSubtotal: effectiveSubtotal,
+      channel,
+      distanceKm
     })
     if (res.data && res.data.success && res.data.fee != null) {
       return {
         fee: Number(res.data.fee),
-        source: res.data.source || 'GHN_API',
-        regionDescription: res.data.regionDescription || 'Tính phí GHN',
+        originalFee: Number(res.data.originalFee ?? res.data.fee),
+        freeshipApplied: Boolean(res.data.freeshipApplied),
+        source: res.data.source || 'REGIONAL_POLICY',
+        regionDescription: res.data.regionDescription || 'Tính phí vận chuyển',
         leadTime: res.data.leadTime || 'Dự kiến 2 - 3 ngày',
         message: res.data.message
       }
     }
   } catch (err) {
-    // Fallback
+    // Fallback JS local bên dưới
   }
 
-  // 3. Thử gọi trực tiếp API GHN từ Client nếu có toDistrictId & toWardCode
-  if (toDistrictId && toWardCode) {
+  // 2. Nếu cấu hình ưu tiên GHN API và backend offline -> gọi trực tiếp API GHN từ Client
+  if (cfg.cheDoTinhPhi === 'GHN_PRIORITY' && toDistrictId && toWardCode) {
     try {
       const ghnRes = await axios.post(`${GHN_CONFIG.API_URL}/v2/shipping-order/fee`, {
         service_type_id: 2,
@@ -361,10 +469,16 @@ export async function calculateGhnShippingFee({
       })
 
       if (ghnRes.data?.code === 200 && ghnRes.data?.data?.total != null) {
+        const ghnFee = Number(ghnRes.data.data.total)
+        const free = isFreeshipQualified(cfg, effectiveSubtotal, channel)
         return {
-          fee: Number(ghnRes.data.data.total),
-          source: 'GHN_API',
-          regionDescription: 'Giao Hàng Nhanh (API Trực tiếp)',
+          fee: free ? 0 : ghnFee,
+          originalFee: ghnFee,
+          freeshipApplied: free,
+          source: free ? 'FREESHIP_POLICY' : 'GHN_API',
+          regionDescription: free
+            ? `Miễn phí vận chuyển (Đơn đạt ngưỡng từ ${Number(cfg.nguongMienPhiShip || 0).toLocaleString('vi-VN')}đ)`
+            : 'Giao Hàng Nhanh (API Trực tiếp)',
           leadTime: 'Dự kiến 2 - 3 ngày',
           message: 'Tính phí vận chuyển thành công qua API GHN'
         }
@@ -372,73 +486,123 @@ export async function calculateGhnShippingFee({
     } catch (e) {}
   }
 
-  // 4. Chính sách tính phí theo khu vực địa lý cho các tỉnh thành khác (Đồng bộ chuẩn 100% với Bán Hàng Tại Quầy)
-  return calculateLocalRegionalFee(provinceName, districtName, wardName, fullAddress)
+  // 3. Chính sách tính phí theo khu vực địa lý & Freeship (Đồng bộ 100% với POS & Cài đặt)
+  return calculateLocalRegionalFee(provinceName, districtName, wardName, fullAddress, cfg, effectiveSubtotal, channel, distanceKm)
 }
 
 /**
- * Chính sách phí theo khu vực địa lý chuẩn
+ * Chính sách phí theo khu vực địa lý chuẩn & ngưỡng Freeship
  */
-export function calculateLocalRegionalFee(provinceName = '', districtName = '', wardName = '', fullAddress = '') {
+export function calculateLocalRegionalFee(
+  provinceName = '',
+  districtName = '',
+  wardName = '',
+  fullAddress = '',
+  configOverride = null,
+  orderSubtotal = null,
+  channel = 'ONLINE',
+  distanceKm = null
+) {
+  const cfg = { ...DEFAULT_SHIPPING_CONFIG, ...(configOverride || shippingConfigCache || {}) }
   const p = cleanVietnameseText(provinceName)
   const d = cleanVietnameseText(districtName)
   const w = cleanVietnameseText(wardName)
   const f = cleanVietnameseText(fullAddress)
   const combined = `${p} ${d} ${w} ${f}`.trim()
 
+  const resolvedDistanceKm =
+    distanceKm !== null && distanceKm !== undefined && distanceKm !== ''
+      ? Number(distanceKm)
+      : combined
+        ? estimateDistanceKm(provinceName, districtName, wardName, fullAddress)
+        : null
+
+  const matchedRule = findMatchingShippingRule(cfg, orderSubtotal, resolvedDistanceKm)
+  if (matchedRule) {
+    const isFreeRule = String(matchedRule.hinhThucTinhPhi || '').toUpperCase() === 'MIEN_PHI'
+    const ruleFee = isFreeRule ? 0 : Math.max(0, Number(matchedRule.phiVanChuyen) || 0)
+    const minVal = Number(matchedRule.giaTriTu || 0).toLocaleString('vi-VN')
+    const maxVal = Number(matchedRule.giaTriDen || 0).toLocaleString('vi-VN')
+    return {
+      fee: ruleFee,
+      originalFee: ruleFee,
+      freeshipApplied: isFreeRule || ruleFee === 0,
+      source: 'SHIPPING_RULE',
+      distanceKm: resolvedDistanceKm,
+      matchedRuleId: matchedRule.id,
+      regionDescription: `Cấu hình phí ship (${minVal} - ${maxVal} VND | ${matchedRule.khoangCachTu} - ${matchedRule.khoangCachDen} Km)`,
+      leadTime: '1 - 3 ngày'
+    }
+  }
+
   if (!combined) {
     return {
       fee: 0,
+      originalFee: 0,
+      freeshipApplied: false,
       source: 'NONE',
       regionDescription: 'Chưa chọn địa chỉ giao hàng',
       leadTime: ''
     }
   }
 
-  // 1. Hà Nội (Nội thành rẻ hơn các khu khác)
+  let baseFee = Number(cfg.phiMacDinhToanQuoc ?? 45000)
+  let regionDescription = 'Toàn quốc (3-4 ngày)'
+  let leadTime = 'Dự kiến 3 - 4 ngày'
+
+  const outerHanoi = [
+    'dong anh', 'gia lam', 'soc son', 'ba vi', 'chuong my', 'dan phuong',
+    'hoai duc', 'me linh', 'my duc', 'phu xuyen', 'phuc tho', 'quoc oai',
+    'thach that', 'thanh oai', 'thuong tin', 'ung hoa', 'son tay'
+  ]
+  const northProvinces = [
+    'bac ninh', 'hung yen', 'hai phong', 'hai duong', 'quang ninh', 'ha nam',
+    'nam dinh', 'ninh binh', 'thai binh', 'vinh phuc', 'phu tho', 'thai nguyen',
+    'bac giang', 'lang son', 'hoa binh', 'tuyen quang', 'yen bai', 'lao cai',
+    'cao bang', 'bac kan', 'ha giang', 'son la', 'dien bien', 'lai chau'
+  ]
+  const centralProvinces = [
+    'thanh hoa', 'nghe an', 'ha tinh', 'quang binh', 'quang tri', 'thua thien hue',
+    'hue', 'da nang', 'quang nam', 'quang ngai', 'binh dinh', 'phu yen',
+    'khanh hoa', 'ninh thuan', 'binh thuan', 'kon tum', 'gia lai', 'dak lak',
+    'dak nong', 'lam dong'
+  ]
+  const southProvinces = [
+    'ho chi minh', 'tp hcm', 'tphcm', 'sai gon', 'binh duong', 'dong nai',
+    'ba ria', 'vung tau', 'tay ninh', 'binh phuoc', 'long an', 'tien giang',
+    'ben tre', 'tra vinh', 'vinh long', 'dong thap', 'an giang', 'kien giang',
+    'can tho', 'hau giang', 'soc trang', 'bac lieu', 'ca mau'
+  ]
+
   if (p.includes('ha noi') || p.includes('hanoi') || combined.includes('ha noi') || combined.includes('hanoi')) {
-    const outer = [
-      'dong anh', 'gia lam', 'soc son', 'ba vi', 'chuong my', 'dan phuong', 
-      'hoai duc', 'me linh', 'my duc', 'phu xuyen', 'phuc tho', 'quoc oai', 
-      'thach that', 'thanh oai', 'thuong tin', 'ung hoa', 'son tay'
-    ]
-    const isOuter = outer.some(dist => combined.includes(dist))
-    return {
-      fee: isOuter ? 30000 : 20000,
-      source: 'REGIONAL_POLICY',
-      regionDescription: isOuter ? 'Ngoại thành Hà Nội (Tiêu chuẩn 1 ngày)' : 'Nội thành Hà Nội (Giao nhanh giá rẻ)',
-      leadTime: isOuter ? 'Tiêu chuẩn 1 ngày' : 'Giao nhanh 1 ngày'
-    }
+    const isOuter = outerHanoi.some(dist => combined.includes(dist))
+    baseFee = Number(isOuter ? (cfg.phiNgoaiThanhHaNoi ?? 30000) : (cfg.phiNoiThanhHaNoi ?? 20000))
+    regionDescription = isOuter ? 'Ngoại thành Hà Nội (Tiêu chuẩn 1 ngày)' : 'Nội thành Hà Nội (Giao nhanh giá rẻ)'
+    leadTime = isOuter ? 'Tiêu chuẩn 1 ngày' : 'Giao nhanh 1 ngày'
+  } else if (northProvinces.some(prov => combined.includes(prov))) {
+    baseFee = Number(cfg.phiMienBac ?? 35000)
+    regionDescription = 'Miền Bắc lân cận (1-2 ngày)'
+    leadTime = 'Dự kiến 1 - 2 ngày'
+  } else if (centralProvinces.some(prov => combined.includes(prov))) {
+    baseFee = Number(cfg.phiMienTrung ?? 40000)
+    regionDescription = 'Miền Trung (2-3 ngày)'
+    leadTime = 'Dự kiến 2 - 3 ngày'
+  } else if (southProvinces.some(prov => combined.includes(prov))) {
+    baseFee = Number(cfg.phiMienNam ?? 45000)
+    regionDescription = 'Miền Nam (3-4 ngày)'
+    leadTime = 'Dự kiến 3 - 4 ngày'
   }
 
-  // 2. Miền Bắc lân cận
-  const north = ['bac ninh', 'hung yen', 'hai phong', 'hai duong', 'quang ninh', 'ha nam', 'nam dinh', 'ninh binh', 'thai binh', 'vinh phuc', 'phu tho', 'thai nguyen', 'bac giang', 'lang son', 'hoa binh', 'tuyen quang', 'yen bai']
-  if (north.some(prov => combined.includes(prov))) {
-    return {
-      fee: 35000,
-      source: 'REGIONAL_POLICY',
-      regionDescription: 'Miền Bắc lân cận (1-2 ngày)',
-      leadTime: 'Dự kiến 1 - 2 ngày'
-    }
-  }
-
-  // 3. Miền Trung
-  const central = ['thanh hoa', 'nghe an', 'ha tinh', 'quang binh', 'quang tri', 'thua thien hue', 'hue', 'da nang', 'quang nam', 'quang ngai', 'binh dinh', 'khanh hoa', 'dak lak']
-  if (central.some(prov => combined.includes(prov))) {
-    return {
-      fee: 40000,
-      source: 'REGIONAL_POLICY',
-      regionDescription: 'Miền Trung (2-3 ngày)',
-      leadTime: 'Dự kiến 2 - 3 ngày'
-    }
-  }
-
-  // 4. Miền Nam & Toàn quốc
+  const free = isFreeshipQualified(cfg, orderSubtotal, channel)
   return {
-    fee: 45000,
-    source: 'REGIONAL_POLICY',
-    regionDescription: 'Miền Nam & Toàn quốc (3-4 ngày)',
-    leadTime: 'Dự kiến 3 - 4 ngày'
+    fee: free ? 0 : baseFee,
+    originalFee: baseFee,
+    freeshipApplied: free,
+    source: free ? 'FREESHIP_POLICY' : 'REGIONAL_POLICY',
+    regionDescription: free
+      ? `Miễn phí vận chuyển (Đơn đạt ngưỡng từ ${Number(cfg.nguongMienPhiShip || 0).toLocaleString('vi-VN')}đ)`
+      : regionDescription,
+    leadTime
   }
 }
 

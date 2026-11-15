@@ -44,7 +44,7 @@ import { currentClientUser, isClientLoggedIn, loginClient } from '@/utils/taiKho
 
 import { notifyOrderSuccess, fetchNotifications } from '@/utils/thongBao.js'
 
-import { calculateGhnShippingFee } from '@/services/ghnService.js'
+import { calculateGhnShippingFee, getShippingConfig, invalidateShippingConfigCache } from '@/services/ghnService.js'
 
 
 
@@ -969,24 +969,38 @@ const checkoutCampaignDiscount = computed(() => {
 
 
 
-const freeshipThreshold = 250000 // Mua từ 250.000đ được Freeship (Ảnh 2)
-
-
-
-const remainingForFreeship = computed(() => {
-
-  return Math.max(0, freeshipThreshold - selectedSubtotal.value)
-
+const storeShippingConfig = ref({
+  apDungMienPhiShip: true,
+  nguongMienPhiShip: 500000,
+  apDungFreeshipOnline: true,
+  phiNgoaiThanhHaNoi: 30000
 })
 
+const isOnlineFreeshipEnabled = computed(() => {
+  return storeShippingConfig.value?.apDungMienPhiShip !== false && storeShippingConfig.value?.apDungFreeshipOnline !== false
+})
 
+const freeshipThreshold = computed(() => {
+  if (!isOnlineFreeshipEnabled.value) return 0
+  return Number(storeShippingConfig.value?.nguongMienPhiShip ?? 500000)
+})
+
+const refreshOnlineShippingConfig = async ({ forceRefresh = false } = {}) => {
+  try {
+    storeShippingConfig.value = await getShippingConfig({ forceRefresh })
+  } catch (e) {}
+}
+
+const remainingForFreeship = computed(() => {
+  if (!isOnlineFreeshipEnabled.value) return 0
+  return Math.max(0, freeshipThreshold.value - selectedSubtotal.value)
+})
 
 const freeshipProgressPercent = computed(() => {
-
+  if (!isOnlineFreeshipEnabled.value) return 0
   if (selectedSubtotal.value <= 0) return 0
-
-  return Math.min(100, Math.round((selectedSubtotal.value / freeshipThreshold) * 100))
-
+  if (freeshipThreshold.value <= 0) return 100
+  return Math.min(100, Math.round((selectedSubtotal.value / freeshipThreshold.value) * 100))
 })
 
 
@@ -1659,7 +1673,11 @@ const updateGhnShipping = async () => {
 
       weightGram: Math.max(200, activeCheckoutItems.value.length * 200),
 
-      insuranceValue: selectedSubtotal.value
+      insuranceValue: selectedSubtotal.value,
+
+      orderSubtotal: selectedSubtotal.value,
+
+      channel: 'ONLINE'
 
     })
 
@@ -2395,7 +2413,7 @@ const executePlaceOrder = async () => {
 
     const subtotal = selectedSubtotal.value
 
-    const ship = shippingFee.value ?? 30000
+    const ship = shippingFee.value ?? Number(storeShippingConfig.value?.phiNgoaiThanhHaNoi ?? 30000)
 
     const disc = voucherDiscount.value
 
@@ -2966,16 +2984,28 @@ onMounted(async () => {
 
   loadRecommendedProducts()
 
-  await fetchPublicVouchers()
+  await Promise.all([
+    fetchPublicVouchers(),
+    refreshOnlineShippingConfig({ forceRefresh: true })
+  ])
   autoApplyBestVoucher()
+
+  const syncOnlineShipping = async () => {
+    invalidateShippingConfigCache()
+    await refreshOnlineShippingConfig({ forceRefresh: true })
+    await updateGhnShipping()
+  }
 
   const onWindowFocusVouchers = () => {
     fetchPublicVouchers()
+    syncOnlineShipping()
   }
   window.addEventListener('focus', onWindowFocusVouchers)
+  window.addEventListener('shipping-config-updated', syncOnlineShipping)
   const voucherPollTimer = setInterval(() => {
     fetchPublicVouchers()
-  }, 10000)
+    syncOnlineShipping()
+  }, 15000)
 
   const allData = await loadAdministrativeData()
 
@@ -2987,7 +3017,7 @@ onMounted(async () => {
 
   await reloadWards(selectedProvince.value)
 
-  updateGhnShipping()
+  await updateGhnShipping()
 
 })
 

@@ -233,6 +233,70 @@ public class HoaDonController {
         return ResponseEntity.ok(hoaDonService.update(opt.get().getId(), hoaDon));
     }
 
+    private static class OrderStatusUpdateParams {
+        Integer trangThai;
+        String ghiChu;
+        String email;
+        Long nhanVienId;
+        String nguoiThucHien;
+        boolean hoanTien;
+        boolean guiEmail = true;
+    }
+
+    private OrderStatusUpdateParams parseStatusUpdateParams(
+            Map<String, Object> body,
+            Integer paramTrangThai,
+            String paramEmail
+    ) {
+        OrderStatusUpdateParams params = new OrderStatusUpdateParams();
+        params.trangThai = paramTrangThai;
+        params.email = paramEmail;
+
+        if (body != null) {
+            if (body.get("trangThai") != null) {
+                try {
+                    params.trangThai = Integer.valueOf(body.get("trangThai").toString());
+                } catch (NumberFormatException ignored) {
+                    // Bỏ qua nếu trạng thái không phải số nguyên
+                }
+            }
+
+            if (body.get("ghiChu") != null) {
+                params.ghiChu = body.get("ghiChu").toString();
+            }
+
+            if (body.get("email") != null && !body.get("email").toString().trim().isEmpty()) {
+                params.email = body.get("email").toString().trim();
+            } else if (body.get("emailKhachHang") != null && !body.get("emailKhachHang").toString().trim().isEmpty()) {
+                params.email = body.get("emailKhachHang").toString().trim();
+            }
+            if (body.get("idNhanVien") != null) {
+                try { params.nhanVienId = Long.valueOf(body.get("idNhanVien").toString()); } catch (Exception ignored) {}
+            } else if (body.get("nhanVienId") != null) {
+                try { params.nhanVienId = Long.valueOf(body.get("nhanVienId").toString()); } catch (Exception ignored) {}
+            }
+            if (body.get("nguoiThucHien") != null && !body.get("nguoiThucHien").toString().trim().isEmpty()) {
+                params.nguoiThucHien = body.get("nguoiThucHien").toString().trim();
+            } else if (body.get("nguoiCapNhat") != null && !body.get("nguoiCapNhat").toString().trim().isEmpty()) {
+                params.nguoiThucHien = body.get("nguoiCapNhat").toString().trim();
+            }
+            if (body.get("hoanTien") != null) {
+                Object htObj = body.get("hoanTien");
+                params.hoanTien = Boolean.TRUE.equals(htObj) || "true".equalsIgnoreCase(htObj.toString().trim());
+            }
+            if (body.get("guiEmail") != null) {
+                Object geObj = body.get("guiEmail");
+                params.guiEmail = !(Boolean.FALSE.equals(geObj) || "false".equalsIgnoreCase(geObj.toString().trim()));
+            }
+        }
+
+        return params;
+    }
+
+    private boolean isOutOfStockException(Exception e) {
+        return e instanceof IllegalStateException || (e.getMessage() != null && (e.getMessage().contains("không đủ số lượng") || e.getMessage().contains("hết hàng")));
+    }
+
     // Cập nhật trạng thái hóa đơn theo ID
     @PutMapping("/{id}/trang-thai")
     public ResponseEntity<?> updateTrangThai(
@@ -243,45 +307,9 @@ public class HoaDonController {
             @RequestParam(name = "email", required = false)
             String paramEmail
     ) {
-        Integer trangThai = paramTrangThai;
-        String ghiChu = null;
-        String email = paramEmail;
-        Long nhanVienId = null;
-        String nguoiThucHien = null;
+        OrderStatusUpdateParams params = parseStatusUpdateParams(body, paramTrangThai, paramEmail);
 
-        if (body != null) {
-            if (body.get("trangThai") != null) {
-                try {
-                    trangThai = Integer.valueOf(
-                            body.get("trangThai").toString()
-                    );
-                } catch (NumberFormatException ignored) {
-                    // Bỏ qua nếu trạng thái không phải số nguyên
-                }
-            }
-
-            if (body.get("ghiChu") != null) {
-                ghiChu = body.get("ghiChu").toString();
-            }
-
-            if (body.get("email") != null && !body.get("email").toString().trim().isEmpty()) {
-                email = body.get("email").toString().trim();
-            } else if (body.get("emailKhachHang") != null && !body.get("emailKhachHang").toString().trim().isEmpty()) {
-                email = body.get("emailKhachHang").toString().trim();
-            }
-            if (body.get("idNhanVien") != null) {
-                try { nhanVienId = Long.valueOf(body.get("idNhanVien").toString()); } catch (Exception ignored) {}
-            } else if (body.get("nhanVienId") != null) {
-                try { nhanVienId = Long.valueOf(body.get("nhanVienId").toString()); } catch (Exception ignored) {}
-            }
-            if (body.get("nguoiThucHien") != null && !body.get("nguoiThucHien").toString().trim().isEmpty()) {
-                nguoiThucHien = body.get("nguoiThucHien").toString().trim();
-            } else if (body.get("nguoiCapNhat") != null && !body.get("nguoiCapNhat").toString().trim().isEmpty()) {
-                nguoiThucHien = body.get("nguoiCapNhat").toString().trim();
-            }
-        }
-
-        if (trangThai == null) {
+        if (params.trangThai == null) {
             return ResponseEntity.badRequest()
                     .body(Map.of(
                             "message",
@@ -291,19 +319,29 @@ public class HoaDonController {
 
         try {
             return ResponseEntity.ok(
-                    hoaDonService.updateTrangThai(id, trangThai, ghiChu, email, nhanVienId, nguoiThucHien)
+                    hoaDonService.updateTrangThai(
+                            id,
+                            params.trangThai,
+                            params.ghiChu,
+                            params.email,
+                            params.nhanVienId,
+                            params.nguoiThucHien,
+                            params.hoanTien,
+                            params.guiEmail
+                    )
             );
         } catch (Exception e) {
-            if (e instanceof IllegalStateException || (e.getMessage() != null && (e.getMessage().contains("không đủ số lượng") || e.getMessage().contains("hết hàng")))) {
+            if (isOutOfStockException(e)) {
                 return ResponseEntity.badRequest().body(Map.of(
-                        "message", e.getMessage()
+                        "message", e.getMessage() != null ? e.getMessage() : "Sản phẩm trong kho không đủ số lượng!",
+                        "outOfStock", true
                 ));
             }
             try {
                 HoaDon hd = new HoaDon();
-                hd.setTrangThai(trangThai);
-                if (ghiChu != null) hd.setGhiChu(ghiChu);
-                if (email != null) hd.setEmail(email);
+                hd.setTrangThai(params.trangThai);
+                if (params.ghiChu != null) hd.setGhiChu(params.ghiChu);
+                if (params.email != null) hd.setEmail(params.email);
                 return ResponseEntity.ok(hoaDonService.update(id, hd));
             } catch (Exception ex) {
                 return ResponseEntity.badRequest().body(Map.of(
@@ -324,45 +362,9 @@ public class HoaDonController {
             @RequestParam(name = "email", required = false)
             String paramEmail
     ) {
-        Integer trangThai = paramTrangThai;
-        String ghiChu = null;
-        String email = paramEmail;
-        Long nhanVienId = null;
-        String nguoiThucHien = null;
+        OrderStatusUpdateParams params = parseStatusUpdateParams(body, paramTrangThai, paramEmail);
 
-        if (body != null) {
-            if (body.get("trangThai") != null) {
-                try {
-                    trangThai = Integer.valueOf(
-                            body.get("trangThai").toString()
-                    );
-                } catch (NumberFormatException ignored) {
-                    // Bỏ qua nếu trạng thái không phải số nguyên
-                }
-            }
-
-            if (body.get("ghiChu") != null) {
-                ghiChu = body.get("ghiChu").toString();
-            }
-
-            if (body.get("email") != null && !body.get("email").toString().trim().isEmpty()) {
-                email = body.get("email").toString().trim();
-            } else if (body.get("emailKhachHang") != null && !body.get("emailKhachHang").toString().trim().isEmpty()) {
-                email = body.get("emailKhachHang").toString().trim();
-            }
-            if (body.get("idNhanVien") != null) {
-                try { nhanVienId = Long.valueOf(body.get("idNhanVien").toString()); } catch (Exception ignored) {}
-            } else if (body.get("nhanVienId") != null) {
-                try { nhanVienId = Long.valueOf(body.get("nhanVienId").toString()); } catch (Exception ignored) {}
-            }
-            if (body.get("nguoiThucHien") != null && !body.get("nguoiThucHien").toString().trim().isEmpty()) {
-                nguoiThucHien = body.get("nguoiThucHien").toString().trim();
-            } else if (body.get("nguoiCapNhat") != null && !body.get("nguoiCapNhat").toString().trim().isEmpty()) {
-                nguoiThucHien = body.get("nguoiCapNhat").toString().trim();
-            }
-        }
-
-        if (trangThai == null) {
+        if (params.trangThai == null) {
             return ResponseEntity.badRequest()
                     .body(Map.of(
                             "message",
@@ -374,24 +376,29 @@ public class HoaDonController {
             return ResponseEntity.ok(
                     hoaDonService.updateTrangThaiByMa(
                             maHoaDon,
-                            trangThai,
-                            ghiChu,
-                            email,
-                            nhanVienId,
-                            nguoiThucHien
+                            params.trangThai,
+                            params.ghiChu,
+                            params.email,
+                            params.nhanVienId,
+                            params.nguoiThucHien,
+                            params.hoanTien,
+                            params.guiEmail
                     )
             );
         } catch (Exception e) {
-            if (e instanceof IllegalStateException || (e.getMessage() != null && (e.getMessage().contains("không đủ số lượng") || e.getMessage().contains("hết hàng")))) {
-                return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+            if (isOutOfStockException(e)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "message", e.getMessage() != null ? e.getMessage() : "Sản phẩm trong kho không đủ số lượng!",
+                        "outOfStock", true
+                ));
             }
             try {
                 java.util.Optional<HoaDon> opt = hoaDonService.getByMaHoaDon(maHoaDon);
                 if (opt.isPresent()) {
                     HoaDon hd = new HoaDon();
-                    hd.setTrangThai(trangThai);
-                    if (ghiChu != null) hd.setGhiChu(ghiChu);
-                    if (email != null) hd.setEmail(email);
+                    hd.setTrangThai(params.trangThai);
+                    if (params.ghiChu != null) hd.setGhiChu(params.ghiChu);
+                    if (params.email != null) hd.setEmail(params.email);
                     return ResponseEntity.ok(hoaDonService.update(opt.get().getId(), hd));
                 }
             } catch (Exception ignored) {}

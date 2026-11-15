@@ -54,6 +54,7 @@ import XepLich from '../views/LichLamViec/XepLich.vue'
 import GiaoCa from '../views/LichLamViec/GiaoCa.vue'
 import LichSuHoatDong from '../views/LichLamViec/LichSuHoatDong.vue'
 import MobilePosScanner from '../views/MobilePosScanner.vue'
+import CaiDatPhiShip from '../views/CaiDat/CaiDatPhiShip.vue'
 
 const routes = [
     // Trang đăng nhập công khai
@@ -314,6 +315,16 @@ const routes = [
         path: '/lich-su-ca',
         name: 'LichSuHoatDong',
         component: LichSuHoatDong,
+        meta: { roles: ['ADMIN', 'NV'] }
+    },
+    {
+        path: '/cai-dat',
+        redirect: '/cai-dat/phi-ship'
+    },
+    {
+        path: '/cai-dat/phi-ship',
+        name: 'CaiDatPhiShip',
+        component: CaiDatPhiShip,
         meta: { roles: ['ADMIN', 'NV'] }
     },
     {

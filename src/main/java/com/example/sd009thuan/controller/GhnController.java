@@ -32,30 +32,78 @@ public class GhnController {
         return ResponseEntity.ok(ghnService.getWards(districtId));
     }
 
-    @PostMapping("/fee")
+    @PostMapping({"/fee", "/calculate-fee"})
     public ResponseEntity<?> calculateFee(@RequestBody Map<String, Object> body) {
-        Integer toDistrictId = null;
-        if (body.get("toDistrictId") != null && !body.get("toDistrictId").toString().isBlank()) {
-            try {
-                toDistrictId = Integer.valueOf(body.get("toDistrictId").toString());
-            } catch (Exception ignored) {}
+        Integer toDistrictId = parseInt(body.get("toDistrictId"));
+        String toProvinceName = str(body.get("toProvinceName"));
+        if (toProvinceName == null) {
+            toProvinceName = str(body.get("provinceName"));
         }
-        String toProvinceName = body.get("toProvinceName") != null ? body.get("toProvinceName").toString() : null;
-        String toWardCode = body.get("toWardCode") != null ? body.get("toWardCode").toString() : null;
-        Integer weight = null;
-        if (body.get("weight") != null && !body.get("weight").toString().isBlank()) {
-            try {
-                weight = Integer.valueOf(body.get("weight").toString());
-            } catch (Exception ignored) {}
+        String districtName = str(body.get("districtName"));
+        String wardName = str(body.get("wardName"));
+        String fullAddress = str(body.get("fullAddress"));
+        String toWardCode = str(body.get("toWardCode"));
+        Integer weight = parseInt(body.get("weight"));
+        if (weight == null) {
+            weight = parseInt(body.get("weightGram"));
         }
-        Integer insuranceValue = null;
-        if (body.get("insuranceValue") != null && !body.get("insuranceValue").toString().isBlank()) {
-            try {
-                insuranceValue = Integer.valueOf(body.get("insuranceValue").toString());
-            } catch (Exception ignored) {}
-        }
+        Integer insuranceValue = parseInt(body.get("insuranceValue"));
+        Long orderSubtotal = parseLong(body.get("orderSubtotal"));
+        Double distanceKm = parseDouble(body.get("distanceKm"));
+        String channel = str(body.get("channel"));
 
-        return ResponseEntity.ok(ghnService.calculateShippingFee(toProvinceName, toDistrictId, toWardCode, weight, insuranceValue));
+        return ResponseEntity.ok(ghnService.calculateShippingFee(
+                toProvinceName,
+                districtName,
+                wardName,
+                fullAddress,
+                toDistrictId,
+                toWardCode,
+                weight,
+                insuranceValue,
+                orderSubtotal,
+                channel,
+                distanceKm
+        ));
+    }
+
+    private Double parseDouble(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof Number n) return n.doubleValue();
+        try {
+            String s = obj.toString().trim().replace(",", ".");
+            return s.isEmpty() ? null : Double.valueOf(s);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private String str(Object obj) {
+        if (obj == null) return null;
+        String s = obj.toString().trim();
+        return s.isEmpty() ? null : s;
+    }
+
+    private Integer parseInt(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof Number n) return n.intValue();
+        try {
+            String s = obj.toString().trim();
+            return s.isEmpty() ? null : Integer.valueOf(s);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private Long parseLong(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof Number n) return n.longValue();
+        try {
+            String s = obj.toString().trim();
+            return s.isEmpty() ? null : Long.valueOf(s);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     @PostMapping("/leadtime")

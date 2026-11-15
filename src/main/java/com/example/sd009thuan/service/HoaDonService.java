@@ -3652,36 +3652,28 @@ public class HoaDonService {
 
 
     @Transactional
-
-
-
     public HoaDon updateTrangThai(
-
-
-
             Long id,
-
-
-
             Integer trangThai,
-
-
-
             String ghiChu,
-
-
-
             String email,
-
             Long nhanVienId,
-
             String nguoiThucHien
-
-
-
     ) {
+        return updateTrangThai(id, trangThai, ghiChu, email, nhanVienId, nguoiThucHien, false, true);
+    }
 
-
+    @Transactional
+    public HoaDon updateTrangThai(
+            Long id,
+            Integer trangThai,
+            String ghiChu,
+            String email,
+            Long nhanVienId,
+            String nguoiThucHien,
+            boolean hoanTien,
+            boolean guiEmail
+    ) {
 
         HoaDon hoaDon = hoaDonRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException(
@@ -3943,20 +3935,33 @@ public class HoaDonService {
             }
             hoaDon.setTrangThai(trangThai);
 
+            if (Integer.valueOf(6).equals(trangThai) && hoanTien) {
+                String cleanReason = (ghiChu != null && !ghiChu.trim().isEmpty())
+                        ? ghiChu.trim()
+                        : "Sản phẩm trong kho đã hết hàng - Hủy đơn và hoàn tiền lại cho khách hàng";
+                boolean isPaid = Integer.valueOf(1).equals(hoaDon.getTrangThaiThanhToan());
+                BigDecimal refundAmt = hoaDon.getTienSauGiamGia() != null
+                        ? hoaDon.getTienSauGiamGia()
+                        : (hoaDon.getTongTien() != null ? hoaDon.getTongTien() : BigDecimal.ZERO);
+                if (refundAmt.compareTo(BigDecimal.ZERO) < 0) refundAmt = BigDecimal.ZERO;
+                String refundText = String.format("%,d đ", refundAmt.longValue()).replace(',', '.');
 
+                String refundTag = isPaid
+                        ? "[HOÀN TIỀN " + refundText + "] " + cleanReason
+                        : "[HỦY DO HẾT HÀNG] " + cleanReason;
+                String oldNote = hoaDon.getGhiChu() != null ? hoaDon.getGhiChu().trim() : "";
+                if (oldNote.isEmpty()) {
+                    hoaDon.setGhiChu(refundTag);
+                } else if (!oldNote.contains("[HOÀN TIỀN")) {
+                    hoaDon.setGhiChu(oldNote + " | " + refundTag);
+                }
 
-            if (ghiChu != null && !ghiChu.trim().isEmpty()) {
-
-
-
+                actionDesc = isPaid
+                        ? "Hủy đơn do hết hàng - Thông báo hoàn tiền " + refundText + " cho khách: " + cleanReason
+                        : "Hủy đơn do hết hàng: " + cleanReason;
+            } else if (ghiChu != null && !ghiChu.trim().isEmpty()) {
                 hoaDon.setGhiChu(ghiChu.trim());
-
-
-
             }
-
-
-
         }
 
 
@@ -4085,113 +4090,35 @@ public class HoaDonService {
 
 
         // Nếu chuyển sang trạng thái 2 (Đã xác nhận), gửi email xác nhận đơn hàng cho khách nếu có email
-
-
-
         if (Integer.valueOf(2).equals(trangThai)) {
-
-
-
-            String recipientEmail = (email != null && !email.trim().isEmpty()) ? email.trim() : null;
-
-
-
-            if (recipientEmail == null && saved.getIdKhachHang() != null && saved.getIdKhachHang().getEmail() != null) {
-
-
-
-                recipientEmail = saved.getIdKhachHang().getEmail().trim();
-
-
-
-            }
-
-
-
-            if (recipientEmail != null && !recipientEmail.isEmpty() && recipientEmail.contains("@")) {
-
-
-
-                // Cập nhật lại email cho khách hàng nếu khách hàng đã liên kết
-
-
-
-                if (saved.getIdKhachHang() != null) {
-
-
-
-                    KhachHang kh = saved.getIdKhachHang();
-
-
-
-                    if (kh.getEmail() == null || kh.getEmail().trim().isEmpty() || !kh.getEmail().trim().equalsIgnoreCase(recipientEmail)) {
-
-
-
-                        kh.setEmail(recipientEmail);
-
-
-
-                        try {
-
-
-
-                            khachHangRepository.save(kh);
-
-
-
-                        } catch (Exception ignored) {}
-
-
-
-                    }
-
-
-
-                }
-
-
-
+            String recipientEmail = resolveAndSyncOrderEmail(saved, email);
+            if (recipientEmail != null) {
                 if (emailService != null) {
-
-
-
                     try {
-
-
-
                         List<ChiTietHoaDon> items = getChiTietByHoaDonId(saved.getId());
-
-
-
                         emailService.sendOrderConfirmationEmail(saved, items, recipientEmail);
-
-
-
                     } catch (Exception ex) {
-
-
-
                         System.err.println("==> Lỗi kích hoạt gửi email xác nhận: " + ex.getMessage());
-
-
-
                     }
-
-
-
                 }
-
-
-
                 actionDesc += " (Gửi mail: " + recipientEmail + ")";
-
-
-
             }
-
-
-
+        } else if (Integer.valueOf(6).equals(trangThai) && hoanTien && guiEmail) {
+            String recipientEmail = resolveAndSyncOrderEmail(saved, email);
+            if (recipientEmail != null) {
+                if (emailService != null) {
+                    try {
+                        List<ChiTietHoaDon> items = getChiTietByHoaDonId(saved.getId());
+                        String reasonText = (ghiChu != null && !ghiChu.trim().isEmpty())
+                                ? ghiChu.trim()
+                                : "Sản phẩm trong kho đã hết hàng - Hủy đơn và hoàn tiền lại cho khách hàng";
+                        emailService.sendOrderOutOfStockRefundEmail(saved, items, recipientEmail, reasonText);
+                    } catch (Exception ex) {
+                        System.err.println("==> Lỗi kích hoạt gửi email thông báo hoàn tiền: " + ex.getMessage());
+                    }
+                }
+                actionDesc += " (Gửi email hoàn tiền: " + recipientEmail + ")";
+            }
         }
 
 
@@ -4316,82 +4243,74 @@ public class HoaDonService {
 
 
 
-    // Cập nhật trạng thái hóa đơn theo mã hóa đơn
-
-
-
-    @Transactional
-
-
-
-    public HoaDon updateTrangThaiByMa(
-
-
-
-            String maHoaDon,
-
-
-
-            Integer trangThai,
-
-
-
-            String ghiChu
-
-
-
-    ) {
-
-
-
-        return updateTrangThaiByMa(maHoaDon, trangThai, ghiChu, null);
-
-
-
+    private String resolveAndSyncOrderEmail(HoaDon saved, String explicitEmail) {
+        String recipientEmail = (explicitEmail != null && !explicitEmail.trim().isEmpty()) ? explicitEmail.trim() : null;
+        if (recipientEmail == null && saved.getEmail() != null && !saved.getEmail().trim().isEmpty()) {
+            recipientEmail = saved.getEmail().trim();
+        }
+        if (recipientEmail == null && saved.getIdKhachHang() != null && saved.getIdKhachHang().getEmail() != null) {
+            recipientEmail = saved.getIdKhachHang().getEmail().trim();
+        }
+        if (recipientEmail == null || recipientEmail.isEmpty() || !recipientEmail.contains("@")) {
+            return null;
+        }
+        if (saved.getIdKhachHang() != null) {
+            KhachHang kh = saved.getIdKhachHang();
+            if (kh.getEmail() == null || kh.getEmail().trim().isEmpty() || !kh.getEmail().trim().equalsIgnoreCase(recipientEmail)) {
+                kh.setEmail(recipientEmail);
+                try {
+                    khachHangRepository.save(kh);
+                } catch (Exception ignored) {}
+            }
+        }
+        return recipientEmail;
     }
 
-
+    // Cập nhật trạng thái hóa đơn theo mã hóa đơn
+    @Transactional
+    public HoaDon updateTrangThaiByMa(
+            String maHoaDon,
+            Integer trangThai,
+            String ghiChu
+    ) {
+        return updateTrangThaiByMa(maHoaDon, trangThai, ghiChu, null);
+    }
 
     // Cập nhật trạng thái hóa đơn theo mã hóa đơn kèm email
-
     @Transactional
-
     public HoaDon updateTrangThaiByMa(String maHoaDon, Integer trangThai, String ghiChu, String email) {
-
         return updateTrangThaiByMa(maHoaDon, trangThai, ghiChu, email, null, null);
-
     }
 
     // Cập nhật trạng thái hóa đơn theo mã hóa đơn đầy đủ tham số
+    @Transactional
+    public HoaDon updateTrangThaiByMa(
+            String maHoaDon,
+            Integer trangThai,
+            String ghiChu,
+            String email,
+            Long nhanVienId,
+            String nguoiThucHien
+    ) {
+        return updateTrangThaiByMa(maHoaDon, trangThai, ghiChu, email, nhanVienId, nguoiThucHien, false, true);
+    }
 
     @Transactional
-
     public HoaDon updateTrangThaiByMa(
-
             String maHoaDon,
-
             Integer trangThai,
-
             String ghiChu,
-
             String email,
-
             Long nhanVienId,
-
-            String nguoiThucHien
-
+            String nguoiThucHien,
+            boolean hoanTien,
+            boolean guiEmail
     ) {
-
         HoaDon hoaDon = hoaDonRepository.findByMaHoaDon(maHoaDon)
-
                 .orElseThrow(() -> new RuntimeException(
-
                         "Không tìm thấy hóa đơn có mã: " + maHoaDon
-
                 ));
-
-        return updateTrangThai(hoaDon.getId(), trangThai, ghiChu, email, nhanVienId, nguoiThucHien);
-
+        return updateTrangThai(hoaDon.getId(), trangThai, ghiChu, email, nhanVienId, nguoiThucHien, hoanTien, guiEmail);
     }
 
     /*

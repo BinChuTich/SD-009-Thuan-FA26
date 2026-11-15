@@ -22,7 +22,7 @@ import { getProvinces, getWardsByProvince } from '@/services/provincesApi.js'
 
 
 
-import { calculateGhnShippingFee } from '@/services/ghnService.js'
+import { calculateGhnShippingFee, invalidateShippingConfigCache } from '@/services/ghnService.js'
 
 
 
@@ -3903,47 +3903,21 @@ const autoCalculateShippingFee = async () => {
 
 
     const res = await calculateGhnShippingFee({
-
-
-
       provinceName: currentInvoice.value.deliveryProvince,
-
-
-
       districtName: currentInvoice.value.deliveryDistrict,
-
-
-
       wardName: currentInvoice.value.deliveryWard,
-
-
-
       fullAddress: currentInvoice.value.deliveryAddress,
-
-
-
-      insuranceValue: totalAmount.value
-
-
-
+      insuranceValue: totalAmount.value,
+      orderSubtotal: totalAmount.value,
+      channel: 'POS'
     })
 
-
-
     if (res && res.fee != null) {
-
-
-
       currentInvoice.value.shippingFee = res.fee
-
-
-
       currentInvoice.value.shippingDesc = res.regionDescription || ''
-
-
-
       currentInvoice.value.shippingSource = res.source || ''
-
+      currentInvoice.value.shippingFreeshipApplied = Boolean(res.freeshipApplied)
+      currentInvoice.value.shippingOriginalFee = Number(res.originalFee ?? res.fee)
     }
 
   } catch (e) {
@@ -3958,26 +3932,21 @@ const autoCalculateShippingFee = async () => {
 
 }
 
-
-
-// Gọi API GHN tính lại cước vận chuyển và thông báo cho thu ngân
-
+// Gọi API tính lại cước vận chuyển theo cấu hình hệ thống & thông báo cho thu ngân
 const triggerRecalculateShippingFee = async () => {
-
   if (!currentInvoice.value || !currentInvoice.value.isDelivery) return
-
-  if (!currentInvoice.value.deliveryProvinceCode) {
-
-    showToast('Vui lòng chọn Tỉnh/Thành phố nhận hàng để gọi API GHN tính cước!', 'warning')
-
+  if (!currentInvoice.value.deliveryProvince && !currentInvoice.value.deliveryProvinceCode && !currentInvoice.value.deliveryAddress) {
+    showToast('Vui lòng chọn Tỉnh/Thành phố nhận hàng để tính cước!', 'warning')
     return
-
   }
-
+  currentInvoice.value.isManualShippingFee = false
+  invalidateShippingConfigCache()
   await autoCalculateShippingFee()
-
-  showToast(`Đã đồng bộ cước từ API Giao Hàng Nhanh (GHN): ${formatMoney(currentInvoice.value.shippingFee || 0)}!`, 'success')
-
+  if (currentInvoice.value.shippingFreeshipApplied) {
+    showToast('Đơn hàng đạt ngưỡng Miễn phí vận chuyển (Freeship: 0đ)!', 'success')
+  } else {
+    showToast(`Đã đồng bộ phí ship theo cấu hình: ${formatMoney(currentInvoice.value.shippingFee || 0)}!`, 'success')
+  }
 }
 
 
@@ -8117,17 +8086,25 @@ const promotionDiscount = computed(() => {
 
 const totalAmount = computed(() => {
 
-
-
   if (!currentInvoice.value) return 0
-
-
 
   return currentInvoice.value.cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
-
-
 })
+
+let posShippingRecalcTimer = null
+watch(totalAmount, () => {
+  if (!currentInvoice.value?.isDelivery || currentInvoice.value?.isManualShippingFee) return
+  if (!currentInvoice.value?.deliveryProvince && !currentInvoice.value?.deliveryAddress && !currentInvoice.value?.deliveryProvinceCode) return
+  if (posShippingRecalcTimer) clearTimeout(posShippingRecalcTimer)
+  posShippingRecalcTimer = setTimeout(() => {
+    autoCalculateShippingFee()
+  }, 150)
+})
+
+const goToShippingSettings = () => {
+  router.push('/cai-dat/phi-ship')
+}
 
 
 
@@ -9841,9 +9818,17 @@ const stopPaymentPolling = () => {
 
 
 
+const handleShippingConfigUpdated = () => {
+  invalidateShippingConfigCache()
+  if (currentInvoice.value?.isDelivery && !currentInvoice.value?.isManualShippingFee) {
+    autoCalculateShippingFee()
+  }
+}
+
 onUnmounted(() => {
-
-
+  if (posShippingRecalcTimer) clearTimeout(posShippingRecalcTimer)
+  window.removeEventListener('shipping-config-updated', handleShippingConfigUpdated)
+  window.removeEventListener('focus', handleShippingConfigUpdated)
 
   if (typeof dayCheckTimer !== 'undefined' && dayCheckTimer) clearInterval(dayCheckTimer)
 
@@ -11292,6 +11277,8 @@ onMounted(async () => {
 
   document.addEventListener('visibilitychange', onTabVisibilityChange)
   window.addEventListener('focus', onWindowFocus)
+  window.addEventListener('focus', handleShippingConfigUpdated)
+  window.addEventListener('shipping-config-updated', handleShippingConfigUpdated)
 
 
 
@@ -12444,19 +12431,57 @@ onMounted(async () => {
 
                   <label class="group-label-gray">Phí vận chuyển (VNĐ)</label>
 
-                  <span class="ghn-api-badge cursor-pointer" title="Bấm để tính lại cước qua API Giao Hàng Nhanh" @click="triggerRecalculateShippingFee">
+                  <div class="shipping-header-tools">
 
-                    <svg class="ghn-logo-svg" viewBox="0 0 102 24" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <button
 
-                      <rect width="46" height="24" rx="4" fill="#F26522"/>
+                      v-if="currentInvoice.isManualShippingFee"
 
-                      <text x="23" y="17" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Arial Black', sans-serif" font-weight="900" font-size="13" font-style="italic" text-anchor="middle" letter-spacing="0.5">GHN</text>
+                      type="button"
 
-                      <text x="51" y="17" fill="#003366" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-weight="900" font-size="12" font-style="italic" letter-spacing="0.3">Express</text>
+                      class="shipping-mini-btn auto-btn"
 
-                    </svg>
+                      title="Tính lại phí tự động theo cấu hình cửa hàng"
 
-                  </span>
+                      @click="triggerRecalculateShippingFee"
+
+                    >
+
+                      Tự động
+
+                    </button>
+
+                    <button
+
+                      type="button"
+
+                      class="shipping-mini-btn settings-btn"
+
+                      title="Mở Cài đặt phí ship"
+
+                      @click="goToShippingSettings"
+
+                    >
+
+                      Cài đặt
+
+                    </button>
+
+                    <span class="ghn-api-badge cursor-pointer" title="Bấm để tính lại cước theo cấu hình & GHN" @click="triggerRecalculateShippingFee">
+
+                      <svg class="ghn-logo-svg" viewBox="0 0 102 24" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+                        <rect width="46" height="24" rx="4" fill="#F26522"/>
+
+                        <text x="23" y="17" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Arial Black', sans-serif" font-weight="900" font-size="13" font-style="italic" text-anchor="middle" letter-spacing="0.5">GHN</text>
+
+                        <text x="51" y="17" fill="#003366" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-weight="900" font-size="12" font-style="italic" letter-spacing="0.3">Express</text>
+
+                      </svg>
+
+                    </span>
+
+                  </div>
 
                 </div>
 
@@ -12481,6 +12506,14 @@ onMounted(async () => {
                     class="pos-form-input input-money"
 
                 />
+
+                <div
+                  v-if="currentInvoice.shippingDesc && !currentInvoice.isManualShippingFee"
+                  class="shipping-policy-note"
+                  :class="{ freeship: currentInvoice.shippingFreeshipApplied }"
+                >
+                  {{ currentInvoice.shippingDesc }}
+                </div>
 
               </div>
 
@@ -30203,6 +30236,50 @@ onMounted(async () => {
 
   margin-bottom: 2px;
 
+  gap: 8px;
+
+}
+
+.shipping-header-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shipping-mini-btn {
+  border: 1px solid #d5cfc2;
+  background: #ffffff;
+  color: #496883;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1.4;
+  transition: all 0.15s ease;
+}
+
+.shipping-mini-btn:hover {
+  background: #eaf2f6;
+  border-color: #496883;
+}
+
+.shipping-mini-btn.auto-btn {
+  color: #b45309;
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.shipping-policy-note {
+  margin-top: 4px;
+  font-size: 0.76rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.shipping-policy-note.freeship {
+  color: #059669;
+  font-weight: 700;
 }
 
 

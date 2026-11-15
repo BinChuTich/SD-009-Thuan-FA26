@@ -204,7 +204,9 @@ const updateShippingForAddress = async (addr) => {
       wardName: addr.phuong || '',
       fullAddress: fullAddr,
       weightGram: 300,
-      insuranceValue: merchandiseSubtotal.value
+      insuranceValue: merchandiseSubtotal.value,
+      orderSubtotal: merchandiseSubtotal.value,
+      channel: 'ONLINE'
     })
 
     if (res && res.fee != null) {

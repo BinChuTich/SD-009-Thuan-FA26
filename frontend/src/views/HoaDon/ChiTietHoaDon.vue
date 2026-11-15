@@ -11,6 +11,7 @@ import Select2Combobox from '@/components/Select2Combobox.vue'
 import { generateQrDataUrl, generateQrSvg } from '@/utils/qrcode.js'
 
 import { getCurrentUser } from '@/utils/auth.js'
+import RefundOrderModal from '@/components/RefundOrderModal.vue'
 
 
 
@@ -58,6 +59,8 @@ const orderLogs = ref([])
 
 const isOrderOutOfStock = ref(false)
 const stockCheckResult = ref(null)
+const showRefundModal = ref(false)
+const refundingOrder = ref(false)
 
 const checkOrderStock = async (id) => {
   if (!id) return
@@ -68,15 +71,17 @@ const checkOrderStock = async (id) => {
       isOrderOutOfStock.value = res.data.duHang === false
       if (res.data.items && Array.isArray(res.data.items)) {
         res.data.items.forEach(stockItem => {
+          const chiTietId = stockItem.chiTietId ?? stockItem.idChiTietHoaDon
+          const variantId = stockItem.variantId ?? stockItem.idChiTietSanPham
           const item = (invoiceData.value.items || []).find(it =>
-              (it.id && it.id === stockItem.idChiTietHoaDon) ||
-              (it.idChiTietSanPham && it.idChiTietSanPham === stockItem.idChiTietSanPham) ||
+              (it.id && chiTietId && it.id === chiTietId) ||
+              (it.idChiTietSanPham && variantId && it.idChiTietSanPham === variantId) ||
               (it.variantCode && stockItem.maChiTietSanPham && it.variantCode === stockItem.maChiTietSanPham)
           )
           if (item) {
             item.soLuongTon = stockItem.soLuongTon
-            item.hetHang = stockItem.hetHang
-            item.duHang = stockItem.duHang
+            item.hetHang = Boolean(stockItem.hetHang)
+            item.duHang = stockItem.duHang !== undefined ? stockItem.duHang : !stockItem.hetHang
           }
         })
       }
@@ -414,6 +419,8 @@ const createDefaultInvoice = (code) => ({
 
   status: 1,
 
+  trangThaiThanhToan: 0,
+
   statusBadge: 'Chờ xác nhận',
 
   currentStepIndex: 1,
@@ -609,6 +616,45 @@ return 'Online' */ const _unused_end = () => ({
 const isAtStore = computed(() => displayLoaiDon.value === 'Tại quầy')
 
 const isOnlineDelivery = computed(() => !isAtStore.value)
+
+const isPaidOrder = computed(() => {
+  return Number(invoiceData.value.trangThaiThanhToan) === 1 || invoiceData.value.paymentHistory?.status === 'Đã thanh toán'
+})
+
+const isPaidOnlineOutOfStock = computed(() => {
+  return Number(invoiceData.value.status) === 1 && isOnlineDelivery.value && isPaidOrder.value && isOrderOutOfStock.value
+})
+
+const isRefundedOrder = computed(() => {
+  if (Number(invoiceData.value.status) !== 6 || !isPaidOrder.value) return false
+  const noteText = String(invoiceData.value.delivery?.note || '').toLowerCase()
+  return noteText.includes('hoàn tiền') || orderLogs.value.some(l => String(l.action || l.ghiChu || '').toLowerCase().includes('hoàn tiền'))
+})
+
+const refundOutOfStockItems = computed(() => {
+  const apiItems = stockCheckResult.value?.items
+  if (Array.isArray(apiItems) && apiItems.length > 0) {
+    return apiItems
+        .filter(it => it.hetHang || Number(it.soLuongTon ?? 0) < Number(it.soLuongDat ?? 1))
+        .map(it => ({
+          chiTietId: it.chiTietId ?? it.idChiTietHoaDon,
+          variantId: it.variantId ?? it.idChiTietSanPham,
+          name: it.tenSanPham || 'Sản phẩm',
+          variantText: [it.tenMauSac, it.tenKichCo ? `Size ${it.tenKichCo}` : ''].filter(Boolean).join(' / '),
+          needed: Number(it.soLuongDat ?? 1),
+          available: Number(it.soLuongTon ?? 0)
+        }))
+  }
+  return (invoiceData.value.items || [])
+      .filter(it => it.hetHang || it.duHang === false || (it.soLuongTon != null && Number(it.soLuongTon) < Number(it.quantity ?? 1)))
+      .map(it => ({
+        id: it.id,
+        name: it.name || 'Sản phẩm',
+        variantText: [it.color && it.color !== '---' ? it.color : '', it.size && it.size !== '---' ? `Size ${it.size}` : ''].filter(Boolean).join(' / '),
+        needed: Number(it.quantity ?? 1),
+        available: Number(it.soLuongTon ?? 0)
+      }))
+})
 
 // Đơn hàng online nhưng xác nhận tại quầy hoặc có giao hàng thì vẫn có ĐẦY ĐỦ các trạng thái như đơn online.
 
@@ -1567,6 +1613,8 @@ const mapInvoiceItem = (item, index) => {
 
     id: raw['id'] || (index + 1),
 
+    idChiTietSanPham: variantId || null,
+
     code: exactProductCode || exactVariantCode || productCode,
 
     variantCode: exactVariantCode || exactProductCode || '',
@@ -2054,6 +2102,8 @@ const loadDetail = async (identifier) => {
     const paymentStatus = data['trangThaiThanhToan'] !== undefined ? data['trangThaiThanhToan'] : data['daThanhToan']
 
     const isPaid = paymentStatus === true || Number(paymentStatus) === 1
+
+    invoiceData.value.trangThaiThanhToan = isPaid ? 1 : 0
 
     const defaultMethod = Number(data['loaiDon']) === 1 ? 'Tiền mặt' : 'Thanh toán khi nhận hàng (COD)'
 
@@ -2591,7 +2641,11 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null, cus
 
 
     if (newStatus === 2 && isOrderOutOfStock.value) {
-      showToast('Không thể xác nhận đơn hàng vì sản phẩm trong kho không đủ hoặc đã hết hàng!', 'warning')
+      if (isOnlineDelivery.value && isPaidOrder.value) {
+        showRefundModal.value = true
+      } else {
+        showToast('Không thể xác nhận đơn hàng vì sản phẩm trong kho không đủ hoặc đã hết hàng!', 'warning')
+      }
       updatingStatus.value = false
       return
     }
@@ -2613,7 +2667,21 @@ const saveStatusChange = async (newStatusOverride = null, customNote = null, cus
         console.warn('Cập nhật theo ID /trang-thai thất bại, thử cập nhật thực thể:', err)
 
         if (err.response && err.response.status === 400) {
-          showToast(err.response?.data?.message || 'Không thể xác nhận đơn hàng do tồn kho không đủ!', 'warning')
+          const errMsg = String(err.response?.data?.message || '')
+          const isStockErr = newStatus === 2 && (
+              err.response?.data?.outOfStock === true ||
+              errMsg.toLowerCase().includes('không đủ số lượng') ||
+              errMsg.toLowerCase().includes('hết hàng')
+          )
+          if (isStockErr) {
+            await checkOrderStock(id)
+            if (isOnlineDelivery.value && isPaidOrder.value) {
+              showRefundModal.value = true
+              updatingStatus.value = false
+              return
+            }
+          }
+          showToast(errMsg || 'Không thể xác nhận đơn hàng do tồn kho không đủ!', 'warning')
           updatingStatus.value = false
           return
         }
@@ -2971,10 +3039,11 @@ const handleSendConfirmationEmail = async (targetEmail = null) => {
 
 
 // Bấm chuyển trạng thái tiếp theo từ nút / nốt tròn
+const checkingStockForConfirm = ref(false)
 
-const handleNextStatus = () => {
+const handleNextStatus = async () => {
 
-  if (!nextStatusInfo.value || updatingStatus.value) return
+  if (!nextStatusInfo.value || updatingStatus.value || refundingOrder.value || checkingStockForConfirm.value) return
 
   const info = nextStatusInfo.value
 
@@ -2982,8 +3051,23 @@ const handleNextStatus = () => {
 
   const isConfirming = cur === 1 || info.nextStatus === 2
 
+  const id = invoiceId.value || invoiceData.value.id
+
+  if (isConfirming && id) {
+    checkingStockForConfirm.value = true
+    try {
+      await checkOrderStock(id)
+    } finally {
+      checkingStockForConfirm.value = false
+    }
+  }
+
   if (isConfirming && isOrderOutOfStock.value) {
-    showToast('Không thể xác nhận đơn hàng vì sản phẩm trong kho không đủ hoặc đã hết hàng!', 'warning')
+    if (isOnlineDelivery.value && isPaidOrder.value) {
+      showRefundModal.value = true
+    } else {
+      showToast('Không thể xác nhận đơn hàng vì sản phẩm trong kho không đủ hoặc đã hết hàng!', 'warning')
+    }
     return
   }
 
@@ -3045,6 +3129,76 @@ const handleNextStatus = () => {
 
   })
 
+}
+
+const handleConfirmRefund = async ({ reason, sendEmail, email }) => {
+  const id = invoiceId.value || invoiceData.value.id
+  const code = invoiceCode.value || invoiceData.value.code
+  if ((!id && !code) || refundingOrder.value) return
+
+  refundingOrder.value = true
+  const currentAuth = getCurrentUser()
+  const authStaffName = currentAuth?.tenNhanVien || currentAuth?.tenTaiKhoan || 'Nhân viên bán hàng'
+  const authStaffId = currentAuth?.id || null
+
+  const cleanEmail = (sendEmail && email && email.trim()) ? email.trim() : undefined
+  const emailQuery = cleanEmail ? `&email=${encodeURIComponent(cleanEmail)}` : ''
+  const payload = {
+    trangThai: 6,
+    hoanTien: true,
+    guiEmail: Boolean(sendEmail && cleanEmail),
+    ghiChu: reason,
+    email: cleanEmail,
+    idNhanVien: authStaffId,
+    nhanVienId: authStaffId,
+    nguoiThucHien: authStaffName,
+    nguoiCapNhat: authStaffName
+  }
+
+  try {
+    let success = false
+    let lastError = null
+
+    if (id) {
+      try {
+        await api.put(`/api/hoa-don/${id}/trang-thai?trangThai=6${emailQuery}`, payload)
+        success = true
+      } catch (err) {
+        lastError = err
+      }
+    }
+
+    if (!success && code) {
+      try {
+        await api.put(`/api/hoa-don/code/${encodeURIComponent(code)}/trang-thai?trangThai=6${emailQuery}`, payload)
+        success = true
+      } catch (err) {
+        lastError = err
+      }
+    }
+
+    if (success) {
+      showRefundModal.value = false
+      const amountLabel = formatMoney(invoiceData.value.summary?.totalPayment || invoiceData.value.paymentHistory?.amount || 0)
+      showToast(
+          cleanEmail
+              ? `Đã hủy đơn, ghi nhận hoàn tiền ${amountLabel} và gửi email thông báo tới ${cleanEmail}!`
+              : `Đã hủy đơn hàng và ghi nhận hoàn tiền ${amountLabel} cho khách hàng!`
+      )
+      if (code) {
+        await loadDetail(code)
+      } else if (id) {
+        await loadDetail(id)
+      }
+    } else {
+      const msg = lastError?.response?.data?.message || lastError?.message || 'Không thể xử lý hủy đơn & hoàn tiền!'
+      showToast(msg, 'warning')
+    }
+  } catch (err) {
+    showToast(err.response?.data?.message || 'Không thể xử lý hủy đơn & hoàn tiền!', 'warning')
+  } finally {
+    refundingOrder.value = false
+  }
 }
 
 
@@ -3960,13 +4114,13 @@ onBeforeUnmount(() => {
 
                   class="btn-next-action"
 
-                  :class="{ 'btn-confirm-highlight': nextStatusInfo.nextStatus === 2, 'btn-disabled-stock': isOrderOutOfStock && nextStatusInfo.nextStatus === 2 }"
+                  :class="{ 'btn-confirm-highlight': nextStatusInfo.nextStatus === 2, 'btn-disabled-stock': isOrderOutOfStock && nextStatusInfo.nextStatus === 2 && !(isOnlineDelivery && isPaidOrder) }"
 
                   type="button"
 
-                  :disabled="updatingStatus || (isOrderOutOfStock && nextStatusInfo.nextStatus === 2)"
+                  :disabled="updatingStatus || refundingOrder || checkingStockForConfirm || (isOrderOutOfStock && nextStatusInfo.nextStatus === 2 && !(isOnlineDelivery && isPaidOrder))"
 
-                  :title="(isOrderOutOfStock && nextStatusInfo.nextStatus === 2) ? 'Không thể xác nhận vì sản phẩm trong kho không đủ hoặc đã hết hàng!' : ''"
+                  :title="(isOrderOutOfStock && nextStatusInfo.nextStatus === 2) ? (isOnlineDelivery && isPaidOrder ? 'Kho hết hàng - Ấn xác nhận để mở thông báo hoàn tiền cho khách hàng' : 'Không thể xác nhận vì sản phẩm trong kho không đủ hoặc đã hết hàng!') : ''"
 
                   @click="handleNextStatus"
 
@@ -3991,7 +4145,10 @@ onBeforeUnmount(() => {
             <!-- Cảnh báo khi có sản phẩm không đủ tồn kho ở trạng thái Chờ xác nhận -->
             <div v-if="isOrderOutOfStock && Number(invoiceData.status) === 1" class="order-stock-alert">
               <span class="stock-alert-icon">⚠️</span>
-              <div class="stock-alert-text">
+              <div class="stock-alert-text" v-if="isOnlineDelivery && isPaidOrder">
+                <strong>Kho không còn / không đủ sản phẩm:</strong> Đơn hàng online này đã thanh toán — ấn <strong>"✓ Xác nhận đơn hàng"</strong> để mở thông báo hoàn tiền cho khách hàng.
+              </div>
+              <div class="stock-alert-text" v-else>
                 <strong>Không thể xác nhận đơn hàng:</strong> Trong kho không đủ số lượng tồn cho một hoặc nhiều sản phẩm trong đơn này!
               </div>
             </div>
@@ -4311,11 +4468,25 @@ onBeforeUnmount(() => {
 
               <span class="pay-label-sub">Phương thức thanh toán</span>
 
-              <span class="badge-status-pill" :class="invoiceData.paymentHistory.status === 'Đã thanh toán' ? 'pill-paid' : 'pill-unpaid'">
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
 
-                <span class="pill-dot">●</span> {{ invoiceData.paymentHistory.status }}
+                <span class="badge-status-pill" :class="invoiceData.paymentHistory.status === 'Đã thanh toán' ? 'pill-paid' : 'pill-unpaid'">
 
-              </span>
+                  <span class="pill-dot">●</span> {{ invoiceData.paymentHistory.status }}
+
+                </span>
+
+                <span
+                  v-if="isRefundedOrder"
+                  class="badge-status-pill"
+                  style="background: #fffbeb; color: #b45309; border: 1px solid #fde68a;"
+                >
+
+                  <span class="pill-dot">●</span> Đã hoàn tiền cho khách
+
+                </span>
+
+              </div>
 
             </div>
 
@@ -4904,6 +5075,23 @@ onBeforeUnmount(() => {
       </div>
 
     </transition>
+
+
+
+    <RefundOrderModal
+      :show="showRefundModal"
+      :loading="refundingOrder"
+      :order-code="invoiceData.code"
+      :customer-name="invoiceData.customer?.name"
+      :customer-phone="invoiceData.customer?.phone"
+      :payment-method="invoiceData.paymentHistory?.method"
+      :transaction-code="invoiceData.paymentHistory?.transCode"
+      :refund-amount="invoiceData.summary?.totalPayment || invoiceData.paymentHistory?.amount || 0"
+      :customer-email="invoiceData.customer?.email"
+      :out-of-stock-items="refundOutOfStockItems"
+      @close="showRefundModal = false"
+      @confirm="handleConfirmRefund"
+    />
 
 
 
