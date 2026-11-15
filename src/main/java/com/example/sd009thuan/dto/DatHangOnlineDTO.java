@@ -22,6 +22,7 @@ public class DatHangOnlineDTO {
     private BigDecimal tongTien;
     private BigDecimal phiVanChuyen;
     private BigDecimal giamGia;
+    private Boolean giuVoucherCu;
     private List<ItemChiTiet> chiTiet;
 
     @Getter

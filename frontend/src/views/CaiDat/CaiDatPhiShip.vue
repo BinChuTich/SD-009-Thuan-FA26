@@ -1,16 +1,18 @@
 <template>
   <div class="page">
     <transition name="toast"><div v-if="notice.show" class="notice" :class="notice.type">{{ notice.message }}</div></transition>
-    <header class="header">
-      <div class="icon">🚚</div>
-      <div><div class="title-row"><h1>Cấu hình miễn phí vận chuyển</h1><span>POS &amp; Online</span></div>
-        <p>Tạo danh sách mức giá trị hóa đơn được miễn phí giao hàng trên toàn hệ thống.</p></div>
-    </header>
+    <div class="page-top-header">
+      <div class="page-breadcrumb">
+        <router-link to="/cai-dat" class="crumb-parent">Cài đặt hệ thống</router-link>
+        <span class="crumb-separator">/</span>
+        <span class="crumb-current">Cấu hình miễn phí vận chuyển</span>
+      </div>
+    </div>
 
-    <main class="card">
+    <main class="card content-card">
       <div class="card-title">
-        <div><small>CẤU HÌNH FREESHIP</small><h2>Danh sách cấu hình miễn phí vận chuyển</h2>
-          <p>Đơn giao hàng đạt một trong các mức dưới đây sẽ tự động có phí vận chuyển bằng 0đ.</p></div>
+        <div><small>CẤU HÌNH VẬN CHUYỂN</small><h2>Miễn phí vận chuyển theo giá trị hóa đơn</h2>
+          <p>Quản lý ngưỡng freeship áp dụng đồng bộ cho bán hàng tại quầy và đặt hàng online.</p></div>
         <b :class="{ off: rules.length === 0 }">{{ rules.length ? 'Đang áp dụng' : 'Đã tắt' }}</b>
       </div>
 
@@ -18,15 +20,14 @@
         <label for="threshold">Giá trị hóa đơn tối thiểu</label>
         <div class="create-row">
           <div class="money-input" :class="{ invalid: errorMessage }">
-            <input id="threshold" v-model.number="newThreshold" type="number" min="1" step="1000"
-                   placeholder="Ví dụ: 2000000" :disabled="busy || !isAdmin"
-                   @input="errorMessage = ''" @keyup.enter="addRule" />
+            <input id="threshold" v-model="newThreshold" type="text" inputmode="numeric" maxlength="10"
+                   placeholder="Ví dụ: 2.000.000" :disabled="busy || !isAdmin"
+                   @input="handleThresholdInput" @blur="validateThreshold(false)" @keyup.enter="addRule" />
             <span>VNĐ</span>
           </div>
           <button class="primary" :disabled="busy || !isAdmin" @click="addRule">+ Thêm cấu hình</button>
         </div>
         <em v-if="errorMessage" class="error">{{ errorMessage }}</em>
-        <em v-else>Ví dụ: nhập <strong>2.000.000</strong> để freeship cho hóa đơn từ 2.000.000đ.</em>
       </section>
 
       <section class="list-section">
@@ -34,7 +35,7 @@
         <div v-if="loading" class="empty">Đang tải cấu hình...</div>
         <div v-else-if="rules.length === 0" class="empty">
           <strong>Chưa có cấu hình freeship</strong>
-          <p>Hóa đơn sẽ tự tính phí vận chuyển bình thường cho đến khi mày thêm cấu hình mới.</p>
+          <p>Hóa đơn sẽ tự tính phí vận chuyển bình thường cho đến khi thêm cấu hình mới.</p>
         </div>
         <div v-else class="table-wrap">
           <table><thead><tr><th>STT</th><th>Giá trị hóa đơn được freeship</th><th>Áp dụng</th><th>Thao tác</th></tr></thead>
@@ -76,7 +77,7 @@ const isAdmin = computed(() => {
 })
 const config = ref({ ...DEFAULT_SHIPPING_CONFIG })
 const rules = ref([])
-const newThreshold = ref(null)
+const newThreshold = ref('')
 const loading = ref(false)
 const saving = ref(false)
 const errorMessage = ref('')
@@ -86,6 +87,44 @@ const busy = computed(() => loading.value || saving.value)
 const sortedRules = computed(() => [...rules.value].sort((a, b) => Number(a.giaTriTu) - Number(b.giaTriTu)))
 const effectiveThreshold = computed(() => sortedRules.value.length ? Number(sortedRules.value[0].giaTriTu) : 0)
 const money = value => `${Number(value || 0).toLocaleString('vi-VN')} đ`
+
+function thresholdValue() {
+  const digits = String(newThreshold.value || '').replace(/\D/g, '')
+  return digits ? Number(digits) : 0
+}
+
+function handleThresholdInput(event) {
+  const digits = String(event?.target?.value || '').replace(/\D/g, '').slice(0, 8)
+  newThreshold.value = digits ? Number(digits).toLocaleString('vi-VN') : ''
+  errorMessage.value = ''
+}
+
+function validateThreshold(showRequired = true) {
+  const raw = String(newThreshold.value || '').trim()
+  const value = thresholdValue()
+  if (!raw) {
+    errorMessage.value = showRequired ? 'Vui lòng nhập giá trị hóa đơn tối thiểu.' : ''
+    return false
+  }
+  if (!Number.isSafeInteger(value) || value < 1000) {
+    errorMessage.value = 'Giá trị freeship phải từ 1.000 VNĐ trở lên.'
+    return false
+  }
+  if (value > 50000000) {
+    errorMessage.value = 'Giá trị freeship không được vượt quá 50.000.000 VNĐ.'
+    return false
+  }
+  if (value % 1000 !== 0) {
+    errorMessage.value = 'Giá trị freeship phải là bội số của 1.000 VNĐ.'
+    return false
+  }
+  if (rules.value.some(rule => Number(rule.giaTriTu) === value)) {
+    errorMessage.value = 'Mức freeship này đã có trong danh sách.'
+    return false
+  }
+  errorMessage.value = ''
+  return true
+}
 
 function notify(message, type = 'success') {
   Object.assign(notice, { show: true, message, type }); clearTimeout(noticeTimer)
@@ -131,14 +170,13 @@ async function persist(nextRules, successMessage) {
 }
 async function addRule() {
   if (!isAdmin.value || busy.value) return
-  const value = Math.round(Number(newThreshold.value))
-  if (!Number.isFinite(value) || value <= 0) { errorMessage.value = 'Giá trị hóa đơn phải lớn hơn 0.'; return }
-  if (rules.value.some(rule => Number(rule.giaTriTu) === value)) { errorMessage.value = 'Mức freeship này đã có trong danh sách.'; return }
+  if (!validateThreshold(true)) return
+  const value = thresholdValue()
   const nextId = rules.value.reduce((max, rule) => Math.max(max, Number(rule.id) || 0), 0) + 1
   const rule = { id: nextId, giaTriTu: value, giaTriDen: 50000000, khoangCachTu: 0,
     khoangCachDen: 99999, hinhThucTinhPhi: 'MIEN_PHI', phiVanChuyen: 0, trangThai: 1 }
   await persist([...rules.value, rule], `Đã thêm mức freeship từ ${money(value)}.`)
-  if (!saving.value) newThreshold.value = null
+  if (!saving.value) newThreshold.value = ''
 }
 async function removeRule(rule) {
   if (!isAdmin.value || busy.value) return
@@ -150,6 +188,79 @@ onMounted(loadConfig)
 
 <style scoped>
 .page{min-height:calc(100vh - 72px);padding:34px;background:#f7f6f2;color:#172033}.header,.card{max-width:1060px;margin:auto;background:#fff;border:1px solid #dce3ed;border-radius:16px;box-shadow:0 4px 14px #0f172a0d}.header{display:flex;gap:18px;align-items:center;padding:26px 30px}.icon{display:grid;place-items:center;width:50px;height:50px;border-radius:13px;background:#2450b8;font-size:25px}.title-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}h1,h2,h3{margin:0}h1{font-size:23px}.title-row span,.card-title b{padding:5px 10px;border-radius:999px;font-size:12px}.title-row span{color:#2450b8;background:#eff6ff;border:1px solid #bfdbfe}.header p,.card-title p,.status p{margin:7px 0 0;color:#64748b;line-height:1.5}.card{margin-top:22px;padding:32px}.card-title{display:flex;justify-content:space-between;gap:20px}.card-title small{color:#2450b8;font-weight:800;letter-spacing:.08em}.card-title h2{margin-top:7px;font-size:22px}.card-title b{height:max-content;color:#087f5b;background:#ecfdf5;border:1px solid #a7f3d0}.card-title b.off{color:#64748b;background:#f8fafc;border-color:#cbd5e1}.create-box{margin-top:28px;padding:22px;border:1px solid #dbe4f0;border-radius:13px;background:#f8fafc}.create-box label{display:block;margin-bottom:10px;font-weight:700}.create-row{display:flex;gap:12px;max-width:780px}.money-input{display:flex;flex:1;border:1px solid #cbd5e1;border-radius:10px;overflow:hidden;background:#fff}.money-input:focus-within{border-color:#2450b8;box-shadow:0 0 0 3px #2450b81a}.money-input.invalid{border-color:#ef4444}.money-input input{flex:1;min-width:0;border:0;outline:0;padding:14px 16px;font-size:16px;font-weight:700}.money-input span{padding:14px 17px;color:#64748b;font-weight:700;border-left:1px solid #e2e8f0}.create-box em{display:block;margin-top:9px;color:#64748b;font-style:normal}.create-box .error{color:#dc2626}.list-section{margin-top:27px}.list-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.list-heading span{color:#64748b}.table-wrap{overflow:auto;border:1px solid #dce3ed;border-radius:12px}table{width:100%;border-collapse:collapse}th,td{padding:15px 17px;text-align:left;border-bottom:1px solid #e8edf3}th{background:#f8fafc;color:#475569;font-size:13px}tr:last-child td{border-bottom:0}.channel{padding:5px 9px;border-radius:999px;color:#2450b8;background:#eff6ff;font-size:12px;font-weight:700}.empty{text-align:center;padding:42px;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b}.empty p{margin:7px 0 0}.status{display:flex;gap:13px;margin-top:24px;padding:18px;border-radius:12px;background:#f0fdf4;border:1px solid #bbf7d0}.status.disabled{background:#f8fafc;border-color:#cbd5e1}.status i{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;color:#fff;background:#16a34a;font-style:normal;font-weight:800}.status.disabled i{background:#64748b}.status p{margin-top:4px}.primary,.delete{border-radius:9px;font-weight:700;cursor:pointer}.primary{padding:0 20px;color:#fff;background:#2450b8;border:1px solid #2450b8}.delete{padding:7px 12px;color:#dc2626;background:#fff;border:1px solid #fecaca}.primary:disabled,.delete:disabled{opacity:.55;cursor:not-allowed}.permission{text-align:right;color:#b45309}.notice{position:fixed;z-index:3000;top:24px;left:50%;transform:translateX(-50%);padding:13px 20px;border-radius:10px;color:#fff;background:#16a34a;box-shadow:0 10px 30px #0f172a33;font-weight:700}.notice.error{background:#dc2626}.toast-enter-active,.toast-leave-active{transition:.2s}.toast-enter-from,.toast-leave-to{opacity:0;transform:translate(-50%,-8px)}@media(max-width:720px){.page{padding:16px}.header,.card{padding:22px}.card-title,.create-row{flex-direction:column}.primary{min-height:44px}th:nth-child(1),td:nth-child(1),th:nth-child(3),td:nth-child(3){display:none}}
+</style>
+
+<style scoped>
+/* Đồng bộ khung trang với các màn quản trị sản phẩm, nhân viên và phiếu giảm giá. */
+.page {
+  min-height: calc(100vh - 48px);
+  box-sizing: border-box;
+  padding: 1.25rem 2rem 3rem !important;
+  background: var(--bg, #f7f5ef) !important;
+  color: var(--text, #3d4a50);
+}
+
+.page-top-header {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  margin: 0 0 1.25rem;
+}
+
+.page-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .95rem;
+  color: #7f8c8d;
+}
+
+.crumb-parent { color: #7f8c8d; text-decoration: none; transition: color .15s; }
+.crumb-parent:hover { color: var(--blue, #496883); }
+.crumb-separator { color: #bdc3c7; }
+.crumb-current { color: var(--blue, #496883); font-weight: 600; }
+
+.content-card.card {
+  max-width: none !important;
+  width: 100%;
+  margin: 0 !important;
+  padding: 1.5rem !important;
+  border: 1px solid var(--line, #e8e2d5) !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  box-shadow: 0 1px 3px rgba(65, 60, 50, .025) !important;
+}
+
+.card-title { padding: 0 0 1.25rem !important; }
+.card-title small { color: #8b6b3f !important; font-size: .75rem; }
+.card-title h2 { color: #2c3e50; font-size: 1.25rem !important; }
+.card-title p { font-size: .88rem; color: #7f8c8d; }
+.card-title b { color: #276749; background: #edf7f0; border-color: #b8dcc4; }
+
+.create-box {
+  margin-top: 1.25rem !important;
+  padding: 1.25rem !important;
+  border: 1px solid #e9e5db !important;
+  border-radius: 10px !important;
+  background: #fbfaf7 !important;
+}
+
+.money-input:focus-within { border-color: var(--blue, #496883) !important; box-shadow: 0 0 0 3px rgba(73,104,131,.12) !important; }
+.primary { background: var(--blue, #496883) !important; border-color: var(--blue, #496883) !important; box-shadow: 0 2px 6px rgba(73,104,131,.22) !important; }
+.primary:hover:not(:disabled) { background: #385269 !important; transform: translateY(-1px); }
+.list-section { margin-top: 1.5rem !important; }
+.list-heading h3 { color: #43545c; font-size: 1.05rem; }
+.list-heading span { padding: 4px 9px; border-radius: 999px; background: #f3f1eb; font-size: .8rem; }
+.table-wrap { border-color: #e9e5db !important; border-radius: 10px !important; }
+.table-wrap th { background: #f8f7f3 !important; color: #59676d !important; }
+.channel { color: #496883; background: #eef3f7; border-color: #cdd9e2; }
+.status { border-radius: 10px !important; }
+.notice { top: 72px; border-radius: 8px; font-size: .9rem; }
+
+@media (max-width: 760px) {
+  .page { padding: 1rem !important; }
+  .content-card.card { padding: 1rem !important; }
+}
 </style>
 
 <style scoped>

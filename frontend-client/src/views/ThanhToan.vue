@@ -129,7 +129,7 @@ onMounted(async () => {
   window.addEventListener('focus', handleShippingConfigUpdated)
   await refreshCheckoutShippingConfig()
   await loadCustomerData()
-  loadVouchers()
+  await loadVouchers()
   await updateCheckoutShippingFee()
 })
 
@@ -187,6 +187,10 @@ const checkoutSubtotal = computed(() => {
 const availableVouchers = ref([])
 const showVoucherModal = ref(false)
 const appliedVoucher = ref(getCheckoutVoucher())
+const initialVoucherSnapshots = ref({})
+const showVoucherWarningModal = ref(false)
+const voucherWarningData = ref(null)
+const keepPreviousVoucherValue = ref(false)
 
 const loadVouchers = async () => {
   try {
@@ -200,6 +204,7 @@ const loadVouchers = async () => {
       if (v.ngayKetThuc && new Date(v.ngayKetThuc) < now) return false
       return true
     })
+    initialVoucherSnapshots.value = Object.fromEntries(list.map(v => [String(v.id), JSON.parse(JSON.stringify(v))]))
   } catch (err) {
     console.warn('Lỗi tải danh sách voucher:', err)
   }
@@ -296,9 +301,152 @@ const selectVoucher = (v) => {
     giaTriGiamGia: v.giaTriGiamGia,
     giamToiDa: v.giamToiDa,
     hoaDonToiThieu: v.hoaDonToiThieu,
+    soLuongSuDung: v.soLuongSuDung,
+    ngayBatDau: v.ngayBatDau,
+    ngayKetThuc: v.ngayKetThuc,
+    trangThai: v.trangThai,
+    hinhThuc: v.hinhThuc,
     discount: calculateVoucherDiscount(v, checkoutSubtotal.value)
   }
   showVoucherModal.value = false
+}
+
+const isVoucherUsableForCheckout = (v) => {
+  if (!v || Number(v.trangThai ?? 1) !== 1) return false
+  if (v.soLuongSuDung != null && Number(v.soLuongSuDung) <= 0) return false
+  const now = Date.now()
+  if (v.ngayBatDau && new Date(v.ngayBatDau).getTime() > now) return false
+  if (v.ngayKetThuc && new Date(v.ngayKetThuc).getTime() < now) return false
+  if (Number(v.hoaDonToiThieu || 0) > checkoutSubtotal.value) return false
+  const customerIds = Array.isArray(v.idKhachHangList) ? v.idKhachHangList.map(String) : []
+  if (customerIds.length > 0) {
+    const customerId = currentClientUser.value?.id
+    if (!customerId || !customerIds.includes(String(customerId))) return false
+  }
+  return calculateVoucherDiscount(v, checkoutSubtotal.value) > 0
+}
+
+const voucherSnapshotChanged = (oldV, liveV) => {
+  if (!oldV || !liveV) return true
+  const oldCode = oldV.code || oldV.maPhieuGiamGia || ''
+  return oldCode !== (liveV.maPhieuGiamGia || '')
+    || String(oldV.name || oldV.tenPhieuGiamGia || '') !== String(liveV.tenPhieuGiamGia || '')
+    || Number(oldV.loaiPhieuGiamGia ?? 0) !== Number(liveV.loaiPhieuGiamGia ?? 0)
+    || Number(oldV.giaTriGiamGia ?? 0) !== Number(liveV.giaTriGiamGia ?? 0)
+    || Number(oldV.giamToiDa ?? 0) !== Number(liveV.giamToiDa ?? 0)
+    || Number(oldV.hoaDonToiThieu ?? 0) !== Number(liveV.hoaDonToiThieu ?? 0)
+    || Number(oldV.trangThai ?? 1) !== Number(liveV.trangThai ?? 1)
+    || (Number(oldV.soLuongSuDung ?? 1) <= 0) !== (Number(liveV.soLuongSuDung ?? 1) <= 0)
+    || (oldV.ngayBatDau != null && String(oldV.ngayBatDau) !== String(liveV.ngayBatDau || ''))
+    || (oldV.ngayKetThuc != null && String(oldV.ngayKetThuc) !== String(liveV.ngayKetThuc || ''))
+}
+
+const toAppliedVoucher = (v) => v ? ({
+  id: v.id,
+  code: v.maPhieuGiamGia,
+  name: v.tenPhieuGiamGia,
+  loaiPhieuGiamGia: v.loaiPhieuGiamGia,
+  giaTriGiamGia: v.giaTriGiamGia,
+  giamToiDa: v.giamToiDa,
+  hoaDonToiThieu: v.hoaDonToiThieu,
+  soLuongSuDung: v.soLuongSuDung,
+  ngayBatDau: v.ngayBatDau,
+  ngayKetThuc: v.ngayKetThuc,
+  trangThai: v.trangThai,
+  hinhThuc: v.hinhThuc,
+  discount: calculateVoucherDiscount(v, checkoutSubtotal.value)
+}) : null
+
+const findBestLiveVoucher = (list) => list
+  .filter(isVoucherUsableForCheckout)
+  .sort((a, b) => calculateVoucherDiscount(b, checkoutSubtotal.value) - calculateVoucherDiscount(a, checkoutSubtotal.value))[0] || null
+
+const openClientVoucherWarning = (reason, oldVoucher, newVoucher, oldVoucherUsable = false) => {
+  voucherWarningData.value = {
+    reason,
+    oldVoucher,
+    newVoucher,
+    oldDiscount: oldVoucher ? calculateVoucherDiscount(oldVoucher, checkoutSubtotal.value) : 0,
+    newDiscount: newVoucher ? calculateVoucherDiscount(newVoucher, checkoutSubtotal.value) : 0,
+    oldVoucherUsable
+  }
+  showClientConfirmModal.value = false
+  showVoucherWarningModal.value = true
+}
+
+const checkVoucherBeforeOrder = async () => {
+  try {
+    const res = await api.get('/api/phieu-giam-gia', { params: { _ts: Date.now() } })
+    const liveList = Array.isArray(res.data) ? res.data : []
+    const current = appliedVoucher.value
+    const liveCurrent = current
+      ? liveList.find(v => String(v.id) === String(current.id) || v.maPhieuGiamGia === current.code)
+      : null
+    const best = findBestLiveVoucher(liveList)
+
+    if (current && (!liveCurrent || !isVoucherUsableForCheckout(liveCurrent))) {
+      const reason = !liveCurrent
+        ? `Phiếu giảm giá “${current.code}” đã bị xóa khỏi hệ thống.`
+        : `Phiếu giảm giá “${current.code}” đã ngưng hoạt động, hết hạn, hết lượt sử dụng hoặc không còn đủ điều kiện.`
+      openClientVoucherWarning(reason, current, best && String(best.id) !== String(current.id) ? best : null, false)
+      return false
+    }
+
+    if (current && voucherSnapshotChanged(current, liveCurrent)) {
+      openClientVoucherWarning(`Phiếu giảm giá “${current.code}” vừa được admin chỉnh sửa. Vui lòng kiểm tra mức giảm và điều kiện mới.`, current, liveCurrent, true)
+      return false
+    }
+
+    const currentDiscount = current ? calculateVoucherDiscount(liveCurrent || current, checkoutSubtotal.value) : 0
+    const bestDiscount = best ? calculateVoucherDiscount(best, checkoutSubtotal.value) : 0
+    if (best && String(best.id) !== String(current?.id) && bestDiscount > currentDiscount) {
+      const originalBest = initialVoucherSnapshots.value[String(best.id)] || null
+      const existedAtLoad = !!originalBest
+      const wasAddedOrModified = !originalBest || voucherSnapshotChanged(originalBest, best)
+      if (!wasAddedOrModified) return true
+      openClientVoucherWarning(
+        existedAtLoad
+          ? `Phiếu giảm giá “${best.maPhieuGiamGia}” hiện có mức ưu đãi tốt hơn phiếu đang dùng.`
+          : `Admin vừa thêm phiếu giảm giá mới “${best.maPhieuGiamGia}” có mức ưu đãi tốt hơn cho đơn hàng.`,
+        current,
+        best,
+        !!current
+      )
+      return false
+    }
+    return true
+  } catch (error) {
+    console.warn('Không thể kiểm tra lại voucher trước khi đặt hàng:', error)
+    return true
+  }
+}
+
+const cancelVoucherWarning = () => {
+  if (voucherWarningData.value?.oldVoucherUsable && appliedVoucher.value) {
+    keepPreviousVoucherValue.value = true
+  } else {
+    appliedVoucher.value = null
+    keepPreviousVoucherValue.value = false
+    sessionStorage.removeItem('fftshirt_checkout_voucher')
+  }
+  showVoucherWarningModal.value = false
+  voucherWarningData.value = null
+  showClientConfirmModal.value = true
+}
+
+const applyVoucherWarning = () => {
+  const next = voucherWarningData.value?.newVoucher || null
+  appliedVoucher.value = toAppliedVoucher(next)
+  keepPreviousVoucherValue.value = false
+  if (next) initialVoucherSnapshots.value[String(next.id)] = JSON.parse(JSON.stringify(next))
+  if (appliedVoucher.value) {
+    sessionStorage.setItem('fftshirt_checkout_voucher', JSON.stringify(appliedVoucher.value))
+  } else {
+    sessionStorage.removeItem('fftshirt_checkout_voucher')
+  }
+  showVoucherWarningModal.value = false
+  voucherWarningData.value = null
+  showClientConfirmModal.value = true
 }
 
 const removeAppliedVoucher = () => {
@@ -659,7 +807,7 @@ const handleConfirmTransferManual = async () => {
   }
 }
 
-const handleOpenConfirmModal = () => {
+const handleOpenConfirmModal = async () => {
   emptyCartWarning.value = false
 
   if (activeCheckoutItems.value.length === 0) {
@@ -694,6 +842,7 @@ const handleOpenConfirmModal = () => {
     return
   }
 
+  if (!await checkVoucherBeforeOrder()) return
   showClientConfirmModal.value = true
 }
 
@@ -718,6 +867,7 @@ const handleConfirmPlaceOrder = async () => {
       tongTien: Math.round(Number(checkoutSubtotal.value)),
       phiVanChuyen: shippingFee.value,
       giamGia: voucherDiscount.value,
+      giuVoucherCu: keepPreviousVoucherValue.value,
       chiTiet: activeCheckoutItems.value.map(i => ({
         idChiTietSanPham: i.variantId,
         soLuong: i.quantity,
@@ -1032,6 +1182,68 @@ const handleConfirmPlaceOrder = async () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Cảnh báo voucher thay đổi / hết hiệu lực / có voucher mới tốt hơn -->
+    <transition name="modal-fade">
+      <div v-if="showVoucherWarningModal && voucherWarningData" class="order-modal-backdrop" @click.self="cancelVoucherWarning">
+        <div class="voucher-change-dialog">
+          <div class="voucher-warning-head">
+            <div>
+              <h3>⚠ Cảnh báo: Phiếu giảm giá đã thay đổi</h3>
+              <p>Kiểm tra lại ưu đãi trước khi đặt hàng</p>
+            </div>
+            <button class="modal-close-x" @click="cancelVoucherWarning">&times;</button>
+          </div>
+
+          <div class="voucher-warning-content">
+            <div class="voucher-warning-message">
+              <strong>Thông báo:</strong> {{ voucherWarningData.reason }}
+              <div>Đơn hàng chưa được đặt và phiếu giảm giá chưa tự động thay đổi.</div>
+            </div>
+
+            <div class="voucher-compare-grid">
+              <div class="voucher-compare-card old">
+                <span class="compare-label">Phiếu trước đó</span>
+                <template v-if="voucherWarningData.oldVoucher">
+                  <strong>{{ voucherWarningData.oldVoucher.code || voucherWarningData.oldVoucher.maPhieuGiamGia }}</strong>
+                  <span>{{ formatVoucherDiscountLabel(voucherWarningData.oldVoucher) }}</span>
+                  <small>Đơn từ {{ formatCurrency(voucherWarningData.oldVoucher.hoaDonToiThieu || 0) }}</small>
+                  <b>-{{ formatCurrency(voucherWarningData.oldDiscount) }}</b>
+                </template>
+                <span v-else>Chưa áp dụng phiếu</span>
+              </div>
+
+              <div class="voucher-change-arrow">→</div>
+
+              <div class="voucher-compare-card new">
+                <span class="compare-label">Phiếu áp dụng mới</span>
+                <template v-if="voucherWarningData.newVoucher">
+                  <strong>{{ voucherWarningData.newVoucher.maPhieuGiamGia }}</strong>
+                  <span>{{ formatVoucherDiscountLabel(voucherWarningData.newVoucher) }}</span>
+                  <small>Đơn từ {{ formatCurrency(voucherWarningData.newVoucher.hoaDonToiThieu || 0) }}</small>
+                  <b>-{{ formatCurrency(voucherWarningData.newDiscount) }}</b>
+                </template>
+                <strong v-else class="voucher-unavailable">Không còn phiếu hợp lệ</strong>
+              </div>
+            </div>
+
+            <div class="voucher-difference-row">
+              <span>Chênh lệch mức giảm</span>
+              <strong :class="voucherWarningData.newDiscount - voucherWarningData.oldDiscount >= 0 ? 'positive' : 'negative'">
+                {{ voucherWarningData.newDiscount - voucherWarningData.oldDiscount >= 0 ? '+' : '' }}{{ formatCurrency(voucherWarningData.newDiscount - voucherWarningData.oldDiscount) }}
+              </strong>
+            </div>
+          </div>
+
+          <div class="voucher-warning-actions">
+            <button type="button" class="btn-voucher-warning-cancel" @click="cancelVoucherWarning">Hủy</button>
+            <button type="button" class="btn-voucher-warning-apply" @click="applyVoucherWarning">
+              {{ voucherWarningData.newVoucher ? 'Áp dụng phiếu mới' : 'Gỡ phiếu không hợp lệ' }}
+            </button>
           </div>
         </div>
       </div>
@@ -1778,6 +1990,94 @@ const handleConfirmPlaceOrder = async () => {
 
 .confirm-modal-dialog {
   max-width: 640px;
+}
+
+.voucher-change-dialog {
+  width: min(720px, calc(100vw - 28px));
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+
+.voucher-warning-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 22px;
+  border-bottom: 1px solid #fde7b0;
+  background: #fffbeb;
+}
+
+.voucher-warning-head h3 { margin: 0; color: #b45309; font-size: 18px; }
+.voucher-warning-head p { margin: 4px 0 0; color: #78716c; font-size: 13px; }
+.voucher-warning-content { padding: 20px 22px; }
+
+.voucher-warning-message {
+  padding: 12px 14px;
+  border: 1px solid #f5d68a;
+  border-radius: 10px;
+  background: #fffaf0;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.voucher-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 34px 1fr;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.voucher-compare-card {
+  min-height: 145px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.voucher-compare-card.old { background: #f8fafc; color: #64748b; }
+.voucher-compare-card.new { background: #f0fdf4; border-color: #86efac; color: #166534; }
+.voucher-compare-card strong { font-size: 16px; }
+.voucher-compare-card b { margin-top: auto; font-size: 17px; }
+.compare-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.voucher-change-arrow { text-align: center; font-size: 22px; color: #d97706; font-weight: 800; }
+.voucher-unavailable { color: #b91c1c; }
+
+.voucher-difference-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding: 11px 14px;
+  border-radius: 9px;
+  background: #f8fafc;
+  font-size: 13px;
+}
+.voucher-difference-row .positive { color: #15803d; }
+.voucher-difference-row .negative { color: #b91c1c; }
+
+.voucher-warning-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 15px 22px 20px;
+  border-top: 1px solid #f1f5f9;
+}
+.btn-voucher-warning-cancel,
+.btn-voucher-warning-apply { padding: 10px 16px; border-radius: 9px; font-weight: 750; cursor: pointer; }
+.btn-voucher-warning-cancel { background: #fff; color: #64748b; border: 1px solid #cbd5e1; }
+.btn-voucher-warning-apply { background: #b45309; color: #fff; border: 1px solid #b45309; }
+
+@media (max-width: 600px) {
+  .voucher-compare-grid { grid-template-columns: 1fr; }
+  .voucher-change-arrow { transform: rotate(90deg); }
+  .voucher-warning-actions { flex-direction: column-reverse; }
 }
 
 .vmodal-header,

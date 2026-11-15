@@ -2425,7 +2425,7 @@ const submitForm = async (xacNhanGop = false) => {
                 soLuong: Number(v.soLuong || 0),
                 giaBan: Number(v.giaBan || 0),
                 trangThai: Number(v.trangThai ?? 1),
-                anhDaiDien: v.anhDaiDien || colorImages.value[v.idMauSac] || undefined,
+                anhDaiDien: colorImages.value[v.idMauSac] || v.anhDaiDien || undefined,
                 nguoiThaoTac: 'Admin'
               })
             } catch (vErr) {
@@ -2482,7 +2482,7 @@ const submitForm = async (xacNhanGop = false) => {
         soLuong: v.soLuong || 0,
         giaBan: v.giaBan || 0,
         trangThai: 1, // Auto kinh doanh
-        anhDaiDien: v.anhDaiDien || colorImages.value[v.idMauSac] || undefined
+        anhDaiDien: colorImages.value[v.idMauSac] || v.anhDaiDien || undefined
       }))
 
       try {

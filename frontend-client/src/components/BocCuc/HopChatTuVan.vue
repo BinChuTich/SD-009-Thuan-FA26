@@ -3,6 +3,7 @@ import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
+import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
 import { currentClientUser, isClientLoggedIn } from '@/utils/taiKhoanKhachHang.js'
 import ModalDangNhap from '@/components/BocCuc/ModalDangNhap.vue'
 
@@ -255,15 +256,11 @@ const quickPromptChips = computed(() => {
 
 // Danh sách các lựa chọn hành động nhanh ở tin nhắn chào mừng (chuẩn, không có đổi trả, không có chất liệu form dáng)
 const welcomeActions = computed(() => {
-  const acts = [
+  return [
     { text: '📏 Tư vấn chọn size', type: 'size' },
     { text: '🚚 Tra cứu đơn hàng', type: 'track' },
     { text: '🔥 Xem ưu đãi hôm nay', type: 'promo' }
   ]
-  if (isClientLoggedIn.value) {
-    acts.push({ text: '💬 Gặp nhân viên tư vấn', type: 'agent' })
-  }
-  return acts
 })
 
 // Tiêu đề phụ (Subtitle) theo trạng thái chuẩn video & ảnh
@@ -920,6 +917,13 @@ const showBotReply = (replyText, products = null) => {
   }, 350)
 }
 
+// AI chạy ở Spring Boot để API key không bao giờ xuất hiện trên trình duyệt.
+// Khi AI bên ngoài tạm lỗi, backend vẫn phân tích tiếng Việt cục bộ và truy vấn dữ liệu thật từ DB.
+const requestAiShoppingAssistant = async (text) => {
+  const response = await api.post('/api/ai-chat/message', { message: text })
+  return response.data
+}
+
 // BỘ NÃO TƯ VẤN THÔNG MINH CỦA FF T-SHIRT
 const generateSmartAiReply = (rawTxt) => {
   const txt = rawTxt.trim()
@@ -1097,7 +1101,19 @@ const handleSend = async () => {
     return
   }
 
-  showBotReply(aiResult.text)
+  try {
+    isTyping.value = true
+    const assistantResult = await requestAiShoppingAssistant(txt)
+    isTyping.value = false
+    showBotReply(
+        assistantResult?.reply || aiResult.text,
+        Array.isArray(assistantResult?.products) ? assistantResult.products : null
+    )
+  } catch (error) {
+    console.warn('AI shopping assistant unavailable, using local chat rules:', error)
+    isTyping.value = false
+    showBotReply(aiResult.text)
+  }
 }
 
 // Xử lý yêu cầu gặp nhân viên tư vấn: Đẩy vào Chờ nhận (trangThai = 2)
@@ -1314,7 +1330,25 @@ watch(() => currentClientUser.value, async (newVal) => {
           </div>
           <span class="status-subtext">{{ chatSubtitle }}</span>
         </div>
-        <button class="btn-collapse" @click="isOpen = false">Thu gọn</button>
+        <div class="chat-header-actions">
+          <button
+              type="button"
+              class="btn-meet-agent"
+              @click="handleActionClick({ type: 'agent' })"
+          >
+            <span aria-hidden="true">💬</span>
+            Gặp nhân viên tư vấn
+          </button>
+          <button
+              type="button"
+              class="btn-collapse"
+              title="Đóng khung tư vấn"
+              aria-label="Đóng khung tư vấn"
+              @click="isOpen = false"
+          >
+            ×
+          </button>
+        </div>
       </div>
 
       <!-- Thanh đếm ngược cảnh báo 2 phút sắp tự động đóng phiên -->
@@ -1500,10 +1534,10 @@ watch(() => currentClientUser.value, async (newVal) => {
                 <div v-for="p in msg.products" :key="p.id" class="product-mini-card">
                   <div class="card-img-wrap">
                     <img
-                        :src="p.anhDaiDien || '/placeholder-shirt.png'"
+                        :src="resolveProductImageUrl(p.anhDaiDien)"
                         :alt="p.tenSanPham"
                         class="product-thumb"
-                        @error="(e) => e.target.src = 'https://placehold.co/200x200?text=FF+T-Shirt'"
+                        @error="(e) => e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER"
                     />
                     <!-- Tag % giảm giá -->
                     <span
@@ -1819,18 +1853,55 @@ watch(() => currentClientUser.value, async (newVal) => {
 .btn-collapse {
   background: #f1f5f9;
   border: none;
-  font-size: 12px;
-  font-weight: 500;
+  width: 30px;
+  height: 30px;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 400;
   color: #475569;
   cursor: pointer;
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 0;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.15s;
 }
 
 .btn-collapse:hover {
   background: #e2e8f0;
   color: #0f172a;
+}
+
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-meet-agent {
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-meet-agent:hover {
+  color: #1d4ed8;
+  border-color: #93c5fd;
+  background: #eff6ff;
 }
 
 /* Chat Body */

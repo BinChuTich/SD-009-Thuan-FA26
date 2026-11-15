@@ -12,8 +12,8 @@
               </svg>
             </span>
             <div>
-              <h3 id="refund-modal-title" class="refund-modal-title">Thông Báo Hoàn Tiền Cho Khách Hàng</h3>
-              <p class="refund-modal-subtitle">Đơn hàng online đã thanh toán nhưng kho không đủ sản phẩm</p>
+              <h3 id="refund-modal-title" class="refund-modal-title">{{ modalTitle }}</h3>
+              <p class="refund-modal-subtitle">{{ modalSubtitle }}</p>
             </div>
           </div>
           <button class="refund-btn-close" type="button" :disabled="loading" @click="handleClose" aria-label="Đóng">✕</button>
@@ -23,7 +23,12 @@
           <div class="refund-alert-banner">
             <span class="refund-alert-emoji">💸</span>
             <div class="refund-alert-copy">
-              Đơn hàng online <strong>{{ orderCode }}</strong> đã <strong>thanh toán thành công</strong>, nhưng hiện tại sản phẩm trong kho <strong>không còn / không đủ số lượng</strong> để xuất giao. Không thể xác nhận đơn hàng — vui lòng hủy đơn và thực hiện hoàn tiền cho khách hàng.
+              <template v-if="refundOnly">
+                Đơn hàng online <strong>{{ orderCode }}</strong> đã bị hủy nhưng khoản thanh toán chuyển khoản đã được ghi nhận. Vui lòng kiểm tra giao dịch và xác nhận hoàn tiền cho khách hàng.
+              </template>
+              <template v-else>
+                Đơn hàng online <strong>{{ orderCode }}</strong> đã <strong>thanh toán thành công</strong>, nhưng hiện tại sản phẩm trong kho <strong>không còn / không đủ số lượng</strong> để xuất giao. Không thể xác nhận đơn hàng — vui lòng hủy đơn và thực hiện hoàn tiền cho khách hàng.
+              </template>
             </div>
           </div>
 
@@ -50,7 +55,7 @@
             </div>
           </div>
 
-          <div v-if="outOfStockItems && outOfStockItems.length > 0" class="refund-stock-section">
+          <div v-if="!refundOnly && outOfStockItems && outOfStockItems.length > 0" class="refund-stock-section">
             <div class="section-heading">Sản phẩm hết hàng / không đủ tồn kho ({{ outOfStockItems.length }})</div>
             <div class="stock-item-list">
               <div v-for="(item, idx) in outOfStockItems" :key="item.variantId || item.chiTietId || item.id || idx" class="stock-item-row">
@@ -70,7 +75,7 @@
 
           <div class="refund-form-group">
             <label class="refund-field-label" for="refund-reason-input">
-              Lý do hủy đơn &amp; ghi chú hoàn tiền <span class="text-required">*</span>
+              {{ refundOnly ? 'Ghi chú hoàn tiền' : 'Lý do hủy đơn & ghi chú hoàn tiền' }} <span class="text-required">*</span>
             </label>
             <textarea
               id="refund-reason-input"
@@ -78,7 +83,7 @@
               rows="2"
               maxlength="300"
               class="refund-textarea"
-              placeholder="Nhập lý do hủy đơn và thông tin hoàn tiền..."
+              :placeholder="refundOnly ? 'Nhập nội dung xác nhận hoàn tiền...' : 'Nhập lý do hủy đơn và thông tin hoàn tiền...'"
               :disabled="loading"
             ></textarea>
           </div>
@@ -86,7 +91,7 @@
           <div class="refund-email-box">
             <label class="refund-checkbox-label">
               <input type="checkbox" v-model="sendEmail" :disabled="loading" />
-              <span>✉ Gửi email thông báo hủy đơn &amp; hoàn tiền cho khách hàng</span>
+              <span>✉ {{ refundOnly ? 'Gửi email thông báo hoàn tiền cho khách hàng' : 'Gửi email thông báo hủy đơn & hoàn tiền cho khách hàng' }}</span>
             </label>
             <div v-if="sendEmail" class="refund-email-input-wrap">
               <label class="refund-field-label" for="refund-email-input">
@@ -102,7 +107,7 @@
                 :disabled="loading"
               />
               <p class="refund-email-hint">
-                Hệ thống sẽ gửi thông báo hủy đơn do hết hàng kèm số tiền hoàn trả tới email này.
+                {{ refundOnly ? 'Hệ thống sẽ gửi thông báo xác nhận hoàn tiền tới email này.' : 'Hệ thống sẽ gửi thông báo hủy đơn do hết hàng kèm số tiền hoàn trả tới email này.' }}
               </p>
             </div>
           </div>
@@ -115,7 +120,7 @@
             Đóng
           </button>
           <button class="refund-btn-confirm" type="button" :disabled="loading" @click="handleSubmit">
-            {{ loading ? 'Đang xử lý...' : 'Xác nhận hủy đơn & Hoàn tiền' }}
+            {{ loading ? 'Đang xử lý...' : (refundOnly ? 'Xác nhận hoàn tiền' : 'Xác nhận hủy đơn & Hoàn tiền') }}
           </button>
         </div>
       </div>
@@ -124,9 +129,10 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const DEFAULT_REFUND_REASON = 'Sản phẩm trong kho đã hết hàng - Hủy đơn và hoàn tiền lại cho khách hàng'
+const CANCELLED_ORDER_REFUND_REASON = 'Hoàn tiền cho đơn hàng online đã hủy'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -138,7 +144,8 @@ const props = defineProps({
   transactionCode: { type: String, default: '' },
   refundAmount: { type: Number, default: 0 },
   customerEmail: { type: String, default: '' },
-  outOfStockItems: { type: Array, default: () => [] }
+  outOfStockItems: { type: Array, default: () => [] },
+  refundOnly: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['close', 'confirm'])
@@ -147,6 +154,8 @@ const reason = ref(DEFAULT_REFUND_REASON)
 const sendEmail = ref(true)
 const email = ref('')
 const errorText = ref('')
+const modalTitle = computed(() => props.refundOnly ? 'Xác Nhận Hoàn Tiền Cho Khách Hàng' : 'Thông Báo Hoàn Tiền Cho Khách Hàng')
+const modalSubtitle = computed(() => props.refundOnly ? 'Đơn hàng online đã hủy và đã thanh toán chuyển khoản' : 'Đơn hàng online đã thanh toán nhưng kho không đủ sản phẩm')
 
 const normalizeEmail = (val) => {
   const s = String(val || '').trim()
@@ -158,7 +167,7 @@ watch(
   () => props.show,
   (isOpen) => {
     if (isOpen) {
-      reason.value = DEFAULT_REFUND_REASON
+      reason.value = props.refundOnly ? CANCELLED_ORDER_REFUND_REASON : DEFAULT_REFUND_REASON
       const initialEmail = normalizeEmail(props.customerEmail)
       email.value = initialEmail
       sendEmail.value = Boolean(initialEmail && initialEmail.includes('@'))
@@ -180,7 +189,7 @@ const handleSubmit = () => {
   if (props.loading) return
   const trimmedReason = String(reason.value || '').trim()
   if (!trimmedReason) {
-    errorText.value = 'Vui lòng nhập lý do hủy đơn & hoàn tiền!'
+    errorText.value = props.refundOnly ? 'Vui lòng nhập ghi chú hoàn tiền!' : 'Vui lòng nhập lý do hủy đơn & hoàn tiền!'
     return
   }
 

@@ -91,9 +91,9 @@ const loadProductData = async (id) => {
 
       const [resProd, resVar] = await Promise.all([
 
-        api.get(`/api/san-pham/${id}`),
+        api.get(`/api/san-pham/${id}`, { params: { _ts: Date.now() } }),
 
-        api.get(`/api/chi-tiet-san-pham/by-san-pham/${id}`)
+        api.get(`/api/chi-tiet-san-pham/by-san-pham/${id}`, { params: { _ts: Date.now() } })
 
       ])
 
@@ -287,9 +287,22 @@ const loadProductData = async (id) => {
       })
     }
 
-    // 3. Tạo danh sách allImages: đúng 1 ảnh đại diện cho mỗi màu sắc
+    // 3. Gallery chỉ lấy ảnh hiện tại của biến thể theo màu.
+    // Không trộn anhDaiDien/hinhAnhs cũ của sản phẩm vì chúng có thể là ảnh trước khi cập nhật.
     const imgs = []
     const colorToImgIndex = new Map()
+
+    const addImage = (rawUrl) => {
+      if (!rawUrl) return -1
+      const cleanUrl = String(rawUrl).includes('|') ? String(rawUrl).split('|', 2)[1].trim() : String(rawUrl).trim()
+      if (!cleanUrl) return -1
+      let idx = imgs.indexOf(cleanUrl)
+      if (idx === -1) {
+        imgs.push(cleanUrl)
+        idx = imgs.length - 1
+      }
+      return idx
+    }
 
     const distinctColorIds = []
     if (Array.isArray(varData)) {
@@ -301,18 +314,17 @@ const loadProductData = async (id) => {
     }
 
     distinctColorIds.forEach(cId => {
-      const imgUrl = colorMap.get(cId) || prodData?.anhDaiDien
+      const variantForColor = Array.isArray(varData)
+        ? varData.find(v => v.idMauSac === cId && Number(v.trangThai ?? 1) === 1 && v.anhDaiDien)
+        : null
+      const imgUrl = variantForColor?.anhDaiDien || colorMap.get(cId)
       if (imgUrl) {
-        let idx = imgs.indexOf(imgUrl)
-        if (idx === -1) {
-          imgs.push(imgUrl)
-          idx = imgs.length - 1
-        }
-        colorToImgIndex.set(cId, idx)
+        const idx = addImage(imgUrl)
+        if (idx >= 0) colorToImgIndex.set(cId, idx)
       }
     })
 
-    // Nếu không có ảnh màu nào, dùng ảnh đại diện sản phẩm hoặc placeholder
+    // Chỉ fallback ảnh sản phẩm khi dữ liệu thực sự không có bất kỳ ảnh biến thể/màu nào.
     if (imgs.length === 0) {
       if (prodData?.anhDaiDien) imgs.push(prodData.anhDaiDien)
       else imgs.push(NEUTRAL_PRODUCT_PLACEHOLDER)
@@ -998,6 +1010,16 @@ watch(() => route.params.id, (newId) => {
 
 })
 
+let lastAutoRefreshAt = 0
+const refreshProductAfterAdminUpdate = () => {
+  if (document.visibilityState !== 'visible' || !route.params.id) return
+  const now = Date.now()
+  // focus và visibilitychange thường chạy liền nhau, chỉ cần tải lại một lần.
+  if (now - lastAutoRefreshAt < 1000) return
+  lastAutoRefreshAt = now
+  loadProductData(route.params.id)
+}
+
 
 
 onMounted(() => {
@@ -1008,11 +1030,17 @@ onMounted(() => {
 
   }
 
+  window.addEventListener('focus', refreshProductAfterAdminUpdate)
+  document.addEventListener('visibilitychange', refreshProductAfterAdminUpdate)
+
 })
 
 onUnmounted(() => {
 
   if (campaignTimer) clearInterval(campaignTimer)
+
+  window.removeEventListener('focus', refreshProductAfterAdminUpdate)
+  document.removeEventListener('visibilitychange', refreshProductAfterAdminUpdate)
 
 })
 

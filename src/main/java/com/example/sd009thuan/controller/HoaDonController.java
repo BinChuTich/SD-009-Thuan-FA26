@@ -297,6 +297,11 @@ public class HoaDonController {
         return e instanceof IllegalStateException || (e.getMessage() != null && (e.getMessage().contains("không đủ số lượng") || e.getMessage().contains("hết hàng")));
     }
 
+    private boolean isRefundValidationException(Exception e) {
+        String message = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+        return message.contains("hoàn tiền trước đó") || message.contains("chưa thanh toán nên không thể thực hiện hoàn tiền");
+    }
+
     // Cập nhật trạng thái hóa đơn theo ID
     @PutMapping("/{id}/trang-thai")
     public ResponseEntity<?> updateTrangThai(
@@ -331,6 +336,9 @@ public class HoaDonController {
                     )
             );
         } catch (Exception e) {
+            if (isRefundValidationException(e)) {
+                return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+            }
             if (isOutOfStockException(e)) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "message", e.getMessage() != null ? e.getMessage() : "Sản phẩm trong kho không đủ số lượng!",
@@ -386,6 +394,9 @@ public class HoaDonController {
                     )
             );
         } catch (Exception e) {
+            if (isRefundValidationException(e)) {
+                return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+            }
             if (isOutOfStockException(e)) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "message", e.getMessage() != null ? e.getMessage() : "Sản phẩm trong kho không đủ số lượng!",

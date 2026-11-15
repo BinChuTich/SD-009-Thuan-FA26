@@ -8128,6 +8128,14 @@ const shippingFee = computed(() => {
 
 })
 
+const isShippingFree = computed(() => {
+  return Boolean(
+    currentInvoice.value?.isDelivery &&
+    currentInvoice.value?.shippingFreeshipApplied &&
+    shippingFee.value === 0
+  )
+})
+
 
 
 
@@ -13109,7 +13117,9 @@ onMounted(async () => {
 
 
 
-            <span class="line-value">+ {{ formatMoney(shippingFee) }}</span>
+            <span v-if="isShippingFree" class="line-value shipping-free-value">MIỄN PHÍ</span>
+
+            <span v-else class="line-value">+ {{ formatMoney(shippingFee) }}</span>
 
 
 
@@ -14993,7 +15003,9 @@ onMounted(async () => {
 
 
 
-              <strong>+ {{ formatMoney(shippingFee) }}</strong>
+              <strong v-if="isShippingFree" class="shipping-free-value">MIỄN PHÍ</strong>
+
+              <strong v-else>+ {{ formatMoney(shippingFee) }}</strong>
 
 
 
@@ -20653,6 +20665,12 @@ onMounted(async () => {
 
 
 
+}
+
+.shipping-free-value {
+  color: #16a34a !important;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 

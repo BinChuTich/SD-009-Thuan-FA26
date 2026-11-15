@@ -3936,9 +3936,19 @@ public class HoaDonService {
             hoaDon.setTrangThai(trangThai);
 
             if (Integer.valueOf(6).equals(trangThai) && hoanTien) {
+                boolean refundAfterCancellation = Integer.valueOf(6).equals(oldTrangThai);
+                String existingNote = hoaDon.getGhiChu() != null ? hoaDon.getGhiChu().toLowerCase() : "";
+                if (existingNote.contains("[hoàn tiền") || existingNote.contains("đã hoàn tiền")) {
+                    throw new IllegalStateException("Đơn hàng này đã được ghi nhận hoàn tiền trước đó!");
+                }
+                if (!Integer.valueOf(1).equals(hoaDon.getTrangThaiThanhToan())) {
+                    throw new IllegalStateException("Đơn hàng chưa thanh toán nên không thể thực hiện hoàn tiền!");
+                }
                 String cleanReason = (ghiChu != null && !ghiChu.trim().isEmpty())
                         ? ghiChu.trim()
-                        : "Sản phẩm trong kho đã hết hàng - Hủy đơn và hoàn tiền lại cho khách hàng";
+                        : (refundAfterCancellation
+                            ? "Hoàn tiền cho đơn hàng online đã hủy"
+                            : "Sản phẩm trong kho đã hết hàng - Hủy đơn và hoàn tiền lại cho khách hàng");
                 boolean isPaid = Integer.valueOf(1).equals(hoaDon.getTrangThaiThanhToan());
                 BigDecimal refundAmt = hoaDon.getTienSauGiamGia() != null
                         ? hoaDon.getTienSauGiamGia()
@@ -3956,9 +3966,11 @@ public class HoaDonService {
                     hoaDon.setGhiChu(oldNote + " | " + refundTag);
                 }
 
-                actionDesc = isPaid
-                        ? "Hủy đơn do hết hàng - Thông báo hoàn tiền " + refundText + " cho khách: " + cleanReason
-                        : "Hủy đơn do hết hàng: " + cleanReason;
+                actionDesc = refundAfterCancellation
+                        ? "Xác nhận hoàn tiền " + refundText + " cho đơn hàng đã hủy: " + cleanReason
+                        : (isPaid
+                            ? "Hủy đơn do hết hàng - Thông báo hoàn tiền " + refundText + " cho khách: " + cleanReason
+                            : "Hủy đơn do hết hàng: " + cleanReason);
             } else if (ghiChu != null && !ghiChu.trim().isEmpty()) {
                 hoaDon.setGhiChu(ghiChu.trim());
             }
@@ -8041,7 +8053,7 @@ public class HoaDonService {
 
 
 
-        BigDecimal giamGia = dto.getGiamGia() != null ? dto.getGiamGia() : BigDecimal.ZERO;
+        BigDecimal giamGia = BigDecimal.ZERO;
 
 
 
@@ -8054,9 +8066,26 @@ public class HoaDonService {
 
 
         if (dto.getIdPhieuGiamGia() != null) {
-
-            phieuGiamGiaRepository.findById(dto.getIdPhieuGiamGia()).ifPresent(hoaDon::setIdPhieuGiamGia);
-
+            Map<String, Object> voucherCheck = validateAndCalculateVoucher(
+                    dto.getIdPhieuGiamGia(), dto.getIdKhachHang(), tongTien);
+            if (!Boolean.TRUE.equals(voucherCheck.get("hopLe"))) {
+                String reason = voucherCheck.get("lyDo") != null
+                        ? voucherCheck.get("lyDo").toString()
+                        : "Phiếu giảm giá không còn hợp lệ.";
+                throw new IllegalStateException(reason);
+            }
+            PhieuGiamGia liveVoucher = phieuGiamGiaRepository.findById(dto.getIdPhieuGiamGia())
+                    .orElseThrow(() -> new IllegalStateException("Phiếu giảm giá không còn tồn tại."));
+            hoaDon.setIdPhieuGiamGia(liveVoucher);
+            BigDecimal liveDiscount = (BigDecimal) voucherCheck.getOrDefault("giamGia", BigDecimal.ZERO);
+            if (Boolean.TRUE.equals(dto.getGiuVoucherCu())) {
+                BigDecimal lockedDiscount = dto.getGiamGia() != null ? dto.getGiamGia() : BigDecimal.ZERO;
+                if (lockedDiscount.compareTo(BigDecimal.ZERO) < 0) lockedDiscount = BigDecimal.ZERO;
+                // Không cho client tự khai mức giảm cao hơn mức backend đang xác thực được.
+                giamGia = lockedDiscount.min(liveDiscount).min(tongTien.max(BigDecimal.ZERO));
+            } else {
+                giamGia = liveDiscount;
+            }
         }
 
 

@@ -631,6 +631,21 @@ const isRefundedOrder = computed(() => {
   return noteText.includes('hoàn tiền') || orderLogs.value.some(l => String(l.action || l.ghiChu || '').toLowerCase().includes('hoàn tiền'))
 })
 
+const isTransferPaidOrder = computed(() => {
+  if (!isPaidOrder.value) return false
+  const method = String(invoiceData.value.paymentHistory?.method || '').toLowerCase()
+  const isCod = method.includes('cod') || method.includes('nhận hàng') || method.includes('tien mat') || method.includes('tiền mặt')
+  const isTransfer = method.includes('chuyển khoản') || method.includes('chuyen khoan') || method.includes('ngân hàng') || method.includes('vnpay') || method.includes('vietqr') || method.includes('payos') || method.includes('qr')
+  return isTransfer && !isCod
+})
+
+const canRefundCancelledOrder = computed(() => {
+  return Number(invoiceData.value.status) === 6 &&
+      Number(invoiceData.value.loaiDon) === 2 &&
+      isTransferPaidOrder.value &&
+      !isRefundedOrder.value
+})
+
 const refundOutOfStockItems = computed(() => {
   const apiItems = stockCheckResult.value?.items
   if (Array.isArray(apiItems) && apiItems.length > 0) {
@@ -3180,8 +3195,13 @@ const handleConfirmRefund = async ({ reason, sendEmail, email }) => {
     if (success) {
       showRefundModal.value = false
       const amountLabel = formatMoney(invoiceData.value.summary?.totalPayment || invoiceData.value.paymentHistory?.amount || 0)
+      const wasAlreadyCancelled = Number(invoiceData.value.status) === 6
       showToast(
-          cleanEmail
+          wasAlreadyCancelled
+              ? (cleanEmail
+                  ? `Đã ghi nhận hoàn tiền ${amountLabel} và gửi email thông báo tới ${cleanEmail}!`
+                  : `Đã ghi nhận hoàn tiền ${amountLabel} cho khách hàng!`)
+              : cleanEmail
               ? `Đã hủy đơn, ghi nhận hoàn tiền ${amountLabel} và gửi email thông báo tới ${cleanEmail}!`
               : `Đã hủy đơn hàng và ghi nhận hoàn tiền ${amountLabel} cho khách hàng!`
       )
@@ -4537,6 +4557,17 @@ onBeforeUnmount(() => {
 
           <div class="payment-actions-col">
 
+            <button
+                v-if="canRefundCancelledOrder"
+                class="btn-refund-action"
+                type="button"
+                :disabled="refundingOrder"
+                @click="showRefundModal = true"
+            >
+              <span aria-hidden="true">↩</span>
+              {{ refundingOrder ? 'Đang xử lý...' : 'Hoàn tiền cho khách' }}
+            </button>
+
             <!-- Nút Xác nhận thanh toán & In hóa đơn khi đơn chưa thanh toán (chỉ hiện khi chưa hoàn thành và chưa hủy) -->
 
             <button
@@ -5094,6 +5125,7 @@ onBeforeUnmount(() => {
       :refund-amount="invoiceData.summary?.totalPayment || invoiceData.paymentHistory?.amount || 0"
       :customer-email="invoiceData.customer?.email"
       :out-of-stock-items="refundOutOfStockItems"
+      :refund-only="Number(invoiceData.status) === 6"
       @close="showRefundModal = false"
       @confirm="handleConfirmRefund"
     />
@@ -7472,6 +7504,36 @@ onBeforeUnmount(() => {
 
   gap: 10px;
 
+}
+
+.btn-refund-action {
+  min-width: 190px;
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  background: #f59e0b;
+  color: #ffffff;
+  font-size: 0.86rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 7px rgba(217, 119, 6, 0.24);
+  transition: all 0.15s ease;
+}
+
+.btn-refund-action:hover:not(:disabled) {
+  background: #d97706;
+  border-color: #d97706;
+  transform: translateY(-1px);
+}
+
+.btn-refund-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 

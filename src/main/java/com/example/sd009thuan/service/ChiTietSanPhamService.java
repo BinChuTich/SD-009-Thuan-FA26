@@ -424,6 +424,19 @@ public class ChiTietSanPhamService {
             }
         }
 
+        // Nếu chưa có ảnh riêng cho biến thể/màu, dùng ảnh chung của sản phẩm.
+        // Card tư vấn AI phải luôn hiển thị giống danh sách sản phẩm ngoài client.
+        if (anhDaiDien == null && ct.getIdSanPham() != null) {
+            List<HinhAnh> imgs = hinhAnhRepository.findByIdSanPham_IdAndTrangThai(ct.getIdSanPham().getId(), 1);
+            if (imgs != null) {
+                anhDaiDien = imgs.stream()
+                        .map(HinhAnh::getDuongDan)
+                        .filter(path -> path != null && !path.isBlank())
+                        .findFirst()
+                        .orElse(null);
+            }
+        }
+
         // Kiểm tra giảm giá liên kết (chỉ áp dụng chính xác theo biến thể)
         Instant now = Instant.now();
         List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsByVariantId(ct.getId(), now);
@@ -498,6 +511,20 @@ public class ChiTietSanPhamService {
                 .phanTramGiam(phanTramGiam)
                 .tenDotGiamGia(tenDotGiamGia)
                 .build();
+    }
+
+    /**
+     * Danh sách biến thể đang bán dùng cho các tính năng tư vấn/tìm kiếm sản phẩm.
+     * Dùng chung bộ chuyển đổi hiện tại để ảnh và giá giảm luôn giống màn sản phẩm.
+     */
+    @Transactional(readOnly = true)
+    public List<ChiTietSanPhamResponse> getAvailableVariantsForAssistant() {
+        return chiTietSanPhamRepository.findAllWithProductDetails().stream()
+                .filter(ct -> Integer.valueOf(1).equals(ct.getTrangThai()))
+                .filter(ct -> ct.getSoLuong() != null && ct.getSoLuong() > 0)
+                .filter(ct -> ct.getIdSanPham() != null && Integer.valueOf(1).equals(ct.getIdSanPham().getTrangThai()))
+                .map(this::convertToResponse)
+                .toList();
     }
 
     public byte[] exportExcel(Long idSanPham, String keyword, Long idKichCo, Long idMauSac, Integer trangThai) {

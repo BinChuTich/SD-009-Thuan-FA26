@@ -783,6 +783,13 @@ public class EmailService {
             String phone = escapeHtml((hoaDon.getSoDienThoaiKhachHang() != null && !hoaDon.getSoDienThoaiKhachHang().isBlank()) ? hoaDon.getSoDienThoaiKhachHang() : "---");
             String orderDate = escapeHtml(formatTime(hoaDon.getNgayTao()));
             String safeReason = escapeHtml((refundReason != null && !refundReason.isBlank()) ? refundReason.trim() : "Sản phẩm trong kho hiện đã hết hàng.");
+            boolean refundAfterCancellation = refundReason != null && refundReason.toLowerCase().contains("đơn hàng online đã hủy");
+            String refundHeading = refundAfterCancellation
+                    ? "Xác nhận hoàn tiền đơn hàng"
+                    : "Thông báo hủy đơn hàng &amp; Hoàn tiền";
+            String refundMessage = refundAfterCancellation
+                    ? "Đơn hàng đã được hủy theo yêu cầu. Bộ phận CSKH đã ghi nhận hoàn lại số tiền quý khách thanh toán qua chuyển khoản."
+                    : "Rất xin lỗi quý khách! Sản phẩm trong đơn hàng hiện không còn đủ số lượng trong kho để xuất giao. Bộ phận CSKH sẽ hoàn lại toàn bộ số tiền quý khách đã thanh toán.";
 
             String template = """
                 <!DOCTYPE html>
@@ -801,10 +808,10 @@ public class EmailService {
                     <div style="padding: 32px 30px;">
                         <div style="background-color: #fff7ed; border: 1px solid #fdba74; border-radius: 10px; padding: 16px 20px; margin-bottom: 24px; text-align: center;">
                             <div style="font-size: 18px; font-weight: 700; color: #9a3412; margin-bottom: 4px;">
-                                Thông báo hủy đơn hàng &amp; Hoàn tiền
+                                {{refundHeading}}
                             </div>
                             <div style="font-size: 13.5px; color: #c2410c;">
-                                Rất xin lỗi quý khách! Sản phẩm trong đơn hàng hiện không còn đủ số lượng trong kho để xuất giao. Bộ phận CSKH sẽ hoàn lại toàn bộ số tiền quý khách đã thanh toán.
+                                {{refundMessage}}
                             </div>
                         </div>
 
@@ -877,6 +884,8 @@ public class EmailService {
                     .replace("{{orderDate}}", orderDate)
                     .replace("{{phone}}", phone)
                     .replace("{{refundTotal}}", escapeHtml(formatMoney(refundTotal)))
+                    .replace("{{refundHeading}}", refundHeading)
+                    .replace("{{refundMessage}}", refundMessage)
                     .replace("{{safeReason}}", safeReason)
                     .replace("{{itemsHtml}}", itemsHtml);
 

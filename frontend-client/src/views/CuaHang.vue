@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { CATEGORIES_CATALOG, getMergedProducts, attachSalesCountToProducts } from '@/utils/danhMucSanPham.js'
@@ -75,7 +75,8 @@ const loadProducts = async () => {
         params: {
           page: 0,
           size: 200,
-          trangThai: 1
+          trangThai: 1,
+          _ts: Date.now()
         }
       })
       content = res.data?.content || (Array.isArray(res.data) ? res.data : [])
@@ -112,7 +113,7 @@ const loadProducts = async () => {
     let allVariants = []
     try {
       const resVar = await api.get('/api/chi-tiet-san-pham', {
-        params: { page: 0, size: 2000 }
+        params: { page: 0, size: 2000, _ts: Date.now() }
       })
       allVariants = resVar.data?.content || (Array.isArray(resVar.data) ? resVar.data : [])
     } catch (e) {
@@ -123,7 +124,7 @@ const loadProducts = async () => {
       // Fallback: Tải biến thể theo từng sản phẩm
       const variantPromises = mergedList.map(async (prod) => {
         try {
-          const res = await api.get(`/api/chi-tiet-san-pham/by-san-pham/${prod.id}`)
+          const res = await api.get(`/api/chi-tiet-san-pham/by-san-pham/${prod.id}`, { params: { _ts: Date.now() } })
           return { prodId: prod.id, variants: Array.isArray(res.data) ? res.data : [] }
         } catch {
           return { prodId: prod.id, variants: prod.variants || [] }
@@ -160,6 +161,24 @@ const loadProducts = async () => {
       prod.colorNames = vars.map(v => (v.tenMauSac || v.mauSac?.tenMauSac || v.tenMau || '').trim().toLowerCase()).filter(Boolean)
       prod.sizeIds = vars.map(v => v.idKichCo || v.kichCo?.id || v.kichCoId).filter(Boolean)
       prod.sizeNames = vars.map(v => (v.tenKichCo || v.kichCo?.tenKichCo || v.tenSize || '').trim().toLowerCase()).filter(Boolean)
+
+      // Card cửa hàng lấy ảnh trực tiếp từ biến thể hiện tại, không giữ ảnh sản phẩm/màu cũ.
+      const activeVars = vars.filter(v => Number(v.trangThai ?? 1) === 1)
+      const representativeVariant = activeVars.find(v => (v.soLuongTon || v.soLuong || 0) > 0 && v.anhDaiDien)
+        || activeVars.find(v => v.anhDaiDien)
+        || vars.find(v => v.anhDaiDien)
+      prod.variantImage = representativeVariant?.anhDaiDien || ''
+
+      const colorImageMap = {}
+      const productColors = []
+      activeVars.forEach(v => {
+        const colorName = (v.tenMauSac || v.mauSac?.tenMauSac || v.tenMau || '').trim()
+        if (!colorName) return
+        if (!productColors.includes(colorName)) productColors.push(colorName)
+        if (v.anhDaiDien && !colorImageMap[colorName]) colorImageMap[colorName] = v.anhDaiDien
+      })
+      prod.colorImageMap = colorImageMap
+      prod.colors = productColors
     })
 
     // Tự động thu thập mọi màu sắc từ biến thể sản phẩm để bổ sung vào combobox (colors.value)
@@ -366,9 +385,25 @@ watch(() => route.query, (q) => {
   currentPage.value = 1
 }, { immediate: true })
 
+let lastCatalogRefreshAt = 0
+const refreshCatalogAfterAdminUpdate = () => {
+  if (document.visibilityState !== 'visible') return
+  const now = Date.now()
+  if (now - lastCatalogRefreshAt < 1000) return
+  lastCatalogRefreshAt = now
+  loadProducts()
+}
+
 onMounted(async () => {
   await loadAttributes()
   await loadProducts()
+  window.addEventListener('focus', refreshCatalogAfterAdminUpdate)
+  document.addEventListener('visibilitychange', refreshCatalogAfterAdminUpdate)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('focus', refreshCatalogAfterAdminUpdate)
+  document.removeEventListener('visibilitychange', refreshCatalogAfterAdminUpdate)
 })
 </script>
 

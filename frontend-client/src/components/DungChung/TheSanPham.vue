@@ -40,7 +40,9 @@ const displayImage = computed(() => {
       return props.product.colorImageMap[matchedKey]
     }
   }
-  return props.product?.anhDaiDien || (props.product?.hinhAnhs && props.product.hinhAnhs[0])
+  return props.product?.variantImage
+    || props.product?.anhDaiDien
+    || (props.product?.hinhAnhs && props.product.hinhAnhs[0])
 })
 
 const COLOR_HEX_MAP = {
