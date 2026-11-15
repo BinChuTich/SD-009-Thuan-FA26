@@ -3884,16 +3884,6 @@ const autoCalculateShippingFee = async () => {
 
 
 
-  // Nếu thu ngân đã chủ động sửa phí vận chuyển, tôn trọng phí đã nhập và không tự động ghi đè
-
-  if (currentInvoice.value.isManualShippingFee) {
-
-    return
-
-  }
-
-
-
   isCalculatingShipping.value = true
 
 
@@ -3913,6 +3903,10 @@ const autoCalculateShippingFee = async () => {
     })
 
     if (res && res.fee != null) {
+      // Phí nhập tay vẫn được giữ khi đơn chưa đủ điều kiện. Khi đạt ngưỡng
+      // freeship cấu hình, chính sách chung phải ghi đè cho cả POS và Online.
+      if (currentInvoice.value.isManualShippingFee && !res.freeshipApplied) return
+      if (res.freeshipApplied) currentInvoice.value.isManualShippingFee = false
       currentInvoice.value.shippingFee = res.fee
       currentInvoice.value.shippingDesc = res.regionDescription || ''
       currentInvoice.value.shippingSource = res.source || ''
@@ -8094,7 +8088,7 @@ const totalAmount = computed(() => {
 
 let posShippingRecalcTimer = null
 watch(totalAmount, () => {
-  if (!currentInvoice.value?.isDelivery || currentInvoice.value?.isManualShippingFee) return
+  if (!currentInvoice.value?.isDelivery) return
   if (!currentInvoice.value?.deliveryProvince && !currentInvoice.value?.deliveryAddress && !currentInvoice.value?.deliveryProvinceCode) return
   if (posShippingRecalcTimer) clearTimeout(posShippingRecalcTimer)
   posShippingRecalcTimer = setTimeout(() => {
@@ -15101,7 +15095,7 @@ onMounted(async () => {
 
     <!-- Popup Thông báo Warning tự động hiển thị khi thêm sản phẩm đã sửa giá hoặc thay đổi đợt giảm giá -->
     <div v-if="showItemPriceWarningModal" class="pos-modal-backdrop" style="z-index: 10050;" @click.self="dismissItemPriceWarningModal">
-      <div class="pos-modal-card confirm-order-modal price-change-modal">
+      <div class="pos-modal-card confirm-order-modal price-change-modal pos-sync-warning-modal">
         <div class="modal-top">
           <div class="modal-title-group">
             <h3 class="modal-title-text" style="color: #b45309;">
@@ -15202,7 +15196,7 @@ onMounted(async () => {
 
     <!-- Popup Thông báo Warning tự động hiển thị khi Mã giảm giá (Voucher) thay đổi trên hệ thống -->
     <div v-if="showVoucherWarningModal && voucherWarningData" class="pos-modal-backdrop" style="z-index: 10055;" @click.self="dismissVoucherWarningModal">
-      <div class="pos-modal-card confirm-order-modal price-change-modal">
+      <div class="pos-modal-card confirm-order-modal price-change-modal voucher-warning-modal pos-sync-warning-modal">
         <div class="modal-top">
           <div class="modal-title-group">
             <h3 class="modal-title-text" style="color: #b45309;">
@@ -15222,8 +15216,15 @@ onMounted(async () => {
             • Bấm <strong>Áp dụng</strong> để cập nhật theo mã giảm giá mới, hoặc bấm <strong>Hủy</strong> để không áp dụng mã mới và vẫn giữ/áp dụng theo mã trước đó:
           </div>
 
-          <div class="confirm-items-table-wrap">
-            <table class="confirm-table">
+          <div class="confirm-items-table-wrap voucher-warning-table-wrap">
+            <table class="confirm-table voucher-warning-table">
+              <colgroup>
+                <col class="voucher-code-col" />
+                <col class="voucher-code-col" />
+                <col class="voucher-money-col" />
+                <col class="voucher-money-col" />
+                <col class="voucher-diff-col" />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Mã trước đó</th>
@@ -15257,13 +15258,13 @@ onMounted(async () => {
                     </template>
                     <span v-else style="color: #b91c1c; font-weight: 600;">Không còn hiệu lực / Gỡ mã</span>
                   </td>
-                  <td class="text-right" style="color: #64748b; text-decoration: line-through;">
+                  <td class="text-right voucher-money-value" style="color: #64748b; text-decoration: line-through;">
                     -{{ formatMoney(voucherWarningData.oldDiscount) }}
                   </td>
-                  <td class="text-right font-bold" style="color: #b45309;">
+                  <td class="text-right font-bold voucher-money-value" style="color: #b45309;">
                     -{{ formatMoney(voucherWarningData.newDiscount) }}
                   </td>
-                  <td class="text-right font-bold" :style="{ color: voucherWarningData.diffDiscount >= 0 ? '#15803d' : '#b91c1c' }">
+                  <td class="text-right font-bold voucher-money-value" :style="{ color: voucherWarningData.diffDiscount >= 0 ? '#15803d' : '#b91c1c' }">
                     {{ voucherWarningData.diffDiscount >= 0 ? '+' : '' }}{{ formatMoney(voucherWarningData.diffDiscount) }}
                   </td>
                 </tr>
@@ -15300,7 +15301,7 @@ onMounted(async () => {
 
 
 
-      <div class="pos-modal-card confirm-order-modal price-change-modal">
+      <div class="pos-modal-card confirm-order-modal price-change-modal pos-sync-warning-modal">
 
 
 
@@ -15312,7 +15313,7 @@ onMounted(async () => {
 
 
 
-            <h3 class="modal-title-text" style="color: #b45309;">Cảnh báo: Đơn giá hoặc Khuyến mãi đã thay đổi</h3>
+            <h3 class="modal-title-text" style="color: #b45309;">⚠️ Cảnh báo: Đơn giá hoặc Khuyến mãi đã thay đổi</h3>
 
 
 
@@ -30781,5 +30782,176 @@ onMounted(async () => {
 
 }
 
+</style>
+
+<style scoped>
+.pos-sync-warning-modal {
+  width: min(980px, calc(100vw - 24px));
+  max-width: 980px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 24px 65px rgba(15, 23, 42, 0.24);
+}
+
+.pos-sync-warning-modal .modal-top {
+  min-height: 68px;
+  padding: 18px 22px;
+  border-bottom: 1px solid #e8edf3;
+  background: #ffffff;
+}
+
+.pos-sync-warning-modal .modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pos-sync-warning-modal .modal-title-text {
+  color: #b45309 !important;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.pos-sync-warning-modal .modal-badge-count {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.pos-sync-warning-modal .confirm-modal-body {
+  padding: 20px 22px 4px;
+}
+
+.pos-sync-warning-modal .price-change-warning-box {
+  margin-bottom: 14px;
+  padding: 13px 15px;
+  border-color: #f6cf68;
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #92400e;
+  line-height: 1.55;
+}
+
+.pos-sync-warning-modal .confirm-items-table-wrap {
+  width: 100%;
+  margin-bottom: 0;
+  border-radius: 9px;
+}
+
+.pos-sync-warning-modal .confirm-table th {
+  padding: 11px 12px;
+  background: #f3f6fa;
+  color: #334155;
+}
+
+.pos-sync-warning-modal .confirm-table td {
+  padding: 12px;
+}
+
+.pos-sync-warning-modal .modal-actions-bottom {
+  min-height: 76px;
+  margin-top: 0;
+  padding: 18px 22px;
+  border-top: 0;
+  background: #fff;
+  gap: 10px;
+}
+
+.pos-sync-warning-modal .btn-cancel-modal,
+.pos-sync-warning-modal .btn-submit-modal {
+  min-width: 92px;
+  min-height: 40px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.pos-sync-warning-modal .btn-modal-close {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 760px) {
+  .pos-sync-warning-modal {
+    width: calc(100vw - 12px);
+    max-height: calc(100vh - 12px);
+  }
+
+  .pos-sync-warning-modal .modal-top,
+  .pos-sync-warning-modal .confirm-modal-body,
+  .pos-sync-warning-modal .modal-actions-bottom {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
+</style>
+
+<style scoped>
+.voucher-warning-modal {
+  width: min(980px, calc(100vw - 24px));
+  max-width: 980px;
+}
+
+.voucher-warning-table-wrap {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.voucher-warning-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.voucher-warning-table .voucher-code-col {
+  width: 30%;
+}
+
+.voucher-warning-table .voucher-money-col {
+  width: 13%;
+}
+
+.voucher-warning-table .voucher-diff-col {
+  width: 14%;
+}
+
+.voucher-warning-table th {
+  padding: 11px 12px;
+  white-space: nowrap;
+}
+
+.voucher-warning-table td {
+  padding: 12px;
+  vertical-align: top;
+}
+
+.voucher-warning-table th:nth-child(n + 3),
+.voucher-warning-table td:nth-child(n + 3),
+.voucher-money-value {
+  white-space: nowrap !important;
+  word-break: keep-all;
+}
+
+.voucher-money-value {
+  vertical-align: middle !important;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 760px) {
+  .voucher-warning-modal {
+    width: calc(100vw - 12px);
+  }
+
+  .voucher-warning-table {
+    min-width: 0;
+    font-size: 0.76rem;
+  }
+
+  .voucher-warning-table th,
+  .voucher-warning-table td {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
 </style>
 

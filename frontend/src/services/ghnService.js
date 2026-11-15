@@ -80,8 +80,13 @@ function findMatchingShippingRule(cfg, orderSubtotal, distanceKm) {
   const rules = Array.isArray(cfg?.danhSachCauHinh) ? cfg.danhSachCauHinh : []
   const sub = Number.isFinite(Number(orderSubtotal)) && Number(orderSubtotal) >= 0 ? Number(orderSubtotal) : 0
   const dist = Number.isFinite(Number(distanceKm)) && Number(distanceKm) >= 0 ? Number(distanceKm) : 0
+  const freeRule = rules.find(r => r && Number(r.trangThai) !== 0 &&
+    String(r.hinhThucTinhPhi || '').toUpperCase() === 'MIEN_PHI' &&
+    sub >= Number(r.giaTriTu ?? 0) && sub <= Number(r.giaTriDen ?? Number.MAX_SAFE_INTEGER))
+  if (freeRule) return freeRule
   for (const r of rules) {
     if (!r || Number(r.trangThai) === 0) continue
+    if (String(r.hinhThucTinhPhi || '').toUpperCase() === 'MIEN_PHI') continue
     const minV = Number(r.giaTriTu ?? 0)
     const maxV = Number(r.giaTriDen ?? Number.MAX_SAFE_INTEGER)
     const minKm = Number(r.khoangCachTu ?? 0)
@@ -514,6 +519,20 @@ export function calculateLocalRegionalFee(
         ? estimateDistanceKm(provinceName, districtName, wardName, fullAddress)
         : null
 
+  // Ngưỡng freeship theo tổng hóa đơn luôn ưu tiên hơn bảng phí theo khoảng cách.
+  const freeByOrderTotal = combined && isFreeshipQualified(cfg, orderSubtotal, channel)
+  if (freeByOrderTotal) {
+    return {
+      fee: 0,
+      originalFee: Number(cfg.phiMacDinhToanQuoc ?? 45000),
+      freeshipApplied: true,
+      source: 'FREESHIP_POLICY',
+      distanceKm: resolvedDistanceKm,
+      regionDescription: `Miễn phí vận chuyển (Tổng hóa đơn đạt từ ${Number(cfg.nguongMienPhiShip || 0).toLocaleString('vi-VN')}đ)`,
+      leadTime: '1 - 3 ngày'
+    }
+  }
+
   const matchedRule = findMatchingShippingRule(cfg, orderSubtotal, resolvedDistanceKm)
   if (matchedRule) {
     const isFreeRule = String(matchedRule.hinhThucTinhPhi || '').toUpperCase() === 'MIEN_PHI'
@@ -527,7 +546,9 @@ export function calculateLocalRegionalFee(
       source: 'SHIPPING_RULE',
       distanceKm: resolvedDistanceKm,
       matchedRuleId: matchedRule.id,
-      regionDescription: `Cấu hình phí ship (${minVal} - ${maxVal} VND | ${matchedRule.khoangCachTu} - ${matchedRule.khoangCachDen} Km)`,
+      regionDescription: isFreeRule
+        ? `Miễn phí vận chuyển theo tổng hóa đơn từ ${minVal} đến ${maxVal} VND`
+        : `Cấu hình phí ship (${minVal} - ${maxVal} VND | ${matchedRule.khoangCachTu} - ${matchedRule.khoangCachDen} Km)`,
       leadTime: '1 - 3 ngày'
     }
   }

@@ -431,6 +431,16 @@ public class ShippingConfigService {
         long subtotal = orderSubtotal != null && orderSubtotal >= 0 ? orderSubtotal : 0L;
         double dist = distanceKm != null && distanceKm >= 0 ? distanceKm : 0.0;
 
+        // Ưu tiên rule miễn phí theo tổng hóa đơn, không phụ thuộc thứ tự hiển thị
+        // hay khoảng cách giao hàng.
+        for (ShippingRuleDTO rule : config.getDanhSachCauHinh()) {
+            if (rule == null || (rule.getTrangThai() != null && rule.getTrangThai() == 0)) continue;
+            if (!"MIEN_PHI".equalsIgnoreCase(rule.getHinhThucTinhPhi())) continue;
+            long minVal = rule.getGiaTriTu() != null ? rule.getGiaTriTu() : 0L;
+            long maxVal = rule.getGiaTriDen() != null ? rule.getGiaTriDen() : Long.MAX_VALUE;
+            if (subtotal >= minVal && subtotal <= maxVal) return rule;
+        }
+
         for (ShippingRuleDTO rule : config.getDanhSachCauHinh()) {
             if (rule == null) continue;
             if (rule.getTrangThai() != null && rule.getTrangThai() == 0) continue;
@@ -438,6 +448,7 @@ public class ShippingConfigService {
             long maxVal = rule.getGiaTriDen() != null ? rule.getGiaTriDen() : Long.MAX_VALUE;
             double minKm = rule.getKhoangCachTu() != null ? rule.getKhoangCachTu() : 0.0;
             double maxKm = rule.getKhoangCachDen() != null ? rule.getKhoangCachDen() : Double.MAX_VALUE;
+            if ("MIEN_PHI".equalsIgnoreCase(rule.getHinhThucTinhPhi())) continue;
 
             if (subtotal >= minVal && subtotal <= maxVal && dist >= minKm && dist <= maxKm) {
                 return rule;

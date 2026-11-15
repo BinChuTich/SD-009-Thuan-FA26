@@ -264,6 +264,35 @@ public class GhnService {
                         ? shippingConfigService.estimateDistanceKm(toProvinceName, districtName, wardName, fullAddress)
                         : 0.0);
 
+        // Chính sách freeship theo tổng tiền hóa đơn luôn có độ ưu tiên cao nhất.
+        // Nếu kiểm tra bảng giá trước, một rule tính phí khớp khoảng cách sẽ return sớm
+        // và làm đơn đã đạt ngưỡng vẫn bị thu phí vận chuyển.
+        boolean freeshipApplied = !"NONE".equals(regionCode)
+                && shippingConfigService != null
+                && shippingConfigService.isFreeshipEligible(cfg, effectiveSubtotal, channel);
+
+        if (freeshipApplied) {
+            long threshold = cfg.getNguongMienPhiShip() != null ? cfg.getNguongMienPhiShip() : 0L;
+            Map<String, Object> freeResult = new LinkedHashMap<>();
+            freeResult.put("success", true);
+            freeResult.put("fee", 0L);
+            freeResult.put("total", 0L);
+            freeResult.put("originalFee", baseFee);
+            freeResult.put("freeshipApplied", true);
+            freeResult.put("distanceKm", resolvedDistanceKm);
+            freeResult.put("apDungMienPhiShip", true);
+            freeResult.put("nguongMienPhiShip", threshold);
+            freeResult.put("cheDoTinhPhi", cfg.getCheDoTinhPhi());
+            freeResult.put("regionCode", regionCode);
+            freeResult.put("description", String.format("Miễn phí vận chuyển (Tổng hóa đơn đạt từ %,dđ)", threshold));
+            freeResult.put("regionDescription", String.format("Miễn phí vận chuyển (Tổng hóa đơn đạt từ %,dđ)", threshold));
+            freeResult.put("leadTime", leadTime);
+            freeResult.put("carrier", "Giao Hàng Nhanh (GHN)");
+            freeResult.put("serviceName", "Giao Hàng Nhanh (GHN)");
+            freeResult.put("source", "FREESHIP_POLICY");
+            return freeResult;
+        }
+
         // 1. Kiểm tra danh sách cấu hình phí vận chuyển theo bậc (Giá trị hóa đơn + Khoảng cách Km)
         ShippingRuleDTO matchedRule = (!"NONE".equals(regionCode) || distanceKm != null) && shippingConfigService != null
                 ? shippingConfigService.findMatchingRule(cfg, effectiveSubtotal, resolvedDistanceKm)
@@ -272,14 +301,15 @@ public class GhnService {
         if (matchedRule != null) {
             boolean isFreeRule = "MIEN_PHI".equalsIgnoreCase(matchedRule.getHinhThucTinhPhi());
             long ruleFee = isFreeRule ? 0L : (matchedRule.getPhiVanChuyen() != null ? matchedRule.getPhiVanChuyen() : 0L);
-            String ruleDesc = String.format(
-                    "Theo cấu hình: Đơn %,dđ - %,dđ | %s - %s Km (%s)",
+            String ruleDesc = isFreeRule
+                    ? String.format("Miễn phí vận chuyển theo tổng hóa đơn từ %,dđ đến %,dđ",
+                    matchedRule.getGiaTriTu() != null ? matchedRule.getGiaTriTu() : 0L,
+                    matchedRule.getGiaTriDen() != null ? matchedRule.getGiaTriDen() : 0L)
+                    : String.format("Theo cấu hình: Đơn %,dđ - %,dđ | %s - %s Km (Tính phí)",
                     matchedRule.getGiaTriTu() != null ? matchedRule.getGiaTriTu() : 0L,
                     matchedRule.getGiaTriDen() != null ? matchedRule.getGiaTriDen() : 0L,
                     formatKm(matchedRule.getKhoangCachTu()),
-                    formatKm(matchedRule.getKhoangCachDen()),
-                    isFreeRule ? "Miễn phí" : "Tính phí"
-            );
+                    formatKm(matchedRule.getKhoangCachDen()));
 
             Map<String, Object> ruleResult = new LinkedHashMap<>();
             ruleResult.put("success", true);
@@ -312,16 +342,7 @@ public class GhnService {
             }
         }
 
-        boolean freeshipApplied = !"NONE".equals(regionCode)
-                && shippingConfigService != null
-                && shippingConfigService.isFreeshipEligible(cfg, effectiveSubtotal, channel);
-
-        long finalFee = freeshipApplied ? 0L : baseFee;
-        if (freeshipApplied) {
-            source = "FREESHIP_POLICY";
-            long threshold = cfg.getNguongMienPhiShip() != null ? cfg.getNguongMienPhiShip() : 0L;
-            regionDescription = String.format("Miễn phí vận chuyển (Đơn đạt ngưỡng từ %,dđ)", threshold);
-        }
+        long finalFee = baseFee;
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("success", true);

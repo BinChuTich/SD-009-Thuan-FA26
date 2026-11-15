@@ -4410,11 +4410,16 @@ onBeforeUnmount(() => {
             </div>
 
 
-            <div v-if="invoiceData.summary.shippingFee > 0" class="summary-line">
+            <div v-if="isDeliveryOrder" class="summary-line shipping-summary-row">
 
               <span class="s-label">Phí vận chuyển</span>
 
-              <span class="s-val">+{{ formatMoney(invoiceData.summary.shippingFee) }}</span>
+              <span
+                class="s-val"
+                :class="invoiceData.summary.shippingFee > 0 ? 'shipping-fee-value' : 'shipping-free-value'"
+              >
+                {{ invoiceData.summary.shippingFee > 0 ? `+${formatMoney(invoiceData.summary.shippingFee)}` : 'MIỄN PHÍ' }}
+              </span>
 
             </div>
 
@@ -5363,11 +5368,13 @@ onBeforeUnmount(() => {
 
           </div>
 
-          <div v-if="invoiceData.summary.shippingFee > 0" class="calc-row">
+          <div v-if="isDeliveryOrder" class="calc-row shipping-summary-row">
 
             <span>Phí vận chuyển:</span>
 
-            <span>+{{ formatMoney(invoiceData.summary.shippingFee) }}</span>
+            <span :class="invoiceData.summary.shippingFee > 0 ? 'shipping-fee-value' : 'shipping-free-value'">
+              {{ invoiceData.summary.shippingFee > 0 ? `+${formatMoney(invoiceData.summary.shippingFee)}` : 'MIỄN PHÍ' }}
+            </span>
 
           </div>
 
@@ -10157,4 +10164,30 @@ onBeforeUnmount(() => {
 
 }
 
+</style>
+
+<style scoped>
+.shipping-summary-row {
+  align-items: center;
+}
+
+.shipping-fee-value {
+  color: #1e3a5f;
+  font-weight: 700;
+}
+
+.shipping-free-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 76px;
+  padding: 4px 9px;
+  border: 1px solid #86efac;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #059669;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+}
 </style>
