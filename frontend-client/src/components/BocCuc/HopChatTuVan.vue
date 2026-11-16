@@ -920,7 +920,15 @@ const showBotReply = (replyText, products = null) => {
 // AI chạy ở Spring Boot để API key không bao giờ xuất hiện trên trình duyệt.
 // Khi AI bên ngoài tạm lỗi, backend vẫn phân tích tiếng Việt cục bộ và truy vấn dữ liệu thật từ DB.
 const requestAiShoppingAssistant = async (text) => {
-  const response = await api.post('/api/ai-chat/message', { message: text })
+  const history = messages.value
+    .slice(0, -1)
+    .filter(message => message?.text && (message.sender === 'user' || message.sender === 'bot'))
+    .slice(-8)
+    .map(message => ({
+      role: message.sender === 'user' ? 'user' : 'assistant',
+      content: String(message.text).slice(0, 1000)
+    }))
+  const response = await api.post('/api/ai-chat/message', { message: text, history })
   return response.data
 }
 

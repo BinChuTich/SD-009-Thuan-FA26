@@ -21,6 +21,6 @@ public class AiChatController {
 
     @PostMapping("/message")
     public ResponseEntity<AiChatResponse> message(@Valid @RequestBody AiChatRequest request) {
-        return ResponseEntity.ok(assistantService.reply(request.getMessage()));
+        return ResponseEntity.ok(assistantService.reply(request.getMessage(), request.getHistory()));
     }
 }
