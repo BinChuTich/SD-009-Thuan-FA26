@@ -8535,7 +8535,7 @@ public class HoaDonService {
 
 
 
-        if (!pt.equalsIgnoreCase("VNPAY")) {
+        if (!pt.equalsIgnoreCase("VNPAY") && !pt.equalsIgnoreCase("MOMO")) {
 
 
 

@@ -785,7 +785,7 @@ function printReceipt() {
 </script>
 
 <template>
-  <div v-if="route.path === '/login' || route.path === '/quet-ma-pos'">
+  <div v-if="route.meta?.standalone === true || route.path === '/login' || route.path === '/quet-ma-pos'">
     <router-view />
     <GlobalDialog />
   </div>

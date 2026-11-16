@@ -8152,6 +8152,193 @@ const finalTotal = computed(() => {
 
 })
 
+// Đồng bộ một chiều sang màn hình dành cho khách hàng trên màn hình thứ hai.
+const CUSTOMER_DISPLAY_CHANNEL = 'fft-pos-customer-display'
+const CUSTOMER_DISPLAY_STORAGE = 'fft-pos-customer-display-v1'
+let customerDisplayChannel = null
+
+if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+  customerDisplayChannel = new BroadcastChannel(CUSTOMER_DISPLAY_CHANNEL)
+  customerDisplayChannel.onmessage = (event) => {
+    if (event.data?.type === 'REQUEST_SNAPSHOT') publishCustomerDisplaySnapshot()
+  }
+}
+
+const customerDisplayPaymentLabel = (method) => {
+  if (method === 'CHUYEN_KHOAN') return 'Chuyển khoản'
+  if (method === 'KET_HOP') return 'Tiền mặt + Chuyển khoản'
+  return 'Tiền mặt'
+}
+
+const buildCustomerVietQrUrl = (invoiceCode, amount) => {
+  const cleanCode = String(invoiceCode || 'POS').replace(/[^a-zA-Z0-9_-]/g, '')
+  const roundedAmount = Math.max(0, Math.round(Number(amount) || 0))
+  const content = `FFTSHIRT ${cleanCode}`
+  return `https://img.vietqr.io/image/MB-0988888888-qr_only.png?amount=${roundedAmount}&addInfo=${encodeURIComponent(content)}&accountName=FF%20TSHIRT%20STORE`
+}
+
+const buildCustomerDisplaySnapshot = () => {
+  const invoice = currentInvoice.value || {}
+  const paymentMethod = invoice.paymentMethod || 'TIEN_MAT'
+  const cashAmount = paymentMethod === 'KET_HOP' ? Math.max(0, Number(invoice.cashAmount || 0)) : 0
+  const transferAmount = paymentMethod === 'CHUYEN_KHOAN'
+      ? Number(finalTotal.value || 0)
+      : (paymentMethod === 'KET_HOP' ? Math.max(0, Number(invoice.transferAmount || 0)) : 0)
+  const transferContentValue = `FFTSHIRT ${String(invoice.code || 'POS').replace(/[^a-zA-Z0-9_-]/g, '')}`
+  const items = Array.isArray(invoice.cart) ? invoice.cart.map((item, index) => ({
+    key: item.cartKey || `${item.id || item.variantCode || index}-${index}`,
+    code: item.variantCode || item.code || '',
+    name: item.name || getCartItemName(item),
+    color: item.color || '',
+    size: item.size || '',
+    quantity: Number(item.quantity || 0),
+    price: Number(item.price || 0),
+    originalPrice: Number(item.originalPrice || item.giaBan || item.price || 0),
+    lineTotal: Number(item.price || 0) * Number(item.quantity || 0),
+    hasDiscount: Boolean(item.hasDiscount),
+    discountText: item.discountText || '',
+    discountCampaignName: item.discountCampaignName || '',
+    image: formatProductImage(item.image, item)
+  })) : []
+
+  const voucher = invoice.voucher ? {
+    code: invoice.voucher.maPhieuGiamGia || invoice.voucher.code || invoice.voucher.tenPhieuGiamGia || 'Phiếu giảm giá',
+    name: formatVoucherDisplayName(invoice.voucher) || invoice.voucher.tenPhieuGiamGia || '',
+    description: invoice.voucher.moTa || invoice.voucher.tenPhieuGiamGia || `Giảm ${formatMoney(voucherDiscount.value)}`,
+    discountLabel: formatVoucherDiscountLabel(invoice.voucher),
+    condition: formatVoucherCondition(invoice.voucher),
+    discountAmount: Number(voucherDiscount.value || 0),
+    personal: isVoucherPersonal(invoice.voucher)
+  } : null
+
+  const voucherSuggestion = betterVoucherSuggestion.value ? {
+    code: betterVoucherSuggestion.value.code,
+    neededAmount: Number(betterVoucherSuggestion.value.neededAmount || 0),
+    potentialDiscount: Number(betterVoucherSuggestion.value.potentialDiscount || 0),
+    discountLabel: betterVoucherSuggestion.value.discountLabel || ''
+  } : null
+
+  let changeWarning = null
+  if (showVoucherWarningModal.value && voucherWarningData.value) {
+    const warning = voucherWarningData.value
+    changeWarning = {
+      type: 'VOUCHER',
+      title: 'Phiếu giảm giá đã thay đổi',
+      reason: warning.reason || 'Phiếu giảm giá áp dụng cho hóa đơn đã thay đổi trên hệ thống.',
+      oldLabel: warning.oldVoucher?.maPhieuGiamGia || 'Chưa áp dụng mã',
+      newLabel: warning.newVoucher?.maPhieuGiamGia || 'Không còn hiệu lực / Gỡ mã',
+      oldDetail: warning.oldVoucher ? `${formatVoucherDiscountLabel(warning.oldVoucher)} · ${formatVoucherCondition(warning.oldVoucher)}` : '',
+      newDetail: warning.newVoucher ? `${formatVoucherDiscountLabel(warning.newVoucher)} · ${formatVoucherCondition(warning.newVoucher)}` : '',
+      oldAmount: Number(warning.oldDiscount || 0),
+      newAmount: Number(warning.newDiscount || 0)
+    }
+  } else if (showItemPriceWarningModal.value && activePriceWarningItems.value.length > 0) {
+    const warningItems = activePriceWarningItems.value
+    changeWarning = {
+      type: warningItems[0]?.isDiscountChanged ? 'PROMOTION' : 'PRICE',
+      title: warningItems[0]?.isDiscountChanged ? 'Đợt giảm giá đã thay đổi' : 'Giá sản phẩm đã thay đổi',
+      reason: warningItems[0]?.isDiscountChanged
+          ? 'Khuyến mãi của sản phẩm vừa chọn đã thay đổi trên hệ thống.'
+          : 'Đơn giá của sản phẩm vừa chọn đã thay đổi trên hệ thống.',
+      items: warningItems.map(item => ({
+        name: item.name || 'Sản phẩm',
+        variant: `${item.color || 'Mặc định'} / ${item.size || 'Freesize'}`,
+        oldPrice: Number(item.oldPrice || 0),
+        newPrice: Number(item.newPrice || 0),
+        oldPromotion: item.oldDiscountLabel || '',
+        newPromotion: item.newDiscountLabel || ''
+      }))
+    }
+  } else if (showPriceChangeModal.value && priceChangeData.value?.items?.length) {
+    changeWarning = {
+      type: 'PRICE',
+      title: 'Đơn giá hoặc khuyến mãi đã thay đổi',
+      reason: 'Giá bán hoặc đợt giảm giá đã thay đổi kể từ lúc sản phẩm được thêm vào hóa đơn.',
+      items: priceChangeData.value.items.map(item => ({
+        name: item.tenSanPham || 'Sản phẩm',
+        variant: '',
+        oldPrice: Number(item.giaCu ?? item.giaTrongGio ?? 0),
+        newPrice: Number(item.giaMoi ?? item.giaHienTai ?? 0),
+        oldPromotion: '',
+        newPromotion: ''
+      }))
+    }
+  }
+
+  return {
+    version: 1,
+    updatedAt: Date.now(),
+    invoiceCode: invoice.code || '',
+    customerName: invoice.customerName || '',
+    recipientName: invoice.customerName || '',
+    recipientPhone: invoice.customerPhone || '',
+    deliveryAddress: invoice.deliveryAddress || '',
+    items,
+    voucher,
+    voucherSuggestion,
+    changeWarning,
+    totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+    subtotal: Number(totalOriginalAmount.value || 0),
+    promotionDiscount: Number(promotionDiscount.value || 0),
+    voucherDiscount: Number(voucherDiscount.value || 0),
+    shippingFee: Number(shippingFee.value || 0),
+    isDelivery: Boolean(invoice.isDelivery),
+    freeshipApplied: Boolean(isShippingFree.value),
+    finalTotal: Number(finalTotal.value || 0),
+    paymentMethod,
+    paymentMethodLabel: customerDisplayPaymentLabel(paymentMethod),
+    cashAmount,
+    transferAmount,
+    transferContent: transferContentValue,
+    transferQrUrl: transferAmount > 0 ? buildCustomerVietQrUrl(invoice.code, transferAmount) : '',
+    bankName: 'MB Bank (970422)',
+    bankAccount: '0988888888',
+    bankAccountName: 'FF T-SHIRT STORE'
+  }
+}
+
+function publishCustomerDisplaySnapshot() {
+  const payload = buildCustomerDisplaySnapshot()
+  try { localStorage.setItem(CUSTOMER_DISPLAY_STORAGE, JSON.stringify(payload)) } catch (e) {}
+  customerDisplayChannel?.postMessage({ type: 'POS_SNAPSHOT', payload })
+}
+
+const publishCustomerDisplayCompletion = ({ invoiceCode, total, customerName, isDelivery }) => {
+  const payload = {
+    version: 1,
+    viewState: 'COMPLETED',
+    updatedAt: Date.now(),
+    expiresAt: Date.now() + 5000,
+    invoiceCode: invoiceCode || '',
+    customerName: customerName || '',
+    finalTotal: Number(total || 0),
+    isDelivery: Boolean(isDelivery),
+    items: []
+  }
+  try { localStorage.setItem(CUSTOMER_DISPLAY_STORAGE, JSON.stringify(payload)) } catch (e) {}
+  customerDisplayChannel?.postMessage({ type: 'ORDER_COMPLETED', payload })
+}
+
+const openCustomerDisplay = () => {
+  publishCustomerDisplaySnapshot()
+  const displayWindow = window.open(
+      '/man-hinh-khach-hang',
+      'FFTCustomerDisplay',
+      'width=1280,height=800,resizable=yes,scrollbars=no,status=no'
+  )
+  if (!displayWindow) {
+    showToast('Trình duyệt đang chặn cửa sổ mới. Vui lòng cho phép popup để mở màn hình khách hàng.', 'warning')
+    return
+  }
+  displayWindow.focus()
+}
+
+watch(
+    [currentInvoice, totalOriginalAmount, totalAmount, promotionDiscount, voucherDiscount, shippingFee, finalTotal, isShippingFree, betterVoucherSuggestion, showVoucherWarningModal, voucherWarningData, showItemPriceWarningModal, activePriceWarningItems, showPriceChangeModal, priceChangeData],
+    () => publishCustomerDisplaySnapshot(),
+    { deep: true, immediate: true }
+)
+
 
 
 
@@ -9855,6 +10042,7 @@ onUnmounted(() => {
   stopPaymentPolling()
   stopMobileScannerSync()
   stopDirectCameraScan()
+  customerDisplayChannel?.close()
 
 
 
@@ -10864,6 +11052,13 @@ const handleCheckout = async () => {
 
     const savedCode = res?.data?.maHoaDon || currentInvoice.value.code
 
+    publishCustomerDisplayCompletion({
+      invoiceCode: savedCode,
+      total: finalTotal.value,
+      customerName: currentInvoice.value.customerName,
+      isDelivery: currentInvoice.value.isDelivery
+    })
+
 
 
     stopPaymentPolling()
@@ -11420,6 +11615,7 @@ onMounted(async () => {
 
 
 
+    <div class="page-heading-row">
     <div class="page-breadcrumb">
 
 
@@ -11436,6 +11632,11 @@ onMounted(async () => {
 
 
 
+    </div>
+      <button type="button" class="btn-customer-display" @click="openCustomerDisplay">
+        <span aria-hidden="true">▣</span>
+        Mở màn hình khách hàng
+      </button>
     </div>
 
 
@@ -16919,6 +17120,41 @@ onMounted(async () => {
 
 
 
+}
+
+.page-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.page-heading-row .page-breadcrumb {
+  margin-bottom: 0;
+}
+
+.btn-customer-display {
+  height: 38px;
+  padding: 0 15px;
+  border: 1px solid #3e5c76;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #314d67;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(62, 92, 118, 0.12);
+  transition: all 0.15s ease;
+}
+
+.btn-customer-display:hover {
+  background: #3e5c76;
+  color: #ffffff;
+  transform: translateY(-1px);
 }
 
 

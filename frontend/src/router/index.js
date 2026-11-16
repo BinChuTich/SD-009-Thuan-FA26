@@ -55,6 +55,7 @@ import GiaoCa from '../views/LichLamViec/GiaoCa.vue'
 import LichSuHoatDong from '../views/LichLamViec/LichSuHoatDong.vue'
 import MobilePosScanner from '../views/MobilePosScanner.vue'
 import CaiDatPhiShip from '../views/CaiDat/CaiDatPhiShip.vue'
+import CustomerDisplay from '../views/CustomerDisplay.vue'
 
 const routes = [
     // Trang đăng nhập công khai
@@ -69,6 +70,12 @@ const routes = [
         name: 'MobilePosScanner',
         component: MobilePosScanner,
         meta: { public: true }
+    },
+    {
+        path: '/man-hinh-khach-hang',
+        name: 'CustomerDisplay',
+        component: CustomerDisplay,
+        meta: { public: true, standalone: true }
     },
 
     // Trang chủ điều hướng theo vai trò

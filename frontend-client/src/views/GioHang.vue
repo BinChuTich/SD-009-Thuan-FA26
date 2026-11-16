@@ -774,11 +774,11 @@ const fullDeliveryAddress = computed(() => {
 
 // 3. PHƯƠNG THỨC THANH TOÁN (COD & VNPAY)
 
-// KHÔNG CÓ MOMO & SHOPEEPAY, KHÔNG CÓ ĐỔI TRẢ
+// Hỗ trợ COD, VietQR, VNPAY và MoMo thử nghiệm.
 
 // ==========================================
 
-const paymentMethod = ref('COD') // 'COD' | 'VNPAY'
+const paymentMethod = ref('COD') // 'COD' | 'VIETQR' | 'VNPAY' | 'MOMO'
 
 
 
@@ -2630,6 +2630,20 @@ const executePlaceOrder = async () => {
 
     createdOrder.value = savedOrder
 
+    // MoMo mock: backend phát hành link có chữ ký và tự lấy số tiền từ hóa đơn.
+    if (paymentMethod.value === 'MOMO') {
+      const momoRes = await api.post('/api/momo/create-payment', {
+        orderId: savedOrder.maHoaDon
+      })
+      if (!momoRes.data?.paymentUrl) {
+        throw new Error('Không tạo được liên kết MoMo thử nghiệm!')
+      }
+      removeMultipleFromCart(purchasedIds)
+      showConfirmOrderModal.value = false
+      window.location.assign(momoRes.data.paymentUrl)
+      return
+    }
+
 
 
     // Nếu chọn VietQR (Napas 247)
@@ -3258,7 +3272,7 @@ const formatDate = (dateStr) => {
 
               <span class="m-label">💳 Phương thức:</span>
 
-              <span class="m-val font-semibold">{{ paymentMethod === 'VNPAY' ? 'Cổng thanh toán VNPAY' : (paymentMethod === 'VIETQR' ? 'Chuyển khoản VietQR (Napas 247)' : 'Thanh toán khi nhận hàng (COD)') }}</span>
+              <span class="m-val font-semibold">{{ paymentMethod === 'MOMO' ? 'Ví MoMo - Chế độ thử nghiệm' : (paymentMethod === 'VNPAY' ? 'Cổng thanh toán VNPAY' : (paymentMethod === 'VIETQR' ? 'Chuyển khoản VietQR (Napas 247)' : 'Thanh toán khi nhận hàng (COD)')) }}</span>
 
             </div>
 
@@ -4149,7 +4163,7 @@ const formatDate = (dateStr) => {
 
 
 
-            <!-- 4. Phương thức thanh toán (COD & VNPAY) - KHÔNG CÓ MOMO & SHOPEEPAY -->
+            <!-- 4. Phương thức thanh toán -->
 
             <div class="section-card-panel mt-4">
 
@@ -4188,6 +4202,21 @@ const formatDate = (dateStr) => {
               </div>
 
               </div>
+
+                <!-- Lựa chọn 4: MoMo mock, sẵn sàng thay bằng Sandbox thật -->
+                <label class="payment-choice-card" :class="{ active: paymentMethod === 'MOMO' }">
+                  <div class="choice-radio-wrap">
+                    <input type="radio" value="MOMO" v-model="paymentMethod" name="payMethod" />
+                  </div>
+                  <div class="choice-icon-wrap" style="background:#a50064;color:#fff;border-radius:12px;font-weight:900;font-size:12px;">momo</div>
+                  <div class="choice-info-wrap">
+                    <div class="title-with-pill">
+                      <strong class="choice-title">Thanh toán bằng Ví MoMo</strong>
+                      <span class="pay-rec-badge" style="background:#fce7f3;color:#9d174d;">Thử nghiệm</span>
+                    </div>
+                    <span class="choice-desc">Mô phỏng cổng MoMo để kiểm thử dự án, không phát sinh tiền thật.</span>
+                  </div>
+                </label>
 
 
 
@@ -4917,7 +4946,7 @@ const formatDate = (dateStr) => {
 
                   <strong class="c-val text-primary-gold">
 
-                    {{ paymentMethod === 'VNPAY' ? 'Chuyển khoản (VNPay)' : (paymentMethod === 'VIETQR' ? 'Chuyển khoản VietQR (Napas 247)' : 'Tiền mặt khi nhận hàng (COD)') }}
+                    {{ paymentMethod === 'MOMO' ? 'Ví MoMo - Chế độ thử nghiệm' : (paymentMethod === 'VNPAY' ? 'Chuyển khoản (VNPay)' : (paymentMethod === 'VIETQR' ? 'Chuyển khoản VietQR (Napas 247)' : 'Tiền mặt khi nhận hàng (COD)')) }}
 
                   </strong>
 

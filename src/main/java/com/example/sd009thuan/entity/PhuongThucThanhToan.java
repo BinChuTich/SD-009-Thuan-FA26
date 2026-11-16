@@ -3,6 +3,8 @@ package com.example.sd009thuan.entity;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
@@ -19,6 +21,7 @@ import org.hibernate.annotations.Nationalized;
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class PhuongThucThanhToan {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Long id;
 

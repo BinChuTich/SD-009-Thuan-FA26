@@ -10,6 +10,7 @@ import TraCuuDonHang from '@/views/TraCuuDonHang.vue'
 import GoiY from '@/views/GoiY.vue'
 import LienHe from '@/views/LienHe.vue'
 import VNPayReturn from '@/views/VNPayReturn.vue'
+import MomoTestPayment from '@/views/MomoTestPayment.vue'
 
 const routes = [
   {
@@ -70,6 +71,11 @@ const routes = [
     path: '/thanh-toan/vnpay-return',
     name: 'VNPayReturn',
     component: VNPayReturn
+  },
+  {
+    path: '/thanh-toan/momo-test',
+    name: 'MomoTestPayment',
+    component: MomoTestPayment
   }
 ]
 
