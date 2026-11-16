@@ -2756,7 +2756,9 @@ const fetchRealProductsFromDB = async () => {
           if (varRes.data && varRes.data.length > 0) {
             variants = varRes.data.map(v => ({
               id: v.id,
-              maBienThe: v.maChiTietSanPham || ('CTSP' + v.id),
+              maBienThe: (v.maChiTietSanPham && !/^CTSP\d{8,}(_\d+)?$/i.test(String(v.maChiTietSanPham).trim()))
+                ? v.maChiTietSanPham
+                : `CTSP${String(v.id || 1).padStart(2, '0')}`,
               mauSac: v.tenMauSac || v.idMauSac?.tenMauSac || 'Đen',
               kichCo: v.tenKichCo || v.idKichCo?.tenKichCo || 'M',
               gia: v.giaBan || 199000,

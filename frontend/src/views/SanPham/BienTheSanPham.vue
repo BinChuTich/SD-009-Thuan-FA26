@@ -631,7 +631,13 @@ const fetchVariants = async () => {
 
     const res = await api.get('/api/chi-tiet-san-pham/filter', { params })
     if (res.data) {
-      variants.value = res.data.content || []
+      variants.value = (res.data.content || []).map(v => {
+        const rawCode = String(v.maChiTietSanPham || '').trim()
+        const cleanCode = (!rawCode || /^CTSP\d{8,}(_\d+)?$/i.test(rawCode))
+          ? `CTSP${String(v.id || 1).padStart(2, '0')}`
+          : rawCode
+        return { ...v, maChiTietSanPham: cleanCode }
+      })
       pageData.value = {
         number: res.data.pageNumber || 0,
         size: res.data.pageSize || 10,

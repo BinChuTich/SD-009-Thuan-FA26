@@ -400,7 +400,7 @@ const actualSubtotal = computed(() => {
 const voucherDisplayName = computed(() => {
   const o = order.value
   if (!o) return ''
-  return o.idPhieuGiamGia?.tenPhieuGiamGia || o.maPhieuGiamGia || o.idPhieuGiamGia?.maPhieuGiamGia || ''
+  return o.maPhieuGiamGia || o.idPhieuGiamGia?.maPhieuGiamGia || ''
 })
 
 const getItemOriginalPrice = (it) => {

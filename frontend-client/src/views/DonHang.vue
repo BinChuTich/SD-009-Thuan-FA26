@@ -165,7 +165,7 @@ const toggleExpandOrder = async (orderCode) => {
 const voucherDisplayName = computed(() => {
   const o = selectedOrder.value
   if (!o) return ''
-  return o.idPhieuGiamGia?.tenPhieuGiamGia || o.maPhieuGiamGia || o.idPhieuGiamGia?.maPhieuGiamGia || ''
+  return o.maPhieuGiamGia || o.idPhieuGiamGia?.maPhieuGiamGia || ''
 })
 
 const resolveProductImg = (it) => {
@@ -1238,7 +1238,7 @@ onUnmounted(() => {
                   <span>- {{ formatCurrency(getOrderCampaignDiscount(selectedOrder)) }}</span>
                 </div>
                 <div v-if="getOrderDiscount(selectedOrder) > 0" class="v-sum-row text-green">
-                  <span>Voucher [{{ selectedOrder.maPhieuGiamGia || selectedOrder.idPhieuGiamGia?.maPhieuGiamGia || 'VOUCHER' }}]{{ selectedOrder.idPhieuGiamGia?.tenPhieuGiamGia ? ` (${selectedOrder.idPhieuGiamGia.tenPhieuGiamGia})` : '' }}</span>
+                  <span>Voucher [{{ selectedOrder.maPhieuGiamGia || selectedOrder.idPhieuGiamGia?.maPhieuGiamGia || 'VOUCHER' }}]</span>
                   <span>- {{ formatCurrency(getOrderDiscount(selectedOrder)) }}</span>
                 </div>
                 <div class="v-sum-row">

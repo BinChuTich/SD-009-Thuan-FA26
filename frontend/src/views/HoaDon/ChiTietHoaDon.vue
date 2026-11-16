@@ -874,7 +874,7 @@ const discountPercentText = computed(() => {
 
 
 
-// Tên hiển thị của phiếu giảm giá
+// Mã hiển thị của phiếu giảm giá
 
 const voucherDisplayName = computed(() => {
 
@@ -882,15 +882,15 @@ const voucherDisplayName = computed(() => {
 
   if (!v) return ''
 
-  const name = v.name || invoiceData.value.summary?.voucherName || ''
+  const code = v.code || ''
 
-  if (!name || name === '—' || name === 'Không sử dụng' || name === 'Phiếu giảm giá') {
+  if (!code || code === '—' || code === 'Không sử dụng' || code === 'Phiếu giảm giá' || code === 'VOUCHER') {
 
     return ''
 
   }
 
-  return name
+  return code
 
 })
 
@@ -2106,7 +2106,7 @@ const loadDetail = async (identifier) => {
 
       voucherDiscount: discount,
 
-      voucherName: voucherName || (hasVoucher ? voucherCode : ''),
+      voucherName: voucherCode || '',
 
       totalPayment
 

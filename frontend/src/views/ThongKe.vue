@@ -714,38 +714,40 @@
 
             <!-- TOOLBAR TÌM KIẾM SẢN PHẨM -->
             <div class="product-stats-toolbar inline-toolbar">
-              <div class="input-with-prefix-icon search-product-box">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                <input
-                  type="text"
-                  v-model="productTableQuery"
-                  placeholder="Tìm theo mã, tên sản phẩm..."
-                  class="form-control-minimal with-icon"
-                  @input="onProductSearchChange"
-                />
-              </div>
+              <div class="product-stats-actions">
+                <div class="input-with-prefix-icon search-product-box">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    type="text"
+                    v-model="productTableQuery"
+                    placeholder="Tìm theo mã, tên sản phẩm..."
+                    class="form-control-minimal with-icon"
+                    @input="onProductSearchChange"
+                  />
+                </div>
 
-              <div class="select-wrapper-minimal">
-                <select v-model="productSortBy" class="form-control-minimal" @change="sortProductTable">
-                  <option value="best_seller">Bán chạy nhất</option>
-                  <option value="slow_seller">Bán chậm nhất</option>
-                  <option value="highest_revenue">Doanh thu cao nhất</option>
-                  <option value="highest_stock">Tồn kho nhiều nhất</option>
-                  <option value="highest_return">Số lượng trả nhiều nhất</option>
-                </select>
-              </div>
+                <div class="select-wrapper-minimal">
+                  <select v-model="productSortBy" class="form-control-minimal" @change="sortProductTable">
+                    <option value="best_seller">Bán chạy nhất</option>
+                    <option value="slow_seller">Bán chậm nhất</option>
+                    <option value="highest_revenue">Doanh thu cao nhất</option>
+                    <option value="highest_stock">Tồn kho nhiều nhất</option>
+                    <option value="highest_return">Số lượng trả nhiều nhất</option>
+                  </select>
+                </div>
 
-              <button type="button" class="btn-reset-round small" @click="resetProductTableFilters" title="Đặt lại bộ lọc sản phẩm">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M23 4v6h-6" />
-                  <path d="M1 20v-6h6" />
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                </svg>
-                <span>Đặt lại</span>
-              </button>
+                <button type="button" class="btn-reset-round small" @click="resetProductTableFilters" title="Đặt lại bộ lọc sản phẩm">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 4v6h-6" />
+                    <path d="M1 20v-6h6" />
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                  </svg>
+                  <span>Đặt lại</span>
+                </button>
+              </div>
             </div>
 
             <!-- BẢNG DỮ LIỆU SẢN PHẨM 8 CỘT -->
@@ -754,54 +756,54 @@
                 <thead>
                   <tr class="header-brown-beige">
                     <th style="width: 60px; text-align: center">STT</th>
-                    <th style="width: 140px">MÃ SẢN PHẨM</th>
-                    <th style="min-width: 240px">TÊN SẢN PHẨM</th>
-                    <th style="width: 150px">THƯƠNG HIỆU</th>
-                    <th style="width: 110px; text-align: center">ĐÃ BÁN</th>
+                    <th style="width: 130px">MÃ SẢN PHẨM</th>
+                    <th style="min-width: 260px">TÊN SẢN PHẨM</th>
+                    <th style="width: 140px">THƯƠNG HIỆU</th>
+                    <th style="width: 100px; text-align: center">ĐÃ BÁN</th>
                     <th style="width: 120px; text-align: center">SỐ LƯỢNG TRẢ</th>
-                    <th style="width: 150px; text-align: right">DOANH THU</th>
-                    <th style="width: 120px; text-align: center">TỒN KHO</th>
+                    <th style="width: 170px; text-align: right; white-space: nowrap">DOANH THU</th>
+                    <th style="width: 110px; text-align: center">TỒN KHO</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-if="paginatedProducts.length === 0">
-                    <td colspan="8" class="text-center text-empty">
+                    <td colspan="8" style="text-align: center; padding: 2.5rem; color: #8c979d;">
                       Không có sản phẩm nào phù hợp.
                     </td>
                   </tr>
                   <tr v-for="(p, index) in paginatedProducts" :key="p.id || index" class="table-data-row">
-                    <td class="text-center text-muted">
+                    <td style="text-align: center" class="text-muted-stt">
                       {{ (productPagination.page * productPagination.size) + index + 1 }}
                     </td>
-                    <td class="font-bold text-code">{{ p.code }}</td>
+                    <td class="font-bold text-dark code-cell">{{ p.code }}</td>
                     <td>
-                      <div class="product-cell-flex">
+                      <div class="product-name-with-thumb">
                         <img
                           :src="p.image || defaultProductImage"
-                          class="product-thumb-small"
+                          class="product-thumb-img"
                           alt="product"
                           @error="(e) => e.target.src = defaultProductImage"
                         />
-                        <div class="product-info-wrap">
-                          <span class="product-name font-medium">{{ p.name }}</span>
-                          <span v-if="p.sizes" class="product-sizes-text">Size: {{ p.sizes }}</span>
+                        <div class="product-info-text">
+                          <strong class="product-title-bold">{{ p.name }}</strong>
+                          <span v-if="p.sizes" class="product-size-hint">Size: {{ p.sizes }}</span>
                         </div>
                       </div>
                     </td>
-                    <td>{{ p.brand || '—' }}</td>
-                    <td class="text-center font-bold text-success-highlight">
+                    <td class="brand-name-cell">
+                      <span class="brand-badge-tag">{{ p.brand || '—' }}</span>
+                    </td>
+                    <td style="text-align: center" class="font-bold text-dark">
                       {{ (p.soldCount || 0).toLocaleString('vi-VN') }}
                     </td>
-                    <td class="text-center font-bold text-danger-highlight">
+                    <td style="text-align: center" class="text-red-return font-bold">
                       {{ (p.returnedCount || 0).toLocaleString('vi-VN') }}
                     </td>
-                    <td class="text-right font-bold text-revenue">
+                    <td style="text-align: right; white-space: nowrap" class="font-bold text-black-bold">
                       {{ formatCurrency(p.revenue) }}
                     </td>
-                    <td class="text-center">
-                      <span class="stock-badge" :class="Number(p.stock) < 10 ? 'stock-low' : 'stock-normal'">
-                        {{ (p.stock || 0).toLocaleString('vi-VN') }}
-                      </span>
+                    <td style="text-align: center" class="text-green-stock font-bold">
+                      {{ (p.stock || 0).toLocaleString('vi-VN') }}
                     </td>
                   </tr>
                 </tbody>
@@ -809,12 +811,12 @@
             </div>
 
             <!-- PHÂN TRANG SẢN PHẨM -->
-            <div v-if="filteredProductsList.length > 0" class="pagination-footer-bar">
-              <div class="pagination-count-text">
+            <div v-if="filteredProductsList.length > 0" class="product-table-footer">
+              <div class="footer-left-count">
                 Hiển thị <strong>{{ filteredProductsList.length ? ((productPagination.page * productPagination.size) + 1) : 0 }} - {{ Math.min((productPagination.page + 1) * productPagination.size, filteredProductsList.length) }}</strong> trong tổng số <strong>{{ filteredProductsList.length }}</strong> sản phẩm
               </div>
 
-              <div class="pagination-buttons-group">
+              <div class="footer-center-pagination">
                 <button
                   type="button"
                   class="pg-btn"
@@ -843,7 +845,7 @@
                 </button>
               </div>
 
-              <div class="pagination-size-select">
+              <div class="footer-right-size">
                 <div class="select-wrapper-minimal size-select">
                   <select v-model.number="productPagination.size" class="form-control-minimal" @change="productPagination.page = 0">
                     <option :value="5">Hiển thị 5 bản ghi / trang</option>
@@ -859,7 +861,7 @@
       </transition>
 
       <!-- 4. Biểu đồ Cột Sản phẩm bán được (Full Width - Tỷ lệ 1:1, font chuẩn sắc nét không bẹp) -->
-      <div class="content-card full-chart-card">
+      <div v-if="selectedKpiType === null" class="content-card full-chart-card">
         <div class="card-title-row">
           <div class="card-title-group">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="title-sub-icon">
@@ -1020,7 +1022,7 @@
       </div>
 
       <!-- 5. Hàng 2 Biểu đồ Donut: Thương hiệu (50%) & Trạng thái đơn hàng (50%) -->
-      <div class="two-donuts-grid">
+      <div v-if="selectedKpiType === null" class="two-donuts-grid">
         <!-- Donut 1: Thương hiệu -->
         <div class="content-card donut-card-item">
           <div class="card-title-row">
@@ -1145,7 +1147,7 @@
       </div>
 
       <!-- 6. Khu vực Bảng 'Thống kê sản phẩm' (Đồng bộ 100% với Bộ lọc trên) -->
-      <div class="content-card product-stats-card">
+      <div v-if="selectedKpiType === null" class="content-card product-stats-card">
         <div class="product-stats-toolbar">
           <div class="card-title-group">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="title-sub-icon">
@@ -1209,7 +1211,7 @@
                 <th style="width: 150px">THƯƠNG HIỆU</th>
                 <th style="width: 110px; text-align: center">ĐÃ BÁN</th>
                 <th style="width: 120px; text-align: center">SỐ LƯỢNG TRẢ</th>
-                <th style="width: 150px; text-align: right">DOANH THU</th>
+                <th style="width: 170px; text-align: right; white-space: nowrap">DOANH THU</th>
                 <th style="width: 120px; text-align: center">TỒN KHO</th>
               </tr>
             </thead>
@@ -1249,7 +1251,7 @@
                 <td style="text-align: center" class="text-red-return font-bold">
                   {{ p.returnedCount }}
                 </td>
-                <td style="text-align: right" class="font-bold text-black-bold">
+                <td style="text-align: right; white-space: nowrap" class="font-bold text-black-bold">
                   {{ formatCurrency(p.revenue) }}
                 </td>
                 <td style="text-align: center" class="text-green-stock font-bold">
@@ -2592,6 +2594,9 @@ function toggleKpiTable(type) {
     selectedKpiType.value = null
   } else {
     selectedKpiType.value = type
+    if (type !== 'payment') {
+      orderMethodFilter.value = ''
+    }
     orderPagination.page = 0
     productPagination.page = 0
     setTimeout(() => {
@@ -4969,13 +4974,20 @@ input.form-control-minimal.with-icon {
   width: 240px;
 }
 
-.product-name-with-thumb {
+.product-stats-toolbar.inline-toolbar {
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+}
+
+.product-name-with-thumb,
+.product-cell-flex {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.product-thumb-img {
+.product-thumb-img,
+.product-thumb-small {
   width: 44px;
   height: 44px;
   border-radius: 8px;
@@ -4985,20 +4997,23 @@ input.form-control-minimal.with-icon {
   flex-shrink: 0;
 }
 
-.product-info-text {
+.product-info-text,
+.product-info-wrap {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.product-title-bold {
+.product-title-bold,
+.product-name {
   font-size: 0.88rem;
   font-weight: 700;
   color: #1e293b;
   line-height: 1.35;
 }
 
-.product-size-hint {
+.product-size-hint,
+.product-sizes-text {
   font-size: 0.76rem;
   color: #8c979d;
   font-weight: 500;

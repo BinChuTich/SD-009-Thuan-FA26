@@ -302,14 +302,8 @@ public class GhnService {
             boolean isFreeRule = "MIEN_PHI".equalsIgnoreCase(matchedRule.getHinhThucTinhPhi());
             long ruleFee = isFreeRule ? 0L : (matchedRule.getPhiVanChuyen() != null ? matchedRule.getPhiVanChuyen() : 0L);
             String ruleDesc = isFreeRule
-                    ? String.format("Miễn phí vận chuyển theo tổng hóa đơn từ %,dđ đến %,dđ",
-                    matchedRule.getGiaTriTu() != null ? matchedRule.getGiaTriTu() : 0L,
-                    matchedRule.getGiaTriDen() != null ? matchedRule.getGiaTriDen() : 0L)
-                    : String.format("Theo cấu hình: Đơn %,dđ - %,dđ | %s - %s Km (Tính phí)",
-                    matchedRule.getGiaTriTu() != null ? matchedRule.getGiaTriTu() : 0L,
-                    matchedRule.getGiaTriDen() != null ? matchedRule.getGiaTriDen() : 0L,
-                    formatKm(matchedRule.getKhoangCachTu()),
-                    formatKm(matchedRule.getKhoangCachDen()));
+                    ? "Miễn phí vận chuyển"
+                    : (regionDescription != null && !regionDescription.isBlank() ? regionDescription : "Phí vận chuyển tiêu chuẩn");
 
             Map<String, Object> ruleResult = new LinkedHashMap<>();
             ruleResult.put("success", true);

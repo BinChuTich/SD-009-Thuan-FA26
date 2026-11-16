@@ -795,9 +795,10 @@ public class ExcelImportService {
     }
 
     private String getNextCtspCode(SanPham sp, MauSac ms, KichCo kc, Set<String> usedCtspCodes) {
+        long nextNum = chiTietSanPhamRepository.count() + usedCtspCodes.size() + 1;
         String candidate;
         do {
-            candidate = "CTSP" + System.currentTimeMillis() + "_" + (int)(Math.random() * 10000);
+            candidate = String.format("CTSP%02d", nextNum++);
         } while (usedCtspCodes.contains(candidate) || chiTietSanPhamRepository.existsByMaChiTietSanPham(candidate));
         usedCtspCodes.add(candidate);
         return candidate;

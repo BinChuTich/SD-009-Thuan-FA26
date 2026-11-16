@@ -540,8 +540,6 @@ export function calculateLocalRegionalFee(
   if (matchedRule) {
     const isFreeRule = String(matchedRule.hinhThucTinhPhi || '').toUpperCase() === 'MIEN_PHI'
     const ruleFee = isFreeRule ? 0 : Math.max(0, Number(matchedRule.phiVanChuyen) || 0)
-    const minVal = Number(matchedRule.giaTriTu || 0).toLocaleString('vi-VN')
-    const maxVal = Number(matchedRule.giaTriDen || 0).toLocaleString('vi-VN')
     return {
       fee: ruleFee,
       originalFee: ruleFee,
@@ -549,9 +547,7 @@ export function calculateLocalRegionalFee(
       source: 'SHIPPING_RULE',
       distanceKm: resolvedDistanceKm,
       matchedRuleId: matchedRule.id,
-      regionDescription: isFreeRule
-        ? `Miễn phí vận chuyển theo tổng hóa đơn từ ${minVal} đến ${maxVal} VND`
-        : `Cấu hình phí ship (${minVal} - ${maxVal} VND | ${matchedRule.khoangCachTu} - ${matchedRule.khoangCachDen} Km)`,
+      regionDescription: isFreeRule ? 'Miễn phí vận chuyển' : 'Phí vận chuyển tiêu chuẩn',
       leadTime: '1 - 3 ngày'
     }
   }

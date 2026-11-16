@@ -1943,7 +1943,7 @@ const openAddVariantModal = () => {
     saving: false,
     data: {
       id: null,
-      maChiTietSanPham: `CTSP${String(nextIdx).padStart(3, '0')}`,
+      maChiTietSanPham: `CTSP${String(nextIdx).padStart(2, '0')}`,
       idMauSac: attributes.value.mauSac?.[0]?.id || '',
       idKichCo: attributes.value.kichCo?.[0]?.id || '',
       soLuong: 0,
@@ -2558,10 +2558,14 @@ const loadProductDetails = async (id) => {
         variantsList.value = varRes.data.map(item => {
           const colorObj = attributes.value.mauSac?.find(c => c.id === item.idMauSac)
           const sizeObj = attributes.value.kichCo?.find(s => s.id === item.idKichCo)
+          const rawCode = String(item.maChiTietSanPham || '').trim()
+          const cleanCode = (!rawCode || /^CTSP\d{8,}(_\d+)?$/i.test(rawCode))
+            ? `CTSP${String(item.id || 1).padStart(2, '0')}`
+            : rawCode
           return {
             key: `${item.idMauSac}_${item.idKichCo}`,
             id: item.id,
-            maChiTietSanPham: item.maChiTietSanPham || '',
+            maChiTietSanPham: cleanCode,
             idMauSac: item.idMauSac,
             tenMauSac: item.tenMauSac || colorObj?.tenMauSac || '',
             maHex: item.maHex || colorObj?.maHex || '',

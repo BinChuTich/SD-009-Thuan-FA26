@@ -935,7 +935,13 @@ const openProductDetail = async (item) => {
       detailModal.value.product = prodRes.data
     }
     if (varRes && varRes.data) {
-      detailModal.value.variants = varRes.data || []
+      detailModal.value.variants = (varRes.data || []).map(v => {
+        const rawCode = String(v.maChiTietSanPham || '').trim()
+        const cleanCode = (!rawCode || /^CTSP\d{8,}(_\d+)?$/i.test(rawCode))
+          ? `CTSP${String(v.id || 1).padStart(2, '0')}`
+          : rawCode
+        return { ...v, maChiTietSanPham: cleanCode }
+      })
     }
   } catch (err) {
     console.error('Lỗi tải chi tiết sản phẩm:', err)

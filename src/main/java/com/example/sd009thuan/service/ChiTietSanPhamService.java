@@ -179,8 +179,10 @@ public class ChiTietSanPhamService {
             return convertToResponse(saved);
         }
 
-        if (req.getMaChiTietSanPham() == null || req.getMaChiTietSanPham().trim().isEmpty()) {
-            req.setMaChiTietSanPham("CTSP" + System.currentTimeMillis() + "_" + (int)(Math.random() * 1000));
+        if (req.getMaChiTietSanPham() == null
+                || req.getMaChiTietSanPham().trim().isEmpty()
+                || req.getMaChiTietSanPham().trim().matches("(?i)^CTSP\\d{8,}(_\\d+)?$")) {
+            req.setMaChiTietSanPham(generateNextCtspCode());
         } else if (chiTietSanPhamRepository.existsByMaChiTietSanPham(req.getMaChiTietSanPham().trim())) {
             throw new IllegalArgumentException("Mã chi tiết sản phẩm đã tồn tại: " + req.getMaChiTietSanPham());
         }
@@ -387,6 +389,40 @@ public class ChiTietSanPhamService {
         return list;
     }
 
+    public static String formatCompactCtspCode(String rawCode, Long id) {
+        if (rawCode != null && !rawCode.trim().isEmpty()) {
+            String trimmed = rawCode.trim();
+            if (!trimmed.matches("(?i)^CTSP\\d{8,}(_\\d+)?$")) {
+                return trimmed;
+            }
+        }
+        long num = (id != null && id > 0) ? id : 1L;
+        return String.format("CTSP%02d", num);
+    }
+
+    private String generateNextCtspCode() {
+        long nextNum = chiTietSanPhamRepository.count() + 1;
+        for (ChiTietSanPham item : chiTietSanPhamRepository.findAll()) {
+            if (item.getId() != null && item.getId() >= nextNum) {
+                nextNum = item.getId() + 1;
+            }
+            String code = item.getMaChiTietSanPham();
+            if (code != null && code.matches("(?i)^CTSP\\d{1,7}$")) {
+                try {
+                    long parsed = Long.parseLong(code.substring(4));
+                    if (parsed >= nextNum) {
+                        nextNum = parsed + 1;
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        String candidate;
+        do {
+            candidate = String.format("CTSP%02d", nextNum++);
+        } while (chiTietSanPhamRepository.existsByMaChiTietSanPham(candidate));
+        return candidate;
+    }
+
     private ChiTietSanPhamResponse convertToResponse(ChiTietSanPham ct) {
         String anhDaiDien = null;
         if (ct.getIdSanPham() != null) {
@@ -500,7 +536,7 @@ public class ChiTietSanPhamService {
                 .idMauSac(ct.getIdMauSac() != null ? ct.getIdMauSac().getId() : null)
                 .tenMauSac(ct.getIdMauSac() != null ? ct.getIdMauSac().getTenMauSac() : null)
                 .maHex(ct.getIdMauSac() != null ? ct.getIdMauSac().getMaHex() : null)
-                .maChiTietSanPham(ct.getMaChiTietSanPham())
+                .maChiTietSanPham(formatCompactCtspCode(ct.getMaChiTietSanPham(), ct.getId()))
                 .soLuong(ct.getSoLuong())
                 .giaBan(ct.getGiaBan())
                 .trangThai(ct.getTrangThai())

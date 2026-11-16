@@ -280,7 +280,7 @@ const createEmptyInvoice = (id, code) => ({
 
 
 
-  paymentMethod: 'TIEN_MAT', 
+  paymentMethod: 'TIEN_MAT',
 
 
 
@@ -1820,11 +1820,16 @@ const fetchProductVariants = async (silent = false) => {
         ? modifiedSnapshots[item.id]
         : null
 
+      const rawVCode = String(item.maChiTietSanPham || item.code || '').trim()
+      const cleanVCode = (!rawVCode || /^CTSP\d{8,}(_\d+)?$/i.test(rawVCode))
+        ? `CTSP${String(item.id || 1).padStart(2, '0')}`
+        : rawVCode
+
       return {
         id: item.id,
         sanPhamId: item.idSanPham?.id || item.idSanPham || item.id,
         code: item.maSanPham || item.idSanPham?.maSanPham || item.code || '',
-        variantCode: item.maChiTietSanPham || item.code || '',
+        variantCode: cleanVCode,
         name: item.idSanPham?.tenSanPham || item.tenSanPham || 'Áo Phông Cao Cấp',
         color: item.idMauSac?.tenMau || item.idMauSac?.tenMauSac || item.tenMauSac || 'Mặc định',
         colorHex: item.idMauSac?.maHex || item.maHex || '',
@@ -12710,14 +12715,6 @@ onMounted(async () => {
 
                 />
 
-                <div
-                  v-if="currentInvoice.shippingDesc && !currentInvoice.isManualShippingFee"
-                  class="shipping-policy-note"
-                  :class="{ freeship: currentInvoice.shippingFreeshipApplied }"
-                >
-                  {{ currentInvoice.shippingDesc }}
-                </div>
-
               </div>
 
 
@@ -12738,7 +12735,7 @@ onMounted(async () => {
 
 
 
-                
+
 
 
 
@@ -13086,7 +13083,7 @@ onMounted(async () => {
 
 
 
-              
+
 
 
 
@@ -13110,7 +13107,7 @@ onMounted(async () => {
 
 
 
-                
+
 
 
 
@@ -13206,7 +13203,7 @@ onMounted(async () => {
 
 
 
-              
+
 
 
 
@@ -13238,7 +13235,7 @@ onMounted(async () => {
 
 
 
-                
+
 
 
 
@@ -14898,7 +14895,7 @@ onMounted(async () => {
 
 
 
-    
+
 
 
 
@@ -15997,7 +15994,7 @@ onMounted(async () => {
 
         <div class="dcm-viewport-wrapper">
           <div id="direct-pos-camera-view" class="dcm-camera-box"></div>
-          
+
           <div class="dcm-aim-overlay">
             <div class="dcm-corner tl"></div>
             <div class="dcm-corner tr"></div>
@@ -16026,7 +16023,7 @@ onMounted(async () => {
     <div v-if="showMobileScannerModal" class="pos-modal-backdrop" @click.self="closeMobileScannerDialog">
       <div class="mobile-scanner-modal-card">
         <button type="button" class="btn-modal-close" @click="closeMobileScannerDialog" title="Đóng">✕</button>
-        
+
         <div class="msm-header">
           <div class="msm-icon">📱</div>
           <div>
@@ -30523,18 +30520,6 @@ onMounted(async () => {
   color: #b45309;
   border-color: #fcd34d;
   background: #fffbeb;
-}
-
-.shipping-policy-note {
-  margin-top: 4px;
-  font-size: 0.76rem;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.shipping-policy-note.freeship {
-  color: #059669;
-  font-weight: 700;
 }
 
 
