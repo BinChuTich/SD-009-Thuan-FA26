@@ -34,6 +34,9 @@ const remainingCountdownSec = ref(120)
 const staffIsTyping = ref(false)
 let clientTypingTimeout = null
 let lastClientTypingPing = 0
+const INACTIVITY_TIMEOUT_SEC = 60
+const FIRST_WARNING_SEC = 30
+const COUNTDOWN_START_SEC = 50
 
 const onClientInput = async () => {
   updateActivity()
@@ -70,7 +73,7 @@ const startCountdown = () => {
   if (countdownInterval) clearInterval(countdownInterval)
   countdownInterval = setInterval(() => {
     const elapsedSec = Math.floor((Date.now() - lastUserActivityTime.value) / 1000)
-    const left = Math.max(0, 15 * 60 - elapsedSec)
+    const left = Math.max(0, INACTIVITY_TIMEOUT_SEC - elapsedSec)
     remainingCountdownSec.value = left
 
     if (left <= 0) {
@@ -93,7 +96,7 @@ const updateActivity = () => {
   warned10Min.value = false
   warned2Min.value = false
   showCountdownBanner.value = false
-  remainingCountdownSec.value = 120
+  remainingCountdownSec.value = 10
   if (countdownInterval) {
     clearInterval(countdownInterval)
     countdownInterval = null
@@ -116,18 +119,13 @@ const handleAutoCloseDueToInactivity = async () => {
   messages.value.push({
     id: 'sys-close-' + Date.now(),
     sender: 'system',
-    text: 'Vì bạn không phản hồi, phiên chat này đã được tự động đóng. Nếu cần hỗ trợ thêm, xin vui lòng bắt đầu một cuộc hội thoại mới. Xin cảm ơn.',
-    isSystem: true
+    text: 'Do không nhận được phản hồi từ bạn trong 1 phút, phiên tư vấn đã được tự động đóng. Khi cần hỗ trợ, bạn có thể bắt đầu một phiên chat mới bất cứ lúc nào. FF T-Shirt luôn sẵn sàng hỗ trợ bạn! 💙',
+    isSystem: true,
+    isAutoClosed: true
   })
   scrollToBottom()
 
-  if (conversationId.value) {
-    try {
-      await api.put(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/trang-thai`, { trangThai: 0 })
-    } catch (e) {
-      console.warn('Lỗi đồng bộ đóng phiên tới server:', e)
-    }
-  }
+  // Backend cũng kiểm tra mốc 1 phút và lưu thông báo đóng phiên vào lịch sử.
 }
 
 const ratingScore = ref(5)
@@ -388,20 +386,28 @@ const cleanMsgContent = (txt) => {
   return txt.replace(/^Nhân viên\s+/i, '')
 }
 
+// Chỉ nhận diện câu xác nhận đã đóng; không được nhầm "sắp kết thúc" là đã đóng.
+const isConversationCloseContent = (text) => {
+  if (!text) return false
+  const normalized = String(text).toLowerCase()
+  return normalized.includes('đã kết thúc') || normalized.includes('đã được tự động đóng')
+}
+
 // Nạp lịch sử tin nhắn từ Backend
 const loadMessages = async () => {
   if (!conversationId.value) return
   try {
     const res = await api.get(`/api/chat/cuoc-hoi-thoai/${conversationId.value}/tin-nhan`)
     if (Array.isArray(res.data) && res.data.length > 0) {
-      const isClosed = res.data.some(m => m.noiDung && (m.noiDung.includes('kết thúc') || m.noiDung.includes('tự động đóng')))
+      const isClosed = res.data.some(m => isConversationCloseContent(m.noiDung))
 
       const dbMsgs = res.data.map(m => {
         const isRating = m.nguoiGui === 'DANH_GIA' || !!m.danhGia
         const isStaff = m.nguoiGui === 'NHAN_VIEN' || m.nguoiGui === 'ADMIN'
         const isBot = m.nguoiGui === 'BOT' || m.nguoiGui === 'AI'
-        const isClose = m.noiDung && (m.noiDung.includes('kết thúc') || m.noiDung.includes('tự động đóng'))
-        const isWarning = m.noiDung && m.noiDung.includes('Bạn vẫn còn ở đó chứ')
+        const isClose = isConversationCloseContent(m.noiDung)
+        const isAutoClosed = isClose && m.noiDung.includes('không nhận được phản hồi')
+        const isWarning = m.noiDung && (m.noiDung.includes('Bạn vẫn còn ở đó chứ') || m.noiDung.includes('10 giây nữa để tiếp tục trò chuyện'))
         const isSystem = m.nguoiGui === 'HE_THONG' || isClose || isWarning || (m.noiDung && (m.noiDung.includes('tiếp nhận') || m.noiDung.includes('Yêu cầu hỗ trợ trực tiếp')))
 
         if (isRating) {
@@ -422,6 +428,7 @@ const loadMessages = async () => {
           time: formatMsgTime(m.ngayTao),
           isSystem,
           isWarning,
+          isAutoClosed,
           ratingData: m.danhGia || null
         }
       })
@@ -473,7 +480,9 @@ const pollNewMessages = async () => {
         const convRes = await api.get(`/api/chat/cuoc-hoi-thoai/${conversationId.value}`)
         if (convRes.data) {
           if (convRes.data.trangThai !== undefined && convRes.data.trangThai !== null) {
-            conversationStatus.value = convRes.data.trangThai
+            const nextStatus = convRes.data.trangThai
+            if (nextStatus === 1 && conversationStatus.value !== 1) updateActivity()
+            conversationStatus.value = nextStatus
             if (convRes.data.tenNhanVien) {
               assignedStaffName.value = convRes.data.tenNhanVien
             }
@@ -510,8 +519,9 @@ const pollNewMessages = async () => {
           const isRating = m.nguoiGui === 'DANH_GIA' || !!m.danhGia
           const isStaff = m.nguoiGui === 'NHAN_VIEN' || m.nguoiGui === 'ADMIN'
           const isBot = m.nguoiGui === 'BOT' || m.nguoiGui === 'AI'
-          const isClose = m.noiDung && (m.noiDung.includes('kết thúc') || m.noiDung.includes('tự động đóng'))
-          const isWarning = m.noiDung && m.noiDung.includes('Bạn vẫn còn ở đó chứ')
+          const isClose = isConversationCloseContent(m.noiDung)
+          const isAutoClosed = isClose && m.noiDung.includes('không nhận được phản hồi')
+          const isWarning = m.noiDung && (m.noiDung.includes('Bạn vẫn còn ở đó chứ') || m.noiDung.includes('10 giây nữa để tiếp tục trò chuyện'))
           const isSystem = m.nguoiGui === 'HE_THONG' || isClose || isWarning || (m.noiDung && (m.noiDung.includes('tiếp nhận') || m.noiDung.includes('Yêu cầu hỗ trợ trực tiếp')))
 
           if (isRating) {
@@ -531,18 +541,19 @@ const pollNewMessages = async () => {
           if (isWarning) {
             // Khi khách đã phản hồi gần đây (< 5 phút), không thêm các thông báo nhắc nhở cũ
             const elapsedSec = Math.floor((Date.now() - lastUserActivityTime.value) / 1000)
-            if (elapsedSec < 5 * 60) {
+            if (elapsedSec < FIRST_WARNING_SEC) {
               return
             }
-            if (!warned2Min.value && conversationStatus.value !== 0 && m.noiDung && m.noiDung.includes('2 phút nữa')) {
+            if (!warned2Min.value && conversationStatus.value !== 0 && m.noiDung && m.noiDung.includes('10 giây nữa')) {
               warned2Min.value = true
               showCountdownBanner.value = true
-              remainingCountdownSec.value = 120
+              remainingCountdownSec.value = 10
               startCountdown()
             }
           }
 
           if (isClose) {
+            messages.value = messages.value.filter(existing => !existing.isAutoClosed)
             conversationStatus.value = 0
             assignedStaffName.value = null
             showCountdownBanner.value = false
@@ -562,6 +573,7 @@ const pollNewMessages = async () => {
             time: formatMsgTime(m.ngayTao),
             isSystem,
             isWarning,
+            isAutoClosed,
             ratingData: m.danhGia || null
           })
         }
@@ -1256,15 +1268,15 @@ onMounted(() => {
     if (!isOpen.value || conversationStatus.value !== 1) return
     const elapsedSec = Math.floor((Date.now() - lastUserActivityTime.value) / 1000)
 
-    // 1. Cảnh báo sau 5 phút không phản hồi (còn 10 phút)
-    if (elapsedSec >= 5 * 60 && !warned5Min.value) {
+    // 1. Sau 30 giây: nhắc khách phản hồi
+    if (elapsedSec >= FIRST_WARNING_SEC && !warned5Min.value) {
       warned5Min.value = true
-      const exists = messages.value.some(m => m.text && m.text.includes('10 phút nữa'))
+      const exists = messages.value.some(m => m.text && m.text.includes('30 giây nữa'))
       if (!exists) {
         messages.value.push({
           id: 'sys-warn-5-' + Date.now(),
           sender: 'system',
-          text: 'Bạn vẫn còn ở đó chứ? Phiên chat sẽ tự động đóng sau 10 phút nữa nếu bạn không phản hồi.',
+          text: 'Bạn vẫn còn ở đó chứ? Phiên tư vấn sẽ tự động đóng sau 30 giây nữa nếu bạn chưa phản hồi.',
           isSystem: true,
           isWarning: true
         })
@@ -1272,35 +1284,19 @@ onMounted(() => {
       }
     }
 
-    // 2. Cảnh báo sau 10 phút không phản hồi (còn 5 phút)
-    if (elapsedSec >= 10 * 60 && !warned10Min.value) {
-      warned10Min.value = true
-      const exists = messages.value.some(m => m.text && m.text.includes('5 phút nữa'))
-      if (!exists) {
-        messages.value.push({
-          id: 'sys-warn-10-' + Date.now(),
-          sender: 'system',
-          text: 'Bạn vẫn còn ở đó chứ? Phiên chat sẽ tự động đóng sau 5 phút nữa nếu bạn không phản hồi.',
-          isSystem: true,
-          isWarning: true
-        })
-        scrollToBottom()
-      }
-    }
-
-    // 3. Cảnh báo trước 2 phút (sau 13 phút = 780s không phản hồi)
-    if (elapsedSec >= 13 * 60 && !warned2Min.value) {
+    // 2. Sau 50 giây: hiện đếm ngược 10 giây
+    if (elapsedSec >= COUNTDOWN_START_SEC && !warned2Min.value) {
       warned2Min.value = true
       showCountdownBanner.value = true
-      remainingCountdownSec.value = Math.max(0, 15 * 60 - elapsedSec)
+      remainingCountdownSec.value = Math.max(0, INACTIVITY_TIMEOUT_SEC - elapsedSec)
       startCountdown()
 
-      const exists = messages.value.some(m => m.text && m.text.includes('2 phút nữa'))
+      const exists = messages.value.some(m => m.text && m.text.includes('10 giây nữa'))
       if (!exists) {
         messages.value.push({
           id: 'sys-warn-2-' + Date.now(),
           sender: 'system',
-          text: 'Bạn vẫn còn ở đó chứ? Nếu bạn không phản hồi trong 2 phút nữa, phiên chat này sẽ tự động đóng.',
+          text: 'Phiên tư vấn sắp kết thúc. Bạn vui lòng gửi tin nhắn trong 10 giây nữa để tiếp tục trò chuyện nhé.',
           isSystem: true,
           isWarning: true
         })
@@ -1308,8 +1304,8 @@ onMounted(() => {
       }
     }
 
-    // 4. Tự động đóng phiên sau 15 phút (900s) không phản hồi
-    if (elapsedSec >= 15 * 60) {
+    // 3. Tự động đóng phiên sau 1 phút không phản hồi
+    if (elapsedSec >= INACTIVITY_TIMEOUT_SEC) {
       handleAutoCloseDueToInactivity()
     }
   }, 2000)
@@ -1395,7 +1391,7 @@ watch(() => currentClientUser.value, async (newVal, oldVal) => {
         </div>
       </div>
 
-      <!-- Thanh đếm ngược cảnh báo 2 phút sắp tự động đóng phiên -->
+      <!-- Thanh đếm ngược 10 giây sắp tự động đóng phiên -->
       <transition name="slide-down">
         <div
             v-if="showCountdownBanner && conversationStatus !== 0"
@@ -1432,7 +1428,10 @@ watch(() => currentClientUser.value, async (newVal, oldVal) => {
           <div
               v-if="msg.isSystem"
               class="system-event-bubble"
-              :class="{ 'warning-timeout-bubble': msg.isWarning || (msg.text && msg.text.includes('Bạn vẫn còn ở đó chứ')) }"
+              :class="{
+                'warning-timeout-bubble': msg.isWarning || (msg.text && msg.text.includes('Bạn vẫn còn ở đó chứ')),
+                'auto-closed-bubble': msg.isAutoClosed
+              }"
           >
             {{ msg.text }}
           </div>
@@ -2456,7 +2455,7 @@ watch(() => currentClientUser.value, async (newVal, oldVal) => {
   40% { transform: translateY(-5px); }
 }
 
-/* Thanh đếm ngược cảnh báo 2 phút sắp tự động đóng */
+/* Thanh đếm ngược 10 giây sắp tự động đóng */
 .countdown-warning-banner {
   display: flex;
   align-items: center;
@@ -2564,7 +2563,7 @@ watch(() => currentClientUser.value, async (newVal, oldVal) => {
   text-overflow: ellipsis;
 }
 
-/* Cảnh báo timeout 2 phút */
+/* Cảnh báo khách chưa phản hồi */
 .warning-timeout-bubble {
   background: #fbf7ee !important;
   color: #496883 !important;
@@ -2572,6 +2571,36 @@ watch(() => currentClientUser.value, async (newVal, oldVal) => {
   font-weight: 600 !important;
   box-shadow: 0 2px 8px rgba(73, 104, 131, 0.12);
   animation: pulseWarning 2s infinite ease-in-out;
+}
+
+.auto-closed-bubble {
+  position: relative;
+  background: linear-gradient(135deg, #eef6ff 0%, #f5f9ff 100%) !important;
+  color: #274c6b !important;
+  border: 1px solid #b9d3ea !important;
+  border-left: 4px solid #496883 !important;
+  border-radius: 12px !important;
+  padding: 12px 14px 12px 38px !important;
+  text-align: left !important;
+  font-weight: 600 !important;
+  line-height: 1.55 !important;
+  box-shadow: 0 4px 14px rgba(73, 104, 131, 0.13) !important;
+}
+
+.auto-closed-bubble::before {
+  content: '✓';
+  position: absolute;
+  left: 13px;
+  top: 12px;
+  width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #496883;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
 }
 
 @keyframes pulseWarning {

@@ -238,7 +238,7 @@ public class AiShoppingAssistantService {
                 ? "Dáng của bạn khá cao và mảnh nên size này ưu tiên đủ chiều dài áo. "
                 : "Size này cân đối giữa chiều dài áo và độ rộng thân. ";
         String availability = products.isEmpty()
-                ? "Hiện shop chưa có biến thể size " + suggestedSize + " còn hàng; bạn có thể nhờ nhân viên kiểm tra thêm."
+                ? "Hiện shop chưa có sản phẩm size " + suggestedSize + " còn hàng; bạn có thể nhờ nhân viên kiểm tra thêm."
                 : "Mình đã lọc các mẫu size " + suggestedSize + " đang còn hàng bên dưới.";
         String reply = "Với " + advice.heightCm() + "cm và " + advice.weightKg() + "kg, mình gợi ý size " + suggestedSize + ". "
                 + fitNote + "Nếu thích mặc oversize, bạn có thể tăng thêm 1 size. " + availability;

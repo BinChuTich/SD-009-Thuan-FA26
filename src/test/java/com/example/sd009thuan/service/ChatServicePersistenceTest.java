@@ -12,6 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -99,6 +100,23 @@ class ChatServicePersistenceTest {
 
         assertEquals(4, service.layDanhGia(firstId).getDiemDanhGia());
         assertEquals(5, service.layDanhGia(secondId).getDiemDanhGia());
+    }
+
+    @Test
+    void automaticallyClosesAfterOneMinuteWithoutCustomerResponse() {
+        ChatServiceImpl service = createService(new ObjectMapper().findAndRegisterModules());
+        KhoiTaoChatRequest init = new KhoiTaoChatRequest();
+        init.setKhachHangId(30L);
+        init.setTenKhachHang("Khách không phản hồi");
+        var conversation = service.khoiTaoHoacLayCuocHoiThoai(init);
+        service.tiepNhanCuocHoiThoai(conversation.getId(), null, "Nhân viên test");
+        conversation.setThoiGianKhachPhanHoiCuoi(LocalDateTime.now().minusSeconds(61));
+
+        service.kiemTraTuDongDongPhienKhongPhanHoi();
+
+        assertEquals(0, service.layChiTietCuocHoiThoai(conversation.getId()).getTrangThai());
+        assertTrue(service.layDanhSachTinNhan(conversation.getId(), null).stream()
+                .anyMatch(m -> m.getNoiDung().contains("không nhận được phản hồi từ bạn trong 1 phút")));
     }
 
     private ChatServiceImpl createService(ObjectMapper mapper) {

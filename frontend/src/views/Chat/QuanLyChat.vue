@@ -22,7 +22,7 @@ const displayMessages = computed(() => {
     if (m.nguoiGui === 'AI' || m.nguoiGui === 'BOT') return false
     if (m.noiDung && m.noiDung.includes('Xin chào quý khách! Cảm ơn bạn đã ghé thăm FF T-Shirt')) return false
     // Theo yêu cầu: Các thông báo nhắc nhở đếm ngược/hết thời gian chỉ báo với khách hàng thôi, không hiển thị trên màn hình nhân viên
-    if (m.nguoiGui === 'HE_THONG' && m.noiDung && m.noiDung.includes('Bạn vẫn còn ở đó chứ')) return false
+    if (m.nguoiGui === 'HE_THONG' && m.noiDung && (m.noiDung.includes('Bạn vẫn còn ở đó chứ') || m.noiDung.includes('10 giây nữa để tiếp tục trò chuyện'))) return false
     return true
   })
 })

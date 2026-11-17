@@ -323,7 +323,7 @@ public class ChatServiceImpl implements ChatService {
             // Khi khách phản hồi: tự động xóa các thông báo nhắc nhở timeout cũ
             List<TinNhanDTO> list = messagesByConv.get(conv.getId());
             if (list != null) {
-                list.removeIf(m -> "HE_THONG".equals(m.getNguoiGui()) && m.getNoiDung() != null && m.getNoiDung().contains("Bạn vẫn còn ở đó chứ"));
+                list.removeIf(this::isInactivityWarning);
             }
 
             if (conv.getTrangThai() == null || (conv.getTrangThai() != 1 && conv.getNhanVienId() == null)) {
@@ -531,7 +531,7 @@ public class ChatServiceImpl implements ChatService {
         // Xóa thông báo nhắc nhở cũ nếu có
         List<TinNhanDTO> existingMsgs = messagesByConv.get(id);
         if (existingMsgs != null) {
-            existingMsgs.removeIf(m -> "HE_THONG".equals(m.getNguoiGui()) && m.getNoiDung() != null && m.getNoiDung().contains("Bạn vẫn còn ở đó chứ"));
+            existingMsgs.removeIf(this::isInactivityWarning);
         }
 
         TinNhanDTO acceptMsg = TinNhanDTO.builder()
@@ -752,13 +752,7 @@ public class ChatServiceImpl implements ChatService {
                 .toLowerCase(Locale.ROOT).trim();
     }
 
-    /**
-     * TỰ ĐỘNG ĐÓNG PHIÊN VÀ CẢNH BÁO KHI KHÁCH HÀNG KHÔNG PHẢN HỒI:
-     * - Sau 13 phút (780 giây) không phản hồi: Hiện cảnh báo:
-     *   "Bạn vẫn còn ở đó chứ? Nếu bạn không phản hồi trong 2 phút nữa, phiên chat này sẽ tự động đóng."
-     * - Sau 15 phút (900 giây) không phản hồi: Tự động đóng phiên và hiện thông báo:
-     *   "Vì bạn không phản hồi, phiên chat này đã được tự động đóng. Nếu cần hỗ trợ thêm, xin vui lòng bắt đầu một cuộc hội thoại mới. Xin cảm ơn."
-     */
+    /** Tự động nhắc sau 30 giây, đếm ngược từ giây 50 và đóng sau 1 phút khách không phản hồi. */
     @Scheduled(fixedDelay = 5000)
     public void kiemTraTuDongDongPhienKhongPhanHoi() {
         LocalDateTime now = LocalDateTime.now();
@@ -775,15 +769,15 @@ public class ChatServiceImpl implements ChatService {
 
                 long secondsInactive = Duration.between(lastActive, now).getSeconds();
 
-                // 1. Sau 5 phút (300s) không phản hồi: Báo còn 10 phút
-                if (secondsInactive >= 5 * 60 && !Boolean.TRUE.equals(conv.getDaGuiCanhBao5Phut())) {
+                // 1. Sau 30 giây: nhắc khách phản hồi
+                if (secondsInactive >= 30 && !Boolean.TRUE.equals(conv.getDaGuiCanhBao5Phut())) {
                     conv.setDaGuiCanhBao5Phut(true);
 
                     TinNhanDTO warnMsg = TinNhanDTO.builder()
                             .id(msgIdSeq.getAndIncrement())
                             .cuocHoiThoaiId(conv.getId())
                             .nguoiGui("HE_THONG")
-                            .noiDung("Bạn vẫn còn ở đó chứ? Phiên chat sẽ tự động đóng sau 10 phút nữa nếu bạn không phản hồi.")
+                            .noiDung("Bạn vẫn còn ở đó chứ? Phiên tư vấn sẽ tự động đóng sau 30 giây nữa nếu bạn chưa phản hồi.")
                             .daDoc(false)
                             .ngayTao(now)
                             .build();
@@ -794,34 +788,15 @@ public class ChatServiceImpl implements ChatService {
                     changed = true;
                 }
 
-                // 2. Sau 10 phút (600s) không phản hồi: Báo còn 5 phút
-                if (secondsInactive >= 10 * 60 && !Boolean.TRUE.equals(conv.getDaGuiCanhBao10Phut())) {
-                    conv.setDaGuiCanhBao10Phut(true);
-
-                    TinNhanDTO warnMsg = TinNhanDTO.builder()
-                            .id(msgIdSeq.getAndIncrement())
-                            .cuocHoiThoaiId(conv.getId())
-                            .nguoiGui("HE_THONG")
-                            .noiDung("Bạn vẫn còn ở đó chứ? Phiên chat sẽ tự động đóng sau 5 phút nữa nếu bạn không phản hồi.")
-                            .daDoc(false)
-                            .ngayTao(now)
-                            .build();
-
-                    messagesByConv.computeIfAbsent(conv.getId(), k -> new CopyOnWriteArrayList<>()).add(warnMsg);
-                    conv.setTinNhanCuoi(warnMsg.getNoiDung());
-                    conv.setThoiGianTinNhanCuoi(warnMsg.getNgayTao());
-                    changed = true;
-                }
-
-                // 3. Sau 13 phút (780s - còn khoảng 2 phút): Cảnh báo 2 phút
-                if (secondsInactive >= 13 * 60 && !Boolean.TRUE.equals(conv.getDaGuiCanhBao2Phut())) {
+                // 2. Sau 50 giây: cảnh báo 10 giây cuối
+                if (secondsInactive >= 50 && !Boolean.TRUE.equals(conv.getDaGuiCanhBao2Phut())) {
                     conv.setDaGuiCanhBao2Phut(true);
 
                     TinNhanDTO warnMsg = TinNhanDTO.builder()
                             .id(msgIdSeq.getAndIncrement())
                             .cuocHoiThoaiId(conv.getId())
                             .nguoiGui("HE_THONG")
-                            .noiDung("Bạn vẫn còn ở đó chứ? Nếu bạn không phản hồi trong 2 phút nữa, phiên chat này sẽ tự động đóng.")
+                            .noiDung("Phiên tư vấn sắp kết thúc. Bạn vui lòng gửi tin nhắn trong 10 giây nữa để tiếp tục trò chuyện nhé.")
                             .daDoc(false)
                             .ngayTao(now)
                             .build();
@@ -832,8 +807,8 @@ public class ChatServiceImpl implements ChatService {
                     changed = true;
                 }
 
-                // 4. Tự động đóng phiên sau 15 phút (900s) không phản hồi
-                if (secondsInactive >= 15 * 60) {
+                // 3. Tự động đóng phiên sau 1 phút không phản hồi
+                if (secondsInactive >= 60) {
                     conv.setTrangThai(0); // 0 = Đã đóng
                     conv.setNgayCapNhat(now);
 
@@ -841,7 +816,7 @@ public class ChatServiceImpl implements ChatService {
                             .id(msgIdSeq.getAndIncrement())
                             .cuocHoiThoaiId(conv.getId())
                             .nguoiGui("HE_THONG")
-                            .noiDung("Vì bạn không phản hồi, phiên chat này đã được tự động đóng. Nếu cần hỗ trợ thêm, xin vui lòng bắt đầu một cuộc hội thoại mới. Xin cảm ơn.")
+                            .noiDung("Do không nhận được phản hồi từ bạn trong 1 phút, phiên tư vấn đã được tự động đóng. Khi cần hỗ trợ, bạn có thể bắt đầu một phiên chat mới bất cứ lúc nào. FF T-Shirt luôn sẵn sàng hỗ trợ bạn! 💙")
                             .daDoc(true)
                             .ngayTao(now)
                             .build();
@@ -898,7 +873,7 @@ public class ChatServiceImpl implements ChatService {
                     // Khi khách bắt đầu soạn tin phản hồi: tự động xóa các thông báo nhắc nhở timeout cũ
                     List<TinNhanDTO> list = messagesByConv.get(cuocHoiThoaiId);
                     if (list != null) {
-                        list.removeIf(m -> "HE_THONG".equals(m.getNguoiGui()) && m.getNoiDung() != null && m.getNoiDung().contains("Bạn vẫn còn ở đó chứ"));
+                        list.removeIf(this::isInactivityWarning);
                     }
                     markHistoryDirty();
                 }
@@ -912,5 +887,11 @@ public class ChatServiceImpl implements ChatService {
                 nhanVienTypingTimes.remove(cuocHoiThoaiId);
             }
         }
+    }
+
+    private boolean isInactivityWarning(TinNhanDTO message) {
+        if (message == null || !"HE_THONG".equals(message.getNguoiGui()) || message.getNoiDung() == null) return false;
+        return message.getNoiDung().contains("Bạn vẫn còn ở đó chứ")
+                || message.getNoiDung().contains("10 giây nữa để tiếp tục trò chuyện");
     }
 }
