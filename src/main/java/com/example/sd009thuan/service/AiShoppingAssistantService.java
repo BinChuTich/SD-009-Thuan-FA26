@@ -157,17 +157,36 @@ public class AiShoppingAssistantService {
     }
 
     private SizeAdvice detectSizeAdvice(String message, List<AiChatTurn> history) {
-        StringBuilder conversation = new StringBuilder();
+        String normalizedMessage = normalize(message);
+        StringBuilder conversationContext = new StringBuilder();
         if (history != null) {
             history.stream().skip(Math.max(0, history.size() - 6L))
                     .filter(turn -> turn != null && "user".equals(turn.getRole()) && turn.getContent() != null)
-                    .forEach(turn -> conversation.append(turn.getContent()).append(' '));
+                    .forEach(turn -> conversationContext.append(turn.getContent()).append(' '));
         }
-        conversation.append(message);
-        String normalized = normalize(conversation.toString());
-        Integer weight = firstNumber(WEIGHT_PATTERN.matcher(normalized));
-        Integer height = extractHeight(normalized);
-        boolean explicitRequest = normalized.matches(".*(goi y size|tu van size|chon size|mac size gi|nen mac size|bang size|vua size nao).*" );
+        String normalizedContext = normalize(conversationContext + " " + message);
+        boolean explicitRequest = normalizedContext.matches(".*(goi y size|tu van(?:\\s+chon)? size|chon size|mac size gi|nen mac size|bang size|vua size nao).*" );
+
+        // Tin mới nhất luôn có độ ưu tiên cao nhất. Lịch sử chỉ bổ sung trường còn thiếu.
+        Integer weight = firstNumber(WEIGHT_PATTERN.matcher(normalizedMessage));
+        Integer height = extractHeight(normalizedMessage);
+        if (weight == null && (explicitRequest || height != null)) {
+            weight = inferBareWeight(normalizedMessage);
+        }
+        if ((weight == null || height == null) && history != null) {
+            for (int i = history.size() - 1; i >= 0 && (weight == null || height == null); i--) {
+                AiChatTurn turn = history.get(i);
+                if (turn == null || !"user".equals(turn.getRole()) || turn.getContent() == null) continue;
+                String previous = normalize(turn.getContent());
+                if (height == null) height = extractHeight(previous);
+                if (weight == null) {
+                    weight = firstNumber(WEIGHT_PATTERN.matcher(previous));
+                    if (weight == null && (explicitRequest || extractHeight(previous) != null)) {
+                        weight = inferBareWeight(previous);
+                    }
+                }
+            }
+        }
         if (!explicitRequest && !(weight != null && height != null)) return null;
         return new SizeAdvice(height, weight);
     }
@@ -182,8 +201,23 @@ public class AiShoppingAssistantService {
 
     private Integer extractHeight(String normalized) {
         Matcher meters = HEIGHT_METERS_PATTERN.matcher(normalized);
-        if (meters.find()) return 100 + Integer.parseInt(meters.group(1));
+        if (meters.find()) {
+            String fraction = meters.group(1);
+            // Cách viết phổ biến ở Việt Nam: 1m5 = 1m50, 1m7 = 1m70.
+            return 100 + (fraction.length() == 1 ? Integer.parseInt(fraction) * 10 : Integer.parseInt(fraction));
+        }
         return firstNumber(HEIGHT_CM_PATTERN.matcher(normalized));
+    }
+
+    private Integer inferBareWeight(String normalized) {
+        String withoutHeight = HEIGHT_METERS_PATTERN.matcher(normalized).replaceAll(" ");
+        withoutHeight = HEIGHT_CM_PATTERN.matcher(withoutHeight).replaceAll(" ");
+        Matcher number = Pattern.compile("\\b(\\d{2,3})\\b").matcher(withoutHeight);
+        while (number.find()) {
+            int value = Integer.parseInt(number.group(1));
+            if (value >= 25 && value <= 200) return value;
+        }
+        return null;
     }
 
     private AiChatResponse buildSizeAdviceResponse(SizeAdvice advice, List<ChiTietSanPhamResponse> variants) {
