@@ -11,6 +11,7 @@ const router = useRouter()
 const isOpen = ref(false)
 const inputMessage = ref('')
 const isTyping = ref(false)
+const aiTypingLabel = ref('đang kiểm tra dữ liệu shop...')
 const chatBodyRef = ref(null)
 const conversationId = ref(null)
 const conversationStatus = ref(null) // 1: Đang hoạt động, 2: Chờ nhận (Đã chuyển yêu cầu), 0: Đã đóng, null: AI bot mode
@@ -929,18 +930,15 @@ const sendMessageText = async (txt) => {
 }
 
 const showBotReply = (replyText, products = null) => {
-  isTyping.value = true
-  setTimeout(() => {
-    isTyping.value = false
-    messages.value.push({
-      id: 'bot-' + Date.now(),
-      sender: 'bot',
-      text: replyText,
-      products: products || null,
-      time: 'Vừa xong'
-    })
-    scrollToBottom()
-  }, 350)
+  isTyping.value = false
+  messages.value.push({
+    id: 'bot-' + Date.now(),
+    sender: 'bot',
+    text: replyText,
+    products: products || null,
+    time: 'Vừa xong'
+  })
+  scrollToBottom()
 }
 
 // AI chạy ở Spring Boot để API key không bao giờ xuất hiện trên trình duyệt.
@@ -1136,9 +1134,11 @@ const handleSend = async () => {
   }
 
   try {
+    aiTypingLabel.value = 'đang đối chiếu màu, size và tồn kho...'
     isTyping.value = true
     const assistantResult = await requestAiShoppingAssistant(txt)
     isTyping.value = false
+    aiTypingLabel.value = 'đang kiểm tra dữ liệu shop...'
     showBotReply(
         assistantResult?.reply || aiResult.text,
         Array.isArray(assistantResult?.products) ? assistantResult.products : null
@@ -1146,6 +1146,7 @@ const handleSend = async () => {
   } catch (error) {
     console.warn('AI shopping assistant unavailable, using local chat rules:', error)
     isTyping.value = false
+    aiTypingLabel.value = 'đang kiểm tra dữ liệu shop...'
     showBotReply(aiResult.text)
   }
 }
@@ -1644,7 +1645,7 @@ watch(() => currentClientUser.value, async (newVal, oldVal) => {
         <!-- Trạng thái đang gõ (AI Bot hoặc Chuyên viên tư vấn kiểu Zalo) -->
         <div v-if="isTyping || staffIsTyping" class="message-row bot zalo-typing-row">
           <div class="sender-header-tag">
-            <span>{{ staffIsTyping ? (assignedStaffName || 'Chuyên viên tư vấn') : 'Tư vấn FF T-Shirt' }} đang soạn tin...</span>
+            <span>{{ staffIsTyping ? `${assignedStaffName || 'Chuyên viên tư vấn'} đang soạn tin...` : `Tư vấn FF T-Shirt ${aiTypingLabel}` }}</span>
           </div>
           <div class="zalo-typing-bubble">
             <span class="z-dot"></span>
