@@ -6,13 +6,22 @@ import com.example.sd009thuan.entity.NhanVien;
 import com.example.sd009thuan.repository.HoaDonRepository;
 import com.example.sd009thuan.repository.NhanVienRepository;
 import com.example.sd009thuan.service.ChatService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -21,6 +30,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -30,6 +40,10 @@ public class ChatServiceImpl implements ChatService {
 
     private final HoaDonRepository hoaDonRepository;
     private final NhanVienRepository nhanVienRepository;
+    private final ObjectMapper objectMapper;
+
+    @Value("${app.upload-dir:uploads}")
+    private String uploadDir;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -42,6 +56,87 @@ public class ChatServiceImpl implements ChatService {
     private final AtomicLong convIdSeq = new AtomicLong(1);
     private final AtomicLong msgIdSeq = new AtomicLong(1);
     private final AtomicLong ratingIdSeq = new AtomicLong(1);
+    private final AtomicBoolean historyDirty = new AtomicBoolean(false);
+
+    @PostConstruct
+    public void restoreChatHistory() {
+        Path path = getHistoryPath();
+        if (!Files.exists(path)) return;
+        try {
+            ChatHistorySnapshot snapshot = objectMapper.readValue(path.toFile(), ChatHistorySnapshot.class);
+            if (snapshot.conversations() != null) {
+                snapshot.conversations().forEach(c -> conversations.put(c.getId(), c));
+            }
+            if (snapshot.messagesByConversation() != null) {
+                snapshot.messagesByConversation().forEach((id, list) ->
+                        messagesByConv.put(id, new CopyOnWriteArrayList<>(list != null ? list : List.of())));
+            }
+            if (snapshot.ratingsByConversation() != null) ratingsByConv.putAll(snapshot.ratingsByConversation());
+            ratingsByConv.values().forEach(this::classifyRating);
+
+            convIdSeq.set(conversations.keySet().stream().mapToLong(Long::longValue).max().orElse(0L) + 1);
+            msgIdSeq.set(messagesByConv.values().stream().flatMap(Collection::stream)
+                    .map(TinNhanDTO::getId).filter(Objects::nonNull).mapToLong(Long::longValue).max().orElse(0L) + 1);
+            ratingIdSeq.set(ratingsByConv.values().stream().map(DanhGiaCuocHoiThoaiDTO::getId)
+                    .filter(Objects::nonNull).mapToLong(Long::longValue).max().orElse(0L) + 1);
+            log.info("Đã khôi phục {} cuộc hội thoại và {} nhóm tin nhắn từ {}",
+                    conversations.size(), messagesByConv.size(), path);
+        } catch (Exception ex) {
+            log.error("Không thể khôi phục lịch sử chat từ {}. Giữ file để kiểm tra, không ghi đè: {}", path, ex.getMessage());
+        }
+    }
+
+    @Scheduled(fixedDelayString = "${chat.history.persist-interval-ms:2000}")
+    public void persistChatHistoryIfChanged() {
+        if (!historyDirty.compareAndSet(true, false)) return;
+        try {
+            persistChatHistory();
+        } catch (Exception ex) {
+            historyDirty.set(true);
+            log.error("Không thể lưu lịch sử chat: {}", ex.getMessage());
+        }
+    }
+
+    @PreDestroy
+    public void persistChatHistoryOnShutdown() {
+        if (!conversations.isEmpty() || historyDirty.get()) {
+            try {
+                persistChatHistory();
+            } catch (Exception ex) {
+                log.error("Không thể lưu lịch sử chat khi dừng ứng dụng: {}", ex.getMessage());
+            }
+        }
+    }
+
+    private synchronized void persistChatHistory() throws Exception {
+        Path path = getHistoryPath();
+        Files.createDirectories(path.getParent());
+        Path temp = path.resolveSibling(path.getFileName() + ".tmp");
+        Map<Long, List<TinNhanDTO>> messageCopy = new LinkedHashMap<>();
+        messagesByConv.forEach((id, list) -> messageCopy.put(id, new ArrayList<>(list)));
+        ChatHistorySnapshot snapshot = new ChatHistorySnapshot(
+                new ArrayList<>(conversations.values()), messageCopy, new LinkedHashMap<>(ratingsByConv));
+        objectMapper.writerWithDefaultPrettyPrinter().writeValue(temp.toFile(), snapshot);
+        try {
+            Files.move(temp, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException ex) {
+            Files.move(temp, path, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private Path getHistoryPath() {
+        String dir = uploadDir != null && !uploadDir.isBlank() ? uploadDir : "uploads";
+        return Paths.get(dir, "chat-history.json").toAbsolutePath().normalize();
+    }
+
+    private void markHistoryDirty() {
+        historyDirty.set(true);
+    }
+
+    private record ChatHistorySnapshot(
+            List<CuocHoiThoaiDTO> conversations,
+            Map<Long, List<TinNhanDTO>> messagesByConversation,
+            Map<Long, DanhGiaCuocHoiThoaiDTO> ratingsByConversation) {}
 
     @Override
     public CuocHoiThoaiDTO khoiTaoHoacLayCuocHoiThoai(KhoiTaoChatRequest req) {
@@ -114,6 +209,7 @@ public class ChatServiceImpl implements ChatService {
 
         conversations.put(newId, conv);
         messagesByConv.put(newId, new CopyOnWriteArrayList<>());
+        markHistoryDirty();
 
         return enrichDTO(conv);
     }
@@ -257,6 +353,8 @@ public class ChatServiceImpl implements ChatService {
             nhanVienTypingTimes.remove(conv.getId());
         }
 
+        markHistoryDirty();
+
         return tn;
     }
 
@@ -278,6 +376,7 @@ public class ChatServiceImpl implements ChatService {
                 }
             }
         }
+        markHistoryDirty();
     }
 
     @Override
@@ -389,6 +488,7 @@ public class ChatServiceImpl implements ChatService {
         messagesByConv.computeIfAbsent(id, k -> new CopyOnWriteArrayList<>()).add(endMsg);
         conv.setTinNhanCuoi(endMsg.getNoiDung());
         conv.setThoiGianTinNhanCuoi(endMsg.getNgayTao());
+        markHistoryDirty();
     }
 
     @Override
@@ -448,6 +548,7 @@ public class ChatServiceImpl implements ChatService {
         messagesByConv.computeIfAbsent(id, k -> new CopyOnWriteArrayList<>()).add(acceptMsg);
         conv.setTinNhanCuoi(acceptMsg.getNoiDung());
         conv.setThoiGianTinNhanCuoi(acceptMsg.getNgayTao());
+        markHistoryDirty();
 
         return enrichDTO(conv);
     }
@@ -483,6 +584,7 @@ public class ChatServiceImpl implements ChatService {
 
         conv.setTrangThai(2); // 2 = Chờ nhận
         conv.setNgayCapNhat(LocalDateTime.now());
+        markHistoryDirty();
         return enrichDTO(conv);
     }
 
@@ -492,6 +594,7 @@ public class ChatServiceImpl implements ChatService {
         conversations.remove(id);
         messagesByConv.remove(id);
         ratingsByConv.remove(id);
+        markHistoryDirty();
     }
 
     @Override
@@ -499,6 +602,7 @@ public class ChatServiceImpl implements ChatService {
         conversations.clear();
         messagesByConv.clear();
         ratingsByConv.clear();
+        markHistoryDirty();
     }
 
     @Override
@@ -543,6 +647,7 @@ public class ChatServiceImpl implements ChatService {
                 .trangThai(1)
                 .ngayTao(LocalDateTime.now())
                 .build();
+        classifyRating(savedRating);
 
         ratingsByConv.put(cuocHoiThoaiId, savedRating);
         conv.setDanhGia(savedRating);
@@ -569,6 +674,7 @@ public class ChatServiceImpl implements ChatService {
         messagesByConv.computeIfAbsent(cuocHoiThoaiId, k -> new CopyOnWriteArrayList<>()).add(ratingMsg);
         conv.setTinNhanCuoi(ratingMsg.getNoiDung());
         conv.setThoiGianTinNhanCuoi(ratingMsg.getNgayTao());
+        markHistoryDirty();
 
         return savedRating;
     }
@@ -576,7 +682,71 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public DanhGiaCuocHoiThoaiDTO layDanhGia(Long cuocHoiThoaiId) {
         if (cuocHoiThoaiId == null) return null;
-        return ratingsByConv.get(cuocHoiThoaiId);
+        DanhGiaCuocHoiThoaiDTO rating = ratingsByConv.get(cuocHoiThoaiId);
+        if (rating != null) classifyRating(rating);
+        return rating;
+    }
+
+    @Override
+    public DanhGiaCuocHoiThoaiDTO danhDauDanhGiaDaXuLy(Long cuocHoiThoaiId, String nguoiXuLy) {
+        DanhGiaCuocHoiThoaiDTO rating = ratingsByConv.get(cuocHoiThoaiId);
+        if (rating == null) throw new IllegalArgumentException("Cuộc hội thoại chưa có đánh giá");
+        classifyRating(rating);
+        rating.setDaXuLy(true);
+        rating.setNguoiXuLy(nguoiXuLy == null || nguoiXuLy.isBlank() ? "Quản trị viên" : nguoiXuLy.trim());
+        rating.setNgayXuLy(LocalDateTime.now());
+        CuocHoiThoaiDTO conversation = conversations.get(cuocHoiThoaiId);
+        if (conversation != null) conversation.setDanhGia(rating);
+        List<TinNhanDTO> messages = messagesByConv.get(cuocHoiThoaiId);
+        if (messages != null) messages.stream().filter(m -> m.getDanhGia() != null).forEach(m -> m.setDanhGia(rating));
+        markHistoryDirty();
+        return rating;
+    }
+
+    private void classifyRating(DanhGiaCuocHoiThoaiDTO rating) {
+        if (rating == null) return;
+        int score = rating.getDiemDanhGia() == null ? 5 : rating.getDiemDanhGia();
+        String starClass = score >= 4 ? "TICH_CUC" : (score == 3 ? "TRUNG_LAP" : "TIEU_CUC");
+        String text = normalizeRatingText(rating.getNoiDungDanhGia());
+
+        List<String> positiveWords = List.of("tot", "nhiet tinh", "hai long", "nhanh", "de thuong", "tuyet voi", "chu dao", "chinh xac", "cam on");
+        List<String> negativeWords = List.of("cham", "lau", "te", "khong hai long", "that vong", "khong tot", "sai", "kho chiu", "khong giai quyet", "tu van sai", "thai do kem");
+        boolean positive = positiveWords.stream().anyMatch(text::contains);
+        boolean negative = negativeWords.stream().anyMatch(text::contains);
+        String sentiment = text.isBlank() ? "KHONG_XAC_DINH"
+                : positive && negative ? "HON_HOP"
+                : negative ? "TIEU_CUC"
+                : positive ? "TICH_CUC" : "TRUNG_LAP";
+
+        List<String> topics = new ArrayList<>();
+        if (containsAny(text, "cham", "lau", "phan hoi", "doi")) topics.add("TOC_DO_PHAN_HOI");
+        if (containsAny(text, "nhan vien", "thai do", "nhiet tinh", "de thuong", "kho chiu")) topics.add("THAI_DO_NHAN_VIEN");
+        if (containsAny(text, "size", "kich co", "rong", "chat", "vua")) topics.add("TU_VAN_SIZE");
+        if (containsAny(text, "san pham", "mau", "chat lieu", "ao")) topics.add("THONG_TIN_SAN_PHAM");
+        if (containsAny(text, "gia", "sale", "giam gia", "khuyen mai", "voucher")) topics.add("GIA_KHUYEN_MAI");
+        if (containsAny(text, "ship", "giao hang", "van chuyen")) topics.add("VAN_CHUYEN");
+        if (containsAny(text, "bot", "ai", "tu dong")) topics.add("CHATBOT_AI");
+        if (topics.isEmpty() && !text.isBlank()) topics.add("KHAC");
+
+        boolean conflict = ("TICH_CUC".equals(starClass) && "TIEU_CUC".equals(sentiment))
+                || ("TIEU_CUC".equals(starClass) && "TICH_CUC".equals(sentiment));
+        rating.setPhanLoai(starClass);
+        rating.setCamXucNoiDung(sentiment);
+        rating.setChuDe(topics);
+        rating.setMauThuanSaoNoiDung(conflict);
+        rating.setCanXuLy(score <= 2 || negative || "HON_HOP".equals(sentiment) || conflict);
+        if (rating.getDaXuLy() == null) rating.setDaXuLy(false);
+    }
+
+    private boolean containsAny(String text, String... terms) {
+        return Arrays.stream(terms).anyMatch(text::contains);
+    }
+
+    private String normalizeRatingText(String value) {
+        if (value == null) return "";
+        return java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").replace('đ', 'd').replace('Đ', 'D')
+                .toLowerCase(Locale.ROOT).trim();
     }
 
     /**
@@ -589,6 +759,7 @@ public class ChatServiceImpl implements ChatService {
     @Scheduled(fixedDelay = 5000)
     public void kiemTraTuDongDongPhienKhongPhanHoi() {
         LocalDateTime now = LocalDateTime.now();
+        boolean changed = false;
         for (CuocHoiThoaiDTO conv : conversations.values()) {
             // THEO YÊU CẦU: Chỉ áp dụng đếm thời gian khi ĐANG CHAT VỚI NHÂN VIÊN (trangThai == 1)
             // Nếu chưa tiếp nhận (trangThai == 2 hoặc khác) thì CHƯA TÍNH!
@@ -617,6 +788,7 @@ public class ChatServiceImpl implements ChatService {
                     messagesByConv.computeIfAbsent(conv.getId(), k -> new CopyOnWriteArrayList<>()).add(warnMsg);
                     conv.setTinNhanCuoi(warnMsg.getNoiDung());
                     conv.setThoiGianTinNhanCuoi(warnMsg.getNgayTao());
+                    changed = true;
                 }
 
                 // 2. Sau 10 phút (600s) không phản hồi: Báo còn 5 phút
@@ -635,6 +807,7 @@ public class ChatServiceImpl implements ChatService {
                     messagesByConv.computeIfAbsent(conv.getId(), k -> new CopyOnWriteArrayList<>()).add(warnMsg);
                     conv.setTinNhanCuoi(warnMsg.getNoiDung());
                     conv.setThoiGianTinNhanCuoi(warnMsg.getNgayTao());
+                    changed = true;
                 }
 
                 // 3. Sau 13 phút (780s - còn khoảng 2 phút): Cảnh báo 2 phút
@@ -653,6 +826,7 @@ public class ChatServiceImpl implements ChatService {
                     messagesByConv.computeIfAbsent(conv.getId(), k -> new CopyOnWriteArrayList<>()).add(warnMsg);
                     conv.setTinNhanCuoi(warnMsg.getNoiDung());
                     conv.setThoiGianTinNhanCuoi(warnMsg.getNgayTao());
+                    changed = true;
                 }
 
                 // 4. Tự động đóng phiên sau 15 phút (900s) không phản hồi
@@ -672,9 +846,11 @@ public class ChatServiceImpl implements ChatService {
                     messagesByConv.computeIfAbsent(conv.getId(), k -> new CopyOnWriteArrayList<>()).add(autoCloseMsg);
                     conv.setTinNhanCuoi(autoCloseMsg.getNoiDung());
                     conv.setThoiGianTinNhanCuoi(autoCloseMsg.getNgayTao());
+                    changed = true;
                 }
             }
         }
+        if (changed) markHistoryDirty();
     }
 
     private CuocHoiThoaiDTO enrichDTO(CuocHoiThoaiDTO c) {
@@ -721,6 +897,7 @@ public class ChatServiceImpl implements ChatService {
                     if (list != null) {
                         list.removeIf(m -> "HE_THONG".equals(m.getNguoiGui()) && m.getNoiDung() != null && m.getNoiDung().contains("Bạn vẫn còn ở đó chứ"));
                     }
+                    markHistoryDirty();
                 }
             } else {
                 khachTypingTimes.remove(cuocHoiThoaiId);

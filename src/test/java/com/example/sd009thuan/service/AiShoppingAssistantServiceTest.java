@@ -39,6 +39,31 @@ class AiShoppingAssistantServiceTest {
         assertEquals(1, service.reply("cần áo đen cỡ L").products().size());
     }
 
+    @Test
+    void suggestsSizeFromVietnameseHeightAndWeightAndReturnsAvailableProducts() {
+        ChiTietSanPhamService variantService = mock(ChiTietSanPhamService.class);
+        when(variantService.getAvailableVariantsForAssistant()).thenReturn(List.of(variant("Đen", "L")));
+        AiShoppingAssistantService service = new AiShoppingAssistantService(
+                variantService, mock(ShippingConfigService.class), new ObjectMapper(), RestClient.builder(), "", "gpt-4o-mini");
+
+        AiChatResponse response = service.reply("cân nặng 50, chiều cao 1m75");
+
+        assertTrue(response.reply().contains("gợi ý size L"));
+        assertEquals(1, response.products().size());
+    }
+
+    @Test
+    void asksForMissingMeasurementInsteadOfProductSearchFallback() {
+        ChiTietSanPhamService variantService = mock(ChiTietSanPhamService.class);
+        when(variantService.getAvailableVariantsForAssistant()).thenReturn(List.of());
+        AiShoppingAssistantService service = new AiShoppingAssistantService(
+                variantService, mock(ShippingConfigService.class), new ObjectMapper(), RestClient.builder(), "", "gpt-4o-mini");
+
+        AiChatResponse response = service.reply("gợi ý size, mình nặng 60kg");
+
+        assertTrue(response.reply().contains("thêm chiều cao"));
+    }
+
     private ChiTietSanPhamResponse variant(String color, String size) {
         return ChiTietSanPhamResponse.builder()
                 .id(11L).idSanPham(1L).idMauSac(2L).idKichCo(3L)

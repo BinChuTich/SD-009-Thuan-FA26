@@ -30,6 +30,9 @@ public class AiShoppingAssistantService {
     private static final Logger log = LoggerFactory.getLogger(AiShoppingAssistantService.class);
     private static final Pattern SIZE_PATTERN = Pattern.compile("(?:size|cỡ|co)\\s*(xxl|xl|l|m|s)\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern PRICE_PATTERN = Pattern.compile("(\\d+(?:[.,]\\d+)?)\\s*(triệu|trieu|tr|k|nghìn|nghin|đ|d)?", Pattern.CASE_INSENSITIVE);
+    private static final Pattern WEIGHT_PATTERN = Pattern.compile("(?:(?:can\\s*nang|nang)\\s*)?(\\d{2,3})\\s*(?:kg|ki|ky|can)\\b|(?:can\\s*nang|nang)\\s*(\\d{2,3})\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern HEIGHT_METERS_PATTERN = Pattern.compile("\\b1\\s*[m,.]\\s*(\\d{1,2})\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern HEIGHT_CM_PATTERN = Pattern.compile("(?:(?:chieu\\s*cao|cao)\\s*)?(1\\d{2})\\s*(?:cm|phan)\\b|(?:chieu\\s*cao|cao)\\s*(1\\d{2})\\b", Pattern.CASE_INSENSITIVE);
     private static final List<String> COLORS = List.of("xanh navy", "xanh dương", "xanh lá", "xanh", "đen", "trắng", "đỏ", "vàng", "nâu", "be", "xám", "hồng", "tím", "cam");
     private static final List<String> GENERIC_KEYWORDS = List.of(
             "ao", "ao thun", "t shirt", "tshirt", "san pham", "hang", "mau", "size", "kich co");
@@ -65,6 +68,11 @@ public class AiShoppingAssistantService {
         SearchIntent intent = null;
         boolean aiPowered = false;
         List<ChiTietSanPhamResponse> variants = variantService.getAvailableVariantsForAssistant();
+
+        SizeAdvice sizeAdvice = detectSizeAdvice(message, history);
+        if (sizeAdvice != null) {
+            return buildSizeAdviceResponse(sizeAdvice, variants);
+        }
 
         if (!apiKey.isBlank()) {
             try {
@@ -146,6 +154,69 @@ public class AiShoppingAssistantService {
             }
         }
         throw new IllegalStateException("OpenAI response did not contain structured output");
+    }
+
+    private SizeAdvice detectSizeAdvice(String message, List<AiChatTurn> history) {
+        StringBuilder conversation = new StringBuilder();
+        if (history != null) {
+            history.stream().skip(Math.max(0, history.size() - 6L))
+                    .filter(turn -> turn != null && "user".equals(turn.getRole()) && turn.getContent() != null)
+                    .forEach(turn -> conversation.append(turn.getContent()).append(' '));
+        }
+        conversation.append(message);
+        String normalized = normalize(conversation.toString());
+        Integer weight = firstNumber(WEIGHT_PATTERN.matcher(normalized));
+        Integer height = extractHeight(normalized);
+        boolean explicitRequest = normalized.matches(".*(goi y size|tu van size|chon size|mac size gi|nen mac size|bang size|vua size nao).*" );
+        if (!explicitRequest && !(weight != null && height != null)) return null;
+        return new SizeAdvice(height, weight);
+    }
+
+    private Integer firstNumber(Matcher matcher) {
+        if (!matcher.find()) return null;
+        for (int i = 1; i <= matcher.groupCount(); i++) {
+            if (matcher.group(i) != null) return Integer.parseInt(matcher.group(i));
+        }
+        return null;
+    }
+
+    private Integer extractHeight(String normalized) {
+        Matcher meters = HEIGHT_METERS_PATTERN.matcher(normalized);
+        if (meters.find()) return 100 + Integer.parseInt(meters.group(1));
+        return firstNumber(HEIGHT_CM_PATTERN.matcher(normalized));
+    }
+
+    private AiChatResponse buildSizeAdviceResponse(SizeAdvice advice, List<ChiTietSanPhamResponse> variants) {
+        if (advice.heightCm() == null && advice.weightKg() == null) {
+            return new AiChatResponse("Bạn gửi giúp mình chiều cao và cân nặng nhé, ví dụ: “1m70, 65kg”. Mình sẽ chọn size và kiểm tra mẫu đang còn hàng cho bạn.", List.of(), false);
+        }
+        if (advice.heightCm() == null) {
+            return new AiChatResponse("Mình đã ghi nhận cân nặng " + advice.weightKg() + "kg. Bạn cho mình thêm chiều cao (ví dụ 1m70) để chọn size chính xác nhé.", List.of(), false);
+        }
+        if (advice.weightKg() == null) {
+            return new AiChatResponse("Mình đã ghi nhận chiều cao " + advice.heightCm() + "cm. Bạn cho mình thêm cân nặng để chọn size chính xác nhé.", List.of(), false);
+        }
+
+        String suggestedSize = suggestSize(advice.heightCm(), advice.weightKg());
+        SearchIntent productIntent = new SearchIntent("SEARCH_PRODUCT", null, null, suggestedSize, null, null, null);
+        List<AiProductCard> products = searchProducts(productIntent, variants);
+        String fitNote = advice.heightCm() >= 173 && advice.weightKg() < 60
+                ? "Dáng của bạn khá cao và mảnh nên size này ưu tiên đủ chiều dài áo. "
+                : "Size này cân đối giữa chiều dài áo và độ rộng thân. ";
+        String availability = products.isEmpty()
+                ? "Hiện shop chưa có biến thể size " + suggestedSize + " còn hàng; bạn có thể nhờ nhân viên kiểm tra thêm."
+                : "Mình đã lọc các mẫu size " + suggestedSize + " đang còn hàng bên dưới.";
+        String reply = "Với " + advice.heightCm() + "cm và " + advice.weightKg() + "kg, mình gợi ý size " + suggestedSize + ". "
+                + fitNote + "Nếu thích mặc oversize, bạn có thể tăng thêm 1 size. " + availability;
+        return new AiChatResponse(reply, products, false);
+    }
+
+    private String suggestSize(int heightCm, int weightKg) {
+        if (weightKg < 54 && heightCm < 165) return "S";
+        if (weightKg <= 64 && heightCm <= 172) return "M";
+        if (weightKg <= 73 && heightCm <= 177) return "L";
+        if (weightKg <= 83 && heightCm <= 183) return "XL";
+        return "XXL";
     }
 
     private SearchIntent understandLocally(String message) {
@@ -314,4 +385,5 @@ public class AiShoppingAssistantService {
     }
 
     private record SearchIntent(String intent, String keyword, String color, String size, BigDecimal minPrice, BigDecimal maxPrice, String answer) {}
+    private record SizeAdvice(Integer heightCm, Integer weightKg) {}
 }

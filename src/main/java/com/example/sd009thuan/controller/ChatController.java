@@ -191,6 +191,18 @@ public class ChatController {
         }
     }
 
+    @PutMapping("/cuoc-hoi-thoai/{id}/danh-gia/da-xu-ly")
+    public ResponseEntity<?> danhDauDanhGiaDaXuLy(
+            @PathVariable Long id,
+            @RequestParam(required = false) String nguoiXuLy
+    ) {
+        try {
+            return ResponseEntity.ok(chatService.danhDauDanhGiaDaXuLy(id, nguoiXuLy));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
     // Cập nhật trạng thái đang gõ/soạn tin nhắn (Zalo style)
     @PostMapping("/cuoc-hoi-thoai/{id}/dang-nhap")
     public ResponseEntity<?> capNhatDangNhap(

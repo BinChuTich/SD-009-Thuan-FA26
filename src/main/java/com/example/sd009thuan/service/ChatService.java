@@ -35,5 +35,7 @@ public interface ChatService {
 
     DanhGiaCuocHoiThoaiDTO layDanhGia(Long cuocHoiThoaiId);
 
+    DanhGiaCuocHoiThoaiDTO danhDauDanhGiaDaXuLy(Long cuocHoiThoaiId, String nguoiXuLy);
+
     void capNhatDangNhap(Long cuocHoiThoaiId, String nguoiGui, Boolean isTyping);
 }

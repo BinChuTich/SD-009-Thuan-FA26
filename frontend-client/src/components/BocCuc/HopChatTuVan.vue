@@ -391,6 +391,7 @@ const loadMessages = async () => {
       const dbMsgs = res.data.map(m => {
         const isRating = m.nguoiGui === 'DANH_GIA' || !!m.danhGia
         const isStaff = m.nguoiGui === 'NHAN_VIEN' || m.nguoiGui === 'ADMIN'
+        const isBot = m.nguoiGui === 'BOT' || m.nguoiGui === 'AI'
         const isClose = m.noiDung && (m.noiDung.includes('kết thúc') || m.noiDung.includes('tự động đóng'))
         const isWarning = m.noiDung && m.noiDung.includes('Bạn vẫn còn ở đó chứ')
         const isSystem = m.nguoiGui === 'HE_THONG' || isClose || isWarning || (m.noiDung && (m.noiDung.includes('tiếp nhận') || m.noiDung.includes('Yêu cầu hỗ trợ trực tiếp')))
@@ -406,7 +407,8 @@ const loadMessages = async () => {
         }
         return {
           id: m.id,
-          sender: isRating ? 'rating' : (isSystem ? 'system' : (m.nguoiGui === 'KHACH_HANG' ? 'user' : 'staff')),
+          serverPersisted: true,
+          sender: isRating ? 'rating' : (isSystem ? 'system' : (isBot ? 'bot' : (m.nguoiGui === 'KHACH_HANG' ? 'user' : 'staff'))),
           text: cleanMsgContent(m.noiDung),
           staffName: m.tenNhanVien || (isStaff ? 'Chuyên viên tư vấn' : null),
           time: formatMsgTime(m.ngayTao),
@@ -485,7 +487,9 @@ const pollNewMessages = async () => {
     }
 
     const numericIds = messages.value
-        .map(m => typeof m.id === 'number' ? m.id : 0)
+        // ID tạm trên client dùng Date.now() và lớn hơn ID backend rất nhiều.
+        // Chỉ dùng ID đã được server xác nhận, nếu không polling sẽ bỏ qua mọi tin mới.
+        .map(m => m.serverPersisted && typeof m.id === 'number' ? m.id : 0)
         .filter(n => n > 0)
     const lastId = numericIds.length > 0 ? Math.max(...numericIds) : 0
 
@@ -497,6 +501,7 @@ const pollNewMessages = async () => {
         if (!messages.value.some(existing => existing.id === m.id)) {
           const isRating = m.nguoiGui === 'DANH_GIA' || !!m.danhGia
           const isStaff = m.nguoiGui === 'NHAN_VIEN' || m.nguoiGui === 'ADMIN'
+          const isBot = m.nguoiGui === 'BOT' || m.nguoiGui === 'AI'
           const isClose = m.noiDung && (m.noiDung.includes('kết thúc') || m.noiDung.includes('tự động đóng'))
           const isWarning = m.noiDung && m.noiDung.includes('Bạn vẫn còn ở đó chứ')
           const isSystem = m.nguoiGui === 'HE_THONG' || isClose || isWarning || (m.noiDung && (m.noiDung.includes('tiếp nhận') || m.noiDung.includes('Yêu cầu hỗ trợ trực tiếp')))
@@ -542,7 +547,8 @@ const pollNewMessages = async () => {
 
           messages.value.push({
             id: m.id,
-            sender: isRating ? 'rating' : (isSystem ? 'system' : (m.nguoiGui === 'KHACH_HANG' ? 'user' : 'staff')),
+            serverPersisted: true,
+            sender: isRating ? 'rating' : (isSystem ? 'system' : (isBot ? 'bot' : (m.nguoiGui === 'KHACH_HANG' ? 'user' : 'staff'))),
             text: cleanMsgContent(m.noiDung),
             staffName: m.tenNhanVien || (isStaff ? 'Chuyên viên tư vấn' : null),
             time: formatMsgTime(m.ngayTao),
@@ -891,7 +897,10 @@ const sendMessageText = async (txt) => {
     const res = await api.post('/api/chat/gui-tin-nhan', payload)
     if (res.data && res.data.id) {
       const match = messages.value.find(m => m.id === tempId)
-      if (match) match.id = res.data.id
+      if (match) {
+        match.id = res.data.id
+        match.serverPersisted = true
+      }
     }
     if (clientTypingTimeout) clearTimeout(clientTypingTimeout)
     if (conversationId.value) {
@@ -1145,6 +1154,11 @@ const handleStaffRequest = async () => {
     return
   }
 
+  // Chụp lịch sử trước khi thêm thông báo chuyển nhân viên để đồng bộ sang backend.
+  const historyToSync = messages.value
+    .filter(m => m?.text && (m.sender === 'user' || m.sender === 'bot') && m.id !== 'welcome-0')
+    .map(m => ({ sender: m.sender, text: String(m.text).slice(0, 2000) }))
+
   // Tạo phiên mới và gửi yêu cầu hỗ trợ (trangThai = 2)
   conversationId.value = null
   conversationStatus.value = 2
@@ -1160,10 +1174,10 @@ const handleStaffRequest = async () => {
   })
   scrollToBottom()
 
-  await requestStaffSupport()
+  await requestStaffSupport(historyToSync)
 }
 
-const requestStaffSupport = async () => {
+const requestStaffSupport = async (historyToSync = []) => {
   if (!isClientLoggedIn.value) return
   try {
     const payload = {
@@ -1177,7 +1191,20 @@ const requestStaffSupport = async () => {
       conversationStatus.value = res.data.trangThai || 2
       localStorage.setItem(CHAT_STORAGE_KEY, String(res.data.id))
       localStorage.setItem(STAFF_REQUESTED_STORAGE_KEY, 'true')
+      // Lưu cả phần khách đã trao đổi với bot để reload không mất lịch sử.
+      // BOT được giữ riêng, không bị hiểu nhầm là tin nhắn nhân viên.
+      for (const item of historyToSync) {
+        await api.post('/api/chat/gui-tin-nhan', {
+          cuocHoiThoaiId: res.data.id,
+          khachHangId: currentClientUser.value?.id || null,
+          tenKhachHang: currentClientUser.value?.name || null,
+          soDienThoai: currentClientUser.value?.phone || null,
+          nguoiGui: item.sender === 'user' ? 'KHACH_HANG' : 'BOT',
+          noiDung: item.text
+        })
+      }
       await api.put(`/api/chat/cuoc-hoi-thoai/${res.data.id}/yeu-cau-ho-tro`).catch(() => {})
+      await loadMessages()
     }
   } catch (e) {
     console.warn('Lỗi gửi yêu cầu hỗ trợ nhân viên:', e)
@@ -1290,9 +1317,11 @@ onUnmounted(() => {
   window.removeEventListener('client-auth-change', refreshChatOnLogin)
 })
 
-watch(() => currentClientUser.value, async (newVal) => {
+watch(() => currentClientUser.value, async (newVal, oldVal) => {
   if (newVal) {
-    await refreshChatOnLogin()
+    // Khi trạng thái tài khoản được hydrate sau lúc mount, phải khôi phục phiên
+    // hiện tại thay vì xóa ID khiến polling realtime mất mục tiêu.
+    if (!oldVal) await initOrLoadConversation()
   } else {
     resetToNewSession()
   }

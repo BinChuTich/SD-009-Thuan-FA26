@@ -15,10 +15,11 @@ const activeConv = ref(null)
 const messages = ref([])
 const searchQuery = ref('')
 
-// Lọc bỏ bất kỳ tin mẫu cũ hoặc AI sender nếu còn sót
+// Bot được lưu để client khôi phục lịch sử, nhưng màn nhân viên chỉ cần xem
+// câu hỏi của khách và phần trao đổi trực tiếp.
 const displayMessages = computed(() => {
   return messages.value.filter(m => {
-    if (m.nguoiGui === 'AI') return false
+    if (m.nguoiGui === 'AI' || m.nguoiGui === 'BOT') return false
     if (m.noiDung && m.noiDung.includes('Xin chào quý khách! Cảm ơn bạn đã ghé thăm FF T-Shirt')) return false
     // Theo yêu cầu: Các thông báo nhắc nhở đếm ngược/hết thời gian chỉ báo với khách hàng thôi, không hiển thị trên màn hình nhân viên
     if (m.nguoiGui === 'HE_THONG' && m.noiDung && m.noiDung.includes('Bạn vẫn còn ở đó chứ')) return false
@@ -69,6 +70,7 @@ const onStaffBlur = () => {
 
 // 2 Tabs theo chuẩn video tham khảo: 'ACTIVE' (Đang hoạt động) và 'CLOSED' (Lịch sử chat)
 const activeTab = ref('ACTIVE')
+const ratingFilter = ref('ALL')
 
 let listTimer = null
 let msgTimer = null
@@ -145,6 +147,15 @@ const filteredConversations = computed(() => {
   } else {
     // Lịch sử chat: Đã đóng (0)
     list = list.filter(c => c.trangThai === 0)
+    if (ratingFilter.value === 'POSITIVE') list = list.filter(c => getRatingClass(c.danhGia) === 'TICH_CUC')
+    if (ratingFilter.value === 'NEUTRAL') list = list.filter(c => getRatingClass(c.danhGia) === 'TRUNG_LAP')
+    if (ratingFilter.value === 'NEGATIVE') list = list.filter(c => getRatingClass(c.danhGia) === 'TIEU_CUC')
+    if (ratingFilter.value === 'PENDING') list = list.filter(c => c.danhGia?.canXuLy && !c.danhGia?.daXuLy)
+    if (ratingFilter.value === 'UNRATED') list = list.filter(c => !c.danhGia)
+    if (ratingFilter.value.startsWith('STAR_')) {
+      const star = Number(ratingFilter.value.replace('STAR_', ''))
+      list = list.filter(c => Number(c.danhGia?.diemDanhGia) === star)
+    }
   }
 
   if (searchQuery.value.trim()) {
@@ -158,6 +169,56 @@ const filteredConversations = computed(() => {
 
   return list
 })
+
+const getRatingClass = (rating) => {
+  if (!rating) return 'CHUA_DANH_GIA'
+  if (rating.phanLoai) return rating.phanLoai
+  const score = Number(rating.diemDanhGia || 0)
+  return score >= 4 ? 'TICH_CUC' : (score === 3 ? 'TRUNG_LAP' : 'TIEU_CUC')
+}
+
+const ratingStats = computed(() => {
+  const closed = conversations.value.filter(c => c.trangThai === 0)
+  const ratings = closed.map(c => c.danhGia).filter(Boolean)
+  const totalScore = ratings.reduce((sum, r) => sum + Number(r.diemDanhGia || 0), 0)
+  return {
+    total: ratings.length,
+    average: ratings.length ? (totalScore / ratings.length).toFixed(1) : '0.0',
+    positive: ratings.filter(r => getRatingClass(r) === 'TICH_CUC').length,
+    neutral: ratings.filter(r => getRatingClass(r) === 'TRUNG_LAP').length,
+    negative: ratings.filter(r => getRatingClass(r) === 'TIEU_CUC').length,
+    pending: ratings.filter(r => r.canXuLy && !r.daXuLy).length,
+    unrated: closed.filter(c => !c.danhGia).length
+  }
+})
+
+const topicLabel = (topic) => ({
+  TOC_DO_PHAN_HOI: 'Tốc độ phản hồi',
+  THAI_DO_NHAN_VIEN: 'Thái độ nhân viên',
+  TU_VAN_SIZE: 'Tư vấn size',
+  THONG_TIN_SAN_PHAM: 'Thông tin sản phẩm',
+  GIA_KHUYEN_MAI: 'Giá/khuyến mãi',
+  VAN_CHUYEN: 'Vận chuyển',
+  CHATBOT_AI: 'Chatbot AI',
+  KHAC: 'Khác'
+}[topic] || topic)
+
+const markRatingHandled = async () => {
+  if (!activeId.value || !activeConv.value?.danhGia) return
+  try {
+    const staffName = currentUser.value?.hoVaTen || currentUser.value?.tenNhanVien || currentUser.value?.name || 'Quản trị viên'
+    const res = await api.put(`/api/chat/cuoc-hoi-thoai/${activeId.value}/danh-gia/da-xu-ly`, null, {
+      params: { nguoiXuLy: staffName }
+    })
+    activeConv.value.danhGia = res.data
+    const item = conversations.value.find(c => c.id === activeId.value)
+    if (item) item.danhGia = res.data
+    messages.value.forEach(m => { if (m.danhGia) m.danhGia = res.data })
+    showToast('Đã đánh dấu đánh giá là đã xử lý.', 'success')
+  } catch (e) {
+    showToast(e.response?.data?.message || 'Không thể cập nhật đánh giá', 'error')
+  }
+}
 
 const waitingCount = computed(() => {
   return conversations.value.filter(c => c.trangThai === 2).length
@@ -488,6 +549,27 @@ watch(() => route.query.id, (newId) => {
           </button>
         </div>
 
+        <div v-if="activeTab === 'CLOSED'" class="rating-insights-panel">
+          <div class="rating-overview-row">
+            <div class="rating-average-box">
+              <strong>{{ ratingStats.average }}</strong><span>/5 ★</span>
+            </div>
+            <div class="rating-overview-meta">
+              <span>{{ ratingStats.total }} đánh giá</span>
+              <span v-if="ratingStats.pending > 0" class="needs-action-text">{{ ratingStats.pending }} cần xử lý</span>
+            </div>
+          </div>
+          <div class="rating-filter-chips">
+            <button :class="{ active: ratingFilter === 'ALL' }" @click="ratingFilter = 'ALL'">Tất cả</button>
+            <button class="positive" :class="{ active: ratingFilter === 'POSITIVE' }" @click="ratingFilter = 'POSITIVE'">Tốt {{ ratingStats.positive }}</button>
+            <button class="neutral" :class="{ active: ratingFilter === 'NEUTRAL' }" @click="ratingFilter = 'NEUTRAL'">TB {{ ratingStats.neutral }}</button>
+            <button class="negative" :class="{ active: ratingFilter === 'NEGATIVE' }" @click="ratingFilter = 'NEGATIVE'">Xấu {{ ratingStats.negative }}</button>
+            <button class="pending" :class="{ active: ratingFilter === 'PENDING' }" @click="ratingFilter = 'PENDING'">Cần xử lý {{ ratingStats.pending }}</button>
+            <button :class="{ active: ratingFilter === 'UNRATED' }" @click="ratingFilter = 'UNRATED'">Chưa đánh giá {{ ratingStats.unrated }}</button>
+            <button v-for="star in [5,4,3,2,1]" :key="star" :class="{ active: ratingFilter === `STAR_${star}` }" @click="ratingFilter = `STAR_${star}`">{{ star }}★</button>
+          </div>
+        </div>
+
         <!-- Danh sách cuộc hội thoại -->
         <div class="conv-list-container">
           <div v-if="loadingList && conversations.length === 0" class="loading-state">
@@ -549,8 +631,14 @@ watch(() => route.query.id, (newId) => {
                   {{ (c.nhanVienId && String(c.nhanVienId) === String(currentUser?.id)) ? 'Bạn' : c.tenNhanVien }}
                 </span>
 
-                <span v-if="c.danhGia" class="rating-badge-pill" title="Đánh giá của khách hàng">
+                <span
+                    v-if="c.danhGia"
+                    class="rating-badge-pill"
+                    :class="`rating-${getRatingClass(c.danhGia).toLowerCase()}`"
+                    :title="c.danhGia.canXuLy && !c.danhGia.daXuLy ? 'Đánh giá cần xử lý' : 'Đánh giá của khách hàng'"
+                >
                   ⭐ {{ c.danhGia.diemDanhGia }}★
+                  <b v-if="c.danhGia.canXuLy && !c.danhGia.daXuLy">!</b>
                 </span>
 
                 <span v-if="(c.soTinChuaDoc || 0) > 0" class="unread-pill">
@@ -673,6 +761,17 @@ watch(() => route.query.id, (newId) => {
                 </div>
                 <div v-if="msg.danhGia && msg.danhGia.noiDungDanhGia" class="rh-comment-box">
                   <strong>Khách nhận xét:</strong> "{{ msg.danhGia.noiDungDanhGia }}"
+                </div>
+                <div v-if="msg.danhGia" class="rating-analysis-box">
+                  <span class="analysis-classification" :class="`rating-${getRatingClass(msg.danhGia).toLowerCase()}`">
+                    {{ getRatingClass(msg.danhGia) === 'TICH_CUC' ? 'Tích cực' : (getRatingClass(msg.danhGia) === 'TRUNG_LAP' ? 'Trung lập' : 'Tiêu cực') }}
+                  </span>
+                  <span v-for="topic in (msg.danhGia.chuDe || [])" :key="topic" class="analysis-topic">{{ topicLabel(topic) }}</span>
+                  <span v-if="msg.danhGia.mauThuanSaoNoiDung" class="analysis-conflict">⚠ Sao và nội dung không đồng nhất</span>
+                </div>
+                <div v-if="msg.danhGia?.canXuLy" class="rating-handling-row">
+                  <span v-if="msg.danhGia.daXuLy" class="handled-label">✓ Đã xử lý bởi {{ msg.danhGia.nguoiXuLy || 'Quản trị viên' }}</span>
+                  <button v-else type="button" class="btn-mark-handled" @click="markRatingHandled">Đánh dấu đã xử lý</button>
                 </div>
                 <div class="rh-footer-meta">
                   <span>Khách hàng: <strong>{{ (msg.danhGia && msg.danhGia.tenKhachHang) || activeConv?.tenKhachHang || 'Khách trực tuyến' }}</strong></span>
@@ -1621,6 +1720,60 @@ watch(() => route.query.id, (newId) => {
   align-items: center;
   gap: 3px;
 }
+
+.rating-insights-panel {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fafcff;
+}
+
+.rating-overview-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.rating-average-box { display: flex; align-items: baseline; gap: 3px; color: #b7791f; }
+.rating-average-box strong { font-size: 22px; line-height: 1; }
+.rating-average-box span, .rating-overview-meta { font-size: 11px; color: #64748b; }
+.rating-overview-meta { display: flex; flex-direction: column; gap: 2px; }
+.needs-action-text { color: #dc2626; font-weight: 700; }
+.rating-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  overflow: visible;
+  padding-bottom: 0;
+}
+.rating-filter-chips button {
+  flex: 0 0 auto;
+  border: 1px solid #dbe3eb;
+  background: #fff;
+  color: #475569;
+  border-radius: 14px;
+  padding: 3px 7px;
+  font-size: 9.5px;
+  line-height: 1.25;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.rating-filter-chips button.active { background: #496883; border-color: #496883; color: #fff; }
+.rating-filter-chips button.positive:not(.active) { color: #15803d; border-color: #bbf7d0; }
+.rating-filter-chips button.neutral:not(.active) { color: #a16207; border-color: #fde68a; }
+.rating-filter-chips button.negative:not(.active), .rating-filter-chips button.pending:not(.active) { color: #dc2626; border-color: #fecaca; }
+
+.rating-badge-pill.rating-tich_cuc, .analysis-classification.rating-tich_cuc { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.rating-badge-pill.rating-trung_lap, .analysis-classification.rating-trung_lap { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.rating-badge-pill.rating-tieu_cuc, .analysis-classification.rating-tieu_cuc { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.rating-badge-pill b { margin-left: 2px; color: #dc2626; }
+
+.rating-analysis-box { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0; }
+.analysis-classification, .analysis-topic, .analysis-conflict {
+  display: inline-flex; align-items: center; border: 1px solid #dbe3eb; border-radius: 12px;
+  padding: 3px 8px; font-size: 10.5px; font-weight: 600;
+}
+.analysis-topic { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.analysis-conflict { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+.rating-handling-row { margin: 8px 0; }
+.btn-mark-handled { border: 1px solid #fecaca; background: #fff; color: #dc2626; border-radius: 7px; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
+.btn-mark-handled:hover { background: #fee2e2; }
+.handled-label { color: #15803d; font-size: 11px; font-weight: 700; }
 
 /* Badge Đánh giá ở Header phải */
 .header-rating-badge {

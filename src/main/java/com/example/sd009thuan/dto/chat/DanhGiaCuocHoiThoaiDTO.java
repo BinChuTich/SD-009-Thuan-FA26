@@ -3,6 +3,7 @@ package com.example.sd009thuan.dto.chat;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -21,5 +22,13 @@ public class DanhGiaCuocHoiThoaiDTO {
     private String noiDungDanhGia;
     private Integer trangThai;
     private LocalDateTime ngayTao;
+    private String phanLoai; // TICH_CUC | TRUNG_LAP | TIEU_CUC
+    private String camXucNoiDung; // TICH_CUC | TRUNG_LAP | TIEU_CUC | HON_HOP | KHONG_XAC_DINH
+    private List<String> chuDe;
+    private Boolean mauThuanSaoNoiDung;
+    private Boolean canXuLy;
+    private Boolean daXuLy;
+    private String nguoiXuLy;
+    private LocalDateTime ngayXuLy;
 }
 
