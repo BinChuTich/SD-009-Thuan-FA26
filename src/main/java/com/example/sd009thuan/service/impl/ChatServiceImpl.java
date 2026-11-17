@@ -614,6 +614,9 @@ public class ChatServiceImpl implements ChatService {
         if (conv == null) {
             throw new IllegalArgumentException("Không tìm thấy cuộc hội thoại ID: " + cuocHoiThoaiId);
         }
+        if (ratingsByConv.containsKey(cuocHoiThoaiId)) {
+            throw new IllegalStateException("Phiên trò chuyện này đã được đánh giá");
+        }
 
         int score = 5;
         if (dto != null && dto.getDiemDanhGia() != null) {

@@ -77,6 +77,30 @@ class ChatServicePersistenceTest {
         assertEquals("Admin kiểm thử", restarted.layDanhGia(conversationId).getNguoiXuLy());
     }
 
+    @Test
+    void sameCustomerCanRateEveryNewConversationOnce() {
+        ChatServiceImpl service = createService(new ObjectMapper().findAndRegisterModules());
+        KhoiTaoChatRequest init = new KhoiTaoChatRequest();
+        init.setKhachHangId(20L);
+        init.setTenKhachHang("Khách quay lại");
+
+        Long firstId = service.khoiTaoHoacLayCuocHoiThoai(init).getId();
+        service.dongCuocHoiThoai(firstId);
+        DanhGiaCuocHoiThoaiDTO firstRating = new DanhGiaCuocHoiThoaiDTO();
+        firstRating.setDiemDanhGia(4);
+        service.guiDanhGia(firstId, firstRating);
+
+        Long secondId = service.khoiTaoHoacLayCuocHoiThoai(init).getId();
+        assertTrue(!firstId.equals(secondId));
+        assertEquals(null, service.layDanhGia(secondId));
+        DanhGiaCuocHoiThoaiDTO secondRating = new DanhGiaCuocHoiThoaiDTO();
+        secondRating.setDiemDanhGia(5);
+        service.guiDanhGia(secondId, secondRating);
+
+        assertEquals(4, service.layDanhGia(firstId).getDiemDanhGia());
+        assertEquals(5, service.layDanhGia(secondId).getDiemDanhGia());
+    }
+
     private ChatServiceImpl createService(ObjectMapper mapper) {
         ChatServiceImpl service = new ChatServiceImpl(
                 mock(HoaDonRepository.class), mock(NhanVienRepository.class), mapper);

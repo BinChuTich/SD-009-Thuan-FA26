@@ -137,6 +137,14 @@ const hasSubmittedRating = ref(false)
 const currentRatingInfo = ref(null)
 const hoverScore = ref(0)
 
+const resetRatingState = () => {
+  hasSubmittedRating.value = false
+  currentRatingInfo.value = null
+  ratingScore.value = 5
+  ratingComment.value = ''
+  hoverScore.value = 0
+}
+
 const getRatingLabel = (score) => {
   switch (score) {
     case 1: return '1★ Rất không hài lòng'
@@ -589,10 +597,7 @@ const resetToNewSession = () => {
   conversationId.value = null
   conversationStatus.value = null
   assignedStaffName.value = null
-  hasSubmittedRating.value = false
-  currentRatingInfo.value = null
-  ratingScore.value = 5
-  ratingComment.value = ''
+  resetRatingState()
   localStorage.removeItem(CHAT_STORAGE_KEY)
   localStorage.removeItem(STAFF_REQUESTED_STORAGE_KEY)
   messages.value = [createWelcomeMessage()]
@@ -1160,6 +1165,7 @@ const handleStaffRequest = async () => {
     .map(m => ({ sender: m.sender, text: String(m.text).slice(0, 2000) }))
 
   // Tạo phiên mới và gửi yêu cầu hỗ trợ (trangThai = 2)
+  resetRatingState()
   conversationId.value = null
   conversationStatus.value = 2
   assignedStaffName.value = null
@@ -1187,6 +1193,7 @@ const requestStaffSupport = async (historyToSync = []) => {
     }
     const res = await api.post('/api/chat/khoi-tao', payload)
     if (res.data && res.data.id) {
+      resetRatingState()
       conversationId.value = res.data.id
       conversationStatus.value = res.data.trangThai || 2
       localStorage.setItem(CHAT_STORAGE_KEY, String(res.data.id))
