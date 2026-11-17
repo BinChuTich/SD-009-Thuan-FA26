@@ -286,6 +286,12 @@ public class HoaDon {
         this.soLanSuaThongTin = soLanSuaThongTin;
     }
 
+    // Nhân viên được sửa thông tin nhận hàng 1 lần riêng, không làm mất lượt của khách.
+    @JsonProperty("soLanNhanVienSuaThongTin")
+    public Integer getSoLanNhanVienSuaThongTin() {
+        return this.ghiChu != null && this.ghiChu.contains("[NV_DA_SUA_THONG_TIN]") ? 1 : 0;
+    }
+
     // Chi tiết hóa đơn
     @JsonIgnore
     @OneToMany(mappedBy = "idHoaDon", cascade = CascadeType.ALL, orphanRemoval = true)

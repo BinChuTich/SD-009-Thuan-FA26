@@ -8766,6 +8766,22 @@ public class HoaDonService {
 
     @Transactional
     public HoaDon khachSuaThongTinDonHang(String maHoaDon, KhachSuaDonDTO dto) {
+        return suaThongTinNhanHangMotLan(
+                maHoaDon, dto, "Khách hàng online", "Khách hàng",
+                "[DA_SUA_THONG_TIN]", false);
+    }
+
+    @Transactional
+    public HoaDon nhanVienSuaThongTinDonHang(String maHoaDon, KhachSuaDonDTO dto, String tenNhanVien) {
+        String actor = tenNhanVien == null || tenNhanVien.isBlank() ? "Nhân viên bán hàng" : tenNhanVien.trim();
+        return suaThongTinNhanHangMotLan(
+                maHoaDon, dto, actor, "Nhân viên",
+                "[NV_DA_SUA_THONG_TIN]", true);
+    }
+
+    private HoaDon suaThongTinNhanHangMotLan(
+            String maHoaDon, KhachSuaDonDTO dto, String actor, String actorRole,
+            String editMarker, boolean staffEdit) {
         if (dto == null) {
             throw new IllegalArgumentException("Dữ liệu cập nhật không hợp lệ!");
         }
@@ -8786,8 +8802,13 @@ public class HoaDonService {
         }
 
         // 3. Kiểm tra số lần sửa: Chỉ được sửa 1 lần duy nhất
-        if (hoaDon.getSoLanSuaThongTin() != null && hoaDon.getSoLanSuaThongTin() >= 1) {
-            throw new IllegalStateException("Đơn hàng chỉ được phép chỉnh sửa thông tin nhận hàng 1 lần duy nhất!");
+        boolean alreadyEdited = staffEdit
+                ? hoaDon.getSoLanNhanVienSuaThongTin() >= 1
+                : hoaDon.getSoLanSuaThongTin() >= 1;
+        if (alreadyEdited) {
+            throw new IllegalStateException(staffEdit
+                    ? "Nhân viên chỉ được phép chỉnh sửa thông tin nhận hàng của đơn này 1 lần duy nhất!"
+                    : "Khách hàng chỉ được phép chỉnh sửa thông tin nhận hàng 1 lần duy nhất!");
         }
 
         // Lưu lại thông tin cũ để ghi log lịch sử
@@ -8830,17 +8851,17 @@ public class HoaDonService {
         }
 
         // 6. Đánh dấu đã sửa thông tin 1 lần
-        hoaDon.setSoLanSuaThongTin(1);
+        if (!staffEdit) hoaDon.setSoLanSuaThongTin(1);
         String note = hoaDon.getGhiChu() != null ? hoaDon.getGhiChu() : "";
-        if (!note.contains("[DA_SUA_THONG_TIN]")) {
-            note = "[DA_SUA_THONG_TIN] " + note;
+        if (!note.contains(editMarker)) {
+            note = editMarker + " " + note;
         }
         if (dto.getGhiChu() != null && !dto.getGhiChu().trim().isEmpty()) {
             note += " [Ghi chú mới: " + dto.getGhiChu().trim() + "]";
         }
         hoaDon.setGhiChu(note);
         hoaDon.setNgayCapNhat(Instant.now());
-        hoaDon.setNguoiCapNhat("Khách hàng online");
+        hoaDon.setNguoiCapNhat(actor);
 
         HoaDon saved = hoaDonRepository.save(hoaDon);
 
@@ -8850,11 +8871,11 @@ public class HoaDonService {
             log.setIdHoaDon(saved);
             log.setTrangThai(saved.getTrangThai()); // 1
             log.setThoiGian(Instant.now());
-            log.setNguoiThucHien("Khách hàng online");
-            log.setVaiTroNguoiThucHien("Khách hàng");
+            log.setNguoiThucHien(actor);
+            log.setVaiTroNguoiThucHien(actorRole);
             
             StringBuilder sb = new StringBuilder();
-            sb.append("Khách hàng cập nhật thông tin nhận đơn (1 lần duy nhất): ");
+            sb.append(actorRole).append(" cập nhật thông tin nhận đơn (1 lần duy nhất): ");
             if (dto.getTenNguoiNhan() != null && !dto.getTenNguoiNhan().equals(tenCu)) {
                 sb.append("Tên: '").append(tenCu).append("' -> '").append(dto.getTenNguoiNhan()).append("'; ");
             }
@@ -8870,7 +8891,7 @@ public class HoaDonService {
             log.setGhiChu(sb.toString());
             lichSuHoaDonRepository.save(log);
         } catch (Exception e) {
-            System.err.println("Lỗi lưu lịch sử hóa đơn khi khách sửa thông tin: " + e.getMessage());
+            System.err.println("Lỗi lưu lịch sử hóa đơn khi sửa thông tin nhận hàng: " + e.getMessage());
         }
 
         return saved;

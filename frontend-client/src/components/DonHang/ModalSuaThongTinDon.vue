@@ -466,7 +466,7 @@ const handleConfirmOrderUpdate = async () => {
         <div class="addr-policy-banner">
           <div class="banner-icon-box">ℹ️</div>
           <div class="banner-content-text">
-            <strong>Chính sách đổi địa chỉ:</strong> Quý khách chỉ được phép chỉnh sửa thông tin nhận hàng <strong>1 lần duy nhất</strong> khi đơn hàng đang ở trạng thái <em>Chờ xác nhận</em>.
+            Chỉ được đổi thông tin nhận hàng <strong>1 lần</strong> khi đơn đang <em>Chờ xác nhận</em>.
           </div>
         </div>
 
@@ -486,10 +486,12 @@ const handleConfirmOrderUpdate = async () => {
         </div>
 
         <!-- FORM THÊM / SỬA ĐỊA CHỈ (CÓ THÊM THÔNG TIN NGƯỜI NHẬN) -->
-        <div v-if="showAddressForm" class="addr-inline-form-box">
-          <h4 class="addr-form-box-title">
-            {{ editingAddressId ? 'Chỉnh sửa địa chỉ' : 'Thêm địa chỉ mới' }}
-          </h4>
+        <div v-if="showAddressForm" class="address-form-popup-backdrop" @click.self="cancelAddressForm">
+          <div class="addr-inline-form-box address-form-popup">
+            <div class="address-form-popup-header">
+              <h4 class="addr-form-box-title">{{ editingAddressId ? 'Chỉnh sửa địa chỉ' : 'Thêm địa chỉ mới' }}</h4>
+              <button type="button" class="address-form-popup-close" @click="cancelAddressForm">&times;</button>
+            </div>
           <div class="addr-form-grid-2">
             <!-- Thêm thông tin người nhận: Tên & SĐT -->
             <div class="addr-form-field">
@@ -565,6 +567,7 @@ const handleConfirmOrderUpdate = async () => {
             <button type="button" class="btn-save-addr" :disabled="savingAddress" @click="saveAddress">
               {{ savingAddress ? 'Đang lưu...' : 'Lưu địa chỉ' }}
             </button>
+          </div>
           </div>
         </div>
 
@@ -656,7 +659,7 @@ const handleConfirmOrderUpdate = async () => {
               <span class="pmb-orig-ship">Phí ship ban đầu: <strong>{{ formatCurrency(originalShippingFee) }}</strong></span>
             </div>
             <p class="pmb-desc">
-              ✓ Đơn hàng thanh toán khi nhận hàng: Quý khách có thể đổi đến bất kỳ địa chỉ nào. Cước vận chuyển và tổng tiền thu COD sẽ tự động cập nhật lại.
+              Phí vận chuyển và tổng COD sẽ tự cập nhật theo địa chỉ mới.
             </p>
           </div>
 
@@ -666,7 +669,7 @@ const handleConfirmOrderUpdate = async () => {
               <span class="pmb-orig-ship">Phí ship đã trả: <strong>{{ formatCurrency(originalShippingFee) }}</strong></span>
             </div>
             <p class="pmb-desc">
-              ℹ️ Đơn hàng đã thanh toán: Cước phí địa chỉ mới phải <strong>bằng hoặc thấp hơn</strong> cước ban đầu ({{ formatCurrency(originalShippingFee) }}).
+              Phí ship mới phải <strong>không vượt quá</strong> phí đã trả.
             </p>
           </div>
 
@@ -693,7 +696,7 @@ const handleConfirmOrderUpdate = async () => {
 
             <!-- Cảnh báo nếu đơn đã thanh toán bị vượt cước -->
             <div v-if="!isFeeAllowed" class="fee-error-alert">
-              ⚠️ Không thể áp dụng địa chỉ này! Cước phí mới ({{ formatCurrency(calculatedFee) }}) vượt quá cước đã thanh toán ({{ formatCurrency(originalShippingFee) }}). Vui lòng chọn địa chỉ có khoảng cách tương đương hoặc gần hơn.
+              ⚠️ Phí mới {{ formatCurrency(calculatedFee) }} vượt phí đã trả {{ formatCurrency(originalShippingFee) }}. Hãy chọn địa chỉ gần hơn.
             </div>
           </div>
 
@@ -745,7 +748,7 @@ const handleConfirmOrderUpdate = async () => {
 
 .client-addr-modal-card {
   width: 100%;
-  max-width: 680px;
+  max-width: 760px;
   max-height: 92vh;
   background: #ffffff;
   border-radius: 16px;
@@ -803,11 +806,11 @@ const handleConfirmOrderUpdate = async () => {
 
 /* Body */
 .client-addr-modal-body {
-  padding: 20px 24px;
+  padding: 14px 20px 16px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 /* Policy banner */
@@ -815,17 +818,17 @@ const handleConfirmOrderUpdate = async () => {
   background: #fefce8;
   border: 1px solid #fef08a;
   border-radius: 10px;
-  padding: 12px 14px;
+  padding: 7px 10px;
   display: flex;
   align-items: flex-start;
   gap: 10px;
   color: #854d0e;
-  font-size: 0.88rem;
-  line-height: 1.45;
+  font-size: 0.8rem;
+  line-height: 1.3;
 }
 
 .banner-icon-box {
-  font-size: 1.1rem;
+  font-size: 0.9rem;
 }
 
 /* Top bar: total & add button */
@@ -864,6 +867,30 @@ const handleConfirmOrderUpdate = async () => {
   border-radius: 12px;
   padding: 18px;
 }
+
+.address-form-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000001;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.52);
+  backdrop-filter: blur(2px);
+}
+
+.address-form-popup {
+  width: min(620px, 94vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  background: #fff;
+  border-color: #dbe3ec;
+  box-shadow: 0 22px 55px rgba(15, 23, 42, 0.28);
+}
+
+.address-form-popup-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+.address-form-popup-header .addr-form-box-title { margin: 0; }
+.address-form-popup-close { width:32px; height:32px; border:0; border-radius:8px; background:#f1f5f9; color:#64748b; font-size:22px; cursor:pointer; }
 
 .addr-form-box-title {
   font-size: 1rem;
@@ -985,8 +1012,8 @@ const handleConfirmOrderUpdate = async () => {
 .addr-items-scroll-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  max-height: 280px;
+  gap: 8px;
+  max-height: 360px;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -1003,7 +1030,7 @@ const handleConfirmOrderUpdate = async () => {
   justify-content: space-between;
   align-items: center;
   gap: 14px;
-  padding: 14px 18px;
+  padding: 10px 13px;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   background-color: #ffffff;
@@ -1147,15 +1174,15 @@ const handleConfirmOrderUpdate = async () => {
 /* Panel tính cước & tổng thanh toán khi đã chọn địa chỉ */
 .addr-order-calc-section {
   border-top: 1px dashed #cbd5e1;
-  padding-top: 16px;
+  padding-top: 9px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
 }
 
 .payment-mode-banner {
   border-radius: 10px;
-  padding: 12px 14px;
+  padding: 7px 10px;
 }
 
 .payment-mode-banner.cod-mode {
@@ -1172,13 +1199,13 @@ const handleConfirmOrderUpdate = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
 }
 
 .pmb-badge {
-  font-size: 0.76rem;
+  font-size: 0.68rem;
   font-weight: 800;
-  padding: 3px 8px;
+  padding: 2px 7px;
   border-radius: 6px;
   letter-spacing: 0.5px;
 }
@@ -1194,12 +1221,12 @@ const handleConfirmOrderUpdate = async () => {
 }
 
 .pmb-orig-ship {
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   color: #475569;
 }
 
 .pmb-desc {
-  font-size: 0.84rem;
+  font-size: 0.76rem;
   color: #334155;
   margin: 0;
   line-height: 1.4;
@@ -1209,7 +1236,7 @@ const handleConfirmOrderUpdate = async () => {
   background-color: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 14px 18px;
+  padding: 9px 12px;
 }
 
 .fee-warning-box {
@@ -1230,22 +1257,22 @@ const handleConfirmOrderUpdate = async () => {
 }
 
 .ghn-icon {
-  font-size: 1.5rem;
+  font-size: 1.15rem;
 }
 
 .sfp-title {
-  font-size: 0.92rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: #1e293b;
 }
 
 .sfp-sub {
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   color: #64748b;
 }
 
 .sfp-price {
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 800;
   color: #2563eb;
 }
@@ -1276,12 +1303,12 @@ const handleConfirmOrderUpdate = async () => {
 }
 
 .fee-error-alert {
-  margin-top: 10px;
-  padding: 10px 12px;
+  margin-top: 6px;
+  padding: 7px 9px;
   border-radius: 8px;
   background-color: #fee2e2;
   color: #b91c1c;
-  font-size: 0.84rem;
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.4;
 }
@@ -1289,17 +1316,18 @@ const handleConfirmOrderUpdate = async () => {
 .order-edit-note-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
 }
 
 .order-edit-note-field label {
-  font-size: 0.85rem;
+  font-size: 0.77rem;
   font-weight: 600;
   color: #475569;
 }
 
 .note-input {
-  font-size: 0.88rem;
+  height: 36px;
+  font-size: 0.82rem;
 }
 
 .order-confirm-actions-row {
@@ -1310,7 +1338,7 @@ const handleConfirmOrderUpdate = async () => {
 }
 
 .btn-confirm-order-addr {
-  height: 42px;
+  height: 38px;
   padding: 0 24px;
   border-radius: 8px;
   border: none;

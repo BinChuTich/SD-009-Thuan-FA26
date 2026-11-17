@@ -556,6 +556,34 @@ public class HoaDonController {
         return khachSuaThongTinDonHangByCode(opt.get().getMaHoaDon(), dto);
     }
 
+    // Nhân viên sửa thông tin nhận hàng 1 lần riêng khi đơn Online đang Chờ xác nhận.
+    @PutMapping("/code/{maHoaDon}/nhan-vien-sua-thong-tin")
+    public ResponseEntity<?> nhanVienSuaThongTinDonHangByCode(
+            @PathVariable String maHoaDon,
+            @RequestParam(required = false) String tenNhanVien,
+            @RequestBody com.example.sd009thuan.dto.KhachSuaDonDTO dto
+    ) {
+        try {
+            return ResponseEntity.ok(hoaDonService.nhanVienSuaThongTinDonHang(maHoaDon, dto, tenNhanVien));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "message", "Đã xảy ra lỗi khi nhân viên cập nhật thông tin đơn hàng: " + e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}/nhan-vien-sua-thong-tin")
+    public ResponseEntity<?> nhanVienSuaThongTinDonHangById(
+            @PathVariable Long id,
+            @RequestParam(required = false) String tenNhanVien,
+            @RequestBody com.example.sd009thuan.dto.KhachSuaDonDTO dto
+    ) {
+        Optional<HoaDon> opt = hoaDonService.getById(id);
+        if (opt.isEmpty()) return ResponseEntity.notFound().build();
+        return nhanVienSuaThongTinDonHangByCode(opt.get().getMaHoaDon(), tenNhanVien, dto);
+    }
+
 
     // Quản lý thông báo đơn hàng mới cho Admin
     private static final java.util.Set<String> readNotificationCodes = java.util.concurrent.ConcurrentHashMap.newKeySet();

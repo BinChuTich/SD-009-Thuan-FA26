@@ -12,6 +12,7 @@ import { generateQrDataUrl, generateQrSvg } from '@/utils/qrcode.js'
 
 import { getCurrentUser } from '@/utils/auth.js'
 import RefundOrderModal from '@/components/RefundOrderModal.vue'
+import ModalNhanVienSuaDiaChiDon from '@/components/ModalNhanVienSuaDiaChiDon.vue'
 
 
 
@@ -61,6 +62,7 @@ const isOrderOutOfStock = ref(false)
 const stockCheckResult = ref(null)
 const showRefundModal = ref(false)
 const refundingOrder = ref(false)
+const showStaffAddressModal = ref(false)
 
 const checkOrderStock = async (id) => {
   if (!id) return
@@ -445,6 +447,8 @@ const createDefaultInvoice = (code) => ({
 
   customer: {
 
+    id: null,
+
     name: 'Khách lẻ',
 
     code: '—',
@@ -532,6 +536,8 @@ const createDefaultInvoice = (code) => ({
   },
 
   items: []
+
+  ,staffAddressEditCount: 0
 
 })
 
@@ -690,6 +696,17 @@ const isOnlineWaitingConfirm = computed(() => {
   return !isPureStoreOrder.value && Number(invoiceData.value.status) === 1
 
 })
+
+const canStaffEditAddress = computed(() =>
+  isOnlineWaitingConfirm.value
+  && Number(invoiceData.value.loaiDon) === 2
+  && Number(invoiceData.value.staffAddressEditCount || 0) < 1
+)
+
+const handleStaffAddressUpdated = async () => {
+  showStaffAddressModal.value = false
+  await loadDetail(invoiceData.value.code || invoiceCode.value)
+}
 
 
 
@@ -1774,6 +1791,8 @@ const loadDetail = async (identifier) => {
 
     invoiceData.value.customer = {
 
+      id: khachHangObj['id'] || (typeof data['idKhachHang'] !== 'object' ? data['idKhachHang'] : null),
+
       name: rawCustomerName !== 'Khách lẻ' ? rawCustomerName : (customerCatalog['name'] || 'Khách lẻ'),
 
       phone: getString(data['soDienThoaiKhachHang'], data['soDienThoaiHienThi'], khachHangObj['soDienThoai'], data['soDienThoai'], customerCatalog['phone'], data['sdt'], '---'),
@@ -1941,6 +1960,8 @@ const loadDetail = async (identifier) => {
 
 
     invoiceData.value.loaiDon = isOnlineChannel ? 2 : (Number(data['loaiDon']) || 1)
+
+    invoiceData.value.staffAddressEditCount = Number(data['soLanNhanVienSuaThongTin'] || 0)
 
     invoiceData.value.delivery = {
 
@@ -4303,6 +4324,19 @@ onBeforeUnmount(() => {
 
               </div>
 
+              <button
+                  v-if="canStaffEditAddress"
+                  type="button"
+                  class="btn-send-email-pill"
+                  @click="showStaffAddressModal = true"
+              >
+                ✎ Sửa địa chỉ (1 lần)
+              </button>
+
+              <span v-else-if="isOnlineWaitingConfirm && Number(invoiceData.staffAddressEditCount || 0) >= 1" class="badge-unprinted-pill">
+                Nhân viên đã sửa địa chỉ
+              </span>
+
             </div>
 
             <div class="info-list">
@@ -5617,6 +5651,12 @@ onBeforeUnmount(() => {
 
 
 
+
+    <ModalNhanVienSuaDiaChiDon
+        v-model="showStaffAddressModal"
+        :order="invoiceData"
+        @updated="handleStaffAddressUpdated"
+    />
 
   </div>
 
