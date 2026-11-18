@@ -519,21 +519,29 @@ onUnmounted(() => {
               <!-- Popup tài khoản -->
               <div v-if="showUserMenu" class="dropdown-popup user-popup">
                 <div class="user-summary">
-                  <div class="user-summary-row">
-                    <strong>{{ currentClientUser?.name }}</strong>
-                    <span v-if="currentClientUser?.provider === 'google'" class="google-badge-tag">Gmail</span>
+                  <div class="popup-avatar">
+                    {{ (currentClientUser?.name || 'K').trim().split(/\s+/).slice(-2).map(n => n[0]).join('').toUpperCase() }}
                   </div>
-                  <span>{{ currentClientUser?.email || currentClientUser?.phone }}</span>
+                  <div class="popup-user-copy">
+                    <div class="user-summary-row">
+                      <strong>{{ currentClientUser?.name }}</strong>
+                      <span v-if="currentClientUser?.provider === 'google'" class="google-badge-tag">Gmail</span>
+                    </div>
+                    <span>{{ currentClientUser?.email || currentClientUser?.phone }}</span>
+                  </div>
                 </div>
                 <div class="popup-menu-divider"></div>
+                <router-link to="/tai-khoan" class="menu-link primary-account-link" @click="showUserMenu = false">
+                  <span class="menu-icon">👤</span><span><strong>Tài khoản của tôi</strong><small>Quản lý hồ sơ cá nhân</small></span><b>›</b>
+                </router-link>
                 <router-link to="/don-hang" class="menu-link" @click="showUserMenu = false">
-                  📦 Đơn hàng của tôi
+                  <span class="menu-icon">📦</span><span>Đơn hàng của tôi</span><b>›</b>
                 </router-link>
                 <router-link to="/tra-cuu" class="menu-link" @click="showUserMenu = false">
-                  🚚 Tra cứu đơn hàng
+                  <span class="menu-icon">🚚</span><span>Tra cứu đơn hàng</span><b>›</b>
                 </router-link>
                 <router-link to="/gio-hang" class="menu-link" @click="showUserMenu = false">
-                  🛒 Giỏ hàng ({{ cartCount }})
+                  <span class="menu-icon">🛒</span><span>Giỏ hàng</span><em>{{ cartCount }}</em>
                 </router-link>
                 <div class="popup-menu-divider"></div>
                 <button type="button" class="menu-link menu-logout-btn" @click="handleLogout">
@@ -606,6 +614,9 @@ onUnmounted(() => {
           </a>
           <router-link to="/don-hang" class="mobile-nav-link" @click="closeMobileMenu">
             📦 ĐƠN HÀNG
+          </router-link>
+          <router-link v-if="isClientLoggedIn" to="/tai-khoan" class="mobile-nav-link" @click="closeMobileMenu">
+            👤 TÀI KHOẢN CỦA TÔI
           </router-link>
           <router-link to="/tra-cuu" class="mobile-nav-link" @click="closeMobileMenu">
             🔍 TRA CỨU
@@ -1490,15 +1501,38 @@ onUnmounted(() => {
 }
 
 .user-popup {
-  width: 220px;
-  padding: 14px;
+  width: 290px;
+  padding: 12px;
+  border-radius: 16px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
 }
 
 .user-summary {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
   font-size: 12px;
   color: #333333;
+  padding: 4px;
+}
+
+.popup-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #f4ddb0, #d2a764);
+  color: #36526a;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.popup-user-copy {
+  min-width: 0;
+  flex: 1;
 }
 
 .user-summary-row {
@@ -1510,8 +1544,11 @@ onUnmounted(() => {
 }
 
 .user-summary strong {
-  font-size: 13px;
-  color: #496883;
+  font-size: 13.5px;
+  color: #1e293b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .google-badge-tag {
@@ -1526,6 +1563,10 @@ onUnmounted(() => {
 .user-summary span {
   color: #64748b;
   font-size: 11px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .popup-menu-divider {
@@ -1535,15 +1576,25 @@ onUnmounted(() => {
 }
 
 .menu-link {
-  display: block;
-  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
   color: #475569;
   text-decoration: none;
   font-size: 13px;
   font-weight: 600;
-  border-radius: 6px;
+  border-radius: 9px;
   transition: all 0.15s;
 }
+
+.menu-link > span:nth-child(2) { flex: 1; }
+.menu-link b { color: #94a3b8; font-size: 19px; font-weight: 500; }
+.menu-link em { min-width: 22px; height: 22px; display: grid; place-items: center; border-radius: 11px; background: #fff1ed; color: #ee4d2d; font-size: 11px; font-style: normal; font-weight: 800; }
+.menu-icon { width: 30px; height: 30px; display: grid !important; place-items: center; border-radius: 8px; background: #f8fafc; flex-shrink: 0; }
+.primary-account-link { background: #f8fafc; align-items: center; }
+.primary-account-link strong { display: block; color: #1e293b; font-size: 12.5px; }
+.primary-account-link small { display: block; margin-top: 1px; color: #94a3b8; font-size: 10px; font-weight: 500; }
 
 .menu-link:hover {
   background-color: #f8fafc;
@@ -1557,6 +1608,7 @@ onUnmounted(() => {
   cursor: pointer;
   text-align: left;
   color: #ef4444;
+  justify-content: flex-start;
 }
 
 .menu-logout-btn:hover {

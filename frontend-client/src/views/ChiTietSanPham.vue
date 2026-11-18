@@ -71,7 +71,7 @@ const triggerToast = (msg) => {
 
     showToast.value = false
 
-  }, 2200)
+  }, 3600)
 
 }
 
@@ -462,6 +462,14 @@ const currentStock = computed(() => {
 
 })
 
+const currentVariantInCart = computed(() => {
+  if (!currentVariant.value?.id) return null
+  return cartItems.value.find(item => String(item.variantId) === String(currentVariant.value.id)) || null
+})
+
+const quantityAlreadyInCart = computed(() => Number(currentVariantInCart.value?.quantity || 0))
+const remainingCanAdd = computed(() => Math.max(0, Number(currentStock.value || 0) - quantityAlreadyInCart.value))
+
 
 
 // Giá bán
@@ -848,9 +856,17 @@ const handleAddToCart = () => {
 
   const rawStock = currentVariant.value.soLuongTon != null ? currentVariant.value.soLuongTon : (currentVariant.value.soLuong != null ? currentVariant.value.soLuong : 99)
   const maxStock = Number(rawStock)
-  const existingInCart = cartItems.value.find(item => item.variantId === currentVariant.value.id)
+  const existingInCart = cartItems.value.find(item => String(item.variantId) === String(currentVariant.value.id))
   if (existingInCart && existingInCart.quantity >= maxStock) {
-    triggerToast(`Sản phẩm trong giỏ hàng đã đạt giới hạn tồn kho tối đa (${maxStock} sản phẩm)!`)
+    triggerToast(`Trong giỏ đã có đủ ${existingInCart.quantity}/${maxStock} sản phẩm của màu và size này.`)
+    return
+  }
+
+  const existingQty = Number(existingInCart?.quantity || 0)
+  const requestedQty = Math.max(1, Number(quantity.value) || 1)
+  const canAdd = Math.max(0, maxStock - existingQty)
+  if (existingQty + requestedQty > maxStock) {
+    triggerToast(`Trong giỏ đã có ${existingQty} sản phẩm. Kho còn ${maxStock}, bạn chỉ có thể thêm tối đa ${canAdd} sản phẩm nữa.`)
     return
   }
 
@@ -860,7 +876,7 @@ const handleAddToCart = () => {
     const sizeName = selectedSizeName.value || currentVariant.value?.tenKichThuoc || ''
 
     // Lấy số lượng thực tế của biến thể này trong giỏ hàng sau khi ấn thêm
-    const inCart = cartItems.value.find(item => item.variantId === currentVariant.value.id)
+    const inCart = cartItems.value.find(item => String(item.variantId) === String(currentVariant.value.id))
     const currentQtyInCart = inCart ? inCart.quantity : quantity.value
 
     addedItemInfo.value = {
@@ -910,11 +926,19 @@ const handleBuyNow = () => {
 
   }
 
+  const existingInCart = cartItems.value.find(item => String(item.variantId) === String(currentVariant.value.id))
+  const existingQty = Number(existingInCart?.quantity || 0)
+  const requestedQty = Math.max(1, Number(quantity.value) || 1)
+  if (existingQty + requestedQty > Number(currentStock.value)) {
+    triggerToast(`Trong giỏ đã có ${existingQty} sản phẩm. Bạn chỉ có thể mua thêm tối đa ${Math.max(0, Number(currentStock.value) - existingQty)} sản phẩm nữa.`)
+    return
+  }
+
 
 
   addToCart(product.value, currentVariant.value, quantity.value)
 
-  const itemToBuy = cartItems.value.find(i => i.variantId === currentVariant.value.id)
+  const itemToBuy = cartItems.value.find(i => String(i.variantId) === String(currentVariant.value.id))
 
   if (itemToBuy) {
 
@@ -1295,6 +1319,12 @@ onUnmounted(() => {
 
                 </span>
 
+                <span v-if="currentVariant && quantityAlreadyInCart > 0" class="in-cart-helper">
+                  Trong giỏ: <strong>{{ quantityAlreadyInCart }}</strong>
+                  <template v-if="remainingCanAdd > 0"> · Có thể thêm {{ remainingCanAdd }}</template>
+                  <template v-else> · Đã đạt tối đa</template>
+                </span>
+
               </div>
 
             </div>
@@ -1391,7 +1421,13 @@ onUnmounted(() => {
 
             <div class="csc-header">
 
-              <h3 class="csc-title">Thêm vào giỏ hàng thành công</h3>
+              <div class="csc-success-heading">
+                <span class="csc-check-icon">✓</span>
+                <div>
+                  <h3 class="csc-title">Đã thêm vào giỏ hàng</h3>
+                  <p>Sản phẩm đang chờ bạn thanh toán</p>
+                </div>
+              </div>
 
               <button class="csc-close-btn" @click="closeCartSuccess" aria-label="Đóng">✕</button>
 
@@ -1459,9 +1495,13 @@ onUnmounted(() => {
 
             <div class="csc-footer">
 
+              <button type="button" class="btn-csc-continue" @click="closeCartSuccess">
+                Tiếp tục mua
+              </button>
+
               <router-link to="/gio-hang" class="btn-csc-action-cart" @click="closeCartSuccess">
 
-                <span>XEM GIỎ HÀNG</span>
+                <span>Xem giỏ hàng</span>
 
                 <span class="csc-arrow">&rarr;</span>
 
@@ -2477,6 +2517,21 @@ onUnmounted(() => {
 
 }
 
+.in-cart-helper {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #c2410c;
+  font-size: 11.5px;
+  line-height: 1.2;
+}
+
+.in-cart-helper strong { font-weight: 900; }
+
 
 
 @media (max-width: 640px) {
@@ -2877,6 +2932,70 @@ onUnmounted(() => {
   line-height: 1.15;
   box-shadow: 0 2px 5px rgba(220, 38, 38, 0.4);
   z-index: 2;
+}
+
+@media (max-width: 580px) {
+  .detail-page-container {
+    padding-inline: 10px;
+  }
+
+  .detail-grid-layout {
+    gap: 20px;
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .product-title-main {
+    font-size: clamp(21px, 6vw, 27px);
+    line-height: 1.3;
+  }
+
+  .btn-add-to-cart-primary {
+    min-height: 48px;
+    height: auto;
+    padding: 12px 16px;
+  }
+}
+
+/* Toast thêm giỏ hàng – lớp cuối để thay thế thiết kế cũ. */
+.csc-modal-card {
+  width: 390px;
+  max-width: calc(100vw - 24px);
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 18px 45px rgba(15,23,42,.18), 0 3px 10px rgba(15,23,42,.06);
+}
+
+.csc-success-heading { display:flex; align-items:center; gap:10px; min-width:0; }
+.csc-check-icon { width:36px; height:36px; display:grid; place-items:center; flex-shrink:0; border-radius:50%; background:#ecfdf5; border:1px solid #a7f3d0; color:#059669; font-size:19px; font-weight:900; }
+.csc-success-heading p { margin:2px 0 0; color:#64748b; font-size:11px; }
+.csc-title { font-size:15px; font-weight:800; }
+.csc-close-btn { width:30px; height:30px; flex-shrink:0; padding:0; border-radius:50%; background:#f8fafc; color:#64748b; }
+.csc-divider { margin:0 -16px 14px; }
+.csc-body { align-items:flex-start; gap:12px; margin-bottom:16px; }
+.csc-thumb-wrapper { width:76px; height:90px; border-radius:10px; }
+.csc-thumb-img { object-fit:contain; background:#f8fafc; }
+.csc-product-details { flex:1; min-width:0; }
+.csc-product-title { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; font-size:14px; font-weight:750; }
+.csc-product-variant { font-size:12px; }
+.csc-product-price-row { justify-content:flex-start; flex-wrap:wrap; }
+.csc-sale-price { color:#ee4d2d; }
+.csc-product-qty { margin-left:auto; font-size:11px; }
+.csc-footer { display:grid; grid-template-columns:.9fr 1.1fr; gap:8px; }
+.btn-csc-continue,.btn-csc-action-cart { min-height:42px; border-radius:9px; font-size:12.5px; font-weight:750; }
+.btn-csc-continue { border:1px solid #cbd5e1; background:#fff; color:#475569; cursor:pointer; }
+.btn-csc-continue:hover { background:#f8fafc; border-color:#94a3b8; }
+.btn-csc-action-cart { padding:10px 14px; border:1px solid #ee4d2d; background:#ee4d2d; color:#fff; letter-spacing:0; }
+.btn-csc-action-cart:hover { background:#d94327; color:#fff; }
+
+@media (max-width:420px) {
+  .csc-backdrop { left:8px; right:8px; }
+  .csc-modal-card { width:100%; max-width:100%; padding:14px; border-radius:14px; }
+  .csc-divider { margin-inline:-14px; }
+  .csc-thumb-wrapper { width:68px; height:82px; }
+  .csc-product-qty { margin-left:0; }
+  .csc-footer { grid-template-columns:1fr 1.15fr; }
 }
 </style>
 

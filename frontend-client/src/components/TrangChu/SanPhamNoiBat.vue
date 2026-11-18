@@ -147,20 +147,20 @@ const goToProduct = (id) => {
 
 .boutique-product-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 18px;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
   .boutique-product-grid {
-    grid-template-columns: repeat(3, 1fr) !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 960px) {
   .boutique-product-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 12px !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
   }
 }
 
@@ -174,6 +174,7 @@ const goToProduct = (id) => {
   border: 1px solid #eef2f6;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .boutique-card:hover {
@@ -185,7 +186,7 @@ const goToProduct = (id) => {
 .card-media {
   position: relative;
   width: 100%;
-  padding-top: 105%;
+  aspect-ratio: 4 / 5;
   overflow: hidden;
   background: #f1f5f9;
 }
@@ -196,7 +197,7 @@ const goToProduct = (id) => {
   left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   transition: transform 0.4s ease;
 }
 
@@ -365,19 +366,30 @@ const goToProduct = (id) => {
   to { transform: rotate(360deg); }
 }
 
-@media (max-width: 992px) {
+@media (max-width: 680px) {
+  .featured-section { padding: 34px 0 42px; }
+  .container-featured { padding: 0 12px; }
+  .section-title-wrapper { margin-bottom: 18px; }
+  .script-title { font-size: 22px; }
   .boutique-product-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
-}
-
-@media (max-width: 600px) {
-  .boutique-product-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-  .card-details { padding: 12px; }
-  .product-title-text { font-size: 13px; min-height: 36px; }
+  .boutique-card { border-radius: 10px; box-shadow: 0 2px 8px rgba(15, 23, 42, .05); }
+  .card-details { padding: 10px; }
+  .card-details-top { gap: 4px; margin-bottom: 4px; }
+  .card-category-badge, .card-sold-count { font-size: 9.5px; }
+  .cart-sold-icon { display: none; }
+  .product-title-text { font-size: 12.5px; min-height: 35px; margin-bottom: 7px; }
+  .product-pricing { gap: 5px; margin-bottom: 0; flex-wrap: wrap; }
+  .price-current { font-size: 14px; }
+  .price-struck { font-size: 10.5px; }
+  .btn-detail-link { display: none; }
+  .tag-best-seller, .tag-percent { top: 7px; font-size: 9.5px; padding: 3px 6px; }
+  .tag-best-seller { right: 7px; }
+  .tag-percent { left: 7px; }
+  .view-all-center-btn { margin-top: 24px; }
+  .btn-view-all-shop { width: 100%; padding: 11px 14px; font-size: 12px; box-sizing: border-box; }
 }
 </style>
 

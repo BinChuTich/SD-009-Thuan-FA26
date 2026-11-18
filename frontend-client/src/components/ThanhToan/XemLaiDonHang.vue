@@ -433,6 +433,145 @@ const emit = defineEmits([
   margin-top: 14px;
 }
 
+@media (max-width: 768px) {
+  .right-summary-column {
+    min-width: 0;
+  }
+
+  .order-summary-box {
+    padding: 0;
+    border-radius: 0;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  .summary-header,
+  .checkout-items-preview,
+  .order-note-field,
+  .checkout-voucher-section,
+  .price-summary-breakdown {
+    background: #fff;
+    border: 1px solid #edf0f4;
+    margin: 0 0 10px;
+    padding: 14px;
+  }
+
+  .summary-header {
+    border-bottom: 1px solid #edf0f4;
+    border-radius: 12px 12px 0 0;
+    margin-bottom: 0;
+  }
+
+  .checkout-items-preview {
+    max-height: none;
+    border-top: 0;
+    border-radius: 0 0 12px 12px;
+    padding-top: 4px;
+  }
+
+  .preview-item-row {
+    display: grid;
+    grid-template-columns: 66px minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 10px;
+    padding: 12px 0;
+  }
+
+  .preview-img-box {
+    width: 66px;
+    height: 80px;
+  }
+
+  .preview-img-box img {
+    object-fit: contain;
+    background: #f8fafc;
+  }
+
+  .preview-name {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .preview-price {
+    font-size: 13px;
+    color: #e11d48;
+    white-space: nowrap;
+  }
+
+  .order-note-field,
+  .checkout-voucher-section,
+  .price-summary-breakdown {
+    border-radius: 12px;
+  }
+
+  .sum-row {
+    gap: 14px;
+    line-height: 1.45;
+  }
+
+  .sum-row > :last-child {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .price-summary-breakdown {
+    margin-bottom: 86px;
+  }
+
+  .total-row {
+    position: fixed;
+    z-index: 1001;
+    left: 0;
+    bottom: 0;
+    width: 56%;
+    height: 62px;
+    margin: 0;
+    padding: 10px 8px 10px 14px;
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    box-shadow: 0 -4px 14px rgba(15, 23, 42, 0.08);
+    gap: 2px;
+  }
+
+  .total-lbl {
+    font-size: 10px;
+    color: #64748b;
+  }
+
+  .total-amount {
+    font-size: clamp(16px, 4.6vw, 20px);
+    white-space: nowrap;
+    color: #ee4d2d;
+  }
+
+  .btn-place-order-gold {
+    position: fixed;
+    z-index: 1001;
+    right: 0;
+    bottom: 0;
+    width: 44%;
+    height: 62px;
+    padding: 0 10px;
+    border-radius: 0;
+    box-shadow: none;
+    font-size: 13px;
+    background: #ee4d2d;
+    color: #fff;
+  }
+
+  .security-guarantee {
+    display: none;
+  }
+}
+
 /* ==========================================================
    CHECKOUT VOUCHER STYLES
 ========================================================== */

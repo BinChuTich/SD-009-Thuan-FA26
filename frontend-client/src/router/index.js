@@ -11,6 +11,7 @@ import GoiY from '@/views/GoiY.vue'
 import LienHe from '@/views/LienHe.vue'
 import VNPayReturn from '@/views/VNPayReturn.vue'
 import MomoTestPayment from '@/views/MomoTestPayment.vue'
+import TaiKhoan from '@/views/TaiKhoan.vue'
 
 const routes = [
   {
@@ -46,6 +47,11 @@ const routes = [
     path: '/don-hang',
     name: 'DonHang',
     component: DonHang
+  },
+  {
+    path: '/tai-khoan',
+    name: 'TaiKhoan',
+    component: TaiKhoan
   },
   {
     path: '/tra-cuu',

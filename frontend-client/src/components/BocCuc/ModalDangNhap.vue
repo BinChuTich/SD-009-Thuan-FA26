@@ -1056,6 +1056,9 @@ const handleResetPasswordWithOtp = async () => {
   border: 1px solid #e2e8f0;
   animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 @keyframes scaleUp {
@@ -1066,8 +1069,8 @@ const handleResetPasswordWithOtp = async () => {
 /* Nút tắt đen góc trên bên phải */
 .btn-close-corner {
   position: absolute;
-  top: -10px;
-  right: -10px;
+  top: 10px;
+  right: 10px;
   width: 30px;
   height: 30px;
   background-color: #000000;
@@ -1083,6 +1086,12 @@ const handleResetPasswordWithOtp = async () => {
   box-shadow: 0 4px 10px rgba(0,0,0,0.3);
   transition: transform 0.2s ease;
   z-index: 2;
+}
+
+/* Không cho bất kỳ breakpoint hoặc CSS toàn cục nào đẩy nút đóng ra ngoài card. */
+.auth-modal-card > .btn-close-corner {
+  top: 10px !important;
+  right: 10px !important;
 }
 
 .btn-close-corner:hover {
@@ -1192,6 +1201,35 @@ const handleResetPasswordWithOtp = async () => {
 .form-pill-input.input-error:focus {
   border-color: #ef4444 !important;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+@media (max-width: 560px) {
+  .auth-modal-backdrop {
+    align-items: flex-start;
+    padding: 10px;
+    overflow-y: auto;
+  }
+
+  .auth-modal-card {
+    margin: auto 0;
+    padding: 24px 16px 18px;
+    border-radius: 16px;
+    max-height: none;
+  }
+
+  .auth-modal-title {
+    font-size: 21px;
+  }
+
+  .pill-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .btn-close-corner {
+    top: 8px;
+    right: 8px;
+  }
 }
 
 .field-error-text {
@@ -1482,6 +1520,125 @@ const handleResetPasswordWithOtp = async () => {
   font-weight: 500;
   font-size: 14.5px;
   color: #94a3b8;
+}
+
+/* Chốt responsive cuối file cho toàn bộ đăng nhập/đăng ký/quên mật khẩu. */
+.auth-modal-card > div,
+.coolmate-form-body,
+.form-field-group,
+.pill-input-field,
+.pill-grid-2,
+.target-account-box,
+.auth-bottom-links-row {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.auth-modal-card,
+.auth-modal-card * {
+  box-sizing: border-box;
+}
+
+.auth-bottom-links-row {
+  gap: 12px;
+}
+
+.btn-link-action {
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.35;
+}
+
+@media (max-width: 560px) {
+  .auth-modal-backdrop {
+    padding: 12px !important;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .auth-modal-card {
+    width: 100%;
+    max-width: calc(100vw - 24px) !important;
+    max-height: calc(100dvh - 24px) !important;
+    margin: 0;
+    padding: 26px 16px 18px;
+    overflow-x: hidden !important;
+    overflow-y: auto;
+    border-radius: 16px;
+    overscroll-behavior: contain;
+  }
+
+  .btn-close-corner {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    border-width: 1px;
+  }
+
+  .auth-header-clean {
+    margin-bottom: 18px;
+    padding-inline: 28px;
+  }
+
+  .auth-modal-title {
+    font-size: 21px;
+    line-height: 1.25;
+  }
+
+  .coolmate-form-body {
+    gap: 12px;
+  }
+
+  .form-pill-input {
+    height: 44px;
+    min-width: 0;
+    font-size: 16px;
+  }
+
+  .pill-grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .auth-bottom-links-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    margin-top: 16px;
+  }
+
+  .auth-bottom-links-row.justify-center {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .auth-bottom-links-row .btn-link-action:first-child {
+    text-align: left;
+  }
+
+  .auth-bottom-links-row .btn-link-action:last-child {
+    text-align: right;
+  }
+
+  .auth-bottom-links-row.justify-center .btn-link-action {
+    text-align: center;
+  }
+
+  .btn-link-action {
+    font-size: 12px;
+  }
+
+  .privacy-consent-row,
+  .target-account-box,
+  .cloudflare-success-box {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .target-value,
+  .cf-status {
+    overflow-wrap: break-word;
+  }
 }
 
 

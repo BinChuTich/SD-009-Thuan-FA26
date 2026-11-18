@@ -68,8 +68,21 @@ const props = defineProps({
 }
 
 @media (max-width: 580px) {
+  .related-products-section {
+    margin-top: 38px;
+  }
+
+  .related-header {
+    margin-bottom: 18px;
+  }
+
+  .related-title {
+    font-size: 20px;
+  }
+
   .related-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 }
 </style>

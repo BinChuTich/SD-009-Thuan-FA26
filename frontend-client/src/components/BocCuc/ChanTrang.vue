@@ -317,4 +317,19 @@
     gap: 28px;
   }
 }
+
+@media (max-width: 560px) {
+  .footer-main {
+    padding-top: 34px;
+  }
+
+  .main-grid {
+    gap: 24px;
+  }
+
+  .footer-bottom {
+    padding: 14px 0;
+    line-height: 1.5;
+  }
+}
 </style>

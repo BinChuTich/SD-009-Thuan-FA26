@@ -90,6 +90,7 @@ const isCategoryActive = (cat) => {
   padding-bottom: 12px;
   margin-bottom: 16px;
   scrollbar-width: thin;
+  scroll-snap-type: x proximity;
 }
 
 .pill-btn {
@@ -103,6 +104,7 @@ const isCategoryActive = (cat) => {
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s;
+  scroll-snap-align: start;
 }
 
 .pill-btn:hover {
@@ -156,6 +158,70 @@ const isCategoryActive = (cat) => {
 
 .select-sort:focus {
   border-color: #496883;
+}
+
+@media (max-width: 720px) {
+  .thanh-sap-xep-wrap {
+    margin-bottom: 14px;
+  }
+
+  .category-pills-bar {
+    gap: 6px;
+    margin-inline: -1rem;
+    padding: 0 1rem 10px;
+    margin-bottom: 10px;
+    scrollbar-width: none;
+  }
+
+  .category-pills-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pill-btn {
+    padding: 7px 12px;
+    font-size: 11px;
+  }
+
+  .catalog-top-bar {
+    padding: 9px 10px;
+    border-radius: 9px;
+    gap: 8px;
+  }
+
+  .count-text {
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .sort-wrapper {
+    flex: 1;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .sort-wrapper label {
+    display: none;
+  }
+
+  .select-sort {
+    width: min(100%, 160px);
+    min-width: 0;
+    padding: 6px 7px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 390px) {
+  .category-pills-bar {
+    margin-inline: -0.7rem;
+    padding-inline: 0.7rem;
+  }
+
+  .count-text {
+    max-width: 88px;
+    white-space: normal;
+    line-height: 1.25;
+  }
 }
 </style>
 

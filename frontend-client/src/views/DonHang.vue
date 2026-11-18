@@ -3460,4 +3460,143 @@ onUnmounted(() => {
   text-decoration: line-through;
   margin-left: 4px;
 }
+
+/* Responsive cuối file để không bị các khối CSS cũ ghi đè. */
+@media (max-width: 768px) {
+  .orders-page-container {
+    padding-inline: 10px;
+  }
+
+  .order-double-panels-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 14px;
+  }
+
+  .panel-box-item {
+    width: 100%;
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .panel-box-header,
+  .panel-box-header-flex {
+    align-items: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .panel-title-with-icon {
+    min-width: 0;
+  }
+
+  .panel-box-title {
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  .panel-field-row,
+  .calc-field-row {
+    display: grid;
+    grid-template-columns: minmax(92px, 0.8fr) minmax(0, 1.2fr);
+    align-items: start;
+    gap: 12px;
+  }
+
+  .field-label,
+  .calc-label {
+    white-space: normal;
+  }
+
+  .field-value,
+  .calc-val {
+    max-width: none;
+    min-width: 0;
+    text-align: right;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  .discount-label-with-code {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .inline-voucher-pill {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .total-calc-row {
+    grid-template-columns: minmax(90px, auto) minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .total-label-caps {
+    font-size: 13px;
+    letter-spacing: 0.2px;
+  }
+
+  .total-price-blue {
+    font-size: clamp(18px, 6vw, 22px);
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  .shipping-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .order-stepper-box {
+    padding: 16px !important;
+  }
+
+  .stepper-track {
+    overflow: visible;
+  }
+
+  .step-point {
+    display: grid !important;
+    grid-template-columns: 44px minmax(0, 1fr) !important;
+    width: 100% !important;
+    column-gap: 12px !important;
+    row-gap: 2px !important;
+    align-items: center !important;
+  }
+
+  .step-icon {
+    grid-row: 1 / span 2;
+    margin: 0 !important;
+  }
+
+  .step-name,
+  .step-sub {
+    min-width: 0;
+    width: auto;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .info-section-box,
+  .shipping-provider-box {
+    min-width: 0;
+    padding: 16px;
+  }
+}
+
+@media (max-width: 390px) {
+  .panel-box-item,
+  .info-section-box,
+  .shipping-provider-box {
+    padding: 14px 12px;
+  }
+
+  .panel-field-row,
+  .calc-field-row {
+    grid-template-columns: minmax(82px, 0.75fr) minmax(0, 1.25fr);
+    gap: 8px;
+    font-size: 12.5px;
+  }
+}
 </style>

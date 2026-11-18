@@ -583,5 +583,43 @@ const onProvinceChange = async (newProvince) => {
   .form-two-col {
     grid-template-columns: 1fr;
   }
+
+  .checkout-card,
+  .address-book-card {
+    padding: 16px 14px;
+    border-radius: 12px;
+    box-shadow: none;
+  }
+
+  .card-header-line,
+  .card-title-row {
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+  }
+
+  .header-title-badge h3,
+  .card-title {
+    font-size: 15px;
+    line-height: 1.35;
+  }
+
+  .saved-addr-box {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .guest-checkout-alert {
+    padding: 11px 12px;
+  }
+
+  .form-two-col {
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .form-control {
+    min-height: 44px;
+  }
 }
 </style>

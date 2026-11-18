@@ -218,8 +218,20 @@ const goToCategory = (categoryName) => {
 }
 
 @media (max-width: 600px) {
+  .categories-section { padding-top: 36px; padding-bottom: 40px; }
+  .container-categories { padding-left: 12px; padding-right: 12px; }
   .categories-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
+  .category-card { border-radius: 10px; }
+  .cat-img-box { padding-top: 86%; }
+  .cat-img-box img { padding: 8px; }
+  .cat-tag { top: 7px; left: 7px; padding: 3px 6px; font-size: 9px; }
+  .cat-content { padding: 10px; }
+  .cat-name { font-size: 13px; margin-bottom: 4px; }
+  .cat-desc { display: none; }
+  .cat-action { padding-top: 7px; }
+  .cat-count { font-size: 10.5px; }
 }
 </style>

@@ -1841,6 +1841,36 @@ watch(() => currentClientUser.value, async (newVal, oldVal) => {
   animation: slideUp 0.22s ease-out;
 }
 
+@media (max-width: 640px) {
+  .chat-widget-root {
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .chat-window-box {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: auto;
+    max-width: none;
+    height: min(680px, calc(100dvh - 16px));
+    max-height: calc(100dvh - 16px);
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 390px) {
+  .chat-window-box {
+    left: 4px;
+    right: 4px;
+    bottom: max(4px, env(safe-area-inset-bottom));
+    height: calc(100dvh - 8px);
+    max-height: calc(100dvh - 8px);
+    border-radius: 14px;
+  }
+}
+
 @keyframes slideUp {
   from {
     opacity: 0;

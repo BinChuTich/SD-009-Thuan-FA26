@@ -5868,8 +5868,6 @@ const formatDate = (dateStr) => {
 
     </Teleport>
 
-    />
-
   </div>
 
 </template>
@@ -12952,6 +12950,333 @@ const formatDate = (dateStr) => {
 .btn-warning-stay { background: #fff; color: #64748b; border: 1px solid #cbd5e1; }
 .btn-warning-apply { background: #b45309; color: #fff; border: 1px solid #b45309; }
 @media (max-width: 600px) { .cart-voucher-compare { grid-template-columns: 1fr; } .cart-voucher-arrow { transform: rotate(90deg); } .cart-voucher-warning-actions { flex-direction: column-reverse; } }
+
+/* Card mobile kiểu sàn thương mại điện tử: không ép bảng desktop vào màn nhỏ. */
+@media (max-width: 768px) {
+  .page-hero-banner {
+    padding: 24px 0 22px;
+  }
+
+  .hero-title {
+    font-size: 23px;
+  }
+
+  .page-body-container {
+    margin-top: 14px;
+  }
+
+  .cart-step-layout,
+  .checkout-split-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 14px;
+  }
+
+  .cart-step-table-card,
+  .cart-step-summary-card,
+  .section-card-panel,
+  .summary-section-box {
+    min-width: 0;
+    border-radius: 12px;
+  }
+
+  .cart-item-table-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px;
+    margin: 10px;
+    padding: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .col-cell {
+    min-width: 0;
+  }
+
+  .col-cell.col-product {
+    align-items: flex-start;
+  }
+
+  .prod-thumb-container,
+  .prod-table-pic {
+    width: 76px !important;
+    height: 92px !important;
+    flex: 0 0 76px;
+  }
+
+  .prod-table-pic {
+    object-fit: contain;
+  }
+
+  .prod-table-details,
+  .prod-table-name {
+    min-width: 0;
+    word-break: normal;
+    overflow-wrap: break-word;
+  }
+
+  .col-cell.col-price,
+  .col-cell.col-discount,
+  .col-cell.col-qty,
+  .col-cell.col-total {
+    min-height: 30px;
+    padding-top: 7px;
+    border-top: 1px dashed #edf2f7;
+  }
+
+  .col-cell.col-total {
+    font-size: 15px;
+  }
+
+  .table-footer-row {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .cart-step-summary-card {
+    position: static !important;
+  }
+
+  .form-grid-2,
+  .addr-form-grid-2,
+  .confirm-meta-grid,
+  .vietqr-body-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .client-confirm-order-card,
+  .client-addr-modal-card,
+  .vietqr-modal-card,
+  .vnpay-waiting-modal-card {
+    width: calc(100vw - 20px) !important;
+    max-height: calc(100dvh - 20px) !important;
+    overflow-y: auto;
+  }
+
+  .confirm-items-table-wrap {
+    overflow-x: auto;
+  }
+
+  .checkout-step-container {
+    padding-bottom: 78px;
+  }
+
+  .checkout-flow-breadcrumbs {
+    overflow-x: auto;
+    justify-content: flex-start;
+    scrollbar-width: none;
+    white-space: nowrap;
+  }
+
+  .checkout-flow-breadcrumbs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .section-card-panel,
+  .summary-section-box {
+    padding: 16px 14px;
+    box-shadow: none;
+  }
+
+  .payment-choice-card {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .cart-items-list-scroll .cart-item-row {
+    display: grid;
+    grid-template-columns: 68px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    padding: 12px 0;
+  }
+
+  .cart-items-list-scroll .item-thumb-box {
+    width: 68px;
+    height: 82px;
+  }
+
+  .cart-items-list-scroll .item-thumb-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .cart-items-list-scroll .item-details-col,
+  .cart-items-list-scroll .item-product-name {
+    min-width: 0;
+  }
+
+  .cart-items-list-scroll .item-product-name {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.4;
+  }
+
+  .cart-items-list-scroll .item-qty-price-row {
+    align-items: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .final-totals-box {
+    margin-bottom: 0;
+  }
+
+  .final-totals-box .grand-total-line {
+    position: fixed;
+    z-index: 1001;
+    left: 0;
+    bottom: 0;
+    width: 47%;
+    height: 68px;
+    margin: 0;
+    padding: 8px 8px 8px 12px;
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .final-totals-box .grand-label {
+    font-size: 10px;
+    color: #64748b;
+  }
+
+  .final-totals-box .grand-value {
+    font-size: clamp(16px, 4.6vw, 20px);
+    white-space: nowrap;
+  }
+
+  .final-totals-box .btn-place-order-main {
+    position: fixed;
+    z-index: 1001;
+    right: 0;
+    bottom: 0;
+    width: 53%;
+    height: 68px;
+    padding: 0 12px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .payment-methods-stack { gap: 9px; }
+
+  .payment-choice-card {
+    display: grid !important;
+    grid-template-columns: 20px 42px minmax(0, 1fr);
+    align-items: start !important;
+    gap: 10px !important;
+    padding: 12px !important;
+    border-radius: 10px !important;
+    min-height: 0;
+  }
+
+  .payment-choice-card.active {
+    border-color: #ee4d2d !important;
+    background: #fff8f6 !important;
+    box-shadow: inset 3px 0 0 #ee4d2d !important;
+  }
+
+  .choice-radio-wrap {
+    display: flex;
+    justify-content: center;
+    padding-top: 10px;
+  }
+
+  .choice-radio-wrap input {
+    width: 17px;
+    height: 17px;
+    margin: 0;
+    accent-color: #ee4d2d;
+  }
+
+  .choice-icon-wrap {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 8px !important;
+    background: #f8fafc;
+  }
+
+  .cod-truck-logo-img,
+  .vnpay-logo-img {
+    max-width: 34px;
+    max-height: 24px;
+    object-fit: contain;
+  }
+
+  .choice-info-wrap {
+    min-width: 0;
+    gap: 4px;
+    text-align: left !important;
+  }
+
+  .title-with-pill {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .choice-title {
+    display: block;
+    font-size: 13px !important;
+    line-height: 1.35;
+    text-align: left !important;
+  }
+
+  .choice-desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 11px !important;
+    line-height: 1.4;
+    text-align: left !important;
+  }
+
+  .pay-rec-badge {
+    font-size: 9px !important;
+    padding: 2px 6px !important;
+  }
+
+  .final-totals-box .grand-total-line {
+    width: 56%;
+    height: 62px;
+    padding: 7px 10px 7px 14px;
+    align-items: flex-start;
+    border-top: 1px solid #e5e7eb;
+    box-shadow: 0 -4px 14px rgba(15, 23, 42, 0.08);
+  }
+
+  .final-totals-box .grand-value {
+    color: #ee4d2d !important;
+    font-size: clamp(17px, 5vw, 21px);
+  }
+
+  .final-totals-box .btn-place-order-main {
+    width: 44%;
+    height: 62px;
+    background: #ee4d2d !important;
+    color: #fff !important;
+    font-size: 15px;
+  }
+
+  .final-totals-box .btn-place-order-main:disabled {
+    background: #f6a38e !important;
+  }
+}
 
 </style>
 

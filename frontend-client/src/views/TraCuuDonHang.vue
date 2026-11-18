@@ -1999,4 +1999,85 @@ onUnmounted(() => {
   text-decoration: line-through;
   margin-left: 4px;
 }
+
+@media (max-width: 768px) {
+  .tracking-main-container {
+    margin-top: 14px;
+  }
+
+  .search-input-card,
+  .info-section-box,
+  .panel-box-item {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .order-double-panels-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 14px;
+  }
+
+  .panel-box-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .panel-field-row,
+  .calc-field-row {
+    display: grid;
+    grid-template-columns: minmax(92px, 0.8fr) minmax(0, 1.2fr);
+    align-items: start;
+    gap: 12px;
+  }
+
+  .field-label,
+  .calc-label {
+    white-space: normal;
+  }
+
+  .field-value,
+  .calc-val {
+    max-width: none;
+    min-width: 0;
+    text-align: right;
+    word-break: normal;
+    overflow-wrap: break-word;
+  }
+
+  .total-number-big,
+  .total-price-blue {
+    white-space: nowrap;
+    font-size: 19px;
+  }
+
+  .order-product-row {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .product-thumb {
+    width: 64px;
+    height: 76px;
+    object-fit: contain;
+  }
+
+  .product-price-col {
+    grid-column: 2;
+    align-items: flex-start;
+  }
+
+  .history-item-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 3px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed #e2e8f0;
+  }
+
+  .history-time {
+    min-width: 0;
+  }
+}
 </style>

@@ -591,8 +591,8 @@ onUnmounted(() => {
 
 .shop-main-layout {
   display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 30px;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: clamp(20px, 2vw, 30px);
   align-items: start;
 }
 
@@ -602,8 +602,8 @@ onUnmounted(() => {
 
 .products-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 22px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(14px, 1.5vw, 22px);
 }
 
 /* Loading & Empty */
@@ -683,24 +683,96 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
-@media (max-width: 992px) {
-  .shop-main-layout {
-    grid-template-columns: 1fr;
-  }
-  .mobile-filter-bar {
-    display: block;
-  }
+@media (max-width: 1280px) {
   .products-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 580px) {
-  .products-grid {
+@media (max-width: 992px) {
+  .shop-header-intro {
+    padding: 34px 0 30px;
+  }
+
+  .shop-body-container {
+    margin-top: 20px;
+  }
+
+  .shop-main-layout {
     grid-template-columns: 1fr;
   }
+
+  .mobile-filter-bar {
+    display: block;
+  }
+
+  .products-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .products-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .shop-page-wrap {
+    padding-bottom: 42px;
+  }
+
+  .shop-header-intro {
+    padding: 25px 0 23px;
+  }
+
   .shop-title-main {
-    font-size: 24px;
+    font-size: clamp(22px, 7vw, 27px);
+    margin-bottom: 7px;
+  }
+
+  .shop-quote-sub {
+    font-size: 12px;
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .shop-body-container {
+    margin-top: 14px;
+  }
+
+  .mobile-filter-bar {
+    margin-bottom: 12px;
+  }
+
+  .btn-toggle-filter {
+    min-height: 42px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+  }
+
+  .pagination-wrapper {
+    gap: 5px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+
+  .page-btn {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 390px) {
+  .container-client {
+    padding-inline: 0.7rem;
+  }
+
+  .products-grid {
+    gap: 8px;
   }
 }
 </style>

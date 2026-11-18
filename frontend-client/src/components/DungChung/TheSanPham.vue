@@ -189,6 +189,8 @@ const goToDetail = () => {
   transition: all 0.25s ease;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  height: 100%;
 }
 
 .the-san-pham-card:hover {
@@ -200,15 +202,15 @@ const goToDetail = () => {
 .card-img-holder {
   position: relative;
   width: 100%;
-  aspect-ratio: 1 / 1.1;
-  background-color: #f1f5f9;
+  aspect-ratio: 4 / 5;
+  background: linear-gradient(145deg, #f8fafc, #eef2f6);
   overflow: hidden;
 }
 
 .card-img-holder img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   transition: transform 0.4s ease;
 }
 
@@ -401,6 +403,10 @@ const goToDetail = () => {
 
 .material-tag {
   color: #64748b;
+  max-width: 48%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .target-color-pill {
@@ -417,5 +423,142 @@ const goToDetail = () => {
   backdrop-filter: blur(4px);
   z-index: 2;
   border: 1px solid rgba(210, 167, 100, 0.4);
+}
+
+@media (hover: none) {
+  .the-san-pham-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .the-san-pham-card:hover .card-img-holder img {
+    transform: none;
+  }
+
+  .quick-hover-action {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .the-san-pham-card {
+    border-radius: 10px;
+  }
+
+  .card-caption {
+    padding: 10px;
+  }
+
+  .discount-badge-red,
+  .best-seller-badge-gold {
+    top: 7px;
+    font-size: 9px;
+    padding: 3px 6px;
+  }
+
+  .discount-badge-red {
+    left: 7px;
+  }
+
+  .best-seller-badge-gold {
+    right: 7px;
+  }
+
+  .card-top-row {
+    margin-bottom: 3px;
+  }
+
+  .card-cat-badge,
+  .card-sold-badge {
+    font-size: 9px;
+  }
+
+  .card-cat-badge {
+    max-width: 58%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .card-sold-badge {
+    white-space: nowrap;
+  }
+
+  .product-name {
+    font-size: 12px;
+    line-height: 1.35;
+    height: 2.7em;
+    margin-bottom: 5px;
+  }
+
+  .card-color-swatches {
+    gap: 5px;
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+
+  .swatches-dots {
+    gap: 4px;
+  }
+
+  .color-dot {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 12px;
+  }
+
+  .active-color-name {
+    display: none;
+  }
+
+  .price-container {
+    gap: 5px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+
+  .price-red,
+  .price-normal {
+    font-size: 13px;
+  }
+
+  .price-struck {
+    font-size: 10px;
+  }
+
+  .card-footer-tags {
+    padding-top: 6px;
+    font-size: 9px;
+  }
+
+  .material-tag {
+    max-width: 52%;
+  }
+
+  .target-color-pill {
+    left: 7px;
+    bottom: 7px;
+    max-width: calc(100% - 14px);
+    padding: 3px 6px;
+    font-size: 9px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 390px) {
+  .card-caption {
+    padding: 8px;
+  }
+
+  .card-sold-badge,
+  .material-tag {
+    display: none;
+  }
+
+  .card-cat-badge {
+    max-width: 100%;
+  }
 }
 </style>

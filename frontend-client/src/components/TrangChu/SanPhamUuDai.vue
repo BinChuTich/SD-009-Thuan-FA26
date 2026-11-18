@@ -542,7 +542,7 @@ onUnmounted(() => {
 /* Lưới Sản Phẩm */
 .deals-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 20px;
 }
 
@@ -562,6 +562,7 @@ onUnmounted(() => {
   border: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .deal-card:hover {
@@ -573,7 +574,7 @@ onUnmounted(() => {
 .deal-media {
   position: relative;
   width: 100%;
-  padding-top: 105%;
+  aspect-ratio: 4 / 5;
   overflow: hidden;
   background: #f8fafc;
 }
@@ -584,7 +585,7 @@ onUnmounted(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   transition: transform 0.35s ease;
 }
 
@@ -756,9 +757,12 @@ onUnmounted(() => {
   border-color: #496883;
 }
 
-@media (max-width: 992px) {
+@media (max-width: 1200px) {
   .deals-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  .deals-grid.compact-center {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
   .deal-header-wrapper {
     flex-direction: column;
@@ -767,9 +771,9 @@ onUnmounted(() => {
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .deals-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
   .deal-countdown-box {
     width: 100%;
@@ -777,6 +781,30 @@ onUnmounted(() => {
     align-items: flex-start;
     gap: 8px;
   }
+}
+
+@media (max-width: 600px) {
+  .deals-section { padding: 34px 0 40px; }
+  .container-deals { padding: 0 12px; }
+  .deal-header-wrapper { margin-bottom: 16px; }
+  .script-title { font-size: 22px; }
+  .deals-grid, .deals-grid.compact-center { width: 100%; max-width: none; gap: 10px; }
+  .deal-card { border-radius: 10px; }
+  .deal-content { padding: 9px 10px 11px; }
+  .deal-category { font-size: 9.5px; }
+  .deal-title { font-size: 12.5px; min-height: 35px; margin-bottom: 6px; }
+  .deal-price-row { margin-bottom: 8px; }
+  .deal-sale-price { font-size: 14px; }
+  .deal-regular-price { font-size: 10.5px; }
+  .deal-save-chip { display: none; }
+  .product-deal-timer-pill { width: 100%; box-sizing: border-box; gap: 3px; padding: 4px 5px; font-size: 9px; overflow: hidden; }
+  .pdt-label { display: none; }
+  .pdt-icon { font-size: 10px; }
+  .pdt-time, .pdt-time small { font-size: 9px; }
+  .btn-deal-action { padding: 7px 6px; font-size: 11px; }
+  .btn-deal-action svg { width: 13px; height: 13px; }
+  .deal-discount-badge { top: 7px; left: 7px; font-size: 9.5px; padding: 3px 6px; }
+  .deal-campaign-tag { left: 6px; bottom: 6px; font-size: 9px; max-width: 88%; }
 }
 
 /* ĐẾM NGƯỢC THỜI GIAN RIÊNG CỦA TỪNG SẢN PHẨM ƯU ĐÃI */

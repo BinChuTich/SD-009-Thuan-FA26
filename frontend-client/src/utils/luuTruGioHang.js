@@ -167,7 +167,11 @@ export const addToCart = (product, variant, quantity = 1) => {
 
 
 
-  const existing = cartItems.value.find(item => item.variantId === variant.id)
+  const existing = cartItems.value.find(item => String(item.variantId) === String(variant.id))
+
+  const requestedQty = Math.max(1, Number(quantity) || 1)
+  const existingQty = existing ? Math.max(0, Number(existing.quantity) || 0) : 0
+  if (existingQty + requestedQty > maxStock) return false
 
   const variantImg = variant.anhDaiDien || variant.hinhAnh || variant.duongDan || variant.image || ''
 
@@ -197,7 +201,7 @@ export const addToCart = (product, variant, quantity = 1) => {
 
   if (existing) {
 
-    existing.quantity += quantity
+    existing.quantity += requestedQty
 
     existing.maxStock = maxStock
 
@@ -253,7 +257,7 @@ export const addToCart = (product, variant, quantity = 1) => {
 
       tenDotGiamGia: campaignName,
 
-      quantity: Math.min(quantity, maxStock),
+      quantity: requestedQty,
 
       maxStock: maxStock
 

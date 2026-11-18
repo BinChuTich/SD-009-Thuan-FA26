@@ -232,4 +232,55 @@ const emit = defineEmits(['update:paymentMethod'])
   color: #64748b;
   line-height: 1.4;
 }
+
+@media (max-width: 768px) {
+  .checkout-card {
+    padding: 16px 14px;
+    border-radius: 12px;
+    box-shadow: none;
+  }
+
+  .card-title {
+    margin: 0 0 14px;
+    font-size: 15px;
+  }
+
+  .payment-methods-stack {
+    gap: 8px;
+  }
+
+  .pay-method-card {
+    display: grid;
+    grid-template-columns: 18px 40px minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .radio-dot {
+    margin-top: 11px;
+    width: 16px;
+    height: 16px;
+  }
+
+  .pay-icon-box {
+    width: 40px;
+    height: 40px;
+  }
+
+  .pay-text strong {
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .pay-text p {
+    margin-top: 4px;
+    font-size: 11px;
+  }
+
+  .pay-pill-tag {
+    font-size: 9px;
+    padding: 2px 6px;
+  }
+}
 </style>

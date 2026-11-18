@@ -363,10 +363,38 @@ const emit = defineEmits([
     z-index: 9999;
     border-radius: 0;
     overflow-y: auto;
-    padding: 20px;
+    padding: max(18px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
+    background: #f8fafc;
   }
   .mobile-close-btn {
     display: block;
+  }
+}
+
+@media (max-width: 480px) {
+  .filter-sidebar-card.mobile-show {
+    padding-inline: 14px;
+  }
+
+  .filter-header-flex {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f8fafc;
+    padding-top: 4px;
+  }
+
+  .filter-card-heading {
+    font-size: 16px;
+  }
+
+  .filter-field {
+    margin-bottom: 14px;
+  }
+
+  .form-control {
+    min-height: 42px;
+    font-size: 16px;
   }
 }
 </style>

@@ -1971,6 +1971,87 @@ const handleConfirmPlaceOrder = async () => {
   }
 }
 
+@media (max-width: 768px) {
+  .checkout-page-wrap {
+    padding-bottom: 78px;
+    background: #f4f5f7;
+  }
+
+  .checkout-heading-bar {
+    padding: 20px 0 18px;
+  }
+
+  .checkout-heading-bar .page-title {
+    font-size: 22px;
+  }
+
+  .checkout-heading-bar .page-sub {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .checkout-body-container {
+    margin-top: 12px;
+    padding-inline: 10px;
+  }
+
+  .checkout-split-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .left-form-column {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .empty-cart-alert {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 14px;
+  }
+
+  .btn-shop-now-alert {
+    width: 100%;
+    text-align: center;
+  }
+
+  .order-modal-dialog,
+  .voucher-modal-dialog,
+  .confirm-modal-dialog,
+  .voucher-change-dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 14px;
+  }
+
+  .cmodal-body,
+  .vmodal-body,
+  .modal-summary-box {
+    padding-inline: 14px;
+  }
+
+  .citem-row {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .citem-price {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .cmodal-footer,
+  .modal-action-buttons {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
 /* ==========================================================
    MODAL STYLES: VOUCHER, CONFIRM, VIETQR, MOMO
 ========================================================== */
@@ -3053,5 +3134,62 @@ const handleConfirmPlaceOrder = async () => {
 .text-discount {
   color: #ef4444 !important;
   font-weight: 700;
+}
+
+/* Lớp responsive cuối cùng: đặt cuối file để không bị CSS modal/desktop cũ ghi đè. */
+@media (max-width: 768px) {
+  .checkout-page-wrap {
+    padding-bottom: 78px !important;
+    background: #f4f5f7;
+  }
+
+  .checkout-heading-bar {
+    padding: 20px 0 18px !important;
+  }
+
+  .checkout-body-container {
+    margin-top: 10px !important;
+    padding-inline: 10px !important;
+  }
+
+  .checkout-split-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .left-form-column,
+  .right-summary-column {
+    min-width: 0;
+  }
+
+  .order-modal-backdrop,
+  .vietqr-modal-backdrop,
+  .vnpay-waiting-backdrop {
+    padding: 8px !important;
+    align-items: flex-start;
+  }
+
+  .order-modal-dialog,
+  .voucher-modal-dialog,
+  .confirm-modal-dialog,
+  .voucher-change-dialog,
+  .vietqr-modal-card,
+  .vnpay-waiting-modal-card {
+    width: calc(100vw - 16px) !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 16px) !important;
+    overflow-y: auto !important;
+    border-radius: 14px !important;
+  }
+
+  .vietqr-body-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .modal-action-buttons,
+  .cmodal-footer {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
 }
 </style>
