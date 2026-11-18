@@ -2559,9 +2559,7 @@ const loadProductDetails = async (id) => {
           const colorObj = attributes.value.mauSac?.find(c => c.id === item.idMauSac)
           const sizeObj = attributes.value.kichCo?.find(s => s.id === item.idKichCo)
           const rawCode = String(item.maChiTietSanPham || '').trim()
-          const cleanCode = (!rawCode || /^CTSP\d{8,}(_\d+)?$/i.test(rawCode))
-            ? `CTSP${String(item.id || 1).padStart(2, '0')}`
-            : rawCode
+          const cleanCode = rawCode
           return {
             key: `${item.idMauSac}_${item.idKichCo}`,
             id: item.id,

@@ -937,9 +937,7 @@ const openProductDetail = async (item) => {
     if (varRes && varRes.data) {
       detailModal.value.variants = (varRes.data || []).map(v => {
         const rawCode = String(v.maChiTietSanPham || '').trim()
-        const cleanCode = (!rawCode || /^CTSP\d{8,}(_\d+)?$/i.test(rawCode))
-          ? `CTSP${String(v.id || 1).padStart(2, '0')}`
-          : rawCode
+        const cleanCode = rawCode
         return { ...v, maChiTietSanPham: cleanCode }
       })
     }
