@@ -80,7 +80,9 @@ public class KhachHangService {
         String phone = blankToNull(req.soDienThoai()) != null ? req.soDienThoai() : req.soDienThoaiNhan();
         x.setSoDienThoai(blankToNull(phone));
         x.setNgaySinh(req.ngaySinh());
-        x.setGioiTinh(req.gioiTinh() == null ? true : req.gioiTinh());
+        // Khách đăng ký online chưa chọn giới tính thì giữ NULL (Chưa cập nhật),
+        // không tự suy đoán hoặc mặc định là Nam.
+        x.setGioiTinh(req.gioiTinh());
         x.setTrangThai(req.trangThai() == null ? 1 : req.trangThai());
         x.setNgayTao(Instant.now());
         x.setNguoiTao("admin");

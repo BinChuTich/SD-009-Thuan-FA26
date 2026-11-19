@@ -300,7 +300,7 @@ CREATE TABLE khach_hang (
     mat_khau VARCHAR(255) NOT NULL,
     so_dien_thoai VARCHAR(20),
     ngay_sinh DATE,
-    gioi_tinh BIT NOT NULL DEFAULT 1,
+    gioi_tinh BIT NULL,
     trang_thai INT NOT NULL DEFAULT 1,
     ngay_tao DATETIME2 NOT NULL DEFAULT GETDATE(),
     nguoi_tao NVARCHAR(100),

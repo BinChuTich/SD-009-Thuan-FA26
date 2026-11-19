@@ -50,7 +50,6 @@ public class KhachHang {
     @Column(name = "ngay_sinh")
     private LocalDate ngaySinh;
 
-    @ColumnDefault("1")
     @Column(name = "gioi_tinh")
     private Boolean gioiTinh;
 

@@ -9,6 +9,7 @@ import DonHang from '@/views/DonHang.vue'
 import TraCuuDonHang from '@/views/TraCuuDonHang.vue'
 import GoiY from '@/views/GoiY.vue'
 import LienHe from '@/views/LienHe.vue'
+import QuyDinhChiTiet from '@/views/QuyDinhChiTiet.vue'
 import VNPayReturn from '@/views/VNPayReturn.vue'
 import MomoTestPayment from '@/views/MomoTestPayment.vue'
 import TaiKhoan from '@/views/TaiKhoan.vue'
@@ -72,6 +73,11 @@ const routes = [
     path: '/lien-he',
     name: 'LienHe',
     component: LienHe
+  },
+  {
+    path: '/lien-he/quy-dinh/:slug',
+    name: 'QuyDinhChiTiet',
+    component: QuyDinhChiTiet
   },
   {
     path: '/thanh-toan/vnpay-return',

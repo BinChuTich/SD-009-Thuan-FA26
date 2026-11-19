@@ -258,7 +258,7 @@ const form = reactive({
   tenKhachHang: '',
   email: '',
   soDienThoai: '',
-  gioiTinh: true,
+  gioiTinh: null,
   ngaySinh: '',
   trangThai: 1,
   thanhPho: '',
@@ -530,7 +530,7 @@ async function loadCustomer() {
     form.tenKhachHang = data.tenKhachHang || ''
     form.email = data.email || ''
     form.soDienThoai = data.soDienThoai || data.soDienThoaiNhan || ''
-    form.gioiTinh = data.gioiTinh ?? true
+    form.gioiTinh = data.gioiTinh ?? null
     form.ngaySinh = data.ngaySinh || ''
     form.trangThai = data.trangThai ?? 1
     form.thanhPho = data.thanhPho || ''

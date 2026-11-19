@@ -296,7 +296,7 @@ onUnmounted(() => {
           </div>
         </router-link>
 
-        <!-- Menu điều hướng chính ở giữa (Desktop): TRANG CHỦ, SẢN PHẨM, ƯU ĐÃI, ĐƠN HÀNG, TRA CỨU, LIÊN HỆ -->
+        <!-- Menu điều hướng chính ở giữa; đơn hàng được truy cập từ menu tài khoản -->
         <nav class="nav-links">
           <router-link
             to="/"
@@ -316,7 +316,6 @@ onUnmounted(() => {
           >
             ƯU ĐÃI
           </a>
-          <router-link to="/don-hang" class="nav-item" active-class="active">ĐƠN HÀNG</router-link>
           <router-link to="/tra-cuu" class="nav-item" active-class="active">TRA CỨU</router-link>
           <router-link to="/lien-he" class="nav-item" active-class="active">LIÊN HỆ</router-link>
         </nav>
@@ -588,7 +587,7 @@ onUnmounted(() => {
           <button @click="handleSearch">🔍</button>
         </div>
 
-        <!-- Danh sách link trong mobile menu: TRANG CHỦ, SẢN PHẨM, ƯU ĐÃI, ĐƠN HÀNG, TRA CỨU, LIÊN HỆ -->
+        <!-- Danh sách điều hướng mobile; đơn hàng nằm trong menu tài khoản -->
         <nav class="mobile-nav-list">
           <router-link
             to="/"
@@ -612,9 +611,6 @@ onUnmounted(() => {
           >
             🔥 ƯU ĐÃI
           </a>
-          <router-link to="/don-hang" class="mobile-nav-link" @click="closeMobileMenu">
-            📦 ĐƠN HÀNG
-          </router-link>
           <router-link v-if="isClientLoggedIn" to="/tai-khoan" class="mobile-nav-link" @click="closeMobileMenu">
             👤 TÀI KHOẢN CỦA TÔI
           </router-link>

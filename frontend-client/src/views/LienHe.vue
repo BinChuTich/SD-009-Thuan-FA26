@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import api from '@/api'
+import { storeRules } from '@/data/quyDinhCuaHang.js'
 
 const contactForm = ref({
   name: '',
@@ -166,32 +167,37 @@ const openFallbackMailClient = () => {
       </div>
     </div>
 
-    <!-- 2. NỘI DUNG GỌN GÀNG: THÔNG TIN HỖ TRỢ & FORM GỬI TIN NHẮN -->
-    <div class="container-client content-grid">
-      <!-- Cột trái: Thông tin liên hệ cơ bản -->
-      <div class="contact-info-col">
-        <h3>Thông Tin Hỗ Trợ Khách Hàng</h3>
-        <p class="lead">Đừng ngần ngại liên hệ với chúng tôi bất cứ khi nào bạn cần tư vấn về sản phẩm, chọn size áo hoặc theo dõi đơn hàng.</p>
+    <!-- 2. TRUNG TÂM HỖ TRỢ & FORM LIÊN HỆ -->
+    <div class="container-client content-grid support-center-grid">
+      <aside class="contact-info-col support-panel">
+        <span class="support-kicker">FF T-SHIRT CARE</span>
+        <h2>Chúng tôi có thể giúp gì cho bạn?</h2>
+        <p class="lead">Gửi yêu cầu cho đội ngũ hỗ trợ khi bạn cần tư vấn sản phẩm, chọn size, thanh toán hoặc kiểm tra đơn hàng.</p>
 
-        <div class="info-list">
+        <a href="mailto:fftshirt.vn@gmail.com" class="primary-contact-card">
+          <span class="primary-contact-icon">✉</span>
+          <span><small>Email tiếp nhận hỗ trợ</small><strong>fftshirt.vn@gmail.com</strong></span>
+          <b>↗</b>
+        </a>
 
-          <div class="info-item">
-            <span class="icon">✉️</span>
-            <div>
-              <strong>Email hỗ trợ:</strong>
-              <p><a href="mailto:fftshirt.vn@gmail.com" class="support-email-link">fftshirt.vn@gmail.com</a></p>
-            </div>
-          </div>
+        <div class="support-benefits">
+          <div><span>✓</span><p><strong>Tiếp nhận rõ ràng</strong><small>Thông tin được gửi trực tiếp tới bộ phận CSKH.</small></p></div>
+          <div><span>✓</span><p><strong>Hỗ trợ đúng đơn</strong><small>Cung cấp mã đơn để được kiểm tra nhanh hơn.</small></p></div>
+          <div><span>✓</span><p><strong>Bảo mật thông tin</strong><small>Dữ liệu chỉ được dùng để xử lý yêu cầu hỗ trợ.</small></p></div>
         </div>
-      </div>
 
-      <!-- Cột phải: Form gửi tin nhắn gọn gàng -->
+        <div class="support-quick-links">
+          <router-link to="/tra-cuu"><span>🚚</span><div><strong>Tra cứu đơn hàng</strong><small>Kiểm tra trạng thái vận chuyển</small></div><b>›</b></router-link>
+          <router-link to="/don-hang"><span>📦</span><div><strong>Đơn hàng của tôi</strong><small>Xem chi tiết đơn đã đặt</small></div><b>›</b></router-link>
+        </div>
+      </aside>
+
       <div class="contact-form-col">
         <div class="form-card">
-          <h3>Gửi Tin Nhắn Cho Chúng Tôi</h3>
-          <form @submit.prevent="submitContact" novalidate>
+          <div class="form-card-head"><div><span class="form-kicker">GỬI YÊU CẦU</span><h3>Liên hệ với FF T-Shirt</h3><p>Điền thông tin bên dưới, chúng tôi sẽ tiếp nhận yêu cầu của bạn.</p></div><span class="form-head-icon">💬</span></div>
+          <form class="contact-form-grid" @submit.prevent="submitContact" novalidate>
             <!-- Họ và tên -->
-            <div class="form-group">
+            <div class="form-group half-field">
               <label>Họ và tên của bạn <span class="required-star">*</span></label>
               <input
                 v-model="contactForm.name"
@@ -207,7 +213,7 @@ const openFallbackMailClient = () => {
             </div>
 
             <!-- Số điện thoại (Strict validation 10 số VN) -->
-            <div class="form-group">
+            <div class="form-group half-field">
               <label>Số điện thoại <span class="required-star">*</span></label>
               <input
                 :value="contactForm.phone"
@@ -225,7 +231,7 @@ const openFallbackMailClient = () => {
             </div>
 
             <!-- Email (tuỳ chọn) -->
-            <div class="form-group">
+            <div class="form-group full-field">
               <label>Email <span class="optional-hint">(Không bắt buộc)</span></label>
               <input
                 v-model="contactForm.email"
@@ -236,7 +242,7 @@ const openFallbackMailClient = () => {
             </div>
 
             <!-- Nội dung hỗ trợ -->
-            <div class="form-group">
+            <div class="form-group full-field">
               <label>Nội dung cần hỗ trợ <span class="required-star">*</span></label>
               <textarea
                 v-model="contactForm.message"
@@ -251,14 +257,40 @@ const openFallbackMailClient = () => {
               </p>
             </div>
 
-            <button type="submit" class="btn-submit" :disabled="submitting">
+            <button type="submit" class="btn-submit full-field" :disabled="submitting">
               <span v-if="submitting" class="spinner"></span>
-              {{ submitting ? 'Đang gửi thông tin...' : 'Gửi Thông Tin →' }}
+              <span>{{ submitting ? 'Đang gửi thông tin...' : 'Gửi yêu cầu hỗ trợ' }}</span><b v-if="!submitting">→</b>
             </button>
+            <p class="form-privacy-note full-field">🔒 Thông tin của bạn được bảo mật và chỉ sử dụng để hỗ trợ yêu cầu này.</p>
           </form>
         </div>
       </div>
     </div>
+
+    <!-- Quy định được tổng hợp từ các luồng nghiệp vụ đang chạy trong dự án -->
+    <section class="container-client store-rules-section">
+      <div class="rules-heading">
+        <span class="rules-kicker">THÔNG TIN CẦN BIẾT</span>
+        <h2>Quy định của cửa hàng</h2>
+        <p>Vui lòng đọc các quy định dưới đây trước khi đặt hàng để quá trình mua sắm và hỗ trợ được thuận tiện.</p>
+      </div>
+
+      <div class="rules-grid">
+        <router-link v-for="rule in storeRules" :key="rule.slug" :to="`/lien-he/quy-dinh/${rule.slug}`" class="rule-card">
+          <div class="rule-card-title">
+            <span class="rule-icon">{{ rule.icon }}</span>
+            <div><h3>{{ rule.title }}</h3><small>Quy định {{ rule.items.length }} nội dung chính</small></div>
+          </div>
+          <p class="rule-summary">{{ rule.summary }}</p>
+          <span class="rule-detail-link">Xem quy định chi tiết <b>→</b></span>
+        </router-link>
+      </div>
+
+      <div class="rules-support-note">
+        <span>💬</span>
+        <p><strong>Cần hỗ trợ thêm?</strong> Hãy gửi nội dung qua biểu mẫu phía trên và cung cấp mã đơn hàng (nếu có). FF T-Shirt sẽ kiểm tra theo thông tin thực tế của đơn hàng.</p>
+      </div>
+    </section>
 
     <!-- BẢNG THÔNG BÁO GỬI THÀNH CÔNG (CUSTOM MODAL ĐẸP THAY THẾ ALERT TRÌNH DUYỆT) -->
     <Teleport to="body">
@@ -1029,10 +1061,195 @@ const openFallbackMailClient = () => {
   background: #475569;
 }
 
+/* QUY ĐỊNH CỬA HÀNG */
+.support-center-grid{grid-template-columns:minmax(0,.88fr) minmax(520px,1.12fr);gap:24px;align-items:stretch}.support-panel{position:relative;overflow:hidden;padding:32px;border-radius:20px;background:linear-gradient(145deg,#172235,#263d52 62%,#36566f);color:#fff;box-shadow:0 18px 42px rgba(23,34,53,.18)}.support-panel::after{content:'';position:absolute;right:-95px;bottom:-125px;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.045)}.support-kicker,.form-kicker{display:inline-block;color:#d2a764;font-size:10px;font-weight:900;letter-spacing:1.3px}.support-panel h2{max-width:480px;margin:8px 0 11px;color:#fff;font-size:27px;line-height:1.25}.support-panel .lead{max-width:560px;margin-bottom:22px;color:#cbd5e1;line-height:1.7}.primary-contact-card{position:relative;z-index:1;display:grid;grid-template-columns:48px 1fr 18px;align-items:center;gap:12px;padding:15px;border:1px solid rgba(255,255,255,.14);border-radius:14px;background:rgba(255,255,255,.09);color:#fff;text-decoration:none;transition:.2s}.primary-contact-card:hover{transform:translateY(-2px);background:rgba(255,255,255,.14)}.primary-contact-icon{width:46px;height:46px;display:grid;place-items:center;border-radius:12px;background:#d2a764;color:#172235;font-size:22px}.primary-contact-card small{display:block;margin-bottom:3px;color:#b9c8d5;font-size:10.5px}.primary-contact-card strong{font-size:14px}.primary-contact-card>b{color:#d2a764;font-size:18px}.support-benefits{position:relative;z-index:1;display:grid;gap:13px;margin-top:22px}.support-benefits>div{display:flex;align-items:flex-start;gap:10px}.support-benefits>div>span{width:23px;height:23px;display:grid;place-items:center;flex:0 0 23px;border-radius:50%;background:rgba(210,167,100,.18);color:#f0c979;font-size:11px;font-weight:900}.support-benefits p{margin:0}.support-benefits strong{display:block;color:#f8fafc;font-size:12px}.support-benefits small{display:block;margin-top:2px;color:#aebfcd;font-size:10.5px;line-height:1.45}.support-quick-links{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:24px}.support-quick-links>a{display:grid;grid-template-columns:30px 1fr 9px;align-items:center;gap:8px;padding:12px;border:1px solid rgba(255,255,255,.1);border-radius:11px;background:rgba(15,23,42,.22);color:#fff;text-decoration:none}.support-quick-links strong{display:block;font-size:11px}.support-quick-links small{display:block;margin-top:2px;color:#9fb1c0;font-size:9px}.support-quick-links b{color:#d2a764;font-size:18px}.contact-form-col,.form-card{height:100%}.form-card{padding:30px;border:1px solid #dbe4ec;border-radius:20px;box-shadow:0 15px 38px rgba(38,61,82,.1)}.form-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:24px;padding-bottom:18px;border-bottom:1px solid #edf2f7}.form-card-head h3{margin:5px 0 5px;font-size:22px}.form-card-head p{margin:0;color:#64748b;font-size:11.5px}.form-head-icon{width:46px;height:46px;display:grid;place-items:center;flex:0 0 46px;border-radius:13px;background:#edf3f7;font-size:22px}.contact-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.half-field{grid-column:span 1}.full-field{grid-column:1/-1}.form-group{margin-bottom:15px}.form-group label{margin-bottom:7px;font-size:11.5px}.form-control{min-height:46px;padding:12px 14px;border-color:#d4dee7;border-radius:10px;background:#f8fafc}.form-control::placeholder{color:#9aa9b8}.form-control:focus{border-color:#496883;background:#fff;box-shadow:0 0 0 4px rgba(73,104,131,.1)}textarea.form-control{min-height:112px;line-height:1.55}.btn-submit{min-height:48px;margin-top:1px;border-radius:11px;background:linear-gradient(135deg,#d2a764,#e3ba78);box-shadow:0 8px 18px rgba(181,140,76,.25)}.btn-submit span{flex:1;text-align:center}.btn-submit b{font-size:19px}.form-privacy-note{margin:10px 0 0;text-align:center;color:#94a3b8;font-size:10px}
+.store-rules-section {
+  margin-top: 58px;
+}
+
+.rules-heading {
+  text-align: center;
+  max-width: 760px;
+  margin: 0 auto 26px;
+}
+
+.rules-kicker {
+  display: inline-block;
+  margin-bottom: 7px;
+  color: #b58c4c;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+}
+
+.rules-heading h2 {
+  margin: 0 0 9px;
+  color: #172235;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.rules-heading p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.rules-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.rule-card {
+  display: block;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 5px 18px rgba(15, 23, 42, 0.045);
+  color: inherit;
+  text-decoration: none;
+  transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+}
+
+.rule-card:hover {
+  transform: translateY(-4px);
+  border-color: #d2a764;
+  box-shadow: 0 13px 28px rgba(38, 61, 82, .12);
+}
+
+.rule-card-title {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding-bottom: 13px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.rule-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  border-radius: 10px;
+  background: #edf3f7;
+  font-size: 19px;
+}
+
+.rule-card h3 {
+  margin: 0;
+  color: #263d52;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.rule-card-title small {
+  display: block;
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 10.5px;
+}
+
+.rule-summary {
+  min-height: 42px;
+  margin: 0 0 18px;
+  color: #64748b;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.rule-detail-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #496883;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.rule-detail-link b {
+  font-size: 18px;
+  transition: transform .2s ease;
+}
+
+.rule-card:hover .rule-detail-link b {
+  transform: translateX(4px);
+}
+
+.rule-card ul {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rule-card li {
+  position: relative;
+  padding-left: 17px;
+  color: #526273;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.rule-card li::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  left: 1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d2a764;
+}
+
+.rules-support-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px 18px;
+  border: 1px solid #cfdae4;
+  border-radius: 12px;
+  background: #eef4f7;
+}
+
+.rules-support-note > span {
+  font-size: 20px;
+}
+
+.rules-support-note p {
+  margin: 0;
+  color: #41566a;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 @media (max-width: 860px) {
   .content-grid {
     grid-template-columns: 1fr;
     gap: 32px;
   }
+
+  .store-rules-section {
+    margin-top: 40px;
+  }
+
+  .rules-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rules-heading h2 {
+    font-size: 23px;
+  }
+
+  .support-center-grid{grid-template-columns:1fr}.support-panel{padding:24px}.contact-form-grid{grid-template-columns:1fr}.half-field,.full-field{grid-column:1}.support-quick-links{grid-template-columns:1fr 1fr}
 }
+
+@media(max-width:560px){.support-panel{padding:21px 16px;border-radius:16px}.support-panel h2{font-size:22px}.support-quick-links{grid-template-columns:1fr}.form-card{padding:21px 15px;border-radius:16px}.form-card-head h3{font-size:19px}.form-head-icon{width:40px;height:40px;flex-basis:40px}.content-grid{margin-top:20px;padding-inline:10px}}
 </style>
