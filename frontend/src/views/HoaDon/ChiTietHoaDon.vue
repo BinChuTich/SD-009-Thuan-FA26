@@ -1640,6 +1640,17 @@ const mapInvoiceItem = (item, index) => {
   const exactProductCode = getString(product['maSanPham'], variant['maSanPham'], raw['maSanPham'], '')
 
   const origPrice = getNumber(raw['giaBanGoc'], variant['giaBan'], raw['giaBan'], price)
+  const calculatedDiscountPercent = origPrice > price && origPrice > 0
+      ? Math.round(((origPrice - price) / origPrice) * 100)
+      : 0
+  const providedDiscountPercent = getNumber(
+      raw['phanTramGiam'],
+      raw['phanTramGiamGia'],
+      raw['discountPercent']
+  )
+  const discountPercent = providedDiscountPercent > 0
+      ? providedDiscountPercent
+      : calculatedDiscountPercent
 
   return {
 
@@ -1662,6 +1673,8 @@ const mapInvoiceItem = (item, index) => {
     quantity,
 
     originalPrice: origPrice,
+
+    discountPercent,
 
     price,
 
@@ -4890,6 +4903,9 @@ onBeforeUnmount(() => {
 
               <div class="product-name-heading">
                 {{ item.name }}
+                <span v-if="item.discountPercent > 0" class="product-discount-badge">
+                  -{{ item.discountPercent }}%
+                </span>
                 <span v-if="Number(invoiceData.status) === 1 && item.hetHang" class="badge-stock-danger">
                   ⚠️ Hết hàng (kho còn: {{ item.soLuongTon ?? 0 }})
                 </span>
@@ -4920,7 +4936,14 @@ onBeforeUnmount(() => {
 
             <td class="text-center">{{ item.quantity }}</td>
 
-            <td class="text-right">{{ formatMoney(item.price) }}</td>
+            <td class="text-right">
+              <div class="product-unit-price" :class="{ 'has-discount': item.discountPercent > 0 }">
+                <span class="current-unit-price">{{ formatMoney(item.price) }}</span>
+                <span v-if="item.discountPercent > 0" class="original-unit-price">
+                  {{ formatMoney(item.originalPrice) }}
+                </span>
+              </div>
+            </td>
 
             <td class="text-right font-bold text-price-total">{{ formatMoney(item.total) }}</td>
 
@@ -7973,6 +7996,64 @@ onBeforeUnmount(() => {
   color: #2b353b;
 
   margin-bottom: 2px;
+
+}
+
+.product-discount-badge {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  margin-left: 6px;
+
+  padding: 2px 5px;
+
+  border: 1px solid #ffc9c9;
+
+  border-radius: 3px;
+
+  background: #fff5f5;
+
+  color: #e03131;
+
+  font-size: 0.72rem;
+
+  font-weight: 500;
+
+  line-height: 1.15;
+
+  vertical-align: middle;
+
+}
+
+.product-unit-price {
+
+  display: inline-flex;
+
+  flex-direction: column;
+
+  align-items: flex-end;
+
+  line-height: 1.35;
+
+}
+
+.product-unit-price.has-discount .current-unit-price {
+
+  color: #e31b23;
+
+  font-weight: 700;
+
+}
+
+.original-unit-price {
+
+  color: #9aa2ad;
+
+  font-size: 0.78rem;
+
+  text-decoration: line-through;
 
 }
 

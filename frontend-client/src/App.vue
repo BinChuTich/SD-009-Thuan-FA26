@@ -21,7 +21,8 @@ import ModalThongBaoXacNhan from '@/components/DungChung/ModalThongBaoXacNhan.vu
 html {
   scroll-behavior: smooth;
   width: 100%;
-  overflow-x: hidden;
+  /* `hidden` tạo scroll container và làm header position: sticky mất tác dụng. */
+  overflow-x: clip;
 }
 
 * {
@@ -36,7 +37,7 @@ body {
   background-color: #f8fafc;
   width: 100%;
   min-width: 320px;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 img,
