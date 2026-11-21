@@ -25,6 +25,13 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Long> {
            "LEFT JOIN FETCH h.idNhanVien " +
            "LEFT JOIN FETCH h.idKhachHang " +
            "LEFT JOIN FETCH h.idPhieuGiamGia " +
+           "ORDER BY h.ngayTao ASC, h.id ASC")
+    List<HoaDon> findAllWithForeignKeysOldestFirst();
+
+    @Query("SELECT h FROM HoaDon h " +
+           "LEFT JOIN FETCH h.idNhanVien " +
+           "LEFT JOIN FETCH h.idKhachHang " +
+           "LEFT JOIN FETCH h.idPhieuGiamGia " +
            "WHERE h.maHoaDon = :maHoaDon")
     Optional<HoaDon> findByMaHoaDonWithForeignKeys(@Param("maHoaDon") String maHoaDon);
 

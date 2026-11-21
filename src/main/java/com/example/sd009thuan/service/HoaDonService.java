@@ -687,7 +687,7 @@ public class HoaDonService {
 
 
 
-            list = hoaDonRepository.findAllWithForeignKeys();
+            list = hoaDonRepository.findAllWithForeignKeysOldestFirst();
 
 
 
