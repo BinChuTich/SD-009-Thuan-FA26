@@ -28,6 +28,13 @@ public class VNPayController {
         if (req.getOrderCode() == null || req.getOrderCode().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("message", "Mã đơn hàng không được để trống!"));
         }
+        Optional<HoaDon> selectedOrder = hoaDonRepository.findByMaHoaDon(req.getOrderCode().trim());
+        if (selectedOrder.isPresent() && Integer.valueOf(2).equals(selectedOrder.get().getLoaiDon())) {
+            String note = selectedOrder.get().getGhiChu() != null ? selectedOrder.get().getGhiChu().toUpperCase() : "";
+            if (!note.contains("[PHƯƠNG THỨC: VNPAY]")) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Đơn hàng hiện không chọn phương thức VNPAY!"));
+            }
+        }
 
         // Tự động kiểm tra và phục hồi số tiền nếu bị thiếu hoặc <= 0 từ cơ sở dữ liệu
         if (req.getAmount() == null || req.getAmount() <= 0) {

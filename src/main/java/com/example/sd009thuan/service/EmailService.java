@@ -29,6 +29,9 @@ public class EmailService {
     @org.springframework.beans.factory.annotation.Value("${spring.mail.username:thuanminh2908200334.1@gmail.com}")
     private String senderEmail;
 
+    @org.springframework.beans.factory.annotation.Value("${app.client-base-url:http://localhost:5174}")
+    private String clientBaseUrl;
+
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
 
@@ -506,8 +509,17 @@ public class EmailService {
 
     @Async
     public void sendOrderConfirmationEmail(HoaDon hoaDon, java.util.List<ChiTietHoaDon> items, String recipientEmail) {
+        sendOrderStatusEmail(hoaDon, items, recipientEmail, true);
+    }
+
+    @Async
+    public void sendOrderPlacedEmail(HoaDon hoaDon, java.util.List<ChiTietHoaDon> items, String recipientEmail) {
+        sendOrderStatusEmail(hoaDon, items, recipientEmail, false);
+    }
+
+    private void sendOrderStatusEmail(HoaDon hoaDon, java.util.List<ChiTietHoaDon> items, String recipientEmail, boolean confirmed) {
         if (recipientEmail == null || recipientEmail.trim().isEmpty() || !recipientEmail.contains("@")) {
-            log.info("==> [EmailService] Bỏ qua gửi email xác nhận: Địa chỉ email người nhận không hợp lệ ('{}')", recipientEmail);
+            log.info("==> [EmailService] Bỏ qua gửi email đơn hàng: Địa chỉ email người nhận không hợp lệ ('{}')", recipientEmail);
             return;
         }
         if (hoaDon == null) {
@@ -516,7 +528,7 @@ public class EmailService {
 
         try {
             if (mailSender == null) {
-                log.info("==> [EmailService Mock] Đã gửi email xác nhận đơn hàng {} tới {}", hoaDon.getMaHoaDon(), recipientEmail);
+                log.info("==> [EmailService Mock] Đã gửi email {} đơn hàng {} tới {}", confirmed ? "xác nhận" : "cảm ơn đặt", hoaDon.getMaHoaDon(), recipientEmail);
                 return;
             }
 
@@ -525,7 +537,9 @@ public class EmailService {
 
             helper.setFrom(senderEmail, "FF T-Shirt");
             helper.setTo(recipientEmail.trim());
-            helper.setSubject("[FF T-Shirt] Xác nhận đơn hàng thành công #" + (hoaDon.getMaHoaDon() != null ? hoaDon.getMaHoaDon() : ""));
+            helper.setSubject(confirmed
+                    ? "[FF T-Shirt] Đơn hàng đã được xác nhận #" + (hoaDon.getMaHoaDon() != null ? hoaDon.getMaHoaDon() : "")
+                    : "[FF T-Shirt] Cảm ơn bạn đã đặt hàng #" + (hoaDon.getMaHoaDon() != null ? hoaDon.getMaHoaDon() : ""));
 
             // Build item rows HTML
             String itemsHtml = buildOrderItemsHtml(items);
@@ -557,6 +571,14 @@ public class EmailService {
 
             String maDon = hoaDon.getMaHoaDon() != null ? hoaDon.getMaHoaDon() : "";
             String orderDate = formatTime(hoaDon.getNgayTao());
+            String bannerBackground = confirmed ? "#ecfdf5" : "#eff6ff";
+            String bannerBorder = confirmed ? "#a7f3d0" : "#bfdbfe";
+            String bannerTitleColor = confirmed ? "#065f46" : "#1d4ed8";
+            String bannerTextColor = confirmed ? "#047857" : "#1e40af";
+            String bannerTitle = confirmed ? "Đơn hàng đã được xác nhận thành công!" : "Cảm ơn bạn đã đặt hàng tại FF T-Shirt!";
+            String bannerSubtitle = confirmed
+                    ? "Chúng tôi đang chuẩn bị đơn hàng để giao đến bạn sớm nhất."
+                    : "Đơn hàng của bạn đã được tiếp nhận và đang chờ nhân viên xác nhận.";
 
             String template = """
                 <!DOCTYPE html>
@@ -578,12 +600,12 @@ public class EmailService {
                     <div style="padding: 32px 30px;">
                         
                         <!-- Confirmation Banner -->
-                        <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 16px 20px; margin-bottom: 24px; text-align: center;">
-                            <div style="font-size: 18px; font-weight: 700; color: #065f46; margin-bottom: 4px;">
-                                Đơn hàng đã được xác nhận thành công!
+                        <div style="background-color: {{bannerBackground}}; border: 1px solid {{bannerBorder}}; border-radius: 10px; padding: 16px 20px; margin-bottom: 24px; text-align: center;">
+                            <div style="font-size: 18px; font-weight: 700; color: {{bannerTitleColor}}; margin-bottom: 4px;">
+                                {{bannerTitle}}
                             </div>
-                            <div style="font-size: 13.5px; color: #047857;">
-                                Cảm ơn bạn đã mua sắm tại <b>FF T-Shirt</b>. Chúng tôi đang chuẩn bị đơn hàng để giao đến bạn sớm nhất.
+                            <div style="font-size: 13.5px; color: {{bannerTextColor}};">
+                                {{bannerSubtitle}}
                             </div>
                         </div>
 
@@ -674,6 +696,12 @@ public class EmailService {
             """;
 
             String html = template
+                    .replace("{{bannerBackground}}", bannerBackground)
+                    .replace("{{bannerBorder}}", bannerBorder)
+                    .replace("{{bannerTitleColor}}", bannerTitleColor)
+                    .replace("{{bannerTextColor}}", bannerTextColor)
+                    .replace("{{bannerTitle}}", bannerTitle)
+                    .replace("{{bannerSubtitle}}", bannerSubtitle)
                     .replace("{{customerName}}", customerName)
                     .replace("{{maDon}}", maDon)
                     .replace("{{orderDate}}", orderDate)
@@ -693,6 +721,79 @@ public class EmailService {
         } catch (Exception e) {
             log.error("==> [EmailService Lỗi] Không thể gửi email xác nhận đơn hàng tới {}: {}", recipientEmail, e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    public boolean sendUnpaidOrderReminderEmail(HoaDon hoaDon, java.util.List<ChiTietHoaDon> items, String recipientEmail) {
+        if (hoaDon == null || recipientEmail == null || !recipientEmail.contains("@")) return false;
+        String code = hoaDon.getMaHoaDon() != null ? hoaDon.getMaHoaDon() : "";
+        String customerName = hoaDon.getTenKhachHangHienThi() != null ? hoaDon.getTenKhachHangHienThi() : "Quý khách";
+        String method = hoaDon.getPhuongThucThanhToan();
+        BigDecimal subtotal = hoaDon.getTongTien() != null ? hoaDon.getTongTien() : BigDecimal.ZERO;
+        BigDecimal shipping = hoaDon.getPhiVanChuyen() != null ? hoaDon.getPhiVanChuyen() : BigDecimal.ZERO;
+        BigDecimal discount = hoaDon.getTongTienGiamGia() != null ? hoaDon.getTongTienGiamGia() : BigDecimal.ZERO;
+        BigDecimal amount = hoaDon.getTienSauGiamGia() != null ? hoaDon.getTienSauGiamGia() : subtotal.add(shipping).subtract(discount);
+        String phone = hoaDon.getSoDienThoaiHienThi() != null ? hoaDon.getSoDienThoaiHienThi() : "---";
+        String address = hoaDon.getDiaChiNhanHang() != null && !hoaDon.getDiaChiNhanHang().isBlank()
+                ? hoaDon.getDiaChiNhanHang() : "Chưa cập nhật";
+        String itemRows = buildOrderItemsHtml(items);
+        String discountRow = discount.compareTo(BigDecimal.ZERO) > 0
+                ? "<div style=\"display:flex;justify-content:space-between;margin-bottom:7px;color:#16a34a\"><span>Giảm giá:</span><strong>-" + formatMoney(discount) + "</strong></div>"
+                : "";
+        // Giữ nguyên origin đã cấu hình. localStorage/cookie đăng nhập bị tách theo origin,
+        // nên tự đổi localhost thành IP LAN sẽ làm cùng trình duyệt trông như chưa đăng nhập.
+        String orderUrl = clientBaseUrl.replaceAll("/+$", "") + "/tra-cuu?code="
+                + java.net.URLEncoder.encode(code, java.nio.charset.StandardCharsets.UTF_8);
+        if (mailSender == null) {
+            log.info("==> [EmailService Mock] Nhắc thanh toán đơn {} tới {}: {}", code, recipientEmail, orderUrl);
+            return true;
+        }
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(senderEmail, "FF T-Shirt");
+            helper.setTo(recipientEmail.trim());
+            String reminderId = java.util.UUID.randomUUID().toString();
+            String sentAt = formatTime(Instant.now());
+            // Tiêu đề và mã tham chiếu riêng giúp Gmail không gom nhiều email nhắc
+            // vào cùng một chuỗi rồi chèn nút "..." để rút gọn nội dung lặp lại.
+            helper.setSubject("[FF T-Shirt] Nhắc thanh toán đơn " + code + " - " + sentAt);
+            message.setHeader("X-Entity-Ref-ID", reminderId);
+            String html = """
+                <!doctype html><html><body style="margin:0;background:#f4f6f8;font-family:Arial,sans-serif;color:#333">
+                <div style="max-width:650px;margin:24px auto;background:#fff;border:1px solid #e8e4de;border-radius:16px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.06)">
+                  <div style="padding:26px 30px;text-align:center;color:#fff;background:linear-gradient(135deg,#4a3427,#7b5943)"><h1 style="margin:0;font-size:23px;letter-spacing:1px">FF T-SHIRT STORE</h1><p style="margin:5px 0 0;font-size:13px">Thời trang áo phông cao cấp • Hotline: 0988.888.888</p></div>
+                  <div style="padding:30px">
+                    <div style="padding:15px 18px;margin-bottom:22px;text-align:center;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px"><strong style="display:block;color:#c2410c;font-size:18px">Đơn hàng đang chờ thanh toán</strong><span style="color:#9a3412;font-size:13px">Vui lòng hoàn tất thanh toán để cửa hàng tiếp tục xử lý đơn.</span></div>
+                    <p>Xin chào <strong>%s</strong>,</p>
+                    <div style="padding:17px 19px;margin:18px 0 23px;background:#faf7f2;border:1px solid #f0eae1;border-radius:10px;line-height:1.8">
+                      <div>Mã đơn hàng: <strong>%s</strong></div><div>Thời gian đặt: <strong>%s</strong></div>
+                      <div>Trạng thái thanh toán: <strong style="color:#d97706">Chưa thanh toán (%s)</strong></div>
+                      <div>Số điện thoại: <strong>%s</strong></div><div>Địa chỉ nhận hàng: <strong>%s</strong></div>
+                    </div>
+                    <h3 style="margin:0 0 12px;color:#4a3427;font-size:15px">Chi tiết sản phẩm đã đặt:</h3>
+                    <table style="width:100%%;border-collapse:collapse;margin-bottom:23px;border:1px solid #ebd9c8"><thead><tr style="background:#f7f2ea;color:#4a3427;font-size:13px"><th style="padding:10px 8px">#</th><th style="padding:10px 8px;text-align:left">Sản phẩm</th><th style="padding:10px 8px">SL</th><th style="padding:10px 8px;text-align:right">Đơn giá</th><th style="padding:10px 8px;text-align:right">Thành tiền</th></tr></thead><tbody>%s</tbody></table>
+                    <div style="padding:17px 19px;background:#faf7f2;border:1px solid #f0eae1;border-radius:10px;font-size:13.5px">
+                      <div style="display:flex;justify-content:space-between;margin-bottom:7px"><span>Tiền hàng:</span><strong>%s</strong></div>
+                      <div style="display:flex;justify-content:space-between;margin-bottom:7px"><span>Phí vận chuyển:</span><strong>%s</strong></div>%s
+                      <div style="border-top:1px dashed #d5cbc1;margin:10px 0"></div><div style="display:flex;justify-content:space-between;font-size:16px"><strong>Tổng thanh toán:</strong><strong style="color:#b91c1c;font-size:18px">%s</strong></div>
+                    </div>
+                    <div style="text-align:center;margin:26px 0 12px"><a href="%s" style="display:inline-block;padding:13px 30px;background:#7b5943;color:#fff;text-decoration:none;border-radius:24px;font-weight:700">Mở đơn hàng &amp; tiếp tục thanh toán</a></div>
+                    <p style="text-align:center;font-size:12.5px;color:#777">Nếu bạn đã thanh toán, vui lòng bỏ qua email này hoặc liên hệ cửa hàng để được kiểm tra.</p>
+                    <p style="text-align:center;font-size:11px;color:#a1a1aa;margin-top:14px">Email được gửi lúc %s • Mã nhắc: %s</p>
+                  </div>
+                </div></body></html>
+                """.formatted(
+                    escapeHtml(customerName), escapeHtml(code), formatTime(hoaDon.getNgayTao()), escapeHtml(method),
+                    escapeHtml(phone), escapeHtml(address), itemRows, formatMoney(subtotal), formatMoney(shipping),
+                    discountRow, formatMoney(amount), orderUrl, sentAt, reminderId.substring(0, 8).toUpperCase()
+                );
+            helper.setText(html, true);
+            mailSender.send(message);
+            return true;
+        } catch (Exception e) {
+            log.error("Không thể gửi email nhắc thanh toán đơn {} tới {}: {}", code, recipientEmail, e.getMessage());
+            return false;
         }
     }
 

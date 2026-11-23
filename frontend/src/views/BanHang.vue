@@ -37,6 +37,7 @@ import {
   playChimeSound
 } from '@/utils/mobilePosSync.js'
 import { Html5Qrcode } from 'html5-qrcode'
+import { generateQrDataUrl } from '@/utils/qrcode.js'
 
 
 
@@ -2917,6 +2918,13 @@ const PRICE_WARNING_ACK_STORAGE_KEY = 'pos_acknowledged_price_changes'
 const buildPriceWarningAckKey = (variantId, oldPrice, newPrice) =>
   `${Number(variantId) || variantId}_${Number(oldPrice)}_${Number(newPrice)}`
 
+const hasCartPriceChange = (item) => {
+  if (!item || item.previousCartPrice === null || item.previousCartPrice === undefined) return false
+  const oldPrice = Number(item.previousCartPrice)
+  const newPrice = Number(item.price)
+  return Number.isFinite(oldPrice) && Number.isFinite(newPrice) && oldPrice !== newPrice
+}
+
 const getAcknowledgedPriceWarnings = () => {
   try {
     const raw = localStorage.getItem(PRICE_WARNING_ACK_STORAGE_KEY)
@@ -5543,6 +5551,7 @@ const submitQuickAddCustomer = async () => {
 
 
 const availableVouchers = ref([])
+const isSelectingBestVoucher = ref(false)
 const allSystemVouchers = ref([])
 const hasLoadedVouchersOnce = ref(false)
 const showVoucherWarningModal = ref(false)
@@ -5902,27 +5911,19 @@ const applyVoucherWarningModal = async () => {
 
 const cancelVoucherWarningModal = async () => {
   const ctx = pendingVoucherWarningContext.value
-  const shouldResume = Boolean(ctx?.resumeCheckout)
   if (ctx && currentInvoice.value && currentInvoice.value.id === ctx.invoiceId) {
-    // Khi bấm "Hủy": không áp dụng mã mới mà giữ/áp dụng theo mã trước đó
-    currentInvoice.value.voucher = ctx.oldVoucher ? cloneVoucherSnapshot(ctx.oldVoucher) : null
+    // Hủy là dừng thao tác thanh toán và gỡ phiếu cũ khỏi hóa đơn chờ.
+    // Phiếu đã thay đổi/hết hiệu lực không được tiếp tục tham gia tính tiền.
+    currentInvoice.value.voucher = null
     currentInvoice.value.chapNhanVoucherMoi = false
-    currentInvoice.value.rejectedVoucherKey = ctx.decisionKey
+    currentInvoice.value.rejectedVoucherKey = null
     saveInvoiceVoucherSnapshots()
-
-    showToast(
-      ctx.oldVoucher
-        ? `Không áp dụng mã mới, giữ nguyên mã "${ctx.oldVoucher.maPhieuGiamGia}" (-${formatMoney(ctx.oldDiscount)})!`
-        : 'Không áp dụng mã giảm giá mới cho đơn hàng!'
-    )
+    showToast('Đã gỡ phiếu giảm giá và quay lại hóa đơn chờ.')
   }
   pendingVoucherWarningContext.value = null
   voucherWarningData.value = null
   showVoucherWarningModal.value = false
 
-  if (shouldResume) {
-    await proceedToOrderConfirmModal()
-  }
 }
 
 const flushDeferredVoucherCheck = () => {
@@ -6084,7 +6085,9 @@ function calculateDiscountAmount(v, subtotal) {
 
 
 
-    let amount = (subtotal * percent) / 100
+    // `giamToiDa` chỉ giới hạn mức giảm; số tiền thực tế luôn bắt đầu từ
+    // subtotal × phần trăm và làm tròn theo đơn vị đồng.
+    let amount = Math.round((subtotal * percent) / 100)
 
 
 
@@ -6308,6 +6311,39 @@ function findBestVoucher(customerId, customerName, subtotal) {
 
 
 
+
+const selectBestVoucherForCurrentInvoice = async () => {
+  if (!currentInvoice.value || totalAmount.value <= 0 || isSelectingBestVoucher.value) return
+  isSelectingBestVoucher.value = true
+  try {
+    // Luôn lấy dữ liệu mới nhất để không chọn nhầm phiếu đã hết hạn/hết lượt.
+    await fetchVouchers(true)
+    const invoice = currentInvoice.value
+    const best = findBestVoucher(invoice.customerId, invoice.customerName, totalAmount.value)
+
+    if (!best) {
+      showToast(
+        invoice.customerId
+          ? 'Khách hàng chưa có phiếu giảm giá nào đủ điều kiện cho hóa đơn này.'
+          : 'Không có phiếu công khai nào đủ điều kiện cho hóa đơn này.',
+        'warning'
+      )
+      return
+    }
+
+    invoice.voucher = cloneVoucherSnapshot(best)
+    invoice.chapNhanVoucherMoi = true
+    invoice.rejectedVoucherKey = null
+    saveInvoiceVoucherSnapshots()
+    const discount = calculateDiscountAmount(best, totalAmount.value)
+    showToast(`Đã chọn phiếu tốt nhất "${best.maPhieuGiamGia}" (-${formatMoney(discount)}).`)
+  } catch (error) {
+    console.warn('Không thể chọn phiếu tốt nhất:', error)
+    showToast('Không thể tải phiếu giảm giá. Vui lòng thử lại.', 'warning')
+  } finally {
+    isSelectingBestVoucher.value = false
+  }
+}
 
 function autoApplyBestVoucher(fromUserAction = false) {
   if (!currentInvoice.value) return
@@ -8230,6 +8266,7 @@ const finalTotal = computed(() => {
 // Đồng bộ một chiều sang màn hình dành cho khách hàng trên màn hình thứ hai.
 const CUSTOMER_DISPLAY_CHANNEL = 'fft-pos-customer-display'
 const CUSTOMER_DISPLAY_STORAGE = 'fft-pos-customer-display-v1'
+const demoPaymentQrUrl = ref('')
 let customerDisplayChannel = null
 
 if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
@@ -8365,7 +8402,7 @@ const buildCustomerDisplaySnapshot = () => {
     cashAmount,
     transferAmount,
     transferContent: transferContentValue,
-    transferQrUrl: transferAmount > 0 ? buildCustomerVietQrUrl(invoice.code, transferAmount) : '',
+    transferQrUrl: transferAmount > 0 ? demoPaymentQrUrl.value : '',
     bankName: 'MB Bank (970422)',
     bankAccount: '0988888888',
     bankAccountName: 'FF T-SHIRT STORE'
@@ -9226,10 +9263,6 @@ const handleConfirmVietQrInModal = async () => {
 
 }
 
-
-
-
-
 let paymentPollingTimer = null
 
 
@@ -9299,6 +9332,47 @@ const transferApiInfo = ref({
 
 
 })
+const demoPaymentQrStatus = ref('idle')
+const demoPaymentQrError = ref('')
+
+const prepareDemoPaymentQr = async (code, amount) => {
+  demoPaymentQrUrl.value = ''
+  demoPaymentQrStatus.value = 'loading'
+  demoPaymentQrError.value = ''
+  try {
+    const [sessionRes, ipRes] = await Promise.all([
+      api.post('/api/payment/demo/create', null, { params: { maHoaDon: code, soTien: amount } }),
+      api.get('/api/pos-sync/lan-ip')
+    ])
+    const host = ipRes.data?.primaryIp || window.location.hostname
+    const port = window.location.port || '5173'
+    const params = new URLSearchParams({ t: sessionRes.data.token, c: code, a: String(amount) })
+    const paymentUrl = `http://${host}:${port}/thanh-toan-demo?${params.toString()}`
+    demoPaymentQrUrl.value = generateQrDataUrl(paymentUrl, {
+      margin: 4,
+      errorLevel: 'H',
+      centerLogo: 'vietqr'
+    })
+    demoPaymentQrStatus.value = 'ready'
+    publishCustomerDisplaySnapshot()
+  } catch (error) {
+    demoPaymentQrUrl.value = ''
+    demoPaymentQrStatus.value = 'error'
+    demoPaymentQrError.value = error.response?.data?.message || 'Không kết nối được backend demo. Hãy khởi động lại backend rồi thử lại.'
+    console.error('Không thể tạo QR thanh toán demo:', error)
+  }
+}
+
+const retryDemoPaymentQr = () => {
+  if (!currentInvoice.value) return
+  prepareDemoPaymentQr(currentInvoice.value.code || 'POS', transferTargetAmount.value)
+}
+
+const handleDemoQrImageError = () => {
+  demoPaymentQrUrl.value = ''
+  demoPaymentQrStatus.value = 'error'
+  demoPaymentQrError.value = 'Không tải được ảnh QR. Kiểm tra kết nối Internet của máy tính rồi tạo lại mã.'
+}
 
 
 
@@ -9435,14 +9509,7 @@ const getMoMoQrUrl = (amount) => {
 
 
 const transferQrUrl = computed(() => {
-
-  const amt = transferTargetAmount.value
-
-  if (transferApiInfo.value.vietQrUrl) return transferApiInfo.value.vietQrUrl
-
-  if (transferApiInfo.value.qrCodeUrl) return transferApiInfo.value.qrCodeUrl
-
-  return getVietQrUrl(amt)
+  return demoPaymentQrUrl.value
 
 })
 
@@ -9578,6 +9645,10 @@ const fetchTransferInfoFromApi = async (amount) => {
 
   const amt = Math.max(0, Math.round(Number(amount) || 0))
 
+  demoPaymentQrUrl.value = ''
+  demoPaymentQrStatus.value = 'loading'
+  demoPaymentQrError.value = ''
+
 
 
   try {
@@ -9666,6 +9737,8 @@ const fetchTransferInfoFromApi = async (amount) => {
 
       }
 
+      await prepareDemoPaymentQr(code, amt)
+
 
 
     }
@@ -9676,7 +9749,9 @@ const fetchTransferInfoFromApi = async (amount) => {
 
 
 
-    console.warn('API /api/payment/transfer-info chưa sẵn sàng, dùng fallback cấu hình:', err)
+    demoPaymentQrStatus.value = 'error'
+    demoPaymentQrError.value = 'Backend chưa sẵn sàng. Hãy khởi động lại backend để nạp API thanh toán demo.'
+    console.warn('API thanh toán demo chưa sẵn sàng:', err)
 
 
 
@@ -9974,28 +10049,7 @@ const startPaymentPolling = () => {
 
 
 
-  // Tắt tự động polling thanh toán
-
-
-
-  return
-
-
-
-}
-
-
-
-const _unusedPolling = () => {
-
-
-
-  stopPaymentPolling()
-  stopMobileScannerSync()
-  stopDirectCameraScan()
-
-
-
+  checkPaymentStatus(false)
   paymentPollingTimer = setInterval(() => {
 
 
@@ -12283,6 +12337,10 @@ onMounted(async () => {
 
                   <span v-else class="cart-price-normal">{{ formatMoney(item.price) }}</span>
 
+                  <div v-if="hasCartPriceChange(item)" class="cart-price-change-note">
+                    Đổi giá: {{ formatMoney(item.previousCartPrice) }} → {{ formatMoney(item.price) }}
+                  </div>
+
 
 
                 </td>
@@ -13147,6 +13205,15 @@ onMounted(async () => {
 
 
               <label class="group-label-gray">Phiếu giảm giá (Voucher)</label>
+
+              <button
+                type="button"
+                class="btn-select-best-voucher"
+                :disabled="totalAmount <= 0 || isSelectingBestVoucher"
+                @click="selectBestVoucherForCurrentInvoice"
+              >
+                {{ isSelectingBestVoucher ? 'Đang chọn...' : 'Chọn mã giảm giá tốt nhất' }}
+              </button>
 
 
 
@@ -15488,9 +15555,9 @@ onMounted(async () => {
           <div class="price-change-warning-box">
             <strong>Thông báo:</strong> {{ voucherWarningData.reason || 'Mã giảm giá (phiếu giảm giá) áp dụng cho đơn hàng đã thay đổi trên hệ thống.' }}
             <br />
-            • Đơn hàng hiện tại <strong>giữ nguyên mã và mức giảm trước đó</strong> (không tự động thay đổi).
+            • Đơn hàng hiện tại chưa tự động thay đổi cho tới khi nhân viên chọn thao tác.
             <br />
-            • Bấm <strong>Áp dụng</strong> để cập nhật theo mã giảm giá mới, hoặc bấm <strong>Hủy</strong> để không áp dụng mã mới và vẫn giữ/áp dụng theo mã trước đó:
+            • Bấm <strong>Áp dụng</strong> để cập nhật theo phiếu mới; bấm <strong>Hủy</strong> để gỡ phiếu cũ và quay lại hóa đơn chờ:
           </div>
 
           <div class="confirm-items-table-wrap voucher-warning-table-wrap">
@@ -16152,7 +16219,7 @@ onMounted(async () => {
 
             <h3 class="vietqr-modal-title">Thanh toán Chuyển khoản VietQR</h3>
 
-            <span class="vietqr-subtitle">Quét mã bằng bất kỳ ứng dụng ngân hàng hoặc ví điện tử</span>
+            <span class="vietqr-subtitle">Quét mã bằng ứng dụng ngân hàng hoặc ví điện tử</span>
 
           </div>
 
@@ -16172,13 +16239,28 @@ onMounted(async () => {
 
               <img
 
+                  v-if="demoPaymentQrStatus === 'ready' && transferQrUrl"
+
                   :src="transferQrUrl"
 
                   :alt="`Mã VietQR thanh toán ${formatMoney(transferTargetAmount)}`"
 
+                  @error="handleDemoQrImageError"
+
                   class="vietqr-big-code"
 
               />
+
+              <div v-if="demoPaymentQrStatus === 'loading'" class="demo-qr-message">
+                <span class="demo-qr-spinner"></span>
+                <strong>Đang tạo mã QR demo...</strong>
+              </div>
+
+              <div v-if="demoPaymentQrStatus === 'error' || demoPaymentQrStatus === 'idle'" class="demo-qr-message demo-qr-error">
+                <strong>Không tạo được QR demo</strong>
+                <span>{{ demoPaymentQrError || 'Backend demo chưa sẵn sàng.' }}</span>
+                <button type="button" @click="retryDemoPaymentQr">Tạo lại mã QR</button>
+              </div>
 
               <div v-if="currentInvoice.isTransferPaid" class="vietqr-overlay-paid">
 
@@ -16190,7 +16272,9 @@ onMounted(async () => {
 
             <div class="vietqr-scan-guide">
 
-              Hướng camera điện thoại hoặc app ngân hàng để quét mã
+              <strong>FF T-SHIRT STORE</strong>
+              <span>0988888888</span>
+              <b>Số tiền: {{ formatMoney(transferTargetAmount) }}</b>
 
             </div>
 
@@ -16208,9 +16292,9 @@ onMounted(async () => {
 
               <div class="vqr-row">
 
-                <span class="vqr-label">Ngân hàng (BIN)</span>
+                <span class="vqr-label">Ngân hàng</span>
 
-                <span class="vqr-val font-bold text-navy">{{ transferApiInfo.bankName || 'MB Bank (970422)' }}</span>
+                <span class="vqr-val font-bold text-navy">MB Bank (970422)</span>
 
               </div>
 
@@ -16220,9 +16304,9 @@ onMounted(async () => {
 
                 <div class="vqr-val-group">
 
-                  <span class="vqr-val font-bold text-navy text-mono">{{ transferApiInfo.accountNo || '0988888888' }}</span>
+                  <span class="vqr-val font-bold text-navy text-mono">0988888888</span>
 
-                  <button type="button" class="btn-vqr-copy-mini" @click="copyToClipboard(transferApiInfo.accountNo || '0988888888', 'Số tài khoản')">Sao chép</button>
+                  <button type="button" class="btn-vqr-copy-mini" @click="copyToClipboard('0988888888', 'Số tài khoản')">Sao chép</button>
 
                 </div>
 
@@ -16230,7 +16314,7 @@ onMounted(async () => {
 
               <div class="vqr-row">
 
-                <span class="vqr-label">Chủ tài khoản</span>
+                <span class="vqr-label">Người nhận</span>
 
                 <span class="vqr-val font-bold text-navy text-uppercase">{{ transferApiInfo.accountName || 'FF T-SHIRT STORE' }}</span>
 
@@ -16304,27 +16388,9 @@ onMounted(async () => {
 
             <div class="vietqr-staff-notice">
 
-              Kiểm tra khoản tiền đã nhận trong tài khoản ngân hàng trước khi xác nhận. Hệ thống ghi nhận xác nhận thủ công của nhân viên.
+              Vui lòng kiểm tra đúng số tiền và nội dung chuyển khoản trước khi xác nhận thanh toán.
 
             </div>
-
-
-
-            <!-- Checkbox xác nhận -->
-
-            <label class="vietqr-verify-box">
-
-              <input type="checkbox" v-model="currentInvoice.isTransferVerifiedByStaff" />
-
-              <span class="verify-txt">
-
-                Tôi đã kiểm tra đủ <strong>{{ formatMoney(transferTargetAmount) }}</strong> tiền chuyển khoản.
-
-              </span>
-
-            </label>
-
-
 
             <!-- Nút hành động trực tiếp ở cột phải -->
 
@@ -16333,22 +16399,6 @@ onMounted(async () => {
               <button type="button" class="btn-modal-back" @click="closeVietQrModal">
 
                 Đóng
-
-              </button>
-
-              <button
-
-                  type="button"
-
-                  class="btn-modal-confirm-pay"
-
-                  :disabled="isConfirmingPayment"
-
-                  @click="handleConfirmVietQrInModal"
-
-              >
-
-                {{ isConfirmingPayment ? 'Đang xử lý...' : (currentInvoice.isTransferPaid ? 'Đã nhận đủ tiền' : 'Xác nhận đã nhận tiền') }}
 
               </button>
 
@@ -18919,6 +18969,15 @@ onMounted(async () => {
 
 }
 
+.cart-price-change-note {
+  margin-top: 4px;
+  color: #dc2626;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
 
 
 
@@ -21270,6 +21329,30 @@ onMounted(async () => {
 
 
 
+
+.btn-select-best-voucher {
+  border: 1px solid #b9dcca;
+  border-radius: 6px;
+  padding: 3px 8px;
+  background: #f0fdf6;
+  color: #16834d;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+.btn-select-best-voucher:hover:not(:disabled) {
+  background: #dcfce9;
+  border-color: #6fc49a;
+  transform: translateY(-1px);
+}
+
+.btn-select-best-voucher:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
 
 .badge-auto-apply {
 
@@ -30019,6 +30102,7 @@ onMounted(async () => {
 
 
 
+
 .vietqr-overlay-paid {
 
   position: absolute;
@@ -30069,6 +30153,12 @@ onMounted(async () => {
 
   margin-top: 10px;
 
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 3px;
+
   font-size: 0.84rem;
 
   color: #64748b;
@@ -30077,6 +30167,11 @@ onMounted(async () => {
 
   font-weight: 500;
 
+}
+
+.vietqr-scan-guide strong,
+.vietqr-scan-guide b {
+  color: #17324d;
 }
 
 
@@ -30355,7 +30450,53 @@ onMounted(async () => {
 
 }
 
+.demo-qr-message {
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  color: #475569;
+  text-align: center;
+  background: #f8fafc;
+}
 
+.demo-qr-message span {
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.demo-qr-message button {
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 14px;
+  background: #0756a5;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.demo-qr-error {
+  color: #b91c1c;
+  background: #fff7f7;
+}
+
+.demo-qr-spinner {
+  width: 34px;
+  height: 34px;
+  border: 4px solid #dbeafe;
+  border-top-color: #0756a5;
+  border-radius: 50%;
+  animation: demo-qr-spin .8s linear infinite;
+}
+
+@keyframes demo-qr-spin {
+  to { transform: rotate(360deg); }
+}
 
 .btn-modal-back {
 

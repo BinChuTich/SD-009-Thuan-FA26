@@ -716,7 +716,15 @@ export function generateQrSvg(text, options = {}) {
   const margin = options.margin !== undefined ? options.margin : 2
   const color = options.color || '#000000'
   const bgColor = options.bgColor || '#ffffff'
-  const level = options.errorLevel || QRErrorCorrectLevel.M
+  const errorLevels = {
+    L: QRErrorCorrectLevel.L,
+    M: QRErrorCorrectLevel.M,
+    Q: QRErrorCorrectLevel.Q,
+    H: QRErrorCorrectLevel.H
+  }
+  const level = typeof options.errorLevel === 'string'
+    ? (errorLevels[options.errorLevel.toUpperCase()] || QRErrorCorrectLevel.M)
+    : (options.errorLevel || QRErrorCorrectLevel.M)
 
   let qr
   try {
@@ -741,9 +749,25 @@ export function generateQrSvg(text, options = {}) {
     }
   }
 
+  let centerLogo = ''
+  if (options.centerLogo === 'vietqr') {
+    const logoSize = count * 0.18
+    const logoX = margin + (count - logoSize) / 2
+    const logoY = margin + (count - logoSize) / 2
+    const iconPadding = logoSize * 0.18
+    const iconScale = (logoSize - iconPadding * 2) / 48
+    centerLogo = `<g shape-rendering="geometricPrecision">
+      <rect x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}" rx="1" fill="#ffffff" />
+      <g transform="translate(${logoX + iconPadding} ${logoY + iconPadding}) scale(${iconScale})">
+        <path fill="#e51f32" d="M8 11c3.2-2 7.1-.9 8.8 2.2L24 26.1l7.2-12.9c1.7-3.1 5.6-4.2 8.8-2.2 3 1.9 3.9 5.8 2.1 8.8L29.8 40c-1.2 2-3.4 3.2-5.8 3.2S19.4 42 18.2 40L5.9 19.8C4.1 16.8 5 12.9 8 11Z" />
+      </g>
+    </g>`
+  }
+
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewBoxSize} ${viewBoxSize}" shape-rendering="crispEdges" style="display:block;width:100%;height:100%;">
     <rect width="${viewBoxSize}" height="${viewBoxSize}" fill="${bgColor}" />
     ${rects}
+    ${centerLogo}
   </svg>`
 }
 

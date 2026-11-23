@@ -36,6 +36,18 @@ public class HoaDonController {
         return ResponseEntity.ok(Map.of("code", hoaDonService.generateNextMaHoaDon()));
     }
 
+    @PostMapping("/{id}/send-payment-reminder")
+    public ResponseEntity<?> sendPaymentReminder(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> body) {
+        try {
+            String email = body != null && body.get("email") != null ? body.get("email").toString() : null;
+            boolean sent = hoaDonService.sendUnpaidPaymentReminder(id, email);
+            if (!sent) return ResponseEntity.internalServerError().body(Map.of("message", "Không thể gửi email nhắc thanh toán!"));
+            return ResponseEntity.ok(Map.of("success", true, "message", "Đã gửi email nhắc thanh toán thành công!"));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
     // Lấy hóa đơn theo ID
     @GetMapping("/{id}")
     public ResponseEntity<HoaDon> getById(@PathVariable Long id) {
@@ -97,7 +109,7 @@ public class HoaDonController {
     }
 
     // Hủy tất cả hóa đơn chờ của ngày hôm trước khi sang ngày mới
-    // Hủy đơn hàng online VNPAY quá hạn 5 phút chưa thanh toán
+    // Hủy đơn online VNPAY, MoMo hoặc VietQR quá hạn 5 phút chưa thanh toán.
     @PostMapping("/code/{maHoaDon}/cancel-expired-vnpay")
     public ResponseEntity<?> cancelExpiredVnPayByMa(@PathVariable String maHoaDon) {
         Optional<HoaDon> opt = hoaDonService.getByMaHoaDon(maHoaDon);
@@ -106,7 +118,7 @@ public class HoaDonController {
         }
         HoaDon hd = opt.get();
         if (hoaDonService.isExpiredVnPayOrder(hd)) {
-            hoaDonService.cancelSingleVnPayOrder(hd, "Hệ thống tự động hủy đơn do quá hạn thanh toán VNPAY (5 phút)");
+            hoaDonService.cancelSingleVnPayOrder(hd, "Hệ thống tự động hủy đơn do quá hạn thanh toán online (5 phút)");
             return ResponseEntity.ok(Map.of("cancelled", true, "order", hoaDonService.getByMaHoaDon(maHoaDon).orElse(hd)));
         }
         return ResponseEntity.ok(Map.of("cancelled", false, "order", hd));
@@ -294,7 +306,12 @@ public class HoaDonController {
     }
 
     private boolean isOutOfStockException(Exception e) {
-        return e instanceof IllegalStateException || (e.getMessage() != null && (e.getMessage().contains("không đủ số lượng") || e.getMessage().contains("hết hàng")));
+        return e.getMessage() != null && (e.getMessage().contains("không đủ số lượng") || e.getMessage().contains("hết hàng"));
+    }
+
+    private boolean isUnpaidPrepaymentException(Exception e) {
+        String message = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+        return message.contains("chưa ghi nhận thanh toán") || message.contains("không thể xác nhận đơn");
     }
 
     private boolean isRefundValidationException(Exception e) {
@@ -336,6 +353,9 @@ public class HoaDonController {
                     )
             );
         } catch (Exception e) {
+            if (isUnpaidPrepaymentException(e)) {
+                return ResponseEntity.badRequest().body(Map.of("message", e.getMessage(), "paymentRequired", true));
+            }
             if (isRefundValidationException(e)) {
                 return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
             }
@@ -394,6 +414,9 @@ public class HoaDonController {
                     )
             );
         } catch (Exception e) {
+            if (isUnpaidPrepaymentException(e)) {
+                return ResponseEntity.badRequest().body(Map.of("message", e.getMessage(), "paymentRequired", true));
+            }
             if (isRefundValidationException(e)) {
                 return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
             }
@@ -525,6 +548,20 @@ public class HoaDonController {
             return ResponseEntity.ok(saved);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage() != null ? e.getMessage() : "Đặt hàng online thất bại!"));
+        }
+    }
+
+    @PutMapping("/code/{maHoaDon}/doi-phuong-thuc-thanh-toan")
+    public ResponseEntity<?> doiPhuongThucThanhToan(
+            @PathVariable String maHoaDon,
+            @RequestBody Map<String, Object> body
+    ) {
+        try {
+            String method = body.get("phuongThucThanhToan") != null
+                    ? body.get("phuongThucThanhToan").toString() : null;
+            return ResponseEntity.ok(hoaDonService.changeOnlinePaymentMethod(maHoaDon, method));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
 

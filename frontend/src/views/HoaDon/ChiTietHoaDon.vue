@@ -627,6 +627,12 @@ const isPaidOrder = computed(() => {
   return Number(invoiceData.value.trangThaiThanhToan) === 1 || invoiceData.value.paymentHistory?.status === 'Đã thanh toán'
 })
 
+const isUnpaidPrepaidOrder = computed(() => {
+  if (!isOnlineDelivery.value || isPaidOrder.value) return false
+  const paymentText = `${invoiceData.value.delivery?.note || ''} ${invoiceData.value.paymentHistory?.method || ''}`.toUpperCase()
+  return ['VIETQR', 'MOMO', 'VNPAY', 'CHUYỂN KHOẢN'].some(method => paymentText.includes(method))
+})
+
 const isPaidOnlineOutOfStock = computed(() => {
   return Number(invoiceData.value.status) === 1 && isOnlineDelivery.value && isPaidOrder.value && isOrderOutOfStock.value
 })
@@ -1025,6 +1031,19 @@ const getString = (...values) => {
 
   return ''
 
+}
+
+// Giữ đúng tên phương thức mà khách đã chọn cho đơn online, không gom tất cả
+// giao dịch điện tử về nhãn chung "Chuyển khoản".
+const resolveOnlinePaymentMethod = (...sources) => {
+  const text = sources.filter(Boolean).join(' ').toUpperCase()
+  if (text.includes('MOMO')) return 'Ví MoMo'
+  if (text.includes('VIETQR')) return 'Chuyển khoản VietQR (Napas 247)'
+  if (text.includes('VNPAY')) return 'Cổng thanh toán VNPAY'
+  if (text.includes('COD') || text.includes('THANH TOÁN KHI NHẬN HÀNG') || text.includes('NHẬN HÀNG')) {
+    return 'Thanh toán khi nhận hàng (COD)'
+  }
+  return ''
 }
 
 
@@ -2243,6 +2262,18 @@ const loadDetail = async (identifier) => {
       paymentMethodResolved = 'Thanh toán khi nhận hàng (COD)'
     }
 
+    const explicitOnlineMethod = resolveOnlinePaymentMethod(
+      data['ghiChu'],
+      data['note'],
+      data['phuongThucThanhToan'],
+      data['hinhThucThanhToan'],
+      transCode,
+      ...paymentTransactions.map(item => `${item.method || ''} ${item.code || ''}`)
+    )
+    if (isOnlineChannel && explicitOnlineMethod) {
+      paymentMethodResolved = explicitOnlineMethod
+    }
+
 
 
     invoiceData.value.paymentHistory = {
@@ -3016,6 +3047,36 @@ const handleConfirmAccept = async () => {
 // Gửi lại email xác nhận đơn hàng chủ động
 
 const sendingEmail = ref(false)
+const sendingPaymentReminder = ref(false)
+
+const canSendPaymentReminder = computed(() => {
+  const method = String(invoiceData.value.paymentHistory?.method || '').toUpperCase()
+  const isPrepaid = method.includes('VIETQR') || method.includes('MOMO') || method.includes('VNPAY') || method.includes('CHUYỂN KHOẢN')
+  return Number(invoiceData.value.loaiDon) === 2
+    && Number(invoiceData.value.status) === 1
+    && !isPaidOrder.value
+    && isPrepaid
+})
+
+const handleSendPaymentReminder = async () => {
+  const id = invoiceId.value || invoiceData.value.id
+  const email = invoiceData.value.customer?.email
+  if (!id) return
+  if (!email || !email.includes('@')) {
+    showToast('Khách hàng chưa có địa chỉ email hợp lệ để gửi nhắc thanh toán!', 'warning')
+    return
+  }
+  sendingPaymentReminder.value = true
+  try {
+    await api.post(`/api/hoa-don/${id}/send-payment-reminder`, { email })
+    showToast(`Đã gửi email nhắc thanh toán tới ${email} thành công!`)
+    await loadDetail(invoiceData.value.code || invoiceCode.value)
+  } catch (e) {
+    showToast(e.response?.data?.message || 'Không thể gửi email nhắc thanh toán!', 'warning')
+  } finally {
+    sendingPaymentReminder.value = false
+  }
+}
 
 const handleSendConfirmationEmail = async (targetEmail = null) => {
 
@@ -3099,6 +3160,11 @@ const handleNextStatus = async () => {
   const cur = Number(invoiceData.value.status)
 
   const isConfirming = cur === 1 || info.nextStatus === 2
+
+  if (isConfirming && isUnpaidPrepaidOrder.value) {
+    showToast('Đơn VietQR/MoMo/VNPAY chưa thanh toán nên chưa thể xác nhận. Vui lòng chờ khách thanh toán hoặc đơn tự hủy khi hết hạn!', 'warning')
+    return
+  }
 
   const id = invoiceId.value || invoiceData.value.id
 
@@ -4168,13 +4234,13 @@ onBeforeUnmount(() => {
 
                   class="btn-next-action"
 
-                  :class="{ 'btn-confirm-highlight': nextStatusInfo.nextStatus === 2, 'btn-disabled-stock': isOrderOutOfStock && nextStatusInfo.nextStatus === 2 && !(isOnlineDelivery && isPaidOrder) }"
+                  :class="{ 'btn-confirm-highlight': nextStatusInfo.nextStatus === 2, 'btn-disabled-stock': (nextStatusInfo.nextStatus === 2 && isUnpaidPrepaidOrder) || (isOrderOutOfStock && nextStatusInfo.nextStatus === 2 && !(isOnlineDelivery && isPaidOrder)) }"
 
                   type="button"
 
-                  :disabled="updatingStatus || refundingOrder || checkingStockForConfirm || (isOrderOutOfStock && nextStatusInfo.nextStatus === 2 && !(isOnlineDelivery && isPaidOrder))"
+                  :disabled="updatingStatus || refundingOrder || checkingStockForConfirm || (nextStatusInfo.nextStatus === 2 && isUnpaidPrepaidOrder) || (isOrderOutOfStock && nextStatusInfo.nextStatus === 2 && !(isOnlineDelivery && isPaidOrder))"
 
-                  :title="(isOrderOutOfStock && nextStatusInfo.nextStatus === 2) ? (isOnlineDelivery && isPaidOrder ? 'Kho hết hàng - Ấn xác nhận để mở thông báo hoàn tiền cho khách hàng' : 'Không thể xác nhận vì sản phẩm trong kho không đủ hoặc đã hết hàng!') : ''"
+                  :title="(nextStatusInfo.nextStatus === 2 && isUnpaidPrepaidOrder) ? 'Đơn thanh toán trước chưa được thanh toán' : ((isOrderOutOfStock && nextStatusInfo.nextStatus === 2) ? (isOnlineDelivery && isPaidOrder ? 'Kho hết hàng - Ấn xác nhận để mở thông báo hoàn tiền cho khách hàng' : 'Không thể xác nhận vì sản phẩm trong kho không đủ hoặc đã hết hàng!') : '')"
 
                   @click="handleNextStatus"
 
@@ -4603,6 +4669,18 @@ onBeforeUnmount(() => {
 
 
           <div class="payment-actions-col">
+
+            <button
+                v-if="canSendPaymentReminder"
+                class="btn-blue-action"
+                type="button"
+                :disabled="sendingPaymentReminder"
+                @click="handleSendPaymentReminder"
+                title="Gửi email cho khách mở lại đơn hàng và tiếp tục thanh toán"
+            >
+              <span aria-hidden="true">✉</span>
+              {{ sendingPaymentReminder ? 'Đang gửi email...' : 'Gửi mail nhắc thanh toán' }}
+            </button>
 
             <button
                 v-if="canRefundCancelledOrder"

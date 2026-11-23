@@ -1,13 +1,17 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
 import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
 import ModalSuaThongTinDon from '@/components/DonHang/ModalSuaThongTinDon.vue'
 import { showAppAlert } from '@/utils/thongBaoDialog.js'
+import { changeOnlinePaymentMethod, continueOnlinePayment, getOnlinePaymentProvider } from '@/utils/onlinePayment.js'
+import OnlinePaymentQrModal from '@/components/OnlinePaymentQrModal.vue'
+import PaymentMethodPickerModal from '@/components/PaymentMethodPickerModal.vue'
 
 const route = useRoute()
+const router = useRouter()
 
 const searchCode = ref('')
 const searchPhone = ref('')
@@ -15,6 +19,30 @@ const loading = ref(false)
 const order = ref(null)
 const orderItems = ref([])
 const orderLogs = ref([])
+
+const hasRefundConfirmation = (currentOrder, logs = []) => {
+  const text = [currentOrder?.ghiChu, ...logs.map(log => `${log?.hanhDong || ''} ${log?.ghiChu || ''}`)]
+    .filter(Boolean).join(' ').toLowerCase()
+  return text.includes('[hoàn tiền') || text.includes('đã hoàn tiền') || text.includes('xác nhận hoàn tiền')
+}
+
+const getClientPaymentStatus = (currentOrder, logs = []) => {
+  const paid = Number(currentOrder?.trangThaiThanhToan) === 1
+  if (Number(currentOrder?.trangThai) !== 6) return paid ? 'Đã thanh toán' : 'Chưa thanh toán'
+  if (!paid) return 'Đã hủy - Chưa thanh toán'
+  return hasRefundConfirmation(currentOrder, logs) ? 'Đã nhận hoàn tiền' : 'Đã hủy - Chưa hoàn tiền'
+}
+
+const getClientPaymentStatusClass = (currentOrder, logs = []) => {
+  const label = getClientPaymentStatus(currentOrder, logs)
+  return label === 'Đã thanh toán' || label === 'Đã nhận hoàn tiền' ? 'badge-green' : 'badge-orange'
+}
+
+const getCancelledPaymentMessage = (currentOrder, logs = []) => {
+  if (Number(currentOrder?.trangThaiThanhToan) !== 1) return 'Đơn hàng chưa thanh toán đã được hủy. Bạn không phải chi trả bất kỳ khoản phí nào.'
+  if (hasRefundConfirmation(currentOrder, logs)) return 'Khoản thanh toán của đơn hàng đã được xác nhận hoàn lại cho bạn.'
+  return 'Đơn hàng đã thanh toán và đang chờ cửa hàng xử lý hoàn tiền.'
+}
 const errorMsg = ref('')
 const showSuccessToast = ref(false)
 const showEditAddressModal = ref(false)
@@ -255,7 +283,7 @@ const visibleOnlineSteps = computed(() => {
     })
 })
 
-// Countdown 5 phút tự động hủy cho đơn chưa thanh toán VNPAY
+// Countdown 5 phút cho đơn VNPAY, MoMo hoặc VietQR chưa thanh toán.
 const countdownSeconds = ref(0)
 let timerInterval = null
 
@@ -271,7 +299,7 @@ const calculateRemainingSeconds = (o) => {
   }
   const createdMs = new Date(o.ngayTao).getTime()
   if (isNaN(createdMs)) return 0
-  const expiryMs = createdMs + 5 * 60 * 1000
+  const expiryMs = Number(o.paymentExpiresAt) || (createdMs + 5 * 60 * 1000)
   const now = Date.now()
   return Math.max(0, Math.floor((expiryMs - now) / 1000))
 }
@@ -297,35 +325,44 @@ const updateCountdown = async () => {
   }
 }
 
-const openPayModal = async () => {
-  if (!order.value || !order.value.maHoaDon) return
+const onlineQrPayment = ref(null)
+const showPaymentMethodPicker = ref(false)
+const changingPaymentMethod = ref(false)
+const openPayModal = () => {
+  if (order.value?.maHoaDon) showPaymentMethodPicker.value = true
+}
+
+const handlePaymentMethodContinue = async (method) => {
+  if (!order.value) return
+  changingPaymentMethod.value = true
   try {
-    const payAmount = Math.max(1, Math.round(Number(order.value.tienSauGiamGia || order.value.tongTienSauGiam || order.value.tongTien || 0)))
-    const res = await api.post('/api/vnpay/create-payment', {
-      orderCode: order.value.maHoaDon,
-      amount: payAmount,
-      orderInfo: `Thanh toan don hang ${order.value.maHoaDon}`
-    })
-    if (res.data && res.data.paymentUrl) {
-      const w = 850
-      const h = 750
-      const left = (window.screen.width - w) / 2
-      const top = (window.screen.height - h) / 2
-      window.open(
-        res.data.paymentUrl,
-        'VNPayPaymentPopup',
-        `width=${w},height=${h},top=${top},left=${left},scrollbars=yes,status=no,resizable=yes`
-      )
+    const current = getOnlinePaymentProvider(order.value) || 'COD'
+    const updated = method === current ? order.value : await changeOnlinePaymentMethod(order.value, method, api)
+    order.value = { ...order.value, ...updated }
+    countdownSeconds.value = calculateRemainingSeconds(order.value)
+    showPaymentMethodPicker.value = false
+    if (method === 'COD') {
+      await showAppAlert('Đã chuyển sang thanh toán khi nhận hàng (COD).', 'Phương thức thanh toán', 'success')
+      return
     }
+    const payment = await continueOnlinePayment(updated, api, router)
+    if (payment?.qrImage) onlineQrPayment.value = payment
   } catch (e) {
-    alert('Không thể kết nối tới cổng thanh toán VNPAY lúc này. Vui lòng thử lại sau!')
+    await showAppAlert(e.response?.data?.message || e.message || 'Không thể tiếp tục thanh toán lúc này.', 'Thanh toán online', 'error')
+  } finally {
+    changingPaymentMethod.value = false
   }
 }
 
+const handleQrPaid = async (payment) => {
+  onlineQrPayment.value = null
+  if (order.value) order.value.trangThaiThanhToan = 1
+  await showAppAlert(`Thanh toán ${payment.provider === 'MOMO' ? 'MoMo' : 'VietQR'} thành công!`, 'Thanh toán', 'success')
+  await handleSearch()
+}
+
 const isVnPay = (o) => {
-  if (!o) return false
-  const pt = (o.phuongThucThanhToan || o.ghiChu || '').toUpperCase()
-  return pt.includes('VNPAY') || Boolean(o.isVnPay)
+  return Boolean(getOnlinePaymentProvider(o))
 }
 
 const getActorName = (log) => {
@@ -771,12 +808,12 @@ onUnmounted(() => {
           <span class="c-icon">🚫</span>
           <div>
             <strong>Đơn hàng đã được Hủy trên hệ thống</strong>
-            <p>{{ isVnPay(order) ? 'Số tiền thanh toán qua VNPAY đã được xác nhận hoàn lại trả quý khách.' : 'Đơn hàng chưa giao và bạn không phải chi trả bất kỳ khoản phí nào.' }}</p>
+            <p>{{ getCancelledPaymentMessage(order, orderLogs) }}</p>
           </div>
         </div>
 
         <!-- THÔNG TIN VẬN CHUYỂN & GIAO HÀNG ONLINE (GHN) -->
-        <!-- Cảnh báo đếm ngược thanh toán VNPAY (nếu chưa thanh toán) -->
+        <!-- Cảnh báo đếm ngược thanh toán online (nếu chưa thanh toán) -->
         <div
           v-if="isVnPay(order) && order.trangThaiThanhToan !== 1 && order.trangThai === 1 && countdownSeconds > 0"
           class="timer-warning-box"
@@ -787,8 +824,19 @@ onUnmounted(() => {
             <p>Vui lòng thanh toán trực tuyến ngay để đơn hàng không bị hệ thống tự động hủy!</p>
           </div>
           <button class="btn-pay-now" @click="openPayModal">
-            💳 Thanh toán ngay
+            💳 Tiếp tục thanh toán
           </button>
+        </div>
+
+        <div
+          v-if="!isVnPay(order) && order.trangThaiThanhToan !== 1 && order.trangThai === 1 && !isPosOrder"
+          class="timer-warning-box"
+        >
+          <div class="timer-info-content">
+            <strong>Đang chọn thanh toán khi nhận hàng (COD)</strong>
+            <p>Bạn có thể đổi sang thanh toán online khi đơn vẫn đang chờ xác nhận.</p>
+          </div>
+          <button class="btn-pay-now" @click="openPayModal">Đổi phương thức thanh toán</button>
         </div>
 
         <div class="online-shipping-detail-box" v-if="!isPosOrder">
@@ -876,9 +924,9 @@ onUnmounted(() => {
                 <span class="field-label">Trạng thái:</span>
                 <span
                   class="field-badge-status"
-                  :class="order.trangThai === 6 ? 'badge-green' : (order.trangThaiThanhToan === 1 ? 'badge-green' : 'badge-orange')"
+                  :class="getClientPaymentStatusClass(order, orderLogs)"
                 >
-                  {{ order.trangThai === 6 ? 'Đã nhận hoàn tiền' : (order.trangThaiThanhToan === 1 ? 'Đã thanh toán' : 'Chưa thanh toán') }}
+                  {{ getClientPaymentStatus(order, orderLogs) }}
                 </span>
               </div>
             </div>
@@ -1004,6 +1052,14 @@ onUnmounted(() => {
     v-model="showEditAddressModal"
     :order="order"
     @updated="handleOrderInfoUpdated"
+  />
+  <OnlinePaymentQrModal :payment="onlineQrPayment" @close="onlineQrPayment = null" @paid="handleQrPaid" />
+  <PaymentMethodPickerModal
+    :open="showPaymentMethodPicker"
+    :current-method="getOnlinePaymentProvider(order) || 'COD'"
+    :loading="changingPaymentMethod"
+    @close="showPaymentMethodPicker = false"
+    @continue="handlePaymentMethodContinue"
   />
 </template>
 
@@ -1833,6 +1889,50 @@ onUnmounted(() => {
 
 .btn-pay-now:hover {
   background: #364f66;
+}
+
+.payment-method-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.payment-method-switcher select {
+  min-width: 205px;
+  height: 40px;
+  padding: 0 34px 0 12px;
+  color: #334155;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.payment-method-switcher select:focus {
+  border-color: #496883;
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
+}
+
+.btn-pay-now:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@media (max-width: 850px) {
+  .timer-warning-box { flex-wrap: wrap; }
+  .payment-method-switcher { width: 100%; }
+  .payment-method-switcher select { flex: 1 1 210px; }
+}
+
+@media (max-width: 520px) {
+  .payment-method-switcher { display: grid; grid-template-columns: 1fr; }
+  .payment-method-switcher select,
+  .payment-method-switcher .btn-pay-now,
+  .timer-warning-box > .btn-pay-now { width: 100%; }
 }
 
 

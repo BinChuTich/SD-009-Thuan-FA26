@@ -66,6 +66,10 @@ public class MomoPaymentService {
     public Map<String, Object> createPayment(String orderCode) {
         ensureMockMode();
         HoaDon order = findOrder(orderCode);
+        String selectedNote = order.getGhiChu() != null ? order.getGhiChu().toUpperCase(Locale.ROOT) : "";
+        if (!selectedNote.contains("[PHƯƠNG THỨC: MOMO]")) {
+            throw new IllegalStateException("Đơn hàng hiện không chọn phương thức MoMo!");
+        }
         if (Integer.valueOf(1).equals(order.getTrangThaiThanhToan())) {
             throw new IllegalStateException("Đơn hàng đã được thanh toán trước đó!");
         }
@@ -104,6 +108,10 @@ public class MomoPaymentService {
         long expiresAt = longValue(body.get("expiresAt"));
 
         HoaDon order = findOrder(orderCode);
+        String selectedNote = order.getGhiChu() != null ? order.getGhiChu().toUpperCase(Locale.ROOT) : "";
+        if (!selectedNote.contains("[PHƯƠNG THỨC: MOMO]")) {
+            throw new IllegalStateException("Phiên MoMo đã bị vô hiệu hóa vì khách hàng đã đổi phương thức thanh toán!");
+        }
         long expectedAmount = resolveAmount(order).longValue();
         verifyToken(order.getMaHoaDon(), expectedAmount, expiresAt, token);
 

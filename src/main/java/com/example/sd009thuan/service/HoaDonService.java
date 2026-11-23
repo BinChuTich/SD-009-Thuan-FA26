@@ -773,7 +773,7 @@ public class HoaDonService {
 
             if (isExpiredVnPayOrder(hd)) {
 
-                cancelSingleVnPayOrder(hd, "Hệ thống tự động hủy đơn do quá hạn thanh toán VNPAY (5 phút)");
+                cancelSingleVnPayOrder(hd, "Hệ thống tự động hủy đơn do quá hạn thanh toán online (5 phút)");
 
             }
 
@@ -829,7 +829,7 @@ public class HoaDonService {
 
             if (isExpiredVnPayOrder(hd)) {
 
-                cancelSingleVnPayOrder(hd, "Hệ thống tự động hủy đơn do quá hạn thanh toán VNPAY (5 phút)");
+                cancelSingleVnPayOrder(hd, "Hệ thống tự động hủy đơn do quá hạn thanh toán online (5 phút)");
 
             }
 
@@ -1525,7 +1525,7 @@ public class HoaDonService {
 
     /**
 
-     * Tự động quét và hủy các đơn hàng online thanh toán qua VNPAY nhưng chưa thanh toán sau 5 phút.
+     * Tự động quét và hủy đơn VNPAY, MoMo hoặc VietQR chưa thanh toán sau 5 phút.
 
      * Hoàn lại số lượng tồn kho sản phẩm, ghi nhận lịch sử đơn hàng và cập nhật trạng thái là Đã hủy (6).
 
@@ -1551,7 +1551,7 @@ public class HoaDonService {
 
                 .filter(this::isVnPayOrder)
 
-                .filter(h -> h.getNgayTao() != null && h.getNgayTao().isBefore(fiveMinutesAgo))
+                .filter(h -> getPaymentExpiresAt(h) != null && !getPaymentExpiresAt(h).isAfter(Instant.now()))
 
                 .toList();
 
@@ -1567,7 +1567,7 @@ public class HoaDonService {
 
         for (HoaDon hd : expiredOrders) {
 
-            cancelSingleVnPayOrder(hd, "Hệ thống tự động hủy đơn do quá hạn thanh toán VNPAY (5 phút)");
+            cancelSingleVnPayOrder(hd, "Hệ thống tự động hủy đơn do quá hạn thanh toán online (5 phút)");
 
         }
 
@@ -1585,7 +1585,7 @@ public class HoaDonService {
 
         String note = (h.getGhiChu() != null ? h.getGhiChu() : "").toUpperCase();
 
-        if (note.contains("VNPAY")) {
+        if (note.contains("VNPAY") || note.contains("MOMO") || note.contains("VIETQR")) {
 
             return true;
 
@@ -1598,16 +1598,19 @@ public class HoaDonService {
             if (htttList != null) {
 
                 for (HinhThucThanhToan httt : htttList) {
+                    if (Integer.valueOf(2).equals(httt.getTrangThai())) continue;
 
-                    if (httt.getMaGiaoDich() != null && httt.getMaGiaoDich().toUpperCase().contains("VNPAY")) {
-
-                        return true;
-
+                    if (httt.getMaGiaoDich() != null) {
+                        String transactionCode = httt.getMaGiaoDich().toUpperCase();
+                        if (transactionCode.contains("VNPAY") || transactionCode.contains("MOMO") || transactionCode.contains("VIETQR")) {
+                            return true;
+                        }
                     }
 
                     if (httt.getIdPhuongThuc() != null && httt.getIdPhuongThuc().getTenPhuongThuc() != null) {
 
-                        if (httt.getIdPhuongThuc().getTenPhuongThuc().toUpperCase().contains("VNPAY")) {
+                        String methodName = httt.getIdPhuongThuc().getTenPhuongThuc().toUpperCase();
+                        if (methodName.contains("VNPAY") || methodName.contains("MOMO") || methodName.contains("VIETQR") || methodName.contains("CHUYỂN KHOẢN")) {
 
                             return true;
 
@@ -1623,6 +1626,138 @@ public class HoaDonService {
 
         return false;
 
+    }
+
+    @Transactional
+    public HoaDon changeOnlinePaymentMethod(String maHoaDon, String requestedMethod) {
+        HoaDon hoaDon = hoaDonRepository.findByMaHoaDon(maHoaDon)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng: " + maHoaDon));
+        String method = requestedMethod == null ? "" : requestedMethod.trim().toUpperCase();
+        if (!List.of("COD", "VIETQR", "MOMO", "VNPAY").contains(method)) {
+            throw new IllegalArgumentException("Phương thức thanh toán không hợp lệ!");
+        }
+        if (!Integer.valueOf(2).equals(hoaDon.getLoaiDon())) {
+            throw new IllegalStateException("Chỉ đơn hàng online mới được đổi phương thức thanh toán!");
+        }
+        if (!Integer.valueOf(1).equals(hoaDon.getTrangThai())) {
+            throw new IllegalStateException("Chỉ được đổi phương thức khi đơn đang chờ xác nhận!");
+        }
+        if (Integer.valueOf(1).equals(hoaDon.getTrangThaiThanhToan())) {
+            throw new IllegalStateException("Đơn hàng đã thanh toán nên không thể đổi phương thức!");
+        }
+
+        String oldMethod = getSelectedOnlinePaymentCode(hoaDon);
+        if (method.equals(oldMethod)) return hoaDon;
+
+        String note = hoaDon.getGhiChu() != null ? hoaDon.getGhiChu() : "Đơn đặt hàng online qua website";
+        Instant currentExpiry = getPaymentExpiresAt(hoaDon);
+        note = note.replaceAll("(?i)\\s*\\[Phương thức:\\s*[^]]+]", "");
+        note = note.replaceAll("(?i)\\s*\\[PAYMENT_EXPIRES_AT:\\d+]", "");
+        if (!"COD".equals(method)) {
+            long expiresAt = Instant.now().plus(5, ChronoUnit.MINUTES).toEpochMilli();
+            if (!"COD".equals(oldMethod) && currentExpiry != null) {
+                expiresAt = currentExpiry.toEpochMilli();
+                if (expiresAt <= System.currentTimeMillis()) {
+                    throw new IllegalStateException("Đơn hàng đã hết thời hạn thanh toán online!");
+                }
+            }
+            note += " [PAYMENT_EXPIRES_AT:" + expiresAt + "]";
+        }
+        hoaDon.setGhiChu(note.trim() + " [Phương thức: " + method + "]");
+        hoaDon.setNgayCapNhat(Instant.now());
+
+        List<HinhThucThanhToan> oldPayments = hinhThucThanhToanRepository.findByIdHoaDon_Id(hoaDon.getId());
+        for (HinhThucThanhToan payment : oldPayments) {
+            if (!Integer.valueOf(1).equals(payment.getTrangThai())) {
+                // Bảng hiện tại chỉ cho phép trạng thái chờ/đã thanh toán; xóa phiên
+                // chờ cũ để không vi phạm CHECK constraint và không nhận nhầm callback.
+                hinhThucThanhToanRepository.delete(payment);
+            }
+        }
+
+        LichSuHoaDon log = new LichSuHoaDon();
+        log.setIdHoaDon(hoaDon);
+        log.setTrangThai(hoaDon.getTrangThai());
+        log.setThoiGian(Instant.now());
+        log.setGhiChu("Khách hàng đổi phương thức thanh toán từ " + paymentMethodLabel(oldMethod)
+                + " sang " + paymentMethodLabel(method));
+        log.setNguoiThucHien("Khách hàng");
+        log.setVaiTroNguoiThucHien("Khách hàng online");
+        lichSuHoaDonRepository.save(log);
+        return hoaDonRepository.save(hoaDon);
+    }
+
+    private String getSelectedOnlinePaymentCode(HoaDon hoaDon) {
+        String note = hoaDon != null && hoaDon.getGhiChu() != null ? hoaDon.getGhiChu().toUpperCase() : "";
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("\\[PHƯƠNG THỨC:\\s*([^]]+)]", java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(note);
+        if (matcher.find()) {
+            String value = matcher.group(1).trim();
+            if (value.contains("MOMO")) return "MOMO";
+            if (value.contains("VIETQR") || value.contains("CHUYỂN_KHOẢN")) return "VIETQR";
+            if (value.contains("VNPAY")) return "VNPAY";
+            if (value.contains("COD")) return "COD";
+        }
+        return isVnPayOrder(hoaDon) ? "VNPAY" : "COD";
+    }
+
+    private Instant getPaymentExpiresAt(HoaDon hoaDon) {
+        if (hoaDon == null) return null;
+        String note = hoaDon.getGhiChu() != null ? hoaDon.getGhiChu() : "";
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("\\[PAYMENT_EXPIRES_AT:(\\d+)]", java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(note);
+        if (matcher.find()) {
+            try { return Instant.ofEpochMilli(Long.parseLong(matcher.group(1))); }
+            catch (Exception ignored) {}
+        }
+        return hoaDon.getNgayTao() != null ? hoaDon.getNgayTao().plus(5, ChronoUnit.MINUTES) : null;
+    }
+
+    private String paymentMethodLabel(String method) {
+        return switch (method == null ? "" : method) {
+            case "VIETQR" -> "VietQR (Napas 247)";
+            case "MOMO" -> "Ví MoMo";
+            case "VNPAY" -> "VNPAY";
+            default -> "COD";
+        };
+    }
+
+    private String preservePaymentMetadata(String originalNote, String newNote) {
+        String result = newNote != null ? newNote.trim() : "";
+        String original = originalNote != null ? originalNote : "";
+        java.util.regex.Matcher methodMatcher = java.util.regex.Pattern
+                .compile("\\[Phương thức:\\s*[^]]+]", java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(original);
+        if (methodMatcher.find() && !java.util.regex.Pattern.compile("\\[Phương thức:", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(result).find()) {
+            result = (result + " " + methodMatcher.group()).trim();
+        }
+        java.util.regex.Matcher expiryMatcher = java.util.regex.Pattern
+                .compile("\\[PAYMENT_EXPIRES_AT:\\d+]", java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(original);
+        if (expiryMatcher.find() && !result.toUpperCase().contains("[PAYMENT_EXPIRES_AT:")) {
+            result = (result + " " + expiryMatcher.group()).trim();
+        }
+        return result;
+    }
+
+    private void requirePrepaidOrderPaidBeforeConfirmation(HoaDon hoaDon) {
+        if (hoaDon == null) return;
+        String method = hoaDon.getPhuongThucThanhToan() != null
+                ? hoaDon.getPhuongThucThanhToan().toUpperCase() : "";
+        boolean requiresPrepayment = isVnPayOrder(hoaDon)
+                || method.contains("VIETQR")
+                || method.contains("MOMO")
+                || method.contains("VNPAY")
+                || method.contains("CHUYỂN KHOẢN")
+                || method.contains("NGÂN HÀNG");
+        if (requiresPrepayment && !Integer.valueOf(1).equals(hoaDon.getTrangThaiThanhToan())) {
+            throw new IllegalStateException(
+                    "Đơn hàng chọn thanh toán trước qua VietQR/MoMo/VNPAY nhưng chưa ghi nhận thanh toán. "
+                    + "Không thể xác nhận đơn; vui lòng yêu cầu khách tiếp tục thanh toán hoặc chờ đơn tự hủy khi hết hạn."
+            );
+        }
     }
 
 
@@ -1723,7 +1858,7 @@ public class HoaDonService {
 
         } catch (Exception ex) {
 
-            System.err.println("Lỗi hoàn tồn kho khi hủy đơn VNPAY quá hạn: " + ex.getMessage());
+            System.err.println("Lỗi hoàn tồn kho khi hủy đơn thanh toán online quá hạn: " + ex.getMessage());
 
         }
 
@@ -1769,11 +1904,11 @@ public class HoaDonService {
 
         } catch (Exception ex) {
 
-            System.err.println("Lỗi ghi log lịch sử hủy đơn VNPAY: " + ex.getMessage());
+            System.err.println("Lỗi ghi log lịch sử hủy đơn thanh toán online: " + ex.getMessage());
 
         }
 
-        System.out.println("==> [VNPAY AUTO CANCEL] Đã tự động hủy đơn hàng #" + hd.getMaHoaDon() + " do quá hạn 5 phút chưa thanh toán");
+        System.out.println("==> [ONLINE PAYMENT AUTO CANCEL] Đã tự động hủy đơn hàng #" + hd.getMaHoaDon() + " do quá hạn 5 phút chưa thanh toán");
 
     }
 
@@ -3036,6 +3171,7 @@ public class HoaDonService {
         if (hoaDonMoi.getTrangThai() != null) {
             Integer oldStatusInUpdate = hoaDonCu.getTrangThai();
             if (Integer.valueOf(2).equals(hoaDonMoi.getTrangThai()) && (oldStatusInUpdate == null || Integer.valueOf(1).equals(oldStatusInUpdate))) {
+                requirePrepaidOrderPaidBeforeConfirmation(hoaDonCu);
                 checkStockAndDeductForConfirmation(hoaDonCu);
             }
             if ((Integer.valueOf(6).equals(hoaDonMoi.getTrangThai()) || Integer.valueOf(7).equals(hoaDonMoi.getTrangThai()))
@@ -3155,7 +3291,7 @@ public class HoaDonService {
 
 
 
-            hoaDonCu.setGhiChu(hoaDonMoi.getGhiChu().trim());
+            hoaDonCu.setGhiChu(preservePaymentMetadata(hoaDonCu.getGhiChu(), hoaDonMoi.getGhiChu()));
 
 
 
@@ -3679,6 +3815,7 @@ public class HoaDonService {
                 .orElseThrow(() -> new RuntimeException(
                         "Không tìm thấy hóa đơn có ID: " + id
                 ));
+        String noteBeforeStatusUpdate = hoaDon.getGhiChu();
         Integer oldTrangThai = hoaDon.getTrangThai();
 
 
@@ -3931,6 +4068,7 @@ public class HoaDonService {
 
         } else {
             if (Integer.valueOf(2).equals(trangThai) && (oldTrangThai == null || Integer.valueOf(1).equals(oldTrangThai))) {
+                requirePrepaidOrderPaidBeforeConfirmation(hoaDon);
                 checkStockAndDeductForConfirmation(hoaDon);
             }
             hoaDon.setTrangThai(trangThai);
@@ -4093,6 +4231,7 @@ public class HoaDonService {
 
 
 
+        hoaDon.setGhiChu(preservePaymentMetadata(noteBeforeStatusUpdate, hoaDon.getGhiChu()));
         hoaDon.setNgayCapNhat(Instant.now());
 
 
@@ -4437,7 +4576,11 @@ public class HoaDonService {
 
 
 
-            emailService.sendOrderConfirmationEmail(hd, items, recipient);
+            if (Integer.valueOf(1).equals(hd.getTrangThai())) {
+                emailService.sendOrderPlacedEmail(hd, items, recipient);
+            } else {
+                emailService.sendOrderConfirmationEmail(hd, items, recipient);
+            }
 
 
 
@@ -4453,6 +4596,40 @@ public class HoaDonService {
 
 
 
+    }
+
+    @Transactional
+    public boolean sendUnpaidPaymentReminder(Long id, String emailOverride) {
+        HoaDon hd = hoaDonRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hóa đơn!"));
+        if (!Integer.valueOf(2).equals(hd.getLoaiDon()) || !Integer.valueOf(1).equals(hd.getTrangThai())) {
+            throw new IllegalStateException("Chỉ gửi nhắc thanh toán cho đơn online đang chờ xác nhận!");
+        }
+        if (Integer.valueOf(1).equals(hd.getTrangThaiThanhToan())) {
+            throw new IllegalStateException("Đơn hàng đã thanh toán, không cần gửi email nhắc!");
+        }
+        String note = hd.getGhiChu() != null ? hd.getGhiChu().toUpperCase() : "";
+        boolean prepaid = note.contains("VIETQR") || note.contains("MOMO") || note.contains("VNPAY");
+        if (!prepaid) {
+            throw new IllegalStateException("Đơn COD không cần gửi email nhắc thanh toán trước!");
+        }
+        String recipient = emailOverride != null && !emailOverride.isBlank() ? emailOverride.trim()
+                : (hd.getEmail() != null && !hd.getEmail().isBlank() ? hd.getEmail().trim() : hd.getEmailKhachHang());
+        if (recipient == null || !recipient.contains("@")) {
+            throw new IllegalArgumentException("Khách hàng chưa có địa chỉ email hợp lệ!");
+        }
+        List<ChiTietHoaDon> items = getChiTietByHoaDonId(hd.getId());
+        if (emailService == null || !emailService.sendUnpaidOrderReminderEmail(hd, items, recipient)) return false;
+
+        LichSuHoaDon history = new LichSuHoaDon();
+        history.setIdHoaDon(hd);
+        history.setTrangThai(hd.getTrangThai());
+        history.setThoiGian(Instant.now());
+        history.setGhiChu("Đã gửi email nhắc khách tiếp tục thanh toán tới " + recipient);
+        history.setNguoiThucHien("Nhân viên");
+        history.setVaiTroNguoiThucHien("Nhân viên bán hàng");
+        lichSuHoaDonRepository.save(history);
+        return true;
     }
 
 
@@ -5457,7 +5634,9 @@ public class HoaDonService {
 
 
 
-            discount = tongTienHangThucTe.multiply(pt).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+            // Tiền giảm theo % = tổng tiền hàng * tỷ lệ; giảm tối đa chỉ là
+            // mức trần. VND không có phần thập phân nên làm tròn tới đơn vị đồng.
+            discount = tongTienHangThucTe.multiply(pt).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
 
 
 
@@ -8633,8 +8812,8 @@ public class HoaDonService {
                 if (items == null || items.isEmpty()) {
                     items = saved.getChiTietHoaDons() != null ? new java.util.ArrayList<>(saved.getChiTietHoaDons()) : java.util.Collections.emptyList();
                 }
-                System.out.println("==> [createHoaDonOnline] Đang gửi email xác nhận đặt hàng online " + saved.getMaHoaDon() + " tới: " + recipientEmail);
-                emailService.sendOrderConfirmationEmail(saved, items, recipientEmail);
+                System.out.println("==> [createHoaDonOnline] Đang gửi email cảm ơn đặt hàng online " + saved.getMaHoaDon() + " tới: " + recipientEmail);
+                emailService.sendOrderPlacedEmail(saved, items, recipientEmail);
             } else {
                 System.out.println("==> [createHoaDonOnline] Bỏ qua gửi email: Không có địa chỉ email hợp lệ cho đơn hàng " + saved.getMaHoaDon());
             }

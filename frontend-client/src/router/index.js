@@ -13,6 +13,7 @@ import QuyDinhChiTiet from '@/views/QuyDinhChiTiet.vue'
 import VNPayReturn from '@/views/VNPayReturn.vue'
 import MomoTestPayment from '@/views/MomoTestPayment.vue'
 import TaiKhoan from '@/views/TaiKhoan.vue'
+import VietQrDemoPayment from '@/views/VietQrDemoPayment.vue'
 
 const routes = [
   {
@@ -88,6 +89,11 @@ const routes = [
     path: '/thanh-toan/momo-test',
     name: 'MomoTestPayment',
     component: MomoTestPayment
+  },
+  {
+    path: '/thanh-toan/vietqr-demo',
+    name: 'VietQrDemoPayment',
+    component: VietQrDemoPayment
   }
 ]
 

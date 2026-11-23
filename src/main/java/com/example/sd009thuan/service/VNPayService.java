@@ -161,6 +161,12 @@ public class VNPayService {
                 Optional<HoaDon> hdOpt = hoaDonRepository.findByMaHoaDon(vnp_TxnRef.trim());
                 if (hdOpt.isPresent()) {
                     HoaDon hd = hdOpt.get();
+                    String selectedNote = hd.getGhiChu() != null ? hd.getGhiChu().toUpperCase() : "";
+                    if (!selectedNote.contains("[PHƯƠNG THỨC: VNPAY]")) {
+                        result.put("success", false);
+                        result.put("message", "Phiên VNPAY đã bị vô hiệu hóa vì khách hàng đã đổi phương thức thanh toán.");
+                        return result;
+                    }
                     hd.setTrangThaiThanhToan(1); // 1 = Đã thanh toán
                     hd.setNgayCapNhat(Instant.now());
                     hd.setNguoiCapNhat("Cổng thanh toán VNPAY");
@@ -211,18 +217,8 @@ public class VNPayService {
                         System.err.println("==> Lỗi ghi LichSuHoaDon VNPAY: " + ex.getMessage());
                     }
 
-                    // Gửi email xác nhận đơn hàng đã thanh toán
-                    try {
-                        String recipient = (hd.getEmailKhachHang() != null && !hd.getEmailKhachHang().isBlank())
-                                ? hd.getEmailKhachHang().trim()
-                                : hd.getEmail();
-                        if (recipient != null && !recipient.isBlank() && emailService != null) {
-                            List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(hd.getId());
-                            emailService.sendOrderConfirmationEmail(hd, items, recipient);
-                        }
-                    } catch (Exception ex) {
-                        System.err.println("==> Lỗi gửi email xác nhận sau khi thanh toán VNPAY: " + ex.getMessage());
-                    }
+                    // Thanh toán thành công chỉ cập nhật giao dịch. Email "đã xác nhận đơn"
+                    // chỉ được gửi khi nhân viên thực sự chuyển đơn sang trạng thái Đã xác nhận.
                 }
             }
 

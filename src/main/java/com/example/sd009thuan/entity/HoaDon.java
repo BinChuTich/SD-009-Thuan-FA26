@@ -525,6 +525,9 @@ public class HoaDon {
             if (upper.contains("VNPAY")) {
                 return "Cổng thanh toán VNPAY";
             }
+            if (upper.contains("MOMO")) {
+                return "Ví MoMo";
+            }
             if (upper.contains("VIETQR")) {
                 return "Chuyển khoản VietQR";
             }
@@ -573,7 +576,30 @@ public class HoaDon {
                 return "Thanh toán khi nhận hàng (COD)";
             }
         }
+        if (this.lichSuHoaDons != null) {
+            for (LichSuHoaDon history : this.lichSuHoaDons) {
+                String text = history != null && history.getGhiChu() != null ? history.getGhiChu().toUpperCase() : "";
+                if (text.contains("MOMO")) return "Ví MoMo";
+                if (text.contains("VIETQR") || text.contains("CHUYỂN KHOẢN")) return "Chuyển khoản VietQR";
+                if (text.contains("VNPAY")) return "Cổng thanh toán VNPAY";
+                if (text.contains("HÌNH THỨC: COD") || text.contains("PHƯƠNG THỨC: COD")) return "Thanh toán khi nhận hàng (COD)";
+            }
+        }
         return Integer.valueOf(1).equals(this.loaiDon) ? "Tiền mặt" : "Thanh toán khi nhận hàng (COD)";
+    }
+
+    @JsonProperty("paymentExpiresAt")
+    public Long getPaymentExpiresAt() {
+        if (this.ghiChu != null) {
+            java.util.regex.Matcher matcher = java.util.regex.Pattern
+                    .compile("\\[PAYMENT_EXPIRES_AT:(\\d+)]", java.util.regex.Pattern.CASE_INSENSITIVE)
+                    .matcher(this.ghiChu);
+            if (matcher.find()) {
+                try { return Long.parseLong(matcher.group(1)); }
+                catch (Exception ignored) {}
+            }
+        }
+        return this.ngayTao != null ? this.ngayTao.plusSeconds(300).toEpochMilli() : null;
     }
 
     @JsonProperty("isVnPay")

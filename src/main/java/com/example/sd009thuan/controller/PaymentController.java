@@ -5,10 +5,13 @@ import com.example.sd009thuan.dto.payment.PaymentInfoRequest;
 import com.example.sd009thuan.dto.payment.PaymentInfoResponse;
 import com.example.sd009thuan.dto.payment.PaymentStatusResponse;
 import com.example.sd009thuan.service.PaymentService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 @RestController
 @RequestMapping("/api/payment")
@@ -16,6 +19,15 @@ import java.math.BigDecimal;
 public class PaymentController {
 
     private final PaymentService paymentService;
+
+    @Value("${sepay.webhook-api-key:}")
+    private String sePayWebhookApiKey;
+
+    @Value("${payment.simulation.enabled:false}")
+    private boolean paymentSimulationEnabled;
+
+    @Value("${payment.demo-local.enabled:true}")
+    private boolean localDemoPaymentEnabled;
 
     public PaymentController(PaymentService paymentService) {
         this.paymentService = paymentService;
@@ -67,12 +79,36 @@ public class PaymentController {
             @RequestParam(name = "maHoaDon") String maHoaDon,
             @RequestParam(name = "soTien", required = false, defaultValue = "0") BigDecimal soTien
     ) {
+        if (!paymentSimulationEnabled) {
+            return ResponseEntity.notFound().build();
+        }
         ConfirmPaymentRequest req = new ConfirmPaymentRequest();
         req.setMaHoaDon(maHoaDon);
         req.setSoTien(soTien);
         req.setGhiChu("Mô phỏng thanh toán chuyển khoản thành công");
         req.setPhuongThuc("Chuyển khoản");
         return ResponseEntity.ok(paymentService.confirmPayment(req));
+    }
+
+    @PostMapping("/demo/create")
+    public ResponseEntity<java.util.Map<String, Object>> createDemoPayment(
+            @RequestParam String maHoaDon,
+            @RequestParam BigDecimal soTien
+    ) {
+        if (!localDemoPaymentEnabled) return ResponseEntity.notFound().build();
+        String token = paymentService.createDemoPaymentSession(maHoaDon, soTien);
+        return ResponseEntity.ok(java.util.Map.of(
+                "token", token,
+                "maHoaDon", maHoaDon,
+                "soTien", soTien,
+                "expiresIn", 900
+        ));
+    }
+
+    @PostMapping("/demo/confirm")
+    public ResponseEntity<PaymentStatusResponse> confirmDemoPayment(@RequestParam String token) {
+        if (!localDemoPaymentEnabled) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(paymentService.confirmDemoPayment(token));
     }
 
     /**
@@ -101,15 +137,33 @@ public class PaymentController {
     /**
      * Webhook nhận thông báo biến động số dư / thanh toán từ ngân hàng (Casso, SePay, PayOS, Ngân hàng...)
      */
-    @PostMapping("/webhook")
-    public ResponseEntity<java.util.Map<String, Object>> handleBankWebhook(@RequestBody java.util.Map<String, Object> payload) {
-        try {
-            PaymentStatusResponse status = paymentService.processBankWebhook(payload);
-            return ResponseEntity.ok(java.util.Map.of(
-                    "success", true,
-                    "message", "Xử lý webhook thanh toán thành công",
-                    "data", status
+    @PostMapping({"/webhook", "/webhook/sepay"})
+    public ResponseEntity<java.util.Map<String, Object>> handleBankWebhook(
+            @RequestHeader(name = "Authorization", required = false) String authorization,
+            @RequestBody java.util.Map<String, Object> payload
+    ) {
+        if (sePayWebhookApiKey == null || sePayWebhookApiKey.isBlank()) {
+            return ResponseEntity.status(503).body(java.util.Map.of(
+                    "success", false,
+                    "message", "Webhook chưa được cấu hình API key"
             ));
+        }
+
+        String expected = "Apikey " + sePayWebhookApiKey.trim();
+        if (authorization == null || !MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8),
+                authorization.getBytes(StandardCharsets.UTF_8)
+        )) {
+            return ResponseEntity.status(401).body(java.util.Map.of(
+                    "success", false,
+                    "message", "Webhook không hợp lệ"
+            ));
+        }
+
+        try {
+            paymentService.processBankWebhook(payload);
+            // SePay yêu cầu chính xác body này để ghi nhận webhook thành công.
+            return ResponseEntity.ok(java.util.Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(java.util.Map.of(
                     "success", false,

@@ -73,7 +73,7 @@ public class PaymentService {
     private final LichSuHoaDonRepository lichSuHoaDonRepository;
 
     // Bộ nhớ tạm lưu trạng thái thanh toán chuyển khoản nhanh (hỗ trợ cả hóa đơn chờ POS)
-    private final Map<String, PaymentStatusResponse> transactionCache = new ConcurrentHashMap<>();
+    private final Map<String, PaymentStatusResponse> transactionCache = new ConcurrentHashMap<>();    // Số tiền mà QR gần nhất yêu cầu, dùng để đối soát webhook trước khi xác nhận.    private final Map<String, BigDecimal> expectedTransferAmounts = new ConcurrentHashMap<>();    private final Map<String, DemoPaymentSession> demoPaymentSessions = new ConcurrentHashMap<>();    private record DemoPaymentSession(String invoiceCode, BigDecimal amount, Instant expiresAt) {}
 
     public PaymentService(
             HoaDonRepository hoaDonRepository,
@@ -94,7 +94,7 @@ public class PaymentService {
         String maHoaDon = (req != null && req.getMaHoaDon() != null && !req.getMaHoaDon().trim().isEmpty())
                 ? req.getMaHoaDon().trim() : "POS";
         BigDecimal soTien = (req != null && req.getSoTien() != null)
-                ? req.getSoTien() : BigDecimal.ZERO;
+                ? req.getSoTien() : BigDecimal.ZERO;        String normalizedInvoiceCode = maHoaDon.toUpperCase(Locale.ROOT);        if (soTien.signum() > 0) {            expectedTransferAmounts.put(normalizedInvoiceCode, soTien);        }
 
         String bankId = (req != null && req.getBankId() != null && !req.getBankId().trim().isEmpty())
                 ? req.getBankId().trim() : (bankIdConfig != null ? bankIdConfig : DEFAULT_BANK_ID);
@@ -156,7 +156,7 @@ public class PaymentService {
                 .daThanhToan(daThanhToan)
                 .thoiGianTao(Instant.now())
                 .build();
-    }
+    }    public String createDemoPaymentSession(String invoiceCode, BigDecimal amount) {        if (invoiceCode == null || invoiceCode.isBlank() || amount == null || amount.signum() <= 0) {            throw new IllegalArgumentException("Thông tin thanh toán demo không hợp lệ");        }        String cleanCode = invoiceCode.trim().replaceAll("[^a-zA-Z0-9_-]", "");        String token = UUID.randomUUID().toString();        expectedTransferAmounts.put(cleanCode.toUpperCase(Locale.ROOT), amount);        demoPaymentSessions.put(token, new DemoPaymentSession(cleanCode, amount, Instant.now().plusSeconds(900)));        return token;    }    public PaymentStatusResponse confirmDemoPayment(String token) {        DemoPaymentSession session = token == null ? null : demoPaymentSessions.remove(token);        if (session == null || session.expiresAt().isBefore(Instant.now())) {            throw new IllegalArgumentException("Mã thanh toán demo không tồn tại hoặc đã hết hạn");        }        ConfirmPaymentRequest request = new ConfirmPaymentRequest();        request.setMaHoaDon(session.invoiceCode());        request.setSoTien(session.amount());        request.setMaGiaoDich("DEMO-" + session.invoiceCode() + "-" + System.currentTimeMillis());        request.setGhiChu("Thanh toán mô phỏng từ điện thoại trong mạng nội bộ");        request.setPhuongThuc("Chuyển khoản demo");        return confirmPayment(request);    }
 
     /**
      * Kiểm tra trạng thái thanh toán của hóa đơn
@@ -239,7 +239,7 @@ public class PaymentService {
             throw new IllegalArgumentException("Mã hóa đơn không được để trống");
         }
 
-        String code = req.getMaHoaDon().trim();
+        String code = req.getMaHoaDon().trim();        Optional<HoaDon> selectedOrder = hoaDonRepository.findByMaHoaDon(code);        if (selectedOrder.isPresent() && Integer.valueOf(2).equals(selectedOrder.get().getLoaiDon())) {            String selectedNote = selectedOrder.get().getGhiChu() != null                    ? selectedOrder.get().getGhiChu().toUpperCase(Locale.ROOT) : "";            if (!selectedNote.contains("[PHƯƠNG THỨC: VIETQR]")) {                throw new IllegalStateException("Phiên VietQR đã bị vô hiệu hóa vì khách hàng đã đổi phương thức thanh toán!");            }        }
         BigDecimal amount = req.getSoTien() != null ? req.getSoTien() : BigDecimal.ZERO;
         String transCode = (req.getMaGiaoDich() != null && !req.getMaGiaoDich().trim().isEmpty())
                 ? req.getMaGiaoDich().trim() : ("TRANS-" + code + "-" + (System.currentTimeMillis() % 1000000));
@@ -318,7 +318,7 @@ public class PaymentService {
     public PaymentStatusResponse processBankWebhook(Map<String, Object> payload) {
         if (payload == null || payload.isEmpty()) {
             throw new IllegalArgumentException("Dữ liệu webhook trống");
-        }
+        }        Object transferType = payload.get("transferType");        if (transferType != null && !"in".equalsIgnoreCase(String.valueOf(transferType))) {            throw new IllegalArgumentException("Webhook không phải giao dịch tiền vào");        }
 
         String content = "";
         BigDecimal amount = BigDecimal.ZERO;
@@ -356,7 +356,7 @@ public class PaymentService {
         String extractedCode = extractInvoiceCodeFromContent(content);
         if (extractedCode == null || extractedCode.isEmpty()) {
             throw new IllegalArgumentException("Không tìm thấy mã hóa đơn hợp lệ trong nội dung chuyển khoản: " + content);
-        }
+        }        if (amount.signum() <= 0) {            throw new IllegalArgumentException("Số tiền giao dịch phải lớn hơn 0");        }        BigDecimal expectedAmount = expectedTransferAmounts.get(extractedCode.toUpperCase(Locale.ROOT));        if (expectedAmount != null && amount.compareTo(expectedAmount) < 0) {            throw new IllegalArgumentException(                    "Số tiền nhận được không đủ. Cần " + expectedAmount.toPlainString()                            + ", đã nhận " + amount.toPlainString()            );        }
 
         ConfirmPaymentRequest req = new ConfirmPaymentRequest();
         req.setMaHoaDon(extractedCode);

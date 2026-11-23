@@ -117,6 +117,12 @@ const isOnlineOrder = computed(() => {
   return note.includes('online') || note.includes('website')
 })
 
+const isUnpaidPrepaidOrder = computed(() => {
+  if (!isOnlineOrder.value || isPaid.value || !hoaDon.value) return false
+  const paymentText = `${hoaDon.value.ghiChu || ''} ${hoaDon.value.phuongThucThanhToan || ''} ${hoaDon.value.hinhThucThanhToan || ''}`.toUpperCase()
+  return ['VIETQR', 'MOMO', 'VNPAY', 'CHUYỂN KHOẢN'].some(method => paymentText.includes(method))
+})
+
 const isRefundedOrder = computed(() => {
   if (!hoaDon.value || Number(hoaDon.value.trangThai) !== 6 || !isPaid.value) return false
   return String(hoaDon.value.ghiChu || '').toLowerCase().includes('hoàn tiền')
@@ -335,6 +341,10 @@ const xacNhanDon = async () => {
   if (!status) return
 
   const isConfirming = status === 2
+  if (isConfirming && isUnpaidPrepaidOrder.value) {
+    showToast('Đơn VietQR/MoMo/VNPAY chưa thanh toán nên chưa thể xác nhận. Vui lòng chờ khách thanh toán hoặc đơn tự hủy khi hết hạn!', 'warning')
+    return
+  }
   if (isConfirming && hoaDon.value.id) {
     checkingStock.value = true
     try {
@@ -615,10 +625,10 @@ onMounted(() => {
         <button
             v-if="nextStatus"
             class="btn-confirm"
-            :class="{ 'btn-disabled': nextStatus === 2 && isOrderOutOfStock && !(isOnlineOrder && isPaid) }"
+            :class="{ 'btn-disabled': (nextStatus === 2 && isUnpaidPrepaidOrder) || (nextStatus === 2 && isOrderOutOfStock && !(isOnlineOrder && isPaid)) }"
             @click="xacNhanDon"
-            :disabled="saving || paying || checkingStock || refundingOrder || (nextStatus === 2 && isOrderOutOfStock && !(isOnlineOrder && isPaid))"
-            :title="(nextStatus === 2 && isOrderOutOfStock) ? (isOnlineOrder && isPaid ? 'Kho hết hàng - Ấn xác nhận để mở thông báo hoàn tiền cho khách hàng' : 'Không thể xác nhận vì sản phẩm trong kho không đủ hoặc đã hết hàng!') : ''"
+            :disabled="saving || paying || checkingStock || refundingOrder || (nextStatus === 2 && isUnpaidPrepaidOrder) || (nextStatus === 2 && isOrderOutOfStock && !(isOnlineOrder && isPaid))"
+            :title="(nextStatus === 2 && isUnpaidPrepaidOrder) ? 'Đơn thanh toán trước chưa được thanh toán' : ((nextStatus === 2 && isOrderOutOfStock) ? (isOnlineOrder && isPaid ? 'Kho hết hàng - Ấn xác nhận để mở thông báo hoàn tiền cho khách hàng' : 'Không thể xác nhận vì sản phẩm trong kho không đủ hoặc đã hết hàng!') : '')"
         >
           {{ (saving || checkingStock) ? 'Đang xử lý...' : actionText }}
         </button>

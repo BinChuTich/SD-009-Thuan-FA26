@@ -19,6 +19,7 @@ api.interceptors.request.use((config) => {
     const isWhitelisted = url.includes('/api/nhan-vien/login') ||
                           url.includes('/api/nhan-vien/logout') ||
                           url.includes('/api/nhan-vien/forgot-password') ||
+                          url.includes('/api/payment/demo/confirm') ||
                           url.includes('/api/lich-su-ca/mo-ca') ||
                           url.includes('/api/lich-su-ca/dong-ca') ||
                           url.includes('/api/lich-su-ca/ca-hien-tai') ||

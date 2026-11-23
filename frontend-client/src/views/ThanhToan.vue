@@ -203,6 +203,14 @@ const loadVouchers = async () => {
       if (v.ngayBatDau && new Date(v.ngayBatDau) > now) return false
       if (v.ngayKetThuc && new Date(v.ngayKetThuc) < now) return false
       return true
+    }).sort((a, b) => {
+      const usableA = isVoucherUsableForCheckout(a) ? 1 : 0
+      const usableB = isVoucherUsableForCheckout(b) ? 1 : 0
+      if (usableA !== usableB) return usableB - usableA
+      const discountA = calculateVoucherDiscount(a, checkoutSubtotal.value)
+      const discountB = calculateVoucherDiscount(b, checkoutSubtotal.value)
+      if (discountA !== discountB) return discountB - discountA
+      return Number(a.hoaDonToiThieu || 0) - Number(b.hoaDonToiThieu || 0)
     })
     initialVoucherSnapshots.value = Object.fromEntries(list.map(v => [String(v.id), JSON.parse(JSON.stringify(v))]))
   } catch (err) {
@@ -221,7 +229,9 @@ function calculateVoucherDiscount(v, subtotal) {
 
   if (isPercentVoucher(v)) {
     const percent = Number(v.giaTriGiamGia || 0)
-    let amount = (subtotal * percent) / 100
+    // Phiếu phần trăm: giảm theo tỷ lệ trên tổng hàng hiện tại. giamToiDa
+    // chỉ là mức trần, không phải số tiền được trừ mặc định.
+    let amount = Math.round((subtotal * percent) / 100)
     if (v.giamToiDa && Number(v.giamToiDa) > 0 && amount > Number(v.giamToiDa)) {
       amount = Number(v.giamToiDa)
     }
@@ -245,10 +255,17 @@ function formatVoucherDiscountLabel(v) {
 
 const voucherDiscount = computed(() => {
   if (!appliedVoucher.value) return 0
-  if (appliedVoucher.value.discount != null && appliedVoucher.value.giaTriGiamGia == null) {
-    return Math.min(appliedVoucher.value.discount, checkoutSubtotal.value)
+  // Voucher chuyển từ giỏ hàng có thông tin đầy đủ nằm trong `raw`. Không sử
+  // dụng lại `discount` đã đóng băng vì tổng tiền có thể đã thay đổi.
+  const liveVoucher = availableVouchers.value.find(v =>
+    String(v.id) === String(appliedVoucher.value.id)
+      || String(v.maPhieuGiamGia || '') === String(appliedVoucher.value.code || '')
+  )
+  const source = liveVoucher || appliedVoucher.value.raw || appliedVoucher.value
+  if (source?.giaTriGiamGia != null) {
+    return calculateVoucherDiscount(source, checkoutSubtotal.value)
   }
-  return calculateVoucherDiscount(appliedVoucher.value, checkoutSubtotal.value)
+  return Math.min(Number(appliedVoucher.value.discount || 0), checkoutSubtotal.value)
 })
 
 const betterVoucherSuggestion = computed(() => {
@@ -421,17 +438,17 @@ const checkVoucherBeforeOrder = async () => {
   }
 }
 
-const cancelVoucherWarning = () => {
-  if (voucherWarningData.value?.oldVoucherUsable && appliedVoucher.value) {
-    keepPreviousVoucherValue.value = true
-  } else {
-    appliedVoucher.value = null
-    keepPreviousVoucherValue.value = false
-    sessionStorage.removeItem('fftshirt_checkout_voucher')
-  }
+const cancelVoucherWarning = async () => {
+  // Hủy cảnh báo đồng nghĩa dừng đặt hàng và quay lại checkout để khách
+  // chủ động chọn lại một phiếu còn hợp lệ, không mở lại popup xác nhận.
+  appliedVoucher.value = null
+  keepPreviousVoucherValue.value = false
+  sessionStorage.removeItem('fftshirt_checkout_voucher')
   showVoucherWarningModal.value = false
   voucherWarningData.value = null
-  showClientConfirmModal.value = true
+  showClientConfirmModal.value = false
+  await loadVouchers()
+  showVoucherModal.value = true
 }
 
 const applyVoucherWarning = () => {
@@ -1202,7 +1219,7 @@ const handleConfirmPlaceOrder = async () => {
           <div class="voucher-warning-content">
             <div class="voucher-warning-message">
               <strong>Thông báo:</strong> {{ voucherWarningData.reason }}
-              <div>Đơn hàng chưa được đặt và phiếu giảm giá chưa tự động thay đổi.</div>
+              <div>Đơn hàng chưa được đặt. Nhấn Hủy để quay lại chọn phiếu tốt nhất, hoặc áp dụng phiếu mới để tiếp tục.</div>
             </div>
 
             <div class="voucher-compare-grid">
