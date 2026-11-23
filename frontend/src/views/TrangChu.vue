@@ -133,7 +133,7 @@
 
       <div class="card table-card">
         <div class="card-head">
-          <div><div class="section-label">SẢN PHẨM BÁN CHẠY</div><h2>Top 10 sản phẩm bán chạy</h2><p>Theo số lượng bán</p></div>
+          <div><div class="section-label">SẢN PHẨM CÓ LƯỢT MUA CAO</div><h2>Top 10 sản phẩm theo lượt mua</h2><p>Theo số lượng đã bán</p></div>
           <a href="#">Xem tất cả →</a>
         </div>
         <table>

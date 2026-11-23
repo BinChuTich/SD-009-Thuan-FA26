@@ -231,7 +231,7 @@ watch(() => route.hash, () => {
     <!-- 2. Danh Mục Sản Phẩm Nổi Bật -->
     <DanhMucNoiBat :categories="categories" />
 
-    <!-- 4. Sản Phẩm Nổi Bật Tuyển Chọn (Top 5 bán chạy nhất) -->
+    <!-- 4. Sản phẩm nổi bật tuyển chọn theo lượt mua -->
     <SanPhamNoiBat
       :products="displayedFeaturedProducts"
       :loading="loading"

@@ -29,7 +29,7 @@ export const CATEGORIES_CATALOG = [
     count: '1 mẫu',
     desc: 'Lịch lãm, chuẩn phom công sở & dạo phố',
     image: 'http://localhost:8080/uploads/sp_1793532233466_34869b33.png',
-    tag: 'Bán chạy'
+    tag: 'Được mua nhiều'
   },
   {
     id: 3,

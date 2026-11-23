@@ -251,7 +251,7 @@ const loadFeaturedProducts = async () => {
 // Gợi ý thao tác nhanh ở chân khung chat chuẩn video (chỉ hiện "Gặp nhân viên" khi đã đăng nhập)
 const quickPromptChips = computed(() => {
   const chips = [
-    { text: 'Sản phẩm bán chạy', type: 'bestseller' },
+    { text: 'Sản phẩm được mua nhiều', type: 'bestseller' },
     { text: 'Sản phẩm đang giảm giá', type: 'promo' },
     { text: 'Tư vấn size', type: 'size' }
   ]
@@ -823,7 +823,7 @@ const handleActionClick = (action) => {
   }
 }
 
-// Xử lý khi khách bấm các chip gợi ý nhanh (Sản phẩm bán chạy, Giảm giá, Tư vấn size, Gặp nhân viên)
+// Xử lý khi khách bấm các chip gợi ý nhanh (Lượt mua cao, Giảm giá, Tư vấn size, Gặp nhân viên)
 const handleChipClick = (chip) => {
   if (!chip) return
   updateActivity()
@@ -832,7 +832,7 @@ const handleChipClick = (chip) => {
     messages.value.push({
       id: Date.now(),
       sender: 'user',
-      text: 'Sản phẩm bán chạy',
+      text: 'Sản phẩm được mua nhiều',
       time: 'Vừa xong'
     })
     scrollToBottom()

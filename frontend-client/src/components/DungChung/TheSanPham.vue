@@ -110,10 +110,6 @@ const goToDetail = () => {
       <span v-if="product.coGiamGia && product.phanTramGiam > 0" class="discount-badge-red">
         -{{ Math.round(product.phanTramGiam) }}%
       </span>
-      <!-- Tag bán chạy -->
-      <span v-if="(product.daBan || product.soLuongDaBan || 0) > 0" class="best-seller-badge-gold">
-        Bán chạy
-      </span>
       <!-- Nút xem nhanh khi hover -->
       <div class="quick-hover-action">
         <span>Xem chi tiết &rarr;</span>

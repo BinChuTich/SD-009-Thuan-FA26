@@ -731,7 +731,7 @@
 
                 <div class="select-wrapper-minimal">
                   <select v-model="productSortBy" class="form-control-minimal" @change="sortProductTable">
-                    <option value="best_seller">Bán chạy nhất</option>
+                    <option value="best_seller">Lượt bán cao nhất</option>
                     <option value="slow_seller">Bán chậm nhất</option>
                     <option value="highest_revenue">Doanh thu cao nhất</option>
                     <option value="highest_stock">Tồn kho nhiều nhất</option>
@@ -1180,7 +1180,7 @@
             <!-- Combobox lọc sắp xếp -->
             <div class="select-wrapper-minimal">
               <select v-model="productSortBy" class="form-control-minimal" @change="sortProductTable">
-                <option value="best_seller">Bán chạy nhất</option>
+                <option value="best_seller">Lượt bán cao nhất</option>
                 <option value="slow_seller">Bán chậm nhất</option>
                 <option value="highest_revenue">Doanh thu cao nhất</option>
                 <option value="highest_stock">Tồn kho nhiều nhất</option>
@@ -2087,7 +2087,7 @@
         </div>
       </div>
 
-      <!-- Bảng Top sản phẩm bán chạy đối chiếu sức mua qua các kỳ (Có Search & Filter & Sort) -->
+      <!-- Bảng Top sản phẩm theo lượt bán đối chiếu sức mua qua các kỳ -->
       <div class="content-card">
         <div class="card-title-row">
           <div class="card-title-group">
@@ -2096,7 +2096,7 @@
               <line x1="3" y1="6" x2="21" y2="6" />
               <path d="M16 10a4 4 0 0 1-8 0" />
             </svg>
-            <h3 class="card-heading">Top sản phẩm bán chạy & Đối chiếu sức mua qua các kỳ</h3>
+            <h3 class="card-heading">Top sản phẩm theo lượt bán & Đối chiếu sức mua qua các kỳ</h3>
             <span class="badge-tag-peak" style="background:#e0f2fe; color:#0369a1;">
               {{ filteredComparisonProducts.length }} sản phẩm
             </span>
@@ -2139,7 +2139,7 @@
 
           <div class="select-wrapper-minimal">
             <select v-model="compareProductSort" class="form-control-minimal small">
-              <option value="sold_desc">Bán chạy nhất (Tổng bán cao -> thấp)</option>
+              <option value="sold_desc">Tổng lượt bán cao → thấp</option>
               <option value="sold_asc">Bán chậm nhất</option>
               <option value="revenue_desc">Doanh thu cao nhất</option>
               <option value="trend_desc">Tăng trưởng mạnh nhất</option>

@@ -944,9 +944,6 @@ const handleResetPasswordWithOtp = async () => {
               <span class="target-label">Tài khoản đặt lại mật khẩu:</span>
               <strong class="target-value">{{ maskedEmail || verifiedTargetEmail }}</strong>
             </div>
-            <button type="button" class="btn-change-target" @click="handleChangeTarget">
-              Thay đổi
-            </button>
           </div>
 
           <!-- Mật khẩu mới -->

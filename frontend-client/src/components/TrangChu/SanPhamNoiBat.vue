@@ -55,9 +55,6 @@ const goToProduct = (id) => {
             <span v-if="p.coGiamGia && p.phanTramGiam > 0" class="tag-percent">
               -{{ Math.round(p.phanTramGiam) }}%
             </span>
-            <span v-if="(p.daBan || p.soLuongDaBan || 0) > 0" class="tag-best-seller">
-              Bán chạy
-            </span>
           </div>
 
           <div class="card-details">
