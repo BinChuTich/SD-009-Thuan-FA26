@@ -82,7 +82,7 @@ public class MomoPaymentService {
             throw new IllegalStateException("Số tiền thanh toán MoMo không hợp lệ!");
         }
 
-        long expiresAt = Instant.now().plus(15, ChronoUnit.MINUTES).toEpochMilli();
+        long expiresAt = Instant.now().plus(5, ChronoUnit.MINUTES).toEpochMilli();
         String token = sign(order.getMaHoaDon(), amount, expiresAt);
         String paymentUrl = clientBaseUrl.replaceAll("/+$", "")
                 + "/thanh-toan/momo-test?orderId=" + encode(order.getMaHoaDon())
@@ -135,7 +135,7 @@ public class MomoPaymentService {
         if (!Integer.valueOf(1).equals(order.getTrangThaiThanhToan())) {
             order.setTrangThaiThanhToan(1);
             order.setNgayCapNhat(Instant.now());
-            order.setNguoiCapNhat("Cổng MoMo Test");
+            order.setNguoiCapNhat("Khách hàng online");
             hoaDonRepository.save(order);
 
             List<HinhThucThanhToan> oldPayments = hinhThucThanhToanRepository.findByIdHoaDon_Id(order.getId());
@@ -196,8 +196,8 @@ public class MomoPaymentService {
         history.setThoiGian(Instant.now());
         history.setHanhDong(note);
         history.setGhiChu(note);
-        history.setNguoiThucHien("Cổng MoMo Test");
-        history.setVaiTroNguoiThucHien("Hệ thống thanh toán");
+        history.setNguoiThucHien("Khách hàng online");
+        history.setVaiTroNguoiThucHien("Khách hàng");
         lichSuHoaDonRepository.save(history);
     }
 

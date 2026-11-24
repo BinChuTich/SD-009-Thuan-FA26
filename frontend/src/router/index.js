@@ -355,20 +355,19 @@ const router = createRouter({
 })
 
 // Navigation Guard kiểm tra quyền đăng nhập và phân quyền route
-router.beforeEach((to, from, next) => {
+router.beforeEach((to) => {
     const user = getCurrentUser()
     const isPublic = to.meta && to.meta.public === true
 
     // 1. Chưa đăng nhập mà truy cập trang yêu cầu đăng nhập
     if (!user && !isPublic) {
-        return next({ path: '/login', query: { redirect: to.fullPath } })
+        return { path: '/login', query: { redirect: to.fullPath } }
     }
 
     // 2. Đã đăng nhập mà cố vào trang /login
     if (user && to.path === '/login') {
         const role = getRoleCode()
-        if (role === 'ADMIN') return next('/thong-ke')
-        return next('/ban-hang')
+        return role === 'ADMIN' ? '/thong-ke' : '/ban-hang'
     }
 
     // 3. Kiểm tra vai trò được phép truy cập
@@ -376,11 +375,11 @@ router.beforeEach((to, from, next) => {
         const role = getRoleCode()
         if (!to.meta.roles.includes(role)) {
             // Không có quyền: đưa về trang Bán hàng cho Nhân viên
-            return next('/ban-hang')
+            return '/ban-hang'
         }
     }
 
-    next()
+    return true
 })
 
 export default router

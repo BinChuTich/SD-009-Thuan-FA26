@@ -287,8 +287,8 @@ class PosEdgeCasesTest {
 
         Map<String, Object> res = hoaDonService.banGiaoHoaDonPos(body);
 
-        assertTrue((Boolean) res.get("thanhCong"));
-        assertEquals("Trần Thị B", res.get("nhanVienMoi"));
+        assertTrue((Boolean) res.get("success"));
+        assertEquals("Trần Thị B", res.get("tenNhanVienMoi"));
         assertEquals(nvMoi, hd.getIdNhanVien());
     }
 

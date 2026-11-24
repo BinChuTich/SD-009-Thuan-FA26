@@ -49,17 +49,18 @@ public class AdministrativeRegionServiceTest {
     @Test
     void testBacNinhProvinceAndWardExact() {
         AdministrativeRegionService.AddressValidationResult res = service.validateAddress("Thành phố Bắc Ninh", "Phường Bắc Giang");
-        assertTrue(res.valid(), "Phường Bắc Giang phải thuộc Thành phố Bắc Ninh");
-        assertEquals("Thành phố Bắc Ninh", res.matchedProvince().name());
+        assertTrue(res.valid(), "Phường Bắc Giang phải thuộc Tỉnh Bắc Ninh");
+        assertEquals("Tỉnh Bắc Ninh", res.matchedProvince().name());
         assertEquals("Phường Bắc Giang", res.matchedWard().name());
     }
 
     @Test
     void testBacNinhWithAlternativeStandardPrefix() {
-        // "Tỉnh Bắc Ninh" hoặc "Thành phố Bắc Ninh" đều có tiền tố chuẩn hợp lệ
+        // Tên cũ "Thành phố Bắc Ninh" vẫn được nhận diện theo lõi tên, nhưng kết quả
+        // chuẩn hóa phải trả về đơn vị cấp tỉnh hiện hành là "Tỉnh Bắc Ninh".
         AdministrativeRegionService.AddressValidationResult res = service.validateAddress("Tỉnh Bắc Ninh", "Phường Bắc Giang");
         assertTrue(res.valid(), "Phải hợp lệ với Tỉnh Bắc Ninh và Phường Bắc Giang");
-        assertEquals("Thành phố Bắc Ninh", res.matchedProvince().name());
+        assertEquals("Tỉnh Bắc Ninh", res.matchedProvince().name());
         assertEquals("Phường Bắc Giang", res.matchedWard().name());
     }
 

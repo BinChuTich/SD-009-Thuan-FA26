@@ -566,7 +566,8 @@ const handleCancelOrder = async () => {
     try {
       await api.put(`/api/hoa-don/${selectedOrder.value.id}/trang-thai`, {
         trangThai: 6,
-        ghiChu: 'Khách hàng yêu cầu hủy đơn trên website'
+        ghiChu: 'Khách hàng yêu cầu hủy đơn trên website',
+        nguoiThucHien: 'Khách hàng online'
       })
       selectedOrder.value.trangThai = 6
       await showAppAlert('Đã hủy đơn hàng thành công!', 'Hủy đơn hàng', 'success')

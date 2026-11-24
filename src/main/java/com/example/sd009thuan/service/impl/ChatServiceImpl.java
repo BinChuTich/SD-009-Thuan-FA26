@@ -2,8 +2,10 @@ package com.example.sd009thuan.service.impl;
 
 import com.example.sd009thuan.dto.chat.*;
 import com.example.sd009thuan.entity.HoaDon;
+import com.example.sd009thuan.entity.LichSuHoaDon;
 import com.example.sd009thuan.entity.NhanVien;
 import com.example.sd009thuan.repository.HoaDonRepository;
+import com.example.sd009thuan.repository.LichSuHoaDonRepository;
 import com.example.sd009thuan.repository.NhanVienRepository;
 import com.example.sd009thuan.service.ChatService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 public class ChatServiceImpl implements ChatService {
 
     private final HoaDonRepository hoaDonRepository;
+    private final LichSuHoaDonRepository lichSuHoaDonRepository;
     private final NhanVienRepository nhanVienRepository;
     private final ObjectMapper objectMapper;
 
@@ -405,6 +408,11 @@ public class ChatServiceImpl implements ChatService {
             recentOrders = hoaDonRepository.findRecentOrdersByLoaiDonAndTrangThai(2, 1, PageRequest.of(0, 10));
         } catch (Exception e) {}
 
+        List<HoaDon> pendingRefundOrders = new ArrayList<>();
+        try {
+            pendingRefundOrders = hoaDonRepository.findRecentPaidCancelledOnlineOrders(PageRequest.of(0, 20));
+        } catch (Exception e) {}
+
         List<ThongBaoAdminDTO.ThongBaoItemDTO> items = new ArrayList<>();
 
         // 1. Thêm các yêu cầu chat chờ nhân viên tiếp nhận
@@ -453,6 +461,50 @@ public class ChatServiceImpl implements ChatService {
                             .lienKet("/hoa-don?search=" + hd.getMaHoaDon())
                             .build());
                 }
+            }
+        }
+
+        // 3. Cảnh báo đơn trả trước đã thanh toán nhưng khách hủy và admin chưa xác nhận hoàn tiền.
+        if (pendingRefundOrders != null) {
+            for (HoaDon hd : pendingRefundOrders) {
+                String orderNote = hd.getGhiChu() != null ? hd.getGhiChu().toLowerCase(Locale.ROOT) : "";
+                List<LichSuHoaDon> histories = lichSuHoaDonRepository
+                        .findByIdHoaDon_IdOrderByThoiGianDesc(hd.getId());
+                String historyText = histories.stream()
+                        .map(item -> item.getGhiChu() != null ? item.getGhiChu().toLowerCase(Locale.ROOT) : "")
+                        .collect(Collectors.joining(" | "));
+                String paymentEvidence = orderNote + " | " + historyText;
+                boolean isPrepaidTransfer = paymentEvidence.contains("momo")
+                        || paymentEvidence.contains("vietqr")
+                        || paymentEvidence.contains("vnpay")
+                        || paymentEvidence.contains("chuyển khoản")
+                        || paymentEvidence.contains("chuyen khoan");
+                boolean refunded = orderNote.contains("[hoàn tiền")
+                        || orderNote.contains("đã hoàn tiền")
+                        || historyText.contains("xác nhận hoàn tiền");
+                if (!isPrepaidTransfer || refunded) continue;
+
+                BigDecimal amount = hd.getTienSauGiamGia() != null
+                        ? hd.getTienSauGiamGia()
+                        : (hd.getTongTien() != null ? hd.getTongTien() : BigDecimal.ZERO);
+                String moneyText = String.format("%,d đ", amount.longValue()).replace(',', '.');
+                String customerName = hd.getTenKhachHang() != null && !hd.getTenKhachHang().isBlank()
+                        ? hd.getTenKhachHang()
+                        : (hd.getIdKhachHang() != null ? hd.getIdKhachHang().getTenKhachHang() : "Khách hàng");
+                String timeText = hd.getNgayCapNhat() != null
+                        ? DateTimeFormatter.ofPattern("HH:mm dd/MM").format(hd.getNgayCapNhat().atZone(ZoneId.systemDefault()))
+                        : "";
+
+                items.add(ThongBaoAdminDTO.ThongBaoItemDTO.builder()
+                        .id(hd.getId())
+                        .loai("DON_HANG")
+                        .tieuDe("Cần hoàn tiền đơn #" + hd.getMaHoaDon())
+                        .noiDung("Khách " + customerName + " đã hủy • Hoàn " + moneyText)
+                        .thoiGian(timeText)
+                        .daDoc(false)
+                        .maDonHang(hd.getMaHoaDon())
+                        .lienKet("/hoa-don?search=" + hd.getMaHoaDon())
+                        .build());
             }
         }
 

@@ -2736,6 +2736,17 @@ const getRemainingStock = (item) => {
   return p ? Math.max(0, p.stock) : 0
 }
 
+// Dòng đã nằm trong giỏ phải giữ nguyên đơn giá và số lượng tối đa tại thời điểm
+// giá bán thay đổi. Muốn mua thêm, nhân viên chọn/quét lại sản phẩm để tạo dòng
+// mới theo giá hiện tại; không tăng trực tiếp trên dòng giá cũ.
+const isOldPriceCartItem = (item) => {
+  const p = findProduct(item)
+  if (!p) return false
+  const cartPrice = Number(item?.price)
+  const currentPrice = Number(p.price)
+  return Number.isFinite(cartPrice) && Number.isFinite(currentPrice) && cartPrice !== currentPrice
+}
+
 const selectProduct = (prod, qtyToAdd = 1, sourceCartItem = null) => {
   const p = findProduct(prod) || prod
   const addQty = Math.max(1, Number(qtyToAdd || 1))
@@ -3289,6 +3300,10 @@ const handleBarcodeScan = () => {
 const updateQuantity = (item, delta) => {
   const p = findProduct(item)
   if (delta > 0) {
+    if (isOldPriceCartItem(item)) {
+      showToast('Sản phẩm đã đổi giá. Dòng giá cũ không thể tăng thêm số lượng!', 'warning')
+      return
+    }
     if (p && p.stock < delta) {
       showToast(`Trong kho chỉ còn thêm tối đa ${p.stock} sản phẩm!`, 'warning')
       return
@@ -3314,7 +3329,8 @@ const updateQuantity = (item, delta) => {
 
 const handleQuantityInput = (item, event) => {
   const p = findProduct(item)
-  const maxAvailable = getMaxStockForItem(item)
+  const oldPriceLine = isOldPriceCartItem(item)
+  const maxAvailable = oldPriceLine ? Number(item.quantity || 1) : getMaxStockForItem(item)
 
   let raw = event.target.value
   if (raw === '') {
@@ -3331,7 +3347,12 @@ const handleQuantityInput = (item, event) => {
   }
 
   if (val > maxAvailable) {
-    showToast(`Trong kho chỉ còn tối đa ${maxAvailable} sản phẩm!`, 'warning')
+    showToast(
+      oldPriceLine
+        ? 'Sản phẩm đã đổi giá. Dòng giá cũ không thể tăng thêm số lượng!'
+        : `Trong kho chỉ còn tối đa ${maxAvailable} sản phẩm!`,
+      'warning'
+    )
     val = maxAvailable
     event.target.value = maxAvailable
   }
@@ -12146,7 +12167,11 @@ onMounted(async () => {
 
 
 
-              <tr v-else v-for="(item, idx) in currentInvoice.cart" :key="item.cartKey || (item.id + '_' + item.price + '_' + idx)">
+              <tr
+                v-else
+                v-for="(item, idx) in currentInvoice.cart"
+                :key="`${item.cartKey || item.id}_${item.price}_${idx}`"
+              >
 
                 <td class="text-center font-bold text-muted">{{ idx + 1 }}</td>
 
@@ -12217,8 +12242,6 @@ onMounted(async () => {
 
                     <button
 
-
-
                         type="button"
 
 
@@ -12271,7 +12294,7 @@ onMounted(async () => {
 
 
 
-                        :max="getMaxStockForItem(item)"
+                        :max="isOldPriceCartItem(item) ? item.quantity : getMaxStockForItem(item)"
 
 
 
@@ -12283,6 +12306,10 @@ onMounted(async () => {
 
 
 
+	                        v-if="!isOldPriceCartItem(item)"
+
+
+
                         type="button"
 
 
@@ -12291,7 +12318,7 @@ onMounted(async () => {
 
 
 
-                        :disabled="getRemainingStock(item) <= 0"
+	                        :disabled="getRemainingStock(item) <= 0"
 
 
 

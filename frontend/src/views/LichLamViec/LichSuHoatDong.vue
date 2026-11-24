@@ -1941,24 +1941,53 @@ onMounted(async () => {
 
 /* Modal Biên Bản Giao Ca & Print */
 .modal-receipt {
-  max-width: 600px;
-  width: 95%;
+  width: min(780px, calc(100vw - 48px));
+  max-width: 780px;
+  max-height: min(88vh, 860px);
+  border: 1px solid #e4ddd3;
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.modal-receipt .modal-header-clean,
+.modal-receipt .modal-footer-clean {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.modal-receipt .modal-header-clean {
+  padding: 0.9rem 1.4rem;
+  background: linear-gradient(135deg, #f9fafb 0%, #f5f1eb 100%);
+}
+
+.modal-receipt .modal-footer-clean {
+  padding: 0.8rem 1.4rem;
+}
+
+.modal-receipt .printable-receipt {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .printable-receipt {
-  padding: 1.5rem 1.8rem;
-  background: #ffffff;
+  padding: 1.25rem 1.65rem 1.5rem;
+  background: linear-gradient(180deg, #ffffff 0%, #fffdf9 100%);
   color: #1f2937;
   font-family: inherit;
 }
 
 .receipt-header {
   text-align: center;
-  margin-bottom: 1rem;
+  margin: 0 auto 0.8rem;
+  padding: 0.25rem 1rem 0.85rem;
+  border-bottom: 1px solid #eee6dc;
 }
 
 .receipt-brand {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   font-weight: 800;
   color: #3b2c21;
   letter-spacing: 2px;
@@ -2079,6 +2108,50 @@ onMounted(async () => {
   justify-content: space-between;
   margin-top: 2rem;
   padding-top: 1rem;
+}
+
+@media (max-width: 640px) {
+  .modal-backdrop-clean {
+    padding: 10px;
+    align-items: center;
+  }
+
+  .modal-receipt {
+    width: 100%;
+    max-height: calc(100dvh - 20px);
+    border-radius: 12px;
+  }
+
+  .modal-receipt .modal-header-clean,
+  .modal-receipt .modal-footer-clean {
+    padding: 0.75rem 1rem;
+  }
+
+  .printable-receipt {
+    padding: 1rem;
+  }
+
+  .receipt-meta-row {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .receipt-meta-row .meta-val {
+    max-width: 62%;
+    text-align: right;
+  }
+
+  .receipt-invoices-wrap {
+    overflow-x: auto;
+  }
+
+  .receipt-inner-table {
+    min-width: 610px;
+  }
+
+  .receipt-signatures {
+    margin-top: 1.25rem;
+  }
 }
 
 .sig-col {

@@ -2167,17 +2167,63 @@ const vietQrData = ref(null)
 const qrOrderCode = ref('')
 
 const qrAmount = ref(0)
-
-const vietQrChecking = ref(false)
+const vietQrRemainingSeconds = ref(0)
 const showMomoQrModal = ref(false)
 const momoQrImage = ref('')
 const momoOrderCode = ref('')
 const momoAmount = ref(0)
 const momoPaymentUrl = ref('')
+const momoRemainingSeconds = ref(0)
 
 const copiedField = ref('')
 
 let paymentPollTimer = null
+let momoCountdownTimer = null
+let vietQrCountdownTimer = null
+
+const vietQrCountdownText = computed(() => {
+  const seconds = Math.max(0, Number(vietQrRemainingSeconds.value || 0))
+  const minutes = Math.floor(seconds / 60)
+  const rest = seconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
+})
+
+const stopVietQrCountdown = () => {
+  if (vietQrCountdownTimer) clearInterval(vietQrCountdownTimer)
+  vietQrCountdownTimer = null
+}
+
+const startVietQrCountdown = (expiresAt) => {
+  stopVietQrCountdown()
+  const update = () => {
+    vietQrRemainingSeconds.value = Math.max(0, Math.ceil((Number(expiresAt || 0) - Date.now()) / 1000))
+    if (vietQrRemainingSeconds.value <= 0) stopVietQrCountdown()
+  }
+  update()
+  vietQrCountdownTimer = setInterval(update, 1000)
+}
+
+const momoCountdownText = computed(() => {
+  const seconds = Math.max(0, Number(momoRemainingSeconds.value || 0))
+  const minutes = Math.floor(seconds / 60)
+  const rest = seconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
+})
+
+const stopMomoCountdown = () => {
+  if (momoCountdownTimer) clearInterval(momoCountdownTimer)
+  momoCountdownTimer = null
+}
+
+const startMomoCountdown = (expiresAt) => {
+  stopMomoCountdown()
+  const update = () => {
+    momoRemainingSeconds.value = Math.max(0, Math.ceil((Number(expiresAt || 0) - Date.now()) / 1000))
+    if (momoRemainingSeconds.value <= 0) stopMomoCountdown()
+  }
+  update()
+  momoCountdownTimer = setInterval(update, 1000)
+}
 
 const getClientLanOrigin = async () => {
   let host = window.location.hostname
@@ -2194,7 +2240,10 @@ const buildVietQrDemoImage = async (code, amount) => {
     getClientLanOrigin()
   ])
   const query = new URLSearchParams({ t: sessionResponse.data.token, c: code, a: String(amount) })
-  return createBrandedQrDataUrl(`${clientOrigin}/thanh-toan/vietqr-demo?${query}`, 'vietqr')
+  const qrImage = await createBrandedQrDataUrl(`${clientOrigin}/thanh-toan/vietqr-demo?${query}`, 'vietqr')
+  // Đơn online tự hủy sau 5 phút, vì vậy không để phiên QR phía giao diện dài hơn đơn hàng.
+  const expiresIn = Math.min(300, Math.max(1, Number(sessionResponse.data?.expiresIn || 300)))
+  return { qrImage, expiresAt: Date.now() + expiresIn * 1000 }
 }
 
 const startMomoPolling = (code) => {
@@ -2204,6 +2253,7 @@ const startMomoPolling = (code) => {
       const response = await api.get(`/api/payment/check-status/${code}`)
       if (response.data?.daThanhToan) {
         stopPaymentPolling()
+        stopMomoCountdown()
         showMomoQrModal.value = false
         showAppToast(`Thanh toán MoMo thành công cho đơn hàng #${code}!`, 'success')
         router.push(currentClientUser.value?.id ? `/don-hang?code=${code}` : `/tra-cuu?code=${code}`)
@@ -2212,14 +2262,19 @@ const startMomoPolling = (code) => {
   }, 3000)
 }
 
-const closeMomoQrModal = () => {
+const viewMomoOrder = () => {
   stopPaymentPolling()
+  stopMomoCountdown()
   showMomoQrModal.value = false
   const code = momoOrderCode.value
   router.push(currentClientUser.value?.id ? `/don-hang?code=${code}` : `/tra-cuu?code=${code}`)
 }
 
-
+const dismissMomoQrModal = () => {
+  stopPaymentPolling()
+  stopMomoCountdown()
+  showMomoQrModal.value = false
+}
 
 const stopPaymentPolling = () => {
 
@@ -2250,6 +2305,7 @@ const startPaymentPolling = (maHoaDon) => {
       if (res.data && res.data.daThanhToan) {
 
         stopPaymentPolling()
+        stopVietQrCountdown()
 
         showVietQrModal.value = false
 
@@ -2295,9 +2351,10 @@ const copyText = (text, fieldName) => {
 
 
 
-const closeVietQrModal = () => {
+const viewVietQrOrder = () => {
 
   stopPaymentPolling()
+  stopVietQrCountdown()
 
   showVietQrModal.value = false
 
@@ -2315,90 +2372,10 @@ const closeVietQrModal = () => {
 
 }
 
-
-
-const handleConfirmTransferManual = async () => {
-
-  const code = qrOrderCode.value || createdOrder.value?.maHoaDon
-
-  if (!code) return
-
-  vietQrChecking.value = true
-
-  try {
-
-    const res = await api.get(`/api/payment/check-status/${code}`)
-
-    if (res.data && res.data.daThanhToan) {
-
-      stopPaymentPolling()
-
-      showVietQrModal.value = false
-
-      showAppToast(`Thanh toán VietQR thành công!`, 'success')
-
-      if (currentClientUser.value?.id) {
-
-        router.push(`/don-hang?code=${code}`)
-
-      } else {
-
-        router.push(`/tra-cuu?code=${code}`)
-
-      }
-
-      return
-
-    }
-
-    await api.post('/api/payment/confirm-transfer', {
-
-      maHoaDon: code,
-
-      soTien: qrAmount.value || Number(createdOrder.value?.tienSauGiamGia || 0),
-
-      ghiChu: 'Khách hàng xác nhận đã chuyển khoản VietQR Napas 247'
-
-    })
-
-    stopPaymentPolling()
-
-    showVietQrModal.value = false
-
-    showAppToast(`Đã ghi nhận thanh toán đơn hàng #${code}!`, 'success')
-
-    if (currentClientUser.value?.id) {
-
-      router.push(`/don-hang?code=${code}`)
-
-    } else {
-
-      router.push(`/tra-cuu?code=${code}`)
-
-    }
-
-  } catch (err) {
-
-    stopPaymentPolling()
-
-    showVietQrModal.value = false
-
-    if (currentClientUser.value?.id) {
-
-      router.push(`/don-hang?code=${code}`)
-
-    } else {
-
-      router.push(`/tra-cuu?code=${code}`)
-
-    }
-
-  } finally {
-
-    vietQrChecking.value = false
-
-  }
-
+const dismissVietQrModal = () => {
+  stopPaymentPolling()
+  stopVietQrCountdown()
+  showVietQrModal.value = false
 }
 
 
@@ -2701,6 +2678,7 @@ const executePlaceOrder = async () => {
       momoAmount.value = Number(savedOrder?.tienSauGiamGia || savedOrder?.tongTien || payTotal)
       momoPaymentUrl.value = phoneUrl
       momoQrImage.value = await createBrandedQrDataUrl(phoneUrl, 'momo')
+      startMomoCountdown(momoRes.data.expiresAt)
       removeMultipleFromCart(purchasedIds)
       showConfirmOrderModal.value = false
       showMomoQrModal.value = true
@@ -2758,7 +2736,9 @@ const executePlaceOrder = async () => {
 
       }
 
-      vietQrData.value.vietQrUrl = await buildVietQrDemoImage(orderCode, orderTotal)
+      const vietQrSession = await buildVietQrDemoImage(orderCode, orderTotal)
+      vietQrData.value.vietQrUrl = vietQrSession.qrImage
+      startVietQrCountdown(vietQrSession.expiresAt)
 
 
 
@@ -3243,6 +3223,9 @@ onMounted(async () => {
 onUnmounted(() => {
 
   stopVnpayTracking()
+  stopPaymentPolling()
+  stopMomoCountdown()
+  stopVietQrCountdown()
 
 })
 
@@ -5228,7 +5211,6 @@ const formatDate = (dateStr) => {
         <div class="client-qr-modal momo-client-modal">
           <header class="client-qr-header">
             <div><span class="momo-client-badge">momo</span><strong>Thanh toán Ví MoMo</strong></div>
-            <button type="button" @click="closeMomoQrModal">&times;</button>
           </header>
           <div class="client-qr-content">
             <div class="client-qr-left">
@@ -5237,14 +5219,23 @@ const formatDate = (dateStr) => {
               <span>Logo MoMo đã được ghép trực tiếp trong ảnh QR</span>
             </div>
             <div class="client-qr-right">
-              <div class="client-waiting"><i></i> Hệ thống đang chờ xác nhận trên điện thoại...</div>
+              <div class="client-waiting" :class="{ expired: momoRemainingSeconds <= 0 }"><i></i> {{ momoRemainingSeconds > 0 ? 'Hệ thống đang chờ xác nhận trên điện thoại...' : 'Phiên thanh toán đã hết hạn' }}</div>
+              <div class="momo-countdown" :class="{ expired: momoRemainingSeconds <= 0 }">
+                <span>Thời gian chuyển tiền còn lại</span>
+                <strong>{{ momoCountdownText }}</strong>
+              </div>
               <div class="client-payment-info">
                 <div><span>Mã đơn hàng</span><strong>{{ momoOrderCode }}</strong></div>
                 <div><span>Phương thức</span><strong>Ví MoMo · Demo</strong></div>
+                <div><span>Số tài khoản</span><span class="momo-copy-value"><strong class="momo-account-number">0988888888</strong><button type="button" @click="copyText('0988888888', 'momo-account')">{{ copiedField === 'momo-account' ? '✓ Đã chép' : 'Sao chép' }}</button></span></div>
+                <div><span>Tên chủ tài khoản</span><span class="momo-copy-value"><strong>FF T-SHIRT STORE</strong><button type="button" @click="copyText('FF T-SHIRT STORE', 'momo-owner')">{{ copiedField === 'momo-owner' ? '✓ Đã chép' : 'Sao chép' }}</button></span></div>
                 <div><span>Số tiền</span><strong class="momo-money">{{ formatCurrency(momoAmount) }}</strong></div>
               </div>
-              <p>Quét QR, chọn kết quả thanh toán thành công trên điện thoại. Hệ thống sẽ tự cập nhật đơn hàng, không phát sinh tiền thật.</p>
-              <button type="button" class="client-close-payment" @click="closeMomoQrModal">Đóng &amp; Xem đơn hàng</button>
+              <p>Quét mã QR bằng điện thoại và xác nhận thanh toán. Màn hình này sẽ tự động chuyển sang đơn hàng ngay khi hệ thống nhận được kết quả.</p>
+              <div class="momo-modal-actions">
+                <button type="button" class="momo-view-order" @click="viewMomoOrder">Xem đơn hàng</button>
+                <button type="button" class="momo-dismiss" @click="dismissMomoQrModal">Đóng</button>
+              </div>
             </div>
           </div>
         </div>
@@ -5273,7 +5264,7 @@ const formatDate = (dateStr) => {
 
             <span class="vietqr-order-pill">Mã HĐ: {{ qrOrderCode }}</span>
 
-            <button class="vietqr-close-x" @click="closeVietQrModal" title="Đóng">&times;</button>
+            <button class="vietqr-close-x" @click="dismissVietQrModal" title="Đóng">&times;</button>
 
           </div>
 
@@ -5317,11 +5308,14 @@ const formatDate = (dateStr) => {
 
             <div class="vietqr-right-col">
 
-              <div class="vietqr-status-bar">
+              <div class="vietqr-status-bar" :class="{ expired: vietQrRemainingSeconds <= 0 }">
 
                 <span class="pulse-indicator"></span>
 
-                <span class="status-text">Hệ thống đang chờ giao dịch chuyển khoản...</span>
+                <span class="status-text">
+                  {{ vietQrRemainingSeconds > 0 ? 'Hệ thống đang chờ giao dịch chuyển khoản...' : 'Mã thanh toán đã hết thời gian chờ' }}
+                </span>
+                <strong class="vietqr-countdown">{{ vietQrCountdownText }}</strong>
 
               </div>
 
@@ -5369,7 +5363,16 @@ const formatDate = (dateStr) => {
 
                   <span class="d-label">Chủ tài khoản:</span>
 
-                  <span class="d-val font-semibold uppercase">{{ vietQrData?.tenChuTaiKhoan || 'FF TSHIRT VIETNAM' }}</span>
+                  <div class="d-val-with-copy">
+                    <span class="d-val font-semibold uppercase">{{ vietQrData?.tenChuTaiKhoan || 'FF TSHIRT VIETNAM' }}</span>
+                    <button
+                        type="button"
+                        class="btn-copy-chip"
+                        @click="copyText(vietQrData?.tenChuTaiKhoan || 'FF TSHIRT VIETNAM', 'vietqr-owner')"
+                    >
+                      {{ copiedField === 'vietqr-owner' ? '✓ Đã chép' : '📋 Sao chép' }}
+                    </button>
+                  </div>
 
                 </div>
 
@@ -5441,7 +5444,7 @@ const formatDate = (dateStr) => {
 
               <div class="vietqr-warning-note">
 
-                💡 <em>Quét QR và xác nhận trên điện thoại. Hệ thống sẽ tự động cập nhật đơn hàng, không phát sinh tiền thật.</em>
+                💡 <em>Quét QR và xác nhận trên điện thoại trước khi hết thời gian. Khi nhận được kết quả, màn hình sẽ tự chuyển sang đơn hàng.</em>
 
               </div>
 
@@ -5455,12 +5458,20 @@ const formatDate = (dateStr) => {
 
                     class="btn-view-order-later"
 
-                    @click="closeVietQrModal"
+                    @click="viewVietQrOrder"
 
                 >
 
-                  Đóng & Xem chi tiết đơn hàng &rarr;
+                  Xem đơn hàng
 
+                </button>
+
+                <button
+                    type="button"
+                    class="btn-dismiss-vietqr"
+                    @click="dismissVietQrModal"
+                >
+                  Đóng
                 </button>
 
               </div>
@@ -12580,7 +12591,9 @@ const formatDate = (dateStr) => {
 
 
 /* CLIENT QR DEMO: MOMO */
-.client-qr-modal-backdrop{position:fixed;inset:0;z-index:10020;background:rgba(15,23,42,.7);display:flex;align-items:center;justify-content:center;padding:20px}.client-qr-modal{width:min(860px,96vw);background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 28px 80px rgba(0,0,0,.35)}.client-qr-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:#211827;color:#fff}.client-qr-header>div{display:flex;align-items:center;gap:12px}.client-qr-header button{border:0;background:transparent;color:#fff;font-size:27px;cursor:pointer}.momo-client-badge{background:#a50064;border-radius:8px;padding:7px 10px;font-weight:900}.client-qr-content{display:grid;grid-template-columns:360px 1fr;gap:22px;padding:24px}.client-qr-left{display:flex;flex-direction:column;align-items:center;text-align:center;border:1px solid #eadde6;border-radius:15px;padding:17px}.client-qr-left img{display:block;width:100%;aspect-ratio:1;object-fit:contain}.client-qr-left strong{margin-top:9px}.client-qr-left span{font-size:12px;color:#718096;margin-top:4px}.client-qr-right{display:flex;flex-direction:column;gap:14px}.client-waiting{padding:11px;border:1px solid #f5cf83;background:#fff8e8;color:#a45b05;border-radius:9px;font-weight:700;font-size:13px}.client-waiting i{display:inline-block;width:9px;height:9px;border-radius:50%;background:#f59e0b;margin-right:6px;animation:pulse 1s infinite}.client-payment-info{border:1px solid #e2e8f0;border-radius:12px;padding:4px 14px}.client-payment-info div{display:flex;justify-content:space-between;gap:15px;padding:13px 0;border-bottom:1px dashed #dce3eb}.client-payment-info div:last-child{border:0}.client-payment-info span{color:#718096}.momo-money{color:#a50064;font-size:20px}.client-qr-right p{padding:12px;background:#fff1f7;color:#8c185f;border-radius:10px;line-height:1.5;font-size:13px}.client-close-payment{margin-top:auto;border:0;border-radius:10px;padding:13px;background:#a50064;color:#fff;font-weight:800;cursor:pointer}@media(max-width:700px){.client-qr-content{grid-template-columns:1fr}.client-qr-left img{width:min(320px,100%)}}
+.client-qr-modal-backdrop{position:fixed;inset:0;z-index:10020;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(5px)}.client-qr-modal{width:min(860px,96vw);background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 28px 80px rgba(0,0,0,.35)}.client-qr-header{display:flex;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#211827,#3a1830);color:#fff}.client-qr-header>div{display:flex;align-items:center;gap:12px}.momo-client-badge{background:linear-gradient(145deg,#a50064,#d10a7b);border-radius:9px;padding:8px 11px;font-weight:900;box-shadow:0 6px 14px rgba(165,0,100,.28)}.client-qr-content{display:grid;grid-template-columns:350px 1fr;gap:22px;padding:24px}.client-qr-left{display:flex;flex-direction:column;align-items:center;text-align:center;border:1px solid #eadde6;border-radius:16px;padding:17px;background:#fffafd}.client-qr-left img{display:block;width:100%;aspect-ratio:1;object-fit:contain}.client-qr-left strong{margin-top:9px}.client-qr-left span{font-size:12px;color:#718096;margin-top:4px}.client-qr-right{display:flex;flex-direction:column;gap:13px}.client-waiting{padding:11px;border:1px solid #f5cf83;background:#fff8e8;color:#a45b05;border-radius:10px;font-weight:700;font-size:13px}.client-waiting i{display:inline-block;width:9px;height:9px;border-radius:50%;background:#f59e0b;margin-right:6px;animation:pulse 1s infinite}.client-payment-info{border:1px solid #e8dce4;border-radius:13px;padding:4px 14px}.client-payment-info div{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:12px 0;border-bottom:1px dashed #e4d9e0}.client-payment-info div:last-child{border:0}.client-payment-info span{color:#718096}.client-payment-info strong{text-align:right}.momo-account-number{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.5px;color:#7f1d58}.momo-money{color:#a50064;font-size:20px}.client-qr-right p{margin:0;padding:12px;background:#fff1f7;color:#8c185f;border-radius:10px;line-height:1.5;font-size:13px}.client-close-payment{margin-top:auto;border:0;border-radius:11px;padding:14px;background:linear-gradient(135deg,#a50064,#c60073);color:#fff;font-weight:800;cursor:pointer;box-shadow:0 9px 22px rgba(165,0,100,.2)}@media(max-width:700px){.client-qr-modal-backdrop{align-items:flex-start;padding:10px}.client-qr-modal{width:100%;max-height:calc(100vh - 20px);overflow:auto;border-radius:16px}.client-qr-header{position:sticky;top:0;z-index:2;padding:14px 16px}.client-qr-content{grid-template-columns:1fr;gap:14px;padding:14px}.client-qr-left{padding:12px}.client-qr-left img{width:min(260px,78vw)}.client-payment-info div{padding:10px 0;font-size:13px}.client-close-payment{position:sticky;bottom:8px;width:100%;min-height:50px}}
+.momo-client-modal{width:min(980px,96vw)}.momo-client-modal .client-qr-content{grid-template-columns:420px 1fr}.momo-copy-value{display:flex;align-items:center;justify-content:flex-end;gap:8px}.momo-copy-value button{border:1px solid #e7bfd5;border-radius:7px;padding:5px 8px;color:#a50064;background:#fff5fa;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}.momo-copy-value button:hover{background:#fce7f3}@media(max-width:700px){.momo-client-modal .client-qr-content{grid-template-columns:1fr}.momo-copy-value{flex-wrap:wrap}.momo-copy-value button{padding:4px 7px}}
+.momo-countdown{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 14px;border:1px solid #e7bfd5;border-radius:11px;background:#fff5fa;color:#7f1d58}.momo-countdown span{font-size:13px;font-weight:700}.momo-countdown strong{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:23px;letter-spacing:1px;color:#a50064}.momo-countdown.expired{border-color:#fecaca;background:#fff1f2;color:#b91c1c}.momo-countdown.expired strong{color:#b91c1c}.client-waiting.expired{border-color:#fecaca;background:#fff1f2;color:#b91c1c}.client-waiting.expired i{background:#ef4444}.momo-modal-actions{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:auto}.momo-modal-actions button{min-height:45px;border-radius:10px;padding:0 18px;font-weight:800;cursor:pointer}.momo-view-order{border:0;background:linear-gradient(135deg,#a50064,#c60073);color:#fff;box-shadow:0 8px 18px rgba(165,0,100,.18)}.momo-dismiss{border:1px solid #d8dee8;background:#fff;color:#475569}@media(max-width:700px){.momo-modal-actions{grid-template-columns:1fr 1fr;position:sticky;bottom:6px;padding-top:5px;background:#fff}.momo-modal-actions button{padding:0 10px}.momo-countdown strong{font-size:20px}}
 
 /* VIETQR CARD & MODAL STYLES */
 .choice-icon-wrap.vietqr-badge-icon {
@@ -13378,6 +13391,10 @@ const formatDate = (dateStr) => {
 .vietqr-scan-guide strong,.vietqr-scan-guide b{color:#17324d}
 .vietqr-right-col{gap:12px}
 .vietqr-status-bar{padding:11px 13px;border-radius:10px;font-size:13px}
+.vietqr-status-bar.expired{background:#fff1f2;border-color:#fecdd3;color:#be123c}
+.vietqr-status-bar.expired .pulse-indicator{background:#e11d48;animation:none;box-shadow:none}
+.vietqr-status-bar .status-text{flex:1}
+.vietqr-countdown{min-width:54px;text-align:right;font-variant-numeric:tabular-nums;font-size:15px;color:inherit}
 .vietqr-details-table,.vietqr-client-summary{background:#fff;border:1px solid #d8e1ea;border-radius:13px;padding:6px 15px}
 .vietqr-details-table{gap:0}
 .vietqr-detail-row,.vietqr-client-summary>div{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:11px 0;border-bottom:1px dashed #d6dee7;font-size:13px}
@@ -13385,7 +13402,12 @@ const formatDate = (dateStr) => {
 .highlight-amount-row .price-val{font-size:20px}
 .vietqr-client-summary span{color:#718096}.vietqr-client-summary strong{text-align:right;color:#24364b}.vietqr-client-summary>div:last-child strong{color:#dc2626}
 .vietqr-warning-note{margin-top:auto;padding:13px;background:#fff5d9;border-left:4px solid #f5a623;border-radius:7px;color:#9a5b08;font-size:12px;line-height:1.5}
-.vietqr-action-buttons{margin-top:0}.btn-view-order-later{min-height:40px;border-radius:8px;background:#eef2f7;border:1px solid #cbd5e1;color:#475569;font-weight:750}
+.vietqr-action-buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:0}
+.btn-view-order-later,.btn-dismiss-vietqr{min-height:42px;border-radius:8px;font-weight:750;cursor:pointer}
+.btn-view-order-later{background:#0756a5;border:1px solid #0756a5;color:#fff}
+.btn-dismiss-vietqr{background:#fff;border:1px solid #cbd5e1;color:#475569}
+.btn-view-order-later:hover{background:#064887}
+.btn-dismiss-vietqr:hover{background:#f1f5f9}
 @media(max-width:820px){.vietqr-modal-card{max-height:94vh;overflow:auto}.vietqr-body-grid{grid-template-columns:1fr}.vietqr-left-col{width:min(470px,100%);margin:auto}.vietqr-order-pill{display:none}}
 </style>
 

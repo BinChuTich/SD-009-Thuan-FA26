@@ -4393,7 +4393,7 @@
   },
   {
     "code": 22,
-    "name": "Thành phố Quảng Ninh",
+    "name": "Tỉnh Quảng Ninh",
     "division_type": "thành phố trung ương",
     "codename": "quang_ninh",
     "wards": [
@@ -4725,7 +4725,7 @@
   },
   {
     "code": 24,
-    "name": "Thành phố Bắc Ninh",
+    "name": "Tỉnh Bắc Ninh",
     "division_type": "thành phố trung ương",
     "codename": "bac_ninh",
     "wards": [
@@ -15011,7 +15011,7 @@
   },
   {
     "code": 75,
-    "name": "Thành phố Đồng Nai",
+    "name": "Tỉnh Đồng Nai",
     "division_type": "thành phố trung ương",
     "codename": "dong_nai",
     "wards": [

@@ -112,7 +112,7 @@ const loadProducts = async () => {
     // Tải thông tin biến thể để hỗ trợ lọc chính xác theo Kích cỡ & Màu sắc
     let allVariants = []
     try {
-      const resVar = await api.get('/api/chi-tiet-san-pham', {
+      const resVar = await api.get('/api/chi-tiet-san-pham/filter', {
         params: { page: 0, size: 2000, _ts: Date.now() }
       })
       allVariants = resVar.data?.content || (Array.isArray(resVar.data) ? resVar.data : [])

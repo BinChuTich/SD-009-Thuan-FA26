@@ -647,7 +647,7 @@ const isTransferPaidOrder = computed(() => {
   if (!isPaidOrder.value) return false
   const method = String(invoiceData.value.paymentHistory?.method || '').toLowerCase()
   const isCod = method.includes('cod') || method.includes('nhận hàng') || method.includes('tien mat') || method.includes('tiền mặt')
-  const isTransfer = method.includes('chuyển khoản') || method.includes('chuyen khoan') || method.includes('ngân hàng') || method.includes('vnpay') || method.includes('vietqr') || method.includes('payos') || method.includes('qr')
+  const isTransfer = method.includes('chuyển khoản') || method.includes('chuyen khoan') || method.includes('ngân hàng') || method.includes('momo') || method.includes('vnpay') || method.includes('vietqr') || method.includes('payos') || method.includes('qr')
   return isTransfer && !isCod
 })
 
@@ -4620,7 +4620,7 @@ onBeforeUnmount(() => {
                   style="background: #fffbeb; color: #b45309; border: 1px solid #fde68a;"
                 >
 
-                  <span class="pill-dot">●</span> Đã hoàn tiền cho khách
+                  <span class="pill-dot">●</span> Đã hoàn tiền
 
                 </span>
 
@@ -4690,7 +4690,7 @@ onBeforeUnmount(() => {
                 @click="showRefundModal = true"
             >
               <span aria-hidden="true">↩</span>
-              {{ refundingOrder ? 'Đang xử lý...' : 'Hoàn tiền cho khách' }}
+              {{ refundingOrder ? 'Đang xử lý...' : 'Xác nhận đã hoàn tiền' }}
             </button>
 
             <!-- Nút Xác nhận thanh toán & In hóa đơn khi đơn chưa thanh toán (chỉ hiện khi chưa hoàn thành và chưa hủy) -->

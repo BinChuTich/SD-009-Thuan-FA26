@@ -89,6 +89,12 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Long> {
 
     @Query("SELECT h FROM HoaDon h " +
            "LEFT JOIN FETCH h.idKhachHang " +
+           "WHERE h.loaiDon = 2 AND h.trangThai = 6 AND h.trangThaiThanhToan = 1 " +
+           "ORDER BY h.ngayCapNhat DESC, h.id DESC")
+    List<HoaDon> findRecentPaidCancelledOnlineOrders(org.springframework.data.domain.Pageable pageable);
+
+    @Query("SELECT h FROM HoaDon h " +
+           "LEFT JOIN FETCH h.idKhachHang " +
            "ORDER BY h.id DESC")
     List<HoaDon> findRecentOrders(org.springframework.data.domain.Pageable pageable);
 }

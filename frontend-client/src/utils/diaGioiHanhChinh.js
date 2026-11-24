@@ -6,7 +6,7 @@
 // Danh sách 34 Tỉnh / Thành phố sau sáp nhập
 export const FALLBACK_PROVINCES = [
   'Thành phố Hà Nội', 'Thành phố Hồ Chí Minh', 'Thành phố Hải Phòng', 'Thành phố Đà Nẵng', 'Thành phố Cần Thơ',
-  'Thành phố Bắc Ninh', 'Thành phố Quảng Ninh', 'Thành phố Huế', 'Thành phố Đồng Nai',
+  'Tỉnh Bắc Ninh', 'Tỉnh Quảng Ninh', 'Thành phố Huế', 'Tỉnh Đồng Nai',
   'Tỉnh Cao Bằng', 'Tỉnh Tuyên Quang', 'Tỉnh Điện Biên', 'Tỉnh Lai Châu', 'Tỉnh Sơn La', 'Tỉnh Lào Cai',
   'Tỉnh Thái Nguyên', 'Tỉnh Lạng Sơn', 'Tỉnh Phú Thọ', 'Tỉnh Hưng Yên', 'Tỉnh Ninh Bình',
   'Tỉnh Thanh Hóa', 'Tỉnh Nghệ An', 'Tỉnh Hà Tĩnh', 'Tỉnh Quảng Trị', 'Tỉnh Quảng Ngãi',

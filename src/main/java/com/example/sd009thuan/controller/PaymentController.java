@@ -101,7 +101,7 @@ public class PaymentController {
                 "token", token,
                 "maHoaDon", maHoaDon,
                 "soTien", soTien,
-                "expiresIn", 900
+                "expiresIn", 300
         ));
     }
 

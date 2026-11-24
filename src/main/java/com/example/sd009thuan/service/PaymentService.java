@@ -156,7 +156,7 @@ public class PaymentService {
                 .daThanhToan(daThanhToan)
                 .thoiGianTao(Instant.now())
                 .build();
-    }    public String createDemoPaymentSession(String invoiceCode, BigDecimal amount) {        if (invoiceCode == null || invoiceCode.isBlank() || amount == null || amount.signum() <= 0) {            throw new IllegalArgumentException("Thông tin thanh toán demo không hợp lệ");        }        String cleanCode = invoiceCode.trim().replaceAll("[^a-zA-Z0-9_-]", "");        String token = UUID.randomUUID().toString();        expectedTransferAmounts.put(cleanCode.toUpperCase(Locale.ROOT), amount);        demoPaymentSessions.put(token, new DemoPaymentSession(cleanCode, amount, Instant.now().plusSeconds(900)));        return token;    }    public PaymentStatusResponse confirmDemoPayment(String token) {        DemoPaymentSession session = token == null ? null : demoPaymentSessions.remove(token);        if (session == null || session.expiresAt().isBefore(Instant.now())) {            throw new IllegalArgumentException("Mã thanh toán demo không tồn tại hoặc đã hết hạn");        }        ConfirmPaymentRequest request = new ConfirmPaymentRequest();        request.setMaHoaDon(session.invoiceCode());        request.setSoTien(session.amount());        request.setMaGiaoDich("DEMO-" + session.invoiceCode() + "-" + System.currentTimeMillis());        request.setGhiChu("Thanh toán mô phỏng từ điện thoại trong mạng nội bộ");        request.setPhuongThuc("Chuyển khoản demo");        return confirmPayment(request);    }
+    }    public String createDemoPaymentSession(String invoiceCode, BigDecimal amount) {        if (invoiceCode == null || invoiceCode.isBlank() || amount == null || amount.signum() <= 0) {            throw new IllegalArgumentException("Thông tin thanh toán demo không hợp lệ");        }        String cleanCode = invoiceCode.trim().replaceAll("[^a-zA-Z0-9_-]", "");        String token = UUID.randomUUID().toString();        expectedTransferAmounts.put(cleanCode.toUpperCase(Locale.ROOT), amount);        demoPaymentSessions.put(token, new DemoPaymentSession(cleanCode, amount, Instant.now().plusSeconds(300)));        return token;    }    public PaymentStatusResponse confirmDemoPayment(String token) {        DemoPaymentSession session = token == null ? null : demoPaymentSessions.remove(token);        if (session == null || session.expiresAt().isBefore(Instant.now())) {            throw new IllegalArgumentException("Mã thanh toán demo không tồn tại hoặc đã hết hạn");        }        ConfirmPaymentRequest request = new ConfirmPaymentRequest();        request.setMaHoaDon(session.invoiceCode());        request.setSoTien(session.amount());        request.setMaGiaoDich("DEMO-" + session.invoiceCode() + "-" + System.currentTimeMillis());        request.setGhiChu("Thanh toán mô phỏng từ điện thoại trong mạng nội bộ");        request.setPhuongThuc("Chuyển khoản demo");        return confirmPayment(request);    }
 
     /**
      * Kiểm tra trạng thái thanh toán của hóa đơn
@@ -269,9 +269,9 @@ public class PaymentService {
             hdOpt = hoaDonRepository.findByMaHoaDon(code.toUpperCase());
         }
         if (hdOpt.isPresent()) {
-            HoaDon hd = hdOpt.get();
+            HoaDon hd = hdOpt.get();            boolean wasAlreadyPaid = Integer.valueOf(1).equals(hd.getTrangThaiThanhToan());
             hd.setTrangThaiThanhToan(1);
-            hd.setNgayCapNhat(now);
+            hd.setNgayCapNhat(now);            hd.setNguoiCapNhat("Khách hàng online");
             hoaDonRepository.save(hd);
 
             // Tìm phương thức chuyển khoản
@@ -303,7 +303,7 @@ public class PaymentService {
                 httt.setThoiGian(now);
                 httt.setTrangThai(1);
                 hinhThucThanhToanRepository.save(httt);
-            }
+            }            if (!wasAlreadyPaid) {                LichSuHoaDon history = new LichSuHoaDon();                history.setIdHoaDon(hd);                history.setTrangThai(hd.getTrangThai());                history.setThoiGian(now);                String paymentNote = "Thanh toán VietQR thành công - Mã giao dịch: " + transCode;                history.setHanhDong(paymentNote);                history.setGhiChu(paymentNote);                history.setNguoiThucHien("Khách hàng online");                history.setVaiTroNguoiThucHien("Khách hàng");                lichSuHoaDonRepository.save(history);            }
 
 
         }

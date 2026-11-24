@@ -4,6 +4,7 @@ import com.example.sd009thuan.dto.chat.GuiTinNhanRequest;
 import com.example.sd009thuan.dto.chat.DanhGiaCuocHoiThoaiDTO;
 import com.example.sd009thuan.dto.chat.KhoiTaoChatRequest;
 import com.example.sd009thuan.repository.HoaDonRepository;
+import com.example.sd009thuan.repository.LichSuHoaDonRepository;
 import com.example.sd009thuan.repository.NhanVienRepository;
 import com.example.sd009thuan.service.impl.ChatServiceImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -121,7 +122,8 @@ class ChatServicePersistenceTest {
 
     private ChatServiceImpl createService(ObjectMapper mapper) {
         ChatServiceImpl service = new ChatServiceImpl(
-                mock(HoaDonRepository.class), mock(NhanVienRepository.class), mapper);
+                mock(HoaDonRepository.class), mock(LichSuHoaDonRepository.class),
+                mock(NhanVienRepository.class), mapper);
         ReflectionTestUtils.setField(service, "uploadDir", tempDir.toString());
         return service;
     }

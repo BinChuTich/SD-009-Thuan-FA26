@@ -4328,6 +4328,10 @@ public class HoaDonService {
 
                 actorName = nguoiThucHien.trim();
 
+                if (actorName.toLowerCase().startsWith("khách hàng")) {
+                    actorRole = "Khách hàng";
+                }
+
             }
 
             if (actorName != null && !actorName.trim().isEmpty()) {
