@@ -1,11 +1,12 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import api from '@/api.js'
 import Select2Combobox from '@/components/Select2Combobox.vue'
 import QrScannerModal from '@/components/QrScannerModal.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 const showQrScanner = ref(false)
 
@@ -225,7 +226,7 @@ const trangThaiDonOptions = [
   { value: '3', label: 'Chờ vận chuyển' },
   { value: '4', label: 'Vận chuyển' },
   { value: '5', label: 'Đã hoàn thành' },
-  { value: '7', label: 'Giao hàng thất bại' },
+  
   { value: '6', label: 'Hủy' }
 ]
 
@@ -331,10 +332,12 @@ const extractInvoiceArray = (resData) => {
 // Kiểm tra hóa đơn chờ tại quầy (không hiển thị trong danh sách hóa đơn)
 const isWaitingInvoice = (item) => {
   if (!item || typeof item !== 'object') return false
-  const isStoreWaiting = Number(item.loaiDon) === 1
-      && Number(item.trangThai) === 1
-      && (item.trangThaiThanhToan == null || Number(item.trangThaiThanhToan) === 0)
   const note = String(item.ghiChu || '').toLowerCase()
+  // note declared above
+  const isOnline = Number(item.loaiDon) === 2 || note.includes('online') || note.includes('website')
+  if (isOnline) return false
+  const isStoreWaiting = Number(item.loaiDon) === 1 && Number(item.trangThai) === 1 && ((Number(item.tongTien || 0) <= 0 && Number(item.tienSauGiamGia || 0) <= 0) || String(item.diaChiNhanHang || '').includes('quầy') || note.includes('hóa đơn chờ'))
+  // note declared above
   const isWaitingNote = note.includes('hóa đơn chờ') || note.includes('hoa don cho')
   return isStoreWaiting || isWaitingNote
 }
@@ -402,11 +405,17 @@ const loadHoaDon = async () => {
         const hasCarrier = Boolean(item.donViVanChuyen && item.donViVanChuyen !== '—')
         const noteText = String(item.ghiChu || '').toLowerCase()
         const creatorStr = String(item.nguoiTao || '').toUpperCase()
-        const isStaffCreator = creatorStr.startsWith('NV') || Boolean(item.idNhanVien) || noteText.includes('pos') || noteText.includes('tại quầy')
-        const isStoreOrder = Number(item.loaiDon) === 1 || isStaffCreator
-        const isOnline = !isStoreOrder && (Number(item.loaiDon) === 2 || String(item.loaiDon || '').toLowerCase().includes('online') || noteText.includes('online'))
+        const isOnline = Number(item.loaiDon) === 2 || noteText.includes('online') || noteText.includes('website')
+        const isStoreOrder = !isOnline
+        // checked isOnline
+        // checked isStoreOrder
+        // done loaiDon
         if (isOnline) {
-          employeeName = nhanVienObj?.tenNhanVien || nhanVienObj?.tenTaiKhoan || item.tenNhanVien || empCatalog[item.idNhanVien] || empCatalog[item.nguoiTao] || ''
+          if (Number(item.trangThai) === 1 || (!nhanVienObj?.tenNhanVien && !item.idNhanVien && !item.tenNhanVien)) {
+            employeeName = '—'
+          } else {
+            employeeName = nhanVienObj?.tenNhanVien || nhanVienObj?.tenTaiKhoan || item.tenNhanVien || empCatalog[item.idNhanVien] || '—'
+          }
         } else if (nhanVienObj?.tenNhanVien) {
           employeeName = nhanVienObj.tenNhanVien
         } else if (empCatalog[item.idNhanVien]) {
@@ -654,9 +663,22 @@ const refreshHoaDonWhenVisible = () => {
 }
 
 onMounted(() => {
-  filters.value.startDate = getTodayString()
+  if (route.query.search) {
+    filters.value.code = String(route.query.search).trim()
+    filters.value.startDate = ''
+  } else {
+    filters.value.startDate = getTodayString()
+  }
   loadHoaDon()
   document.addEventListener('visibilitychange', refreshHoaDonWhenVisible)
+})
+
+watch(() => route.query.search, (newSearch) => {
+  if (newSearch) {
+    filters.value.code = String(newSearch).trim()
+    filters.value.startDate = ''
+    currentPage.value = 1
+  }
 })
 
 const toast = ref({
@@ -874,15 +896,15 @@ onBeforeUnmount(() => {
           <thead>
           <tr>
             <th class="th-stt">#</th>
-            <th>Mã Hóa Đơn</th>
-            <th>Khách Hàng</th>
-            <th>Nhân Viên</th>
+            <th class="th-code">Mã Hóa Đơn</th>
+            <th class="th-customer">Khách Hàng</th>
+            <th class="th-employee">Nhân Viên</th>
             <th class="th-price">Tổng Tiền</th>
-            <th>Loại Đơn</th>
-            <th>Thời Gian Tạo</th>
-            <th>Trạng Thái</th>
-            <th>Thanh Toán</th>
-            <th class="text-center">Thao Tác</th>
+            <th class="th-type">Loại Đơn</th>
+            <th class="th-time">Thời Gian Tạo</th>
+            <th class="th-status">Trạng Thái</th>
+            <th class="th-payment">Thanh Toán</th>
+            <th class="th-action text-center">Thao Tác</th>
           </tr>
           </thead>
           <tbody>
@@ -900,21 +922,20 @@ onBeforeUnmount(() => {
             <td class="text-muted">{{ (currentPage - 1) * pageSize + index + 1 }}</td>
             <td class="font-bold text-code">{{ item.code }}</td>
             <td class="text-customer">{{ item.customerName }}</td>
-            <td class="text-employee">{{ item.employeeName }}</td>
+            <td class="text-employee">{{ item.employeeName || '—' }}</td>
             <td class="font-bold text-price">{{ formatMoney(item.totalPrice) }}</td>
-            <td>
+            <td class="td-type">
                 <span :class="item.type === 'Tại cửa hàng' ? 'badge-store' : 'badge-online'">
                   {{ item.type }}
                 </span>
             </td>
-            <td>
+            <td class="td-time">
               <div class="date-main">{{ item.createDate }}</div>
               <div class="time-sub">{{ item.createTime }}</div>
             </td>
-            <td>
+            <td class="td-status">
               <div class="status-cell-wrap">
                 <span class="badge-status" :class="getStatusClass(item.status)">
-                  <span class="status-dot"></span>
                   {{ getStatusText(item.status) }}
                 </span>
                 <span v-if="item.type !== 'Tại cửa hàng' && Number(item.status) === 1" class="badge-unprinted-list" title="Đơn online chờ xác nhận là chưa in hóa đơn">
@@ -922,9 +943,8 @@ onBeforeUnmount(() => {
                 </span>
               </div>
             </td>
-            <td>
+            <td class="td-payment">
                 <span class="badge-payment" :class="getPaymentClass(item.paymentStatus)">
-                  <span class="payment-dot"></span>
                   {{ getPaymentText(item.paymentStatus) }}
                 </span>
             </td>
@@ -1291,10 +1311,29 @@ onBeforeUnmount(() => {
 
 .table-responsive {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 8px;
+  background: #ffffff;
 }
+
+.table-responsive::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background: #d5d0c8;
+  border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+  background: #f7f5ef;
+}
+
+
 
 .custom-table {
   width: 100%;
+  min-width: 1040px;
   border-collapse: collapse;
   text-align: left;
   font-size: 0.88rem;
@@ -1313,10 +1352,28 @@ onBeforeUnmount(() => {
 }
 
 .custom-table td {
-  padding: 13px 14px;
+  padding: 12px 14px;
   border-bottom: 1px solid #f1e7dc;
   color: #40484f;
   vertical-align: middle;
+}
+
+.th-stt { width: 48px; text-align: center; }
+.th-code { min-width: 130px; white-space: nowrap; }
+.th-customer { min-width: 140px; }
+.th-employee { min-width: 120px; }
+.th-price { min-width: 115px; white-space: nowrap; }
+.th-type { min-width: 120px; white-space: nowrap; }
+.th-time { min-width: 130px; white-space: nowrap; }
+.th-status { min-width: 140px; white-space: nowrap; }
+.th-payment { min-width: 135px; white-space: nowrap; }
+.th-action { width: 75px; text-align: center; white-space: nowrap; }
+
+.td-type,
+.td-time,
+.td-status,
+.td-payment {
+  white-space: nowrap;
 }
 
 .table-row:hover {
@@ -1339,10 +1396,6 @@ onBeforeUnmount(() => {
   color: #5d676e;
 }
 
-.th-price {
-  white-space: nowrap;
-}
-
 .text-price {
   color: #2b353b;
   white-space: nowrap;
@@ -1351,11 +1404,15 @@ onBeforeUnmount(() => {
 
 .date-main {
   color: #3e474f;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .time-sub {
   font-size: 0.75rem;
   color: #8c969e;
+  margin-top: 2px;
+  white-space: nowrap;
 }
 
 .text-center {
@@ -1367,22 +1424,39 @@ onBeforeUnmount(() => {
   color: #8c969e;
 }
 
+/* ==========================================================
+   BADGES (ĐỒNG BỘ 1 KIỂU PILL CHUẨN + RESPONSIVE)
+========================================================== */
+.badge-store,
+.badge-online,
+.badge-status,
+.badge-payment {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 4px 12px !important;
+  border-radius: 9999px !important;
+  font-size: 0.76rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.2px !important;
+  white-space: nowrap !important;
+  line-height: 1.25 !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+  transition: all 0.2s ease;
+}
+
+/* Loại đơn */
 .badge-store {
-  background: #e8f6ed;
-  color: #23783a;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 0.76rem;
-  font-weight: 600;
+  background: #eaf2f6 !important;
+  color: #38627d !important;
+  border: 1px solid #c5d9e5 !important;
 }
 
 .badge-online {
-  background: #e7f0fd;
-  color: #1a73e8;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 0.76rem;
-  font-weight: 600;
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border: 1px solid #bfdbfe !important;
 }
 
 .status-cell-wrap {
@@ -1404,86 +1478,71 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.badge-status {
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.76rem;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
+/* Trạng thái đơn hàng */
 .status-waiting {
-  background: #f5edff;
-  color: #8a3ee6;
+  background: #f5edff !important;
+  color: #8a3ee6 !important;
+  border: 1px solid #e6d4fc !important;
 }
 
 .status-pending {
-  background: #fff4e5;
-  color: #d97706;
+  background: #fff4e5 !important;
+  color: #d97706 !important;
+  border: 1px solid #fde0be !important;
 }
 
 .status-confirmed {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+  border: 1px solid #bfe5fd !important;
 }
 
 .status-shipping {
-  background: #e0f7fa;
-  color: #00838f;
+  background: #e0f7fa !important;
+  color: #00838f !important;
+  border: 1px solid #b5eff5 !important;
 }
 
 .status-completed {
-  background: #e6f6ec;
-  color: #1b7a37;
+  background: #e6f6ec !important;
+  color: #1b7a37 !important;
+  border: 1px solid #bce1c7 !important;
 }
 
 .status-cancelled {
-  background: #fee6e6;
-  color: #be2626;
+  background: #fee6e6 !important;
+  color: #be2626 !important;
+  border: 1px solid #facdcd !important;
 }
 
 .status-failed {
-  background: #fef2f2;
-  color: #dc2626;
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+  border: 1px solid #fecaca !important;
 }
-
 
 .status-default {
-  background: #f0e9df;
-  color: #636b72;
+  background: #f0e9df !important;
+  color: #636b72 !important;
+  border: 1px solid #e2dad0 !important;
 }
 
-.badge-payment {
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 0.76rem;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+/* Thanh toán */
+.payment-paid {
+  background: #eaf8ed !important;
+  color: #227838 !important;
+  border: 1px solid #bce1c5 !important;
+}
+
+.payment-unpaid {
+  background: #fff6eb !important;
+  color: #b75e11 !important;
+  border: 1px solid #fad3ae !important;
 }
 
 .status-dot,
 .payment-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: currentColor;
-  flex-shrink: 0;
-}
-
-.payment-paid {
-  background: #eaf8ed;
-  color: #227838;
-  border: 1px solid #bce1c5;
-}
-
-.payment-unpaid {
-  background: #fff6eb;
-  color: #b75e11;
-  border: 1px solid #fad3ae;
+  display: none !important;
 }
 
 .btn-action-view {
@@ -1611,7 +1670,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 768px) {
   .hoa-don-container {
-    padding: 16px;
+    padding: 12px;
   }
 
   .filter-grid {
@@ -1638,6 +1697,24 @@ onBeforeUnmount(() => {
     flex-direction: column;
     gap: 14px;
     align-items: flex-start;
+  }
+
+  .custom-table th {
+    padding: 10px 10px;
+    font-size: 0.76rem;
+  }
+
+  .custom-table td {
+    padding: 10px 10px;
+    font-size: 0.82rem;
+  }
+
+  .badge-store,
+  .badge-online,
+  .badge-status,
+  .badge-payment {
+    padding: 3px 8px !important;
+    font-size: 0.72rem !important;
   }
 }
 </style>

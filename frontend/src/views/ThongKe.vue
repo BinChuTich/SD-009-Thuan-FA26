@@ -244,91 +244,619 @@
         </div>
       </div>
 
-      <!-- 3. Hàng 6 Thẻ chỉ số tổng quan (6 KPI Cards) -->
-      <div class="kpi-cards-grid">
-        <!-- 1. Tổng doanh thu -->
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap pastel-green">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-              <polyline points="17 6 23 6 23 12" />
-            </svg>
+      <!-- 3. Hàng 5 Thẻ chỉ số tổng quan (5 KPI Cards - Đều có nút Chi tiết mở bảng riêng) -->
+      <div class="kpi-cards-grid overview-kpi-grid">
+        <!-- 1. Doanh thu thực tế -->
+        <div
+          class="kpi-card kpi-card-clickable"
+          :class="{ 'kpi-card-active theme-green': selectedKpiType === 'actual_revenue' }"
+          @click="toggleKpiTable('actual_revenue')"
+          title="Nhấn để xem hoặc ẩn danh sách đơn hàng Doanh thu thực tế"
+        >
+          <div class="kpi-card-header-flex">
+            <div class="kpi-icon-wrap pastel-green">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                <polyline points="17 6 23 6 23 12" />
+              </svg>
+            </div>
+            <div class="kpi-order-action-pill pill-green" :class="{ 'is-open': selectedKpiType === 'actual_revenue' }">
+              <span>{{ selectedKpiType === 'actual_revenue' ? 'Đang mở' : 'Chi tiết' }}</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="pill-arrow" :class="{ 'arrow-up': selectedKpiType === 'actual_revenue' }">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
           </div>
           <div class="kpi-value text-dark">{{ formatCurrency(kpiData.totalRevenue) }}</div>
-          <div class="kpi-label">Tổng doanh thu</div>
+          <div class="kpi-label">Doanh thu thực tế</div>
         </div>
 
-        <!-- 2. Tiền mặt -->
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap pastel-blue">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="6" width="20" height="12" rx="2" />
-              <circle cx="12" cy="12" r="2" />
-              <path d="M6 12h.01M18 12h.01" />
-            </svg>
+        <!-- 2. Doanh thu dự kiến -->
+        <div
+          class="kpi-card kpi-card-clickable"
+          :class="{ 'kpi-card-active theme-amber': selectedKpiType === 'expected_revenue' }"
+          @click="toggleKpiTable('expected_revenue')"
+          title="Nhấn để xem hoặc ẩn danh sách đơn hàng Doanh thu dự kiến"
+        >
+          <div class="kpi-card-header-flex">
+            <div class="kpi-icon-wrap pastel-amber">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </div>
+            <div class="kpi-order-action-pill pill-amber" :class="{ 'is-open': selectedKpiType === 'expected_revenue' }">
+              <span>{{ selectedKpiType === 'expected_revenue' ? 'Đang mở' : 'Chi tiết' }}</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="pill-arrow" :class="{ 'arrow-up': selectedKpiType === 'expected_revenue' }">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
           </div>
-          <div class="kpi-value text-dark">{{ formatCurrency(kpiData.cashRevenue) }}</div>
-          <div class="kpi-label">Tiền mặt</div>
+          <div class="kpi-value text-dark">{{ formatCurrency(kpiData.expectedRevenue) }}</div>
+          <div class="kpi-label">Doanh thu dự kiến</div>
         </div>
 
-        <!-- 3. Chuyển khoản -->
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap pastel-emerald">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="4" width="20" height="16" rx="2" />
-              <line x1="2" y1="10" x2="22" y2="10" />
-            </svg>
+        <!-- 3. Tiền mặt & Chuyển khoản (Gộp 2 thẻ thành 1) -->
+        <div
+          class="kpi-card kpi-card-clickable"
+          :class="{ 'kpi-card-active theme-blue': selectedKpiType === 'payment' }"
+          @click="toggleKpiTable('payment')"
+          title="Nhấn để xem hoặc ẩn danh sách đơn hàng theo Tiền mặt & Chuyển khoản"
+        >
+          <div class="kpi-card-header-flex">
+            <div class="kpi-icon-wrap pastel-blue">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="5" width="20" height="14" rx="2" />
+                <line x1="2" y1="10" x2="22" y2="10" />
+              </svg>
+            </div>
+            <div class="kpi-order-action-pill pill-blue" :class="{ 'is-open': selectedKpiType === 'payment' }">
+              <span>{{ selectedKpiType === 'payment' ? 'Đang mở' : 'Chi tiết' }}</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="pill-arrow" :class="{ 'arrow-up': selectedKpiType === 'payment' }">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
           </div>
-          <div class="kpi-value text-dark">{{ formatCurrency(kpiData.transferRevenue) }}</div>
-          <div class="kpi-label">Chuyển khoản</div>
+          <div class="kpi-dual-values">
+            <div class="dual-val-row">
+              <span class="dual-label">Tiền mặt:</span>
+              <span class="dual-num">{{ formatCurrency(kpiData.cashRevenue) }}</span>
+            </div>
+            <div class="dual-val-row">
+              <span class="dual-label">Chuyển khoản:</span>
+              <span class="dual-num">{{ formatCurrency(kpiData.transferRevenue) }}</span>
+            </div>
+          </div>
+          <div class="kpi-label">Tiền mặt & Chuyển khoản</div>
         </div>
 
         <!-- 4. Tổng đơn hàng -->
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap pastel-purple">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="9" cy="21" r="1" />
-              <circle cx="20" cy="21" r="1" />
-              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-            </svg>
+        <div
+          class="kpi-card kpi-card-clickable"
+          :class="{ 'kpi-card-active theme-purple': selectedKpiType === 'total_orders' }"
+          @click="toggleKpiTable('total_orders')"
+          title="Nhấn để xem hoặc ẩn danh sách tất cả đơn hàng"
+        >
+          <div class="kpi-card-header-flex">
+            <div class="kpi-icon-wrap pastel-purple">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="9" cy="21" r="1" />
+                <circle cx="20" cy="21" r="1" />
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+              </svg>
+            </div>
+            <div class="kpi-order-action-pill pill-purple" :class="{ 'is-open': selectedKpiType === 'total_orders' }">
+              <span>{{ selectedKpiType === 'total_orders' ? 'Đang mở' : 'Chi tiết' }}</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="pill-arrow" :class="{ 'arrow-up': selectedKpiType === 'total_orders' }">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
           </div>
           <div class="kpi-value text-dark">{{ kpiData.totalOrders.toLocaleString('vi-VN') }}</div>
           <div class="kpi-label">Tổng đơn hàng</div>
         </div>
 
-        <!-- 5. Giá trị TB đơn (AOV) -->
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap pastel-pink">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="4" y="2" width="16" height="20" rx="2" />
-              <line x1="8" y1="6" x2="16" y2="6" />
-              <line x1="16" y1="14" x2="16" y2="18" />
-              <path d="M16 10h.01" />
-              <path d="M12 10h.01" />
-              <path d="M8 10h.01" />
-              <path d="M12 14h.01" />
-              <path d="M8 14h.01" />
-              <path d="M12 18h.01" />
-              <path d="M8 18h.01" />
-            </svg>
-          </div>
-          <div class="kpi-value text-dark">{{ formatCurrency(kpiData.aov) }}</div>
-          <div class="kpi-label">Giá trị TB đơn (AOV)</div>
-        </div>
-
-        <!-- 6. Sản phẩm đã bán -->
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap pastel-orange">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-              <line x1="12" y1="22.08" x2="12" y2="12" />
-            </svg>
+        <!-- 5. Sản phẩm đã bán -->
+        <div
+          class="kpi-card kpi-card-clickable"
+          :class="{ 'kpi-card-active theme-orange': selectedKpiType === 'products' }"
+          @click="toggleKpiTable('products')"
+          title="Nhấn để xem hoặc ẩn danh sách sản phẩm đã bán"
+        >
+          <div class="kpi-card-header-flex">
+            <div class="kpi-icon-wrap pastel-orange">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
+              </svg>
+            </div>
+            <div class="kpi-order-action-pill pill-orange" :class="{ 'is-open': selectedKpiType === 'products' }">
+              <span>{{ selectedKpiType === 'products' ? 'Đang mở' : 'Chi tiết' }}</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="pill-arrow" :class="{ 'arrow-up': selectedKpiType === 'products' }">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
           </div>
           <div class="kpi-value text-dark">{{ kpiData.totalItemsSold.toLocaleString('vi-VN') }}</div>
           <div class="kpi-label">Sản phẩm đã bán</div>
         </div>
       </div>
+
+      <!-- 3.5. BẢNG SỔ RA CHI TIẾT (Mặc định ẨN - Tự động hiển thị tương ứng khi click vào bất kỳ thẻ KPI nào trong 5 thẻ) -->
+      <transition name="order-table-slide">
+        <div v-if="selectedKpiType !== null" class="card-box table-card order-stats-card" id="order-stats-section">
+          <!-- TRƯỜNG HỢP 1: THẺ 1-4 LIÊN QUAN ĐẾN ĐƠN HÀNG & DOANH THU -->
+          <template v-if="selectedKpiType !== 'products'">
+            <!-- HEADER KHUNG BẢNG -->
+            <div class="table-card-header">
+              <div class="table-title-area">
+                <svg class="icon-section" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="9" cy="21" r="1" />
+                  <circle cx="20" cy="21" r="1" />
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                </svg>
+                <div class="table-heading-wrap">
+                  <div class="table-heading-line">
+                    <h3 class="card-heading">{{ kpiTableTitle }}</h3>
+                    <span v-if="kpiTableBadge.text" class="kpi-table-badge" :class="kpiTableBadge.class">
+                      {{ kpiTableBadge.text }}
+                    </span>
+                  </div>
+                  <span class="table-total-count">({{ filteredOrdersList.length }} / {{ currentKpiOrdersTotal }} đơn)</span>
+                </div>
+              </div>
+
+              <div class="table-card-header-actions">
+                <!-- CỤM NÚT LỌC KÊNH BÁN: TẤT CẢ / TẠI QUẦY / ONLINE -->
+                <div class="order-channel-tabs">
+                  <button
+                    type="button"
+                    class="channel-tab-btn"
+                    :class="{ active: orderChannelFilter === 'all' }"
+                    @click="setOrderChannelFilter('all')"
+                    title="Xem tất cả đơn trong mục này"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="3" width="7" height="7"></rect>
+                      <rect x="14" y="3" width="7" height="7"></rect>
+                      <rect x="14" y="14" width="7" height="7"></rect>
+                      <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    <span>Tất cả</span>
+                    <span class="tab-badge">{{ currentKpiOrdersTotal }}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="channel-tab-btn"
+                    :class="{ active: orderChannelFilter === 'store' }"
+                    @click="setOrderChannelFilter('store')"
+                    title="Lọc đơn Tại quầy"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                      <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
+                    <span>Tại quầy</span>
+                    <span class="tab-badge badge-store-count">{{ currentKpiStoreCount }}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="channel-tab-btn"
+                    :class="{ active: orderChannelFilter === 'online' }"
+                    @click="setOrderChannelFilter('online')"
+                    title="Lọc đơn Online"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="2" y1="12" x2="22" y2="12"></line>
+                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                    </svg>
+                    <span>Online</span>
+                    <span class="tab-badge badge-online-count">{{ currentKpiOnlineCount }}</span>
+                  </button>
+                </div>
+
+                <!-- Nút Thu gọn bảng -->
+                <button
+                  type="button"
+                  class="btn-collapse-order-table"
+                  @click="closeKpiTable"
+                  title="Thu gọn bảng chi tiết"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                  <span>Thu gọn</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- THANH CÔNG CỤ TÌM KIẾM & LỌC -->
+            <div class="order-filter-toolbar">
+              <div class="input-with-icon search-box">
+                <svg class="icon-prefix" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input
+                  type="text"
+                  v-model="orderTableQuery"
+                  placeholder="Tìm mã đơn, khách hàng, SĐT..."
+                  class="form-control input-has-prefix"
+                  @input="orderPagination.page = 0"
+                />
+              </div>
+
+              <div class="toolbar-select-group">
+                <select v-model="orderStatusFilter" class="form-control select-combobox" @change="orderPagination.page = 0">
+                  <option value="">Tất cả trạng thái</option>
+                  <option value="5">Đã Hoàn Thành</option>
+                  <option value="1">Chờ Xác Nhận</option>
+                  <option value="2">Đã Xác Nhận</option>
+                  <option value="3">Chờ Vận Chuyển</option>
+                  <option value="4">Vận Chuyển</option>
+                  <option value="6">Hủy</option>
+                </select>
+
+                <select v-model="orderPaymentFilter" class="form-control select-combobox" @change="orderPagination.page = 0">
+                  <option value="">Tất cả thanh toán</option>
+                  <option value="1">Đã thanh toán</option>
+                  <option value="0">Chưa thanh toán</option>
+                </select>
+
+                <select
+                  v-if="selectedKpiType === 'payment'"
+                  v-model="orderMethodFilter"
+                  class="form-control select-combobox"
+                  @change="orderPagination.page = 0"
+                >
+                  <option value="">Tất cả phương thức</option>
+                  <option value="cash">Tiền mặt</option>
+                  <option value="cod">Thanh toán khi nhận hàng (COD)</option>
+                  <option value="transfer">Chuyển khoản / VNPAY</option>
+                  <option value="combined">Kết hợp (Tiền mặt + CK)</option>
+                </select>
+
+                <select v-model="orderSortBy" class="form-control select-combobox">
+                  <option value="newest">Mới nhất</option>
+                  <option value="oldest">Cũ nhất</option>
+                  <option value="highest_val">Giá trị cao nhất</option>
+                  <option value="lowest_val">Giá trị thấp nhất</option>
+                </select>
+
+                <button type="button" class="btn-refresh" @click="resetOrderTableFilters" title="Đặt lại bộ lọc">
+                  ↻ Đặt lại
+                </button>
+              </div>
+            </div>
+
+            <!-- BẢNG DỮ LIỆU ĐỒNG BỘ 100% VỚI DANH SÁCH HÓA ĐƠN VÀ ẢNH 7 -->
+            <div class="table-responsive">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th class="th-stt">STT</th>
+                    <th class="th-code">Mã Đơn Hàng</th>
+                    <th class="th-time">Thời Gian Tạo</th>
+                    <th class="th-customer">Khách Hàng</th>
+                    <th class="th-employee">Nhân Viên</th>
+                    <th class="th-type">Loại Đơn</th>
+                    <th class="th-payment-method">Hình Thức TT</th>
+                    <th class="th-status">Trạng Thái</th>
+                    <th class="th-payment">Thanh Toán</th>
+                    <th class="th-price">Thành Tiền</th>
+                    <th class="th-action text-center">Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="filteredOrdersList.length === 0">
+                    <td colspan="11" class="text-center text-empty">
+                      Không có dữ liệu đơn hàng nào phù hợp với mục này.
+                    </td>
+                  </tr>
+                  <tr
+                    v-for="(ord, index) in paginatedOrders"
+                    :key="ord.id || index"
+                    class="table-row"
+                  >
+                    <td class="text-muted text-center">
+                      {{ (orderPagination.page * orderPagination.size) + index + 1 }}
+                    </td>
+                    <td class="font-bold text-code">
+                      <span class="code-link" @click="viewInvoiceDetail(ord.maHoaDon)">{{ ord.maHoaDon }}</span>
+                    </td>
+                    <td class="td-time">
+                      <div class="date-main">{{ formatOrderDateTime(ord.ngayTao).date }}</div>
+                      <div class="time-sub">{{ formatOrderDateTime(ord.ngayTao).time }}</div>
+                    </td>
+                    <td class="text-customer">
+                      <div class="cust-name font-medium">{{ ord.tenKhachHang || 'Khách lẻ' }}</div>
+                      <div v-if="ord.soDienThoaiKhachHang" class="time-sub">{{ ord.soDienThoaiKhachHang }}</div>
+                    </td>
+                    <td class="td-employee">
+                      <span class="emp-chip">{{ ord.tenNhanVien || '—' }}</span>
+                    </td>
+                    <td class="td-type">
+                      <span :class="Number(ord.loaiDon) === 2 ? 'badge-online' : 'badge-store'">
+                        <span v-if="Number(ord.loaiDon) === 2">🌐 Online</span>
+                        <span v-else>⌂ Tại quầy</span>
+                      </span>
+                    </td>
+                    <td class="td-payment-method">
+                      <span class="payment-method-text">{{ ord.hinhThucThanhToan || (Number(ord.loaiDon) === 1 ? 'Tiền mặt' : 'Thanh toán khi nhận hàng (COD)') }}</span>
+                    </td>
+                    <td class="td-status">
+                      <div class="status-cell-wrap">
+                        <span class="badge-status" :class="getStatusClass(ord.trangThai)">
+                          <span class="status-dot"></span>
+                          {{ getStatusText(ord.trangThai) }}
+                        </span>
+                      </div>
+                    </td>
+                    <td class="td-payment">
+                      <span class="badge-payment" :class="getPaymentClass(ord.trangThaiThanhToan)">
+                        <span class="payment-dot"></span>
+                        {{ getPaymentText(ord.trangThaiThanhToan) }}
+                      </span>
+                    </td>
+                    <td class="font-bold text-price">
+                      {{ formatCurrency(ord.tienSauGiamGia != null ? ord.tienSauGiamGia : ord.tongTien) }}
+                    </td>
+                    <td class="text-center">
+                      <button
+                        class="btn-action-view"
+                        title="Xem chi tiết đơn hàng"
+                        @click="viewInvoiceDetail(ord.maHoaDon)"
+                      >
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- CHÂN BẢNG: PHÂN TRANG ĐỒNG BỘ CHUẨN 3 KHỐI NHƯ BẢNG SẢN PHẨM & ẢNH 7 -->
+            <div v-if="filteredOrdersList.length > 0" class="order-table-footer">
+              <div class="footer-left-count">
+                Hiển thị <strong>{{ filteredOrdersList.length ? ((orderPagination.page * orderPagination.size) + 1) : 0 }} - {{ Math.min((orderPagination.page + 1) * orderPagination.size, filteredOrdersList.length) }}</strong> trong tổng số <strong>{{ filteredOrdersList.length }}</strong> đơn hàng
+                <span v-if="orderChannelFilter !== 'all'" class="filter-indicator-text">
+                  (Đang lọc <strong>{{ orderChannelFilter === 'store' ? 'Tại quầy' : 'Online' }}</strong>)
+                </span>
+              </div>
+
+              <div class="footer-center-pagination">
+                <button
+                  type="button"
+                  class="pg-btn"
+                  :disabled="orderPagination.page === 0"
+                  @click="goToOrderPage(orderPagination.page - 1)"
+                >
+                  ‹
+                </button>
+                <button
+                  v-for="pNo in visibleOrderPageNumbers"
+                  :key="pNo"
+                  type="button"
+                  class="pg-btn"
+                  :class="{ active: pNo === orderPagination.page }"
+                  @click="goToOrderPage(pNo)"
+                >
+                  {{ pNo + 1 }}
+                </button>
+                <button
+                  type="button"
+                  class="pg-btn"
+                  :disabled="orderPagination.page >= orderTotalPages - 1"
+                  @click="goToOrderPage(orderPagination.page + 1)"
+                >
+                  ›
+                </button>
+              </div>
+
+              <div class="footer-right-size">
+                <div class="select-wrapper-minimal size-select">
+                  <select v-model.number="orderPagination.size" class="form-control-minimal" @change="orderPagination.page = 0">
+                    <option :value="5">Hiển thị 5 bản ghi / trang</option>
+                    <option :value="10">Hiển thị 10 bản ghi / trang</option>
+                    <option :value="20">Hiển thị 20 bản ghi / trang</option>
+                    <option :value="50">Hiển thị 50 bản ghi / trang</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- TRƯỜNG HỢP 2: THẺ 6 - SẢN PHẨM ĐÃ BÁN -->
+          <template v-else>
+            <!-- HEADER BẢNG SẢN PHẨM -->
+            <div class="table-card-header">
+              <div class="table-title-area">
+                <svg class="icon-section" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                  <line x1="12" y1="22.08" x2="12" y2="12" />
+                </svg>
+                <div class="table-heading-wrap">
+                  <div class="table-heading-line">
+                    <h3 class="card-heading">Danh sách sản phẩm đã bán trong kỳ</h3>
+                    <span class="kpi-table-badge badge-products">
+                      🏷 Sản phẩm đã bán
+                    </span>
+                  </div>
+                  <span class="table-total-count">({{ filteredProductsList.length }} sản phẩm)</span>
+                </div>
+              </div>
+
+              <div class="table-card-header-actions">
+                <!-- Nút Thu gọn bảng -->
+                <button
+                  type="button"
+                  class="btn-collapse-order-table"
+                  @click="closeKpiTable"
+                  title="Thu gọn bảng sản phẩm"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                  <span>Thu gọn</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- TOOLBAR TÌM KIẾM SẢN PHẨM -->
+            <div class="product-stats-toolbar inline-toolbar">
+              <div class="input-with-prefix-icon search-product-box">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="prefix-icon">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  v-model="productTableQuery"
+                  placeholder="Tìm theo mã, tên sản phẩm..."
+                  class="form-control-minimal with-icon"
+                  @input="onProductSearchChange"
+                />
+              </div>
+
+              <div class="select-wrapper-minimal">
+                <select v-model="productSortBy" class="form-control-minimal" @change="sortProductTable">
+                  <option value="best_seller">Bán chạy nhất</option>
+                  <option value="slow_seller">Bán chậm nhất</option>
+                  <option value="highest_revenue">Doanh thu cao nhất</option>
+                  <option value="highest_stock">Tồn kho nhiều nhất</option>
+                  <option value="highest_return">Số lượng trả nhiều nhất</option>
+                </select>
+              </div>
+
+              <button type="button" class="btn-reset-round small" @click="resetProductTableFilters" title="Đặt lại bộ lọc sản phẩm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 4v6h-6" />
+                  <path d="M1 20v-6h6" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+                <span>Đặt lại</span>
+              </button>
+            </div>
+
+            <!-- BẢNG DỮ LIỆU SẢN PHẨM 8 CỘT -->
+            <div class="table-responsive-clean">
+              <table class="minimal-styled-table">
+                <thead>
+                  <tr class="header-brown-beige">
+                    <th style="width: 60px; text-align: center">STT</th>
+                    <th style="width: 140px">MÃ SẢN PHẨM</th>
+                    <th style="min-width: 240px">TÊN SẢN PHẨM</th>
+                    <th style="width: 150px">THƯƠNG HIỆU</th>
+                    <th style="width: 110px; text-align: center">ĐÃ BÁN</th>
+                    <th style="width: 120px; text-align: center">SỐ LƯỢNG TRẢ</th>
+                    <th style="width: 150px; text-align: right">DOANH THU</th>
+                    <th style="width: 120px; text-align: center">TỒN KHO</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="paginatedProducts.length === 0">
+                    <td colspan="8" class="text-center text-empty">
+                      Không có sản phẩm nào phù hợp.
+                    </td>
+                  </tr>
+                  <tr v-for="(p, index) in paginatedProducts" :key="p.id || index" class="table-data-row">
+                    <td class="text-center text-muted">
+                      {{ (productPagination.page * productPagination.size) + index + 1 }}
+                    </td>
+                    <td class="font-bold text-code">{{ p.code }}</td>
+                    <td>
+                      <div class="product-cell-flex">
+                        <img
+                          :src="p.image || defaultProductImage"
+                          class="product-thumb-small"
+                          alt="product"
+                          @error="(e) => e.target.src = defaultProductImage"
+                        />
+                        <div class="product-info-wrap">
+                          <span class="product-name font-medium">{{ p.name }}</span>
+                          <span v-if="p.sizes" class="product-sizes-text">Size: {{ p.sizes }}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td>{{ p.brand || '—' }}</td>
+                    <td class="text-center font-bold text-success-highlight">
+                      {{ (p.soldCount || 0).toLocaleString('vi-VN') }}
+                    </td>
+                    <td class="text-center font-bold text-danger-highlight">
+                      {{ (p.returnedCount || 0).toLocaleString('vi-VN') }}
+                    </td>
+                    <td class="text-right font-bold text-revenue">
+                      {{ formatCurrency(p.revenue) }}
+                    </td>
+                    <td class="text-center">
+                      <span class="stock-badge" :class="Number(p.stock) < 10 ? 'stock-low' : 'stock-normal'">
+                        {{ (p.stock || 0).toLocaleString('vi-VN') }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- PHÂN TRANG SẢN PHẨM -->
+            <div v-if="filteredProductsList.length > 0" class="pagination-footer-bar">
+              <div class="pagination-count-text">
+                Hiển thị <strong>{{ filteredProductsList.length ? ((productPagination.page * productPagination.size) + 1) : 0 }} - {{ Math.min((productPagination.page + 1) * productPagination.size, filteredProductsList.length) }}</strong> trong tổng số <strong>{{ filteredProductsList.length }}</strong> sản phẩm
+              </div>
+
+              <div class="pagination-buttons-group">
+                <button
+                  type="button"
+                  class="pg-btn"
+                  :disabled="productPagination.page === 0"
+                  @click="goToProductPage(productPagination.page - 1)"
+                >
+                  ‹
+                </button>
+                <button
+                  v-for="pNo in visibleProductPageNumbers"
+                  :key="pNo"
+                  type="button"
+                  class="pg-btn"
+                  :class="{ active: pNo === productPagination.page }"
+                  @click="goToProductPage(pNo)"
+                >
+                  {{ pNo + 1 }}
+                </button>
+                <button
+                  type="button"
+                  class="pg-btn"
+                  :disabled="productPagination.page >= productTotalPages - 1"
+                  @click="goToProductPage(productPagination.page + 1)"
+                >
+                  ›
+                </button>
+              </div>
+
+              <div class="pagination-size-select">
+                <div class="select-wrapper-minimal size-select">
+                  <select v-model.number="productPagination.size" class="form-control-minimal" @change="productPagination.page = 0">
+                    <option :value="5">Hiển thị 5 bản ghi / trang</option>
+                    <option :value="10">Hiển thị 10 bản ghi / trang</option>
+                    <option :value="20">Hiển thị 20 bản ghi / trang</option>
+                    <option :value="50">Hiển thị 50 bản ghi / trang</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </transition>
 
       <!-- 4. Biểu đồ Cột Sản phẩm bán được (Full Width - Tỷ lệ 1:1, font chuẩn sắc nét không bẹp) -->
       <div class="content-card full-chart-card">
@@ -1082,27 +1610,7 @@
           <div class="kpi-label">Tổng doanh thu kỳ</div>
         </div>
 
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap pastel-blue">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="2" y="6" width="20" height="12" rx="2" />
-              <circle cx="12" cy="12" r="2" />
-            </svg>
-          </div>
-          <div class="kpi-value text-dark">{{ formatCurrency(comparisonData.summary?.cashRevenue) }}</div>
-          <div class="kpi-label">Tiền mặt</div>
-        </div>
 
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap pastel-emerald">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-              <rect x="2" y="4" width="20" height="16" rx="2" />
-              <line x1="2" y1="10" x2="22" y2="10" />
-            </svg>
-          </div>
-          <div class="kpi-value text-dark">{{ formatCurrency(comparisonData.summary?.transferRevenue) }}</div>
-          <div class="kpi-label">Chuyển khoản</div>
-        </div>
 
         <div class="kpi-card">
           <div class="kpi-icon-wrap pastel-purple">
@@ -1836,11 +2344,346 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '@/api'
 import * as XLSX from 'xlsx'
 import { showToast } from '@/utils/dialog.js'
 
+const router = useRouter()
+
 const defaultProductImage = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=150&auto=format&fit=crop&q=80'
+
+// ==========================================
+// THỐNG KÊ ĐƠN HÀNG (DANH SÁCH ĐƠN HÀNG VỚI BỘ LỌC TẠI QUẦY & ONLINE)
+// ==========================================
+const selectedKpiType = ref(null) // null | 'actual_revenue' | 'expected_revenue' | 'payment' | 'total_orders' | 'products'
+const showOrderTable = computed(() => selectedKpiType.value !== null)
+
+const allInvoiceStats = ref([])
+const orderChannelFilter = ref('all') // 'all' | 'store' | 'online'
+const orderTableQuery = ref('')
+const orderStatusFilter = ref('')
+const orderPaymentFilter = ref('')
+const orderMethodFilter = ref('') // '' | 'cash' | 'transfer'
+const orderSortBy = ref('newest')
+const orderPagination = reactive({ page: 0, size: 5 })
+
+const kpiTableTitle = computed(() => {
+  switch (selectedKpiType.value) {
+    case 'actual_revenue':
+      return 'Danh sách đơn hàng Doanh thu thực tế'
+    case 'expected_revenue':
+      return 'Danh sách đơn hàng Doanh thu dự kiến'
+    case 'payment':
+      return 'Danh sách đơn hàng theo phương thức thanh toán (Tiền mặt & Chuyển khoản)'
+    case 'cash':
+      return 'Danh sách đơn hàng thanh toán Tiền mặt (Thực thu)'
+    case 'transfer':
+      return 'Danh sách đơn hàng thanh toán Chuyển khoản (Thực thu)'
+    case 'total_orders':
+      return 'Danh sách tất cả đơn hàng'
+    case 'products':
+      return 'Danh sách sản phẩm đã bán trong kỳ'
+    default:
+      return 'Danh sách đơn hàng'
+  }
+})
+
+const kpiTableBadge = computed(() => {
+  switch (selectedKpiType.value) {
+    case 'actual_revenue':
+      return { text: 'Đã hoàn thành / Đã thanh toán', class: 'badge-actual' }
+    case 'expected_revenue':
+      return { text: 'Chờ xác nhận / Giao COD', class: 'badge-expected' }
+    case 'payment':
+      return { text: 'Tiền mặt & Chuyển khoản', class: 'badge-payment' }
+    case 'cash':
+      return { text: 'Tiền mặt', class: 'badge-cash' }
+    case 'transfer':
+      return { text: 'Chuyển khoản / VNPAY / QR', class: 'badge-transfer' }
+    case 'total_orders':
+      return { text: 'Toàn bộ đơn hàng', class: 'badge-all' }
+    case 'products':
+      return { text: 'Sản phẩm đã bán', class: 'badge-products' }
+    default:
+      return { text: '', class: '' }
+  }
+})
+
+const currentKpiOrdersBaseList = computed(() => {
+  let list = [...allInvoiceStats.value]
+  if (selectedKpiType.value === 'actual_revenue') {
+    list = list.filter(item => {
+      const st = Number(item.trangThai)
+      const pt = Number(item.trangThaiThanhToan)
+      return (st === 5 || pt === 1) && st !== 6
+    })
+  } else if (selectedKpiType.value === 'expected_revenue') {
+    list = list.filter(item => {
+      const st = Number(item.trangThai)
+      const pt = Number(item.trangThaiThanhToan)
+      return st !== 5 && st !== 6 && pt !== 1
+    })
+  } else if (selectedKpiType.value === 'payment') {
+    list = list.filter(item => {
+      const st = Number(item.trangThai)
+      const pt = Number(item.trangThaiThanhToan)
+      return (st === 5 || pt === 1) && st !== 6
+    })
+  } else if (selectedKpiType.value === 'cash') {
+    list = list.filter(item => {
+      const st = Number(item.trangThai)
+      const pt = Number(item.trangThaiThanhToan)
+      const isValid = (st === 5 || pt === 1) && st !== 6
+      const method = String(item.hinhThucThanhToan || '').toLowerCase()
+      const isCash = method.includes('tiền mặt') || method.includes('kết hợp') || method.includes('cod') || method.includes('nhận hàng') || (!method && Number(item.loaiDon) === 1)
+      return isValid && isCash
+    })
+  } else if (selectedKpiType.value === 'transfer') {
+    list = list.filter(item => {
+      const st = Number(item.trangThai)
+      const pt = Number(item.trangThaiThanhToan)
+      const isValid = (st === 5 || pt === 1) && st !== 6
+      const method = String(item.hinhThucThanhToan || '').toLowerCase()
+      const isTransfer = (method.includes('chuyển khoản') || method.includes('kết hợp') || method.includes('vnpay') || method.includes('qr')) && !method.includes('cod') && !method.includes('nhận hàng')
+      return isValid && isTransfer
+    })
+  }
+  return list
+})
+
+const currentKpiOrdersTotal = computed(() => currentKpiOrdersBaseList.value.length)
+const currentKpiStoreCount = computed(() => currentKpiOrdersBaseList.value.filter(i => Number(i.loaiDon) === 1).length)
+const currentKpiOnlineCount = computed(() => currentKpiOrdersBaseList.value.filter(i => Number(i.loaiDon) === 2).length)
+
+const totalOrdersCount = computed(() => allInvoiceStats.value.length)
+const storeOrdersCount = computed(() => allInvoiceStats.value.filter(i => Number(i.loaiDon) === 1).length)
+const onlineOrdersCount = computed(() => allInvoiceStats.value.filter(i => Number(i.loaiDon) === 2).length)
+
+const filteredOrdersList = computed(() => {
+  let list = [...currentKpiOrdersBaseList.value]
+
+  // 1. Lọc theo Kênh bán: Tại quầy vs Online
+  if (orderChannelFilter.value === 'store') {
+    list = list.filter(item => Number(item.loaiDon) === 1)
+  } else if (orderChannelFilter.value === 'online') {
+    list = list.filter(item => Number(item.loaiDon) === 2)
+  }
+
+  // 2. Lọc theo Trạng thái đơn hàng
+  if (orderStatusFilter.value !== '') {
+    list = list.filter(item => Number(item.trangThai) === Number(orderStatusFilter.value))
+  }
+
+  // 3. Lọc theo Trạng thái thanh toán
+  if (orderPaymentFilter.value !== '') {
+    list = list.filter(item => Number(item.trangThaiThanhToan) === Number(orderPaymentFilter.value))
+  }
+
+  // 3b. Lọc theo Phương thức thanh toán (Tiền mặt / Chuyển khoản / COD / Kết hợp) khi xem thẻ payment
+  if (selectedKpiType.value === 'payment' && orderMethodFilter.value) {
+    if (orderMethodFilter.value === 'cash') {
+      list = list.filter(item => {
+        const method = String(item.hinhThucThanhToan || '').toLowerCase()
+        return (method.includes('tiền mặt') && !method.includes('cod') && !method.includes('nhận hàng')) || (!method && Number(item.loaiDon) === 1)
+      })
+    } else if (orderMethodFilter.value === 'cod') {
+      list = list.filter(item => {
+        const method = String(item.hinhThucThanhToan || '').toLowerCase()
+        return method.includes('cod') || method.includes('nhận hàng') || (!method && Number(item.loaiDon) === 2)
+      })
+    } else if (orderMethodFilter.value === 'transfer') {
+      list = list.filter(item => {
+        const method = String(item.hinhThucThanhToan || '').toLowerCase()
+        return (method.includes('chuyển khoản') || method.includes('vnpay') || method.includes('qr')) && !method.includes('cod') && !method.includes('nhận hàng')
+      })
+    } else if (orderMethodFilter.value === 'combined') {
+      list = list.filter(item => {
+        const method = String(item.hinhThucThanhToan || '').toLowerCase()
+        return method.includes('kết hợp')
+      })
+    }
+  }
+
+  // 4. Tìm kiếm từ khóa (Mã đơn, Khách hàng, SĐT, Nhân viên)
+  const q = orderTableQuery.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter(item => {
+      const ma = String(item.maHoaDon || '').toLowerCase()
+      const kh = String(item.tenKhachHang || '').toLowerCase()
+      const sdt = String(item.soDienThoaiKhachHang || '').toLowerCase()
+      const nv = String(item.tenNhanVien || '').toLowerCase()
+      return ma.includes(q) || kh.includes(q) || sdt.includes(q) || nv.includes(q)
+    })
+  }
+
+  // 5. Sắp xếp
+  list.sort((a, b) => {
+    if (orderSortBy.value === 'newest') {
+      const timeA = a.ngayTao ? new Date(a.ngayTao).getTime() : 0
+      const timeB = b.ngayTao ? new Date(b.ngayTao).getTime() : 0
+      return timeB - timeA
+    } else if (orderSortBy.value === 'oldest') {
+      const timeA = a.ngayTao ? new Date(a.ngayTao).getTime() : 0
+      const timeB = b.ngayTao ? new Date(b.ngayTao).getTime() : 0
+      return timeA - timeB
+    } else if (orderSortBy.value === 'highest_val') {
+      const valA = Number(a.tienSauGiamGia != null ? a.tienSauGiamGia : a.tongTien || 0)
+      const valB = Number(b.tienSauGiamGia != null ? b.tienSauGiamGia : b.tongTien || 0)
+      return valB - valA
+    } else if (orderSortBy.value === 'lowest_val') {
+      const valA = Number(a.tienSauGiamGia != null ? a.tienSauGiamGia : a.tongTien || 0)
+      const valB = Number(b.tienSauGiamGia != null ? b.tienSauGiamGia : b.tongTien || 0)
+      return valA - valB
+    }
+    return 0
+  })
+
+  return list
+})
+
+const orderTotalPages = computed(() => {
+  const total = filteredOrdersList.value.length
+  return Math.ceil(total / orderPagination.size) || 1
+})
+
+const paginatedOrders = computed(() => {
+  const start = orderPagination.page * orderPagination.size
+  return filteredOrdersList.value.slice(start, start + orderPagination.size)
+})
+
+const visibleOrderPageNumbers = computed(() => {
+  const pages = []
+  const maxButtons = 5
+  let start = Math.max(0, orderPagination.page - Math.floor(maxButtons / 2))
+  let end = Math.min(orderTotalPages.value, start + maxButtons)
+  if (end - start < maxButtons) {
+    start = Math.max(0, end - maxButtons)
+  }
+  for (let i = start; i < end; i++) {
+    pages.push(i)
+  }
+  return pages
+})
+
+function goToOrderPage(pageIndex) {
+  if (pageIndex >= 0 && pageIndex < orderTotalPages.value) {
+    orderPagination.page = pageIndex
+  }
+}
+
+function setOrderChannelFilter(channel) {
+  orderChannelFilter.value = channel
+  orderPagination.page = 0
+}
+
+function resetOrderTableFilters() {
+  orderChannelFilter.value = 'all'
+  orderTableQuery.value = ''
+  orderStatusFilter.value = ''
+  orderPaymentFilter.value = ''
+  orderMethodFilter.value = ''
+  orderSortBy.value = 'newest'
+  orderPagination.page = 0
+}
+
+function toggleKpiTable(type) {
+  if (selectedKpiType.value === type) {
+    selectedKpiType.value = null
+  } else {
+    selectedKpiType.value = type
+    orderPagination.page = 0
+    productPagination.page = 0
+    setTimeout(() => {
+      const el = document.getElementById('order-stats-section')
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }, 100)
+  }
+}
+
+function closeKpiTable() {
+  selectedKpiType.value = null
+}
+
+function toggleOrderTable(channel = null) {
+  if (channel && typeof channel === 'string' && channel !== 'toggle') {
+    orderChannelFilter.value = channel
+    selectedKpiType.value = 'total_orders'
+  } else {
+    selectedKpiType.value = (selectedKpiType.value === 'total_orders') ? null : 'total_orders'
+  }
+  orderPagination.page = 0
+  if (selectedKpiType.value) {
+    setTimeout(() => {
+      const el = document.getElementById('order-stats-section')
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }, 100)
+  }
+}
+
+function scrollToOrderTable(channel = 'all') {
+  orderChannelFilter.value = channel
+  orderPagination.page = 0
+  selectedKpiType.value = 'total_orders'
+  setTimeout(() => {
+    const el = document.getElementById('order-stats-section')
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, 100)
+}
+
+function viewInvoiceDetail(maHoaDon) {
+  if (!maHoaDon) return
+  router.push(`/hoa-don/${encodeURIComponent(maHoaDon)}`)
+}
+
+function formatOrderDateTime(dt) {
+  if (!dt) return { date: '-', time: '-' }
+  const d = new Date(dt)
+  return {
+    date: d.toLocaleDateString('vi-VN'),
+    time: d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  }
+}
+
+function getStatusText(status) {
+  const statusMap = {
+    1: 'Chờ Xác Nhận',
+    2: 'Đã Xác Nhận',
+    3: 'Chờ Vận Chuyển',
+    4: 'Vận Chuyển',
+    5: 'Đã Hoàn Thành',
+    6: 'Hủy',
+    7: 'Giao Hàng Thất Bại'
+  }
+  return statusMap[Number(status)] || 'Chưa cập nhật'
+}
+
+function getStatusClass(status) {
+  switch (Number(status)) {
+    case 1: return 'status-pending'
+    case 2: return 'status-confirmed'
+    case 3: return 'status-waiting'
+    case 4: return 'status-shipping'
+    case 5: return 'status-completed'
+    case 6: return 'status-cancelled'
+    case 7: return 'status-failed'
+    default: return 'status-default'
+  }
+}
+
+function getPaymentText(status) {
+  return Number(status) === 1 ? 'Đã thanh toán' : 'Chưa thanh toán'
+}
+
+function getPaymentClass(status) {
+  return Number(status) === 1 ? 'payment-paid' : 'payment-unpaid'
+}
 
 // 0. Quản lý Chế độ xem: 'overview' (Thống kê chính) hoặc 'comparison' (So sánh & Tăng trưởng)
 const viewMode = ref('overview')
@@ -1990,6 +2833,8 @@ function applyFilters() {
 // 2. Dữ liệu 6 Thẻ chỉ số tổng quan (KPIs)
 const kpiData = reactive({
   totalRevenue: 0,
+  expectedRevenue: 0,
+  expectedOrders: 0,
   cashRevenue: 0,
   transferRevenue: 0,
   totalOrders: 0,
@@ -2313,7 +3158,9 @@ async function fetchOverviewData() {
     const data = res.data
     if (data) {
       if (data.kpi) {
-        kpiData.totalRevenue = Number(data.kpi.totalRevenue || 0)
+        kpiData.totalRevenue = Number(data.kpi.totalRevenue || data.kpi.actualRevenue || 0)
+        kpiData.expectedRevenue = Number(data.kpi.expectedRevenue || 0)
+        kpiData.expectedOrders = Number(data.kpi.expectedOrders || 0)
         kpiData.cashRevenue = Number(data.kpi.cashRevenue || 0)
         kpiData.transferRevenue = Number(data.kpi.transferRevenue || 0)
         kpiData.totalOrders = Number(data.kpi.totalOrders || 0)
@@ -2337,6 +3184,12 @@ async function fetchOverviewData() {
 
       if (Array.isArray(data.products)) {
         allProductStats.value = data.products
+      }
+
+      if (Array.isArray(data.invoices)) {
+        allInvoiceStats.value = data.invoices
+      } else {
+        allInvoiceStats.value = []
       }
     }
   } catch (err) {
@@ -2394,9 +3247,10 @@ function exportClientExcelFallback() {
       ['Kiểu thống kê:', filters.statType === 'day' ? 'Theo ngày' : filters.statType === 'week' ? 'Theo tuần' : filters.statType === 'month' ? 'Theo tháng' : 'Theo năm'],
       [],
       ['CHỈ SỐ TỔNG QUAN (KPIS)', 'GIÁ TRỊ'],
-      ['Tổng doanh thu', kpiData.totalRevenue],
-      ['Tiền mặt', kpiData.cashRevenue],
-      ['Chuyển khoản', kpiData.transferRevenue],
+      ['Doanh thu thực tế', kpiData.totalRevenue],
+      ['Doanh thu dự kiến', kpiData.expectedRevenue],
+      ['Tiền mặt (Thực thu)', kpiData.cashRevenue],
+      ['Chuyển khoản (Thực thu)', kpiData.transferRevenue],
       ['Tổng đơn hàng', kpiData.totalOrders],
       ['Giá trị TB đơn (AOV)', kpiData.aov],
       ['Sản phẩm đã bán', kpiData.totalItemsSold]
@@ -2421,6 +3275,29 @@ function exportClientExcelFallback() {
         p.stock
       ])
     })
+
+    // Sheet Đơn hàng
+    const orderHeader = ['STT', 'Mã đơn hàng', 'Thời gian tạo', 'Khách hàng', 'Số điện thoại', 'Nhân viên', 'Kênh bán', 'Hình thức TT', 'Trạng thái đơn hàng', 'Trạng thái thanh toán', 'Tổng tiền (đ)', 'Thành tiền (đ)']
+    const orderRows = [orderHeader]
+
+    filteredOrdersList.value.forEach((ord, idx) => {
+      orderRows.push([
+        idx + 1,
+        ord.maHoaDon || '',
+        ord.ngayTao || '',
+        ord.tenKhachHang || 'Khách lẻ',
+        ord.soDienThoaiKhachHang || '',
+        ord.tenNhanVien || '',
+        Number(ord.loaiDon) === 2 ? 'Online' : 'Tại quầy',
+        ord.hinhThucThanhToan || '',
+        getOrderStatusText(ord.trangThai),
+        Number(ord.trangThaiThanhToan) === 1 ? 'Đã thanh toán' : 'Chưa thanh toán',
+        ord.tongTien || 0,
+        ord.tienSauGiamGia != null ? ord.tienSauGiamGia : ord.tongTien || 0
+      ])
+    })
+    const wsOrders = XLSX.utils.aoa_to_sheet(orderRows)
+    XLSX.utils.book_append_sheet(wb, wsOrders, 'DanhSachDonHang')
 
     const wsProducts = XLSX.utils.aoa_to_sheet(productRows)
     XLSX.utils.book_append_sheet(wb, wsProducts, 'ThongKeSanPham')
@@ -3486,10 +4363,10 @@ input.form-control-minimal.with-icon {
   background-color: #3b82f6;
 }
 
-/* 6 KPI Cards */
+/* 5 KPI Cards */
 .kpi-cards-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -3520,11 +4397,20 @@ input.form-control-minimal.with-icon {
 }
 
 .pastel-green { background-color: #e8f5e9; color: #2e7d32; }
+.pastel-amber { background-color: #fef3c7; color: #b45309; }
 .pastel-blue { background-color: #e3f2fd; color: #1565c0; }
 .pastel-emerald { background-color: #e0f2f1; color: #00796b; }
 .pastel-purple { background-color: #f3e5f5; color: #7b1fa2; }
 .pastel-pink { background-color: #fce4ec; color: #c2185b; }
 .pastel-orange { background-color: #fff3e0; color: #e65100; }
+
+.kpi-sub-hint {
+  font-size: 0.73rem;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-top: 5px;
+  line-height: 1.35;
+}
 
 .kpi-value {
   font-size: 1.25rem;
@@ -4782,7 +5668,7 @@ input.form-control-minimal.with-icon {
 }
 
 /* Responsive adjustments */
-@media (max-width: 1280px) {
+@media (max-width: 1440px) {
   .kpi-cards-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -4810,5 +5696,835 @@ input.form-control-minimal.with-icon {
   .kpi-cards-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ========================================================================= */
+/* CSS CHO BẢNG DANH SÁCH HÓA ĐƠN (ĐỒNG BỘ 100% VỚI MÀN DANH SÁCH HÓA ĐƠN)  */
+/* ========================================================================= */
+.order-stats-card.card-box {
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid var(--line, #e9e5db);
+  padding: 22px 26px;
+  margin-top: 1.5rem;
+  margin-bottom: 22px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.table-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.table-title-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon-section {
+  color: var(--blue, #496883);
+}
+
+.card-heading {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--blue, #496883);
+  margin: 0;
+}
+
+.table-total-count {
+  font-size: 0.85rem;
+  color: #8c969e;
+  font-weight: 500;
+}
+
+/* Cụm nút lọc kênh bán */
+.order-channel-tabs {
+  display: inline-flex;
+  align-items: center;
+  background: #f7f5ef;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid #e9e5db;
+  gap: 4px;
+}
+
+.channel-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #636b72;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.channel-tab-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.7);
+  color: #2b353b;
+}
+
+.channel-tab-btn.active {
+  background: #ffffff;
+  color: var(--blue, #496883);
+  font-weight: 700;
+  border-color: #d5d0c8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 9999px;
+  background: #e9e5db;
+  color: #496883;
+}
+
+.channel-tab-btn.active .tab-badge {
+  background: var(--blue, #496883);
+  color: #ffffff;
+}
+
+/* Thanh công cụ filter toolbar */
+.order-filter-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.order-filter-toolbar .search-box {
+  flex: 1 1 280px;
+  min-width: 240px;
+  max-width: 400px;
+}
+
+.toolbar-select-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.order-filter-toolbar .form-control {
+  height: 36px;
+  border: 1px solid var(--line, #e9e5db);
+  border-radius: 8px;
+  background-color: #fcfbf8;
+  color: var(--text, #3d4a50);
+  font-size: 0.88rem;
+  padding: 0 12px;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.order-filter-toolbar .form-control:hover {
+  border-color: #b8c3cc;
+  background-color: #ffffff;
+}
+
+.order-filter-toolbar .form-control:focus {
+  border-color: var(--blue, #496883);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
+}
+
+.order-filter-toolbar .input-has-prefix {
+  padding-left: 36px !important;
+}
+
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.icon-prefix {
+  position: absolute;
+  left: 11px;
+  color: #8c969e;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.select-combobox {
+  cursor: pointer;
+  min-width: 155px;
+}
+
+.order-filter-toolbar .btn-refresh {
+  height: 36px;
+  padding: 0 14px;
+  border: 1.5px solid #c8d6df;
+  border-radius: 8px;
+  background: #edf4f7;
+  color: var(--blue, #496883);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.order-filter-toolbar .btn-refresh:hover {
+  background: #dfeaf0;
+  border-color: #9eb6c5;
+}
+
+/* Custom Table (chuẩn màn Danh sách hóa đơn) */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.custom-table {
+  width: 100%;
+  min-width: 1040px;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.custom-table th {
+  background-color: #f7f5ef;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
+  color: var(--blue, #496883);
+  font-weight: 700;
+  padding: 13px 14px;
+  white-space: nowrap;
+  border-bottom: 2px solid #e9e5db;
+}
+
+.custom-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1e7dc;
+  color: #40484f;
+  vertical-align: middle;
+}
+
+.th-stt { width: 48px; text-align: center; }
+.th-code { min-width: 130px; white-space: nowrap; }
+.th-customer { min-width: 140px; }
+.th-employee { min-width: 120px; }
+.th-price { min-width: 115px; white-space: nowrap; }
+.th-type { min-width: 120px; white-space: nowrap; }
+.th-time { min-width: 130px; white-space: nowrap; }
+.th-status { min-width: 140px; white-space: nowrap; }
+.th-payment { min-width: 135px; white-space: nowrap; }
+.th-action { width: 75px; text-align: center; white-space: nowrap; }
+
+.td-type,
+.td-time,
+.td-status,
+.td-payment {
+  white-space: nowrap;
+}
+
+.table-row:hover {
+  background-color: #fcfaf7;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+.text-code {
+  color: #2b353b;
+}
+
+.text-customer {
+  color: #3e474f;
+}
+
+.text-employee {
+  color: #5d676e;
+}
+
+.text-price {
+  color: #2b353b;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.date-main {
+  color: #3e474f;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.time-sub {
+  font-size: 0.75rem;
+  color: #8c969e;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-empty {
+  padding: 30px;
+  color: #8c969e;
+}
+
+/* Badges đồng bộ 100% với Danh sách hóa đơn */
+.badge-store,
+.badge-online,
+.badge-status,
+.badge-payment {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 4px 12px !important;
+  border-radius: 9999px !important;
+  font-size: 0.76rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.2px !important;
+  white-space: nowrap !important;
+  line-height: 1.25 !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+  transition: all 0.2s ease;
+}
+
+.badge-store {
+  background: #eaf2f6 !important;
+  color: #38627d !important;
+  border: 1px solid #c5d9e5 !important;
+}
+
+.badge-online {
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border: 1px solid #bfdbfe !important;
+}
+
+.status-cell-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.status-waiting {
+  background: #f5edff !important;
+  color: #8a3ee6 !important;
+  border: 1px solid #e6d4fc !important;
+}
+
+.status-pending {
+  background: #fff4e5 !important;
+  color: #d97706 !important;
+  border: 1px solid #fde0be !important;
+}
+
+.status-confirmed {
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+  border: 1px solid #bfe5fd !important;
+}
+
+.status-shipping {
+  background: #e0f7fa !important;
+  color: #00838f !important;
+  border: 1px solid #b5eff5 !important;
+}
+
+.status-completed {
+  background: #e6f6ec !important;
+  color: #1b7a37 !important;
+  border: 1px solid #bce1c7 !important;
+}
+
+.status-cancelled {
+  background: #fee6e6 !important;
+  color: #be2626 !important;
+  border: 1px solid #facdcd !important;
+}
+
+.status-failed {
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+  border: 1px solid #fecaca !important;
+}
+
+.status-default {
+  background: #f0e9df !important;
+  color: #636b72 !important;
+  border: 1px solid #e2dad0 !important;
+}
+
+.payment-paid {
+  background: #eaf8ed !important;
+  color: #227838 !important;
+  border: 1px solid #bce1c5 !important;
+}
+
+.payment-unpaid {
+  background: #fff6eb !important;
+  color: #b75e11 !important;
+  border: 1px solid #fad3ae !important;
+}
+
+.status-dot,
+.payment-dot {
+  display: none !important;
+}
+
+.btn-action-view {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d5c8b8;
+  background: #ffffff;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #277da1;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-action-view:hover {
+  background-color: #faf7f0;
+  border-color: #a49787;
+}
+
+/* Pagination đồng bộ 100% với Danh sách hóa đơn */
+.pagination-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 18px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pagination-info {
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #555e65;
+  line-height: 1.5;
+}
+
+.pagination-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.btn-pager {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #ded5c7;
+  background: #ffffff;
+  color: #555e65;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-pager.active {
+  background: #36536b;
+  border-color: #36536b;
+  color: #ffffff;
+}
+
+.btn-pager:hover:not(:disabled):not(.active) {
+  background: #f4ede4;
+}
+
+.btn-pager:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* KPI Card Clickable & Toggle Bảng đơn hàng */
+.kpi-card-clickable {
+  cursor: pointer;
+  transition: all 0.22s ease-in-out;
+  position: relative;
+  user-select: none;
+}
+
+.kpi-card-clickable:hover {
+  transform: translateY(-2px);
+  border-color: #8c7355 !important;
+  box-shadow: 0 6px 18px rgba(140, 115, 85, 0.14);
+}
+
+.kpi-card-clickable.kpi-card-active {
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.kpi-card-clickable.kpi-card-active.theme-green { border-color: #16a34a !important; background: #f0fdf4; }
+.kpi-card-clickable.kpi-card-active.theme-amber { border-color: #d97706 !important; background: #fffbeb; }
+.kpi-card-clickable.kpi-card-active.theme-blue { border-color: #2563eb !important; background: #eff6ff; }
+.kpi-card-clickable.kpi-card-active.theme-emerald { border-color: #059669 !important; background: #ecfdf5; }
+.kpi-card-clickable.kpi-card-active.theme-purple { border-color: #7c3aed !important; background: #f5f3ff; }
+.kpi-card-clickable.kpi-card-active.theme-orange { border-color: #ea580c !important; background: #fff7ed; }
+
+.kpi-card-header-flex {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.kpi-order-action-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #7c3aed;
+  background: #f5f3ff;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid #ddd6fe;
+  transition: all 0.2s ease;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.kpi-order-action-pill.pill-green {
+  color: #16a34a;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+.kpi-card-clickable:hover .pill-green,
+.pill-green.is-open {
+  background: #16a34a !important;
+  color: #ffffff !important;
+  border-color: #16a34a !important;
+}
+
+.kpi-order-action-pill.pill-amber {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+.kpi-card-clickable:hover .pill-amber,
+.pill-amber.is-open {
+  background: #d97706 !important;
+  color: #ffffff !important;
+  border-color: #d97706 !important;
+}
+
+.kpi-order-action-pill.pill-blue {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+.kpi-card-clickable:hover .pill-blue,
+.pill-blue.is-open {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+.kpi-order-action-pill.pill-emerald {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+.kpi-card-clickable:hover .pill-emerald,
+.pill-emerald.is-open {
+  background: #059669 !important;
+  color: #ffffff !important;
+  border-color: #059669 !important;
+}
+
+.kpi-order-action-pill.pill-purple {
+  color: #7c3aed;
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+}
+.kpi-card-clickable:hover .pill-purple,
+.pill-purple.is-open {
+  background: #7c3aed !important;
+  color: #ffffff !important;
+  border-color: #7c3aed !important;
+}
+
+.kpi-order-action-pill.pill-orange {
+  color: #c2410c;
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+.kpi-card-clickable:hover .pill-orange,
+.pill-orange.is-open {
+  background: #ea580c !important;
+  color: #ffffff !important;
+  border-color: #ea580c !important;
+}
+
+.table-heading-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.table-heading-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kpi-table-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.badge-actual { background: #ecfdf5; color: #16a34a; border: 1px solid #a7f3d0; }
+.badge-expected { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+.badge-payment { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.badge-cash { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.badge-transfer { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.badge-all { background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }
+.badge-products { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+
+/* KPI Dual Values cho thẻ gộp Tiền mặt & Chuyển khoản */
+.kpi-dual-values {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 32px;
+  margin-bottom: 0.35rem;
+}
+
+.dual-val-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  line-height: 1.25;
+}
+
+.dual-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.dual-num {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+}
+
+.product-stats-toolbar.inline-toolbar {
+  margin-bottom: 1rem;
+  padding: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pill-arrow {
+  transition: transform 0.2s ease;
+}
+
+.pill-arrow.arrow-up {
+  transform: rotate(180deg);
+}
+
+/* Hiệu ứng trượt mượt cho Bảng danh sách đơn hàng */
+.order-table-slide-enter-active,
+.order-table-slide-leave-active {
+  transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 1600px;
+  opacity: 1;
+  overflow: hidden;
+}
+
+.order-table-slide-enter-from,
+.order-table-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-width: 0 !important;
+}
+
+.table-card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-collapse-order-table {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #5f6b73;
+  background: #f1ede7;
+  border: 1px solid #e0d9cd;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-collapse-order-table:hover {
+  background: #e2dbcf;
+  color: #2b353b;
+  border-color: #c9bfaf;
+}
+
+.emp-chip {
+  display: inline-block;
+  background: #f0f7ff;
+  color: #0369a1;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: 1px solid #e0f2fe;
+  white-space: nowrap;
+}
+
+.code-link {
+  color: var(--blue, #496883);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.code-link:hover {
+  color: #1f3b54;
+}
+
+.th-payment-method {
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+.td-payment-method {
+  white-space: nowrap;
+  color: #4b5563;
+  font-size: 0.85rem;
+}
+
+.status-dot,
+.payment-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 4px;
+}
+
+.badge-status.status-completed .status-dot,
+.badge-payment.payment-paid .payment-dot {
+  background-color: #16a34a;
+}
+
+.badge-status.status-pending .status-dot,
+.badge-payment.payment-unpaid .payment-dot {
+  background-color: #ea580c;
+}
+
+.order-table-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 14px;
+  margin-top: 10px;
+  border-top: 1px solid #e9e5db;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.order-table-footer .footer-left-count {
+  font-size: 0.85rem;
+  color: #5d676e;
+}
+
+.order-table-footer .filter-indicator-text {
+  margin-left: 4px;
+  color: #7c3aed;
+}
+
+.order-table-footer .footer-center-pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.order-table-footer .footer-right-size {
+  display: flex;
+  align-items: center;
+}
+
+/* Badges đồng bộ 100% với ảnh 7 và màn Danh sách hóa đơn */
+.badge-store {
+  background: #f3e8ff !important;
+  color: #7e22ce !important;
+  border: 1px solid #e9d5ff !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px;
+}
+
+.badge-online {
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border: 1px solid #bfdbfe !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px;
 }
 </style>

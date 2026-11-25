@@ -188,18 +188,30 @@ public class HoaDon {
                 }
             } catch (Exception ignored) {}
         }
+        if (this.ghiChu != null) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})").matcher(this.ghiChu);
+            if (m.find()) {
+                return m.group(1).trim();
+            }
+        }
         if (idKhachHang != null && idKhachHang.getEmail() != null && !idKhachHang.getEmail().trim().isEmpty()) {
             return idKhachHang.getEmail().trim();
         }
         return null;
     }
 
+    @JsonProperty("email")
     public String getEmail() {
-        return this.email != null ? this.email : getEmailKhachHang();
+        return (this.email != null && !this.email.trim().isEmpty()) ? this.email.trim() : getEmailKhachHang();
+    }
+
+    @JsonProperty("maKhachHang")
+    public String getMaKhachHang() {
+        return idKhachHang != null ? idKhachHang.getMaKhachHang() : null;
     }
 
     public void setEmail(String email) {
-        this.email = email;
+        this.email = (email != null && !email.trim().isEmpty()) ? email.trim() : null;
     }
 
     // Đơn vị vận chuyển (Transient - hỗ trợ lưu kèm ghiChu dạng [ĐVVC: ...])
@@ -253,6 +265,25 @@ public class HoaDon {
 
     public void setMaVanDon(String maVanDon) {
         this.maVanDon = maVanDon;
+    }
+
+    // Số lần khách hàng online sửa thông tin nhận đơn (tối đa 1 lần)
+    @Transient
+    private Integer soLanSuaThongTin;
+
+    @JsonProperty("soLanSuaThongTin")
+    public Integer getSoLanSuaThongTin() {
+        if (this.soLanSuaThongTin != null) {
+            return this.soLanSuaThongTin;
+        }
+        if (this.ghiChu != null && this.ghiChu.contains("[DA_SUA_THONG_TIN]")) {
+            return 1;
+        }
+        return 0;
+    }
+
+    public void setSoLanSuaThongTin(Integer soLanSuaThongTin) {
+        this.soLanSuaThongTin = soLanSuaThongTin;
     }
 
     // Chi tiết hóa đơn
@@ -317,7 +348,76 @@ public class HoaDon {
 
     @JsonProperty("maPhieuGiamGia")
     public String getMaPhieuGiamGia() {
-        return idPhieuGiamGia != null ? idPhieuGiamGia.getMaPhieuGiamGia() : null;
+        if (idPhieuGiamGia != null && idPhieuGiamGia.getMaPhieuGiamGia() != null) {
+            return idPhieuGiamGia.getMaPhieuGiamGia();
+        }
+        if (this.ghiChu != null && this.ghiChu.contains("[VOUCHER: ")) {
+            try {
+                int start = this.ghiChu.indexOf("[VOUCHER: ") + 10;
+                int end = this.ghiChu.indexOf("]", start);
+                if (end > start) {
+                    String part = this.ghiChu.substring(start, end);
+                    if (part.contains(" - ")) {
+                        return part.split(" - ")[0].trim();
+                    }
+                    return part.trim();
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    @JsonProperty("soTienGiamVoucher")
+    public BigDecimal getSoTienGiamVoucher() {
+        if (this.tongTien != null && this.tienSauGiamGia != null) {
+            BigDecimal ship = this.phiVanChuyen != null ? this.phiVanChuyen : BigDecimal.ZERO;
+            BigDecimal subtotalWithShip = this.tongTien.add(ship);
+            if (subtotalWithShip.compareTo(this.tienSauGiamGia) > 0) {
+                return subtotalWithShip.subtract(this.tienSauGiamGia);
+            }
+            if (this.tongTien.compareTo(this.tienSauGiamGia) > 0) {
+                return this.tongTien.subtract(this.tienSauGiamGia);
+            }
+        }
+        return BigDecimal.ZERO;
+    }
+
+    @JsonProperty("tongTienGiamGia")
+    public BigDecimal getTongTienGiamGia() {
+        if (this.tongTien != null && this.tienSauGiamGia != null) {
+            BigDecimal ship = this.phiVanChuyen != null ? this.phiVanChuyen : BigDecimal.ZERO;
+            BigDecimal subtotalWithShip = this.tongTien.add(ship);
+            if (subtotalWithShip.compareTo(this.tienSauGiamGia) > 0) {
+                return subtotalWithShip.subtract(this.tienSauGiamGia);
+            }
+        }
+        return BigDecimal.ZERO;
+    }
+
+    @JsonProperty("tongTienHangGoc")
+    public BigDecimal getTongTienHangGoc() {
+        if (chiTietHoaDons == null || chiTietHoaDons.isEmpty()) {
+            return this.tongTien != null ? this.tongTien : BigDecimal.ZERO;
+        }
+        BigDecimal total = BigDecimal.ZERO;
+        for (ChiTietHoaDon ct : chiTietHoaDons) {
+            BigDecimal price = (ct.getIdChiTietSanPham() != null && ct.getIdChiTietSanPham().getGiaBan() != null)
+                    ? ct.getIdChiTietSanPham().getGiaBan()
+                    : (ct.getDonGia() != null ? ct.getDonGia() : BigDecimal.ZERO);
+            int qty = ct.getSoLuong() != null ? ct.getSoLuong() : 0;
+            total = total.add(price.multiply(BigDecimal.valueOf(qty)));
+        }
+        return total.compareTo(BigDecimal.ZERO) > 0 ? total : (this.tongTien != null ? this.tongTien : BigDecimal.ZERO);
+    }
+
+    @JsonProperty("tongTienGiamDot")
+    public BigDecimal getTongTienGiamDot() {
+        BigDecimal goc = getTongTienHangGoc();
+        BigDecimal tt = this.tongTien != null ? this.tongTien : BigDecimal.ZERO;
+        if (goc != null && tt != null && goc.compareTo(tt) > 0) {
+            return goc.subtract(tt);
+        }
+        return BigDecimal.ZERO;
     }
 
     @JsonProperty("trangThaiHienThi")
@@ -413,21 +513,61 @@ public class HoaDon {
     public String getPhuongThucThanhToan() {
         if (this.ghiChu != null) {
             String upper = this.ghiChu.toUpperCase();
+            if (upper.contains("KẾT HỢP") || upper.contains("KET_HOP")) {
+                return "Kết hợp";
+            }
             if (upper.contains("VNPAY")) {
                 return "Cổng thanh toán VNPAY";
             }
-            if (upper.contains("COD")) {
+            if (upper.contains("VIETQR")) {
+                return "Chuyển khoản VietQR";
+            }
+            if (upper.contains("COD") || upper.contains("NHẬN HÀNG") || upper.contains("THANH TOÁN KHI NHẬN HÀNG")) {
                 return "Thanh toán khi nhận hàng (COD)";
             }
         }
         if (this.hinhThucThanhToan != null && !this.hinhThucThanhToan.isEmpty()) {
+            boolean hasCash = false;
+            boolean hasTransfer = false;
+            for (HinhThucThanhToan httt : this.hinhThucThanhToan) {
+                if (httt.getIdPhuongThuc() != null && httt.getIdPhuongThuc().getTenPhuongThuc() != null) {
+                    String pt = httt.getIdPhuongThuc().getTenPhuongThuc().toLowerCase();
+                    if (pt.contains("tiền mặt") || pt.contains("tien mat") || pt.contains("cash")) {
+                        hasCash = true;
+                    }
+                    if (pt.contains("chuyển khoản") || pt.contains("ngân hàng") || pt.contains("qr") || pt.contains("vnpay")) {
+                        hasTransfer = true;
+                    }
+                }
+            }
+            if (hasCash && hasTransfer) {
+                return "Kết hợp";
+            }
+            if (hasTransfer) {
+                return "Chuyển khoản";
+            }
+            if (hasCash) {
+                if (Integer.valueOf(2).equals(this.loaiDon)) {
+                    return "Thanh toán khi nhận hàng (COD)";
+                }
+                return "Tiền mặt";
+            }
             for (HinhThucThanhToan httt : this.hinhThucThanhToan) {
                 if (httt.getIdPhuongThuc() != null && httt.getIdPhuongThuc().getTenPhuongThuc() != null) {
                     return httt.getIdPhuongThuc().getTenPhuongThuc();
                 }
             }
         }
-        return "Thanh toán khi nhận hàng (COD)";
+        if (this.ghiChu != null) {
+            String lower = this.ghiChu.toLowerCase();
+            if (lower.contains("chuyển khoản") || lower.contains("vietqr") || lower.contains("chuyen khoan")) {
+                return "Chuyển khoản";
+            }
+            if (lower.contains("cod") || lower.contains("nhận hàng")) {
+                return "Thanh toán khi nhận hàng (COD)";
+            }
+        }
+        return Integer.valueOf(1).equals(this.loaiDon) ? "Tiền mặt" : "Thanh toán khi nhận hàng (COD)";
     }
 
     @JsonProperty("isVnPay")

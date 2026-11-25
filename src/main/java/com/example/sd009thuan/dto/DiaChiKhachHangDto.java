@@ -9,6 +9,7 @@ public record DiaChiKhachHangDto(
         String phuong,
         String diaChiCuThe,
         Boolean macDinh,
-        Integer trangThai
+        Integer trangThai,
+        String soDienThoaiNhan,
+        String tenNguoiNhan
 ) {}
-

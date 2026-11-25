@@ -1,5 +1,6 @@
 <script setup>
 import { formatCurrency } from '@/utils/dinhDang.js'
+import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
 
 const props = defineProps({
   cartItems: {
@@ -93,7 +94,8 @@ const getStock = (item) => {
             />
             <div class="item-thumb-box">
               <img
-                :src="item.image || '/images/products/default_tshirt.jpg'"
+                :src="resolveProductImageUrl(item.image)"
+                @error="(e) => e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER"
                 :alt="item.productName"
                 class="item-img"
               />
@@ -174,9 +176,16 @@ const getStock = (item) => {
             <button
               class="btn-trash-action"
               title="Xóa khỏi giỏ hàng"
+              aria-label="Xóa khỏi giỏ hàng"
               @click="emit('removeItem', item.variantId, item.productName)"
             >
-              ✕
+              <svg class="trash-icon-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"></path>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
             </button>
           </div>
         </div>
@@ -201,7 +210,14 @@ const getStock = (item) => {
             @click="emit('clearAll')"
             title="Xóa toàn bộ sản phẩm khỏi giỏ hàng"
           >
-            🗑️ Xóa toàn bộ
+            <svg class="trash-icon-svg" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18"></path>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+            <span>Xóa toàn bộ</span>
           </button>
         </div>
       </div>
@@ -452,16 +468,37 @@ const getStock = (item) => {
 }
 
 .btn-trash-action {
-  background: transparent;
-  border: none;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   color: #94a3b8;
   cursor: pointer;
-  font-size: 16px;
-  padding: 4px;
+  padding: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .btn-trash-action:hover {
-  color: #e11d48;
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #ef4444;
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 3px 8px -1px rgba(239, 68, 68, 0.25);
+}
+
+.btn-trash-action:active {
+  transform: scale(0.95);
+}
+
+.btn-clear-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .cart-bottom-actions-row {

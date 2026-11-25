@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import GlobalDialog from '@/components/GlobalDialog.vue'
 import { showToast, showAlert } from '@/utils/dialog.js'
@@ -10,7 +10,8 @@ const openMenus = ref({
   sanPham: true,
   thuocTinh: true,
   giamGia: false,
-  lichLamViec: true
+  lichLamViec: true,
+  caiDat: true
 })
 
 const toggleMenu = (menu) => {
@@ -19,9 +20,111 @@ const toggleMenu = (menu) => {
 
 const router = useRouter()
 const route = useRoute()
+const isMobileSidebarOpen = ref(false)
+watch(() => route.path, () => {
+  isMobileSidebarOpen.value = false
+})
 const currentUser = ref(getCurrentUser())
 const showUserDropdown = ref(false)
 const userMenuRef = ref(null)
+
+// Live Notifications State cho Chuông thông báo Admin (Đơn hàng mới + Live Chat)
+const adminNotificationCount = ref(0)
+const adminNotificationList = ref([])
+const adminChatUnreadCount = ref(0)
+const adminOrderNewCount = ref(0)
+const bellFilter = ref('ALL') // 'ALL', 'DON_HANG', 'CHAT'
+const showBellDropdown = ref(false)
+const bellRef = ref(null)
+let chatNotifyTimer = null
+let isFirstBellFetch = true
+
+function playAdminChatChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(523.25, ctx.currentTime)
+    osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1)
+    osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2)
+    gain.gain.setValueAtTime(0.08, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.45)
+  } catch (e) {}
+}
+
+async function fetchAdminChatNotifications() {
+  try {
+    const res = await api.get('/api/chat/thong-bao-admin')
+    if (res.data) {
+      const newTotal = res.data.tongSoThongBao ?? ((res.data.soTinChuaDoc || 0) + (res.data.soDonHangMoi || 0))
+      if (!isFirstBellFetch && newTotal > adminNotificationCount.value) {
+        playAdminChatChime()
+      }
+      isFirstBellFetch = false
+      adminNotificationCount.value = newTotal
+      adminChatUnreadCount.value = res.data.soTinChuaDoc || 0
+      adminOrderNewCount.value = res.data.soDonHangMoi || 0
+      adminNotificationList.value = res.data.danhSachThongBao || []
+    }
+  } catch (e) {}
+}
+
+const filteredNotificationList = computed(() => {
+  if (bellFilter.value === 'DON_HANG') {
+    return adminNotificationList.value.filter(item => item.loai === 'DON_HANG')
+  }
+  if (bellFilter.value === 'CHAT') {
+    return adminNotificationList.value.filter(item => item.loai === 'CHAT')
+  }
+  return adminNotificationList.value
+})
+
+function toggleBellDropdown() {
+  showBellDropdown.value = !showBellDropdown.value
+  if (showBellDropdown.value) {
+    fetchAdminChatNotifications()
+  }
+}
+
+function handleNotificationClick(item) {
+  showBellDropdown.value = false
+  if (item.loai === 'DON_HANG') {
+    if (item.maDonHang) {
+      router.push({ path: '/hoa-don', query: { search: item.maDonHang } })
+    } else {
+      router.push('/hoa-don')
+    }
+  } else {
+    if (item.cuocHoiThoaiId) {
+      router.push({ path: '/tin-nhan', query: { id: item.cuocHoiThoaiId } })
+    } else {
+      router.push('/tin-nhan')
+    }
+  }
+}
+
+function goToOrdersOrChat() {
+  showBellDropdown.value = false
+  if (bellFilter.value === 'DON_HANG' || (bellFilter.value === 'ALL' && adminOrderNewCount.value > 0)) {
+    router.push('/hoa-don')
+  } else {
+    router.push('/tin-nhan')
+  }
+  return
+}
+function _unused_goTo() {
+  showBellDropdown.value = false
+  if (bellFilter.value === 'DON_HANG') {
+    router.push('/hoa-don')
+  } else {
+    router.push('/tin-nhan')
+  }
+}
 
 const isUserAdmin = computed(() => {
   if (!currentUser.value) return false
@@ -42,6 +145,9 @@ function getAvatarInitials(name) {
 function handleClickOutside(e) {
   if (userMenuRef.value && !userMenuRef.value.contains(e.target)) {
     showUserDropdown.value = false
+  }
+  if (bellRef.value && !bellRef.value.contains(e.target)) {
+    showBellDropdown.value = false
   }
 }
 
@@ -71,6 +177,10 @@ onMounted(() => {
   window.addEventListener('shift-opened', handleShiftOpened)
   window.addEventListener('open-mo-ca-popup', handleOpenMoCaEvent)
   window.addEventListener('view-mode-blocked', handleViewModeBlocked)
+
+  fetchAdminChatNotifications()
+  chatNotifyTimer = setInterval(fetchAdminChatNotifications, 4000)
+  window.addEventListener('admin-chat-read', fetchAdminChatNotifications)
 })
 
 onUnmounted(() => {
@@ -81,6 +191,8 @@ onUnmounted(() => {
   window.removeEventListener('shift-opened', handleShiftOpened)
   window.removeEventListener('open-mo-ca-popup', handleOpenMoCaEvent)
   window.removeEventListener('view-mode-blocked', handleViewModeBlocked)
+  if (chatNotifyTimer) clearInterval(chatNotifyTimer)
+  window.removeEventListener('admin-chat-read', fetchAdminChatNotifications)
 })
 
 function handleLogout() {
@@ -248,6 +360,18 @@ function getShiftStatus(ca) {
   }
 }
 
+const currentMatchedShift = computed(() => {
+  const sourceList = isUserAdmin.value ? activeShifts.value : assignedShiftsToday.value
+  if (!sourceList || sourceList.length === 0) return null
+  const currentValid = sourceList.find(c => getShiftStatus(c).canOpen)
+  if (currentValid) return currentValid
+  if (moCaForm.value.caLamViecId) {
+    const found = sourceList.find(c => c.id === Number(moCaForm.value.caLamViecId))
+    if (found) return found
+  }
+  return sourceList[0] || null
+})
+
 const selectedShiftStatus = computed(() => {
   if (!moCaForm.value.caLamViecId) return null
   const sourceList = isUserAdmin.value ? activeShifts.value : assignedShiftsToday.value
@@ -257,7 +381,7 @@ const selectedShiftStatus = computed(() => {
 
 const canSubmitMoCa = computed(() => {
   if (submittingMoCa.value) return false
-  if (!currentUser.value?.id || !moCaForm.value.caLamViecId) return false
+  if (!currentUser.value?.id || !currentMatchedShift.value?.id) return false
   if (!isUserAdmin.value && !hasScheduleToday.value) return false
   if (moCaForm.value.tienMatDauCa === null || moCaForm.value.tienMatDauCa === undefined || moCaForm.value.tienMatDauCa < 0) return false
   if (!isUserAdmin.value && selectedShiftStatus.value && !selectedShiftStatus.value.canOpen) return false
@@ -387,7 +511,7 @@ async function submitMoCaFromPopup() {
     submittingMoCa.value = true
     const payload = {
       nhanVienId: isUserAdmin.value && moCaForm.value.nhanVienId ? Number(moCaForm.value.nhanVienId) : currentUser.value.id,
-      caLamViecId: Number(moCaForm.value.caLamViecId),
+      caLamViecId: Number(currentMatchedShift.value?.id || moCaForm.value.caLamViecId),
       tienMatDauCa: Number(moCaForm.value.tienMatDauCa) || 0,
       tienChuyenKhoan: Number(moCaForm.value.tienChuyenKhoan) || 0,
       ghiChu: 'Mở ca từ hệ thống'
@@ -579,6 +703,9 @@ async function loadShiftSummary(shiftId) {
   try {
     const res = await api.get(`/api/lich-su-ca/${shiftId}/summary`)
     shiftSummary.value = res.data || null
+    if (shiftSummary.value?.nhanVienNhanDuKienId) {
+      dongCaForm.value.nhanVienNhanId = shiftSummary.value.nhanVienNhanDuKienId
+    }
   } catch (e) {
     console.error('Lỗi khi tải tổng hợp két tiền:', e)
   } finally {
@@ -613,7 +740,7 @@ async function submitDongCaFromModal() {
       id: currentOpenShift.value?.id,
       nhanVienId: currentOpenShift.value?.nhanVien?.id || currentUser.value?.id,
       caLamViecId: currentOpenShift.value?.caLamViec?.id,
-      nhanVienNhanId: dongCaForm.value.nhanVienNhanId ? Number(dongCaForm.value.nhanVienNhanId) : null,
+      nhanVienNhanId: shiftSummary.value?.nhanVienNhanDuKienId || (dongCaForm.value.nhanVienNhanId ? Number(dongCaForm.value.nhanVienNhanId) : null),
       tienChiTrongCa: Number(dongCaForm.value.tienChiTrongCa || 0),
       tienMatCuoiCa: Number(dongCaForm.value.tienMatCuoiCa),
       chenhLech: calculatedDiff.value,
@@ -658,13 +785,14 @@ function printReceipt() {
 </script>
 
 <template>
-  <div v-if="route.path === '/login'">
+  <div v-if="route.path === '/login' || route.path === '/quet-ma-pos'">
     <router-view />
     <GlobalDialog />
   </div>
 
   <div v-else class="app-shell">
-    <aside class="sidebar">
+    <div v-if="isMobileSidebarOpen" class="sidebar-backdrop" @click="isMobileSidebarOpen = false"></div>
+    <aside class="sidebar" :class="{ 'mobile-open': isMobileSidebarOpen }">
       <div class="logo-box">
         <div class="logo-wrapper">
           <!-- 3 vạch tia sáng phát ra phía trên bên trái -->
@@ -865,11 +993,44 @@ function printReceipt() {
             </router-link>
           </div>
         </div>
+
+        <!-- 9.5 Cài đặt (Menu cha xổ nhánh, chứa Phí ship) -->
+        <div class="menu-group">
+          <div class="menu-item has-sub" @click="toggleMenu('caiDat')">
+            <span class="menu-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/>
+              </svg>
+            </span>
+            <span class="menu-text">Cài đặt</span>
+            <span class="arrow-icon" :class="{ open: openMenus.caiDat }">⌄</span>
+          </div>
+          <div class="submenu-tree" v-show="openMenus.caiDat">
+            <router-link to="/cai-dat/phi-ship" class="tree-item" active-class="active">
+              <span class="tree-branch">└─</span>
+              <span>Phí ship</span>
+            </router-link>
+          </div>
+        </div>
+
+        <!-- 10. Quản Lý Chat (Cuối menu) -->
+        <router-link to="/tin-nhan" class="menu-item" active-class="active">
+          <span class="menu-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+            </svg>
+          </span>
+          <span class="menu-text">Quản Lý Chat</span>
+          <span v-if="adminChatUnreadCount > 0" class="sidebar-chat-badge">{{ adminChatUnreadCount }}</span>
+        </router-link>
       </nav>
     </aside>
 
     <main class="main-content">
       <header class="top-header">
+        <button type="button" class="btn-hamburger-mobile" @click="isMobileSidebarOpen = !isMobileSidebarOpen" title="Mở menu">
+          <span>☰</span>
+        </button>
         <div class="header-right">
           <!-- Nút chế độ xem / Trạng thái ca làm việc theo ảnh mẫu (chỉ hiện cho nhân viên, ẩn với quản trị viên) -->
           <div v-if="currentUser && !isUserAdmin" class="header-shift-action">
@@ -897,6 +1058,96 @@ function printReceipt() {
               >
                 Kết thúc ca
               </button>
+            </div>
+          </div>
+
+          <!-- Chuông thông báo tổng hợp (Đơn hàng mới & Tin nhắn Chat) -->
+          <div class="header-chat-bell-wrapper" ref="bellRef">
+            <button
+              type="button"
+              class="btn-header-bell"
+              :class="{ 'has-unread': adminNotificationCount > 0 }"
+              @click="toggleBellDropdown"
+              title="Thông Báo"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              <span v-if="adminNotificationCount > 0" class="bell-badge-pill">
+                {{ adminNotificationCount > 99 ? '99+' : adminNotificationCount }}
+              </span>
+            </button>
+
+            <!-- Dropdown danh sách thông báo -->
+            <div v-if="showBellDropdown" class="bell-dropdown-popover">
+              <div class="bell-popover-header">
+                <div class="bph-header-top">
+                  <div class="bph-title">
+                    <span>🔔 Thông Báo</span>
+                    <span v-if="adminNotificationCount > 0" class="bph-count-badge">{{ adminNotificationCount }} mới</span>
+                  </div>
+                </div>
+                <!-- Tabs lọc Đơn hàng / Tin nhắn -->
+                <div class="bph-tabs-row">
+                  <button
+                    type="button"
+                    class="bph-tab-btn"
+                    :class="{ active: bellFilter === 'ALL' }"
+                    @click="bellFilter = 'ALL'"
+                  >
+                    Tất cả ({{ adminNotificationList.length }})
+                  </button>
+                  <button
+                    type="button"
+                    class="bph-tab-btn"
+                    :class="{ active: bellFilter === 'DON_HANG' }"
+                    @click="bellFilter = 'DON_HANG'"
+                  >
+                    Đơn hàng <span v-if="adminOrderNewCount > 0">({{ adminOrderNewCount }})</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="bph-tab-btn"
+                    :class="{ active: bellFilter === 'CHAT' }"
+                    @click="bellFilter = 'CHAT'"
+                  >
+                    Tin nhắn <span v-if="adminChatUnreadCount > 0">({{ adminChatUnreadCount }})</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="bell-popover-list">
+                <div v-if="filteredNotificationList.length === 0" class="bell-empty-box">
+                  <p>Không có thông báo mới nào</p>
+                </div>
+                <div
+                  v-for="item in filteredNotificationList"
+                  :key="item.id + '-' + item.loai"
+                  class="bell-item-row"
+                  :class="{ unread: !item.daDoc, 'order-row': item.loai === 'DON_HANG' }"
+                  @click="handleNotificationClick(item)"
+                >
+                  <div class="bell-item-avatar" :class="item.loai === 'DON_HANG' ? 'order-avatar' : 'chat-avatar'">
+                    <span v-if="item.loai === 'DON_HANG'">📦</span>
+                    <span v-else>💬</span>
+                  </div>
+                  <div class="bell-item-content">
+                    <div class="bic-top">
+                      <strong class="bic-name">{{ item.tieuDe }}</strong>
+                      <span class="bic-time">{{ item.thoiGian }}</span>
+                    </div>
+                    <p class="bic-msg">{{ item.noiDung }}</p>
+                  </div>
+                  <span v-if="!item.daDoc" class="bell-dot-unread"></span>
+                </div>
+              </div>
+
+              <div class="bell-popover-footer">
+                <button type="button" class="btn-bell-view-full" @click="goToOrdersOrChat">
+                  {{ bellFilter === 'DON_HANG' || (bellFilter === 'ALL' && adminOrderNewCount > 0) ? 'Xem quản lý hóa đơn →' : 'Xem quản lý chat & tư vấn →' }}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1018,18 +1269,42 @@ function printReceipt() {
 
           <!-- Khung hiển thị Ca làm việc -->
           <div class="mo-ca-box-wrap">
-            <div class="mo-ca-box-labels">
-              <span class="lbl-left">Ca</span>
-              <span class="lbl-right">Ca làm việc</span>
+            <div class="mo-ca-field-title">Ca làm việc thời điểm hiện tại</div><div v-if="false">
+              <span class="lbl-left">Ca làm việc thời điểm hiện tại</span>
+              <span class="lbl-right" v-if="currentMatchedShift">{{ selectedShiftStatus?.canOpen ? '🟢 Sẵn sàng vào ca' : '🟡 ' + (selectedShiftStatus?.label || '') }}</span>
             </div>
 
-            <!-- Nếu KHÔNG tìm thấy lịch phân công hôm nay -->
+            <!-- Nếu KHÔNG tìm thấy lịch phân công hôm nay (cho nhân viên thường) -->
             <div v-if="!isUserAdmin && !hasScheduleToday" class="mo-ca-empty-schedule">
-              Không tìm thấy lịch phân công
+              ⚠️ Không tìm thấy ca làm việc được phân công hôm nay của bạn.
             </div>
 
-            <!-- Nếu CÓ lịch phân công hôm nay -->
-            <div v-else-if="!isUserAdmin && assignedShiftsToday.length > 0" class="mo-ca-shift-select-box">
+            <!-- Thẻ hiển thị Ca làm việc tự động (KHÔNG DÙNG COMBOBOX) -->
+            <div v-else-if="currentMatchedShift" class="mo-ca-auto-shift-card" :class="{ 'is-in-shift': selectedShiftStatus?.canOpen, 'is-out-shift': !selectedShiftStatus?.canOpen }">
+              <div class="auto-shift-main">
+                <div class="auto-shift-icon-wrap">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 14 14"></polyline>
+                  </svg>
+                </div>
+                <div class="auto-shift-text">
+                  <div class="auto-shift-title">{{ currentMatchedShift.tenCa }}</div>
+                  <div class="auto-shift-hours">
+                    Khung giờ: <span class="hours-val">{{ formatTime(currentMatchedShift.gioBatDau) }} – {{ formatTime(currentMatchedShift.gioKetThuc) }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="auto-shift-badge" :class="selectedShiftStatus?.canOpen ? 'badge-live' : 'badge-wait'">
+                {{ selectedShiftStatus?.canOpen ? '🟢 Trong ca' : '🟡 Ngoài giờ' }}
+              </div>
+            </div>
+            <div v-else class="mo-ca-empty-schedule">
+              ⚠️ Không tìm thấy ca làm việc phù hợp lúc này
+            </div>
+            <!-- Bỏ combobox cũ -->
+
+            <div v-if="false" class="mo-ca-shift-select-box">
               <select v-model="moCaForm.caLamViecId" class="mo-ca-input-select" required>
                 <option
                   v-for="ca in assignedShiftsToday"
@@ -1042,7 +1317,7 @@ function printReceipt() {
             </div>
 
             <!-- Nếu là Quản trị viên -->
-            <div v-else-if="isUserAdmin" class="mo-ca-shift-select-box">
+            <div v-if="false" class="mo-ca-shift-select-box">
               <select v-model="moCaForm.caLamViecId" class="mo-ca-input-select" required>
                 <option value="">-- Chọn ca làm việc --</option>
                 <option
@@ -1057,13 +1332,26 @@ function printReceipt() {
           </div>
 
           <!-- Thông báo trạng thái nếu chưa đến giờ vào ca -->
-          <div v-if="selectedShiftStatus && !selectedShiftStatus.canOpen && !isUserAdmin" class="mo-ca-alert-warning">
+          <div v-if="false" class="mo-ca-alert-warning">
             ⚠️ {{ selectedShiftStatus.label }}. Bạn chỉ có thể xác nhận vào ca trước tối đa 30 phút!
           </div>
 
           <!-- Ô nhập Tiền mặt đầu ca -->
           <div class="mo-ca-form-group">
-            <label class="mo-ca-form-label">Tiền mặt đầu ca</label>
+            <label class="mo-ca-form-label">Tiền mặt đầu ca</label><div>
+            <div class="mo-ca-input-wrapper">
+              <input
+                type="text"
+                inputmode="numeric"
+                v-model="displayTienMatDauCa"
+                placeholder="0"
+                class="mo-ca-input-modern"
+                required
+              />
+              <span class="mo-ca-currency-suffix">₫</span>
+            </div>
+          </div>
+          <div v-if="false">
             <input
               type="text"
               inputmode="numeric"
@@ -1074,7 +1362,22 @@ function printReceipt() {
             />
           </div>
 
+          </div>
           <!-- Ô nhập Tiền tài khoản đầu ca -->
+          <div class="mo-ca-form-group">
+            <label class="mo-ca-form-label">Tiền tài khoản đầu ca</label>
+            <div class="mo-ca-input-wrapper">
+              <input
+                type="text"
+                inputmode="numeric"
+                v-model="displayTienTaiKhoanDauCa"
+                placeholder="0"
+                class="mo-ca-input-modern"
+              />
+              <span class="mo-ca-currency-suffix">₫</span>
+            </div>
+          </div>
+          <div v-if="false">
           <div class="mo-ca-form-group">
             <label class="mo-ca-form-label">Tiền tài khoản đầu ca</label>
             <input
@@ -1086,8 +1389,9 @@ function printReceipt() {
             />
           </div>
 
+          </div>
           <!-- Số dự kiến từ ca trước -->
-          <div class="mo-ca-prev-cash-row">
+          <div class="mo-ca-prev-cash-pill-box">
             <span>Số dự kiến từ ca trước: <strong>{{ formatCurrency(lastClosedShift?.tienMatCuoiCa || 0) }}</strong></span>
             <button
               v-if="lastClosedShift && (lastClosedShift.tienMatCuoiCa || 0) > 0"
@@ -1262,8 +1566,29 @@ function printReceipt() {
 
           <div class="dong-ca-form-grid">
             <div class="form-col">
-              <label class="dong-ca-label">Nhân viên nhận bàn giao</label>
-              <div class="select-wrapper-minimal">
+              <label class="dong-ca-label handover-col-hidden" v-if="false">Người nhận bàn giao</label>
+              <div class="handover-col-hidden" v-if="false">
+                <div class="auto-handover-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </div>
+                <div class="auto-handover-info">
+                  <div class="auto-handover-name">
+                    <strong v-if="shiftSummary?.tenNhanVienNhanDuKien">
+                      {{ shiftSummary.tenNhanVienNhanDuKien }} ({{ shiftSummary.maNhanVienNhanDuKien || 'NV' }})
+                    </strong>
+                    <strong v-else class="text-muted">
+                      Quản trị viên / Két cửa hàng (Ca cuối ngày)
+                    </strong>
+                  </div>
+                  <div class="auto-handover-sub">
+                    {{ shiftSummary?.thongTinBaoGiao || 'Tự động bàn giao cho ca tiếp theo' }}
+                  </div>
+                </div>
+              </div>
+              <div v-if="false" class="select-wrapper-minimal">
                 <select v-model="dongCaForm.nhanVienNhanId" class="dong-ca-input">
                   <option value="">-- Quản trị viên / Cuối ngày --</option>
                   <option
@@ -1278,7 +1603,7 @@ function printReceipt() {
             </div>
 
             <div class="form-col">
-              <label class="dong-ca-label">Ghi chú bàn giao</label>
+              <label class="dong-ca-label dong-ca-label-note">Ghi chú bàn giao</label>
               <input
                 type="text"
                 v-model="dongCaForm.ghiChu"
@@ -2119,6 +2444,58 @@ button, input, select, textarea {
     max-width: 100% !important;
   }
 }
+/* ==================== RESPONSIVE CHO THIẾT BỊ DI ĐỘNG (MOBILE & TABLET) ==================== */
+.btn-hamburger-mobile {
+  display: none;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: #1e293b;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  line-height: 1;
+}
+
+@media (max-width: 992px) {
+  .btn-hamburger-mobile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden;
+  }
+
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 9999;
+    box-shadow: none;
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 9998;
+    backdrop-filter: blur(2px);
+  }
+
+  .top-header {
+    padding: 10px 14px;
+  }
+}
+
 /* BANNER THÔNG BÁO CHẾ ĐỘ XEM */
 .view-mode-alert-banner {
   background: linear-gradient(90deg, #fffbeb, #fef3c7);
@@ -2335,7 +2712,20 @@ button, input, select, textarea {
 }
 
 /* Hộp Ca */
+.mo-ca-field-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 3px;
+}
+
 .mo-ca-box-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 0;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 10px 14px;
@@ -2367,6 +2757,149 @@ button, input, select, textarea {
   padding: 2px 0;
 }
 
+/* Thẻ hiển thị Ca làm việc tự động */
+.mo-ca-auto-shift-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  gap: 12px;
+  margin-top: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.mo-ca-auto-shift-card.is-in-shift {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  border-color: #86efac;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.08);
+}
+
+.mo-ca-auto-shift-card.is-out-shift {
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+  border-color: #fcd34d;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.08);
+}
+/*
+}
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+*/
+.auto-shift-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auto-shift-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: #e2e8f0;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mo-ca-auto-shift-card.is-in-shift .auto-shift-icon-wrap {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.mo-ca-auto-shift-card.is-out-shift .auto-shift-icon-wrap {
+  background: #fef3c7;
+  color: #d97706;
+}
+/*
+}
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+*/
+.auto-shift-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.auto-shift-hours {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+.auto-shift-hours .hours-val {
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+}
+
+.auto-shift-badge {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
+.auto-shift-badge.badge-live {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.auto-shift-badge.badge-wait {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fef3c7;
+}
+
+/* Khối nhận bàn giao tự động */
+.auto-handover-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  min-height: 40px;
+}
+
+.auto-handover-icon {
+  color: #496883;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.auto-handover-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.auto-handover-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.auto-handover-sub {
+  font-size: 0.74rem;
+  color: #64748b;
+}
+
 .mo-ca-shift-select-box {
   width: 100%;
 }
@@ -2383,6 +2916,16 @@ button, input, select, textarea {
 }
 
 .mo-ca-alert-warning {
+  padding: 10px 14px;
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+  border-radius: 10px;
+  color: #92400e;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 12px;
   background: #fffbeb;
   border: 1px solid #fef3c7;
@@ -2422,6 +2965,102 @@ button, input, select, textarea {
   border-color: var(--blue, #496883);
 }
 
+.mo-ca-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.mo-ca-input-modern {
+  width: 100%;
+  height: 42px;
+  padding: 0 38px 0 14px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e293b;
+  outline: none;
+  background: #ffffff;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.mo-ca-input-modern:focus {
+  border-color: var(--blue, #496883);
+  box-shadow: 0 0 0 3px rgba(73, 104, 131, 0.12);
+}
+
+.mo-ca-currency-suffix {
+  position: absolute;
+  right: 14px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.mo-ca-prev-cash-pill-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.mo-ca-prev-cash-pill-box strong {
+  color: #0f172a;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.mo-ca-prev-cash-pill-box .btn-apply-prev-cash {
+  background: #e2e8f0;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  color: var(--blue, #496883);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.mo-ca-prev-cash-pill-box .btn-apply-prev-cash:hover {
+  background: var(--blue, #496883);
+  color: #ffffff;
+}
+
+/* Tự động kéo dài Ghi chú bàn giao full chiều rộng cân đối */
+.dong-ca-form-grid:has(.dong-ca-label-note) {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+}
+
+.dong-ca-form-grid:has(.dong-ca-label-note) .form-col:first-child {
+  display: none !important;
+}
+
+.dong-ca-form-grid:has(.dong-ca-label-note) .form-col:last-child {
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.dong-ca-form-grid:has(.dong-ca-label-note) .dong-ca-input {
+  width: 100% !important;
+  height: 42px;
+  border-radius: 10px;
+  padding: 0 14px;
+}
+
 .mo-ca-prev-cash-row {
   display: flex;
   justify-content: space-between;
@@ -2455,7 +3094,7 @@ button, input, select, textarea {
 }
 
 .btn-che-do-xem {
-  padding: 8px 18px;
+  padding: 10px 20px;
   background: #ffffff;
   border: 1.5px solid #cbd5e1;
   border-radius: 8px;
@@ -3057,7 +3696,7 @@ button, input, select, textarea {
 }
 
 .btn-cancel-modal {
-  padding: 8px 18px;
+  padding: 10px 20px;
   border-radius: 8px;
   border: 1px solid #cbd5e1;
   background-color: #ffffff;
@@ -3068,7 +3707,7 @@ button, input, select, textarea {
 }
 
 .btn-print-action {
-  padding: 8px 18px;
+  padding: 10px 20px;
   border-radius: 8px;
   border: none;
   background-color: var(--blue, #496883);
@@ -3202,4 +3841,301 @@ button, input, select, textarea {
   margin: 0;
   font-size: 12px;
 }
+
+/* Live Chat Bell Notification & Sidebar Badge */
+.header-chat-bell-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.btn-header-bell {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #ebd9c8;
+  color: #634b35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-header-bell:hover {
+  background: #fbf8f5;
+  border-color: #c5a25d;
+  color: #1e293b;
+  transform: translateY(-1px);
+}
+
+.btn-header-bell.has-unread {
+  color: #b45309;
+  border-color: #f59e0b;
+}
+
+.btn-header-bell.has-unread svg {
+  animation: bell-shake 2.5s infinite;
+}
+
+@keyframes bell-shake {
+  0%, 100% { transform: rotate(0); }
+  5% { transform: rotate(14deg); }
+  10% { transform: rotate(-14deg); }
+  15% { transform: rotate(10deg); }
+  20% { transform: rotate(-10deg); }
+  25% { transform: rotate(0); }
+}
+
+.bell-badge-pill {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 800;
+  min-width: 19px;
+  height: 19px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+}
+
+.sidebar-chat-badge {
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  margin-left: auto;
+}
+
+/* Bell Dropdown Popover */
+.bell-dropdown-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 360px;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #ebd9c8;
+  box-shadow: 0 14px 36px rgba(90, 70, 50, 0.16);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: dropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+
+.bph-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.bph-tabs-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.bph-tab-btn {
+  flex: 1;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.bph-tab-btn:hover {
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+.bph-tab-btn.active {
+  background: #496883;
+  color: #ffffff;
+  border-color: #496883;
+}
+
+.bell-item-avatar.order-avatar {
+  background: #d2a764;
+  font-size: 16px;
+}
+
+.bell-item-avatar.chat-avatar {
+  background: #496883;
+  font-size: 16px;
+}
+
+.bell-popover-header {
+  padding: 12px 16px;
+  background: #fbf8f5;
+  border-bottom: 1px solid #f2ece3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bph-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.bph-count-badge {
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.btn-quick-open-all {
+  background: none;
+  border: none;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.btn-quick-open-all:hover {
+  text-decoration: underline;
+}
+
+.bell-popover-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.bell-empty-box {
+  padding: 30px 16px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.bell-item-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f8fafc;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.bell-item-row:hover {
+  background: #f8fafc;
+}
+
+.bell-item-row.unread {
+  background: #fefce8;
+}
+
+.bell-item-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #0284c7;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bell-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.bic-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.bic-name {
+  font-size: 13px;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bic-time {
+  font-size: 10.5px;
+  color: #94a3b8;
+}
+
+.bic-msg {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bell-dot-unread {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
+}
+
+.bell-popover-footer {
+  padding: 10px 16px;
+  border-top: 1px solid #f2ece3;
+  background: #fbf8f5;
+  text-align: center;
+}
+
+.btn-bell-view-full {
+  background: none;
+  border: none;
+  color: #634b35;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-bell-view-full:hover {
+  color: #b45309;
+}
+
 </style>

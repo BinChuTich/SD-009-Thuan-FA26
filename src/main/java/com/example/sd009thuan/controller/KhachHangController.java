@@ -160,9 +160,26 @@ public class KhachHangController {
     }
 
     private final Map<String, OtpEntry> otpCache = new ConcurrentHashMap<>();
+    private final Map<String, OtpEntry> forgotOtpCache = new ConcurrentHashMap<>();
+
+    private String maskEmail(String email) {
+        if (email == null || !email.contains("@")) return email != null ? email : "";
+        int atIndex = email.indexOf("@");
+        String name = email.substring(0, atIndex);
+        String domain = email.substring(atIndex);
+        if (name.length() <= 3) {
+            return name.charAt(0) + "***" + domain;
+        }
+        return name.substring(0, 3) + "***" + domain;
+    }
 
     @PostMapping({"/gui-otp", "/send-otp"})
     public ResponseEntity<?> guiOtp(@RequestBody Map<String, String> body) {
+        String type = body != null ? (body.get("type") != null ? body.get("type") : body.get("purpose")) : null;
+        if (type != null && ("forgot".equalsIgnoreCase(type) || "quen-mat-khau".equalsIgnoreCase(type) || "reset".equalsIgnoreCase(type))) {
+            return quenMatKhauGuiOtp(body);
+        }
+
         String email = body != null ? body.get("email") : null;
         String fullName = body != null ? body.get("fullName") : null;
         if (email == null || email.trim().isEmpty() || !email.contains("@")) {
@@ -193,21 +210,115 @@ public class KhachHangController {
         ));
     }
 
+    @PostMapping({"/quen-mat-khau/gui-otp", "/forgot-password/send-otp"})
+    public ResponseEntity<?> quenMatKhauGuiOtp(@RequestBody Map<String, String> body) {
+        String rawInput = body != null ? (
+                body.get("emailOrPhone") != null ? body.get("emailOrPhone") :
+                body.get("email") != null ? body.get("email") :
+                body.get("taiKhoan") != null ? body.get("taiKhoan") :
+                body.get("phoneOrEmail") != null ? body.get("phoneOrEmail") :
+                body.get("phone")
+        ) : null;
+
+        if (rawInput == null || rawInput.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Vui lòng nhập Email hoặc Số điện thoại tài khoản để nhận mã OTP!"
+            ));
+        }
+
+        String searchKey = rawInput.trim();
+        Optional<KhachHang> khOpt = Optional.empty();
+
+        if (searchKey.contains("@")) {
+            khOpt = service.findByEmailIgnoreCase(searchKey)
+                    .or(() -> service.findByEmail(searchKey));
+        } else {
+            khOpt = service.findByPhone(searchKey)
+                    .or(() -> service.findByTaiKhoanIgnoreCase(searchKey));
+        }
+
+        if (khOpt.isEmpty()) {
+            try {
+                khOpt = Optional.ofNullable(service.findByIdentifier(searchKey));
+            } catch (Exception ignored) {}
+        }
+
+        if (khOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Tài khoản không tồn tại trên hệ thống. Vui lòng kiểm tra lại email hoặc số điện thoại!"
+            ));
+        }
+
+        KhachHang kh = khOpt.get();
+
+        if (kh.getTrangThai() != null && kh.getTrangThai() == 0) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "success", false,
+                    "message", "Tài khoản này đã bị khóa hoặc ngừng hoạt động. Vui lòng liên hệ Quản trị viên!"
+            ));
+        }
+
+        String targetEmail = kh.getEmail() != null ? kh.getEmail().trim().toLowerCase() : null;
+        if (targetEmail == null || targetEmail.isEmpty() || !targetEmail.contains("@")) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Tài khoản khách hàng '" + (kh.getTenKhachHang() != null ? kh.getTenKhachHang() : searchKey) + "' chưa cập nhật địa chỉ Email để nhận mã OTP. Vui lòng liên hệ Hotline để được hỗ trợ!"
+            ));
+        }
+
+        // Tạo mã OTP 6 chữ số
+        int randomOtp = 100000 + new java.util.Random().nextInt(900000);
+        String otpCode = String.valueOf(randomOtp);
+
+        OtpEntry entry = new OtpEntry(otpCode, System.currentTimeMillis() + 10 * 60 * 1000L);
+        forgotOtpCache.put(targetEmail, entry);
+        otpCache.put(targetEmail, entry);
+        if (kh.getSoDienThoai() != null && !kh.getSoDienThoai().trim().isEmpty()) {
+            forgotOtpCache.put(kh.getSoDienThoai().trim(), entry);
+            otpCache.put(kh.getSoDienThoai().trim(), entry);
+        }
+        if (!searchKey.equalsIgnoreCase(targetEmail)) {
+            forgotOtpCache.put(searchKey.toLowerCase(), entry);
+            otpCache.put(searchKey.toLowerCase(), entry);
+        }
+
+        boolean sent = emailService != null && emailService.sendPasswordResetOtpEmail(targetEmail, kh.getTenKhachHang(), otpCode);
+        String masked = maskEmail(targetEmail);
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Mã xác thực OTP 6 số đã được gửi tới email " + masked + ". Mã có hiệu lực trong vòng 10 phút.",
+                "email", targetEmail,
+                "maskedEmail", masked,
+                "fullName", kh.getTenKhachHang() != null ? kh.getTenKhachHang() : "",
+                "otp", otpCode
+        ));
+    }
+
     @PostMapping({"/xac-thuc-otp", "/verify-otp"})
     public ResponseEntity<?> xacThucOtp(@RequestBody Map<String, String> body) {
-        String email = body != null ? body.get("email") : null;
-        String otp = body != null ? body.get("otp") : null;
+        String email = body != null ? (body.get("email") != null ? body.get("email") : body.get("phoneOrEmail")) : null;
+        String otp = body != null ? (body.get("otp") != null ? body.get("otp") : body.get("otpCode")) : null;
+        String newPass = body != null ? (body.get("matKhauMoi") != null ? body.get("matKhauMoi") : (body.get("newPassword") != null ? body.get("newPassword") : body.get("password"))) : null;
+
         if (email == null || otp == null) {
             return ResponseEntity.badRequest().body(Map.of("valid", false, "message", "Vui lòng nhập email và mã xác thực!"));
         }
         email = email.trim().toLowerCase();
         otp = otp.trim();
 
-        OtpEntry entry = otpCache.get(email);
+        OtpEntry entry = forgotOtpCache.get(email);
+        if (entry == null) {
+            entry = otpCache.get(email);
+        }
+
         if (entry == null) {
             return ResponseEntity.ok(Map.of("valid", false, "message", "Mã xác thực không tồn tại hoặc đã hết hạn! Vui lòng nhấn gửi lại mã."));
         }
         if (System.currentTimeMillis() > entry.expireAt) {
+            forgotOtpCache.remove(email);
             otpCache.remove(email);
             return ResponseEntity.ok(Map.of("valid", false, "message", "Mã xác thực đã hết hạn! Vui lòng nhấn gửi lại mã mới."));
         }
@@ -215,8 +326,105 @@ public class KhachHangController {
             return ResponseEntity.ok(Map.of("valid", false, "message", "Mã xác thực OTP không chính xác! Vui lòng kiểm tra lại."));
         }
 
-        otpCache.remove(email);
-        return ResponseEntity.ok(Map.of("valid", true, "message", "Xác thực mã OTP thành công!"));
+        // Nếu có truyền mật khẩu mới -> cập nhật luôn vào DB
+        if (newPass != null && !newPass.trim().isEmpty()) {
+            if (newPass.trim().length() < 6) {
+                return ResponseEntity.badRequest().body(Map.of("valid", false, "message", "Mật khẩu mới phải có tối thiểu 6 ký tự!"));
+            }
+            final String finalEmail = email;
+            Optional<KhachHang> khOpt = service.findByEmailIgnoreCase(finalEmail)
+                    .or(() -> service.findByEmail(finalEmail))
+                    .or(() -> service.findByPhone(finalEmail));
+            if (khOpt.isPresent()) {
+                KhachHang kh = khOpt.get();
+                service.updatePassword(kh.getId(), newPass.trim());
+            }
+            forgotOtpCache.remove(email);
+            otpCache.remove(email);
+            return ResponseEntity.ok(Map.of("valid", true, "message", "Đổi mật khẩu thành công!"));
+        }
+
+        // Bước 2 chỉ xác thực OTP: Giữ lại OTP trong cache để bước 3 đặt lại mật khẩu mới gọi datLaiMatKhau thành công
+        return ResponseEntity.ok(Map.of("valid", true, "success", true, "message", "Xác thực mã OTP thành công!"));
+    }
+
+    @PostMapping({"/quen-mat-khau/dat-lai-mat-khau", "/forgot-password/reset"})
+    public ResponseEntity<?> datLaiMatKhau(@RequestBody Map<String, String> body) {
+        String email = body != null ? (body.get("email") != null ? body.get("email") : body.get("phoneOrEmail")) : null;
+        String otp = body != null ? (body.get("otp") != null ? body.get("otp") : body.get("otpCode")) : null;
+        String newPass = body != null ? (body.get("matKhauMoi") != null ? body.get("matKhauMoi") : (body.get("newPassword") != null ? body.get("newPassword") : body.get("password"))) : null;
+
+        if (email == null || email.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Vui lòng nhập Email hoặc Số điện thoại!"));
+        }
+        if (otp == null || otp.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Vui lòng nhập mã OTP!"));
+        }
+        if (newPass == null || newPass.trim().length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Mật khẩu mới phải có tối thiểu 6 ký tự!"));
+        }
+
+        String searchEmail = email.trim().toLowerCase();
+        OtpEntry entry = forgotOtpCache.get(searchEmail);
+        if (entry == null) {
+            entry = otpCache.get(searchEmail);
+        }
+        if (entry == null) {
+            Optional<KhachHang> lookupKh = service.findByEmailIgnoreCase(searchEmail)
+                    .or(() -> service.findByEmail(searchEmail))
+                    .or(() -> service.findByPhone(searchEmail));
+            if (lookupKh.isPresent()) {
+                KhachHang k = lookupKh.get();
+                if (k.getEmail() != null) {
+                    entry = forgotOtpCache.get(k.getEmail().trim().toLowerCase());
+                    if (entry == null) entry = otpCache.get(k.getEmail().trim().toLowerCase());
+                }
+                if (entry == null && k.getSoDienThoai() != null) {
+                    entry = forgotOtpCache.get(k.getSoDienThoai().trim());
+                    if (entry == null) entry = otpCache.get(k.getSoDienThoai().trim());
+                }
+            }
+        }
+
+        if (entry == null) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Mã xác thực không tồn tại hoặc đã hết hạn! Vui lòng nhấn gửi lại mã OTP."));
+        }
+        if (System.currentTimeMillis() > entry.expireAt) {
+            forgotOtpCache.remove(searchEmail);
+            otpCache.remove(searchEmail);
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Mã xác thực OTP đã hết hạn! Vui lòng nhấn gửi lại mã mới."));
+        }
+        if (!entry.code.equals(otp.trim())) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Mã xác thực OTP không chính xác! Vui lòng kiểm tra lại."));
+        }
+
+        Optional<KhachHang> khOpt = service.findByEmailIgnoreCase(searchEmail)
+                .or(() -> service.findByEmail(searchEmail))
+                .or(() -> service.findByPhone(searchEmail));
+
+        if (khOpt.isEmpty()) {
+            try {
+                khOpt = Optional.ofNullable(service.findByIdentifier(searchEmail));
+            } catch (Exception ignored) {}
+        }
+
+        if (khOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Không tìm thấy thông tin tài khoản khách hàng!"));
+        }
+
+        KhachHang kh = khOpt.get();
+        service.updatePassword(kh.getId(), newPass.trim());
+
+        forgotOtpCache.remove(searchEmail);
+        otpCache.remove(searchEmail);
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Đặt lại mật khẩu thành công! Bạn có thể đăng nhập ngay với mật khẩu mới.",
+                "email", searchEmail,
+                "fullName", kh.getTenKhachHang() != null ? kh.getTenKhachHang() : "",
+                "loginIdentifier", kh.getEmail() != null ? kh.getEmail() : (kh.getSoDienThoai() != null ? kh.getSoDienThoai() : searchEmail)
+        ));
     }
 
     @PostMapping({"/dang-nhap", "/login"})
@@ -241,9 +449,11 @@ public class KhachHangController {
         Optional<KhachHang> optCustomer = Optional.empty();
 
         if (searchKey.contains("@")) {
-            optCustomer = service.findByEmail(searchKey);
+            optCustomer = service.findByEmailIgnoreCase(searchKey)
+                    .or(() -> service.findByEmail(searchKey));
         } else {
-            optCustomer = service.findByPhone(searchKey);
+            optCustomer = service.findByPhone(searchKey)
+                    .or(() -> service.findByTaiKhoanIgnoreCase(searchKey));
         }
 
         if (optCustomer.isEmpty()) {
@@ -270,11 +480,22 @@ public class KhachHangController {
 
         // Kiểm tra mật khẩu
         String savedPass = customer.getMatKhau();
-        if (savedPass != null && !savedPass.trim().isEmpty()) {
-            if (!savedPass.trim().equals(matKhau.trim())) {
+        String inputPass = matKhau.trim();
+        if (savedPass == null || savedPass.trim().isEmpty()) {
+            // Mật khẩu mặc định hệ thống nếu chưa khởi tạo là 123456
+            if ("123456".equals(inputPass)) {
+                service.updatePassword(customer.getId(), "123456");
+            } else {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
                         "success", false,
-                        "message", "Mật khẩu không chính xác! Vui lòng thử lại."
+                        "message", "Mật khẩu không chính xác! (Mật khẩu mặc định của tài khoản là 123456, hoặc bạn có thể dùng tính năng 'Quên mật khẩu' để tạo mới)."
+                ));
+            }
+        } else {
+            if (!savedPass.trim().equals(inputPass)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                        "success", false,
+                        "message", "Mật khẩu không chính xác! Vui lòng thử lại hoặc chọn 'Quên mật khẩu'."
                 ));
             }
         }
@@ -317,14 +538,14 @@ public class KhachHangController {
         } else {
             String emailToSave = cleanInput.contains("@") ? cleanInput.toLowerCase() : (cleanInput + "@gmail.com");
             String displayName = (name != null && !name.trim().isEmpty()) ? name.trim() : emailToSave.split("@")[0];
-            String phoneToSave = cleanInput.matches("^[0-9]{9,11}$") ? cleanInput : null;
+            String phoneToSave = cleanInput.matches("^0[0-9]{9,10}$") ? cleanInput : null;
             KhachHangRequest req = new KhachHangRequest(
                     null,
                     emailToSave.split("@")[0],
                     displayName,
                     emailToSave,
-                    phoneToSave,
                     "123456",
+                    phoneToSave,
                     null,
                     true,
                     1,

@@ -17,9 +17,11 @@ import java.util.Optional;
 public class HoaDonController {
 
     private final HoaDonService hoaDonService;
+    private final com.example.sd009thuan.repository.HoaDonRepository hoaDonRepository;
 
-    public HoaDonController(HoaDonService hoaDonService) {
+    public HoaDonController(HoaDonService hoaDonService, com.example.sd009thuan.repository.HoaDonRepository hoaDonRepository) {
         this.hoaDonService = hoaDonService;
+        this.hoaDonRepository = hoaDonRepository;
     }
 
     // Lấy danh sách tất cả hóa đơn
@@ -95,6 +97,21 @@ public class HoaDonController {
     }
 
     // Hủy tất cả hóa đơn chờ của ngày hôm trước khi sang ngày mới
+    // Hủy đơn hàng online VNPAY quá hạn 5 phút chưa thanh toán
+    @PostMapping("/code/{maHoaDon}/cancel-expired-vnpay")
+    public ResponseEntity<?> cancelExpiredVnPayByMa(@PathVariable String maHoaDon) {
+        Optional<HoaDon> opt = hoaDonService.getByMaHoaDon(maHoaDon);
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        HoaDon hd = opt.get();
+        if (hoaDonService.isExpiredVnPayOrder(hd)) {
+            hoaDonService.cancelSingleVnPayOrder(hd, "Hệ thống tự động hủy đơn do quá hạn thanh toán VNPAY (5 phút)");
+            return ResponseEntity.ok(Map.of("cancelled", true, "order", hoaDonService.getByMaHoaDon(maHoaDon).orElse(hd)));
+        }
+        return ResponseEntity.ok(Map.of("cancelled", false, "order", hd));
+    }
+
     @PostMapping("/cancel-expired-waiting")
     public ResponseEntity<Map<String, Object>> cancelExpiredWaiting() {
         List<HoaDon> cancelled = hoaDonService.cancelExpiredWaitingInvoices();
@@ -146,13 +163,41 @@ public class HoaDonController {
         return ResponseEntity.ok(hoaDonService.syncCartToInvoice(id, items));
     }
 
+    // Tiền kiểm tra tính hợp lệ toàn diện của đơn hàng POS (Đổi giá, Sửa voucher, Chuyển quyền NV, Đợt giảm giá)
+    @PostMapping("/pos/kiem-tra-hop-le")
+    public ResponseEntity<Map<String, Object>> kiemTraHopLeDonHangPos(@RequestBody HoaDonPosDTO dto) {
+        return ResponseEntity.ok(hoaDonService.kiemTraHopLeDonHangPos(dto));
+    }
+
+    // Bàn giao hóa đơn chờ cho nhân viên khác tiếp quản (Case 3)
+    @PostMapping("/pos/ban-giao")
+    public ResponseEntity<Map<String, Object>> banGiaoHoaDonPos(@RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(hoaDonService.banGiaoHoaDonPos(body));
+    }
+
+    // Lấy danh sách nhân viên đang hoạt động để phục vụ bàn giao hóa đơn
+    @GetMapping("/pos/danh-sach-nhan-vien-ban-giao")
+    public ResponseEntity<List<Map<String, Object>>> getDanhSachNhanVienBanGiao() {
+        return ResponseEntity.ok(hoaDonService.getDanhSachNhanVienKhaDung());
+    }
+
     // Tạo đơn hàng bán tại quầy (POS) kèm danh sách sản phẩm chi tiết, trừ tồn kho và thanh toán
     @PostMapping("/pos")
     public ResponseEntity<HoaDon> createPos(@RequestBody HoaDonPosDTO dto) {
         return ResponseEntity.ok(hoaDonService.createHoaDonPos(dto));
     }
 
-    // Cập nhật đơn vị vận chuyển
+    // Cập nhật đơn vị vận chuyển theo Mã hóa đơn
+    @PutMapping("/code/{maHoaDon}/don-vi-van-chuyen")
+    public ResponseEntity<?> updateDonViVanChuyenByMa(
+            @PathVariable String maHoaDon,
+            @RequestBody java.util.Map<String, String> body
+    ) {
+        String carrier = body != null ? body.get("donViVanChuyen") : null;
+        return ResponseEntity.ok(hoaDonService.updateDonViVanChuyenByMa(maHoaDon, carrier));
+    }
+
+    // Cập nhật đơn vị vận chuyển theo ID
     @PutMapping("/{id}/don-vi-van-chuyen")
     public ResponseEntity<?> updateDonViVanChuyen(
             @PathVariable Long id,
@@ -188,6 +233,70 @@ public class HoaDonController {
         return ResponseEntity.ok(hoaDonService.update(opt.get().getId(), hoaDon));
     }
 
+    private static class OrderStatusUpdateParams {
+        Integer trangThai;
+        String ghiChu;
+        String email;
+        Long nhanVienId;
+        String nguoiThucHien;
+        boolean hoanTien;
+        boolean guiEmail = true;
+    }
+
+    private OrderStatusUpdateParams parseStatusUpdateParams(
+            Map<String, Object> body,
+            Integer paramTrangThai,
+            String paramEmail
+    ) {
+        OrderStatusUpdateParams params = new OrderStatusUpdateParams();
+        params.trangThai = paramTrangThai;
+        params.email = paramEmail;
+
+        if (body != null) {
+            if (body.get("trangThai") != null) {
+                try {
+                    params.trangThai = Integer.valueOf(body.get("trangThai").toString());
+                } catch (NumberFormatException ignored) {
+                    // Bỏ qua nếu trạng thái không phải số nguyên
+                }
+            }
+
+            if (body.get("ghiChu") != null) {
+                params.ghiChu = body.get("ghiChu").toString();
+            }
+
+            if (body.get("email") != null && !body.get("email").toString().trim().isEmpty()) {
+                params.email = body.get("email").toString().trim();
+            } else if (body.get("emailKhachHang") != null && !body.get("emailKhachHang").toString().trim().isEmpty()) {
+                params.email = body.get("emailKhachHang").toString().trim();
+            }
+            if (body.get("idNhanVien") != null) {
+                try { params.nhanVienId = Long.valueOf(body.get("idNhanVien").toString()); } catch (Exception ignored) {}
+            } else if (body.get("nhanVienId") != null) {
+                try { params.nhanVienId = Long.valueOf(body.get("nhanVienId").toString()); } catch (Exception ignored) {}
+            }
+            if (body.get("nguoiThucHien") != null && !body.get("nguoiThucHien").toString().trim().isEmpty()) {
+                params.nguoiThucHien = body.get("nguoiThucHien").toString().trim();
+            } else if (body.get("nguoiCapNhat") != null && !body.get("nguoiCapNhat").toString().trim().isEmpty()) {
+                params.nguoiThucHien = body.get("nguoiCapNhat").toString().trim();
+            }
+            if (body.get("hoanTien") != null) {
+                Object htObj = body.get("hoanTien");
+                params.hoanTien = Boolean.TRUE.equals(htObj) || "true".equalsIgnoreCase(htObj.toString().trim());
+            }
+            if (body.get("guiEmail") != null) {
+                Object geObj = body.get("guiEmail");
+                params.guiEmail = !(Boolean.FALSE.equals(geObj) || "false".equalsIgnoreCase(geObj.toString().trim()));
+            }
+        }
+
+        return params;
+    }
+
+    private boolean isOutOfStockException(Exception e) {
+        return e instanceof IllegalStateException || (e.getMessage() != null && (e.getMessage().contains("không đủ số lượng") || e.getMessage().contains("hết hàng")));
+    }
+
     // Cập nhật trạng thái hóa đơn theo ID
     @PutMapping("/{id}/trang-thai")
     public ResponseEntity<?> updateTrangThai(
@@ -198,33 +307,9 @@ public class HoaDonController {
             @RequestParam(name = "email", required = false)
             String paramEmail
     ) {
-        Integer trangThai = paramTrangThai;
-        String ghiChu = null;
-        String email = paramEmail;
+        OrderStatusUpdateParams params = parseStatusUpdateParams(body, paramTrangThai, paramEmail);
 
-        if (body != null) {
-            if (body.get("trangThai") != null) {
-                try {
-                    trangThai = Integer.valueOf(
-                            body.get("trangThai").toString()
-                    );
-                } catch (NumberFormatException ignored) {
-                    // Bỏ qua nếu trạng thái không phải số nguyên
-                }
-            }
-
-            if (body.get("ghiChu") != null) {
-                ghiChu = body.get("ghiChu").toString();
-            }
-
-            if (body.get("email") != null && !body.get("email").toString().trim().isEmpty()) {
-                email = body.get("email").toString().trim();
-            } else if (body.get("emailKhachHang") != null && !body.get("emailKhachHang").toString().trim().isEmpty()) {
-                email = body.get("emailKhachHang").toString().trim();
-            }
-        }
-
-        if (trangThai == null) {
+        if (params.trangThai == null) {
             return ResponseEntity.badRequest()
                     .body(Map.of(
                             "message",
@@ -234,19 +319,34 @@ public class HoaDonController {
 
         try {
             return ResponseEntity.ok(
-                    hoaDonService.updateTrangThai(id, trangThai, ghiChu, email)
+                    hoaDonService.updateTrangThai(
+                            id,
+                            params.trangThai,
+                            params.ghiChu,
+                            params.email,
+                            params.nhanVienId,
+                            params.nguoiThucHien,
+                            params.hoanTien,
+                            params.guiEmail
+                    )
             );
         } catch (Exception e) {
+            if (isOutOfStockException(e)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "message", e.getMessage() != null ? e.getMessage() : "Sản phẩm trong kho không đủ số lượng!",
+                        "outOfStock", true
+                ));
+            }
             try {
                 HoaDon hd = new HoaDon();
-                hd.setTrangThai(trangThai);
-                if (ghiChu != null) hd.setGhiChu(ghiChu);
-                if (email != null) hd.setEmail(email);
+                hd.setTrangThai(params.trangThai);
+                if (params.ghiChu != null) hd.setGhiChu(params.ghiChu);
+                if (params.email != null) hd.setEmail(params.email);
                 return ResponseEntity.ok(hoaDonService.update(id, hd));
             } catch (Exception ex) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "message",
-                        e.getMessage() != null ? e.getMessage() : "Cập nhật trạng thái thất bại"
+                        ex.getMessage() != null ? ex.getMessage() : (e.getMessage() != null ? e.getMessage() : "Cập nhật trạng thái thất bại")
                 ));
             }
         }
@@ -262,33 +362,9 @@ public class HoaDonController {
             @RequestParam(name = "email", required = false)
             String paramEmail
     ) {
-        Integer trangThai = paramTrangThai;
-        String ghiChu = null;
-        String email = paramEmail;
+        OrderStatusUpdateParams params = parseStatusUpdateParams(body, paramTrangThai, paramEmail);
 
-        if (body != null) {
-            if (body.get("trangThai") != null) {
-                try {
-                    trangThai = Integer.valueOf(
-                            body.get("trangThai").toString()
-                    );
-                } catch (NumberFormatException ignored) {
-                    // Bỏ qua nếu trạng thái không phải số nguyên
-                }
-            }
-
-            if (body.get("ghiChu") != null) {
-                ghiChu = body.get("ghiChu").toString();
-            }
-
-            if (body.get("email") != null && !body.get("email").toString().trim().isEmpty()) {
-                email = body.get("email").toString().trim();
-            } else if (body.get("emailKhachHang") != null && !body.get("emailKhachHang").toString().trim().isEmpty()) {
-                email = body.get("emailKhachHang").toString().trim();
-            }
-        }
-
-        if (trangThai == null) {
+        if (params.trangThai == null) {
             return ResponseEntity.badRequest()
                     .body(Map.of(
                             "message",
@@ -300,68 +376,46 @@ public class HoaDonController {
             return ResponseEntity.ok(
                     hoaDonService.updateTrangThaiByMa(
                             maHoaDon,
-                            trangThai,
-                            ghiChu,
-                            email
+                            params.trangThai,
+                            params.ghiChu,
+                            params.email,
+                            params.nhanVienId,
+                            params.nguoiThucHien,
+                            params.hoanTien,
+                            params.guiEmail
                     )
             );
         } catch (Exception e) {
+            if (isOutOfStockException(e)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "message", e.getMessage() != null ? e.getMessage() : "Sản phẩm trong kho không đủ số lượng!",
+                        "outOfStock", true
+                ));
+            }
             try {
                 java.util.Optional<HoaDon> opt = hoaDonService.getByMaHoaDon(maHoaDon);
                 if (opt.isPresent()) {
                     HoaDon hd = new HoaDon();
-                    hd.setTrangThai(trangThai);
-                    if (ghiChu != null) hd.setGhiChu(ghiChu);
-                    if (email != null) hd.setEmail(email);
+                    hd.setTrangThai(params.trangThai);
+                    if (params.ghiChu != null) hd.setGhiChu(params.ghiChu);
+                    if (params.email != null) hd.setEmail(params.email);
                     return ResponseEntity.ok(hoaDonService.update(opt.get().getId(), hd));
                 }
             } catch (Exception ignored) {}
             return ResponseEntity.badRequest().body(Map.of(
                     "message",
                     e.getMessage() != null ? e.getMessage() : "Cập nhật trạng thái thất bại"
-                ));
+            ));
         }
     }
 
-    // Gửi email xác nhận đơn hàng theo ID
-    @PostMapping("/{id}/send-email")
-    public ResponseEntity<?> sendConfirmationEmail(
-            @PathVariable Long id,
-            @RequestBody(required = false) Map<String, Object> body
-    ) {
-        String email = (body != null && body.get("email") != null) ? body.get("email").toString().trim() : null;
+    // Kiểm tra tồn kho các sản phẩm trong đơn hàng (phục vụ xác nhận đơn)
+    @GetMapping("/{id}/check-stock")
+    public ResponseEntity<?> checkStockForOrder(@PathVariable Long id) {
         try {
-            boolean sent = hoaDonService.sendConfirmationEmail(id, email);
-            if (sent) {
-                return ResponseEntity.ok(Map.of("message", "Đã gửi email xác nhận đơn hàng thành công!"));
-            } else {
-                return ResponseEntity.badRequest().body(Map.of("message", "Không thể gửi email. Vui lòng kiểm tra lại địa chỉ email người nhận!"));
-            }
+            return ResponseEntity.ok(hoaDonService.checkStockForOrder(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage() != null ? e.getMessage() : "Gửi email thất bại!"));
-        }
-    }
-
-    // Gửi email xác nhận đơn hàng theo mã hóa đơn
-    @PostMapping("/code/{maHoaDon}/send-email")
-    public ResponseEntity<?> sendConfirmationEmailByCode(
-            @PathVariable String maHoaDon,
-            @RequestBody(required = false) Map<String, Object> body
-    ) {
-        Optional<HoaDon> opt = hoaDonService.getByMaHoaDon(maHoaDon);
-        if (opt.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        String email = (body != null && body.get("email") != null) ? body.get("email").toString().trim() : null;
-        try {
-            boolean sent = hoaDonService.sendConfirmationEmail(opt.get().getId(), email);
-            if (sent) {
-                return ResponseEntity.ok(Map.of("message", "Đã gửi email xác nhận đơn hàng thành công!"));
-            } else {
-                return ResponseEntity.badRequest().body(Map.of("message", "Không thể gửi email. Vui lòng kiểm tra lại địa chỉ email người nhận!"));
-            }
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage() != null ? e.getMessage() : "Gửi email thất bại!"));
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
 
@@ -461,6 +515,91 @@ public class HoaDonController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage() != null ? e.getMessage() : "Đặt hàng online thất bại!"));
         }
+    }
+
+    // Khách hàng online sửa thông tin nhận hàng (1 lần duy nhất khi đơn đang Chờ xác nhận)
+    @PutMapping("/code/{maHoaDon}/khach-sua-thong-tin")
+    public ResponseEntity<?> khachSuaThongTinDonHangByCode(
+            @PathVariable String maHoaDon,
+            @RequestBody com.example.sd009thuan.dto.KhachSuaDonDTO dto
+    ) {
+        try {
+            HoaDon updated = hoaDonService.khachSuaThongTinDonHang(maHoaDon, dto);
+            return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("message", "Đã xảy ra lỗi khi cập nhật thông tin đơn hàng: " + e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}/khach-sua-thong-tin")
+    public ResponseEntity<?> khachSuaThongTinDonHangById(
+            @PathVariable Long id,
+            @RequestBody com.example.sd009thuan.dto.KhachSuaDonDTO dto
+    ) {
+        Optional<HoaDon> opt = hoaDonService.getById(id);
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return khachSuaThongTinDonHangByCode(opt.get().getMaHoaDon(), dto);
+    }
+
+
+    // Quản lý thông báo đơn hàng mới cho Admin
+    private static final java.util.Set<String> readNotificationCodes = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    @GetMapping("/thong-bao-moi")
+    public ResponseEntity<java.util.Map<String, Object>> getNewOrderNotifications() {
+        List<HoaDon> allRecent = hoaDonRepository.findAll(
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "ngayTao")
+        );
+        List<java.util.Map<String, Object>> notifList = new java.util.ArrayList<>();
+        int unreadCount = 0;
+
+        for (HoaDon hd : allRecent) {
+            if (notifList.size() >= 25) break;
+            boolean isOnline = Integer.valueOf(2).equals(hd.getLoaiDon())
+                               || (hd.getGhiChu() != null && hd.getGhiChu().toLowerCase().contains("website"));
+            if (isOnline) {
+                boolean daDoc = readNotificationCodes.contains(hd.getMaHoaDon()) || (hd.getTrangThai() != null && hd.getTrangThai() > 1);
+                if (!daDoc) {
+                    unreadCount++;
+                }
+                java.util.Map<String, Object> item = new java.util.HashMap<>();
+                item.put("id", hd.getId());
+                item.put("maHoaDon", hd.getMaHoaDon());
+                item.put("tenKhachHang", hd.getTenKhachHang() != null ? hd.getTenKhachHang() : "Khách hàng online");
+                item.put("soDienThoai", hd.getSoDienThoaiKhachHang() != null ? hd.getSoDienThoaiKhachHang() : "");
+                item.put("tongTien", hd.getTienSauGiamGia() != null ? hd.getTienSauGiamGia() : (hd.getTongTien() != null ? hd.getTongTien() : java.math.BigDecimal.ZERO));
+                item.put("ngayTao", hd.getNgayTao() != null ? hd.getNgayTao().toString() : "");
+                item.put("trangThai", hd.getTrangThai() != null ? hd.getTrangThai() : 1);
+                item.put("daDoc", daDoc);
+                notifList.add(item);
+            }
+        }
+
+        java.util.Map<String, Object> res = new java.util.HashMap<>();
+        res.put("unreadCount", unreadCount);
+        res.put("notifications", notifList);
+        return ResponseEntity.ok(res);
+    }
+
+    @PostMapping("/danh-dau-da-doc")
+    public ResponseEntity<java.util.Map<String, Object>> markNotificationAsRead(
+            @RequestBody(required = false) java.util.Map<String, String> body
+    ) {
+        if (body != null && body.containsKey("maHoaDon")) {
+            readNotificationCodes.add(body.get("maHoaDon"));
+        } else if (body != null && Boolean.parseBoolean(String.valueOf(body.get("all")))) {
+            List<HoaDon> all = hoaDonRepository.findAll();
+            for (HoaDon hd : all) {
+                if (hd.getMaHoaDon() != null) {
+                    readNotificationCodes.add(hd.getMaHoaDon());
+                }
+            }
+        }
+        return ResponseEntity.ok(java.util.Map.of("success", true, "message", "Đã đánh dấu thông báo là đã đọc"));
     }
 
 }

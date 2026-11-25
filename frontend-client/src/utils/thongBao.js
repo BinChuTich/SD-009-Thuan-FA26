@@ -119,8 +119,10 @@ export const fetchNotifications = async () => {
       list.push({
         id: notiId,
         category: 'order',
-        title: `🎉 Đặt hàng thành công! Đơn #${orderCode}`,
+        orderCode: orderCode,
+        title: `Đặt hàng thành công! Đơn #${orderCode}`,
         desc: `Đơn hàng #${orderCode} đã được tạo thành công trên hệ thống. Tổng thanh toán: ${totalFmt}.`,
+        totalPrice: totalFmt,
         statusBadge: 'Đặt thành công',
         time: formatTimeAgo(o.ngayTao),
         timestamp: new Date(o.ngayTao || Date.now()).getTime(),
@@ -173,8 +175,10 @@ export const notifyOrderSuccess = (order) => {
   const newNoti = {
     id: notiId,
     category: 'order',
-    title: `🎉 Đặt hàng thành công! Đơn #${orderCode}`,
+    orderCode: orderCode,
+    title: `Đặt hàng thành công! Đơn #${orderCode}`,
     desc: `Đơn hàng #${orderCode} đã được tạo thành công trên hệ thống. Tổng thanh toán: ${totalFmt}.`,
+    totalPrice: totalFmt,
     statusBadge: 'Đặt thành công',
     time: 'Vừa xong',
     timestamp: Date.now(),

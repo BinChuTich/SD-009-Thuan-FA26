@@ -82,7 +82,7 @@ public class LichLamViecServiceImpl implements LichLamViecService {
         LocalDate today = LocalDate.now();
         LocalTime nowTime = LocalTime.now();
 
-        // Chặn sửa lịch quá khứ
+
         if (req.getNgayLamViec().isBefore(today)) {
             throw new IllegalArgumentException("Không được phép phân lịch cho những ngày trong quá khứ!");
         }
@@ -90,7 +90,7 @@ public class LichLamViecServiceImpl implements LichLamViecService {
             throw new IllegalArgumentException("Ca làm việc này trong ngày hôm nay đã kết thúc giờ làm!");
         }
 
-        // Check trùng nhân viên trong ca
+
         Optional<LichLamViec> existingSameShift = lichLamViecRepository.findByNhanVienIdAndCaLamViecIdAndNgayLamViec(
                 nv.getId(), ca.getId(), req.getNgayLamViec()
         );
@@ -101,7 +101,7 @@ public class LichLamViecServiceImpl implements LichLamViecService {
             ));
         }
 
-        // Check xung đột khung giờ giữa các ca trong cùng ngày của nhân viên đó
+
         List<LichLamViec> sameDaySchedules = lichLamViecRepository.findByNhanVienIdAndNgayLamViecAndTrangThai(
                 nv.getId(), req.getNgayLamViec(), 1
         );

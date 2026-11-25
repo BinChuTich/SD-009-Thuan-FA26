@@ -4,10 +4,12 @@ export const dialogState = reactive({
   confirm: {
     show: false,
     title: '',
+    subtitle: '',
     message: '',
     type: 'question', // 'question' | 'warning' | 'success' | 'danger'
     confirmText: 'Xác nhận',
     cancelText: 'Hủy bỏ',
+    hideIcon: false,
     resolve: null
   },
   alert: {
@@ -27,19 +29,24 @@ export const dialogState = reactive({
  */
 export function showConfirm({
   title = 'Xác nhận thao tác',
+  subtitle = 'Vui lòng xác nhận để tiếp tục thực hiện thao tác',
   message = 'Bạn có chắc chắn muốn thực hiện hành động này?',
   type = 'question',
   confirmText = 'Xác nhận',
-  cancelText = 'Hủy bỏ'
+  cancelText = 'Hủy bỏ',
+  hideIcon = false,
+  showIcon = true
 } = {}) {
   return new Promise((resolve) => {
     dialogState.confirm = {
       show: true,
       title,
+      subtitle,
       message,
       type,
       confirmText,
       cancelText,
+      hideIcon: hideIcon || showIcon === false,
       resolve
     }
   })
@@ -84,13 +91,23 @@ export function handleAlertClose() {
 let toastCounter = 0
 /**
  * Hiển thị thông báo Toast nhanh gọn
- * @param {string} message Nội dung thông báo
+ * @param {string|object} message Nội dung thông báo hoặc object { title, message, type }
  * @param {'success'|'error'|'warning'|'info'} type Loại thông báo
  * @param {number} duration Thời gian hiển thị (ms)
+ * @param {string|null} title Tiêu đề thông báo
  */
-export function showToast(message, type = 'success', duration = 3500) {
+export function showToast(message, type = 'success', duration = 3500, title = null) {
   const id = ++toastCounter
-  dialogState.toasts.push({ id, message, type })
+  if (typeof message === 'object' && message !== null) {
+    dialogState.toasts.push({
+      id,
+      title: message.title || null,
+      message: message.message || message.desc || '',
+      type: message.type || type
+    })
+  } else {
+    dialogState.toasts.push({ id, title, message, type })
+  }
   setTimeout(() => {
     removeToast(id)
   }, duration)

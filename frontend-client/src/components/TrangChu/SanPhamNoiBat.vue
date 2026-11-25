@@ -1,6 +1,7 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import { formatCurrency } from '@/utils/dinhDang.js'
+import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
 
 const router = useRouter()
 
@@ -12,21 +13,11 @@ const props = defineProps({
   loading: {
     type: Boolean,
     default: false
-  },
-  categoryTabs: {
-    type: Array,
-    default: () => []
-  },
-  selectedCategoryTab: {
-    type: String,
-    default: 'ALL'
   }
 })
 
-const emit = defineEmits(['update:selectedCategoryTab'])
-
 const handleImgError = (e) => {
-  e.target.src = '/images/products/default_tshirt.jpg'
+  e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER
 }
 
 const goToProduct = (id) => {
@@ -38,21 +29,8 @@ const goToProduct = (id) => {
   <section class="featured-section" id="san-pham-noi-bat">
     <div class="container-featured">
       <div class="section-title-wrapper text-center">
-        <span class="badge-sub-title">THIẾT KẾ ĐƯỢC YÊU THÍCH</span>
+        <span class="badge-sub-title">TOP BÁN CHẠY NHẤT</span>
         <h2 class="script-title">Sản Phẩm Nổi Bật</h2>
-        <p class="script-subtitle">Bộ sưu tập áo phông bán chạy nhất mùa này với chất liệu Cotton cao cấp</p>
-      </div>
-
-      <!-- Tab lọc danh mục n p hanh ngay trên trang chủ -->
-      <div class="home-cat-tabs">
-        <button
-          v-for="tab in categoryTabs"
-          :key="tab.id"
-          :class="{ active: selectedCategoryTab === tab.id }"
-          @click="emit('update:selectedCategoryTab', tab.id)"
-        >
-          {{ tab.name }}
-        </button>
       </div>
 
       <div v-if="loading" class="loading-state">
@@ -60,7 +38,7 @@ const goToProduct = (id) => {
         <p>Đang tải bộ sưu tập...</p>
       </div>
 
-      <div v-else-if="products.length > 0" class="boutique-product-grid four-cols">
+      <div v-else-if="products.length > 0" class="boutique-product-grid">
         <div
           v-for="p in products"
           :key="p.id"
@@ -69,7 +47,7 @@ const goToProduct = (id) => {
         >
           <div class="card-media">
             <img
-              :src="p.anhDaiDien || (p.hinhAnhs && p.hinhAnhs[0]) || '/images/products/default_tshirt.jpg'"
+              :src="resolveProductImageUrl(p.anhDaiDien || (p.hinhAnhs && p.hinhAnhs[0]))"
               :alt="p.tenSanPham"
               @error="handleImgError"
               loading="lazy"
@@ -77,10 +55,21 @@ const goToProduct = (id) => {
             <span v-if="p.coGiamGia && p.phanTramGiam > 0" class="tag-percent">
               -{{ Math.round(p.phanTramGiam) }}%
             </span>
+            <span v-if="(p.daBan || p.soLuongDaBan || 0) > 0" class="tag-best-seller">
+              Bán chạy
+            </span>
           </div>
 
           <div class="card-details">
-            <span class="card-category-badge">{{ p.tenDanhMuc || 'Áo phông' }}</span>
+            <div class="card-details-top">
+              <span class="card-category-badge">{{ p.tenDanhMuc || 'Áo phông' }}</span>
+              <span class="card-sold-count">
+                <svg class="cart-sold-icon" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.24-1.04A1 1 0 005.064 1H3z" />
+                </svg>
+                Đã bán {{ p.daBan || p.soLuongDaBan || 0 }}
+              </span>
+            </div>
             <h3 class="product-title-text">{{ p.tenSanPham }}</h3>
             <div class="product-pricing">
               <template v-if="p.coGiamGia && p.minGiaSauGiam && p.minGiaSauGiam < p.minGia">
@@ -155,42 +144,24 @@ const goToProduct = (id) => {
   margin: 0;
 }
 
-.home-cat-tabs {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 32px;
-}
-
-.home-cat-tabs button {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 8px 18px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #475569;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.home-cat-tabs button:hover {
-  border-color: #cbd5e1;
-  color: #1e293b;
-}
-
-.home-cat-tabs button.active {
-  background: #496883;
-  border-color: #496883;
-  color: #ffffff;
-  box-shadow: 0 3px 8px rgba(73, 104, 131, 0.25);
-}
 
 .boutique-product-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 22px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 18px;
+}
+
+@media (max-width: 1200px) {
+  .boutique-product-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .boutique-product-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
 }
 
 .boutique-card {
@@ -250,6 +221,43 @@ const goToProduct = (id) => {
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+.tag-best-seller {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #d2a764;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(210, 167, 100, 0.35);
+  letter-spacing: 0.2px;
+}
+
+.card-details-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.card-sold-count {
+  font-size: 11.5px;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+}
+
+.cart-sold-icon {
+  width: 12px;
+  height: 12px;
+  color: #d2a764;
 }
 
 .card-category-badge {

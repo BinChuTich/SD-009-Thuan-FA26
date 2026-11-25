@@ -407,62 +407,74 @@ public class ChiTietSanPhamService {
                 }
             }
         }
-        // Biến thể nào chưa có ảnh riêng thì giữ nguyên là null (không tự động fill ảnh biến thể khác, ảnh chung hay ảnh mẫu)
+        // 2. Nếu biến thể chưa có ảnh riêng: lấy ảnh theo màu sắc tương ứng hoặc ảnh chung của sản phẩm
+        if (anhDaiDien == null && ct.getIdSanPham() != null) {
+            List<HinhAnh> imgs = hinhAnhRepository.findByIdSanPham_Id(ct.getIdSanPham().getId());
+            if (imgs != null && !imgs.isEmpty()) {
+                if (ct.getIdMauSac() != null && ct.getIdMauSac().getId() != null) {
+                    String colorTarget = "COLOR_" + ct.getIdMauSac().getId();
+                    for (HinhAnh img : imgs) {
+                        String tenAnh = img.getTenAnh();
+                        if (tenAnh != null && colorTarget.equalsIgnoreCase(tenAnh)) {
+                            anhDaiDien = img.getDuongDan();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
 
-        // Kiểm tra giảm giá liên kết (ưu tiên theo biến thể, fallback theo sản phẩm cha)
+        // Kiểm tra giảm giá liên kết (chỉ áp dụng chính xác theo biến thể)
         Instant now = Instant.now();
         List<ChiTietDotGiamGia> activeDiscounts = chiTietDotGiamGiaRepository.findActiveDiscountsByVariantId(ct.getId(), now);
+        if (activeDiscounts == null) {
+            activeDiscounts = java.util.Collections.emptyList();
+        }
         Boolean coGiamGia = false;
         BigDecimal giaSauGiam = null;
         BigDecimal phanTramGiam = null;
         String tenDotGiamGia = null;
 
-        if (activeDiscounts != null && !activeDiscounts.isEmpty()) {
-            coGiamGia = true;
-            // Thuật toán: Khi có nhiều đợt giảm giá chạy song song (chồng chéo thời gian),
-            // tự động chọn đợt giảm giá có % lớn nhất (Max) để tối ưu quyền lợi cho khách hàng
-            ChiTietDotGiamGia bestDgg = activeDiscounts.stream()
-                .max(java.util.Comparator.comparing(c -> {
-                    BigDecimal pt = c.getPhanTramGiamBienThe() != null 
-                            ? c.getPhanTramGiamBienThe() 
-                            : (c.getIdDotGiamGia() != null ? c.getIdDotGiamGia().getPhanTramGiam() : BigDecimal.ZERO);
-                    return pt != null ? pt : BigDecimal.ZERO;
-                }))
-                .orElse(activeDiscounts.get(0));
+        BigDecimal originalPrice = ct.getGiaBan() != null ? ct.getGiaBan() : BigDecimal.ZERO;
+        giaSauGiam = originalPrice;
+        if (!activeDiscounts.isEmpty() && originalPrice.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal maxDiscountAmt = BigDecimal.ZERO;
+            ChiTietDotGiamGia bestDgg = null;
 
-            if (bestDgg.getIdDotGiamGia() != null) {
-                DotGiamGia dgg = bestDgg.getIdDotGiamGia();
-                tenDotGiamGia = dgg.getTenDotGiamGia();
-                boolean isCash = Integer.valueOf(2).equals(dgg.getLoaiGiamGia());
-                if (isCash) {
-                    BigDecimal cashDiscount = dgg.getGiaTriGiam() != null ? dgg.getGiaTriGiam() : BigDecimal.ZERO;
-                    if (ct.getGiaBan() != null) {
-                        giaSauGiam = ct.getGiaBan().subtract(cashDiscount).max(BigDecimal.ZERO);
-                        if (ct.getGiaBan().compareTo(BigDecimal.ZERO) > 0) {
-                            phanTramGiam = cashDiscount.multiply(BigDecimal.valueOf(100)).divide(ct.getGiaBan(), 0, java.math.RoundingMode.HALF_UP);
-                        }
-                    } else {
-                        giaSauGiam = BigDecimal.ZERO;
-                    }
+            for (ChiTietDotGiamGia cItem : activeDiscounts) {
+                if (cItem.getIdDotGiamGia() == null) continue;
+                DotGiamGia d = cItem.getIdDotGiamGia();
+                BigDecimal discAmt = BigDecimal.ZERO;
+
+                if (Integer.valueOf(2).equals(d.getLoaiGiamGia())) {
+                    BigDecimal cash = d.getGiaTriGiam() != null ? d.getGiaTriGiam() : BigDecimal.ZERO;
+                    discAmt = cash.min(originalPrice);
                 } else {
-                    phanTramGiam = bestDgg.getPhanTramGiamBienThe() != null 
-                        ? bestDgg.getPhanTramGiamBienThe() 
-                        : (dgg.getPhanTramGiam() != null ? dgg.getPhanTramGiam() : BigDecimal.ZERO);
-                    if (ct.getGiaBan() != null && phanTramGiam != null && phanTramGiam.compareTo(BigDecimal.ZERO) > 0) {
-                        BigDecimal discountAmt = ct.getGiaBan().multiply(phanTramGiam).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
-                        if (dgg.getGiamToiDa() != null && dgg.getGiamToiDa().compareTo(BigDecimal.ZERO) > 0 && discountAmt.compareTo(dgg.getGiamToiDa()) > 0) {
-                            discountAmt = dgg.getGiamToiDa();
+                    BigDecimal pt = cItem.getPhanTramGiamBienThe() != null 
+                            ? cItem.getPhanTramGiamBienThe() 
+                            : (d.getPhanTramGiam() != null ? d.getPhanTramGiam() : BigDecimal.ZERO);
+                    if (pt != null && pt.compareTo(BigDecimal.ZERO) > 0) {
+                        discAmt = originalPrice.multiply(pt).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+                        if (d.getGiamToiDa() != null && d.getGiamToiDa().compareTo(BigDecimal.ZERO) > 0 && discAmt.compareTo(d.getGiamToiDa()) > 0) {
+                            discAmt = d.getGiamToiDa();
                         }
-                        giaSauGiam = ct.getGiaBan().subtract(discountAmt).max(BigDecimal.ZERO);
-                    } else {
-                        giaSauGiam = ct.getGiaBan();
+                        discAmt = discAmt.min(originalPrice);
                     }
                 }
-            } else {
-                giaSauGiam = ct.getGiaBan();
+
+                // Tự động chọn đợt giảm giá sâu nhất (số tiền giảm VNĐ lớn nhất)
+                if (discAmt.compareTo(maxDiscountAmt) > 0) {
+                    maxDiscountAmt = discAmt;
+                    bestDgg = cItem;
+                }
             }
-        } else {
-            giaSauGiam = ct.getGiaBan();
+
+            if (bestDgg != null && maxDiscountAmt.compareTo(BigDecimal.ZERO) > 0) {
+                coGiamGia = true;
+                giaSauGiam = originalPrice.subtract(maxDiscountAmt).max(BigDecimal.ZERO);
+                phanTramGiam = maxDiscountAmt.multiply(BigDecimal.valueOf(100)).divide(originalPrice, 0, java.math.RoundingMode.HALF_UP);
+                tenDotGiamGia = bestDgg.getIdDotGiamGia().getTenDotGiamGia();
+            }
         }
 
         return ChiTietSanPhamResponse.builder()

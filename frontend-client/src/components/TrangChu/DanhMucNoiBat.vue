@@ -1,5 +1,6 @@
 <script setup>
 import { useRouter } from 'vue-router'
+import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
 
 const router = useRouter()
 
@@ -31,7 +32,12 @@ const goToCategory = (categoryName) => {
           @click="goToCategory(cat.name)"
         >
           <div class="cat-img-box">
-            <img :src="cat.image" :alt="cat.name" loading="lazy" />
+            <img
+              :src="resolveProductImageUrl(cat.image)"
+              :alt="cat.name"
+              loading="lazy"
+              @error="(e) => e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER"
+            />
             <div class="cat-overlay"></div>
             <span class="cat-tag">{{ cat.tag }}</span>
           </div>
@@ -88,12 +94,6 @@ const goToCategory = (categoryName) => {
   margin: 0 0 6px;
 }
 
-.script-subtitle {
-  font-size: 14px;
-  color: #64748b;
-  margin: 0;
-}
-
 .categories-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -102,7 +102,7 @@ const goToCategory = (categoryName) => {
 
 .category-card {
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
   cursor: pointer;
@@ -123,7 +123,10 @@ const goToCategory = (categoryName) => {
   width: 100%;
   padding-top: 100%;
   overflow: hidden;
-  background: #f1f5f9;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cat-img-box img {
@@ -132,7 +135,8 @@ const goToCategory = (categoryName) => {
   left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  padding: 14px;
   transition: transform 0.4s ease;
 }
 
@@ -143,38 +147,40 @@ const goToCategory = (categoryName) => {
 .cat-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 60%, rgba(30, 41, 59, 0.4) 100%);
+  background: linear-gradient(180deg, transparent 65%, rgba(30, 41, 59, 0.18) 100%);
+  pointer-events: none;
 }
 
 .cat-tag {
   position: absolute;
   top: 12px;
   left: 12px;
-  background: #d2a764;
-  color: #1e293b;
+  background: rgba(255, 255, 255, 0.95);
+  color: #496883;
   font-size: 11px;
   font-weight: 800;
-  padding: 3px 8px;
-  border-radius: 4px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  padding: 4px 10px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  letter-spacing: 0.5px;
 }
 
 .cat-content {
-  padding: 16px;
+  padding: 18px 20px 20px;
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
 .cat-name {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
   color: #1e293b;
   margin: 0 0 6px;
 }
 
 .cat-desc {
-  font-size: 12px;
+  font-size: 13px;
   color: #64748b;
   margin: 0 0 14px;
   line-height: 1.45;
@@ -185,22 +191,27 @@ const goToCategory = (categoryName) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 12px;
+}
+
+.cat-count {
+  font-size: 12.5px;
   font-weight: 700;
   color: #496883;
 }
 
 .cat-arrow {
-  font-size: 14px;
+  color: #d2a764;
+  font-size: 16px;
   transition: transform 0.2s ease;
 }
 
 .category-card:hover .cat-arrow {
   transform: translateX(4px);
-  color: #d2a764;
 }
 
-@media (max-width: 992px) {
+@media (max-width: 1024px) {
   .categories-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -208,9 +219,7 @@ const goToCategory = (categoryName) => {
 
 @media (max-width: 600px) {
   .categories-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    grid-template-columns: 1fr;
   }
 }
 </style>
-

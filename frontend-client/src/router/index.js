@@ -40,15 +40,11 @@ const routes = [
     name: 'GioHang',
     component: GioHang
   },
-  { path: '/thanh-toan', redirect: '/gio-hang' },
+  { path: '/thanh-toan', redirect: { path: '/gio-hang', query: { step: 'checkout' } } },
   {
     path: '/don-hang',
-    redirect: to => {
-      if (to.query && (to.query.code || to.query.ma)) {
-        return { path: '/tra-cuu', query: to.query }
-      }
-      return '/tra-cuu'
-    }
+    name: 'DonHang',
+    component: DonHang
   },
   {
     path: '/tra-cuu',
@@ -62,7 +58,8 @@ const routes = [
   },
   {
     path: '/goi-y',
-    redirect: '/cua-hang'
+    name: 'GoiY',
+    component: GoiY
   },
   {
     path: '/lien-he',

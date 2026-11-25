@@ -146,13 +146,14 @@ const openFallbackMailClient = () => {
         <div class="hero-logo-box">
           <div class="brand-logo-wrapper">
             <div class="sparkles">
+              <span class="sparkle-aura"></span>
               <span class="ray ray-1"></span>
               <span class="ray ray-2"></span>
               <span class="ray ray-3"></span>
             </div>
             <div class="logo-content">
               <div class="logo-name">
-                <span class="f-white">F</span>
+                <span class="f-blue">F</span>
                 <span class="f-gold">F</span>
               </div>
               <div class="logo-sub">T-shirt</div>
@@ -373,92 +374,175 @@ const openFallbackMailClient = () => {
   border-bottom: 2px solid #ecd8af;
 }
 
-/* LOGO THƯƠNG HIỆU: CHUẨN FREDOKA + 3 TIA SÁNG + FF */
-.hero-logo-box {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 14px;
-}
-
+/* LOGO THUONG HIEU CHUAN: F XANH NAVY + F VANG GOLD + T-SHIRT XANH NAVY + 3 TIA SANG */
 .brand-logo-wrapper {
   position: relative;
   display: inline-flex;
   align-items: flex-end;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Fredoka', -apple-system, sans-serif;
   user-select: none;
 }
 
 .sparkles {
   position: absolute;
-  top: -10px;
-  left: -10px;
-  width: 28px;
-  height: 28px;
+  top: -12px;
+  left: -7px;
+  width: 32px;
+  height: 32px;
+  pointer-events: none;
+}
+
+.sparkles .sparkle-aura {
+  position: absolute;
+  bottom: 2px;
+  right: 6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 252, 235, 0.95) 0%, rgba(251, 191, 36, 0.8) 45%, rgba(217, 119, 6, 0) 75%);
+  animation: fireworkAuraTracking 2.4s ease-in-out infinite;
   pointer-events: none;
 }
 
 .sparkles .ray {
   position: absolute;
   background-color: #d2a764;
-  border-radius: 2px;
-  box-shadow: 0 0 8px rgba(210, 167, 100, 0.7);
+  border-radius: 99px;
+  transform-origin: center center;
+  animation: fireworkSparkleTracking 2.4s ease-in-out infinite;
 }
 
 .sparkles .ray-1 {
-  width: 3.5px;
-  height: 11px;
-  top: 0;
-  right: 5px;
-  transform: rotate(10deg);
+  --rot: 12deg;
+  width: 4px;
+  height: 12px;
+  top: 1px;
+  right: 6px;
+  transform: rotate(12deg);
+  animation-delay: 0s;
 }
 
 .sparkles .ray-2 {
-  width: 3.5px;
-  height: 11px;
-  top: 4px;
-  left: 4px;
-  transform: rotate(-45deg);
+  --rot: -42deg;
+  width: 4px;
+  height: 12px;
+  top: 5px;
+  left: 5px;
+  transform: rotate(-42deg);
+  animation-delay: 0.35s;
 }
 
 .sparkles .ray-3 {
-  width: 3.5px;
-  height: 11px;
-  bottom: 0px;
-  left: -2px;
-  transform: rotate(-80deg);
+  --rot: -78deg;
+  width: 4px;
+  height: 12px;
+  bottom: 1px;
+  left: 0px;
+  transform: rotate(-78deg);
+  animation-delay: 0.7s;
+}
+
+@keyframes fireworkAuraTracking {
+  0%, 100% {
+    opacity: 0.15;
+    transform: scale(0.75);
+  }
+  35% {
+    opacity: 0.95;
+    transform: scale(1.35);
+    filter: drop-shadow(0 0 5px #f59e0b) drop-shadow(0 0 12px #fbbf24);
+  }
+  65% {
+    opacity: 0.35;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes fireworkSparkleTracking {
+  0%, 100% {
+    opacity: 0.35;
+    transform: rotate(var(--rot, 0deg)) scale(0.88);
+    background-color: #d1a868;
+    box-shadow: 0 0 2px rgba(209, 168, 104, 0.4);
+  }
+  25% {
+    opacity: 0.8;
+    transform: rotate(var(--rot, 0deg)) scale(1.15);
+    background-color: #fde68a;
+    box-shadow: 0 0 8px #f59e0b, 0 0 14px rgba(245, 158, 11, 0.7);
+  }
+  45% {
+    opacity: 1;
+    transform: rotate(var(--rot, 0deg)) scale(1.38);
+    background-color: #ffffff;
+    box-shadow: 0 0 8px #ffffff, 0 0 16px #fbbf24, 0 0 26px #f59e0b;
+    filter: drop-shadow(0 0 5px #ffffff);
+  }
+  65% {
+    opacity: 0.85;
+    transform: rotate(var(--rot, 0deg)) scale(1.18);
+    background-color: #fcd34d;
+    box-shadow: 0 0 8px #f59e0b;
+  }
+  85% {
+    opacity: 0.45;
+    transform: rotate(var(--rot, 0deg)) scale(0.95);
+    background-color: #d1a868;
+  }
 }
 
 .logo-content {
   display: flex;
   align-items: flex-end;
-  filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.75)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
 }
 
 .logo-name {
   display: flex;
-  font-size: 50px;
+  font-family: 'Fredoka', -apple-system, sans-serif;
+  font-size: 48px;
   font-weight: 800;
   line-height: 0.85;
   letter-spacing: -2px;
 }
 
-.f-white {
-  color: #ffffff;
+.f-blue {
+  color: #496883;
+  font-weight: 800;
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 3px 6px rgba(0, 0, 0, 0.75),
+    0 6px 14px rgba(0, 0, 0, 0.55),
+    0 0 2px rgba(255, 255, 255, 0.45);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.35));
 }
 
 .f-gold {
   color: #d2a764;
   margin-left: 2px;
+  font-weight: 800;
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.85),
+    0 3px 6px rgba(0, 0, 0, 0.7),
+    0 6px 14px rgba(0, 0, 0, 0.5),
+    0 0 2px rgba(210, 167, 100, 0.8);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.65));
 }
 
 .logo-sub {
-  color: #d2a764;
-  font-size: 18px;
-  font-weight: 700;
+  font-family: 'Fredoka', -apple-system, sans-serif;
+  color: #496883;
+  font-size: 17px;
+  font-weight: 800;
   line-height: 1;
   margin-left: 7px;
   margin-bottom: 3px;
-  letter-spacing: -0.4px;
+  letter-spacing: -0.3px;
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 2px 5px rgba(0, 0, 0, 0.7),
+    0 0 2px rgba(255, 255, 255, 0.35);
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.65));
 }
 
 .page-title {

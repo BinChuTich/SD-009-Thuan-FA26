@@ -213,7 +213,9 @@ public class VNPayService {
 
                     // Gửi email xác nhận đơn hàng đã thanh toán
                     try {
-                        String recipient = hd.getEmailKhachHang();
+                        String recipient = (hd.getEmailKhachHang() != null && !hd.getEmailKhachHang().isBlank())
+                                ? hd.getEmailKhachHang().trim()
+                                : hd.getEmail();
                         if (recipient != null && !recipient.isBlank() && emailService != null) {
                             List<ChiTietHoaDon> items = chiTietHoaDonRepository.findByIdHoaDon_Id(hd.getId());
                             emailService.sendOrderConfirmationEmail(hd, items, recipient);

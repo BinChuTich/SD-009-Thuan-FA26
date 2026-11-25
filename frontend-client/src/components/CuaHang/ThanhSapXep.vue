@@ -68,6 +68,7 @@ const isCategoryActive = (cat) => {
           class="select-sort"
         >
           <option value="newest">Mới nhất</option>
+          <option value="best-seller">Bán chạy nhất (Lượt mua)</option>
           <option value="price-asc">Giá: Thấp đến cao</option>
           <option value="price-desc">Giá: Cao đến thấp</option>
           <option value="name-asc">Tên: A - Z</option>

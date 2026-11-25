@@ -14,7 +14,7 @@
               </div>
               <div class="logo-content">
                 <div class="logo-name">
-                  <span class="f-white">F</span>
+                  <span class="f-blue">F</span>
                   <span class="f-gold">F</span>
                 </div>
                 <div class="logo-sub">T-shirt</div>
@@ -22,7 +22,7 @@
             </div>
           </div>
           <p class="brand-desc">
-            Thương hiệu thời trang áo phông nam cao cấp. Mang đến phong cách trẻ trung, đĩnh đạc và trải nghiệm vải bông Cotton tự nhiên đỉnh cao.
+            Thương hiệu thời trang áo phông cao cấp. Mang đến phong cách trẻ trung, đĩnh đạc và trải nghiệm vải bông Cotton tự nhiên đỉnh cao.
           </p>
           <div class="contact-line">📍 Trụ sở: Tòa nhà FPT Polytechnic, Phố Trịnh Văn Bô, Hà Nội</div>
           <div class="contact-line">📧 Email: <a href="mailto:fftshirt.vn@gmail.com" class="footer-email-link">fftshirt.vn@gmail.com</a></div>
@@ -34,6 +34,7 @@
           <h4 class="col-title">BỘ SƯU TẬP</h4>
           <ul class="footer-links">
             <li><router-link to="/cua-hang">Tất cả sản phẩm</router-link></li>
+            <li><router-link to="/goi-y">Gợi ý phối đồ áo phông</router-link></li>
             <li><router-link to="/cua-hang?danhmuc=basic">Áo Thun Basic</router-link></li>
             <li><router-link to="/cua-hang?danhmuc=polo">Áo Thun Polo</router-link></li>
             <li><router-link to="/cua-hang?danhmuc=oversize">Áo Thun Oversize</router-link></li>
@@ -125,31 +126,71 @@
 .footer-logo .sparkles.mini .ray {
   position: absolute;
   background-color: #d2a764;
-  border-radius: 2px;
+  border-radius: 99px;
+  transform-origin: center center;
+  animation: fireworkSparkleFooter 2.4s ease-in-out infinite;
 }
 
 .footer-logo .sparkles.mini .ray-1 {
+  --rot: 10deg;
   width: 3px;
   height: 8px;
   top: 0;
   right: 4px;
   transform: rotate(10deg);
+  animation-delay: 0s;
 }
 
 .footer-logo .sparkles.mini .ray-2 {
+  --rot: -45deg;
   width: 3px;
   height: 8px;
   top: 3px;
   left: 2px;
   transform: rotate(-45deg);
+  animation-delay: 0.38s;
 }
 
 .footer-logo .sparkles.mini .ray-3 {
+  --rot: -80deg;
   width: 3px;
   height: 8px;
   bottom: 0px;
   left: -2px;
   transform: rotate(-80deg);
+  animation-delay: 0.76s;
+}
+
+@keyframes fireworkSparkleFooter {
+  0%, 100% {
+    opacity: 0.35;
+    transform: rotate(var(--rot, 0deg)) scale(0.85);
+    background-color: #d1a868;
+    box-shadow: 0 0 2px rgba(209, 168, 104, 0.3);
+  }
+  25% {
+    opacity: 0.7;
+    transform: rotate(var(--rot, 0deg)) scale(1.1);
+    background-color: #fce198;
+    box-shadow: 0 0 4px #ffd700, 0 0 8px rgba(210, 167, 100, 0.5);
+  }
+  45% {
+    opacity: 1;
+    transform: rotate(var(--rot, 0deg)) scale(1.35);
+    background-color: #ffffff;
+    box-shadow: 0 0 6px #ffffff, 0 0 12px #ffd700, 0 0 18px rgba(210, 167, 100, 0.95);
+  }
+  65% {
+    opacity: 0.8;
+    transform: rotate(var(--rot, 0deg)) scale(1.15);
+    background-color: #f3c774;
+    box-shadow: 0 0 5px #ffd700;
+  }
+  85% {
+    opacity: 0.45;
+    transform: rotate(var(--rot, 0deg)) scale(0.95);
+    background-color: #d1a868;
+  }
 }
 
 .footer-logo .logo-content {
@@ -165,22 +206,41 @@
   letter-spacing: -1.5px;
 }
 
-.footer-logo .f-white {
-  color: #ffffff;
+/* CHU NOI BAT DA TANG DO BONG TREN CHAN TRANG: F XANH NAVY + F VANG GOLD */
+.footer-logo .f-blue {
+  color: #496883;
+  font-weight: 800;
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 3px 6px rgba(0, 0, 0, 0.75),
+    0 0 2px rgba(255, 255, 255, 0.45);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.35));
 }
 
 .footer-logo .f-gold {
   color: #d2a764;
   margin-left: 2px;
+  font-weight: 800;
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.85),
+    0 3px 6px rgba(0, 0, 0, 0.7),
+    0 0 2px rgba(210, 167, 100, 0.8);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.65));
 }
 
 .footer-logo .logo-sub {
-  color: #d2a764;
-  font-size: 13px;
-  font-weight: 700;
+  font-family: 'Fredoka', -apple-system, sans-serif;
+  color: #496883;
+  font-size: 14px;
+  font-weight: 800;
   line-height: 1;
   margin-left: 6px;
-  margin-bottom: 1px;
+  margin-bottom: 2px;
+  letter-spacing: -0.3px;
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 2px 5px rgba(0, 0, 0, 0.7),
+    0 0 2px rgba(255, 255, 255, 0.35);
 }
 
 .brand-desc {

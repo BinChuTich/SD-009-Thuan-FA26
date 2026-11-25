@@ -8,7 +8,6 @@ import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -63,18 +62,15 @@ public class EmailService {
         return DATE_FORMATTER.format(instant);
     }
 
-    /**
-     * Gửi email thông báo tặng phiếu giảm giá mới cho khách hàng theo form chuẩn thanh lịch
-     */
     @Async
     public void sendVoucherIssuedEmail(KhachHang kh, PhieuGiamGia phieu) {
         if (kh == null || kh.getEmail() == null || kh.getEmail().trim().isEmpty()) {
-            System.out.println("==> [EmailService] Bỏ qua gửi email phát hành voucher vì khách hàng không có email hợp lệ.");
+            log.info("==> [EmailService] Bỏ qua gửi email phát hành voucher vì khách hàng không có email hợp lệ.");
             return;
         }
         try {
             if (mailSender == null) {
-                System.out.println("==> [EmailService Mock] Đã gửi email phát hành voucher " + phieu.getMaPhieuGiamGia() + " tới " + kh.getEmail());
+                log.info("==> [EmailService Mock] Đã gửi email phát hành voucher {} tới {}", phieu.getMaPhieuGiamGia(), kh.getEmail());
                 return;
             }
 
@@ -86,7 +82,13 @@ public class EmailService {
             helper.setSubject("[FF T-Shirt] Bạn vừa nhận được Phiếu giảm giá: " + phieu.getMaPhieuGiamGia());
 
             String html = """
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                </head>
+                <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                <div style="max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
                     <h2 style="margin: 0 0 14px 0; text-align: center; color: #4a3427; font-size: 20px; font-weight: 700;">
                         Chào %s,
                     </h2>
@@ -124,6 +126,8 @@ public class EmailService {
                         </a>
                     </div>
                 </div>
+                </body>
+                </html>
             """.formatted(
                     kh.getTenKhachHang() != null ? kh.getTenKhachHang() : "Khách hàng",
                     phieu.getTenPhieuGiamGia(),
@@ -136,27 +140,23 @@ public class EmailService {
             );
 
             helper.setText(html, true);
-            System.out.println("==> [EmailService] Đang kết nối SMTP để gửi email phát hành voucher tới: " + kh.getEmail());
+            log.info("==> [EmailService] Đang gửi email phát hành voucher tới: {}", kh.getEmail());
             mailSender.send(message);
-            System.out.println("==> [EmailService] Đã gửi email phát hành voucher THÀNH CÔNG tới: " + kh.getEmail());
+            log.info("==> [EmailService] Đã gửi email phát hành voucher THÀNH CÔNG tới: {}", kh.getEmail());
         } catch (Exception e) {
-            System.err.println("==> [EmailService Lỗi] Không thể gửi email phát hành tới " + kh.getEmail() + ": " + e.getMessage());
-            e.printStackTrace();
+            log.error("==> [EmailService Lỗi] Không thể gửi email phát hành tới {}: {}", kh.getEmail(), e.getMessage());
         }
     }
 
-    /**
-     * Gửi email cập nhật thông tin voucher mới cho khách hàng đang sở hữu
-     */
     @Async
     public void sendVoucherUpdatedEmail(KhachHang kh, PhieuGiamGia phieu) {
         if (kh == null || kh.getEmail() == null || kh.getEmail().trim().isEmpty()) {
-            System.out.println("==> [EmailService] Bỏ qua gửi email cập nhật voucher vì khách hàng không có email hợp lệ.");
+            log.info("==> [EmailService] Bỏ qua gửi email cập nhật voucher vì khách hàng không có email hợp lệ.");
             return;
         }
         try {
             if (mailSender == null) {
-                System.out.println("==> [EmailService Mock] Đã gửi email cập nhật voucher " + phieu.getMaPhieuGiamGia() + " tới " + kh.getEmail());
+                log.info("==> [EmailService Mock] Đã gửi email cập nhật voucher {} tới {}", phieu.getMaPhieuGiamGia(), kh.getEmail());
                 return;
             }
 
@@ -168,7 +168,13 @@ public class EmailService {
             helper.setSubject("[FF T-Shirt] Cập nhật thông tin ưu đãi Phiếu giảm giá: " + phieu.getMaPhieuGiamGia());
 
             String html = """
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                </head>
+                <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                <div style="max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
                     <h2 style="margin: 0 0 14px 0; text-align: center; color: #4a3427; font-size: 20px; font-weight: 700;">
                         Chào %s,
                     </h2>
@@ -206,6 +212,8 @@ public class EmailService {
                         </a>
                     </div>
                 </div>
+                </body>
+                </html>
             """.formatted(
                     kh.getTenKhachHang() != null ? kh.getTenKhachHang() : "Khách hàng",
                     phieu.getTenPhieuGiamGia(),
@@ -218,27 +226,23 @@ public class EmailService {
             );
 
             helper.setText(html, true);
-            System.out.println("==> [EmailService] Đang gửi email CẬP NHẬT voucher tới: " + kh.getEmail());
+            log.info("==> [EmailService] Đang gửi email CẬP NHẬT voucher tới: {}", kh.getEmail());
             mailSender.send(message);
-            System.out.println("==> [EmailService] Đã gửi email cập nhật voucher THÀNH CÔNG tới: " + kh.getEmail());
+            log.info("==> [EmailService] Đã gửi email cập nhật voucher THÀNH CÔNG tới: {}", kh.getEmail());
         } catch (Exception e) {
-            System.err.println("==> [EmailService Lỗi] Không thể gửi email cập nhật tới " + kh.getEmail() + ": " + e.getMessage());
-            e.printStackTrace();
+            log.error("==> [EmailService Lỗi] Không thể gửi email cập nhật tới {}: {}", kh.getEmail(), e.getMessage());
         }
     }
 
-    /**
-     * Gửi email thông báo hủy / thu hồi voucher khi khách bị gỡ khỏi danh sách áp dụng
-     */
     @Async
     public void sendVoucherRevokedEmail(KhachHang kh, PhieuGiamGia phieu) {
         if (kh == null || kh.getEmail() == null || kh.getEmail().trim().isEmpty()) {
-            System.out.println("==> [EmailService] Bỏ qua gửi email thu hồi voucher vì khách hàng không có email hợp lệ.");
+            log.info("==> [EmailService] Bỏ qua gửi email thu hồi voucher vì khách hàng không có email hợp lệ.");
             return;
         }
         try {
             if (mailSender == null) {
-                System.out.println("==> [EmailService Mock] Đã gửi email thu hồi voucher " + phieu.getMaPhieuGiamGia() + " tới " + kh.getEmail());
+                log.info("==> [EmailService Mock] Đã gửi email thu hồi voucher {} tới {}", phieu.getMaPhieuGiamGia(), kh.getEmail());
                 return;
             }
 
@@ -250,7 +254,13 @@ public class EmailService {
             helper.setSubject("[FF T-Shirt] Thông báo kết thúc áp dụng Phiếu giảm giá: " + phieu.getMaPhieuGiamGia());
 
             String html = """
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                </head>
+                <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                <div style="max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
                     <h2 style="margin: 0 0 14px 0; text-align: center; color: #4a3427; font-size: 20px; font-weight: 700;">
                         Chào %s,
                     </h2>
@@ -266,6 +276,8 @@ public class EmailService {
                         </a>
                     </div>
                 </div>
+                </body>
+                </html>
             """.formatted(
                     kh.getTenKhachHang() != null ? kh.getTenKhachHang() : "Khách hàng",
                     phieu.getMaPhieuGiamGia(),
@@ -273,27 +285,23 @@ public class EmailService {
             );
 
             helper.setText(html, true);
-            System.out.println("==> [EmailService] Đang gửi email THU HỒI voucher tới: " + kh.getEmail());
+            log.info("==> [EmailService] Đang gửi email THU HỒI voucher tới: {}", kh.getEmail());
             mailSender.send(message);
-            System.out.println("==> [EmailService] Đã gửi email thu hồi voucher THÀNH CÔNG tới: " + kh.getEmail());
+            log.info("==> [EmailService] Đã gửi email thu hồi voucher THÀNH CÔNG tới: {}", kh.getEmail());
         } catch (Exception e) {
-            System.err.println("==> [EmailService Lỗi] Không thể gửi email thu hồi tới " + kh.getEmail() + ": " + e.getMessage());
-            e.printStackTrace();
+            log.error("==> [EmailService Lỗi] Không thể gửi email thu hồi tới {}: {}", kh.getEmail(), e.getMessage());
         }
     }
 
-    /**
-     * Gửi email thông báo tạm ngừng hoạt động phiếu giảm giá khi Admin bấm tắt
-     */
     @Async
     public void sendVoucherDeactivatedEmail(KhachHang kh, PhieuGiamGia phieu) {
         if (kh == null || kh.getEmail() == null || kh.getEmail().trim().isEmpty()) {
-            System.out.println("==> [EmailService] Bỏ qua gửi email ngừng hoạt động: Khách hàng không có email hợp lệ.");
+            log.info("==> [EmailService] Bỏ qua gửi email ngừng hoạt động: Khách hàng không có email hợp lệ.");
             return;
         }
         try {
             if (mailSender == null) {
-                System.out.println("==> [EmailService Mock] Đã gửi email ngừng hoạt động voucher " + phieu.getMaPhieuGiamGia() + " tới " + kh.getEmail());
+                log.info("==> [EmailService Mock] Đã gửi email ngừng hoạt động voucher {} tới {}", phieu.getMaPhieuGiamGia(), kh.getEmail());
                 return;
             }
 
@@ -305,7 +313,13 @@ public class EmailService {
             helper.setSubject("[FF T-Shirt] Thông báo tạm ngừng hoạt động Phiếu giảm giá: " + phieu.getMaPhieuGiamGia());
 
             String html = """
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                </head>
+                <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                <div style="max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
                     <h2 style="margin: 0 0 14px 0; text-align: center; color: #4a3427; font-size: 20px; font-weight: 700;">
                         Chào %s,
                     </h2>
@@ -339,6 +353,8 @@ public class EmailService {
                         </a>
                     </div>
                 </div>
+                </body>
+                </html>
             """.formatted(
                     kh.getTenKhachHang() != null ? kh.getTenKhachHang() : "Khách hàng",
                     phieu.getMaPhieuGiamGia(),
@@ -349,36 +365,39 @@ public class EmailService {
             );
 
             helper.setText(html, true);
-            System.out.println("==> [EmailService] Đang gửi email NGỪNG HOẠT ĐỘNG voucher tới: " + kh.getEmail());
+            log.info("==> [EmailService] Đang gửi email NGỪNG HOẠT ĐỘNG voucher tới: {}", kh.getEmail());
             mailSender.send(message);
-            System.out.println("==> [EmailService] Đã gửi email ngừng hoạt động voucher THÀNH CÔNG tới: " + kh.getEmail());
+            log.info("==> [EmailService] Đã gửi email ngừng hoạt động voucher THÀNH CÔNG tới: {}", kh.getEmail());
         } catch (Exception e) {
-            System.err.println("==> [EmailService Lỗi] Không thể gửi email ngừng hoạt động tới " + kh.getEmail() + ": " + e.getMessage());
-            e.printStackTrace();
+            log.error("==> [EmailService Lỗi] Không thể gửi email ngừng hoạt động tới {}: {}", kh.getEmail(), e.getMessage());
         }
     }
 
-    /**
-     * Gửi email thông tin tài khoản và mật khẩu cho nhân viên mới
-     */
     public boolean sendAccountInfoEmail(String toEmail, String employeeName, String code, String account, String password) {
         if (toEmail == null || toEmail.trim().isEmpty()) {
             return false;
         }
         try {
             if (mailSender == null) {
-                System.out.println("==> [EmailService Mock] Đã gửi thông tin tài khoản nhân viên " + code + " tới " + toEmail);
+                log.info("==> [EmailService Mock] Đã gửi thông tin tài khoản nhân viên {} tới {}", code, toEmail);
                 return true;
             }
 
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
+            helper.setFrom(senderEmail, "FF T-Shirt");
             helper.setTo(toEmail.trim());
             helper.setSubject("[FF T-Shirt] Cung cấp thông tin tài khoản nhân viên mới - " + code);
 
             String html = """
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                </head>
+                <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                <div style="max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
                     <h2 style="margin: 0 0 14px 0; text-align: center; color: #4a3427; font-size: 20px; font-weight: 700;">
                         Chào mừng %s,
                     </h2>
@@ -410,6 +429,8 @@ public class EmailService {
                         </a>
                     </div>
                 </div>
+                </body>
+                </html>
             """.formatted(
                     employeeName != null ? employeeName : "Bạn",
                     code,
@@ -418,21 +439,18 @@ public class EmailService {
             );
 
             helper.setText(html, true);
-            System.out.println("==> [EmailService] Đang gửi thông tin tài khoản nhân viên tới: " + toEmail);
+            log.info("==> [EmailService] Đang gửi thông tin tài khoản nhân viên tới: {}", toEmail);
             mailSender.send(message);
-            System.out.println("==> [EmailService] Đã gửi thông tin tài khoản nhân viên THÀNH CÔNG tới: " + toEmail);
+            log.info("==> [EmailService] Đã gửi thông tin tài khoản nhân viên THÀNH CÔNG tới: {}", toEmail);
             return true;
         } catch (Exception e) {
-            System.err.println("==> [EmailService Lỗi] Không thể gửi email tài khoản tới " + toEmail + ": " + e.getMessage());
+            log.error("==> [EmailService Lỗi] Không thể gửi email tài khoản tới {}: {}", toEmail, e.getMessage());
             return false;
         }
     }
 
     public record AccountEmailDto(String email, String name, String code, String account, String password) {}
 
-    /**
-     * Gửi email danh sách thông tin tài khoản nhân viên mới bất đồng bộ (@Async ngầm không block request)
-     */
     @Async
     public void sendBulkAccountInfoEmailsAsync(java.util.List<AccountEmailDto> emailsToSend) {
         if (emailsToSend == null || emailsToSend.isEmpty()) {
@@ -471,10 +489,12 @@ public class EmailService {
         }
 
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(toEmail.trim());
-            message.setSubject(actualSubject);
-            message.setText(fullContent);
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            helper.setFrom(senderEmail, "FF T-Shirt");
+            helper.setTo(toEmail.trim());
+            helper.setSubject(actualSubject);
+            helper.setText(fullContent, false);
             mailSender.send(message);
             log.info("Đã gửi email thông báo thành công tới: {}", toEmail);
             return true;
@@ -484,9 +504,6 @@ public class EmailService {
         }
     }
 
-    /**
-     * Gửi email xác nhận đơn hàng tự động cho khách hàng khi đơn hàng được xác nhận
-     */
     @Async
     public void sendOrderConfirmationEmail(HoaDon hoaDon, java.util.List<ChiTietHoaDon> items, String recipientEmail) {
         if (recipientEmail == null || recipientEmail.trim().isEmpty() || !recipientEmail.contains("@")) {
@@ -511,58 +528,12 @@ public class EmailService {
             helper.setSubject("[FF T-Shirt] Xác nhận đơn hàng thành công #" + (hoaDon.getMaHoaDon() != null ? hoaDon.getMaHoaDon() : ""));
 
             // Build item rows HTML
-            StringBuilder itemsHtml = new StringBuilder();
-            if (items != null && !items.isEmpty()) {
-                int idx = 1;
-                for (ChiTietHoaDon item : items) {
-                    String productName = "Sản phẩm";
-                    String variantInfo = "";
-                    String productCode = item.getMaHoaDonChiTiet() != null ? item.getMaHoaDonChiTiet() : "";
-                    if (item.getIdChiTietSanPham() != null) {
-                        var ctsp = item.getIdChiTietSanPham();
-                        if (ctsp.getIdSanPham() != null && ctsp.getIdSanPham().getTenSanPham() != null) {
-                            productName = ctsp.getIdSanPham().getTenSanPham();
-                        }
-                        if (ctsp.getMaChiTietSanPham() != null) {
-                            productCode = ctsp.getMaChiTietSanPham();
-                        }
-                        String color = (ctsp.getIdMauSac() != null && ctsp.getIdMauSac().getTenMauSac() != null) ? ctsp.getIdMauSac().getTenMauSac() : "";
-                        String size = (ctsp.getIdKichCo() != null && ctsp.getIdKichCo().getTenKichCo() != null) ? ctsp.getIdKichCo().getTenKichCo() : "";
-                        if (!color.isEmpty() || !size.isEmpty()) {
-                            variantInfo = (color.isEmpty() ? "" : color) + (!color.isEmpty() && !size.isEmpty() ? " / " : "") + (!size.isEmpty() ? ("Size " + size) : "");
-                        }
-                    }
+            String itemsHtml = buildOrderItemsHtml(items);
 
-                    int qty = item.getSoLuong() != null ? item.getSoLuong() : 1;
-                    BigDecimal price = item.getDonGia() != null ? item.getDonGia() : BigDecimal.ZERO;
-                    BigDecimal total = item.getThanhTien() != null ? item.getThanhTien() : price.multiply(BigDecimal.valueOf(qty));
-
-                    itemsHtml.append("<tr style=\"border-bottom: 1px solid #f0eae1;\">")
-                            .append("<td style=\"padding: 10px 8px; text-align: center; color: #777; font-size: 13px;\">").append(idx++).append("</td>")
-                            .append("<td style=\"padding: 10px 8px; text-align: left;\">")
-                            .append("<div style=\"font-weight: 600; color: #2b353b; font-size: 13.5px;\">").append(productName).append("</div>");
-                    if (!variantInfo.isEmpty()) {
-                        itemsHtml.append("<div style=\"font-size: 12.5px; color: #666; margin: 2px 0;\">Phân loại: ").append(variantInfo).append("</div>");
-                    }
-                    if (!productCode.isEmpty()) {
-                        itemsHtml.append("<div style=\"font-size: 12px; color: #888; font-family: monospace;\">Mã: ").append(productCode).append("</div>");
-                    }
-                    itemsHtml.append("</td>")
-                            .append("<td style=\"padding: 10px 8px; text-align: center; font-weight: 600; color: #333; font-size: 13.5px;\">").append(qty).append("</td>")
-                            .append("<td style=\"padding: 10px 8px; text-align: right; color: #555; font-size: 13.5px;\">").append(formatMoney(price)).append("</td>")
-                            .append("<td style=\"padding: 10px 8px; text-align: right; font-weight: 700; color: #3e5c76; font-size: 13.5px;\">").append(formatMoney(total)).append("</td>")
-                            .append("</tr>");
-                }
-            } else {
-                itemsHtml.append("<tr><td colspan=\"5\" style=\"padding: 16px; text-align: center; color: #888;\">Chi tiết sản phẩm đơn hàng đang được cập nhật</td></tr>");
-            }
-
-            // Calculation values
             BigDecimal subtotal = hoaDon.getTongTien() != null ? hoaDon.getTongTien() : BigDecimal.ZERO;
             BigDecimal shipping = hoaDon.getPhiVanChuyen() != null ? hoaDon.getPhiVanChuyen() : BigDecimal.ZERO;
-            BigDecimal finalTotal = hoaDon.getTienSauGiamGia() != null ? hoaDon.getTienSauGiamGia() : subtotal.add(shipping);
-            BigDecimal discount = subtotal.add(shipping).subtract(finalTotal);
-            if (discount.compareTo(BigDecimal.ZERO) < 0) discount = BigDecimal.ZERO;
+            BigDecimal discount = hoaDon.getTongTienGiamGia() != null ? hoaDon.getTongTienGiamGia() : BigDecimal.ZERO;
+            BigDecimal finalTotal = hoaDon.getTienSauGiamGia() != null ? hoaDon.getTienSauGiamGia() : subtotal.add(shipping).subtract(discount);
 
             String voucherRowHtml = "";
             if (discount.compareTo(BigDecimal.ZERO) > 0) {
@@ -577,11 +548,9 @@ public class EmailService {
             String paymentStatusText = (hoaDon.getTrangThaiThanhToan() != null && hoaDon.getTrangThaiThanhToan() == 1)
                     ? "<span style=\"color: #16a34a; font-weight: 700;\">Đã thanh toán</span>"
                     : "<span style=\"color: #d97706; font-weight: 700;\">Chưa thanh toán (COD / Chờ thanh toán)</span>";
-
             String deliveryAddress = (hoaDon.getDiaChiNhanHang() != null && !hoaDon.getDiaChiNhanHang().isBlank())
                     ? hoaDon.getDiaChiNhanHang()
                     : (Integer.valueOf(1).equals(hoaDon.getLoaiDon()) ? "Nhận trực tiếp tại quầy" : "Chưa cập nhật");
-
             String phone = (hoaDon.getSoDienThoaiKhachHang() != null && !hoaDon.getSoDienThoaiKhachHang().isBlank())
                     ? hoaDon.getSoDienThoaiKhachHang()
                     : "---";
@@ -590,7 +559,14 @@ public class EmailService {
             String orderDate = formatTime(hoaDon.getNgayTao());
 
             String template = """
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 620px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,0.06); color: #333333; line-height: 1.6;">
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                </head>
+                <body style="margin: 0; padding: 0; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                <div style="max-width: 620px; margin: 24px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,0.06); color: #333333; line-height: 1.6;">
                     
                     <!-- Header -->
                     <div style="background: linear-gradient(135deg, #4a3427 0%, #7b5943 100%); padding: 28px 32px; text-align: center; color: #ffffff;">
@@ -681,21 +657,20 @@ public class EmailService {
 
                         <!-- Button CTA -->
                         <div style="text-align: center; margin-bottom: 10px;">
-                            <a href="http://localhost:5174/don-hang?code={{maDon}}" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-size: 14.5px; font-weight: 700; padding: 12px 36px; border-radius: 24px; box-shadow: 0 4px 14px rgba(15,23,42,0.25); letter-spacing: 0.3px;">
-                                📦 Theo Dõi Chi Tiết Đơn Hàng #{{maDon}}
+                            <a href="http://localhost:5174/tra-cuu?code={{maDon}}" style="display: inline-block; background-color: #7b5943; color: #ffffff; text-decoration: none; font-size: 14.5px; font-weight: 600; padding: 12px 36px; border-radius: 24px; box-shadow: 0 2px 8px rgba(123,89,67,0.3);">
+                                Xem chi tiết đơn hàng
                             </a>
-                            <div style="margin-top: 10px; font-size: 13px; color: #64748b;">
-                                Hoặc tra cứu trực tiếp tại: <a href="http://localhost:5174/don-hang?code={{maDon}}" style="color: #2563eb; font-weight: 600; text-decoration: underline;">http://localhost:5174/don-hang?code={{maDon}}</a>
-                            </div>
                         </div>
                     </div>
 
                     <!-- Footer -->
                     <div style="background-color: #f7f5ef; border-top: 1px solid #e8e4de; padding: 20px 30px; text-align: center; font-size: 12.5px; color: #777;">
-                        <p style="margin: 0 0 6px;">Mọi thắc mắc về đơn hàng, vui lòng liên hệ Hotline: <b>0988.888.888</b> hoặc email hỗ trợ: <b>fftshirt.vn@gmail.com</b>.</p>
-                        <p style="margin: 0; color: #999;">© 2026 FF T-Shirt Store. All rights reserved.</p>
+                        <p style="margin: 0 0 6px;">Mọi thắc mắc về đơn hàng, vui lòng liên hệ Hotline: <b>0988.888.888</b> hoặc email hỗ trợ.</p>
+                        <p style="margin: 0; color: #999;">&copy; 2026 FF T-Shirt Store. All rights reserved.</p>
                     </div>
                 </div>
+                </body>
+                </html>
             """;
 
             String html = template
@@ -705,7 +680,7 @@ public class EmailService {
                     .replace("{{paymentStatusText}}", paymentStatusText)
                     .replace("{{phone}}", phone)
                     .replace("{{deliveryAddress}}", deliveryAddress)
-                    .replace("{{itemsHtml}}", itemsHtml.toString())
+                    .replace("{{itemsHtml}}", itemsHtml)
                     .replace("{{subtotal}}", formatMoney(subtotal))
                     .replace("{{shipping}}", formatMoney(shipping))
                     .replace("{{voucherRowHtml}}", voucherRowHtml)
@@ -721,9 +696,238 @@ public class EmailService {
         }
     }
 
+    private String buildOrderItemsHtml(java.util.List<ChiTietHoaDon> items) {
+        StringBuilder itemsHtml = new StringBuilder();
+        if (items != null && !items.isEmpty()) {
+            int idx = 1;
+            for (ChiTietHoaDon item : items) {
+                String productName = "Sản phẩm";
+                String variantInfo = "";
+                String productCode = item.getMaHoaDonChiTiet() != null ? item.getMaHoaDonChiTiet() : "";
+                if (item.getIdChiTietSanPham() != null) {
+                    var ctsp = item.getIdChiTietSanPham();
+                    if (ctsp.getIdSanPham() != null && ctsp.getIdSanPham().getTenSanPham() != null) {
+                        productName = ctsp.getIdSanPham().getTenSanPham();
+                    }
+                    if (ctsp.getMaChiTietSanPham() != null) {
+                        productCode = ctsp.getMaChiTietSanPham();
+                    }
+                    String color = (ctsp.getIdMauSac() != null && ctsp.getIdMauSac().getTenMauSac() != null) ? ctsp.getIdMauSac().getTenMauSac() : "";
+                    String size = (ctsp.getIdKichCo() != null && ctsp.getIdKichCo().getTenKichCo() != null) ? ctsp.getIdKichCo().getTenKichCo() : "";
+                    if (!color.isEmpty() || !size.isEmpty()) {
+                        variantInfo = (color.isEmpty() ? "" : color) + (!color.isEmpty() && !size.isEmpty() ? " / " : "") + (!size.isEmpty() ? ("Size " + size) : "");
+                    }
+                }
+
+                int qty = item.getSoLuong() != null ? item.getSoLuong() : 1;
+                BigDecimal price = item.getDonGia() != null ? item.getDonGia() : BigDecimal.ZERO;
+                BigDecimal total = item.getThanhTien() != null ? item.getThanhTien() : price.multiply(BigDecimal.valueOf(qty));
+
+                itemsHtml.append("<tr style=\"border-bottom: 1px solid #ebd9c8;\">")
+                        .append("<td style=\"padding: 10px 8px; text-align: center; color: #777; font-size: 13px;\">").append(idx++).append("</td>")
+                        .append("<td style=\"padding: 10px 8px;\">")
+                        .append("<div style=\"font-weight: 600; color: #333; font-size: 13.5px;\">").append(escapeHtml(productName)).append("</div>");
+                if (!variantInfo.isEmpty()) {
+                    itemsHtml.append("<div style=\"font-size: 12px; color: #8c6d58; margin-top: 2px;\">Phân loại: ").append(escapeHtml(variantInfo)).append("</div>");
+                }
+                if (!productCode.isEmpty()) {
+                    itemsHtml.append("<div style=\"font-size: 11px; color: #999; margin-top: 1px;\">Mã: ").append(escapeHtml(productCode)).append("</div>");
+                }
+                itemsHtml.append("</td>")
+                        .append("<td style=\"padding: 10px 8px; text-align: center; font-weight: 600; color: #333; font-size: 13.5px;\">").append(qty).append("</td>")
+                        .append("<td style=\"padding: 10px 8px; text-align: right; color: #555; font-size: 13px;\">").append(formatMoney(price)).append("</td>")
+                        .append("<td style=\"padding: 10px 8px; text-align: right; font-weight: 700; color: #b91c1c; font-size: 13.5px;\">").append(formatMoney(total)).append("</td>")
+                        .append("</tr>");
+            }
+        } else {
+            itemsHtml.append("<tr><td colspan=\"5\" style=\"padding: 16px; text-align: center; color: #888;\">Không có chi tiết sản phẩm.</td></tr>");
+        }
+        return itemsHtml.toString();
+    }
+
     /**
-     * Gửi email yêu cầu liên hệ / hỗ trợ của khách hàng về hòm thư fftshirt.vn@gmail.com
+     * Gửi email thông báo hủy đơn hàng online đã thanh toán và hoàn tiền do sản phẩm trong kho không đủ.
      */
+    @Async
+    public void sendOrderOutOfStockRefundEmail(HoaDon hoaDon, java.util.List<ChiTietHoaDon> items, String recipientEmail, String refundReason) {
+        if (recipientEmail == null || recipientEmail.trim().isEmpty() || !recipientEmail.contains("@")) {
+            log.info("==> [EmailService] Bỏ qua gửi email hoàn tiền: Địa chỉ email người nhận không hợp lệ ('{}')", recipientEmail);
+            return;
+        }
+        if (hoaDon == null) {
+            return;
+        }
+
+        try {
+            if (mailSender == null) {
+                log.info("==> [EmailService Mock] Đã gửi email thông báo hoàn tiền đơn hàng {} tới {}", hoaDon.getMaHoaDon(), recipientEmail);
+                return;
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            String maDon = hoaDon.getMaHoaDon() != null ? hoaDon.getMaHoaDon() : "";
+            helper.setFrom(senderEmail, "FF T-Shirt");
+            helper.setTo(recipientEmail.trim());
+            helper.setSubject("[FF T-Shirt] Thông báo hủy đơn hàng & Hoàn tiền #" + maDon);
+
+            String itemsHtml = buildOrderItemsHtml(items);
+            BigDecimal subtotal = hoaDon.getTongTien() != null ? hoaDon.getTongTien() : BigDecimal.ZERO;
+            BigDecimal shipping = hoaDon.getPhiVanChuyen() != null ? hoaDon.getPhiVanChuyen() : BigDecimal.ZERO;
+            BigDecimal discount = hoaDon.getTongTienGiamGia() != null ? hoaDon.getTongTienGiamGia() : BigDecimal.ZERO;
+            BigDecimal refundTotal = hoaDon.getTienSauGiamGia() != null ? hoaDon.getTienSauGiamGia() : subtotal.add(shipping).subtract(discount);
+            if (refundTotal.compareTo(BigDecimal.ZERO) < 0) refundTotal = BigDecimal.ZERO;
+
+            String customerName = escapeHtml(hoaDon.getTenKhachHangHienThi() != null ? hoaDon.getTenKhachHangHienThi() : "Quý khách");
+            String phone = escapeHtml((hoaDon.getSoDienThoaiKhachHang() != null && !hoaDon.getSoDienThoaiKhachHang().isBlank()) ? hoaDon.getSoDienThoaiKhachHang() : "---");
+            String orderDate = escapeHtml(formatTime(hoaDon.getNgayTao()));
+            String safeReason = escapeHtml((refundReason != null && !refundReason.isBlank()) ? refundReason.trim() : "Sản phẩm trong kho hiện đã hết hàng.");
+
+            String template = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                </head>
+                <body style="margin: 0; padding: 0; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                <div style="max-width: 620px; margin: 24px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,0.06); color: #333333; line-height: 1.6;">
+                    <div style="background: linear-gradient(135deg, #4a3427 0%, #7b5943 100%); padding: 28px 32px; text-align: center; color: #ffffff;">
+                        <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">FF T-SHIRT STORE</h1>
+                        <p style="margin: 6px 0 0; font-size: 13.5px; opacity: 0.9;">Thời trang áo phông cao cấp • Hotline: 0988.888.888</p>
+                    </div>
+
+                    <div style="padding: 32px 30px;">
+                        <div style="background-color: #fff7ed; border: 1px solid #fdba74; border-radius: 10px; padding: 16px 20px; margin-bottom: 24px; text-align: center;">
+                            <div style="font-size: 18px; font-weight: 700; color: #9a3412; margin-bottom: 4px;">
+                                Thông báo hủy đơn hàng &amp; Hoàn tiền
+                            </div>
+                            <div style="font-size: 13.5px; color: #c2410c;">
+                                Rất xin lỗi quý khách! Sản phẩm trong đơn hàng hiện không còn đủ số lượng trong kho để xuất giao. Bộ phận CSKH sẽ hoàn lại toàn bộ số tiền quý khách đã thanh toán.
+                            </div>
+                        </div>
+
+                        <p style="margin: 0 0 16px; font-size: 14.5px; color: #333;">
+                            Xin chào <b>{{customerName}}</b>,
+                        </p>
+
+                        <div style="background-color: #faf7f2; border: 1px solid #f0eae1; border-radius: 10px; padding: 18px 20px; margin-bottom: 24px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13.5px;">
+                                <span style="color: #666;">Mã đơn hàng:</span>
+                                <span style="font-weight: 700; color: #4a3427; font-family: monospace; font-size: 14px;">{{maDon}}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13.5px;">
+                                <span style="color: #666;">Thời gian đặt:</span>
+                                <span style="font-weight: 600; color: #333;">{{orderDate}}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13.5px;">
+                                <span style="color: #666;">Số điện thoại:</span>
+                                <span style="font-weight: 600; color: #333;">{{phone}}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13.5px;">
+                                <span style="color: #666;">Số tiền hoàn lại:</span>
+                                <span style="font-weight: 800; color: #b91c1c; font-size: 15px;">{{refundTotal}}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 13.5px;">
+                                <span style="color: #666; flex-shrink: 0; margin-right: 12px;">Lý do:</span>
+                                <span style="font-weight: 600; color: #9a3412; text-align: right;">{{safeReason}}</span>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 24px;">
+                            <div style="font-weight: 700; font-size: 15px; color: #4a3427; margin-bottom: 12px;">
+                                Chi tiết sản phẩm trong đơn hàng:
+                            </div>
+                            <table style="width: 100%; border-collapse: collapse; border: 1px solid #ebd9c8; border-radius: 8px; overflow: hidden;">
+                                <thead>
+                                    <tr style="background-color: #f7f2ea; border-bottom: 2px solid #ebd9c8; font-size: 13px; color: #4a3427;">
+                                        <th style="padding: 10px 8px; text-align: center; width: 35px;">#</th>
+                                        <th style="padding: 10px 8px; text-align: left;">Sản phẩm</th>
+                                        <th style="padding: 10px 8px; text-align: center; width: 50px;">SL</th>
+                                        <th style="padding: 10px 8px; text-align: right; width: 85px;">Đơn giá</th>
+                                        <th style="padding: 10px 8px; text-align: right; width: 95px;">Thành tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{itemsHtml}}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style="text-align: center; margin-bottom: 10px;">
+                            <a href="http://localhost:5174/tra-cuu?code={{maDon}}" style="display: inline-block; background-color: #7b5943; color: #ffffff; text-decoration: none; font-size: 14.5px; font-weight: 600; padding: 12px 36px; border-radius: 24px; box-shadow: 0 2px 8px rgba(123,89,67,0.3);">
+                                Kiểm tra trạng thái đơn hàng
+                            </a>
+                        </div>
+                    </div>
+
+                    <div style="background-color: #f7f5ef; border-top: 1px solid #e8e4de; padding: 20px 30px; text-align: center; font-size: 12.5px; color: #777;">
+                        <p style="margin: 0 0 6px;">Nếu cần hỗ trợ nhanh về hoàn tiền, vui lòng liên hệ Hotline: <b>0988.888.888</b>.</p>
+                        <p style="margin: 0; color: #999;">&copy; 2026 FF T-Shirt Store. All rights reserved.</p>
+                    </div>
+                </div>
+                </body>
+                </html>
+            """;
+
+            String html = template
+                    .replace("{{customerName}}", customerName)
+                    .replace("{{maDon}}", escapeHtml(maDon))
+                    .replace("{{orderDate}}", orderDate)
+                    .replace("{{phone}}", phone)
+                    .replace("{{refundTotal}}", escapeHtml(formatMoney(refundTotal)))
+                    .replace("{{safeReason}}", safeReason)
+                    .replace("{{itemsHtml}}", itemsHtml);
+
+            helper.setText(html, true);
+            log.info("==> [EmailService] Đang gửi email thông báo hoàn tiền đơn hàng {} tới {}", maDon, recipientEmail);
+            mailSender.send(message);
+            log.info("==> [EmailService] Đã gửi email thông báo hoàn tiền đơn hàng {} THÀNH CÔNG tới {}", maDon, recipientEmail);
+        } catch (Exception e) {
+            log.error("==> [EmailService Lỗi] Không thể gửi email thông báo hoàn tiền tới {}: {}", recipientEmail, e.getMessage());
+        }
+    }
+
+    public boolean sendRevenueReportEmail(String toEmail, String subject, String htmlContent) {
+        if (toEmail == null || toEmail.trim().isEmpty() || !toEmail.contains("@")) {
+            log.warn("==> [EmailService] Bỏ qua gửi email báo cáo doanh thu: Địa chỉ email người nhận không hợp lệ ('{}')", toEmail);
+            return false;
+        }
+
+        try {
+            if (mailSender == null) {
+                log.info("==> [EmailService Mock] Đã gửi email báo cáo doanh thu tới {}", toEmail);
+                return true;
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(senderEmail, "FF T-Shirt Analytics");
+            helper.setTo(toEmail.trim());
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
+
+            log.info("==> [EmailService] Đang gửi email báo cáo doanh thu tới {}", toEmail);
+            mailSender.send(message);
+            log.info("==> [EmailService] Đã gửi email báo cáo doanh thu THÀNH CÔNG tới {}", toEmail);
+            return true;
+        } catch (Exception e) {
+            log.error("==> [EmailService Lỗi] Không thể gửi email báo cáo doanh thu tới {}: {}", toEmail, e.getMessage(), e);
+            throw new RuntimeException("Lỗi gửi email: " + e.getMessage(), e);
+        }
+    }
+
+    private String escapeHtml(String text) {
+        if (text == null) return "";
+        return text.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
     @Async
     public void sendContactEmail(String name, String phone, String email, String messageContent) {
         String recipientEmail = "fftshirt.vn@gmail.com";
@@ -784,68 +988,7 @@ public class EmailService {
         }
     }
 
-    /**
-     * Gửi email mã OTP xác nhận đăng ký tài khoản cho khách hàng
-     */
-    public boolean sendOtpVerificationEmail(String toEmail, String fullName, String otpCode) {
-        if (toEmail == null || toEmail.trim().isEmpty() || !toEmail.contains("@")) {
-            log.warn("Bỏ qua gửi OTP vì email không hợp lệ: {}", toEmail);
-            return false;
-        }
-        String displayName = (fullName != null && !fullName.trim().isEmpty()) ? fullName.trim() : "Quý khách";
-
-        if (mailSender == null) {
-            log.info("==> [MOCK EMAIL] Gửi mã xác nhận OTP {} tới email {}", otpCode, toEmail);
-            return true;
-        }
-
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setFrom(senderEmail, "FF T-Shirt");
-            helper.setTo(toEmail.trim());
-            helper.setSubject("[FF T-Shirt] Mã xác thực đăng ký tài khoản: " + otpCode);
-
-            String html = """
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 14px; padding: 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.05); color: #2c3e50;">
-                    <div style="text-align: center; margin-bottom: 24px;">
-                        <span style="display: inline-block; background-color: #3e5c76; color: #ffffff; font-weight: 800; font-size: 20px; padding: 6px 18px; border-radius: 8px; letter-spacing: 1px;">FF T-SHIRT</span>
-                    </div>
-                    <h2 style="margin: 0 0 12px; font-size: 20px; font-weight: 700; color: #1d2d44; text-align: center;">
-                        Xác Thực Đăng Ký Tài Khoản
-                    </h2>
-                    <p style="margin: 0 0 20px; font-size: 14px; color: #555555; text-align: center; line-height: 1.6;">
-                        Xin chào <strong>%s</strong>,<br/>
-                        Bạn vừa yêu cầu đăng ký tài khoản tại <b>FF T-Shirt</b>. Vui lòng sử dụng mã xác nhận bên dưới để hoàn tất đăng ký:
-                    </p>
-                    <div style="background: linear-gradient(135deg, #f0f4f8 0%%, #e2eafc 100%%); border: 2px dashed #748cab; border-radius: 12px; padding: 22px; margin: 0 auto 24px; text-align: center;">
-                        <span style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #0d1b2a; font-family: monospace;">%s</span>
-                    </div>
-                    <div style="background-color: #fdfbf7; border-left: 4px solid #f0ad4e; padding: 12px 16px; border-radius: 4px; margin-bottom: 24px;">
-                        <p style="margin: 0; font-size: 13px; color: #7f6a55; line-height: 1.5;">
-                            ⚠️ Mã xác thực có hiệu lực trong vòng <b>10 phút</b>. Vui lòng không cung cấp mã này cho bất kỳ ai để đảm bảo an toàn.
-                        </p>
-                    </div>
-                    <div style="text-align: center; font-size: 12px; color: #8c969e; border-top: 1px solid #eeeeee; padding-top: 18px;">
-                        Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.<br/>
-                        Hotline hỗ trợ: 1900 6868 | Email: hotro@fftshirt.vn
-                    </div>
-                </div>
-            """.formatted(displayName, otpCode);
-
-            helper.setText(html, true);
-            log.info("==> [EmailService] Đang gửi mã OTP {} tới email {}", otpCode, toEmail);
-            mailSender.send(message);
-            log.info("==> [EmailService] Đã gửi mã OTP thành công tới {}", toEmail);
-            return true;
-        } catch (Exception e) {
-            log.error("==> [EmailService] Lỗi gửi email OTP tới {}: {}", toEmail, e.getMessage());
-            return false;
-        }
-    }
-
-    
+    @Async
     public void sendForgotPasswordEmail(String toEmail, String fullName, String employeeCode, String account, String newPassword) {
         if (toEmail == null || toEmail.isBlank() || !toEmail.contains("@")) {
             log.warn("Bỏ qua email cấp lại mật khẩu vì địa chỉ email không hợp lệ: {}", toEmail);
@@ -922,14 +1065,10 @@ public class EmailService {
         }
     }
 
-    /**
-     * Gửi email đặt lại mật khẩu cho người dùng (hỗ trợ tương thích ngược).
-     */
     @Async
     public void sendResetPasswordEmail(String toEmail, String fullName, String account,
                                        String resetToken, String resetUrl) {
         if (resetUrl != null && !resetUrl.startsWith("http://") && !resetUrl.startsWith("https://")) {
-            // Trường hợp caller truyền mật khẩu mới vào resetUrl
             sendForgotPasswordEmail(toEmail, fullName, account, resetToken, resetUrl);
             return;
         }
@@ -938,15 +1077,10 @@ public class EmailService {
             log.warn("Bỏ qua email đặt lại mật khẩu vì địa chỉ email không hợp lệ.");
             return;
         }
-        if (resetUrl == null || resetUrl.isBlank()) {
-            log.warn("Bỏ qua email đặt lại mật khẩu gửi tới {} vì resetUrl đang trống.", toEmail);
-            return;
-        }
 
         try {
             if (mailSender == null) {
-                log.info("[EmailService Mock] Email đặt lại mật khẩu dành cho tài khoản '{}' sẽ được gửi tới {}. URL: {}",
-                        account, toEmail, resetUrl);
+                log.info("[EmailService Mock] Đặt lại mật khẩu cho tài khoản '{}': URL: {}", account, resetUrl);
                 return;
             }
 
@@ -954,78 +1088,149 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setFrom(senderEmail, "FF T-Shirt");
             helper.setTo(toEmail.trim());
-            helper.setSubject("[FF T-Shirt] Yêu cầu đặt lại mật khẩu");
+            helper.setSubject("[FF T-Shirt] Yêu cầu đặt lại mật khẩu tài khoản " + account);
 
             String safeName = escapeHtml(fullName != null && !fullName.isBlank() ? fullName : "bạn");
             String safeAccount = escapeHtml(account != null && !account.isBlank() ? account : "Không xác định");
-            String safeResetUrl = escapeHtml(resetUrl.trim());
+            String safeUrl = escapeHtml(resetUrl != null ? resetUrl : "http://localhost:5173");
 
             String html = """
-                <div style="font-family: Arial, Helvetica, sans-serif; max-width: 580px; margin: 20px auto; padding: 32px; border: 1px solid #e8e4de; border-radius: 14px; color: #333; line-height: 1.6;">
-                    <div style="text-align: center; margin-bottom: 24px;">
-                        <h2 style="color: #4a3427; margin-bottom: 8px;">FF T-Shirt</h2>
-                        <p style="color: #777; margin-top: 0;">Yêu cầu đặt lại mật khẩu</p>
-                    </div>
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
+                    <h2 style="color: #4a3427; text-align: center; margin-bottom: 20px;">Đặt lại mật khẩu FF T-Shirt</h2>
                     <p>Xin chào <strong>%s</strong>,</p>
-                    <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản <strong>%s</strong>.</p>
-                    <p>Nhấp vào nút bên dưới để tiến hành đặt mật khẩu mới:</p>
-                    <div style="text-align: center; margin: 28px 0;">
-                        <a href="%s" style="background-color: #4a3427; color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Đặt lại mật khẩu</a>
+                    <p>Hệ thống nhận được yêu cầu đặt lại mật khẩu cho tài khoản <strong>%s</strong>.</p>
+                    <p>Vui lòng bấm vào nút bên dưới để tiến hành thiết lập mật khẩu mới (liên kết có hiệu lực trong vòng 15 phút):</p>
+                    <div style="text-align: center; margin: 25px 0;">
+                        <a href="%s" style="background-color: #7b5943; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: 700; display: inline-block;">
+                            Đặt lại mật khẩu ngay
+                        </a>
                     </div>
-                    <p style="font-size: 13px; color: #777;">Nếu bạn không yêu cầu hành động này, vui lòng bỏ qua email này.</p>
                 </div>
-                """.formatted(safeName, safeAccount, safeResetUrl);
+            """.formatted(safeName, safeAccount, safeUrl);
 
             helper.setText(html, true);
             mailSender.send(message);
-            log.info("Đã gửi email đặt lại mật khẩu tới {}", toEmail);
         } catch (Exception e) {
             log.error("Không thể gửi email đặt lại mật khẩu tới {}: {}", toEmail, e.getMessage(), e);
         }
     }
 
-    private String escapeHtml(String value) {
-        if (value == null) return "";
-        return value.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#39;");
-    }
-
-    
-
-    /**
-     * Gửi email báo cáo tổng kết doanh thu và so sánh định kỳ cho Ban quản trị (Admin)
-     */
-    public boolean sendRevenueReportEmail(String toEmail, String subject, String htmlContent) {
-        if (toEmail == null || toEmail.trim().isEmpty() || !toEmail.contains("@")) {
-            log.warn("==> [EmailService] Bỏ qua gửi email báo cáo doanh thu: Địa chỉ email người nhận không hợp lệ ('{}')", toEmail);
+    public boolean sendOtpVerificationEmail(String toEmail, String fullName, String otpCode) {
+        if (toEmail == null || toEmail.isBlank() || !toEmail.contains("@")) {
+            log.warn("Bỏ qua email xác thực OTP vì địa chỉ email không hợp lệ: {}", toEmail);
             return false;
         }
 
         try {
             if (mailSender == null) {
-                log.info("==> [EmailService Mock] Đã gửi email báo cáo doanh thu tới {}", toEmail);
+                log.info("[EmailService Mock] Gửi mã OTP xác thực tới '{}' (Tên: {}): Mã OTP: {}", toEmail, fullName, otpCode);
                 return true;
             }
 
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setFrom(senderEmail, "FF T-Shirt Analytics");
+            helper.setFrom(senderEmail, "FF T-Shirt");
             helper.setTo(toEmail.trim());
-            helper.setSubject(subject);
-            helper.setText(htmlContent, true);
+            helper.setSubject("[FF T-Shirt] Mã xác thực đăng ký tài khoản: " + otpCode);
 
-            log.info("==> [EmailService] Đang gửi email báo cáo doanh thu tới {}", toEmail);
+            String safeName = escapeHtml(fullName != null && !fullName.isBlank() ? fullName : "Quý khách");
+            String safeOtp = escapeHtml(otpCode != null ? otpCode : "");
+
+            String html = """
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h2 style="color: #4a3427; margin: 0 0 6px 0; font-size: 24px; font-weight: 700;">FF T-Shirt</h2>
+                        <p style="color: #7b5943; margin: 0; font-size: 15px; font-weight: 600;">Xác thực đăng ký tài khoản</p>
+                    </div>
+
+                    <p style="margin: 0 0 14px 0; font-size: 15px;">Xin chào <strong>%s</strong>,</p>
+                    <p style="margin: 0 0 16px 0; font-size: 14px; color: #555555; line-height: 1.6;">
+                        Cảm ơn bạn đã đăng ký tài khoản thành viên tại <strong>FF T-Shirt Store</strong>. 
+                        Dưới đây là mã xác thực (OTP) để hoàn tất quá trình kích hoạt tài khoản của bạn:
+                    </p>
+
+                    <div style="text-align: center; margin: 28px 0; background-color: #fdf8f4; border: 2px dashed #7b5943; border-radius: 12px; padding: 20px;">
+                        <span style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #7b5943; font-family: 'Courier New', monospace;">%s</span>
+                        <p style="margin: 8px 0 0 0; font-size: 13px; color: #888;">Mã xác thực có hiệu lực trong vòng <strong>10 phút</strong></p>
+                    </div>
+
+                    <p style="margin: 0 0 12px 0; font-size: 13px; color: #666666; line-height: 1.6;">
+                        ⚠️ <strong>Lưu ý bảo mật:</strong> Tuyệt đối không chia sẻ mã xác thực này cho bất kỳ ai để đảm bảo an toàn cho tài khoản của bạn.
+                    </p>
+
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
+                    <p style="margin: 0; font-size: 12px; color: #999999; text-align: center;">
+                        Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email hoặc liên hệ với bộ phận hỗ trợ khách hàng của FF T-Shirt.
+                    </p>
+                </div>
+            """.formatted(safeName, safeOtp);
+
+            helper.setText(html, true);
             mailSender.send(message);
-            log.info("==> [EmailService] Đã gửi email báo cáo doanh thu THÀNH CÔNG tới {}", toEmail);
+            log.info("Đã gửi email mã xác thực OTP thành công tới {}", toEmail);
             return true;
         } catch (Exception e) {
-            log.error("==> [EmailService Lỗi] Không thể gửi email báo cáo doanh thu tới {}: {}", toEmail, e.getMessage(), e);
-            throw new RuntimeException("Lỗi gửi email: " + e.getMessage(), e);
+            log.error("Không thể gửi email mã xác thực OTP tới {}: {}", toEmail, e.getMessage(), e);
+            return false;
         }
     }
+    public boolean sendPasswordResetOtpEmail(String toEmail, String fullName, String otpCode) {
+        if (toEmail == null || toEmail.isBlank() || !toEmail.contains("@")) {
+            log.warn("Bỏ qua email xác thực OTP đặt lại mật khẩu vì địa chỉ email không hợp lệ: {}", toEmail);
+            return false;
+        }
 
+        try {
+            if (mailSender == null) {
+                log.info("[EmailService Mock] Gửi mã OTP đặt lại mật khẩu tới '{}' (Tên: {}): Mã OTP: {}", toEmail, fullName, otpCode);
+                return true;
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(senderEmail, "FF T-Shirt");
+            helper.setTo(toEmail.trim());
+            helper.setSubject("[FF T-Shirt] Mã xác thực đặt lại mật khẩu: " + otpCode);
+
+            String safeName = escapeHtml(fullName != null && !fullName.isBlank() ? fullName : "Quý khách");
+            String safeOtp = escapeHtml(otpCode != null ? otpCode : "");
+
+            String html = """
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e8e4de; border-radius: 16px; padding: 36px 32px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); color: #333333; line-height: 1.6;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h2 style="color: #4a3427; margin: 0 0 6px 0; font-size: 24px; font-weight: 700;">FF T-Shirt</h2>
+                        <p style="color: #7b5943; margin: 0; font-size: 15px; font-weight: 600;">Yêu cầu cấp lại mật khẩu</p>
+                    </div>
+
+                    <p style="margin: 0 0 14px 0; font-size: 15px;">Xin chào <strong>%s</strong>,</p>
+                    <p style="margin: 0 0 16px 0; font-size: 14px; color: #555555; line-height: 1.6;">
+                        Chúng tôi nhận được yêu cầu cấp lại mật khẩu cho tài khoản thành viên của bạn tại <strong>FF T-Shirt Store</strong>. 
+                        Dưới đây là mã xác thực (OTP) 6 số để tạo mật khẩu mới:
+                    </p>
+
+                    <div style="text-align: center; margin: 28px 0; background-color: #fdf8f4; border: 2px dashed #7b5943; border-radius: 12px; padding: 20px;">
+                        <span style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #7b5943; font-family: 'Courier New', monospace;">%s</span>
+                        <p style="margin: 8px 0 0 0; font-size: 13px; color: #888;">Mã xác thực có hiệu lực trong vòng <strong>10 phút</strong></p>
+                    </div>
+
+                    <p style="margin: 0 0 12px 0; font-size: 13px; color: #666666; line-height: 1.6;">
+                        ⚠️ <strong>Lưu ý bảo mật:</strong> Tuyệt đối không chia sẻ mã này cho bất kỳ ai. Nếu bạn không gửi yêu cầu này, vui lòng bỏ qua email và mật khẩu của bạn vẫn an toàn.
+                    </p>
+
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
+                    <p style="margin: 0; font-size: 12px; color: #999999; text-align: center;">
+                        Trân trọng cảm ơn quý khách đã đồng hành cùng FF T-Shirt.
+                    </p>
+                </div>
+            """.formatted(safeName, safeOtp);
+
+            helper.setText(html, true);
+            mailSender.send(message);
+            log.info("Đã gửi email mã xác thực OTP đặt lại mật khẩu thành công tới {}", toEmail);
+            return true;
+        } catch (Exception e) {
+            log.error("Không thể gửi email mã xác thực OTP đặt lại mật khẩu tới {}: {}", toEmail, e.getMessage(), e);
+            return false;
+        }
+    }
 }

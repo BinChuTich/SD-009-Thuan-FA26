@@ -20,4 +20,6 @@ public interface NhanVienRepository extends JpaRepository<NhanVien, Long>, JpaSp
     Optional<NhanVien> findByTenTaiKhoanIgnoreCase(String tenTaiKhoan);
     Optional<NhanVien> findByEmailIgnoreCase(String email);
     Optional<NhanVien> findTopByOrderByIdDesc();
+    java.util.List<NhanVien> findByTrangThai(Integer trangThai);
+    Optional<NhanVien> findByIdAndTrangThai(Long id, Integer trangThai);
 }

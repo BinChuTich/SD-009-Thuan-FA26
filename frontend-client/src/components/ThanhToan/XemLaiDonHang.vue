@@ -1,5 +1,23 @@
 <script setup>
+import { computed } from 'vue'
 import { formatCurrency } from '@/utils/dinhDang.js'
+import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
+
+const originalSubtotal = computed(() => {
+  return (props.cartItems || []).reduce((sum, item) => {
+    const origin = (item.price != null && item.price > 0) ? item.price : (item.discountPrice || 0)
+    return sum + origin * (item.quantity || 1)
+  }, 0)
+})
+
+const campaignDiscount = computed(() => {
+  return (props.cartItems || []).reduce((sum, item) => {
+    if (item.price && item.discountPrice && item.price > item.discountPrice) {
+      return sum + (item.price - item.discountPrice) * (item.quantity || 1)
+    }
+    return sum
+  }, 0)
+})
 
 const props = defineProps({
   cartItems: {
@@ -30,19 +48,21 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  ghnLeadTime: {
-    type: String,
-    default: ''
+  appliedVoucher: {
+    type: Object,
+    default: null
   },
-  ghnLoading: {
-    type: Boolean,
-    default: false
+  voucherSuggestion: {
+    type: Object,
+    default: null
   }
 })
 
 const emit = defineEmits([
   'update:orderNote',
-  'placeOrder'
+  'placeOrder',
+  'openVoucherModal',
+  'removeVoucher'
 ])
 </script>
 
@@ -62,7 +82,7 @@ const emit = defineEmits([
           class="preview-item-row"
         >
           <div class="preview-img-box">
-            <img :src="item.image || '/images/products/default_tshirt.jpg'" :alt="item.productName" />
+            <img :src="resolveProductImageUrl(item.image)" :alt="item.productName" @error="(e) => e.target.src = NEUTRAL_PRODUCT_PLACEHOLDER" />
             <span class="preview-badge">{{ item.quantity }}</span>
           </div>
 
@@ -89,21 +109,74 @@ const emit = defineEmits([
         ></textarea>
       </div>
 
-      <!-- Đơn vị vận chuyển GHN -->
-      <div class="ghn-shipping-card">
-        <div class="ghn-badge-row">
-          <span class="ghn-partner-tag">🚚 GIAO HÀNG NHANH (GHN)</span>
-          <span class="ghn-status-text" v-if="ghnLoading">Đang tính phí...</span>
-          <span class="ghn-leadtime-text" v-else-if="ghnLeadTime">Dự kiến: <strong>{{ ghnLeadTime }}</strong></span>
+      <!-- Khu vực chọn Voucher / Khuyến mãi -->
+      <div class="checkout-voucher-section">
+        <div class="voucher-section-header">
+          <span class="v-section-title">Phiếu giảm giá (Voucher)</span>
+          <button
+            type="button"
+            class="btn-pick-voucher"
+            @click="emit('openVoucherModal')"
+          >
+            {{ appliedVoucher ? 'Đổi voucher' : 'Chọn voucher' }}
+          </button>
         </div>
-        <p class="ghn-sub-desc">Đối tác giao nhận chính thức - Vận chuyển toàn quốc</p>
+
+        <!-- Voucher đang áp dụng -->
+        <div v-if="appliedVoucher" class="applied-voucher-chip">
+          <div class="v-chip-left">
+            <span class="v-chip-icon">🎟️</span>
+            <div class="v-chip-info">
+              <strong class="v-chip-code">{{ appliedVoucher.code || appliedVoucher.maPhieuGiamGia }}</strong>
+              <span class="v-chip-desc">{{ appliedVoucher.name || appliedVoucher.tenPhieuGiamGia || 'Mã ưu đãi' }}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="btn-clear-voucher"
+            @click="emit('removeVoucher')"
+            title="Bỏ voucher này"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Gợi ý voucher tốt hơn -->
+        <div v-if="voucherSuggestion" class="voucher-suggestion-hint">
+          <span class="hint-icon">💡</span>
+          <span class="hint-text">
+            Mua thêm <strong>{{ formatCurrency(voucherSuggestion.neededAmount) }}</strong> để dùng mã <strong>{{ voucherSuggestion.code }}</strong> (giảm {{ voucherSuggestion.discountLabel || formatCurrency(voucherSuggestion.potentialDiscount) }}).
+          </span>
+        </div>
       </div>
 
       <!-- Bảng giá -->
       <div class="price-summary-breakdown">
         <div class="sum-row">
-          <span>Tạm tính:</span>
-          <strong>{{ formatCurrency(cartSubtotal) }}</strong>
+          <span>Tổng tiền hàng:</span>
+          <strong>{{ formatCurrency(originalSubtotal > 0 ? originalSubtotal : cartSubtotal) }}</strong>
+        </div>
+
+        <div v-if="campaignDiscount > 0" class="sum-row text-discount">
+          <span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+              <line x1="7" y1="7" x2="7.01" y2="7"></line>
+            </svg>
+            Giảm giá theo đợt:
+          </span>
+          <span class="discount-val">-{{ formatCurrency(campaignDiscount) }}</span>
+        </div>
+
+        <div v-if="voucherDiscount > 0" class="sum-row">
+          <span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+              <line x1="7" y1="7" x2="7.01" y2="7"></line>
+            </svg>
+            Giảm giá [{{ appliedVoucher?.code }}]:
+          </span>
+          <span class="discount-val">-{{ formatCurrency(voucherDiscount) }}</span>
         </div>
 
         <div class="sum-row">
@@ -111,11 +184,6 @@ const emit = defineEmits([
           <span class="ship-val">
             {{ shippingFee === 0 ? 'MIỄN PHÍ' : formatCurrency(shippingFee) }}
           </span>
-        </div>
-
-        <div v-if="voucherDiscount > 0" class="sum-row">
-          <span>Voucher giảm giá:</span>
-          <span class="discount-val">-{{ formatCurrency(voucherDiscount) }}</span>
         </div>
 
         <div class="divider"></div>
@@ -155,45 +223,6 @@ const emit = defineEmits([
   border: 1px solid #e2e8f0;
   padding: 24px;
   box-shadow: 0 4px 16px rgba(73, 104, 131, 0.05);
-}
-
-.ghn-shipping-card {
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  border-left: 4px solid #ea580c;
-  border-radius: 8px;
-  padding: 10px 14px;
-  margin-bottom: 16px;
-}
-
-.ghn-badge-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.ghn-partner-tag {
-  font-size: 12px;
-  font-weight: 800;
-  color: #ea580c;
-}
-
-.ghn-leadtime-text {
-  font-size: 11px;
-  color: #047857;
-}
-
-.ghn-status-text {
-  font-size: 11px;
-  color: #64748b;
-  font-style: italic;
-}
-
-.ghn-sub-desc {
-  font-size: 11px;
-  color: #9a3412;
-  margin: 4px 0 0;
 }
 
 .summary-header {
@@ -334,7 +363,7 @@ const emit = defineEmits([
 }
 
 .discount-val {
-  color: #16a34a;
+  color: #ef4444 !important;
   font-weight: 700;
 }
 
@@ -402,6 +431,122 @@ const emit = defineEmits([
   font-size: 11px;
   color: #64748b;
   margin-top: 14px;
+}
+
+/* ==========================================================
+   CHECKOUT VOUCHER STYLES
+========================================================== */
+.checkout-voucher-section {
+  margin-bottom: 20px;
+  background: #fdfbf7;
+  border: 1px dashed #e2d9cc;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.voucher-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.v-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.btn-pick-voucher {
+  background: #1e293b;
+  color: #ecd8af;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-pick-voucher:hover {
+  background: #334155;
+}
+
+.applied-voucher-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.v-chip-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.v-chip-icon {
+  font-size: 18px;
+}
+
+.v-chip-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.v-chip-code {
+  font-size: 13px;
+  font-weight: 800;
+  color: #166534;
+}
+
+.v-chip-desc {
+  font-size: 11px;
+  color: #15803d;
+}
+
+.btn-clear-voucher {
+  background: transparent;
+  border: none;
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.btn-clear-voucher:hover {
+  background: #fee2e2;
+}
+
+.voucher-suggestion-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #92400e;
+  line-height: 1.4;
+}
+
+.hint-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.hint-text strong {
+  color: #b45309;
 }
 </style>
 

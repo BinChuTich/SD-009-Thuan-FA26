@@ -530,7 +530,7 @@
             </div>
           </div>
 
-          <!-- Cột phải: Danh sách ngày hiển thị -->
+
           <div class="bulk-right-col">
             <h4 class="bulk-right-title">
               {{ bulkMode === 'week' ? 'Chọn ngày theo tuần' : 'Chọn ngày theo tháng' }}
@@ -819,7 +819,7 @@ const modalContext = reactive({
 
 const availableEmployees = computed(() => {
   if (!modalContext.shift || !modalContext.dateStr) return []
-  // Lọc chỉ những nhân viên đang hoạt động
+
   const activeOnly = activeEmployees.value.filter(nv => nv.trangThai === 1)
 
   // Ẩn nhân viên đã có mặt trong ca này vào ngày này

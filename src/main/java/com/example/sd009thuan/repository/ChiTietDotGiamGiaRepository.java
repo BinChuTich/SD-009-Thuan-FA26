@@ -37,7 +37,9 @@ public interface ChiTietDotGiamGiaRepository extends JpaRepository<ChiTietDotGia
      */
     @Query("SELECT DISTINCT ct.idChiTietSanPham.idSanPham.id FROM ChiTietDotGiamGia ct " +
            "WHERE ct.idDotGiamGia.trangThai = 1 " +
+           "AND (ct.idDotGiamGia.ngayBatDau IS NULL OR ct.idDotGiamGia.ngayBatDau <= :now) " +
            "AND (ct.idDotGiamGia.ngayKetThuc IS NULL OR ct.idDotGiamGia.ngayKetThuc > :now) " +
+           "AND (ct.trangThai = 1 OR ct.trangThai IS NULL) " +
            "AND (:excludeDotId IS NULL OR ct.idDotGiamGia.id != :excludeDotId)")
     List<Long> findActiveProductIds(@Param("now") Instant now, @Param("excludeDotId") Long excludeDotId);
 
@@ -46,7 +48,9 @@ public interface ChiTietDotGiamGiaRepository extends JpaRepository<ChiTietDotGia
      */
     @Query("SELECT ct FROM ChiTietDotGiamGia ct " +
            "WHERE ct.idDotGiamGia.trangThai = 1 " +
+           "AND (ct.idDotGiamGia.ngayBatDau IS NULL OR ct.idDotGiamGia.ngayBatDau <= :now) " +
            "AND (ct.idDotGiamGia.ngayKetThuc IS NULL OR ct.idDotGiamGia.ngayKetThuc > :now) " +
+           "AND (ct.trangThai = 1 OR ct.trangThai IS NULL) " +
            "AND (:excludeDotId IS NULL OR ct.idDotGiamGia.id != :excludeDotId)")
     List<ChiTietDotGiamGia> findActiveChiTiets(@Param("now") Instant now, @Param("excludeDotId") Long excludeDotId);
 

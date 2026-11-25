@@ -186,6 +186,12 @@ public class KhachHangService {
         addr.setHuyen(dto.huyen() != null ? dto.huyen().trim() : "");
         addr.setPhuong(dto.phuong().trim());
         addr.setDiaChiCuThe(dto.diaChiCuThe().trim());
+        if (dto.tenNguoiNhan() != null && !dto.tenNguoiNhan().trim().isEmpty()) {
+            addr.setTenNguoiNhan(dto.tenNguoiNhan().trim());
+        }
+        if (dto.soDienThoaiNhan() != null && !dto.soDienThoaiNhan().trim().isEmpty()) {
+            addr.setSoDienThoaiNhan(dto.soDienThoaiNhan().trim());
+        }
         addr.setMacDinh(setAsDefault);
         addr.setTrangThai(1);
         return toAddressDto(addressRepo.save(addr));
@@ -214,6 +220,12 @@ public class KhachHangService {
         addr.setHuyen(dto.huyen() != null ? dto.huyen().trim() : "");
         addr.setPhuong(dto.phuong().trim());
         addr.setDiaChiCuThe(dto.diaChiCuThe().trim());
+        if (dto.tenNguoiNhan() != null) {
+            addr.setTenNguoiNhan(dto.tenNguoiNhan().trim());
+        }
+        if (dto.soDienThoaiNhan() != null) {
+            addr.setSoDienThoaiNhan(dto.soDienThoaiNhan().trim());
+        }
         return toAddressDto(addressRepo.save(addr));
     }
 
@@ -261,7 +273,9 @@ public class KhachHangService {
                 a.getPhuong(),
                 a.getDiaChiCuThe(),
                 a.getMacDinh(),
-                a.getTrangThai()
+                a.getTrangThai(),
+                a.getSoDienThoaiNhan(),
+                a.getTenNguoiNhan()
         );
     }
 
@@ -357,6 +371,25 @@ public class KhachHangService {
     }
 
     
+    @Transactional
+    public void updatePassword(Long customerId, String newPassword) {
+        KhachHang kh = find(customerId);
+        kh.setMatKhau(newPassword);
+        repo.save(kh);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<KhachHang> findByEmailIgnoreCase(String email) {
+        if (email == null || email.isBlank()) return Optional.empty();
+        return repo.findByEmailIgnoreCase(email.trim()).or(() -> repo.findByEmail(email.trim()));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<KhachHang> findByTaiKhoanIgnoreCase(String taiKhoan) {
+        if (taiKhoan == null || taiKhoan.isBlank()) return Optional.empty();
+        return repo.findByTaiKhoanIgnoreCase(taiKhoan.trim()).or(() -> repo.findByTaiKhoan(taiKhoan.trim()));
+    }
+
     @Transactional(readOnly = true)
     public Optional<KhachHang> findByEmail(String email) {
         if (email == null || email.isBlank()) return Optional.empty();

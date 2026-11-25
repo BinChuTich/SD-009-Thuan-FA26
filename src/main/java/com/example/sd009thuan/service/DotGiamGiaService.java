@@ -169,19 +169,22 @@ public class DotGiamGiaService {
 
         Instant nowThreshold = Instant.now().minus(java.time.Duration.ofMinutes(5));
         if (currentId == null) {
+            // Khi tạo mới: Giữ nguyên kiểm tra thời gian bắt đầu & kết thúc không được trước hiện tại
             if (dotGiamGia.getNgayBatDau().isBefore(nowThreshold)) {
                 throw new IllegalArgumentException("Thời gian bắt đầu không được trước thời gian hiện tại!");
             }
+            if (dotGiamGia.getNgayKetThuc().isBefore(nowThreshold)) {
+                throw new IllegalArgumentException("Thời gian kết thúc không được trước thời gian hiện tại!");
+            }
         } else {
+            // Khi chỉnh sửa đợt giảm giá: Cho phép sửa thời gian bắt đầu trước thời gian hiện tại.
+            // Nếu người dùng thay đổi ngày kết thúc thì ngày kết thúc mới không được trước thời gian hiện tại.
             DotGiamGia old = dotGiamGiaRepository.findById(currentId).orElse(null);
-            if (old != null && !old.getNgayBatDau().equals(dotGiamGia.getNgayBatDau())) {
-                if (dotGiamGia.getNgayBatDau().isBefore(nowThreshold)) {
-                    throw new IllegalArgumentException("Thời gian bắt đầu không được trước thời gian hiện tại!");
+            if (old != null && old.getNgayKetThuc() != null && !old.getNgayKetThuc().equals(dotGiamGia.getNgayKetThuc())) {
+                if (dotGiamGia.getNgayKetThuc().isBefore(nowThreshold)) {
+                    throw new IllegalArgumentException("Thời gian kết thúc không được trước thời gian hiện tại!");
                 }
             }
-        }
-        if (dotGiamGia.getNgayKetThuc().isBefore(nowThreshold)) {
-            throw new IllegalArgumentException("Thời gian kết thúc không được trước thời gian hiện tại!");
         }
     }
 
@@ -239,6 +242,22 @@ public class DotGiamGiaService {
                 info.put("giamToiDa", ct.getIdDotGiamGia().getGiamToiDa());
                 info.put("ngayBatDau", ct.getIdDotGiamGia().getNgayBatDau());
                 info.put("ngayKetThuc", ct.getIdDotGiamGia().getNgayKetThuc());
+
+                BigDecimal origPrice = ct.getIdChiTietSanPham() != null && ct.getIdChiTietSanPham().getGiaBan() != null
+                        ? ct.getIdChiTietSanPham().getGiaBan() : BigDecimal.ZERO;
+                BigDecimal discAmt = BigDecimal.ZERO;
+                if (Integer.valueOf(2).equals(ct.getIdDotGiamGia().getLoaiGiamGia())) {
+                    discAmt = ct.getIdDotGiamGia().getGiaTriGiam() != null ? ct.getIdDotGiamGia().getGiaTriGiam() : BigDecimal.ZERO;
+                } else if (currentPt.compareTo(BigDecimal.ZERO) > 0) {
+                    discAmt = origPrice.multiply(currentPt).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+                    if (ct.getIdDotGiamGia().getGiamToiDa() != null && ct.getIdDotGiamGia().getGiamToiDa().compareTo(BigDecimal.ZERO) > 0 && discAmt.compareTo(ct.getIdDotGiamGia().getGiamToiDa()) > 0) {
+                        discAmt = ct.getIdDotGiamGia().getGiamToiDa();
+                    }
+                }
+                discAmt = discAmt.min(origPrice);
+                BigDecimal calculatedPriceAfter = origPrice.subtract(discAmt).max(BigDecimal.ZERO);
+                info.put("giaSauGiam", calculatedPriceAfter);
+                info.put("tienGiam", discAmt);
                 map.put(variantId, info);
             }
         }
@@ -266,7 +285,8 @@ public class DotGiamGiaService {
         // Ưu tiên lưu danh sách biến thể cụ thể đã được người dùng chọn
         if (chiTietSanPhamIds != null && !chiTietSanPhamIds.isEmpty()) {
             finalCtspIds.addAll(chiTietSanPhamIds);
-        } else if (sanPhamIds != null && !sanPhamIds.isEmpty()) {
+        }
+        else if (sanPhamIds != null && !sanPhamIds.isEmpty()) {
             // Nếu người dùng chọn cả sản phẩm mà không chỉ định biến thể riêng lẻ
             for (Long spId : sanPhamIds) {
                 List<ChiTietSanPham> variants = chiTietSanPhamRepository.findByIdSanPham_Id(spId);
