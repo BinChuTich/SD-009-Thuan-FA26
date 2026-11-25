@@ -2240,17 +2240,25 @@ const getClientLanOrigin = async () => {
 }
 
 const buildVietQrDemoImage = async (code, amount) => {
-  const [sessionResponse, clientOrigin] = await Promise.all([
-    api.post('/api/payment/demo/create', null, {
+  const clientOrigin = await getClientLanOrigin()
+  let token = ''
+  let expiresIn = 300
+  try {
+    const sessionResponse = await api.post('/api/payment/demo/create', null, {
       params: { maHoaDon: code, soTien: amount },
       timeout: 8000
-    }),
-    getClientLanOrigin()
-  ])
-  const query = new URLSearchParams({ t: sessionResponse.data.token, c: code, a: String(amount) })
+    })
+    token = String(sessionResponse.data?.token || '')
+    expiresIn = Math.min(300, Math.max(1, Number(sessionResponse.data?.expiresIn || 300)))
+  } catch (e) {
+    // Tương thích backend cũ chưa có /demo/create: màn hình điện thoại
+    // sẽ xác nhận qua /confirm-transfer bằng mã hóa đơn và số tiền.
+    console.warn('Backend chưa hỗ trợ phiên VietQR demo, dùng chế độ tương thích:', e)
+  }
+  const query = new URLSearchParams({ c: code, a: String(amount) })
+  if (token) query.set('t', token)
   const qrImage = await createBrandedQrDataUrl(`${clientOrigin}/thanh-toan/vietqr-demo?${query}`, 'vietqr')
   // Đơn online tự hủy sau 5 phút, vì vậy không để phiên QR phía giao diện dài hơn đơn hàng.
-  const expiresIn = Math.min(300, Math.max(1, Number(sessionResponse.data?.expiresIn || 300)))
   return { qrImage, expiresAt: Date.now() + expiresIn * 1000 }
 }
 

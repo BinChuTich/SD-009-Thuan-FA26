@@ -50,10 +50,16 @@ export const continueOnlinePayment = async (order, api, router) => {
   }
 
   if (provider === 'VIETQR') {
-    const response = await api.post('/api/payment/demo/create', null, {
-      params: { maHoaDon: code, soTien: amount },
-      timeout: 8000
-    })
+    let token = ''
+    try {
+      const response = await api.post('/api/payment/demo/create', null, {
+        params: { maHoaDon: code, soTien: amount },
+        timeout: 8000
+      })
+      token = String(response.data?.token || '')
+    } catch (e) {
+      console.warn('Backend chưa hỗ trợ phiên VietQR demo, dùng chế độ tương thích:', e)
+    }
     let origin = window.location.origin
     if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
       try {
@@ -61,7 +67,8 @@ export const continueOnlinePayment = async (order, api, router) => {
         if (lan.data?.primaryIp) origin = `${window.location.protocol}//${lan.data.primaryIp}:${window.location.port || '5174'}`
       } catch (e) {}
     }
-    const query = new URLSearchParams({ t: response.data.token, c: code, a: String(amount) })
+    const query = new URLSearchParams({ c: code, a: String(amount) })
+    if (token) query.set('t', token)
     const phoneUrl = `${origin}/thanh-toan/vietqr-demo?${query}`
     return { provider, code, amount, phoneUrl, qrImage: await createBrandedQrDataUrl(phoneUrl, 'vietqr') }
   }

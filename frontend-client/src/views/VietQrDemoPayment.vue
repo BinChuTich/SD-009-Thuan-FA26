@@ -54,11 +54,20 @@ const startPolling = () => {
 }
 
 const confirmPayment = async () => {
-  if (!token.value || processing.value) return
+  if (!orderCode.value || processing.value) return
   processing.value = true
   error.value = ''
   try {
-    await api.post('/api/payment/demo/confirm', null, { params: { token: token.value } })
+    if (token.value) {
+      await api.post('/api/payment/demo/confirm', null, { params: { token: token.value } })
+    } else {
+      await api.post('/api/payment/confirm-transfer', {
+        maHoaDon: orderCode.value,
+        soTien: amount.value,
+        ghiChu: 'Xác nhận thanh toán VietQR demo từ điện thoại',
+        phuongThuc: 'Chuyển khoản VietQR'
+      })
+    }
     paid.value = true
   } catch (e) {
     error.value = e.response?.data?.message || 'Không thể xác nhận thanh toán demo.'
@@ -103,7 +112,7 @@ onBeforeUnmount(() => pollTimer && window.clearInterval(pollTimer))
       <div class="info"><div><span>Mã đơn hàng</span><strong>{{ orderCode }}</strong></div><div><span>Ngân hàng</span><strong>MB Bank (970422)</strong></div><div><span>Số tài khoản</span><strong>0988888888</strong></div><div><span>Số tiền</span><strong class="amount">{{ money }}</strong></div></div>
       <p class="note">Môi trường demo cho đồ án, không phát sinh giao dịch ngân hàng thật.</p>
       <p v-if="error" class="error">{{ error }}</p>
-      <button :disabled="processing || !token" @click="confirmPayment">{{ processing ? 'Đang xác nhận...' : 'Xác nhận thanh toán demo' }}</button>
+      <button :disabled="processing || !orderCode" @click="confirmPayment">{{ processing ? 'Đang xác nhận...' : 'Xác nhận thanh toán demo' }}</button>
     </template>
     <template v-else><div class="check">✓</div><h1>Thanh toán thành công</h1><p>Đơn hàng {{ orderCode }} đã được xác nhận.</p><button @click="router.push({path:'/tra-cuu',query:{code:orderCode}})">Xem đơn hàng</button></template>
   </section></main>
