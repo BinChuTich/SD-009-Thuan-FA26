@@ -570,6 +570,8 @@ public class EmailService {
                     : "---";
 
             String maDon = hoaDon.getMaHoaDon() != null ? hoaDon.getMaHoaDon() : "";
+            String orderUrl = clientBaseUrl.replaceAll("/+$", "") + "/tra-cuu?code="
+                    + java.net.URLEncoder.encode(maDon, java.nio.charset.StandardCharsets.UTF_8);
             String orderDate = formatTime(hoaDon.getNgayTao());
             String bannerBackground = confirmed ? "#ecfdf5" : "#eff6ff";
             String bannerBorder = confirmed ? "#a7f3d0" : "#bfdbfe";
@@ -679,7 +681,7 @@ public class EmailService {
 
                         <!-- Button CTA -->
                         <div style="text-align: center; margin-bottom: 10px;">
-                            <a href="http://localhost:5174/tra-cuu?code={{maDon}}" style="display: inline-block; background-color: #7b5943; color: #ffffff; text-decoration: none; font-size: 14.5px; font-weight: 600; padding: 12px 36px; border-radius: 24px; box-shadow: 0 2px 8px rgba(123,89,67,0.3);">
+                            <a href="{{orderUrl}}" style="display: inline-block; background-color: #7b5943; color: #ffffff; text-decoration: none; font-size: 14.5px; font-weight: 600; padding: 12px 36px; border-radius: 24px; box-shadow: 0 2px 8px rgba(123,89,67,0.3);">
                                 Xem chi tiết đơn hàng
                             </a>
                         </div>
@@ -704,6 +706,7 @@ public class EmailService {
                     .replace("{{bannerSubtitle}}", bannerSubtitle)
                     .replace("{{customerName}}", customerName)
                     .replace("{{maDon}}", maDon)
+                    .replace("{{orderUrl}}", escapeHtml(orderUrl))
                     .replace("{{orderDate}}", orderDate)
                     .replace("{{paymentStatusText}}", paymentStatusText)
                     .replace("{{phone}}", phone)
@@ -869,6 +872,8 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             String maDon = hoaDon.getMaHoaDon() != null ? hoaDon.getMaHoaDon() : "";
+            String orderUrl = clientBaseUrl.replaceAll("/+$", "") + "/tra-cuu?code="
+                    + java.net.URLEncoder.encode(maDon, java.nio.charset.StandardCharsets.UTF_8);
             helper.setFrom(senderEmail, "FF T-Shirt");
             helper.setTo(recipientEmail.trim());
             helper.setSubject("[FF T-Shirt] Thông báo hủy đơn hàng & Hoàn tiền #" + maDon);
@@ -964,7 +969,7 @@ public class EmailService {
                         </div>
 
                         <div style="text-align: center; margin-bottom: 10px;">
-                            <a href="http://localhost:5174/tra-cuu?code={{maDon}}" style="display: inline-block; background-color: #7b5943; color: #ffffff; text-decoration: none; font-size: 14.5px; font-weight: 600; padding: 12px 36px; border-radius: 24px; box-shadow: 0 2px 8px rgba(123,89,67,0.3);">
+                            <a href="{{orderUrl}}" style="display: inline-block; background-color: #7b5943; color: #ffffff; text-decoration: none; font-size: 14.5px; font-weight: 600; padding: 12px 36px; border-radius: 24px; box-shadow: 0 2px 8px rgba(123,89,67,0.3);">
                                 Kiểm tra trạng thái đơn hàng
                             </a>
                         </div>
@@ -982,6 +987,7 @@ public class EmailService {
             String html = template
                     .replace("{{customerName}}", customerName)
                     .replace("{{maDon}}", escapeHtml(maDon))
+                    .replace("{{orderUrl}}", escapeHtml(orderUrl))
                     .replace("{{orderDate}}", orderDate)
                     .replace("{{phone}}", phone)
                     .replace("{{refundTotal}}", escapeHtml(formatMoney(refundTotal)))

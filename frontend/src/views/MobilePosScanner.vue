@@ -163,10 +163,9 @@ const scanHistory = ref([])
 let lastScannedRaw = ''
 let scanCooldownTimer = null
 
-// Lấy hostname để gọi API đúng IP LAN
+// API đi cùng origin để hoạt động qua URL public/reverse proxy.
 const getBaseUrl = () => {
-  const host = window.location.hostname || 'localhost'
-  return `http://${host}:8080`
+  return String(import.meta.env.VITE_API_BASE_URL || window.location.origin).replace(/\/$/, '')
 }
 
 // Định dạng tiền tệ VNĐ

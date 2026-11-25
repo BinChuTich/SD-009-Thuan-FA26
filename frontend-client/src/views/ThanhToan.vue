@@ -14,6 +14,7 @@ import {
 } from '@/utils/luuTruGioHang.js'
 import { formatCurrency } from '@/utils/dinhDang.js'
 import { currentClientUser, isClientLoggedIn } from '@/utils/taiKhoanKhachHang.js'
+import { createBrandedQrDataUrl } from '@/utils/brandedQr.js'
 import { getShippingConfig, calculateGhnShippingFee, invalidateShippingConfigCache } from '@/services/ghnService.js'
 import SoDiaChiGiaoHang from '@/components/ThanhToan/SoDiaChiGiaoHang.vue'
 import PhuongThucThanhToan from '@/components/ThanhToan/PhuongThucThanhToan.vue'
@@ -912,7 +913,8 @@ const handleConfirmPlaceOrder = async () => {
 
       try {
         const tfRes = await api.get('/api/payment/transfer-info', {
-          params: { maHoaDon: orderCode, soTien: orderTotal }
+          params: { maHoaDon: orderCode, soTien: orderTotal },
+          timeout: 8000
         })
         vietQrData.value = tfRes.data
       } catch (e) {
@@ -924,8 +926,14 @@ const handleConfirmPlaceOrder = async () => {
           soTaiKhoan: '0988888888',
           tenChuTaiKhoan: 'FF TSHIRT VIETNAM',
           noiDungChuyenKhoan: `FFTSHIRT ${orderCode}`,
-          vietQrUrl: `https://img.vietqr.io/image/MB-0988888888-compact2.png?amount=${orderTotal}&addInfo=${encodeURIComponent('FFTSHIRT ' + orderCode)}&accountName=FF%20TSHIRT%20VIETNAM`
+          vietQrUrl: ''
         }
+      }
+      const demoQuery = new URLSearchParams({ code: orderCode, amount: String(orderTotal) }).toString()
+      const demoUrl = `${window.location.origin}/thanh-toan/vietqr-demo?${demoQuery}`
+      vietQrData.value = {
+        ...(vietQrData.value || {}),
+        vietQrUrl: await createBrandedQrDataUrl(demoUrl, 'vietqr')
       }
       showVietQrModal.value = true
       startPaymentPolling(orderCode)
@@ -1397,7 +1405,7 @@ const handleConfirmPlaceOrder = async () => {
             <div class="vietqr-left-col">
               <div class="vietqr-frame-box">
                 <img
-                  :src="vietQrData?.vietQrUrl || `https://img.vietqr.io/image/MB-0988888888-compact2.png?amount=${qrAmount}&addInfo=${encodeURIComponent(vietQrData?.noiDungChuyenKhoan || ('FFTSHIRT ' + qrOrderCode))}&accountName=FF%20TSHIRT%20VIETNAM`"
+                  :src="vietQrData?.vietQrUrl"
                   alt="VietQR Napas 247"
                   class="vietqr-img-tag"
                 />

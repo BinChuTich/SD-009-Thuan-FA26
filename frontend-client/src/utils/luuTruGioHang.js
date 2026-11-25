@@ -35,7 +35,9 @@ export const resolveProductImageUrl = (raw) => {
 
   }
 
-  return `http://localhost:8080${str.startsWith('/') ? '' : '/'}${str}`
+  // Ảnh đi cùng origin với client và được Vite/reverse proxy chuyển về backend.
+  // Cách này hoạt động cả với URL public, máy khác và mạng khác.
+  return `${str.startsWith('/') ? '' : '/'}${str}`
 
 }
 

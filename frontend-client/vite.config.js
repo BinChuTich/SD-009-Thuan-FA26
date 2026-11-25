@@ -12,6 +12,8 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5174,
+    // Cho phép truy cập qua Cloudflare Tunnel/ngrok khi bảo vệ trên mạng khác.
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
@@ -20,7 +22,21 @@ export default defineConfig({
       '/uploads': {
         target: 'http://localhost:8080',
         changeOrigin: true
+      },
+      '/images': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
       }
+    }
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: 5174,
+    allowedHosts: true,
+    proxy: {
+      '/api': { target: 'http://localhost:8080', changeOrigin: true },
+      '/uploads': { target: 'http://localhost:8080', changeOrigin: true },
+      '/images': { target: 'http://localhost:8080', changeOrigin: true }
     }
   }
 })

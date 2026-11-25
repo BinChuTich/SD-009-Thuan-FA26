@@ -1086,8 +1086,7 @@ const formatVariantImageUrl = (url) => {
   }
   if (!cleanUrl) return defaultVariantSvg
   if (cleanUrl.startsWith('data:') || cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) return cleanUrl
-  const origin = (typeof window !== 'undefined' && window.location.hostname) ? `http://${window.location.hostname}:8080` : 'http://localhost:8080'
-  return `${origin}${cleanUrl.startsWith('/') ? '' : '/'}${cleanUrl}`
+  return `${cleanUrl.startsWith('/') ? '' : '/'}${cleanUrl}`
 }
 
 // Ảnh sản phẩm mặc định chuẩn áo phông
@@ -1119,9 +1118,9 @@ const resolveImageUrl = (url, fallbackId, fallbackCode) => {
     return trimmed
   }
   if (trimmed.startsWith('/')) {
-    return `http://localhost:8080${trimmed}`
+    return trimmed
   }
-  return `http://localhost:8080/${trimmed}`
+  return `/${trimmed}`
 }
 
 const getProductImage = (item) => {

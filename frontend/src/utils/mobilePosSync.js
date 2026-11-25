@@ -46,23 +46,14 @@ export const initMobileScannerSync = async (currentInvoice, onBarcodeReceived) =
   const sessionId = String(currentInvoice.id)
   const invCode = currentInvoice.code || `HD-${sessionId}`
 
-  let host = window.location.hostname || 'localhost'
-  const port = window.location.port || '5173'
-
-  try {
-    const resIp = await api.get('/api/pos-sync/lan-ip')
-    if (resIp.data?.primaryIp && resIp.data.primaryIp !== 'localhost') {
-      host = resIp.data.primaryIp
-    }
-  } catch (e) {}
-
-  mobileScannerUrl.value = `http://${host}:${port}/quet-ma-pos?session=${sessionId}&code=${encodeURIComponent(invCode)}`
+  const publicOrigin = String(import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, '')
+  mobileScannerUrl.value = `${publicOrigin}/quet-ma-pos?session=${sessionId}&code=${encodeURIComponent(invCode)}`
 
   // 1. Kết nối SSE Stream
   stopMobileScannerSync()
 
   try {
-    const sseBase = api.defaults.baseURL || `http://${host}:8080`
+    const sseBase = api.defaults.baseURL || window.location.origin
     mobileSyncEventSource = new EventSource(`${sseBase}/api/pos-sync/stream/${sessionId}`)
 
     mobileSyncEventSource.addEventListener('ping', () => {
