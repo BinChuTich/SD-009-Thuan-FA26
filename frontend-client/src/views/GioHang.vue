@@ -2226,17 +2226,25 @@ const startMomoCountdown = (expiresAt) => {
 }
 
 const getClientLanOrigin = async () => {
-  let host = window.location.hostname
+  // Nếu khách đang truy cập bằng domain/IP khác máy chủ, URL hiện tại chính
+  // là địa chỉ có thể truy cập được. Chỉ đổi localhost sang IP LAN khi chạy
+  // demo trực tiếp trên máy phát QR.
+  const localHost = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  if (!localHost) return window.location.origin
   try {
-    const response = await api.get('/api/pos-sync/lan-ip')
-    host = response.data?.primaryIp || host
+    const response = await api.get('/api/pos-sync/lan-ip', { timeout: 3000 })
+    const host = response.data?.primaryIp
+    if (host) return `${window.location.protocol}//${host}:${window.location.port || '5174'}`
   } catch (e) {}
-  return `http://${host}:${window.location.port || '5174'}`
+  return window.location.origin
 }
 
 const buildVietQrDemoImage = async (code, amount) => {
   const [sessionResponse, clientOrigin] = await Promise.all([
-    api.post('/api/payment/demo/create', null, { params: { maHoaDon: code, soTien: amount } }),
+    api.post('/api/payment/demo/create', null, {
+      params: { maHoaDon: code, soTien: amount },
+      timeout: 8000
+    }),
     getClientLanOrigin()
   ])
   const query = new URLSearchParams({ t: sessionResponse.data.token, c: code, a: String(amount) })

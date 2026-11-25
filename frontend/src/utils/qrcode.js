@@ -762,6 +762,15 @@ export function generateQrSvg(text, options = {}) {
         <path fill="#e51f32" d="M8 11c3.2-2 7.1-.9 8.8 2.2L24 26.1l7.2-12.9c1.7-3.1 5.6-4.2 8.8-2.2 3 1.9 3.9 5.8 2.1 8.8L29.8 40c-1.2 2-3.4 3.2-5.8 3.2S19.4 42 18.2 40L5.9 19.8C4.1 16.8 5 12.9 8 11Z" />
       </g>
     </g>`
+  } else if (options.centerLogo === 'momo') {
+    const logoSize = count * 0.18
+    const logoX = margin + (count - logoSize) / 2
+    const logoY = margin + (count - logoSize) / 2
+    centerLogo = `<g shape-rendering="geometricPrecision">
+      <rect x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}" rx="1" fill="#ffffff" />
+      <rect x="${logoX + logoSize * 0.08}" y="${logoY + logoSize * 0.08}" width="${logoSize * 0.84}" height="${logoSize * 0.84}" rx="1" fill="#a50064" />
+      <text x="${margin + count / 2}" y="${margin + count / 2}" fill="#ffffff" font-family="Arial,sans-serif" font-size="${logoSize * 0.24}" font-weight="900" text-anchor="middle" dominant-baseline="central">momo</text>
+    </g>`
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewBoxSize} ${viewBoxSize}" shape-rendering="crispEdges" style="display:block;width:100%;height:100%;">

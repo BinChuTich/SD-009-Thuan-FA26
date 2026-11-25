@@ -8307,7 +8307,9 @@ const buildCustomerVietQrUrl = (invoiceCode, amount) => {
   const cleanCode = String(invoiceCode || 'POS').replace(/[^a-zA-Z0-9_-]/g, '')
   const roundedAmount = Math.max(0, Math.round(Number(amount) || 0))
   const content = `FFTSHIRT ${cleanCode}`
-  return `https://img.vietqr.io/image/MB-0988888888-qr_only.png?amount=${roundedAmount}&addInfo=${encodeURIComponent(content)}&accountName=FF%20TSHIRT%20STORE`
+  return generateQrDataUrl(`VIETQR|970422|0988888888|FF T-SHIRT STORE|${roundedAmount}|${content}`, {
+    margin: 4, errorLevel: 'H', centerLogo: 'vietqr'
+  })
 }
 
 const buildCustomerDisplaySnapshot = () => {
@@ -9361,14 +9363,21 @@ const prepareDemoPaymentQr = async (code, amount) => {
   demoPaymentQrStatus.value = 'loading'
   demoPaymentQrError.value = ''
   try {
-    const [sessionRes, ipRes] = await Promise.all([
-      api.post('/api/payment/demo/create', null, { params: { maHoaDon: code, soTien: amount } }),
-      api.get('/api/pos-sync/lan-ip')
-    ])
-    const host = ipRes.data?.primaryIp || window.location.hostname
-    const port = window.location.port || '5173'
+    const sessionRes = await api.post('/api/payment/demo/create', null, {
+      params: { maHoaDon: code, soTien: amount },
+      timeout: 8000
+    })
+    let origin = window.location.origin
+    if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+      try {
+        const ipRes = await api.get('/api/pos-sync/lan-ip', { timeout: 3000 })
+        if (ipRes.data?.primaryIp) {
+          origin = `${window.location.protocol}//${ipRes.data.primaryIp}:${window.location.port || '5173'}`
+        }
+      } catch (e) {}
+    }
     const params = new URLSearchParams({ t: sessionRes.data.token, c: code, a: String(amount) })
-    const paymentUrl = `http://${host}:${port}/thanh-toan-demo?${params.toString()}`
+    const paymentUrl = `${origin}/thanh-toan-demo?${params.toString()}`
     demoPaymentQrUrl.value = generateQrDataUrl(paymentUrl, {
       margin: 4,
       errorLevel: 'H',
@@ -9379,7 +9388,7 @@ const prepareDemoPaymentQr = async (code, amount) => {
   } catch (error) {
     demoPaymentQrUrl.value = ''
     demoPaymentQrStatus.value = 'error'
-    demoPaymentQrError.value = error.response?.data?.message || 'Không kết nối được backend demo. Hãy khởi động lại backend rồi thử lại.'
+    demoPaymentQrError.value = error.response?.data?.message || 'Không tạo được phiên thanh toán demo trong 8 giây. Vui lòng thử lại.'
     console.error('Không thể tạo QR thanh toán demo:', error)
   }
 }
@@ -9392,7 +9401,7 @@ const retryDemoPaymentQr = () => {
 const handleDemoQrImageError = () => {
   demoPaymentQrUrl.value = ''
   demoPaymentQrStatus.value = 'error'
-  demoPaymentQrError.value = 'Không tải được ảnh QR. Kiểm tra kết nối Internet của máy tính rồi tạo lại mã.'
+  demoPaymentQrError.value = 'Không hiển thị được mã QR cục bộ. Vui lòng tạo lại mã.'
 }
 
 
@@ -9481,7 +9490,9 @@ const getVietQrUrl = (amount) => {
 
 
 
-  return `https://img.vietqr.io/image/MB-0988888888-compact2.png?amount=${amt}&addInfo=${encodeURIComponent(noiDung)}&accountName=FF%20TSHIRT%20STORE`
+  return generateQrDataUrl(`VIETQR|970422|0988888888|FF T-SHIRT STORE|${amt}|${noiDung}`, {
+    margin: 4, errorLevel: 'H', centerLogo: 'vietqr'
+  })
 
 
 
@@ -9517,7 +9528,9 @@ const getMoMoQrUrl = (amount) => {
 
 
 
-  return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=2|99|0988888888|FF%20TSHIRT%20STORE||0|0|${amt}|${encodeURIComponent(noiDung)}|transfer_myqr`
+  return generateQrDataUrl(`MOMO|0988888888|FF T-SHIRT STORE|${amt}|${noiDung}`, {
+    margin: 4, errorLevel: 'H', centerLogo: 'momo'
+  })
 
 
 
@@ -9767,11 +9780,12 @@ const fetchTransferInfoFromApi = async (amount) => {
 
 
   } catch (err) {
-
-
-
-    demoPaymentQrStatus.value = 'error'
-    demoPaymentQrError.value = 'Backend chưa sẵn sàng. Hãy khởi động lại backend để nạp API thanh toán demo.'
+    transferApiInfo.value = {
+      bankId: 'MB', bankName: 'MB Bank (970422)', accountNo: '0988888888',
+      accountName: 'FF T-SHIRT STORE', content: `FFTSHIRT ${code}`,
+      amount: amt, transactionCode: ''
+    }
+    await prepareDemoPaymentQr(code, amt)
     console.warn('API thanh toán demo chưa sẵn sàng:', err)
 
 

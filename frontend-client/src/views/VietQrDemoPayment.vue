@@ -22,12 +22,15 @@ const buildPhoneQr = async () => {
   if (!isQrDisplay.value || !token.value) return
   qrLoading.value = true
   try {
-    let host = window.location.hostname
-    try {
-      const response = await api.get('/api/pos-sync/lan-ip')
-      host = response.data?.primaryIp || host
-    } catch (e) {}
-    const origin = `http://${host}:${window.location.port || '5174'}`
+    let origin = window.location.origin
+    if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+      try {
+        const response = await api.get('/api/pos-sync/lan-ip', { timeout: 3000 })
+        if (response.data?.primaryIp) {
+          origin = `${window.location.protocol}//${response.data.primaryIp}:${window.location.port || '5174'}`
+        }
+      } catch (e) {}
+    }
     const query = new URLSearchParams({ t: token.value, c: orderCode.value, a: String(amount.value) })
     qrImage.value = await createBrandedQrDataUrl(`${origin}/thanh-toan/vietqr-demo?${query}`, 'vietqr')
   } catch (e) {

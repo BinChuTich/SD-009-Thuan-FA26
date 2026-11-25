@@ -35,26 +35,34 @@ export const continueOnlinePayment = async (order, api, router) => {
     const response = await api.post('/api/momo/create-payment', { orderId: code })
     if (!response.data?.paymentUrl) throw new Error('Không tạo được liên kết thanh toán MoMo.')
     const target = new URL(response.data.paymentUrl, window.location.origin)
-    try {
-      const lan = await api.get('/api/pos-sync/lan-ip')
-      target.hostname = lan.data?.primaryIp || window.location.hostname
-      target.port = window.location.port || target.port || '5174'
-      target.protocol = 'http:'
-    } catch (e) {
-      target.hostname = window.location.hostname
+    if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+      try {
+        const lan = await api.get('/api/pos-sync/lan-ip', { timeout: 3000 })
+        target.hostname = lan.data?.primaryIp || window.location.hostname
+        target.port = window.location.port || target.port || '5174'
+        target.protocol = window.location.protocol
+      } catch (e) {}
+    } else {
+      target.protocol = window.location.protocol
+      target.host = window.location.host
     }
     return { provider, code, amount, phoneUrl: target.toString(), qrImage: await createBrandedQrDataUrl(target.toString(), 'momo') }
   }
 
   if (provider === 'VIETQR') {
-    const response = await api.post('/api/payment/demo/create', null, { params: { maHoaDon: code, soTien: amount } })
-    let host = window.location.hostname
-    try {
-      const lan = await api.get('/api/pos-sync/lan-ip')
-      host = lan.data?.primaryIp || host
-    } catch (e) {}
+    const response = await api.post('/api/payment/demo/create', null, {
+      params: { maHoaDon: code, soTien: amount },
+      timeout: 8000
+    })
+    let origin = window.location.origin
+    if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+      try {
+        const lan = await api.get('/api/pos-sync/lan-ip', { timeout: 3000 })
+        if (lan.data?.primaryIp) origin = `${window.location.protocol}//${lan.data.primaryIp}:${window.location.port || '5174'}`
+      } catch (e) {}
+    }
     const query = new URLSearchParams({ t: response.data.token, c: code, a: String(amount) })
-    const phoneUrl = `http://${host}:${window.location.port || '5174'}/thanh-toan/vietqr-demo?${query}`
+    const phoneUrl = `${origin}/thanh-toan/vietqr-demo?${query}`
     return { provider, code, amount, phoneUrl, qrImage: await createBrandedQrDataUrl(phoneUrl, 'vietqr') }
   }
 
