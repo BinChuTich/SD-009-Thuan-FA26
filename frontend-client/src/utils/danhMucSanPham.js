@@ -28,7 +28,7 @@ export const CATEGORIES_CATALOG = [
     name: 'Áo polo',
     count: '1 mẫu',
     desc: 'Lịch lãm, chuẩn phom công sở & dạo phố',
-    image: 'http://localhost:8080/uploads/sp_1793532233466_34869b33.png',
+    image: '/uploads/sp_1793532233466_34869b33.png',
     tag: 'Được mua nhiều'
   },
   {
