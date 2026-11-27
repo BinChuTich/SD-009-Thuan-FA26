@@ -26,7 +26,7 @@ import { calculateGhnShippingFee, invalidateShippingConfigCache } from '@/servic
 
 
 
-import { getCurrentUser } from '@/utils/auth.js'
+import { getCurrentUser, isInViewMode } from '@/utils/auth.js'
 import {
   showMobileScannerModal,
   mobileScannerUrl,
@@ -2748,6 +2748,7 @@ const isOldPriceCartItem = (item) => {
 }
 
 const selectProduct = (prod, qtyToAdd = 1, sourceCartItem = null) => {
+  if (blockViewModeSalesAction()) return
   const p = findProduct(prod) || prod
   const addQty = Math.max(1, Number(qtyToAdd || 1))
   const available = Number(p.stock ?? prod.stock ?? 0)
@@ -3047,63 +3048,8 @@ const applyDiscountWarningModal = () => {
 }
 
 const cancelDiscountWarningModal = () => {
-  const ctx = pendingDiscountWarningContext.value
-  if (ctx && currentInvoice.value && Array.isArray(currentInvoice.value.cart) && ctx.oldSnapRef) {
-    // Khi bấm "Hủy": không áp dụng đợt giảm giá mới mà vẫn thêm vào giỏ theo đợt trước đó
-    const { p, prod, targetId, targetVCode, addQty, oldSnapRef, sourceCartItem } = ctx
-    const liveP = findProduct(p) || p
-    const avail = Number(liveP?.stock ?? 0)
-    if (avail < addQty) {
-      showToast(`Trong kho chỉ còn thêm tối đa ${avail} sản phẩm!`, 'warning')
-      pendingDiscountWarningContext.value = null
-      showItemPriceWarningModal.value = false
-      return
-    }
-
-    const oldSalePrice = Number(oldSnapRef.price)
-    const oldOrigPrice = Number(oldSnapRef.originalPrice || oldSalePrice)
-    const oldHasDiscount = Boolean(oldSnapRef.hasDiscount)
-    const oldDiscountText = String(oldSnapRef.discountText || '')
-    const oldCampaignName = String(oldSnapRef.discountCampaignName || '')
-    const oldCartKey = `${targetId}_${oldSalePrice}_${oldHasDiscount ? (oldCampaignName + '_' + oldDiscountText) : 'nodisc'}`
-
-    const sameVariantItems = currentInvoice.value.cart.filter(i =>
-      (targetId != null && Number(i.id) === Number(targetId)) ||
-      (targetVCode && i.variantCode && i.variantCode.toLowerCase() === targetVCode.toLowerCase())
-    )
-    const oldMatch = (sourceCartItem && currentInvoice.value.cart.includes(sourceCartItem) && !isVariantSnapshotChanged(sourceCartItem, oldSnapRef))
-      ? sourceCartItem
-      : sameVariantItems.find(i => !isVariantSnapshotChanged(i, oldSnapRef))
-
-    if (oldMatch) {
-      oldMatch.quantity += addQty
-      oldMatch.snapshotLocked = true
-    } else {
-      currentInvoice.value.cart.push({
-        ...p,
-        id: targetId,
-        cartKey: oldCartKey,
-        variantCode: targetVCode,
-        quantity: addQty,
-        syncedQuantity: 0,
-        price: oldSalePrice,
-        originalPrice: oldOrigPrice,
-        hasDiscount: oldHasDiscount,
-        discountText: oldDiscountText,
-        discountCampaignName: oldCampaignName,
-        snapshotLocked: true,
-        priceModifiedInSession: false,
-        discountModifiedInSession: false,
-        previousSessionPrice: null,
-        previousSessionSnapshot: null
-      })
-    }
-
-    saveCartLineSnapshots()
-    refreshAvailableStock()
-    syncCurrentCartToDb()
-    showToast(`Không áp dụng đợt mới, đã thêm "${p.name || prod?.name || 'sản phẩm'}" vào giỏ theo ${oldHasDiscount ? formatDiscountSnapLabel(oldSnapRef) : 'đợt/mức giá trước đó'}!`)
-  }
+  // Giá/đợt giảm giá đã thay đổi nên Hủy phải hủy luôn thao tác thêm đang chờ.
+  // Giỏ hàng được giữ nguyên và người dùng quay lại màn chọn sản phẩm/giỏ hàng.
   pendingDiscountWarningContext.value = null
   showItemPriceWarningModal.value = false
   flushDeferredVoucherCheck()
@@ -3116,16 +3062,25 @@ const cancelDiscountWarningModal = () => {
 
 
 // ==================== QUÉT CAMERA TRỰC TIẾP TRÊN THIẾT BỊ ====================
+const isViewOnlyMode = computed(() => isInViewMode())
+
+const blockViewModeSalesAction = () => {
+  if (!isInViewMode()) return false
+  window.dispatchEvent(new CustomEvent('view-mode-blocked', {
+    detail: { message: 'Chế độ xem chỉ cho phép tra cứu. Vui lòng vào ca làm việc để quét hoặc thêm sản phẩm!' }
+  }))
+  return true
+}
+
 const showDirectCameraModal = ref(false)
 let directHtml5QrCode = null
 let directCameras = []
 let directCameraIdx = 0
-const isDirectTorchOn = ref(false)
-const supportsDirectTorch = ref(false)
 let directScanCooldown = null
 let lastDirectScannedCode = ''
 
 const startDirectCameraScan = async () => {
+  if (blockViewModeSalesAction()) return
   if (!currentInvoice.value || !currentInvoice.value.id) {
     showToast('Vui lòng chọn hoặc tạo hóa đơn chờ trước khi quét!', 'warning')
     return
@@ -3152,12 +3107,6 @@ const startDirectCameraScan = async () => {
         () => {}
       )
 
-      try {
-        const track = directHtml5QrCode.getRunningTrackCameraCapabilities()
-        supportsDirectTorch.value = Boolean(track && track.torchFeature && track.torchFeature().isSupported())
-      } catch (e) {
-        supportsDirectTorch.value = false
-      }
     } catch (err) {
       console.error('Lỗi khởi động camera trực tiếp:', err)
       showToast('Không thể mở camera. Vui lòng cấp quyền máy ảnh!', 'error')
@@ -3166,6 +3115,10 @@ const startDirectCameraScan = async () => {
 }
 
 const onDirectCodeScanned = (decodedText) => {
+  if (blockViewModeSalesAction()) {
+    stopDirectCameraScan()
+    return
+  }
   const code = (decodedText || '').trim()
   if (!code) return
   if (code === lastDirectScannedCode && directScanCooldown) return
@@ -3193,36 +3146,19 @@ const stopDirectCameraScan = async () => {
   showDirectCameraModal.value = false
 }
 
-const switchDirectCamera = async () => {
-  if (directCameras.length < 2) return
-  directCameraIdx++
-  if (directHtml5QrCode) {
-    try {
-      await directHtml5QrCode.stop()
-    } catch (e) {}
-  }
-  await startDirectCameraScan()
-}
-
-const toggleDirectTorch = async () => {
-  if (!directHtml5QrCode) return
-  try {
-    isDirectTorchOn.value = !isDirectTorchOn.value
-    await directHtml5QrCode.applyVideoConstraints({
-      advanced: [{ torch: isDirectTorchOn.value }]
-    })
-  } catch (e) {
-    isDirectTorchOn.value = false
-  }
-}
-
 // Kết nối máy quét điện thoại không dây
 const handleOpenMobileScanner = () => {
+  if (blockViewModeSalesAction()) return
   if (!currentInvoice.value || !currentInvoice.value.id) {
     showToast('Vui lòng chọn hoặc tạo 1 hóa đơn chờ trước khi kết nối điện thoại!', 'warning')
     return
   }
   openMobileScannerDialog(currentInvoice.value, (scannedCode, eventData) => {
+    if (blockViewModeSalesAction()) {
+      closeMobileScannerDialog()
+      stopMobileScannerSync()
+      return
+    }
     barcodeInput.value = scannedCode
     handleBarcodeScan()
     showToast(`📱 Điện thoại vừa quét: ${eventData.product?.name || scannedCode}`, 'success')
@@ -3234,6 +3170,8 @@ const handleOpenMobileScanner = () => {
 
 
 const handleBarcodeScan = () => {
+
+  if (blockViewModeSalesAction()) return
 
 
 
@@ -8308,7 +8246,7 @@ const buildCustomerVietQrUrl = (invoiceCode, amount) => {
   const roundedAmount = Math.max(0, Math.round(Number(amount) || 0))
   const content = `FFTSHIRT ${cleanCode}`
   return generateQrDataUrl(`VIETQR|970422|0988888888|FF T-SHIRT STORE|${roundedAmount}|${content}`, {
-    margin: 4, errorLevel: 'H', centerLogo: 'vietqr'
+    margin: 6, errorLevel: 'M'
   })
 }
 
@@ -9379,9 +9317,8 @@ const prepareDemoPaymentQr = async (code, amount) => {
     const params = new URLSearchParams({ t: sessionRes.data.token, c: code, a: String(amount) })
     const paymentUrl = `${origin}/thanh-toan-demo?${params.toString()}`
     demoPaymentQrUrl.value = generateQrDataUrl(paymentUrl, {
-      margin: 4,
-      errorLevel: 'H',
-      centerLogo: 'vietqr'
+      margin: 6,
+      errorLevel: 'M'
     })
     demoPaymentQrStatus.value = 'ready'
     publishCustomerDisplaySnapshot()
@@ -9491,7 +9428,7 @@ const getVietQrUrl = (amount) => {
 
 
   return generateQrDataUrl(`VIETQR|970422|0988888888|FF T-SHIRT STORE|${amt}|${noiDung}`, {
-    margin: 4, errorLevel: 'H', centerLogo: 'vietqr'
+    margin: 6, errorLevel: 'M'
   })
 
 
@@ -10178,11 +10115,19 @@ const handleShippingConfigUpdated = () => {
   }
 }
 
+const handleActiveShiftChangedForScanner = () => {
+  if (!isInViewMode()) return
+  closeMobileScannerDialog()
+  stopMobileScannerSync()
+  stopDirectCameraScan()
+}
+
 onUnmounted(() => {
   // Không hủy các lần sync đang chờ khi rời trang: callback đã giữ invoiceId + payload.
   if (posShippingRecalcTimer) clearTimeout(posShippingRecalcTimer)
   window.removeEventListener('shipping-config-updated', handleShippingConfigUpdated)
   window.removeEventListener('focus', handleShippingConfigUpdated)
+  window.removeEventListener('active-shift-changed', handleActiveShiftChangedForScanner)
 
   if (typeof dayCheckTimer !== 'undefined' && dayCheckTimer) clearInterval(dayCheckTimer)
 
@@ -11641,6 +11586,7 @@ onMounted(async () => {
   window.addEventListener('focus', onWindowFocus)
   window.addEventListener('focus', handleShippingConfigUpdated)
   window.addEventListener('shipping-config-updated', handleShippingConfigUpdated)
+  window.addEventListener('active-shift-changed', handleActiveShiftChangedForScanner)
 
 
 
@@ -12019,6 +11965,7 @@ onMounted(async () => {
 
 
                     class="barcode-quick-input"
+                    :disabled="isViewOnlyMode"
 
 
 
@@ -12026,7 +11973,7 @@ onMounted(async () => {
 
 
 
-                <button class="btn-scan-barcode" @click="handleBarcodeScan" title="Thêm theo mã">
+                <button class="btn-scan-barcode" :disabled="isViewOnlyMode" @click="handleBarcodeScan" title="Thêm theo mã">
 
 
 
@@ -12059,7 +12006,7 @@ onMounted(async () => {
 
 
               <!-- Nút Bật Camera quét trực tiếp trên máy POS / Điện thoại -->
-              <button type="button" class="btn-direct-camera-scan" @click="startDirectCameraScan" title="Bật camera máy để quét mã vạch / QR">
+              <button type="button" class="btn-direct-camera-scan" :disabled="isViewOnlyMode" @click="startDirectCameraScan" :title="isViewOnlyMode ? 'Chế độ xem không được phép quét sản phẩm' : 'Bật camera máy để quét mã vạch / QR'">
                 <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.2" fill="none">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                   <circle cx="12" cy="13" r="4"></circle>
@@ -12073,7 +12020,7 @@ onMounted(async () => {
 
 
 
-              <button class="btn-open-select" @click="showProductModal = true">
+              <button class="btn-open-select" :disabled="isViewOnlyMode" @click="showProductModal = true">
 
 
 
@@ -14930,51 +14877,12 @@ onMounted(async () => {
 
 
 
-              <template v-for="(pg, idx) in visibleProductModalPages" :key="idx">
-
-
-
-                <span v-if="pg === '...'" class="pg-dots">...</span>
-
-
-
-                <button
-
-
-
-                  v-else
-
-
-
-                  type="button"
-
-
-
-                  class="btn-pager"
-
-
-
-                  :class="{ active: productModalPage === pg }"
-
-
-
-                  @click="changeProductModalPage(pg)"
-
-
-
-                >
-
-
-
-                  {{ pg }}
-
-
-
-                </button>
-
-
-
-              </template>
+              <AdminPageNumbers
+                :current="productModalPage"
+                :total="productModalTotalPages"
+                one-based
+                @select="changeProductModalPage"
+              />
 
 
 
@@ -15504,7 +15412,7 @@ onMounted(async () => {
             • Sản phẩm đã thêm trước đó trong giỏ hàng <strong>giữ nguyên đơn giá và đợt giảm giá cũ</strong> (không tự động thay đổi).
             <br />
             <span v-if="activePriceWarningItems[0]?.isDiscountChanged">
-              • Bấm <strong>Áp dụng</strong> để thêm sản phẩm theo đợt giảm giá mới, hoặc bấm <strong>Hủy</strong> để không áp dụng đợt mới và vẫn thêm vào giỏ theo đợt trước đó:
+              • Bấm <strong>Áp dụng</strong> để thêm sản phẩm theo đợt giảm giá mới, hoặc bấm <strong>Hủy</strong> để không thêm sản phẩm và quay lại màn chọn sản phẩm/giỏ hàng:
             </span>
             <span v-else>
               • Sản phẩm vừa thêm mới vào giỏ hàng được áp dụng theo <strong>đơn giá mới</strong> dưới đây:
@@ -16179,18 +16087,6 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- Toolbar điều khiển camera -->
-        <div class="dcm-toolbar">
-          <button type="button" @click="switchDirectCamera" class="dcm-tool-btn">🔄 Đổi Camera</button>
-          <button type="button" v-if="supportsDirectTorch" @click="toggleDirectTorch" class="dcm-tool-btn">💡 {{ isDirectTorchOn ? 'Tắt đèn' : 'Bật đèn' }}</button>
-          <button type="button" @click="stopDirectCameraScan" class="dcm-tool-btn dcm-btn-done">✓ Hoàn tất</button>
-        </div>
-
-        <!-- Tóm tắt số lượng món đã quét -->
-        <div class="dcm-cart-summary">
-          <span>Giỏ hàng: <strong>{{ currentInvoice.cart.length }} sản phẩm</strong></span>
-          <span class="dcm-total-amount">Tổng: <strong>{{ formatMoney(currentInvoiceTotalAmount) }}</strong></span>
-        </div>
       </div>
     </div>
 
@@ -30975,6 +30871,16 @@ onMounted(async () => {
   transform: translateY(-1px);
 }
 
+.btn-direct-camera-scan:disabled,
+.btn-scan-barcode:disabled,
+.btn-open-select:disabled,
+.barcode-quick-input:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+  transform: none;
+  filter: grayscale(45%);
+}
+
 .direct-camera-modal-card {
   background: #0f172a;
   color: #fff;
@@ -31062,45 +30968,6 @@ onMounted(async () => {
   box-shadow: 0 0 8px #ef4444;
   animation: laser-scan 1.8s ease-in-out infinite alternate;
 }
-.dcm-toolbar {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-}
-.dcm-tool-btn {
-  flex: 1;
-  background: #1e293b;
-  color: #f1f5f9;
-  border: 1px solid #334155;
-  padding: 10px 8px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: center;
-}
-.dcm-btn-done {
-  background: #10b981;
-  color: #fff;
-  border: none;
-}
-.dcm-cart-summary {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #1e293b;
-  padding: 10px 14px;
-  border-radius: 10px;
-  margin-top: 10px;
-  font-size: 13px;
-  color: #cbd5e1;
-}
-.dcm-total-amount {
-  color: #fbbf24;
-  font-weight: 700;
-  font-size: 15px;
-}
-
 /* ==================== NÚT & MODAL MÁY QUÉT ĐIỆN THOẠI KHÔNG DÂY ==================== */
 .btn-open-mobile-scanner {
   display: inline-flex;

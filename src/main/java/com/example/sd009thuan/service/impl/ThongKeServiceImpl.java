@@ -204,13 +204,6 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
             dto.setNgayTao(h.getNgayTao());
             dto.setTenKhachHang(h.getTenKhachHang() != null ? h.getTenKhachHang() : "Khách lẻ");
             dto.setSoDienThoaiKhachHang(h.getSoDienThoaiKhachHang());
-            String staff = "Nhân viên";
-            if (h.getIdNhanVien() != null && h.getIdNhanVien().getTenNhanVien() != null) {
-                staff = h.getIdNhanVien().getTenNhanVien();
-            } else if (h.getNguoiTao() != null && !h.getNguoiTao().isEmpty()) {
-                staff = h.getNguoiTao();
-            }
-            dto.setTenNhanVien(staff);
             int ld = 1;
             if (Integer.valueOf(2).equals(h.getLoaiDon())) {
                 ld = 2;
@@ -221,6 +214,16 @@ private List<InvoiceStatDTO> buildInvoiceStats(List<HoaDon> invoices, Map<Long, 
                 }
             }
             dto.setLoaiDon(ld);
+            String staff = null;
+            // Đơn online chờ xác nhận chưa có nhân viên xử lý, không được gán người tạo/khách hàng vào cột nhân viên.
+            if (!(ld == 2 && Integer.valueOf(1).equals(h.getTrangThai()))) {
+                if (h.getIdNhanVien() != null && h.getIdNhanVien().getTenNhanVien() != null) {
+                    staff = h.getIdNhanVien().getTenNhanVien();
+                } else if (ld == 1 && h.getNguoiTao() != null && !h.getNguoiTao().isBlank()) {
+                    staff = h.getNguoiTao();
+                }
+            }
+            dto.setTenNhanVien(staff);
             dto.setGhiChu(h.getGhiChu());
             dto.setTongTien(h.getTongTien() != null ? h.getTongTien() : BigDecimal.ZERO);
             dto.setTienSauGiamGia(h.getTienSauGiamGia() != null ? h.getTienSauGiamGia() : dto.getTongTien());

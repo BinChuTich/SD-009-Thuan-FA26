@@ -140,34 +140,7 @@ const openFallbackMailClient = () => {
 
 <template>
   <div class="contact-page">
-    <!-- 1. HERO BANNER VỚI LOGO THƯƠNG HIỆU & MÀU CHUẨN ADMIN -->
-    <div class="contact-hero">
-      <div class="container-client">
-        <!-- LOGO THƯƠNG HIỆU CHUẨN: 3 TIA SÁNG + FF + T-shirt -->
-        <div class="hero-logo-box">
-          <div class="brand-logo-wrapper">
-            <div class="sparkles">
-              <span class="sparkle-aura"></span>
-              <span class="ray ray-1"></span>
-              <span class="ray ray-2"></span>
-              <span class="ray ray-3"></span>
-            </div>
-            <div class="logo-content">
-              <div class="logo-name">
-                <span class="f-blue">F</span>
-                <span class="f-gold">F</span>
-              </div>
-              <div class="logo-sub">T-shirt</div>
-            </div>
-          </div>
-        </div>
-
-        <h1 class="page-title">Liên Hệ Với FF T-SHIRT</h1>
-        <p class="page-sub">Chúng tôi luôn lắng nghe và sẵn sàng giải đáp mọi thắc mắc của quý khách hàng</p>
-      </div>
-    </div>
-
-    <!-- 2. TRUNG TÂM HỖ TRỢ & FORM LIÊN HỆ -->
+    <!-- TRUNG TÂM HỖ TRỢ & FORM LIÊN HỆ -->
     <div class="container-client content-grid support-center-grid">
       <aside class="contact-info-col support-panel">
         <span class="support-kicker">FF T-SHIRT CARE</span>

@@ -24,24 +24,13 @@ const activeSection = ref(route.hash ? route.hash.replace('#', '') : '')
 
 // Tab lọc thông báo: 'all' | 'order' | 'deal'
 const notiFilterTab = ref('all')
-const toastMessage = ref('')
-let toastTimer = null
-
-const showToast = (msg) => {
-  toastMessage.value = msg
-  if (toastTimer) clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => {
-    toastMessage.value = ''
-  }, 2500)
-}
-
 const copyVoucher = (code) => {
   if (!code) return
   try {
     navigator.clipboard.writeText(code)
-    showToast(`Đã sao chép mã voucher ${code}!`)
+    showAppToast(`Đã sao chép mã voucher ${code}!`, 'success')
   } catch (e) {
-    showToast(`Mã voucher: ${code}`)
+    showAppToast(`Mã voucher: ${code}`, 'info')
   }
 }
 
@@ -138,7 +127,7 @@ const handleNotiClick = (n) => {
 
 const handleMarkAllRead = () => {
   markAllAsRead()
-  showToast('Đã đánh dấu tất cả thông báo là đã đọc!')
+  showAppToast('Đã đánh dấu tất cả thông báo là đã đọc!', 'success')
 }
 
 const handleDocumentClick = (e) => {
@@ -255,14 +244,6 @@ onUnmounted(() => {
 
 <template>
   <header class="client-header-wrap">
-    <!-- Toast thông báo nhanh -->
-    <transition name="toast-fade">
-      <div v-if="toastMessage" class="header-floating-toast">
-        <span class="toast-icon">✨</span>
-        <span>{{ toastMessage }}</span>
-      </div>
-    </transition>
-
     <!-- 2. Header chính -->
     <div class="main-nav-bar">
       <div class="container-client nav-inner">

@@ -409,16 +409,6 @@ onUnmounted(() => {
 
 <template>
   <div class="shop-page-wrap">
-    <!-- 1. TIÊU ĐỀ BỘ SƯU TẬP -->
-    <div class="shop-header-intro">
-      <div class="container-client text-center">
-        <h1 class="shop-title-main">Bộ Sưu Tập Áo Phông</h1>
-        <p class="shop-quote-sub">
-          "Mang trong mình vẻ đẹp hiện đại, tinh khôi và phong độ. Từng đường kim mũi chỉ là sự chắt chiu tinh hoa của thời trang Việt."
-        </p>
-      </div>
-    </div>
-
     <div class="container-client shop-body-container">
       <!-- Nút mở bộ lọc trên Mobile -->
       <div class="mobile-filter-bar">
@@ -520,13 +510,6 @@ onUnmounted(() => {
   font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
 }
 
-.shop-header-intro {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #2b394a 100%);
-  color: #ffffff;
-  padding: 45px 0 40px;
-  border-bottom: 2px solid #ecd8af;
-}
-
 .container-client {
   max-width: 1440px;
   margin: 0 auto;
@@ -546,27 +529,8 @@ onUnmounted(() => {
   }
 }
 
-.text-center {
-  text-align: center;
-}
-
-.shop-title-main {
-  font-size: 32px;
-  font-weight: 800;
-  margin: 0 0 10px;
-  letter-spacing: -0.5px;
-}
-
-.shop-quote-sub {
-  color: #cbd5e1;
-  font-size: 15px;
-  max-width: 700px;
-  margin: 0 auto;
-  line-height: 1.6;
-}
-
 .shop-body-container {
-  margin-top: 30px;
+  margin-top: 26px;
 }
 
 .mobile-filter-bar {

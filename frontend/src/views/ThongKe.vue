@@ -578,7 +578,7 @@
                       <div v-if="ord.soDienThoaiKhachHang" class="time-sub">{{ ord.soDienThoaiKhachHang }}</div>
                     </td>
                     <td class="td-employee">
-                      <span class="emp-chip">{{ ord.tenNhanVien || '—' }}</span>
+                      <span class="emp-chip">{{ getStatisticsEmployeeName(ord) }}</span>
                     </td>
                     <td class="td-type">
                       <span :class="Number(ord.loaiDon) === 2 ? 'badge-online' : 'badge-store'">
@@ -641,16 +641,7 @@
                 >
                   ‹
                 </button>
-                <button
-                  v-for="pNo in visibleOrderPageNumbers"
-                  :key="pNo"
-                  type="button"
-                  class="pg-btn"
-                  :class="{ active: pNo === orderPagination.page }"
-                  @click="goToOrderPage(pNo)"
-                >
-                  {{ pNo + 1 }}
-                </button>
+                <AdminPageNumbers :current="orderPagination.page" :total="orderTotalPages" @select="goToOrderPage" />
                 <button
                   type="button"
                   class="pg-btn"
@@ -825,16 +816,7 @@
                 >
                   ‹
                 </button>
-                <button
-                  v-for="pNo in visibleProductPageNumbers"
-                  :key="pNo"
-                  type="button"
-                  class="pg-btn"
-                  :class="{ active: pNo === productPagination.page }"
-                  @click="goToProductPage(pNo)"
-                >
-                  {{ pNo + 1 }}
-                </button>
+                <AdminPageNumbers :current="productPagination.page" :total="productTotalPages" @select="goToProductPage" />
                 <button
                   type="button"
                   class="pg-btn"
@@ -1277,16 +1259,7 @@
             >
               ‹
             </button>
-            <button
-              v-for="pNo in visibleProductPageNumbers"
-              :key="pNo"
-              type="button"
-              class="pg-btn"
-              :class="{ active: pNo === productPagination.page }"
-              @click="goToProductPage(pNo)"
-            >
-              {{ pNo + 1 }}
-            </button>
+            <AdminPageNumbers :current="productPagination.page" :total="productTotalPages" @select="goToProductPage" />
             <button
               type="button"
               class="pg-btn"
@@ -2367,8 +2340,14 @@ const orderTableQuery = ref('')
 const orderStatusFilter = ref('')
 const orderPaymentFilter = ref('')
 const orderMethodFilter = ref('') // '' | 'cash' | 'transfer'
-const orderSortBy = ref('newest')
+const orderSortBy = ref('oldest')
 const orderPagination = reactive({ page: 0, size: 5 })
+
+const getStatisticsEmployeeName = (order) => {
+  if (Number(order?.loaiDon) === 2 && Number(order?.trangThai) === 1) return '—'
+  const name = String(order?.tenNhanVien || '').trim()
+  return name && name !== 'Nhân viên' ? name : '—'
+}
 
 const kpiTableTitle = computed(() => {
   switch (selectedKpiType.value) {
@@ -2514,7 +2493,7 @@ const filteredOrdersList = computed(() => {
       const ma = String(item.maHoaDon || '').toLowerCase()
       const kh = String(item.tenKhachHang || '').toLowerCase()
       const sdt = String(item.soDienThoaiKhachHang || '').toLowerCase()
-      const nv = String(item.tenNhanVien || '').toLowerCase()
+      const nv = getStatisticsEmployeeName(item).toLowerCase()
       return ma.includes(q) || kh.includes(q) || sdt.includes(q) || nv.includes(q)
     })
   }
@@ -2524,11 +2503,11 @@ const filteredOrdersList = computed(() => {
     if (orderSortBy.value === 'newest') {
       const timeA = a.ngayTao ? new Date(a.ngayTao).getTime() : 0
       const timeB = b.ngayTao ? new Date(b.ngayTao).getTime() : 0
-      return timeB - timeA
+      return (timeB - timeA) || (Number(b.id || 0) - Number(a.id || 0))
     } else if (orderSortBy.value === 'oldest') {
       const timeA = a.ngayTao ? new Date(a.ngayTao).getTime() : 0
       const timeB = b.ngayTao ? new Date(b.ngayTao).getTime() : 0
-      return timeA - timeB
+      return (timeA - timeB) || (Number(a.id || 0) - Number(b.id || 0))
     } else if (orderSortBy.value === 'highest_val') {
       const valA = Number(a.tienSauGiamGia != null ? a.tienSauGiamGia : a.tongTien || 0)
       const valB = Number(b.tienSauGiamGia != null ? b.tienSauGiamGia : b.tongTien || 0)
@@ -2585,7 +2564,7 @@ function resetOrderTableFilters() {
   orderStatusFilter.value = ''
   orderPaymentFilter.value = ''
   orderMethodFilter.value = ''
-  orderSortBy.value = 'newest'
+  orderSortBy.value = 'oldest'
   orderPagination.page = 0
 }
 

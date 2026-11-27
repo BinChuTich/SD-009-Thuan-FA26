@@ -979,15 +979,7 @@ onBeforeUnmount(() => {
               ‹
             </button>
 
-            <button
-                v-for="page in totalPages"
-                :key="page"
-                class="btn-pager"
-                :class="{ active: currentPage === page }"
-                @click="changePage(page)"
-            >
-              {{ page }}
-            </button>
+            <AdminPageNumbers :current="currentPage" :total="totalPages" one-based @select="changePage" />
 
             <button
                 class="btn-pager"

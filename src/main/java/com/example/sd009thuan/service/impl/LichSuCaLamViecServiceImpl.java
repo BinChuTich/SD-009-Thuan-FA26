@@ -98,7 +98,6 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
                 int startMin = start.getHour() * 60 + start.getMinute();
                 int endMin = end.getHour() * 60 + end.getMinute();
                 int allowedStart = startMin - 30;
-                int allowedEnd = endMin + 30;
                 LocalTime earliest = start.minusMinutes(30);
 
                 if (startMin < endMin && nowMin < allowedStart && (allowedStart >= 0 || nowMin < allowedStart + 1440)) {
@@ -106,7 +105,7 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
                             "Hiện tại (%s) chưa đến giờ làm việc của ca '%s' (%s - %s). Bạn chỉ có thể mở ca sớm tối đa 30 phút (từ %s)!",
                             formatTime(now), ca.getTenCa(), formatTime(start), formatTime(end), formatTime(earliest)
                     ));
-                } else if (startMin < endMin && (nowMin > allowedEnd || (allowedEnd >= 1440 && nowMin > (allowedEnd - 1440) && nowMin < allowedStart))) {
+                } else if (startMin < endMin && nowMin >= endMin) {
                     throw new IllegalArgumentException(String.format(
                             "Ca làm việc '%s' (%s - %s) đã kết thúc (%s). Vui lòng chọn ca làm việc tương ứng với thời điểm hiện tại!",
                             ca.getTenCa(), formatTime(start), formatTime(end), formatTime(end)
@@ -463,18 +462,18 @@ public class LichSuCaLamViecServiceImpl implements LichSuCaLamViecService {
         int endMin = end.getHour() * 60 + end.getMinute();
 
         int allowedStart = startMin - 30;
-        int allowedEnd = endMin + 30;
+        int allowedEnd = endMin;
 
         if (startMin < endMin) {
             if (allowedStart < 0) {
-                return (nowMin >= allowedStart + 1440) || (nowMin <= allowedEnd);
+                return (nowMin >= allowedStart + 1440) || (nowMin < allowedEnd);
             } else if (allowedEnd >= 1440) {
-                return (nowMin >= allowedStart) || (nowMin <= allowedEnd - 1440);
+                return (nowMin >= allowedStart) || (nowMin < allowedEnd - 1440);
             } else {
-                return nowMin >= allowedStart && nowMin <= allowedEnd;
+                return nowMin >= allowedStart && nowMin < allowedEnd;
             }
         } else {
-            return nowMin >= allowedStart || nowMin <= allowedEnd;
+            return nowMin >= allowedStart || nowMin < allowedEnd;
         }
     }
 

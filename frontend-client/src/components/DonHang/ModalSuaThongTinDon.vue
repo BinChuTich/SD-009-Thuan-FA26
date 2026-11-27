@@ -27,6 +27,7 @@ const selectedAddressId = ref(null)
 
 // Form thêm / sửa địa chỉ
 const showAddressForm = ref(false)
+const addressPickerOpen = ref(false)
 const editingAddressId = ref(null)
 const savingAddress = ref(false)
 const addrForm = ref({
@@ -114,6 +115,7 @@ onMounted(async () => {
 watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
     showAddressForm.value = false
+    addressPickerOpen.value = false
     editingAddressId.value = null
     ghiChuMoi.value = ''
     await loadCustomerAddresses()
@@ -186,6 +188,7 @@ const selectAddressForOrder = async (addr) => {
   if (!addr) return
   selectedAddressId.value = addr.id
   await updateShippingForAddress(addr)
+  addressPickerOpen.value = false
 }
 
 // Tính phí GHN cho địa chỉ được chọn
@@ -417,6 +420,7 @@ const handleConfirmOrderUpdate = async () => {
     ].filter(Boolean).join(', ')
 
     const payload = {
+      soDienThoaiXacThuc: (props.order?.soDienThoaiKhachHang || props.order?.soDienThoaiHienThi || '').trim(),
       tenNguoiNhan: (addr.tenNguoiNhan || customerDisplayName.value).trim(),
       soDienThoaiNhan: (addr.soDienThoaiNhan || props.order?.soDienThoaiKhachHang || '').trim(),
       diaChiNhanHang: fullAddress,
@@ -454,9 +458,10 @@ const handleConfirmOrderUpdate = async () => {
     <div class="client-addr-modal-card animate-pop">
       <!-- HEADER CHUẨN THEO ẢNH MẪU 2 -->
       <div class="client-addr-modal-header">
-        <h3 class="client-addr-modal-title">
-          Quản lý địa chỉ: {{ customerDisplayName }}
-        </h3>
+        <div>
+          <h3 class="client-addr-modal-title">Đổi thông tin nhận hàng</h3>
+          <p class="client-addr-modal-subtitle">Người nhận: {{ customerDisplayName }}</p>
+        </div>
         <button class="client-addr-close-btn" @click="handleClose" title="Đóng">&times;</button>
       </div>
 
@@ -466,23 +471,23 @@ const handleConfirmOrderUpdate = async () => {
         <div class="addr-policy-banner">
           <div class="banner-icon-box">ℹ️</div>
           <div class="banner-content-text">
-            Chỉ được đổi thông tin nhận hàng <strong>1 lần</strong> khi đơn đang <em>Chờ xác nhận</em>.
+            Bạn chỉ có thể thay đổi thông tin nhận hàng <strong>1 lần</strong> trước khi đơn được xác nhận.
           </div>
         </div>
 
-        <!-- Thanh tác vụ trên: Tổng cộng X địa chỉ + Nút Thêm địa chỉ mới -->
+        <!-- Popup chính chỉ hiển thị địa chỉ đang áp dụng -->
         <div class="addr-top-actions-bar">
-          <span class="addr-total-count">
-            Tổng cộng: {{ savedAddresses.length }} địa chỉ
-          </span>
-          <button
-            v-if="!showAddressForm"
-            type="button"
-            class="btn-primary-addr-sm"
-            @click="openAddAddressForm"
-          >
-            + Thêm địa chỉ mới
-          </button>
+          <span class="addr-total-count">Địa chỉ nhận hàng</span>
+          <button type="button" class="btn-primary-addr-sm" @click="addressPickerOpen = true">Đổi địa chỉ</button>
+        </div>
+
+        <div v-if="selectedAddress" class="selected-address-overview">
+          <div class="selected-address-overview-top">
+            <strong>{{ selectedAddress.tenNguoiNhan || customerDisplayName }}</strong>
+            <span>{{ selectedAddress.soDienThoaiNhan || props.order?.soDienThoaiKhachHang || '—' }}</span>
+          </div>
+          <p>{{ [selectedAddress.diaChiCuThe, selectedAddress.phuong, selectedAddress.huyen, selectedAddress.thanhPho].filter(Boolean).join(', ') }}</p>
+          <span v-if="selectedAddress.macDinh" class="addr-default-badge">Mặc định</span>
         </div>
 
         <!-- FORM THÊM / SỬA ĐỊA CHỈ (CÓ THÊM THÔNG TIN NGƯỜI NHẬN) -->
@@ -571,8 +576,17 @@ const handleConfirmOrderUpdate = async () => {
           </div>
         </div>
 
-        <!-- DANH SÁCH ĐỊA CHỈ DẠNG THẺ (ĐÚNG THEO ẢNH MẪU 2) -->
-        <div class="addr-items-scroll-list">
+        <!-- Popup thứ hai: danh sách địa chỉ và thao tác thêm địa chỉ -->
+        <div v-if="addressPickerOpen" class="address-picker-client-backdrop" @click.self="addressPickerOpen = false">
+          <section class="address-picker-client-dialog">
+            <header class="address-picker-client-header">
+              <div><h4>Chọn địa chỉ nhận hàng</h4><p>{{ savedAddresses.length }} địa chỉ đã lưu</p></div>
+              <div class="address-picker-client-actions">
+                <button type="button" class="btn-primary-addr-sm" @click="openAddAddressForm">+ Thêm địa chỉ</button>
+                <button type="button" class="address-picker-client-close" @click="addressPickerOpen = false">×</button>
+              </div>
+            </header>
+            <div class="addr-items-scroll-list">
           <div v-if="loadingAddresses" class="addr-empty-state">
             Đang tải danh sách địa chỉ...
           </div>
@@ -592,9 +606,8 @@ const handleConfirmOrderUpdate = async () => {
             <div class="addr-card-main-col">
               <div class="addr-card-header-row">
                 <span v-if="addr.macDinh" class="addr-default-badge">Mặc định</span>
-                <span class="addr-code-tag">{{ addr.maDiaChi || 'DC' }}</span>
                 <span v-if="selectedAddressId === addr.id" class="addr-active-choice-badge">
-                  ✓ Đang chọn nhận hàng
+                  ✓ Địa chỉ nhận hàng
                 </span>
               </div>
 
@@ -613,12 +626,12 @@ const handleConfirmOrderUpdate = async () => {
             <!-- Các nút hành động bên phải -->
             <div class="addr-card-btn-actions" @click.stop>
               <button
+                v-if="selectedAddressId !== addr.id"
                 type="button"
                 class="btn-text-act btn-select-addr"
-                :class="{ 'btn-selected-highlight': selectedAddressId === addr.id }"
                 @click="selectAddressForOrder(addr)"
               >
-                {{ selectedAddressId === addr.id ? 'Đang chọn' : 'Giao đến đây' }}
+                Chọn địa chỉ này
               </button>
 
               <button
@@ -648,6 +661,8 @@ const handleConfirmOrderUpdate = async () => {
               </button>
             </div>
           </div>
+            </div>
+          </section>
         </div>
 
         <!-- KHU VỰC TÍNH PHÍ SHIP & TỔNG TIỀN THEO ĐỊA CHỈ ĐANG CHỌN (ẢNH MẪU 1) -->
@@ -655,11 +670,11 @@ const handleConfirmOrderUpdate = async () => {
           <!-- Banner phân biệt COD vs ĐÃ THANH TOÁN -->
           <div v-if="!isPaidOrder" class="payment-mode-banner cod-mode">
             <div class="pmb-top-row">
-              <span class="pmb-badge cod-badge">THANH TOÁN KHI NHẬN HÀNG (COD)</span>
-              <span class="pmb-orig-ship">Phí ship ban đầu: <strong>{{ formatCurrency(originalShippingFee) }}</strong></span>
+              <span class="pmb-badge cod-badge">Thanh toán khi nhận hàng</span>
+              <span class="pmb-orig-ship">Phí giao hàng cũ: <strong>{{ formatCurrency(originalShippingFee) }}</strong></span>
             </div>
             <p class="pmb-desc">
-              Phí vận chuyển và tổng COD sẽ tự cập nhật theo địa chỉ mới.
+              Kiểm tra chi phí mới trước khi xác nhận.
             </p>
           </div>
 
@@ -679,7 +694,7 @@ const handleConfirmOrderUpdate = async () => {
               <div class="sfp-left">
                 <span class="ghn-icon">🚚</span>
                 <div>
-                  <div class="sfp-title">Cước phí vận chuyển GHN địa chỉ mới:</div>
+                  <div class="sfp-title">Phí giao hàng mới</div>
                   <div class="sfp-sub">{{ loadingShipping ? 'Đang tính cước...' : shippingMessage }}</div>
                 </div>
               </div>
@@ -690,7 +705,7 @@ const handleConfirmOrderUpdate = async () => {
 
             <!-- Tổng COD nếu là đơn COD -->
             <div v-if="!isPaidOrder" class="cod-final-row">
-              <span class="cod-label">💵 Tổng tiền cần thanh toán khi nhận hàng (COD):</span>
+              <span class="cod-label">Tổng thanh toán khi nhận hàng</span>
               <strong class="cod-val">{{ formatCurrency(newCodTotal) }}</strong>
             </div>
 
@@ -702,7 +717,7 @@ const handleConfirmOrderUpdate = async () => {
 
           <!-- Ô ghi chú bổ sung khi giao hàng -->
           <div class="order-edit-note-field">
-            <label>Ghi chú giao hàng mới (Tùy chọn):</label>
+            <label>Ghi chú cho người giao hàng <span>(không bắt buộc)</span></label>
             <input
               v-model="ghiChuMoi"
               type="text"
@@ -722,7 +737,7 @@ const handleConfirmOrderUpdate = async () => {
               :disabled="submitting || loadingShipping || !isFeeAllowed"
               @click="handleConfirmOrderUpdate"
             >
-              {{ submitting ? 'Đang cập nhật...' : 'Xác nhận cập nhật' }}
+              {{ submitting ? 'Đang lưu...' : 'Lưu thay đổi' }}
             </button>
           </div>
         </div>
@@ -811,6 +826,94 @@ const handleConfirmOrderUpdate = async () => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+.selected-address-overview {
+  position: relative;
+  padding: 14px 16px;
+  border: 1px solid #8da5b8;
+  border-radius: 12px;
+  background: #ffffff;
+}
+.selected-address-overview-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 72px;
+  color: #1e293b;
+  font-size: .9rem;
+}
+.selected-address-overview-top span {
+  color: #64748b;
+}
+.selected-address-overview p {
+  margin: 5px 0 0;
+  color: #475569;
+  font-size: .84rem;
+  line-height: 1.45;
+}
+.selected-address-overview .addr-default-badge {
+  position: absolute;
+  top: 12px;
+  right: 13px;
+}
+.address-picker-client-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, .62);
+  backdrop-filter: blur(3px);
+}
+.address-picker-client-dialog {
+  width: min(650px, 96vw);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #f8fafc;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, .32);
+}
+.address-picker-client-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+.address-picker-client-header h4 {
+  margin: 0;
+  color: #1e3a5f;
+  font-size: 1.05rem;
+}
+.address-picker-client-header p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: .78rem;
+}
+.address-picker-client-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.address-picker-client-close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: #eef2f6;
+  color: #64748b;
+  font-size: 22px;
+  cursor: pointer;
+}
+.address-picker-client-dialog .addr-items-scroll-list {
+  max-height: none;
+  padding: 14px 16px 18px;
+  overflow-y: auto;
 }
 
 /* Policy banner */
@@ -1359,5 +1462,125 @@ const handleConfirmOrderUpdate = async () => {
   background-color: #94a3b8;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+/* Bố cục ưu tiên khả năng đọc cho khách hàng. */
+.client-addr-modal-card {
+  max-width: 680px;
+  border-radius: 18px;
+}
+.client-addr-modal-header {
+  padding: 17px 22px;
+  background: #ffffff;
+}
+.client-addr-modal-subtitle {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: .8rem;
+}
+.client-addr-modal-body {
+  padding: 16px 20px 18px;
+  gap: 12px;
+  background: #f8fafc;
+}
+.addr-policy-banner {
+  padding: 9px 11px;
+  border-color: #dbeafe;
+  background: #eff6ff;
+  color: #38546b;
+}
+.addr-total-count {
+  color: #334155;
+  font-size: .86rem;
+  font-weight: 700;
+}
+.addr-item-card {
+  padding: 13px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+}
+.addr-item-card.is-active-choice {
+  border-color: #496883;
+  background: #f2f6f8;
+  box-shadow: 0 0 0 2px rgba(73, 104, 131, .1);
+}
+.addr-card-header-row {
+  margin-bottom: 6px;
+}
+.addr-active-choice-badge {
+  margin-left: auto;
+  background: #e4f2e8;
+  color: #26723c;
+}
+.addr-card-recipient-text {
+  margin-bottom: 3px;
+}
+.addr-card-address-text {
+  color: #475569;
+  line-height: 1.5;
+}
+.addr-card-btn-actions {
+  gap: 7px;
+}
+.btn-text-act {
+  padding: 6px 9px;
+  border-radius: 7px;
+  font-size: .75rem;
+}
+.btn-select-addr {
+  border: 1px solid #496883;
+  background: #496883;
+  color: #ffffff;
+}
+.addr-order-calc-section {
+  gap: 9px;
+  padding-top: 2px;
+}
+.payment-mode-banner {
+  padding: 9px 11px;
+  border-radius: 10px;
+}
+.pmb-badge {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.pmb-desc {
+  margin-top: 4px;
+}
+.shipping-fee-preview-box {
+  padding: 12px 14px;
+  border-radius: 11px;
+  background: #ffffff;
+}
+.sfp-title,
+.cod-label {
+  font-size: .86rem;
+}
+.sfp-price {
+  font-size: 1.05rem;
+}
+.cod-val {
+  font-size: 1.15rem;
+  color: #496883;
+}
+.order-edit-note-field label span {
+  color: #94a3b8;
+  font-weight: 500;
+}
+.btn-confirm-order-addr {
+  background: #496883;
+  box-shadow: 0 4px 10px rgba(73, 104, 131, .22);
+}
+.btn-confirm-order-addr:hover:not(:disabled) {
+  background: #38566f;
+}
+@media (max-width: 640px) {
+  .client-addr-modal-body { padding: 12px; }
+  .addr-item-card { align-items: stretch; }
+  .addr-card-btn-actions { justify-content: flex-start; flex-wrap: wrap; }
+  .pmb-top-row,.sfp-row,.cod-final-row { gap: 8px; }
+  .address-picker-client-header { align-items: flex-start; padding: 14px; }
+  .address-picker-client-actions .btn-primary-addr-sm { padding: 7px 9px; font-size: .75rem; }
+  .selected-address-overview-top { align-items: flex-start; flex-direction: column; gap: 2px; }
 }
 </style>

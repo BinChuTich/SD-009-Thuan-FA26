@@ -20,6 +20,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
@@ -85,10 +87,10 @@ public class MomoPaymentService {
         long expiresAt = Instant.now().plus(5, ChronoUnit.MINUTES).toEpochMilli();
         String token = sign(order.getMaHoaDon(), amount, expiresAt);
         String paymentUrl = clientBaseUrl.replaceAll("/+$", "")
-                + "/thanh-toan/momo-test?orderId=" + encode(order.getMaHoaDon())
-                + "&amount=" + amount
-                + "&expiresAt=" + expiresAt
-                + "&token=" + encode(token);
+                + "/thanh-toan/momo-test?o=" + encode(order.getMaHoaDon())
+                + "&a=" + amount
+                + "&e=" + expiresAt
+                + "&t=" + encode(token);
 
         return Map.of(
                 "mode", "mock",
@@ -205,18 +207,28 @@ public class MomoPaymentService {
         if (expiresAt < System.currentTimeMillis()) {
             throw new IllegalStateException("Giao dịch MoMo thử nghiệm đã hết hạn!");
         }
-        byte[] expected = sign(orderCode, amount, expiresAt).getBytes(StandardCharsets.UTF_8);
         byte[] actual = token.getBytes(StandardCharsets.UTF_8);
-        if (!MessageDigest.isEqual(expected, actual)) {
+        byte[] expected = sign(orderCode, amount, expiresAt).getBytes(StandardCharsets.UTF_8);
+        byte[] legacyExpected = legacySign(orderCode, amount, expiresAt).getBytes(StandardCharsets.UTF_8);
+        if (!MessageDigest.isEqual(expected, actual) && !MessageDigest.isEqual(legacyExpected, actual)) {
             throw new IllegalArgumentException("Chữ ký giao dịch MoMo thử nghiệm không hợp lệ!");
         }
     }
 
     private String sign(String orderCode, long amount, long expiresAt) {
+        byte[] signature = hmac(orderCode, amount, expiresAt);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(Arrays.copyOf(signature, 16));
+    }
+
+    private String legacySign(String orderCode, long amount, long expiresAt) {
+        return HexFormat.of().formatHex(hmac(orderCode, amount, expiresAt));
+    }
+
+    private byte[] hmac(String orderCode, long amount, long expiresAt) {
         try {
             Mac mac = Mac.getInstance(HMAC_ALGORITHM);
             mac.init(new SecretKeySpec(mockSecret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
-            return HexFormat.of().formatHex(mac.doFinal((orderCode + "|" + amount + "|" + expiresAt).getBytes(StandardCharsets.UTF_8)));
+            return mac.doFinal((orderCode + "|" + amount + "|" + expiresAt).getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
             throw new IllegalStateException("Không thể tạo chữ ký MoMo thử nghiệm", e);
         }

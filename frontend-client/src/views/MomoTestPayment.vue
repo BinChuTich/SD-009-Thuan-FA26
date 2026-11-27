@@ -10,10 +10,11 @@ const result = ref(null)
 const error = ref('')
 const copiedField = ref('')
 
-const orderId = computed(() => String(route.query.orderId || ''))
-const amount = computed(() => Number(route.query.amount || 0))
-const expiresAt = computed(() => Number(route.query.expiresAt || 0))
-const token = computed(() => String(route.query.token || ''))
+// Ưu tiên bộ tham số ngắn để QR dễ quét; vẫn hỗ trợ link cũ đã phát hành.
+const orderId = computed(() => String(route.query.o || route.query.orderId || ''))
+const amount = computed(() => Number(route.query.a || route.query.amount || 0))
+const expiresAt = computed(() => Number(route.query.e || route.query.expiresAt || 0))
+const token = computed(() => String(route.query.t || route.query.token || ''))
 const validRequest = computed(() => Boolean(orderId.value && amount.value > 0 && expiresAt.value && token.value))
 
 const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} đ`

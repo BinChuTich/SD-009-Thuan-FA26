@@ -583,14 +583,7 @@ watch(() => route.query.tab, (newTab) => {
               @click="changePage(currentPage - 1)"
           >‹</button>
 
-          <button
-              v-for="p in totalPages"
-              :key="p"
-              :class="['page-btn', { active: currentPage === p - 1 }]"
-              @click="changePage(p - 1)"
-          >
-            {{ p }}
-          </button>
+          <AdminPageNumbers :current="currentPage" :total="totalPages" @select="changePage" />
 
           <button
               class="page-btn"

@@ -593,14 +593,7 @@ onMounted(() => {
               title="Trang trước"
           >‹</button>
 
-          <button
-              v-for="p in visiblePages"
-              :key="p"
-              :class="['pg-box', { active: currentPage === p }]"
-              @click="changePage(p)"
-          >
-            {{ p + 1 }}
-          </button>
+          <AdminPageNumbers :current="currentPage" :total="totalPages" @select="changePage" />
 
           <button
               class="pg-box"

@@ -216,16 +216,7 @@
             ‹
           </button>
 
-          <template v-for="(p, idx) in visiblePages" :key="idx">
-            <span v-if="p === '...'" class="pg-dots">...</span>
-            <button
-                v-else
-                :class="['pg-btn', { active: currentPage === p }]"
-                @click="goToPage(p)"
-            >
-              {{ p }}
-            </button>
-          </template>
+          <AdminPageNumbers :current="currentPage" :total="totalPages" one-based @select="goToPage" />
 
           <button
               class="pg-btn"

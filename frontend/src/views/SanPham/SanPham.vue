@@ -412,14 +412,7 @@
               title="Trang trước"
           >‹</button>
 
-          <button
-              v-for="p in visiblePages"
-              :key="p"
-              :class="['pg-box', { active: pageData.number === p }]"
-              @click="changePage(p)"
-          >
-            {{ p + 1 }}
-          </button>
+          <AdminPageNumbers :current="pageData.number" :total="pageData.totalPages" @select="changePage" />
 
           <button
               class="pg-box"

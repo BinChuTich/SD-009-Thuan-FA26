@@ -17,6 +17,7 @@ import ThuVienHinhAnh from '@/components/ChiTietSanPham/ThuVienHinhAnh.vue'
 import ThongTinMoTa from '@/components/ChiTietSanPham/ThongTinMoTa.vue'
 
 import SanPhamLienQuan from '@/components/ChiTietSanPham/SanPhamLienQuan.vue'
+import { showAppToast } from '@/utils/thongBaoDialog.js'
 
 
 
@@ -62,16 +63,7 @@ const showAddedModal = ref(false)
 
 
 const triggerToast = (msg) => {
-
-  toastMessage.value = msg
-
-  showToast.value = true
-
-  setTimeout(() => {
-
-    showToast.value = false
-
-  }, 3600)
+  showAppToast(msg, 'warning')
 
 }
 

@@ -153,15 +153,7 @@
         </span>
         <div class="pagination-buttons">
           <button class="page-btn" :disabled="page === 0" @click="goPage(page - 1)">‹</button>
-          <button
-            v-for="n in pageNumbers"
-            :key="n"
-            class="page-btn"
-            :class="{ active: n === page }"
-            @click="goPage(n)"
-          >
-            {{ n + 1 }}
-          </button>
+          <AdminPageNumbers :current="page" :total="totalPages" @select="goPage" />
           <button class="page-btn" :disabled="page + 1 >= totalPages" @click="goPage(page + 1)">›</button>
         </div>
       </div>

@@ -481,17 +481,10 @@ public class HoaDonController {
         try {
             return ResponseEntity.ok(hoaDonService.updateTrangThaiThanhToan(id, status, ghiChu));
         } catch (Exception e) {
-            try {
-                HoaDon hd = new HoaDon();
-                hd.setTrangThaiThanhToan(status);
-                if (ghiChu != null) hd.setGhiChu(ghiChu);
-                return ResponseEntity.ok(hoaDonService.update(id, hd));
-            } catch (Exception ex) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "message",
-                        e.getMessage() != null ? e.getMessage() : "Cập nhật trạng thái thanh toán thất bại"
-                ));
-            }
+            return ResponseEntity.badRequest().body(Map.of(
+                    "message",
+                    e.getMessage() != null ? e.getMessage() : "Cập nhật trạng thái thanh toán thất bại"
+            ));
         }
     }
 

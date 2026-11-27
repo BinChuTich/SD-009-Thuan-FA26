@@ -11,8 +11,12 @@ defineProps({
   }
 })
 
-const goToCategory = (categoryName) => {
-  router.push({ path: '/cua-hang', query: { danhmuc: categoryName } })
+const openShowcaseItem = (item) => {
+  if (item.productId) {
+    router.push(`/san-pham/${item.productId}`)
+    return
+  }
+  router.push({ path: '/cua-hang', query: { danhmuc: item.name } })
 }
 </script>
 
@@ -20,8 +24,8 @@ const goToCategory = (categoryName) => {
   <section id="danh-muc-hot" class="categories-section">
     <div class="container-cat">
       <div class="section-title-wrapper text-center">
-        <span class="badge-sub-title">BỘ SƯU TẬP THEO PHONG CÁCH</span>
-        <h2 class="script-title">Danh Mục Sản Phẩm</h2>
+        <span class="badge-sub-title">CẬP NHẬT TỪ SẢN PHẨM THỰC TẾ</span>
+        <h2 class="script-title">Sản Phẩm Đáng Chú Ý</h2>
       </div>
 
       <div class="categories-grid">
@@ -29,7 +33,7 @@ const goToCategory = (categoryName) => {
           v-for="cat in categories"
           :key="cat.id"
           class="category-card"
-          @click="goToCategory(cat.name)"
+          @click="openShowcaseItem(cat)"
         >
           <div class="cat-img-box">
             <img

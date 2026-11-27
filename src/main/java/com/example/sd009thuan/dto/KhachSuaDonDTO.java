@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 public class KhachSuaDonDTO {
+    private String soDienThoaiXacThuc;
     private String tenNguoiNhan;
     private String soDienThoaiNhan;
     private String diaChiNhanHang; // Chuỗi địa chỉ hoàn chỉnh (Số nhà, đường, Phường, Xã, Quận/Huyện, Tỉnh/TP)

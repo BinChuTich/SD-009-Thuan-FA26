@@ -346,7 +346,7 @@
     <div v-if="showReceiptModal" class="modal-backdrop-clean" @click.self="showReceiptModal = false">
       <div class="modal-dialog-clean modal-receipt">
         <div class="modal-header-clean no-print">
-          <h3 class="modal-title-clean">Biên bản bàn giao ca làm việc</h3>
+          <h3 class="modal-title-clean">Biên bản bàn giao ca</h3>
           <button type="button" class="btn-close-modal" @click="showReceiptModal = false">✕</button>
         </div>
 
@@ -381,68 +381,77 @@
               <span class="meta-val">{{ receiptShift?.thoiGianDongCa ? formatDateTime(receiptShift?.thoiGianDongCa) : 'Đang trực' }}</span>
             </div>
             <div class="receipt-meta-row">
-              <span class="meta-label">Ghi chú giao ca:</span>
-              <span class="meta-val">{{ receiptShift?.ghiChu || '-' }}</span>
+              <span class="meta-label">Trạng thái:</span>
+              <span class="meta-val">{{ receiptShift?.trangThai === 1 ? 'Đang mở (Đang trực)' : 'Đã kết thúc / Đã đóng ca' }}</span>
             </div>
           </div>
 
           <div class="receipt-divider"></div>
 
-          <div class="receipt-financial-table">
-            <div class="fin-row">
-              <span>1. Tiền mặt đầu ca:</span>
-              <strong>{{ formatCurrency(receiptShift?.tienMatDauCa || 0) }}</strong>
-            </div>
-            <div class="fin-row">
-              <span>2. Tiền mặt thu tại quầy:</span>
-              <strong>{{ formatCurrency(receiptShift?.tongTienTrongCa || 0) }}</strong>
-            </div>
-            <div class="fin-row">
-              <span>3. Doanh thu chuyển khoản:</span>
-              <strong>{{ formatCurrency(receiptShift?.tienChuyenKhoan || 0) }}</strong>
-            </div>
-            <div v-if="Number(receiptShift?.tienChiTrongCa || 0) > 0" class="fin-row text-red">
-              <span>4. Tiền chi trong ca:</span>
-              <strong>-{{ formatCurrency(receiptShift?.tienChiTrongCa || 0) }}</strong>
-            </div>
-            <div class="fin-row fin-expected">
-              <span>5. Tiền mặt dự kiến có trong két:</span>
-              <strong>{{ formatCurrency(calculateReceiptExpected(receiptShift)) }}</strong>
-            </div>
-            <div class="fin-row fin-actual">
-              <span>6. Tiền mặt thực tế kiểm đếm:</span>
-              <strong>{{ formatCurrency(receiptShift?.tienMatCuoiCa || 0) }}</strong>
-            </div>
-            <div class="fin-row fin-diff" :class="Number(receiptShift?.chenhLech || 0) === 0 ? 'text-green' : 'text-warn'">
-              <span>7. Chênh lệch tiền mặt:</span>
-              <strong>{{ Number(receiptShift?.chenhLech || 0) > 0 ? '+' : '' }}{{ formatCurrency(receiptShift?.chenhLech || 0) }}</strong>
-            </div>
-            <div v-if="receiptShift?.lyDoChenhLech" class="fin-reason">
-              <span>* Lý do giải trình chênh lệch:</span>
-              <em>{{ receiptShift?.lyDoChenhLech }}</em>
-            </div>
+          <table class="receipt-table">
+            <thead><tr><th>KHOẢN MỤC</th><th style="text-align: right">SỐ TIỀN</th></tr></thead>
+            <tbody>
+              <tr><td>1. Tiền mặt đầu ca</td><td style="text-align: right">{{ formatCurrency(receiptShift?.tienMatDauCa || 0) }}</td></tr>
+              <tr><td>2. Tiền mặt thu bán trong ca</td><td style="text-align: right">{{ formatCurrency(receiptShift?.tongTienTrongCa || receiptShift?.tienMatThuTrongCa || 0) }}</td></tr>
+              <tr><td>3. Tiền chuyển khoản / quẹt thẻ</td><td style="text-align: right">{{ formatCurrency(receiptShift?.tienChuyenKhoan || 0) }}</td></tr>
+              <tr><td>4. Tiền chi từ két trong ca</td><td style="text-align: right">-{{ formatCurrency(receiptShift?.tienChiTrongCa || 0) }}</td></tr>
+              <tr class="row-highlight"><td><strong>5. Tiền mặt dự kiến két</strong></td><td style="text-align: right"><strong>{{ formatCurrency(calculateReceiptExpected(receiptShift)) }}</strong></td></tr>
+              <tr class="row-highlight-accent"><td><strong>6. Tiền mặt thực tế đếm cuối ca</strong></td><td style="text-align: right"><strong>{{ receiptShift?.tienMatCuoiCa !== null ? formatCurrency(receiptShift?.tienMatCuoiCa) : 'Chưa chốt' }}</strong></td></tr>
+              <tr :class="Number(receiptShift?.chenhLech || 0) === 0 ? 'row-balanced' : 'row-diff'">
+                <td><strong>7. Chênh lệch (Thực tế - Dự kiến)</strong></td>
+                <td style="text-align: right"><strong>{{ Number(receiptShift?.chenhLech || 0) > 0 ? '+' : '' }}{{ formatCurrency(receiptShift?.chenhLech || 0) }}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div v-if="receiptShift?.lyDoChenhLech" class="receipt-reason-box">
+            <strong>Lý do giải trình chênh lệch:</strong><p>{{ receiptShift.lyDoChenhLech }}</p>
+          </div>
+          <div v-if="receiptShift?.ghiChu" class="receipt-note-box">
+            <strong>Ghi chú:</strong><p>{{ receiptShift.ghiChu }}</p>
+          </div>
+
+          <div class="receipt-invoices-wrap">
+            <div class="receipt-section-subtitle">HÓA ĐƠN BÁN TRONG CA ({{ receiptShift?.danhSachHoaDon?.length || 0 }} ĐƠN)</div>
+            <table class="receipt-inner-table">
+              <thead><tr>
+                <th style="width: 40px; text-align: center">STT</th><th style="width: 110px">MÃ HĐ</th><th>KHÁCH HÀNG</th>
+                <th class="receipt-payment-col">HÌNH THỨC</th><th style="text-align: right; width: 120px">TỔNG TIỀN</th><th style="text-align: center; width: 90px" class="no-print">XEM</th>
+              </tr></thead>
+              <tbody>
+                <tr v-if="!receiptShift?.danhSachHoaDon?.length"><td colspan="6" class="receipt-empty-row">Không có hóa đơn phát sinh trong ca này.</td></tr>
+                <tr v-for="(hd, hidx) in receiptShift?.danhSachHoaDon" :key="hd.id || hidx">
+                  <td style="text-align: center" class="text-muted">{{ hidx + 1 }}</td>
+                  <td><router-link :to="'/hoa-don/' + hd.maHoaDon" class="receipt-hd-link font-bold" target="_blank">{{ hd.maHoaDon }}</router-link></td>
+                  <td>{{ hd.tenKhachHang || 'Khách lẻ' }}</td>
+                  <td class="receipt-payment-col"><span class="badge-mini-pay">{{ hd.hinhThucThanhToan || 'Tiền mặt' }}</span></td>
+                  <td style="text-align: right" class="font-bold">{{ formatCurrency(hd.tongTien) }}</td>
+                  <td style="text-align: center" class="no-print"><button type="button" class="btn-receipt-action-view" @click="$router.push('/hoa-don/' + hd.maHoaDon)">Xem →</button></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           <div class="receipt-signatures">
             <div class="sig-col">
-              <p class="sig-title">NGƯỜI GIAO CA</p>
-              <p class="sig-sub">(Ký và ghi rõ họ tên)</p>
+              <strong>NGƯỜI GIAO CA</strong>
+              <span>(Ký, ghi rõ họ tên)</span>
               <div class="sig-space"></div>
-              <p class="sig-name">{{ receiptShift?.nhanVien?.tenNhanVien }}</p>
+              <em>{{ receiptShift?.nhanVien?.tenNhanVien }}</em>
             </div>
             <div class="sig-col">
-              <p class="sig-title">NGƯỜI NHẬN CA</p>
-              <p class="sig-sub">(Ký và ghi rõ họ tên)</p>
+              <strong>NGƯỜI NHẬN CA</strong>
+              <span>(Ký, ghi rõ họ tên)</span>
               <div class="sig-space"></div>
-              <p class="sig-name">{{ receiptShift?.nhanVienNhan?.tenNhanVien || 'Quản lý' }}</p>
+              <em>{{ receiptShift?.nhanVienNhan?.tenNhanVien || '..............................' }}</em>
             </div>
           </div>
         </div>
 
         <div class="modal-footer-clean no-print">
           <button type="button" class="btn-cancel-modal" @click="showReceiptModal = false">Đóng</button>
-          <button type="button" class="btn-print-action" @click="printReceipt">
-            🖨 In biên bản bàn giao
+          <button type="button" class="btn-print-receipt" @click="printReceipt">
+            🖨 In biên bản giao ca
           </button>
         </div>
       </div>
@@ -2008,9 +2017,19 @@ onUnmounted(() => {
 }
 
 .modal-receipt {
-  width: 580px;
-  max-width: 95vw;
+  width: min(780px, calc(100vw - 48px));
+  max-width: 780px;
+  max-height: min(88vh, 860px);
+  border: 1px solid #e4ddd3;
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
 }
+
+.modal-receipt .modal-header-clean,
+.modal-receipt .modal-footer-clean { flex: 0 0 auto; position: relative; z-index: 2; }
+.modal-receipt .modal-header-clean { padding: 0.9rem 1.4rem; background: linear-gradient(135deg, #f9fafb 0%, #f5f1eb 100%); }
+.modal-receipt .modal-footer-clean { padding: 0.8rem 1.4rem; }
+.modal-receipt .printable-receipt { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
 
 .modal-header-clean {
   padding: 1.25rem 1.5rem;
@@ -2191,6 +2210,44 @@ onUnmounted(() => {
 .sig-name {
   font-weight: 700;
   margin: 0;
+}
+
+.receipt-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin: 10px 0; }
+.receipt-table th { padding: 6px 4px; border-bottom: 1.5px solid #d1c8bd; font-weight: 700; color: #4b5563; text-align: left; }
+.receipt-table td { padding: 6px 4px; border-bottom: 1px solid #f3f0ea; }
+.row-highlight td { background: #faf8f5; color: #111827; font-weight: 600; }
+.row-highlight-accent td { background: #fdfbf7; color: var(--blue, #496883); font-weight: 700; }
+.row-balanced td { color: #16a34a; background: #f0fdf4; }
+.row-diff td { color: #dc2626; background: #fef2f2; }
+.receipt-reason-box, .receipt-note-box { margin-top: 8px; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; }
+.receipt-reason-box { background: #fffbeb; border: 1px solid #fef3c7; color: #92400e; }
+.receipt-note-box { background: #f9fafb; border: 1px solid #e5e7eb; color: #4b5563; }
+.receipt-reason-box p, .receipt-note-box p { margin: 4px 0 0; }
+.receipt-invoices-wrap { margin: 16px 0 12px; background: #faf8f5; border: 1px solid #e7ded4; border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+.receipt-section-subtitle { font-size: 0.8rem; font-weight: 700; color: var(--blue, #496883); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+.receipt-inner-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.receipt-inner-table th { background: #efe8df; color: #493b2f; padding: 6px 8px; text-align: left; font-size: 0.75rem; font-weight: 700; }
+.receipt-inner-table td { padding: 6px 8px; border-bottom: 1px solid #eee8e0; }
+.receipt-empty-row { text-align: center; color: #8c979d; padding: 12px !important; }
+.receipt-hd-link { color: #2563eb; text-decoration: none; }
+.receipt-hd-link:hover { text-decoration: underline; }
+.badge-mini-pay { display: inline-flex; align-items: center; justify-content: center; padding: 2px 6px; border-radius: 4px; background: #e0f2fe; color: #0369a1; font-size: 0.72rem; font-weight: 600; white-space: nowrap; word-break: keep-all; }
+.receipt-payment-col { width: 155px; min-width: 155px; text-align: center !important; white-space: nowrap; }
+.btn-receipt-action-view { border: 1px solid #cbd5e1; background: #fff; color: #334155; border-radius: 4px; padding: 2px 6px; font-size: 0.75rem; cursor: pointer; }
+.btn-receipt-action-view:hover { background: #0284c7; color: #fff; border-color: #0284c7; }
+.receipt-signatures { margin-top: 2rem; padding-top: 1rem; }
+.sig-col { text-align: center; display: flex; flex-direction: column; align-items: center; width: 45%; font-size: 0.85rem; }
+.sig-col strong { color: #111827; font-weight: 700; }
+.sig-col span { font-size: 0.75rem; color: #9ca3af; }
+.sig-col em { font-style: normal; font-weight: 600; color: #374151; }
+.sig-space { height: 55px; }
+.btn-print-receipt { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border-radius: 8px; background: #1e293b; color: #fff; border: none; font-weight: 600; cursor: pointer; }
+.btn-print-receipt:hover { background: #0f172a; }
+
+@media (max-width: 640px) {
+  .modal-receipt { width: 100%; max-height: calc(100dvh - 20px); border-radius: 12px; }
+  .printable-receipt { padding: 1rem; }
+  .receipt-inner-table { min-width: 610px; }
 }
 
 /* Khối hiển thị người nhận bàn giao tự động */

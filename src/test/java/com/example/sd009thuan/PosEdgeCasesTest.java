@@ -18,6 +18,7 @@ import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
 class PosEdgeCasesTest {
@@ -49,6 +50,7 @@ class PosEdgeCasesTest {
         nhanVienRepository = Mockito.mock(NhanVienRepository.class);
         hinhAnhRepository = Mockito.mock(HinhAnhRepository.class);
         dotGiamGiaService = Mockito.mock(DotGiamGiaService.class);
+        when(chiTietSanPhamRepository.deductStockIfAvailable(any(Long.class), anyInt())).thenReturn(1);
 
         hoaDonService = new HoaDonService(
                 hoaDonRepository,

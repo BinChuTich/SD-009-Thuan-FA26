@@ -5,7 +5,7 @@ import api from '@/api'
 import { formatCurrency } from '@/utils/dinhDang.js'
 import { resolveProductImageUrl, NEUTRAL_PRODUCT_PLACEHOLDER } from '@/utils/luuTruGioHang.js'
 import ModalSuaThongTinDon from '@/components/DonHang/ModalSuaThongTinDon.vue'
-import { showAppAlert } from '@/utils/thongBaoDialog.js'
+import { showAppAlert, showAppToast } from '@/utils/thongBaoDialog.js'
 import { changeOnlinePaymentMethod, continueOnlinePayment, getOnlinePaymentProvider } from '@/utils/onlinePayment.js'
 import OnlinePaymentQrModal from '@/components/OnlinePaymentQrModal.vue'
 import PaymentMethodPickerModal from '@/components/PaymentMethodPickerModal.vue'
@@ -72,10 +72,7 @@ const handleOrderInfoUpdated = (updatedOrder) => {
 }
 
 const triggerSuccess = () => {
-  showSuccessToast.value = true
-  setTimeout(() => {
-    showSuccessToast.value = false
-  }, 3500)
+  showAppToast('Cập nhật thông tin nhận hàng thành công!', 'success')
 }
 
 const loadOrderDetails = async (maHoaDon) => {
@@ -832,11 +829,15 @@ onUnmounted(() => {
           v-if="!isVnPay(order) && order.trangThaiThanhToan !== 1 && order.trangThai === 1 && !isPosOrder"
           class="timer-warning-box"
         >
+          <div class="timer-icon cod-payment-icon" aria-hidden="true">💵</div>
           <div class="timer-info-content">
             <strong>Đang chọn thanh toán khi nhận hàng (COD)</strong>
             <p>Bạn có thể đổi sang thanh toán online khi đơn vẫn đang chờ xác nhận.</p>
           </div>
-          <button class="btn-pay-now" @click="openPayModal">Đổi phương thức thanh toán</button>
+          <button class="btn-pay-now btn-switch-payment" @click="openPayModal">
+            <span>Đổi phương thức thanh toán</span>
+            <span class="btn-arrow" aria-hidden="true">→</span>
+          </button>
         </div>
 
         <div class="online-shipping-detail-box" v-if="!isPosOrder">
@@ -1890,6 +1891,32 @@ onUnmounted(() => {
 .btn-pay-now:hover {
   background: #364f66;
 }
+
+.btn-switch-payment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 230px;
+  min-height: 42px;
+  padding: 0 18px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 11px;
+  box-shadow: 0 7px 16px rgba(37, 99, 235, 0.2);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.btn-switch-payment:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  box-shadow: 0 9px 20px rgba(37, 99, 235, 0.28);
+  transform: translateY(-1px);
+}
+
+.btn-switch-payment:active { transform: translateY(0); }
+.btn-switch-payment .btn-arrow { font-size: 17px; line-height: 1; transition: transform 0.18s ease; }
+.btn-switch-payment:hover .btn-arrow { transform: translateX(3px); }
+.cod-payment-icon { color: #92400e; }
 
 .payment-method-switcher {
   display: flex;

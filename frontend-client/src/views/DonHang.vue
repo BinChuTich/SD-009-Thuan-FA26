@@ -6,7 +6,7 @@ import { changeOnlinePaymentMethod, continueOnlinePayment, getOnlinePaymentProvi
 import OnlinePaymentQrModal from '@/components/OnlinePaymentQrModal.vue'
 import PaymentMethodPickerModal from '@/components/PaymentMethodPickerModal.vue'
 import { formatCurrency, formatDateTime } from '@/utils/dinhDang.js'
-import { showAppConfirm, showAppAlert } from '@/utils/thongBaoDialog.js'
+import { showAppConfirm, showAppAlert, showAppToast } from '@/utils/thongBaoDialog.js'
 import { currentClientUser, isClientLoggedIn } from '@/utils/taiKhoanKhachHang.js'
 import ModalDangNhap from '@/components/BocCuc/ModalDangNhap.vue'
 import ModalSuaThongTinDon from '@/components/DonHang/ModalSuaThongTinDon.vue'
@@ -634,11 +634,7 @@ const onMessageReceived = (event) => {
     }
     if (event.data.type === 'VNPAY_PAID_SUCCESS') {
       showPendingToast.value = false
-      showSuccessToast.value = true
-      successToastMsg.value = `Thanh toán thành công cho đơn hàng #${event.data.orderCode || selectedOrder.value?.maHoaDon || ''} qua VNPAY!`
-      setTimeout(() => {
-        showSuccessToast.value = false
-      }, 5000)
+      showAppToast(`Thanh toán thành công cho đơn hàng #${event.data.orderCode || selectedOrder.value?.maHoaDon || ''} qua VNPAY!`, 'success', 5000)
     }
   }
 }
@@ -732,19 +728,12 @@ onMounted(() => {
   const codToast = sessionStorage.getItem('order_cod_success_toast')
   if (codToast) {
     sessionStorage.removeItem('order_cod_success_toast')
-    showSuccessToast.value = true
-    successToastMsg.value = codToast
-    setTimeout(() => {
-      showSuccessToast.value = false
-    }, 6000)
+    showAppToast(codToast, 'success', 6000)
   }
 
   if (sessionStorage.getItem('vnpay_pending_toast') === 'true') {
     sessionStorage.removeItem('vnpay_pending_toast')
-    showPendingToast.value = true
-    setTimeout(() => {
-      showPendingToast.value = false
-    }, 6000)
+    showAppToast('Giao dịch chưa hoàn tất! Đơn hàng được lưu ở trạng thái Chờ thanh toán.', 'warning', 6000)
   }
 
   window.addEventListener('message', onMessageReceived)
@@ -1319,11 +1308,15 @@ onUnmounted(() => {
               v-if="!isVnPayOrder && selectedOrder.trangThaiThanhToan !== 1 && selectedOrder.trangThai === 1"
               class="timer-warning-box"
             >
+              <div class="timer-icon cod-payment-icon" aria-hidden="true">💵</div>
               <div class="timer-info-content">
                 <strong>Đang chọn thanh toán khi nhận hàng (COD)</strong>
                 <p>Bạn có thể đổi sang thanh toán online khi đơn vẫn đang chờ xác nhận.</p>
               </div>
-              <button class="btn-pay-now" @click="openPayModal">Đổi phương thức thanh toán</button>
+              <button class="btn-pay-now btn-switch-payment" @click="openPayModal">
+                <span>Đổi phương thức thanh toán</span>
+                <span class="btn-arrow" aria-hidden="true">→</span>
+              </button>
             </div>
 
             <!-- HAI BẢNG SONG SONG TRÊN CÙNG 1 DÒNG: THÔNG TIN GIAO NHẬN & CHI TIẾT THANH TOÁN -->
@@ -3723,6 +3716,32 @@ onUnmounted(() => {
 
 .btn-pay-now:hover { background: #1e40af; }
 .btn-pay-now:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+
+.btn-switch-payment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 230px;
+  min-height: 42px;
+  padding: 0 18px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 11px;
+  box-shadow: 0 7px 16px rgba(37, 99, 235, 0.2);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.btn-switch-payment:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  box-shadow: 0 9px 20px rgba(37, 99, 235, 0.28);
+  transform: translateY(-1px);
+}
+
+.btn-switch-payment:active { transform: translateY(0); }
+.btn-switch-payment .btn-arrow { font-size: 17px; line-height: 1; transition: transform 0.18s ease; }
+.btn-switch-payment:hover .btn-arrow { transform: translateX(3px); }
+.cod-payment-icon { background: #fff7ed; }
 
 @media (max-width: 900px) {
   .timer-warning-box { grid-template-columns: auto 1fr; }

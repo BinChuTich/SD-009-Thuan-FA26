@@ -32,7 +32,7 @@ export const continueOnlinePayment = async (order, api, router) => {
   const amount = Math.max(1, Math.round(Number(order.tienSauGiamGia || order.tongTienSauGiam || order.tongTien || 0)))
 
   if (provider === 'MOMO') {
-    const response = await api.post('/api/momo/create-payment', { orderId: code })
+    const response = await api.post('/api/momo/create-payment', { orderId: code }, { timeout: 10000 })
     if (!response.data?.paymentUrl) throw new Error('Không tạo được liên kết thanh toán MoMo.')
     const target = new URL(response.data.paymentUrl, window.location.origin)
     if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {

@@ -269,16 +269,7 @@
           >
             ‹
           </button>
-          <button
-            v-for="p in visiblePages"
-            :key="p"
-            type="button"
-            class="pg-btn"
-            :class="{ active: p === pagination.page }"
-            @click="goToPage(p)"
-          >
-            {{ p + 1 }}
-          </button>
+          <AdminPageNumbers :current="pagination.page" :total="pagination.totalPages" @select="goToPage" />
           <button
             type="button"
             class="pg-btn"
@@ -671,7 +662,7 @@
                   <th style="width: 40px; text-align: center">STT</th>
                   <th style="width: 110px">MÃ HĐ</th>
                   <th>KHÁCH HÀNG</th>
-                  <th style="text-align: center; width: 100px">HÌNH THỨC</th>
+                  <th class="receipt-payment-col">HÌNH THỨC</th>
                   <th style="text-align: right; width: 120px">TỔNG TIỀN</th>
                   <th style="text-align: center; width: 90px" class="no-print">XEM</th>
                 </tr>
@@ -690,7 +681,7 @@
                     </router-link>
                   </td>
                   <td>{{ hd.tenKhachHang || 'Khách lẻ' }}</td>
-                  <td style="text-align: center">
+                  <td class="receipt-payment-col">
                     <span class="badge-mini-pay">{{ hd.hinhThucThanhToan || 'Tiền mặt' }}</span>
                   </td>
                   <td style="text-align: right" class="font-bold">
@@ -2241,12 +2232,23 @@ onMounted(async () => {
   text-decoration: underline;
 }
 .badge-mini-pay {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.72rem;
   padding: 2px 6px;
   background-color: #e0f2fe;
   color: #0369a1;
   border-radius: 4px;
   font-weight: 600;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+.receipt-payment-col {
+  width: 155px;
+  min-width: 155px;
+  text-align: center !important;
+  white-space: nowrap;
 }
 .btn-receipt-action-view {
   border: 1px solid #cbd5e1;

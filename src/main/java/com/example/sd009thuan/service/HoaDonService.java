@@ -1313,6 +1313,10 @@ public class HoaDonService {
 
         for (HoaDon hd : expiredWaitingInvoices) {
 
+            Integer previousStatus = hd.getTrangThai();
+
+            boolean stockWasDeducted = previousStatus != null && previousStatus >= 2 && previousStatus != 6;
+
 
 
             hd.setTrangThai(6); // 6: Đã hủy
@@ -1327,11 +1331,10 @@ public class HoaDonService {
 
 
 
-            // Hoàn lại số lượng tồn kho cho các sản phẩm trong hóa đơn chờ bị hủy
+            // Đơn online Chờ xác nhận (trạng thái 1) chưa trừ kho, tuyệt đối không cộng kho.
+            // Chỉ hoàn khi trạng thái trước đó cho biết đơn đã được xác nhận và đã trừ kho.
 
-
-
-            try {
+            if (stockWasDeducted) try {
 
 
 
@@ -1808,6 +1811,10 @@ public class HoaDonService {
 
         }
 
+        Integer previousStatus = hd.getTrangThai();
+
+        boolean stockWasDeducted = previousStatus != null && previousStatus >= 2 && previousStatus != 6;
+
         hd.setTrangThai(6); // 6: Đã hủy
 
         hd.setNgayCapNhat(Instant.now());
@@ -1816,9 +1823,10 @@ public class HoaDonService {
 
 
 
-        // Hoàn lại tồn kho
+        // Đơn thanh toán online quá hạn vẫn ở Chờ xác nhận và chưa từng trừ kho.
+        // Chỉ hoàn nếu trước khi hủy đơn đã ở trạng thái xác nhận trở lên.
 
-        try {
+        if (stockWasDeducted) try {
 
             List<ChiTietHoaDon> details = chiTietHoaDonRepository.findByIdHoaDon_Id(hd.getId());
 
@@ -2472,19 +2480,14 @@ public class HoaDonService {
 
 
 
-                    ChiTietSanPham ctsp = ctspOpt.get();
-
-
-
-                    int curStock = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
-
-
-
-                    ctsp.setSoLuong(Math.max(0, curStock - diff));
-
-
-
-                    chiTietSanPhamRepository.save(ctsp);
+                    if (diff > 0) {
+                        int updated = chiTietSanPhamRepository.deductStockIfAvailable(vid, diff);
+                        if (updated == 0) {
+                            throw new IllegalArgumentException("Sản phẩm trong kho không đủ số lượng để cập nhật giỏ hàng!");
+                        }
+                    } else {
+                        chiTietSanPhamRepository.addStock(vid, -diff);
+                    }
 
 
 
@@ -7309,11 +7312,14 @@ public class HoaDonService {
                         throw new IllegalArgumentException("Sản phẩm '" + spName + "' không đủ số lượng trong kho (chỉ còn thêm tối đa " + currentAvailable + ")!");
                     }
 
-                    if (ctsp.getSoLuong() != null) {
-                        if (diff != 0) {
-                            ctsp.setSoLuong(Math.max(0, ctsp.getSoLuong() - diff));
+                    if (diff > 0) {
+                        int updated = chiTietSanPhamRepository.deductStockIfAvailable(variantId, diff);
+                        if (updated == 0) {
+                            String spName = ctsp.getIdSanPham() != null ? ctsp.getIdSanPham().getTenSanPham() : "Sản phẩm";
+                            throw new IllegalArgumentException("Sản phẩm '" + spName + "' vừa thay đổi tồn kho, vui lòng kiểm tra lại!");
                         }
-                        chiTietSanPhamRepository.save(ctsp);
+                    } else if (diff < 0) {
+                        chiTietSanPhamRepository.addStock(variantId, -diff);
                     }
                     processedVariants.add(variantId);
                 }
@@ -7504,11 +7510,7 @@ public class HoaDonService {
 
 
 
-                            leftoverCtsp.setSoLuong(leftoverCtsp.getSoLuong() + prevQ);
-
-
-
-                            chiTietSanPhamRepository.save(leftoverCtsp);
+                            chiTietSanPhamRepository.addStock(vid, prevQ);
 
 
 
@@ -8098,6 +8100,63 @@ public class HoaDonService {
 
         }
 
+        if (dto.getChiTiet() == null || dto.getChiTiet().isEmpty()) {
+            throw new IllegalArgumentException("Giỏ hàng không có sản phẩm, không thể tạo đơn hàng!");
+        }
+
+        Map<Long, Map<String, Object>> onlineDiscountMap = dotGiamGiaService != null
+                ? dotGiamGiaService.getActiveVariantMap(null)
+                : new HashMap<>();
+        Map<Long, Integer> requestedOnlineQuantities = new HashMap<>();
+        BigDecimal trustedOnlineSubtotal = BigDecimal.ZERO;
+
+        // Xác thực toàn bộ giỏ trước khi tạo hóa đơn; giá bán luôn lấy từ backend.
+        for (DatHangOnlineDTO.ItemChiTiet item : dto.getChiTiet()) {
+            if (item == null || item.getIdChiTietSanPham() == null) {
+                throw new IllegalArgumentException("Giỏ hàng có sản phẩm không hợp lệ!");
+            }
+            if (item.getSoLuong() == null || item.getSoLuong() <= 0) {
+                throw new IllegalArgumentException("Số lượng sản phẩm phải lớn hơn 0!");
+            }
+
+            ChiTietSanPham ctsp = chiTietSanPhamRepository.findById(item.getIdChiTietSanPham())
+                    .orElseThrow(() -> new IllegalArgumentException("Sản phẩm trong giỏ không còn tồn tại!"));
+            String productName = ctsp.getIdSanPham() != null
+                    ? ctsp.getIdSanPham().getTenSanPham() : "Sản phẩm";
+            if (Integer.valueOf(0).equals(ctsp.getTrangThai())
+                    || (ctsp.getIdSanPham() != null && Integer.valueOf(0).equals(ctsp.getIdSanPham().getTrangThai()))) {
+                throw new IllegalArgumentException("Sản phẩm '" + productName + "' đã ngừng kinh doanh!");
+            }
+
+            int totalRequested;
+            try {
+                totalRequested = Math.addExact(
+                        requestedOnlineQuantities.getOrDefault(ctsp.getId(), 0), item.getSoLuong());
+            } catch (ArithmeticException ex) {
+                throw new IllegalArgumentException("Số lượng sản phẩm không hợp lệ!");
+            }
+            requestedOnlineQuantities.put(ctsp.getId(), totalRequested);
+
+            BigDecimal livePrice = calculateCurrentVariantPrice(ctsp, onlineDiscountMap);
+            if (livePrice == null || livePrice.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Sản phẩm '" + productName + "' chưa có giá bán hợp lệ!");
+            }
+            trustedOnlineSubtotal = trustedOnlineSubtotal.add(
+                    livePrice.multiply(BigDecimal.valueOf(item.getSoLuong())));
+        }
+
+        for (Map.Entry<Long, Integer> entry : requestedOnlineQuantities.entrySet()) {
+            ChiTietSanPham ctsp = chiTietSanPhamRepository.findById(entry.getKey())
+                    .orElseThrow(() -> new IllegalArgumentException("Sản phẩm trong giỏ không còn tồn tại!"));
+            int available = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
+            if (available < entry.getValue()) {
+                String productName = ctsp.getIdSanPham() != null
+                        ? ctsp.getIdSanPham().getTenSanPham() : "Sản phẩm";
+                throw new IllegalArgumentException("Sản phẩm '" + productName
+                        + "' không đủ số lượng trong kho (chỉ còn " + available + ")!");
+            }
+        }
+
 
 
         HoaDon hoaDon = new HoaDon();
@@ -8229,10 +8288,13 @@ public class HoaDonService {
 
 
         BigDecimal phiShip = dto.getPhiVanChuyen() != null ? dto.getPhiVanChuyen() : BigDecimal.ZERO;
+        if (phiShip.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Phí vận chuyển không hợp lệ!");
+        }
 
 
 
-        BigDecimal tongTien = dto.getTongTien() != null ? dto.getTongTien() : BigDecimal.ZERO;
+        BigDecimal tongTien = trustedOnlineSubtotal;
 
 
 
@@ -8403,7 +8465,7 @@ public class HoaDonService {
 
 
 
-            hoaDon.setIdNhanVien(null);
+            hoaDon.setIdNhanVien(assignedStaff);
 
 
 
@@ -8451,7 +8513,9 @@ public class HoaDonService {
 
 
 
-                if (item.getIdChiTietSanPham() == null) continue;
+                if (item.getIdChiTietSanPham() == null) {
+                    throw new IllegalArgumentException("Giỏ hàng có sản phẩm không hợp lệ!");
+                }
 
 
 
@@ -8459,7 +8523,9 @@ public class HoaDonService {
 
 
 
-                if (ctspOpt.isEmpty()) continue;
+                if (ctspOpt.isEmpty()) {
+                    throw new IllegalArgumentException("Sản phẩm trong giỏ không còn tồn tại!");
+                }
 
 
 
@@ -8491,7 +8557,7 @@ public class HoaDonService {
 
 
 
-                int qty = item.getSoLuong() != null ? Math.max(1, item.getSoLuong()) : 1;
+                int qty = item.getSoLuong();
 
 
 
@@ -8527,11 +8593,7 @@ public class HoaDonService {
 
 
 
-                BigDecimal unitPrice = item.getDonGia() != null && item.getDonGia().compareTo(BigDecimal.ZERO) > 0
-
-
-
-                        ? item.getDonGia() : (ctsp.getGiaBan() != null ? ctsp.getGiaBan() : BigDecimal.ZERO);
+                BigDecimal unitPrice = calculateCurrentVariantPrice(ctsp, onlineDiscountMap);
 
 
 
@@ -8598,7 +8660,9 @@ public class HoaDonService {
 
 
 
-            if (calculatedTotal.compareTo(BigDecimal.ZERO) > 0 && (saved.getTongTien() == null || saved.getTongTien().compareTo(BigDecimal.ZERO) == 0)) {
+            if (calculatedTotal.compareTo(BigDecimal.ZERO) > 0
+                    && saved.getTongTien() != null
+                    && saved.getTongTien().compareTo(calculatedTotal) != 0) {
 
 
 
@@ -8926,9 +8990,12 @@ public class HoaDonService {
             if (ctsp == null) continue;
 
             int needed = cthd.getSoLuong() != null ? cthd.getSoLuong() : 1;
-            int currentStock = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
-            ctsp.setSoLuong(Math.max(0, currentStock - needed));
-            chiTietSanPhamRepository.save(ctsp);
+            int updated = chiTietSanPhamRepository.deductStockIfAvailable(ctsp.getId(), needed);
+            if (updated == 0) {
+                String spName = ctsp.getIdSanPham() != null ? ctsp.getIdSanPham().getTenSanPham() : "Sản phẩm";
+                throw new IllegalStateException("Sản phẩm '" + spName
+                        + "' vừa thay đổi tồn kho, vui lòng kiểm tra lại trước khi xác nhận đơn!");
+            }
         }
     }
 
@@ -8941,9 +9008,7 @@ public class HoaDonService {
             if (cthd.getIdChiTietSanPham() == null || cthd.getIdChiTietSanPham().getId() == null || cthd.getSoLuong() == null) continue;
             ChiTietSanPham ctsp = chiTietSanPhamRepository.findById(cthd.getIdChiTietSanPham().getId()).orElse(null);
             if (ctsp == null) continue;
-            int cur = ctsp.getSoLuong() != null ? ctsp.getSoLuong() : 0;
-            ctsp.setSoLuong(cur + cthd.getSoLuong());
-            chiTietSanPhamRepository.save(ctsp);
+            chiTietSanPhamRepository.addStock(ctsp.getId(), cthd.getSoLuong());
         }
     }
 
@@ -8971,6 +9036,16 @@ public class HoaDonService {
 
         HoaDon hoaDon = hoaDonRepository.findByMaHoaDon(maHoaDon)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng với mã: " + maHoaDon));
+
+        if (!staffEdit) {
+            String verificationPhone = dto.getSoDienThoaiXacThuc() != null
+                    ? dto.getSoDienThoaiXacThuc().replaceAll("\\s+", "").trim() : "";
+            String orderPhone = hoaDon.getSoDienThoaiHienThi() != null
+                    ? hoaDon.getSoDienThoaiHienThi().replaceAll("\\s+", "").trim() : "";
+            if (verificationPhone.isEmpty() || orderPhone.isEmpty() || !orderPhone.equals(verificationPhone)) {
+                throw new IllegalArgumentException("Số điện thoại xác thực không khớp với đơn hàng!");
+            }
+        }
 
         // 1. Kiểm tra loại đơn: Phải là đơn Online
         boolean isOnline = Integer.valueOf(2).equals(hoaDon.getLoaiDon()) 

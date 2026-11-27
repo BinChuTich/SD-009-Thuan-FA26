@@ -373,17 +373,7 @@
                   ‹
                 </button>
 
-                <template v-for="(p, idx) in custVisiblePages" :key="idx">
-                  <span v-if="p === '...'" class="cust-pg-dots">...</span>
-                  <button
-                      v-else
-                      type="button"
-                      :class="['cust-pg-btn', { active: custPage === p }]"
-                      @click="goToCustPage(p)"
-                  >
-                    {{ p }}
-                  </button>
-                </template>
+                <AdminPageNumbers :current="custPage" :total="custTotalPages" one-based @select="goToCustPage" />
 
                 <button
                     type="button"

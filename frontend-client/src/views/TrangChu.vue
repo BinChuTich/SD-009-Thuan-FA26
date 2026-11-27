@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/api'
 import { CATEGORIES_CATALOG, getMergedProducts, attachSalesCountToProducts } from '@/utils/danhMucSanPham.js'
+import { formatCurrency } from '@/utils/dinhDang.js'
 
 // Import các component con đã được chia nhỏ theo chuẩn Tiếng Việt
 import BannerSlide from '@/components/TrangChu/BannerSlide.vue'
@@ -23,6 +24,45 @@ const categoryTabs = ref([
 const featuredProducts = ref([])
 const activeDiscounts = ref([])
 const loading = ref(true)
+
+const getHomeProductImage = (product) => (
+  product?.anhDaiDien || (Array.isArray(product?.hinhAnhs) ? product.hinhAnhs[0] : '') || ''
+)
+
+const buildDynamicShowcase = (products) => {
+  if (!Array.isArray(products) || products.length === 0) return []
+
+  const available = [...products]
+  const selectedIds = new Set()
+  const takeFirst = (list) => {
+    const picked = list.find(product => product?.id && !selectedIds.has(product.id))
+    if (picked) selectedIds.add(picked.id)
+    return picked || null
+  }
+  const bySold = [...available].sort((a, b) => Number(b.daBan || b.soLuongDaBan || 0) - Number(a.daBan || a.soLuongDaBan || 0) || Number(b.id || 0) - Number(a.id || 0))
+  const byFavorite = [...available].sort((a, b) => Number(b.luotYeuThich || b.soLuotYeuThich || 0) - Number(a.luotYeuThich || a.soLuotYeuThich || 0) || Number(b.phanTramGiam || 0) - Number(a.phanTramGiam || 0) || Number(b.id || 0) - Number(a.id || 0))
+  const byNewest = [...available].sort((a, b) => new Date(b.ngayTao || b.createdAt || 0) - new Date(a.ngayTao || a.createdAt || 0) || Number(b.id || 0) - Number(a.id || 0))
+  const energetic = available.filter(product => /unisex|năng động|street|thể thao|oversize/i.test(`${product.tenSanPham || ''} ${product.tenDanhMuc || ''} ${product.moTa || ''}`))
+
+  const bestSeller = takeFirst(bySold)
+  const favorite = takeFirst(byFavorite)
+  const picks = [
+    { tag: 'Yêu thích', product: favorite },
+    { tag: 'Được mua nhiều', product: bestSeller },
+    { tag: 'Xu hướng mới', product: takeFirst(byNewest) },
+    { tag: 'Năng động', product: takeFirst([...energetic, ...byNewest]) }
+  ]
+
+  return picks.filter(item => item.product).map(({ tag, product }) => ({
+    id: `${tag}-${product.id}`,
+    productId: product.id,
+    name: product.tenSanPham,
+    image: getHomeProductImage(product),
+    tag,
+    desc: `${product.tenDanhMuc || 'Áo phông'} · ${formatCurrency(product.minGiaSauGiam || product.minGia || 0)}`,
+    count: `Đã bán ${Number(product.daBan || product.soLuongDaBan || 0)}`
+  }))
+}
 
 const loadHomeData = async () => {
   loading.value = true
@@ -72,31 +112,8 @@ const loadHomeData = async () => {
 
     featuredProducts.value = merged
 
-    // Cập nhật ảnh danh mục nổi bật bên ngoài bằng chính 1 ảnh bất kỳ của sản phẩm thuộc danh mục đó
-    categories.value = categories.value.map(cat => {
-      const catProducts = merged.filter(p => {
-        if (p.idDanhMuc != null && cat.id != null && Number(p.idDanhMuc) === Number(cat.id)) {
-          return true
-        }
-        const pCatName = (p.tenDanhMuc || '').trim().toLowerCase()
-        const cName = (cat.name || cat.tenDanhMuc || '').trim().toLowerCase()
-        return pCatName && cName && (pCatName === cName || pCatName.includes(cName) || cName.includes(pCatName))
-      })
-
-      let catImg = cat.image
-      if (catProducts.length > 0) {
-        const prodWithImg = catProducts.find(p => p.anhDaiDien || (p.hinhAnhs && p.hinhAnhs.length > 0)) || catProducts[0]
-        if (prodWithImg) {
-          catImg = prodWithImg.anhDaiDien || (prodWithImg.hinhAnhs && prodWithImg.hinhAnhs[0]) || catImg
-        }
-      }
-
-      return {
-        ...cat,
-        image: catImg,
-        count: `${catProducts.length} mẫu`
-      }
-    })
+    // Bốn thẻ lấy trực tiếp sản phẩm thật; không dùng tên/ảnh sản phẩm fix cứng.
+    categories.value = buildDynamicShowcase(merged)
 
     try {
       const resActive = await api.get('/api/dot-giam-gia/active-products')
@@ -126,19 +143,6 @@ const loadHomeData = async () => {
       }
     } catch (e) {}
 
-    // Cập nhật số lượng sản phẩm thực tế theo danh mục từ Admin
-    categories.value = CATEGORIES_CATALOG.map(c => {
-      const count = merged.filter(p => {
-        if (!p.tenDanhMuc) return false
-        const pCat = p.tenDanhMuc.toLowerCase().trim()
-        const cName = c.name.toLowerCase().trim()
-        return pCat.includes(cName) || cName.includes(pCat)
-      }).length
-      return {
-        ...c,
-        count: `${count} mẫu`
-      }
-    })
   } catch (err) {
     console.error('Lỗi tải dữ liệu trang chủ:', err)
   } finally {

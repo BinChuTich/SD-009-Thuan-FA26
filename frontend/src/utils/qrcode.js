@@ -460,7 +460,9 @@ class QRCodeModel {
   make() {
     if (this.typeNumber < 1) {
       let typeNumber = 1
-      for (typeNumber = 1; typeNumber < 10; typeNumber++) {
+      // Bộ bảng RS bên dưới hỗ trợ tới QR version 10. URL thanh toán MoMo
+      // có chữ ký dài nên phải cho phép chọn version 10 thay vì dừng ở 9.
+      for (typeNumber = 1; typeNumber < 11; typeNumber++) {
         const rsBlocks = QRRSBlock.getRSBlocks(typeNumber, this.errorCorrectLevel)
         const buffer = new QRBitBuffer()
         let totalDataCount = 0
@@ -732,7 +734,8 @@ export function generateQrSvg(text, options = {}) {
     qr.addData(content)
     qr.make()
   } catch {
-    qr = new QRCodeModel(4, QRErrorCorrectLevel.L)
+    // Thử lại với mức sửa lỗi thấp hơn nhưng vẫn tự chọn kích thước phù hợp.
+    qr = new QRCodeModel(0, QRErrorCorrectLevel.L)
     qr.addData(content)
     qr.make()
   }
@@ -751,10 +754,11 @@ export function generateQrSvg(text, options = {}) {
 
   let centerLogo = ''
   if (options.centerLogo === 'vietqr') {
-    const logoSize = count * 0.18
+    // Giữ logo nhỏ để không che quá nhiều module dữ liệu trên camera điện thoại.
+    const logoSize = count * 0.10
     const logoX = margin + (count - logoSize) / 2
     const logoY = margin + (count - logoSize) / 2
-    const iconPadding = logoSize * 0.18
+    const iconPadding = logoSize * 0.14
     const iconScale = (logoSize - iconPadding * 2) / 48
     centerLogo = `<g shape-rendering="geometricPrecision">
       <rect x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}" rx="1" fill="#ffffff" />
@@ -763,7 +767,7 @@ export function generateQrSvg(text, options = {}) {
       </g>
     </g>`
   } else if (options.centerLogo === 'momo') {
-    const logoSize = count * 0.18
+    const logoSize = count * 0.14
     const logoX = margin + (count - logoSize) / 2
     const logoY = margin + (count - logoSize) / 2
     centerLogo = `<g shape-rendering="geometricPrecision">

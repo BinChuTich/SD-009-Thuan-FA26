@@ -251,16 +251,7 @@
                 title="Trang trước"
             >‹</button>
 
-            <button
-                v-for="p in visiblePages"
-                :key="p"
-                class="pg-btn-box"
-                :class="{ 'pg-active': p === currentPage }"
-                :disabled="loading"
-                @click="goToPage(p)"
-            >
-              {{ p }}
-            </button>
+            <AdminPageNumbers :current="currentPage" :total="totalPages" one-based :disabled="loading" @select="goToPage" />
 
             <button
                 class="pg-btn-box"
@@ -568,7 +559,7 @@
                 @click="productCurrentPage--"
                 title="Trang trước"
               >‹</button>
-              <span class="active-page-num" title="Trang hiện tại / Tổng số trang">{{ productCurrentPage }} / {{ sourceTotalPages }}</span>
+              <AdminPageNumbers :current="productCurrentPage" :total="sourceTotalPages" one-based @select="page => productCurrentPage = page" />
               <button
                 class="btn-nav-arrow"
                 :disabled="productCurrentPage >= sourceTotalPages"
@@ -729,7 +720,7 @@
               @click="variantCurrentPage--"
               title="Trang trước"
             >‹</button>
-            <span class="active-page-num" title="Trang hiện tại / Tổng số trang">{{ variantCurrentPage }} / {{ variantTotalPages }}</span>
+            <AdminPageNumbers :current="variantCurrentPage" :total="variantTotalPages" one-based @select="page => variantCurrentPage = page" />
             <button
               class="btn-nav-arrow"
               :disabled="variantCurrentPage >= variantTotalPages"

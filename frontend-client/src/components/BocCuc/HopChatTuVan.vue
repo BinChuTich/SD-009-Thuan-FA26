@@ -815,7 +815,7 @@ const handleActionClick = (action) => {
     showPromoProducts()
   } else if (action.type === 'agent') {
     if (!isClientLoggedIn.value) {
-      showBotReply('Dạ, để kết nối và trò chuyện trực tiếp với nhân viên tư vấn của FF T-Shirt, bạn vui lòng đăng nhập tài khoản trước nhé! ❤️')
+      showBotReply('Vui lòng đăng nhập để kết nối với nhân viên tư vấn.')
       showLoginModal.value = true
       return
     }
@@ -862,7 +862,7 @@ const handleChipClick = (chip) => {
     )
   } else if (chip.type === 'agent') {
     if (!isClientLoggedIn.value) {
-      showBotReply('Dạ, để kết nối và trò chuyện trực tiếp với nhân viên tư vấn của FF T-Shirt, bạn vui lòng đăng nhập tài khoản trước nhé! ❤️')
+      showBotReply('Vui lòng đăng nhập để kết nối với nhân viên tư vấn.')
       showLoginModal.value = true
       return
     }
@@ -1154,7 +1154,7 @@ const handleSend = async () => {
 // Xử lý yêu cầu gặp nhân viên tư vấn: Đẩy vào Chờ nhận (trangThai = 2)
 const handleStaffRequest = async () => {
   if (!isClientLoggedIn.value) {
-    showBotReply('Dạ, để kết nối và trò chuyện trực tiếp với nhân viên tư vấn của FF T-Shirt, bạn vui lòng đăng nhập tài khoản trước nhé! ❤️')
+    showBotReply('Vui lòng đăng nhập để kết nối với nhân viên tư vấn.')
     showLoginModal.value = true
     return
   }

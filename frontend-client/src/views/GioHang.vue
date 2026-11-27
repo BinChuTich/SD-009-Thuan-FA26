@@ -2597,7 +2597,9 @@ const handlePlaceOrder = async () => {
 
 const executePlaceOrder = async () => {
 
+  if (submitting.value) return
   submitting.value = true
+  createdOrder.value = null
 
   try {
 
@@ -2673,17 +2675,26 @@ const executePlaceOrder = async () => {
 
 
 
-    const res = await api.post('/api/hoa-don/dat-hang-online', payload)
+    const res = await api.post('/api/hoa-don/dat-hang-online', payload, { timeout: 20000 })
 
     const savedOrder = res.data
 
     createdOrder.value = savedOrder
 
+    // Backend đã ghi nhận đơn nên phải loại đúng các biến thể vừa mua khỏi
+    // giỏ ngay tại đây, không phụ thuộc bước tạo QR có thành công hay không.
+    removeMultipleFromCart(purchasedIds)
+
+    // Đơn đã được tạo thành công: đóng popup xác nhận ngay. Các bước dựng QR
+    // thuộc giai đoạn thanh toán, không được giữ khách ở trạng thái "đang đặt hàng".
+    showConfirmOrderModal.value = false
+    submitting.value = false
+
     // MoMo mock: backend phát hành link có chữ ký và tự lấy số tiền từ hóa đơn.
     if (paymentMethod.value === 'MOMO') {
       const momoRes = await api.post('/api/momo/create-payment', {
         orderId: savedOrder.maHoaDon
-      })
+      }, { timeout: 10000 })
       if (!momoRes.data?.paymentUrl) {
         throw new Error('Không tạo được liên kết MoMo thử nghiệm!')
       }
@@ -2695,8 +2706,6 @@ const executePlaceOrder = async () => {
       momoPaymentUrl.value = phoneUrl
       momoQrImage.value = await createBrandedQrDataUrl(phoneUrl, 'momo')
       startMomoCountdown(momoRes.data.expiresAt)
-      removeMultipleFromCart(purchasedIds)
-      showConfirmOrderModal.value = false
       showMomoQrModal.value = true
       startMomoPolling(savedOrder.maHoaDon)
       return
@@ -2758,10 +2767,6 @@ const executePlaceOrder = async () => {
 
 
 
-      removeMultipleFromCart(purchasedIds)
-
-      showConfirmOrderModal.value = false
-
       showVietQrModal.value = true
 
       startPaymentPolling(orderCode)
@@ -2791,10 +2796,6 @@ const executePlaceOrder = async () => {
       const vnpRes = await api.post('/api/vnpay/create-payment', vnpPayload)
 
       if (vnpRes.data && vnpRes.data.paymentUrl) {
-
-        removeMultipleFromCart(purchasedIds)
-
-        showConfirmOrderModal.value = false
 
         const width = 850
 
@@ -2896,8 +2897,6 @@ const executePlaceOrder = async () => {
 
     // Nếu là COD
 
-    removeMultipleFromCart(purchasedIds)
-
     showConfirmOrderModal.value = false
 
     showAppToast(`Đặt hàng thành công! Mã đơn hàng #${savedOrder.maHoaDon}`, 'success')
@@ -2923,8 +2922,23 @@ const executePlaceOrder = async () => {
   } catch (err) {
 
     console.error('Lỗi đặt hàng:', err)
-
-    await showAppAlert(err.response?.data?.message || 'Không thể hoàn tất đơn hàng. Vui lòng thử lại sau!', 'Lỗi đặt hàng', 'error')
+    // Đóng lớp xác nhận trước khi mở dialog lỗi để dialog không bị che phía sau.
+    showConfirmOrderModal.value = false
+    if (createdOrder.value?.maHoaDon) {
+      const code = createdOrder.value.maHoaDon
+      showConfirmOrderModal.value = false
+      await showAppAlert(
+        `Đơn hàng #${code} đã được tạo nhưng chưa mở được màn thanh toán. Bạn có thể tiếp tục thanh toán trong trang đơn hàng.`,
+        'Đơn hàng đã được ghi nhận',
+        'warning'
+      )
+      router.push(currentClientUser.value?.id ? `/don-hang?code=${code}` : `/tra-cuu?code=${code}`)
+    } else {
+      const timeoutMessage = err?.code === 'ECONNABORTED'
+        ? 'Hệ thống phản hồi quá lâu. Vui lòng kiểm tra danh sách đơn hàng trước khi thử lại.'
+        : (err.response?.data?.message || 'Không thể hoàn tất đơn hàng. Vui lòng thử lại sau!')
+      await showAppAlert(timeoutMessage, 'Lỗi đặt hàng', 'error')
+    }
 
   } finally {
 
@@ -5232,7 +5246,7 @@ const formatDate = (dateStr) => {
             <div class="client-qr-left">
               <img :src="momoQrImage" alt="QR thanh toán MoMo demo" />
               <strong>Quét bằng camera điện thoại</strong>
-              <span>Logo MoMo đã được ghép trực tiếp trong ảnh QR</span>
+              <span>Điện thoại cần kết nối cùng mạng Wi-Fi với máy đang chạy website</span>
             </div>
             <div class="client-qr-right">
               <div class="client-waiting" :class="{ expired: momoRemainingSeconds <= 0 }"><i></i> {{ momoRemainingSeconds > 0 ? 'Hệ thống đang chờ xác nhận trên điện thoại...' : 'Phiên thanh toán đã hết hạn' }}</div>
@@ -5247,7 +5261,7 @@ const formatDate = (dateStr) => {
                 <div><span>Tên chủ tài khoản</span><span class="momo-copy-value"><strong>FF T-SHIRT STORE</strong><button type="button" @click="copyText('FF T-SHIRT STORE', 'momo-owner')">{{ copiedField === 'momo-owner' ? '✓ Đã chép' : 'Sao chép' }}</button></span></div>
                 <div><span>Số tiền</span><strong class="momo-money">{{ formatCurrency(momoAmount) }}</strong></div>
               </div>
-              <p>Quét mã QR bằng điện thoại và xác nhận thanh toán. Màn hình này sẽ tự động chuyển sang đơn hàng ngay khi hệ thống nhận được kết quả.</p>
+              <p>Quét mã QR bằng điện thoại và xác nhận thanh toán trên trang được mở.</p>
               <div class="momo-modal-actions">
                 <button type="button" class="momo-view-order" @click="viewMomoOrder">Xem đơn hàng</button>
                 <button type="button" class="momo-dismiss" @click="dismissMomoQrModal">Đóng</button>
@@ -12607,7 +12621,7 @@ const formatDate = (dateStr) => {
 
 
 /* CLIENT QR DEMO: MOMO */
-.client-qr-modal-backdrop{position:fixed;inset:0;z-index:10020;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(5px)}.client-qr-modal{width:min(860px,96vw);background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 28px 80px rgba(0,0,0,.35)}.client-qr-header{display:flex;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#211827,#3a1830);color:#fff}.client-qr-header>div{display:flex;align-items:center;gap:12px}.momo-client-badge{background:linear-gradient(145deg,#a50064,#d10a7b);border-radius:9px;padding:8px 11px;font-weight:900;box-shadow:0 6px 14px rgba(165,0,100,.28)}.client-qr-content{display:grid;grid-template-columns:350px 1fr;gap:22px;padding:24px}.client-qr-left{display:flex;flex-direction:column;align-items:center;text-align:center;border:1px solid #eadde6;border-radius:16px;padding:17px;background:#fffafd}.client-qr-left img{display:block;width:100%;aspect-ratio:1;object-fit:contain}.client-qr-left strong{margin-top:9px}.client-qr-left span{font-size:12px;color:#718096;margin-top:4px}.client-qr-right{display:flex;flex-direction:column;gap:13px}.client-waiting{padding:11px;border:1px solid #f5cf83;background:#fff8e8;color:#a45b05;border-radius:10px;font-weight:700;font-size:13px}.client-waiting i{display:inline-block;width:9px;height:9px;border-radius:50%;background:#f59e0b;margin-right:6px;animation:pulse 1s infinite}.client-payment-info{border:1px solid #e8dce4;border-radius:13px;padding:4px 14px}.client-payment-info div{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:12px 0;border-bottom:1px dashed #e4d9e0}.client-payment-info div:last-child{border:0}.client-payment-info span{color:#718096}.client-payment-info strong{text-align:right}.momo-account-number{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.5px;color:#7f1d58}.momo-money{color:#a50064;font-size:20px}.client-qr-right p{margin:0;padding:12px;background:#fff1f7;color:#8c185f;border-radius:10px;line-height:1.5;font-size:13px}.client-close-payment{margin-top:auto;border:0;border-radius:11px;padding:14px;background:linear-gradient(135deg,#a50064,#c60073);color:#fff;font-weight:800;cursor:pointer;box-shadow:0 9px 22px rgba(165,0,100,.2)}@media(max-width:700px){.client-qr-modal-backdrop{align-items:flex-start;padding:10px}.client-qr-modal{width:100%;max-height:calc(100vh - 20px);overflow:auto;border-radius:16px}.client-qr-header{position:sticky;top:0;z-index:2;padding:14px 16px}.client-qr-content{grid-template-columns:1fr;gap:14px;padding:14px}.client-qr-left{padding:12px}.client-qr-left img{width:min(260px,78vw)}.client-payment-info div{padding:10px 0;font-size:13px}.client-close-payment{position:sticky;bottom:8px;width:100%;min-height:50px}}
+.client-qr-modal-backdrop{position:fixed;inset:0;z-index:10020;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(5px)}.client-qr-modal{width:min(860px,96vw);background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 28px 80px rgba(0,0,0,.35)}.client-qr-header{display:flex;align-items:center;padding:16px 20px;background:linear-gradient(135deg,#211827,#3a1830);color:#fff}.client-qr-header>div{display:flex;align-items:center;gap:12px}.momo-client-badge{background:linear-gradient(145deg,#a50064,#d10a7b);border-radius:9px;padding:8px 11px;font-weight:900;box-shadow:0 6px 14px rgba(165,0,100,.28)}.client-qr-content{display:grid;grid-template-columns:350px 1fr;gap:22px;padding:24px}.client-qr-left{display:flex;flex-direction:column;align-items:center;text-align:center;border:1px solid #eadde6;border-radius:16px;padding:17px;background:#fffafd}.client-qr-left img{display:block;width:100%;aspect-ratio:1;object-fit:contain;image-rendering:pixelated}.client-qr-left strong{margin-top:9px}.client-qr-left span{font-size:12px;color:#718096;margin-top:4px}.client-qr-right{display:flex;flex-direction:column;gap:13px}.client-waiting{padding:11px;border:1px solid #f5cf83;background:#fff8e8;color:#a45b05;border-radius:10px;font-weight:700;font-size:13px}.client-waiting i{display:inline-block;width:9px;height:9px;border-radius:50%;background:#f59e0b;margin-right:6px;animation:pulse 1s infinite}.client-payment-info{border:1px solid #e8dce4;border-radius:13px;padding:4px 14px}.client-payment-info div{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:12px 0;border-bottom:1px dashed #e4d9e0}.client-payment-info div:last-child{border:0}.client-payment-info span{color:#718096}.client-payment-info strong{text-align:right}.momo-account-number{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.5px;color:#7f1d58}.momo-money{color:#a50064;font-size:20px}.client-qr-right p{margin:0;padding:12px;background:#fff1f7;color:#8c185f;border-radius:10px;line-height:1.5;font-size:13px}.momo-open-payment{display:block;text-align:center;border:1px solid #a50064;border-radius:10px;padding:10px;color:#a50064;background:#fff;text-decoration:none;font-weight:800}.client-close-payment{margin-top:auto;border:0;border-radius:11px;padding:14px;background:linear-gradient(135deg,#a50064,#c60073);color:#fff;font-weight:800;cursor:pointer;box-shadow:0 9px 22px rgba(165,0,100,.2)}.vietqr-img-tag{image-rendering:pixelated}@media(max-width:700px){.client-qr-modal-backdrop{align-items:flex-start;padding:10px}.client-qr-modal{width:100%;max-height:calc(100vh - 20px);overflow:auto;border-radius:16px}.client-qr-header{position:sticky;top:0;z-index:2;padding:14px 16px}.client-qr-content{grid-template-columns:1fr;gap:14px;padding:14px}.client-qr-left{padding:12px}.client-qr-left img{width:min(260px,78vw)}.client-payment-info div{padding:10px 0;font-size:13px}.client-close-payment{position:sticky;bottom:8px;width:100%;min-height:50px}}
 .momo-client-modal{width:min(980px,96vw)}.momo-client-modal .client-qr-content{grid-template-columns:420px 1fr}.momo-copy-value{display:flex;align-items:center;justify-content:flex-end;gap:8px}.momo-copy-value button{border:1px solid #e7bfd5;border-radius:7px;padding:5px 8px;color:#a50064;background:#fff5fa;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}.momo-copy-value button:hover{background:#fce7f3}@media(max-width:700px){.momo-client-modal .client-qr-content{grid-template-columns:1fr}.momo-copy-value{flex-wrap:wrap}.momo-copy-value button{padding:4px 7px}}
 .momo-countdown{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 14px;border:1px solid #e7bfd5;border-radius:11px;background:#fff5fa;color:#7f1d58}.momo-countdown span{font-size:13px;font-weight:700}.momo-countdown strong{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:23px;letter-spacing:1px;color:#a50064}.momo-countdown.expired{border-color:#fecaca;background:#fff1f2;color:#b91c1c}.momo-countdown.expired strong{color:#b91c1c}.client-waiting.expired{border-color:#fecaca;background:#fff1f2;color:#b91c1c}.client-waiting.expired i{background:#ef4444}.momo-modal-actions{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:auto}.momo-modal-actions button{min-height:45px;border-radius:10px;padding:0 18px;font-weight:800;cursor:pointer}.momo-view-order{border:0;background:linear-gradient(135deg,#a50064,#c60073);color:#fff;box-shadow:0 8px 18px rgba(165,0,100,.18)}.momo-dismiss{border:1px solid #d8dee8;background:#fff;color:#475569}@media(max-width:700px){.momo-modal-actions{grid-template-columns:1fr 1fr;position:sticky;bottom:6px;padding-top:5px;background:#fff}.momo-modal-actions button{padding:0 10px}.momo-countdown strong{font-size:20px}}
 

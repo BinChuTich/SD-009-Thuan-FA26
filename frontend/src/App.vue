@@ -246,6 +246,11 @@ function getNowTime() {
 const currentTimeStr = ref(getNowTime())
 const currentDateStr = ref('')
 let clockTimer = null
+const isShiftOverdue = ref(false)
+const SHIFT_END_REMINDER_MS = 5 * 60 * 1000
+let lastShiftEndPromptAt = 0
+let promptedShiftId = null
+let openingShiftEndPrompt = false
 
 const moCaForm = ref({
   nhanVienId: null,
@@ -262,6 +267,50 @@ function updateClock() {
   const mo = String(now.getMonth() + 1).padStart(2, '0')
   const yyyy = now.getFullYear()
   currentDateStr.value = `${dd}/${mo}/${yyyy}`
+  checkShiftEndReminder(now)
+}
+
+function getShiftEndDate(shift) {
+  const schedule = shift?.caLamViec
+  if (!schedule?.gioKetThuc || !shift?.thoiGianMoCa) return null
+  const openedAt = new Date(shift.thoiGianMoCa)
+  if (Number.isNaN(openedAt.getTime())) return null
+  const parseTime = value => {
+    const parts = String(value || '').split(':').map(Number)
+    return { hour: parts[0] || 0, minute: parts[1] || 0, second: parts[2] || 0 }
+  }
+  const start = parseTime(schedule.gioBatDau)
+  const end = parseTime(schedule.gioKetThuc)
+  const deadline = new Date(openedAt)
+  deadline.setHours(end.hour, end.minute, end.second, 0)
+  const overnight = end.hour * 60 + end.minute <= start.hour * 60 + start.minute
+  if (overnight) deadline.setDate(deadline.getDate() + 1)
+  return deadline
+}
+
+function checkShiftEndReminder(now = new Date()) {
+  const shift = currentOpenShift.value
+  if (!shift || isUserAdmin.value) {
+    isShiftOverdue.value = false
+    promptedShiftId = null
+    lastShiftEndPromptAt = 0
+    return
+  }
+  const deadline = getShiftEndDate(shift)
+  isShiftOverdue.value = Boolean(deadline && now.getTime() >= deadline.getTime())
+  if (!isShiftOverdue.value || showDongCaModal.value || openingShiftEndPrompt) return
+
+  const firstPromptForShift = promptedShiftId !== shift.id
+  if (!firstPromptForShift && now.getTime() - lastShiftEndPromptAt < SHIFT_END_REMINDER_MS) return
+  promptedShiftId = shift.id
+  lastShiftEndPromptAt = now.getTime()
+  openingShiftEndPrompt = true
+  if (firstPromptForShift) {
+    showToast('Ca làm việc đã hết giờ. Vui lòng kiểm tra tiền và thực hiện bàn giao ca!', 'warning')
+  } else {
+    showToast('Ca đã quá giờ nhưng chưa được bàn giao. Vui lòng hoàn tất giao ca!', 'warning')
+  }
+  void openDongCaModal().finally(() => { openingShiftEndPrompt = false })
 }
 
 const formatCurrency = (val) => {
@@ -325,10 +374,6 @@ function getShiftStatus(ca) {
   const earlyMinutes = startMinutes - 30
 
   if (endMinutes > startMinutes) {
-    const allowedEnd = endMinutes + 30
-    if (allowedEnd >= 1440 && nowMinutes <= allowedEnd - 1440) {
-      return { status: 'current', label: 'Đang trong khung giờ ca', canOpen: true }
-    }
     if (earlyMinutes < 0 && nowMinutes >= earlyMinutes + 1440) {
       return { status: 'current', label: 'Đang trong khung giờ ca', canOpen: true }
     }
@@ -338,7 +383,7 @@ function getShiftStatus(ca) {
         label: `Chưa đến giờ (bắt đầu lúc ${ca.gioBatDau.substring(0, 5)})`,
         canOpen: false
       }
-    } else if (nowMinutes > allowedEnd) {
+    } else if (nowMinutes >= endMinutes) {
       return {
         status: 'past',
         label: `Đã quá giờ ca (kết thúc lúc ${ca.gioKetThuc.substring(0, 5)})`,
@@ -352,7 +397,7 @@ function getShiftStatus(ca) {
       }
     }
   } else {
-    if (nowMinutes >= earlyMinutes || nowMinutes <= endMinutes + 30) {
+    if (nowMinutes >= earlyMinutes || nowMinutes < endMinutes) {
       return { status: 'current', label: 'Đang trong khung giờ ca', canOpen: true }
     } else {
       return { status: 'future', label: `Chưa đến giờ (bắt đầu lúc ${ca.gioBatDau.substring(0, 5)})`, canOpen: false }
@@ -754,12 +799,21 @@ async function submitDongCaFromModal() {
 
     showDongCaModal.value = false
     currentOpenShift.value = null
+    isShiftOverdue.value = false
+    promptedShiftId = null
+    lastShiftEndPromptAt = 0
     clearActiveShift()
 
     window.dispatchEvent(new CustomEvent('shift-closed', { detail: closedShiftData }))
 
     if (closedShiftData) {
-      receiptShift.value = closedShiftData
+      try {
+        const receiptRes = await api.get(`/api/lich-su-ca/${closedShiftData.id}`)
+        receiptShift.value = receiptRes.data || closedShiftData
+      } catch (receiptError) {
+        console.warn('Không tải được đầy đủ dữ liệu biên bản, dùng dữ liệu đóng ca:', receiptError)
+        receiptShift.value = closedShiftData
+      }
       showReceiptModal.value = true
     }
   } catch (err) {
@@ -1044,9 +1098,9 @@ function printReceipt() {
               Chế độ xem
             </button>
             <div v-else class="header-shift-in-progress">
-              <div class="active-shift-pill" title="Đang trong ca làm việc">
+              <div class="active-shift-pill" :class="{ 'shift-overdue': isShiftOverdue }" :title="isShiftOverdue ? 'Ca đã hết giờ và đang chờ bàn giao' : 'Đang trong ca làm việc'">
                 <span class="active-shift-dot"></span>
-                <span class="active-shift-name">{{ currentOpenShift.caLamViec?.tenCa || 'Đang trong ca' }}</span>
+                <span class="active-shift-name">{{ isShiftOverdue ? 'Đã hết giờ · Chờ bàn giao' : (currentOpenShift.caLamViec?.tenCa || 'Đang trong ca') }}</span>
                 <span class="active-shift-divider">•</span>
                 <span class="active-shift-clock">{{ currentTimeStr }}</span>
               </div>
@@ -1638,7 +1692,7 @@ function printReceipt() {
     <div v-if="showReceiptModal" class="modal-backdrop-clean" @click.self="showReceiptModal = false">
       <div class="modal-dialog-clean modal-receipt">
         <div class="modal-header-clean no-print">
-          <h3 class="modal-title-clean">Biên bản bàn giao ca làm việc</h3>
+          <h3 class="modal-title-clean">Biên bản bàn giao ca</h3>
           <button type="button" class="btn-close-modal" @click="showReceiptModal = false">✕</button>
         </div>
 
@@ -1673,68 +1727,62 @@ function printReceipt() {
               <span class="meta-val">{{ receiptShift?.thoiGianDongCa ? formatDateTime(receiptShift?.thoiGianDongCa) : 'Đang trực' }}</span>
             </div>
             <div class="receipt-meta-row">
-              <span class="meta-label">Ghi chú giao ca:</span>
-              <span class="meta-val">{{ receiptShift?.ghiChu || '-' }}</span>
+              <span class="meta-label">Trạng thái:</span>
+              <span class="meta-val">{{ receiptShift?.trangThai === 1 ? 'Đang mở (Đang trực)' : 'Đã kết thúc / Đã đóng ca' }}</span>
             </div>
           </div>
 
           <div class="receipt-divider"></div>
 
-          <div class="receipt-financial-table">
-            <div class="fin-row">
-              <span>1. Tiền mặt đầu ca:</span>
-              <strong>{{ formatCurrency(receiptShift?.tienMatDauCa || 0) }}</strong>
-            </div>
-            <div class="fin-row">
-              <span>2. Tiền mặt thu tại quầy:</span>
-              <strong>{{ formatCurrency(receiptShift?.tongTienTrongCa || receiptShift?.tienMatThuTrongCa || 0) }}</strong>
-            </div>
-            <div class="fin-row">
-              <span>3. Doanh thu chuyển khoản:</span>
-              <strong>{{ formatCurrency(receiptShift?.tienChuyenKhoan || 0) }}</strong>
-            </div>
-            <div v-if="Number(receiptShift?.tienChiTrongCa || 0) > 0" class="fin-row text-red">
-              <span>4. Tiền chi trong ca:</span>
-              <strong>-{{ formatCurrency(receiptShift?.tienChiTrongCa || 0) }}</strong>
-            </div>
-            <div class="fin-row fin-expected">
-              <span>5. Tiền mặt dự kiến có trong két:</span>
-              <strong>{{ formatCurrency(calculateReceiptExpected(receiptShift)) }}</strong>
-            </div>
-            <div class="fin-row fin-actual">
-              <span>6. Tiền mặt thực tế kiểm đếm:</span>
-              <strong>{{ formatCurrency(receiptShift?.tienMatCuoiCa || 0) }}</strong>
-            </div>
-            <div class="fin-row fin-diff" :class="Number(receiptShift?.chenhLech || 0) === 0 ? 'text-green' : 'text-warn'">
-              <span>7. Chênh lệch tiền mặt:</span>
-              <strong>{{ Number(receiptShift?.chenhLech || 0) > 0 ? '+' : '' }}{{ formatCurrency(receiptShift?.chenhLech || 0) }}</strong>
-            </div>
-            <div v-if="receiptShift?.lyDoChenhLech" class="fin-reason">
-              <span>* Lý do giải trình chênh lệch:</span>
-              <em>{{ receiptShift?.lyDoChenhLech }}</em>
-            </div>
+          <table class="receipt-table">
+            <thead><tr><th>KHOẢN MỤC</th><th style="text-align: right">SỐ TIỀN</th></tr></thead>
+            <tbody>
+              <tr><td>1. Tiền mặt đầu ca</td><td style="text-align: right">{{ formatCurrency(receiptShift?.tienMatDauCa || 0) }}</td></tr>
+              <tr><td>2. Tiền mặt thu bán trong ca</td><td style="text-align: right">{{ formatCurrency(receiptShift?.tongTienTrongCa || receiptShift?.tienMatThuTrongCa || 0) }}</td></tr>
+              <tr><td>3. Tiền chuyển khoản / quẹt thẻ</td><td style="text-align: right">{{ formatCurrency(receiptShift?.tienChuyenKhoan || 0) }}</td></tr>
+              <tr><td>4. Tiền chi từ két trong ca</td><td style="text-align: right">-{{ formatCurrency(receiptShift?.tienChiTrongCa || 0) }}</td></tr>
+              <tr class="row-highlight"><td><strong>5. Tiền mặt dự kiến két</strong></td><td style="text-align: right"><strong>{{ formatCurrency(calculateReceiptExpected(receiptShift)) }}</strong></td></tr>
+              <tr class="row-highlight-accent"><td><strong>6. Tiền mặt thực tế đếm cuối ca</strong></td><td style="text-align: right"><strong>{{ receiptShift?.tienMatCuoiCa !== null ? formatCurrency(receiptShift?.tienMatCuoiCa) : 'Chưa chốt' }}</strong></td></tr>
+              <tr :class="Number(receiptShift?.chenhLech || 0) === 0 ? 'row-balanced' : 'row-diff'"><td><strong>7. Chênh lệch (Thực tế - Dự kiến)</strong></td><td style="text-align: right"><strong>{{ Number(receiptShift?.chenhLech || 0) > 0 ? '+' : '' }}{{ formatCurrency(receiptShift?.chenhLech || 0) }}</strong></td></tr>
+            </tbody>
+          </table>
+
+          <div v-if="receiptShift?.lyDoChenhLech" class="receipt-reason-box"><strong>Lý do giải trình chênh lệch:</strong><p>{{ receiptShift.lyDoChenhLech }}</p></div>
+          <div v-if="receiptShift?.ghiChu" class="receipt-note-box"><strong>Ghi chú:</strong><p>{{ receiptShift.ghiChu }}</p></div>
+
+          <div class="receipt-invoices-wrap">
+            <div class="receipt-section-subtitle">HÓA ĐƠN BÁN TRONG CA ({{ receiptShift?.danhSachHoaDon?.length || 0 }} ĐƠN)</div>
+            <table class="receipt-inner-table">
+              <thead><tr><th style="width: 40px; text-align: center">STT</th><th style="width: 110px">MÃ HĐ</th><th>KHÁCH HÀNG</th><th class="receipt-payment-col">HÌNH THỨC</th><th style="text-align: right; width: 120px">TỔNG TIỀN</th><th style="text-align: center; width: 90px" class="no-print">XEM</th></tr></thead>
+              <tbody>
+                <tr v-if="!receiptShift?.danhSachHoaDon?.length"><td colspan="6" class="receipt-empty-row">Không có hóa đơn phát sinh trong ca này.</td></tr>
+                <tr v-for="(hd, hidx) in receiptShift?.danhSachHoaDon" :key="hd.id || hidx">
+                  <td style="text-align: center">{{ hidx + 1 }}</td><td><router-link :to="'/hoa-don/' + hd.maHoaDon" class="receipt-hd-link font-bold" target="_blank">{{ hd.maHoaDon }}</router-link></td>
+                  <td>{{ hd.tenKhachHang || 'Khách lẻ' }}</td><td class="receipt-payment-col"><span class="badge-mini-pay">{{ hd.hinhThucThanhToan || 'Tiền mặt' }}</span></td>
+                  <td style="text-align: right" class="font-bold">{{ formatCurrency(hd.tongTien) }}</td><td style="text-align: center" class="no-print"><button type="button" class="btn-receipt-action-view" @click="$router.push('/hoa-don/' + hd.maHoaDon)">Xem →</button></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           <div class="receipt-signatures">
             <div class="sig-col">
-              <p class="sig-title">NGƯỜI GIAO CA</p>
-              <p class="sig-sub">(Ký và ghi rõ họ tên)</p>
+              <strong>NGƯỜI GIAO CA</strong><span>(Ký, ghi rõ họ tên)</span>
               <div class="sig-space"></div>
-              <p class="sig-name">{{ receiptShift?.nhanVien?.tenNhanVien }}</p>
+              <em>{{ receiptShift?.nhanVien?.tenNhanVien }}</em>
             </div>
             <div class="sig-col">
-              <p class="sig-title">NGƯỜI NHẬN CA</p>
-              <p class="sig-sub">(Ký và ghi rõ họ tên)</p>
+              <strong>NGƯỜI NHẬN CA</strong><span>(Ký, ghi rõ họ tên)</span>
               <div class="sig-space"></div>
-              <p class="sig-name">{{ receiptShift?.nhanVienNhan?.tenNhanVien || 'Quản lý' }}</p>
+              <em>{{ receiptShift?.nhanVienNhan?.tenNhanVien || '..............................' }}</em>
             </div>
           </div>
         </div>
 
         <div class="modal-footer-clean no-print">
           <button type="button" class="btn-cancel-modal" @click="showReceiptModal = false">Đóng</button>
-          <button type="button" class="btn-print-action" @click="printReceipt">
-            🖨 In biên bản bàn giao
+          <button type="button" class="btn-print-receipt" @click="printReceipt">
+            🖨 In biên bản giao ca
           </button>
         </div>
       </div>
@@ -3157,6 +3205,23 @@ button, input, select, textarea {
   box-shadow: 0 1px 2px rgba(22, 101, 52, 0.06);
 }
 
+.active-shift-pill.shift-overdue {
+  background: #fff7ed;
+  color: #9a3412;
+  border-color: #fdba74;
+  box-shadow: 0 1px 3px rgba(194, 65, 12, 0.12);
+}
+
+.active-shift-pill.shift-overdue .active-shift-dot {
+  background-color: #f97316;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
+}
+
+.active-shift-pill.shift-overdue .active-shift-divider,
+.active-shift-pill.shift-overdue .active-shift-clock {
+  color: #c2410c;
+}
+
 .active-shift-dot {
   width: 7px;
   height: 7px;
@@ -3655,9 +3720,16 @@ button, input, select, textarea {
 }
 
 .modal-receipt {
-  width: 580px;
-  max-width: 95vw;
+  width: min(780px, calc(100vw - 48px));
+  max-width: 780px;
+  max-height: min(88vh, 860px);
+  border: 1px solid #e4ddd3;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
 }
+.modal-receipt .modal-header-clean, .modal-receipt .modal-footer-clean { flex: 0 0 auto; position: relative; z-index: 2; }
+.modal-receipt .modal-header-clean { padding: 0.9rem 1.4rem; background: linear-gradient(135deg, #f9fafb 0%, #f5f1eb 100%); }
+.modal-receipt .modal-footer-clean { padding: 0.8rem 1.4rem; }
+.modal-receipt .printable-receipt { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
 
 .modal-header-clean {
   padding: 1.15rem 1.4rem;
@@ -3840,6 +3912,44 @@ button, input, select, textarea {
   font-weight: 600;
   margin: 0;
   font-size: 12px;
+}
+
+.receipt-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin: 10px 0; }
+.receipt-table th { padding: 6px 4px; border-bottom: 1.5px solid #d1c8bd; font-weight: 700; color: #4b5563; text-align: left; }
+.receipt-table td { padding: 6px 4px; border-bottom: 1px solid #f3f0ea; }
+.row-highlight td { background: #faf8f5; color: #111827; font-weight: 600; }
+.row-highlight-accent td { background: #fdfbf7; color: var(--blue, #496883); font-weight: 700; }
+.row-balanced td { color: #16a34a; background: #f0fdf4; }
+.row-diff td { color: #dc2626; background: #fef2f2; }
+.receipt-reason-box, .receipt-note-box { margin-top: 8px; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; }
+.receipt-reason-box { background: #fffbeb; border: 1px solid #fef3c7; color: #92400e; }
+.receipt-note-box { background: #f9fafb; border: 1px solid #e5e7eb; color: #4b5563; }
+.receipt-reason-box p, .receipt-note-box p { margin: 4px 0 0; }
+.receipt-invoices-wrap { margin: 16px 0 12px; padding: 10px 12px; overflow-x: auto; background: #faf8f5; border: 1px solid #e7ded4; border-radius: 8px; }
+.receipt-section-subtitle { margin-bottom: 8px; color: var(--blue, #496883); font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.receipt-inner-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.receipt-inner-table th { padding: 6px 8px; background: #efe8df; color: #493b2f; text-align: left; font-size: 0.75rem; font-weight: 700; }
+.receipt-inner-table td { padding: 6px 8px; border-bottom: 1px solid #eee8e0; }
+.receipt-empty-row { padding: 12px !important; text-align: center; color: #8c979d; }
+.receipt-hd-link { color: #2563eb; text-decoration: none; }
+.receipt-hd-link:hover { text-decoration: underline; }
+.badge-mini-pay { display: inline-flex; align-items: center; justify-content: center; padding: 2px 6px; border-radius: 4px; background: #e0f2fe; color: #0369a1; font-size: 0.72rem; font-weight: 600; white-space: nowrap; word-break: keep-all; }
+.receipt-payment-col { width: 155px; min-width: 155px; text-align: center !important; white-space: nowrap; }
+.btn-receipt-action-view { padding: 2px 6px; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #334155; font-size: 0.75rem; cursor: pointer; }
+.btn-receipt-action-view:hover { background: #0284c7; color: #fff; border-color: #0284c7; }
+.receipt-signatures { margin-top: 2rem; padding-top: 1rem; }
+.sig-col { display: flex; flex-direction: column; align-items: center; width: 45%; text-align: center; font-size: 0.85rem; }
+.sig-col strong { color: #111827; font-weight: 700; }
+.sig-col span { color: #9ca3af; font-size: 0.75rem; }
+.sig-col em { color: #374151; font-style: normal; font-weight: 600; }
+.sig-space { height: 55px; }
+.btn-print-receipt { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border: none; border-radius: 8px; background: #1e293b; color: #fff; font-weight: 600; cursor: pointer; }
+.btn-print-receipt:hover { background: #0f172a; }
+
+@media (max-width: 640px) {
+  .modal-receipt { width: 100%; max-height: calc(100dvh - 20px); border-radius: 12px; }
+  .printable-receipt { padding: 1rem; }
+  .receipt-inner-table { min-width: 610px; }
 }
 
 /* Live Chat Bell Notification & Sidebar Badge */
@@ -4138,4 +4248,110 @@ button, input, select, textarea {
   color: #b45309;
 }
 
+</style>
+
+<style>
+@page {
+  size: A4 portrait;
+  margin: 12mm;
+}
+
+@media print {
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  #print-receipt-area,
+  #print-receipt-area * {
+    visibility: visible !important;
+  }
+
+  #print-receipt-area {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    color: #111827 !important;
+    font-size: 10pt !important;
+  }
+
+  .modal-backdrop-clean,
+  .modal-dialog-clean.modal-receipt {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  #print-receipt-area .receipt-header,
+  #print-receipt-area .receipt-meta-grid,
+  #print-receipt-area .receipt-table,
+  #print-receipt-area .receipt-reason-box,
+  #print-receipt-area .receipt-note-box,
+  #print-receipt-area .receipt-signatures {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  #print-receipt-area .receipt-invoices-wrap {
+    overflow: visible !important;
+    break-inside: auto;
+  }
+
+  #print-receipt-area .receipt-inner-table {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  #print-receipt-area .receipt-inner-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  #print-receipt-area .receipt-payment-col {
+    width: auto !important;
+    min-width: 0 !important;
+  }
+
+  #print-receipt-area .receipt-signatures {
+    margin-top: 14mm !important;
+  }
+
+  #print-receipt-area .sig-space {
+    height: 18mm !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
 </style>

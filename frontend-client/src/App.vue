@@ -1,14 +1,35 @@
 <script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import DauTrang from '@/components/BocCuc/DauTrang.vue'
 import ChanTrang from '@/components/BocCuc/ChanTrang.vue'
 import HopChatTuVan from '@/components/BocCuc/HopChatTuVan.vue'
 import ModalThongBaoXacNhan from '@/components/DungChung/ModalThongBaoXacNhan.vue'
+import BannerTrang from '@/components/BocCuc/BannerTrang.vue'
+
+const route = useRoute()
+const pageBanners = {
+  CuaHang: ['CỬA HÀNG FF T-SHIRT', 'Khám phá những mẫu áo mới nhất dành cho phong cách của bạn'],
+  ChiTietSanPham: ['CHI TIẾT SẢN PHẨM', 'Thông tin sản phẩm, màu sắc, kích thước và ưu đãi hiện có'],
+  GioHang: ['GIỎ HÀNG CỦA BẠN', 'Kiểm tra sản phẩm và hoàn tất thông tin mua hàng'],
+  DonHang: ['ĐƠN HÀNG CỦA TÔI', 'Theo dõi trạng thái và thông tin các đơn hàng của bạn'],
+  TraCuu: ['TRA CỨU ĐƠN HÀNG', 'Kiểm tra hành trình đơn hàng nhanh chóng và chính xác'],
+  TraCuuDonHang: ['TRA CỨU ĐƠN HÀNG', 'Kiểm tra hành trình đơn hàng nhanh chóng và chính xác'],
+  LienHe: ['LIÊN HỆ VỚI FF T-SHIRT', 'Chúng tôi luôn lắng nghe và sẵn sàng giải đáp mọi thắc mắc của quý khách hàng'],
+  GoiY: ['GỢI Ý THÔNG MINH', 'Trả lời vài câu hỏi để tìm ra mẫu áo phù hợp với bạn']
+}
+const currentPageBanner = computed(() => pageBanners[route.name] || null)
 </script>
 
 <template>
   <div class="client-app-shell">
     <DauTrang />
     <main class="client-main-content">
+      <BannerTrang
+        v-if="currentPageBanner"
+        :title="currentPageBanner[0]"
+        :subtitle="currentPageBanner[1]"
+      />
       <router-view />
     </main>
     <ChanTrang />

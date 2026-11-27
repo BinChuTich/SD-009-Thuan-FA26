@@ -536,8 +536,7 @@ public class NhanVienService {
             LocalTime start = ca.getGioBatDau();
             LocalTime end = ca.getGioKetThuc();
             if (start != null && end != null && end.isBefore(start)) {
-                LocalTime endWindow = end.plusMinutes(30);
-                if (!now.isAfter(endWindow)) {
+                if (now.isBefore(end)) {
                     return; // Vẫn đang trong khoảng thời gian kết thúc ca qua đêm
                 }
             }
@@ -571,18 +570,18 @@ public class NhanVienService {
         int endMin = end.getHour() * 60 + end.getMinute();
 
         int allowedStart = startMin - 30;
-        int allowedEnd = endMin + 30;
+        int allowedEnd = endMin;
 
         if (startMin < endMin) {
             if (allowedStart < 0) {
-                return (nowMin >= allowedStart + 1440) || (nowMin <= allowedEnd);
+                return (nowMin >= allowedStart + 1440) || (nowMin < allowedEnd);
             } else if (allowedEnd >= 1440) {
-                return (nowMin >= allowedStart) || (nowMin <= allowedEnd - 1440);
+                return (nowMin >= allowedStart) || (nowMin < allowedEnd - 1440);
             } else {
-                return nowMin >= allowedStart && nowMin <= allowedEnd;
+                return nowMin >= allowedStart && nowMin < allowedEnd;
             }
         } else {
-            return nowMin >= allowedStart || nowMin <= allowedEnd;
+            return nowMin >= allowedStart || nowMin < allowedEnd;
         }
     }
 
